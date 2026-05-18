@@ -474,6 +474,20 @@ def main() -> int:
             "feature_cache": str(args.feature_cache),
         },
     }
+    from src.research.fingerprint import stamp as _stamp_fp  # noqa: E402
+
+    _stamp_fp(
+        signal,
+        panel_path=args.panel_out,
+        config={
+            "controls": signal["controls"],
+            "auto_params": signal["auto_params"],
+            "alpha_scale": signal.get("alpha_scale"),
+            "lambda_selected": signal.get("lambda_selected"),
+            "inputs": signal["inputs"],
+            "argv": sys.argv[1:],
+        },
+    )
     _write_json(args.signal_out, signal)
 
     # Paper mark-to-market using the same panel (daily).

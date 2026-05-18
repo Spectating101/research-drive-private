@@ -279,6 +279,25 @@ def main() -> int:
 
     panel = args.panel if args.panel.exists() else None
     score = build_scorecard(args.ledger, args.signal, panel, args.benchmark)
+
+    # Reproducibility fingerprint: pins this scorecard to a {git_commit,
+    # panel_sha256, signal_sha256} so its claims can be reconstructed later.
+    try:
+        from src.research.fingerprint import stamp as _stamp_fp  # noqa: WPS433
+
+        _stamp_fp(
+            score,
+            panel_path=panel,
+            config={
+                "ledger": str(args.ledger),
+                "signal": str(args.signal),
+                "benchmark": args.benchmark,
+            },
+            extra={"signal": args.signal, "ledger": args.ledger},
+        )
+    except Exception as exc:  # pragma: no cover - never block scorecard write
+        score["fingerprint_error"] = repr(exc)
+
     write_outputs(score, args.out_dir, args.history_csv)
 
     print(f"wrote: {args.out_dir / 'scorecard_latest.json'}")
