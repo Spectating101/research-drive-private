@@ -6,14 +6,8 @@ import logging
 import argparse
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
-# Optional analytics pack imports (precomputed factors/distress scores)
-from pathlib import Path
-
-ANALYTICS_BASE = Path(__file__).resolve().parent / "data_lake" / "analytics_pack"
-
-# Optional analytics pack imports (precomputed factors/distress scores)
 from pathlib import Path
 
 ANALYTICS_BASE = Path(__file__).resolve().parent / "data_lake" / "analytics_pack"
@@ -59,6 +53,12 @@ except ImportError as e:
     logger.error(f"Failed to import Engine: {e}")
     RefinitivAnalyst = None
 
+try:
+    from src.data_sources.market_data import MarketDataSource
+except ImportError as e:
+    logger.warning(f"⚠️  Market data layer unavailable: {e}. Falling back to synthetic bars.")
+    MarketDataSource = None
+
 # Import PhD Logic
 try:
     from core.bayesian_framework import BayesianFramework
@@ -87,6 +87,8 @@ class SharpeSystem:
             self.analyst = RefinitivAnalyst() 
         else:
             self.analyst = None
+
+        self.market_data = MarketDataSource({"mode": getattr(settings, "MODE", "mock")}) if MarketDataSource else None
         
         if RUST_AVAILABLE:
             logger.info(f"🚀 High-Performance Engine Loaded: {sharpe_rust.__name__}")
@@ -99,6 +101,42 @@ class SharpeSystem:
             self.regime_detector = MarketRegimeDetector(db_path=db_path)
             self.factor_zoo = AcademicFactorZoo(db_path=db_path)
             logger.info("🧠 Bayesian, Kelly, Regime & Factor Engines Loaded")
+
+    async def _load_market_snapshot(self, ticker: str) -> Tuple[Dict[str, List[float]], str]:
+        """
+        Load recent market bars from the best local/live source available.
+        Falls back to deterministic synthetic data so the pipeline remains runnable.
+        """
+        if self.market_data:
+            try:
+                records = await self.market_data.get_historical_prices(ticker=ticker, period="3mo")
+                if records:
+                    prices = [float(r["close"]) for r in records if r.get("close") is not None]
+                    volumes = [
+                        float(r.get("volume") or 0.0) if float(r.get("volume") or 0.0) > 0 else 1_000.0
+                        for r in records
+                        if r.get("close") is not None
+                    ]
+                    if len(prices) >= 20 and len(prices) == len(volumes):
+                        return {"price": prices, "volume": volumes}, "market_data"
+            except Exception as exc:
+                logger.warning("   [Data] Falling back to synthetic bars for %s: %s", ticker, exc)
+
+        synthetic_prices = [150.0 + i for i in range(20)]
+        synthetic_volumes = [1000.0] * 20
+        return {"price": synthetic_prices, "volume": synthetic_volumes}, "synthetic"
+
+    def _compute_python_microstructure(self, raw_data: Dict[str, List[float]]) -> Dict[str, float]:
+        prices = pd.Series(raw_data["price"], dtype=float)
+        volumes = pd.Series(raw_data["volume"], dtype=float)
+        returns = prices.pct_change(fill_method=None).dropna()
+        dollar_volume = float((prices * volumes).mean()) if not prices.empty else 0.0
+        amihud = float((returns.abs() / (prices.iloc[1:] * volumes.iloc[1:]).replace(0.0, np.nan)).mean())
+        return {
+            "liquidity_score": float(np.clip(np.log1p(max(dollar_volume, 0.0)) / 20.0, 0.0, 1.0)),
+            "kyle_lambda": float(returns.std(ddof=0)) if not returns.empty else 0.0,
+            "amihud": 0.0 if np.isnan(amihud) else amihud,
+        }
 
     def _load_analytics_for_ticker(self, ticker: str) -> Dict[str, Any]:
         """
@@ -155,12 +193,9 @@ class SharpeSystem:
             logger.info(f"--- Processing {ticker} ---")
             
             # 1. HARVEST (Data Lake)
-            # In production: df = data_loader.load_market_data(ticker)
             logger.info(f"📡 [API] Fetching real-time data for {ticker}...")
-            raw_data = {
-                "price": [150.0 + i for i in range(20)], # More data points
-                "volume": [1000.0] * 20
-            }
+            raw_data, data_source = await self._load_market_snapshot(ticker)
+            logger.info("   [Data] Loaded %d bars from %s", len(raw_data["price"]), data_source)
             
             # 2. SMELT (Rust Microstructure)
             metrics = {}
@@ -174,9 +209,8 @@ class SharpeSystem:
                 except Exception as e:
                     logger.error(f"   [Rust] Calculation Failed: {e}")
             else:
-                if settings.MODE == "mock" or True: # Force mock for demo
-                    logger.info("   [Rust] (Mock) Calculating liquidity fragmentation...")
-                    metrics = {"liquidity_score": 0.85, "kyle_lambda": 0.002, "amihud": 0.0001}
+                logger.info("   [Rust] Unavailable, using Python microstructure fallback...")
+                metrics = self._compute_python_microstructure(raw_data)
 
             # 2b. FACTOR ANALYSIS (Academic)
             if PHD_AVAILABLE:
@@ -203,8 +237,10 @@ class SharpeSystem:
             
             if PHD_AVAILABLE:
                 logger.info("   [PhD] Running Bayesian Regime Detection...")
-                simulated_returns = np.random.normal(0.001, 0.015, 100) 
-                bayes_result = self.bayesian.bayesian_strategy_test(simulated_returns) 
+                returns = pd.Series(raw_data["price"], dtype=float).pct_change(fill_method=None).dropna().to_numpy()
+                if returns.size < 20:
+                    returns = np.random.normal(0.001, 0.015, 100)
+                bayes_result = self.bayesian.bayesian_strategy_test(returns) 
                 prob_win = bayes_result['prob_positive']
                 
                 kelly_size = self.kelly.kelly_position_sizing(

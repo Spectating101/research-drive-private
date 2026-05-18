@@ -15,19 +15,28 @@ dependencies = [
     "numpy",
     "scipy",
     "statsmodels",
+    "scikit-learn",
     "openai",
     "pydantic",
+    "pyyaml",
     "paramiko",
     "python-dotenv",
     "networkx",
     "pyarrow",
+    "structlog",
+    "asyncpg",
+    "redis",
+    "prometheus-fastapi-instrumentator",
+    "stripe",
+    "email-validator",
     "pytest",
-    "pytest-asyncio"
+    "pytest-asyncio",
+    "yfinance"
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["api*", "trading*", "engine*", "agents*", "distributed*", "data_tools*"]
+include = ["api*", "trading*", "engine*", "agents*", "distributed*", "data_tools*", "src*"]
 
 [tool.maturin]
 # Config for the Rust module in high_perf
