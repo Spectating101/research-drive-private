@@ -1,0 +1,51 @@
+#
+# International / country / growth-markets universe.
+# Built as a deliberate pivot away from the crypto-heavy multi_asset_core
+# basket whose ETH/BTC weights caused the bulk of the 2026 YTD bleed.
+# All instruments are NYSE/NASDAQ-listed liquid ETFs so yfinance gives
+# clean daily bars and execution costs are tight (1-6 bps).
+#
+# Cash / defensive anchor
+BIL
+SHY
+#
+# US growth/benchmark (small allocation so the strategy can't run away from
+# home if international is the regime that's working)
+SPY
+QQQ
+IWM
+#
+# Developed-international diversifiers
+EFA
+EWJ
+EWG
+EWU
+EWA
+EWC
+EWY
+EWT
+#
+# Emerging-markets broad + key country buckets
+EEM
+VWO
+MCHI
+INDA
+EWZ
+EWW
+EZA
+EIDO
+THD
+TUR
+#
+# Frontier / growth-tilt
+FM
+ASHR
+#
+# Sector / thematic growth (no commodities, no crypto)
+ARKK
+QUAL
+MOAT
+#
+# Bonds for risk-off (rates as defense, not as alpha source)
+TLT
+IEF
