@@ -451,6 +451,15 @@ def main() -> int:
     as_series = res.get("alpha_scale")
     last_alpha_scale = float(as_series.iloc[-1]) if isinstance(as_series, pd.Series) and not as_series.empty else None
 
+    # Surface the actual model state (feature columns + last-fit coefficients)
+    # so the signal isn't a black-box weight list. Lets operators see which
+    # insights / momentum / event features the ridge actually leaned on.
+    feature_cols = [c for c in feats.columns if c not in {"Instrument", "Date", "Asset", "ret_fwd"}]
+    last_coef_series = res.get("last_coef")
+    feature_importance = None
+    if isinstance(last_coef_series, pd.Series):
+        feature_importance = {str(k): float(v) for k, v in last_coef_series.items()}
+
     signal = {
         "strategy": "alpha_eventproxy_cfg12",
         "as_of_month": str(as_of.date()),
@@ -458,6 +467,8 @@ def main() -> int:
         "lambda_selected": last_lambda,
         "alpha_scale": last_alpha_scale,
         "auto_params": bool(args.auto_params),
+        "feature_cols": feature_cols,
+        "feature_importance": feature_importance,
         "controls": {
             "control_profile": str(args.control_profile),
             "min_cash_weight": float(args.min_cash_weight),

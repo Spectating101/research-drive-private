@@ -1093,6 +1093,7 @@ def walkforward_backtest(
     port_rets: List[Tuple[pd.Timestamp, float]] = []
     used_lams: List[Tuple[pd.Timestamp, float]] = []
     alpha_scales: List[Tuple[pd.Timestamp, float]] = []
+    last_coef_pair: Optional[Tuple[List[str], np.ndarray]] = None
 
     prev_w = None
     realized: List[float] = []
@@ -1212,6 +1213,9 @@ def walkforward_backtest(
             best_lam = _cv_select_lambda(train, active_fcols, lam_grid, min_assets)
             beta = _ridge_fit(X, y, lam=float(best_lam), w=sample_w)
             pred = Xt @ beta
+            # Track the most recent fit so callers can introspect feature
+            # importance (β excluding the intercept).
+            last_coef_pair = (list(active_fcols), np.asarray(beta[1:], dtype=float))
 
         test = test.assign(pred=pred)
         test = test.sort_values("pred", ascending=False)
@@ -1515,6 +1519,12 @@ def walkforward_backtest(
         "regime_window": int(regime_window),
         "regime_off_gross": float(regime_off_gross),
     }
+    last_coef: Optional[pd.Series] = None
+    if last_coef_pair is not None:
+        cols, coefs = last_coef_pair
+        if len(cols) == len(coefs):
+            last_coef = pd.Series(coefs, index=cols)
+
     return {
         "perf": perf,
         "returns": ret_series,
@@ -1523,6 +1533,7 @@ def walkforward_backtest(
         "lambdas": pd.Series({d: lam for d, lam in used_lams}).sort_index(),
         "alpha_scale": pd.Series({d: s for d, s in alpha_scales}).sort_index(),
         "chosen_params": pd.DataFrame([p for _, p in chosen_params]) if chosen_params else pd.DataFrame(),
+        "last_coef": last_coef,
     }
 
 
