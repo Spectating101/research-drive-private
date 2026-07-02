@@ -73,13 +73,15 @@ async function main() {
     product: "Research Drive (YZU Cluster procurement desk)",
     captured_at: new Date().toISOString(),
     base_url: BASE_URL,
+    github_repo: "Spectating101/yzu-cluster",
+    github_screenshots_path: "docs/screenshots-review/",
     git_head: gitHead(),
     viewports: VIEWPORTS,
     routes: ROUTES.map((r) => ({ slug: r.slug, path: r.path, label: r.label })),
     files: [],
     notes: [
-      "Upload research-drive-screenshots.zip to ChatGPT for pixel-level critique.",
-      "Pair with GitHub repo source for structure/copy review.",
+      "Screenshots committed under docs/screenshots-review/ for ChatGPT + GitHub connector review.",
+      "Zip at repo root: research-drive-screenshots.zip",
       "Live API enriches data; offline seed still renders shell when API is down.",
     ],
   };

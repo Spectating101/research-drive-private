@@ -116,6 +116,7 @@ export function V2App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadError, setLoadError] = useState("");
   const [health, setHealth] = useState(null);
+  const [deskRefreshedAt, setDeskRefreshedAt] = useState(null);
   const [acquisitions, setAcquisitions] = useState([]);
   const [ops, setOps] = useState(null);
   const [jobs, setJobs] = useState([]);
@@ -186,6 +187,7 @@ export function V2App() {
       })
       .catch(() => setResourcesRollup((cur) => (cur === undefined ? null : cur)));
     reloadProfile();
+    setDeskRefreshedAt(Date.now());
   }, [reloadProfile]);
 
   const handleApproveJob = useCallback(
@@ -618,6 +620,8 @@ export function V2App() {
         datasetCount={headerDsCount}
         usingSeed={usingSeed}
         workCount={health?.desk?.jobs?.pending_approval ?? 0}
+        deskStatus={usingSeed ? "demo" : health?.status || "unknown"}
+        refreshedAt={deskRefreshedAt}
       />
       <V2Sidebar tab={tab} onTabChange={goTab} />
       <main className="yzu-main rd-v2-shell-main">

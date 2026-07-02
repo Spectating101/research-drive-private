@@ -1,5 +1,13 @@
 /** v2 header — docs/design/UX_SPEC_MICRO.md §1.2 */
 
+function freshnessLabel(refreshedAt) {
+  if (refreshedAt == null) return null;
+  const sec = Math.max(0, Math.round((Date.now() - refreshedAt) / 1000));
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  return `${min}m ago`;
+}
+
 export function V2DeskHeader({
   searchQuery,
   onSearchChange,
@@ -11,12 +19,16 @@ export function V2DeskHeader({
   datasetCount = 0,
   usingSeed = false,
   workCount = 0,
+  deskStatus = "unknown",
+  refreshedAt = null,
+  dryRunProtected = true,
 }) {
   const metaText = usingSeed
     ? `${datasetCount} datasets`
     : workCount > 0
       ? `${datasetCount} datasets · ${workCount} pending`
       : `${datasetCount} datasets`;
+  const fresh = freshnessLabel(refreshedAt);
 
   return (
     <header className="yzu-header rd-v2-header">
@@ -56,7 +68,20 @@ export function V2DeskHeader({
         </button>
       </div>
       <div className="rd-v2-header-meta">
-        {metaText}
+        <span className="rd-v2-header-meta-count">{metaText}</span>
+        <div className="rd-v2-trust-strip" aria-label="Desk status">
+          {usingSeed || deskStatus === "demo" ? (
+            <span className="rd-v2-trust-badge warn">Demo catalog</span>
+          ) : deskStatus === "ok" ? (
+            <span className="rd-v2-trust-badge ok">Live registry</span>
+          ) : (
+            <span className="rd-v2-trust-badge warn">Desk API offline</span>
+          )}
+          {dryRunProtected ? (
+            <span className="rd-v2-trust-badge">Dry-run protected</span>
+          ) : null}
+          {fresh ? <span className="rd-v2-trust-badge muted">Updated {fresh}</span> : null}
+        </div>
         {usingSeed ? (
           <span className="rd-v2-offline-chip">
             offline

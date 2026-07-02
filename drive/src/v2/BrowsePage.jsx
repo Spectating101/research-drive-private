@@ -7,6 +7,7 @@ import {
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverEmptyState } from "@/v2/DiscoverEmptyState";
+import { DiscoverPipeline } from "@/v2/DiscoverPipeline";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
 const FILTERS = [
@@ -137,10 +138,10 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
           {subline ? <span className="rd-v2-discover-subline">{subline}</span> : null}
         </span>
         <span className="rd-v2-discover-facts" aria-label="Candidate details">
-          <DiscoverFact label="Use" value={state.fit} />
+          <DiscoverFact label="Fit" value={state.fit} />
           <DiscoverFact label="Access" value={state.access} />
-          <DiscoverFact label="Check" value={state.probe} />
-          <DiscoverFact label="Save to" value={state.destination} />
+          <DiscoverFact label="Probe" value={state.probe} />
+          <DiscoverFact label="Destination" value={state.destination} />
         </span>
         <span className={`rd-v2-pill ${state.className}`}>{stateLabel(state)}</span>
       </button>
@@ -150,7 +151,14 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
 
 function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow }) {
   return (
-    <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
+    <>
+      <div className="rd-v2-discover-list-hd" aria-hidden="true">
+        <span>Source</span>
+        <span>Candidate</span>
+        <span>Fit · access · probe · destination</span>
+        <span>Action</span>
+      </div>
+      <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
       {rows.map((row) => (
         <DiscoverCandidateRow
           key={candidateId(row)}
@@ -161,6 +169,7 @@ function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow }) {
         />
       ))}
     </ul>
+    </>
   );
 }
 
@@ -310,6 +319,7 @@ export function BrowsePage({
         </>
       }
     >
+      <DiscoverPipeline counts={stageCounts} searching={!!q && loading} />
       {!q ? (
         <DiscoverEmptyState onSuggest={onSuggestSearch} />
       ) : (
@@ -324,19 +334,6 @@ export function BrowsePage({
                 {f.label}
               </Chip>
             ))}
-          </div>
-          <div className="rd-v2-discover-stagebar" aria-label="Discover acquisition state">
-            <div className="rd-v2-discover-stagepath">
-              <span>Find</span>
-              <span>Check</span>
-              <span>Queue</span>
-              <span>Lab</span>
-            </div>
-            <div className="rd-v2-discover-stagecounts">
-              <span>{stageCounts.probeReady} ready to check</span>
-              <span>{stageCounts.queued} queued</span>
-              <span>{stageCounts.inLab} saved</span>
-            </div>
           </div>
           {loading && filtered.length ? (
             <p className="rd-v2-browse-loading">Showing offline matches while live catalogs refresh…</p>

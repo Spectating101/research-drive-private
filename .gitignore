@@ -5,5 +5,8 @@ test-results/
 playwright-report/
 .env
 .env.local
-*.zip
-docs/screenshots-review/
+
+# Screenshots are committed for ChatGPT / GitHub visual review
+!docs/screenshots-review/
+!docs/screenshots-review/**
+!research-drive-screenshots.zip

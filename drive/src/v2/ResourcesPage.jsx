@@ -49,9 +49,9 @@ function fmtCount(value, unit) {
 
 function aggregateCostLabel(costs) {
   const parts = [];
-  if (costs.bq_gib) parts.push(`BQ ${fmtGiBValue(costs.bq_gib)}`);
-  if (costs.tavily) parts.push(`Tavily ${costs.tavily}`);
-  if (costs.composer) parts.push(`Composer ${costs.composer}`);
+  if (costs.bq_gib) parts.push(`Remote tables ${fmtGiBValue(costs.bq_gib)}`);
+  if (costs.tavily) parts.push(`Web ${costs.tavily}`);
+  if (costs.composer) parts.push(`Ask ${costs.composer}`);
   return parts.length ? parts.join(" · ") : "—";
 }
 
@@ -131,6 +131,22 @@ function groupActivityRows(rows) {
   }));
 }
 
+function facultyOpsLabel(label, key) {
+  const map = {
+    "Ask / model turns": "Ask usage",
+    Workers: "Collection workers",
+    Vault: "Lab vault",
+    "Query engine": "Desk connection",
+  };
+  return map[label] || label;
+}
+
+function facultyOpsSub(label, key, sub) {
+  if (key === "statement-ask") return "Procurement chat this month";
+  if (label === "Query engine") return "Catalog and query service";
+  return sub;
+}
+
 function StatusStripCell({ label, value, sub, tone = "" }) {
   return (
     <div className={`rd-v2-res-status-cell${tone ? ` ${tone}` : ""}`}>
@@ -151,16 +167,16 @@ function ResourcesStatusStrip({ rollup }) {
       {rows.map((row) => (
         <StatusStripCell
           key={row.key}
-          label={row.label}
+          label={facultyOpsLabel(row.label, row.key)}
           value={row.metric}
-          sub={row.detail || row.sublabel}
+          sub={facultyOpsSub(row.label, row.key, row.detail || row.sublabel)}
           tone={row.warn ? "warn" : ""}
         />
       ))}
       <StatusStripCell
-        label="Query engine"
-        value={qe.up ? `:${qe.port ?? 8765} up` : "offline"}
-        sub="desk API"
+        label="Desk connection"
+        value={qe.up ? "Connected" : "Offline"}
+        sub="Catalog and query service"
         tone={qe.up === false ? "off" : ""}
       />
     </section>
@@ -171,10 +187,10 @@ function ActivityUsageSummary({ rollup }) {
   const period = rollup?.spending?.period?.totals || {};
   const today = rollup?.spending?.today || {};
   const cells = [
-    ["BigQuery", fmtGiBValue(period.bq_gib_billed), `${fmtGiBValue(today.bq_gib_billed)} today`],
-    ["Web", fmtCount(period.tavily_calls, "call"), `${today.tavily_calls ?? 0} today`],
-    ["Ask", fmtCount(period.composer_turns, "turn"), `${today.composer_turns ?? 0} today`],
-    ["Probes", fmtCount(period.probe_calls, "probe"), `${today.probe_calls ?? 0} today`],
+    ["Remote tables", fmtGiBValue(period.bq_gib_billed), `${fmtGiBValue(today.bq_gib_billed)} today`],
+    ["Web search", fmtCount(period.tavily_calls, "call"), `${today.tavily_calls ?? 0} today`],
+    ["Ask usage", fmtCount(period.composer_turns, "turn"), `${today.composer_turns ?? 0} today`],
+    ["Source probes", fmtCount(period.probe_calls, "probe"), `${today.probe_calls ?? 0} today`],
   ];
   return (
     <section className="rd-v2-res-status-strip rd-v2-res-status-strip-activity" aria-label="Usage report">
@@ -512,21 +528,21 @@ function buildResourceInventorySections(panels) {
       "Storage",
       storage,
       "Storage",
-      "Where collected data is archived or staged.",
+      "Where collected data is archived or staged. Check capacity before large downloads.",
     ),
     inventorySection(
       "metered",
       "Accounts & limits",
       metered,
       "Account",
-      "Accounts and limits that may affect cost or collection.",
+      "Accounts that may incur cost. Review before heavy search or remote queries.",
     ),
     inventorySection(
       "sources",
       "Source routes",
       sources,
       "Route",
-      "Routes the desk can use to find, probe, or collect data.",
+      "Routes the desk can use to find, probe, and collect missing data.",
     ),
   ].filter((section) => section.rows.length);
 }

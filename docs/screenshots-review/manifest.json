@@ -1,0 +1,86 @@
+{
+  "product": "Research Drive (YZU Cluster procurement desk)",
+  "captured_at": "2026-07-02T17:47:59.808Z",
+  "base_url": "http://127.0.0.1:5178",
+  "github_repo": "Spectating101/yzu-cluster",
+  "github_screenshots_path": "docs/screenshots-review/",
+  "git_head": "eea304d",
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 900
+    },
+    "tablet": {
+      "width": 900,
+      "height": 1200
+    },
+    "mobile": {
+      "width": 390,
+      "height": 1200
+    }
+  },
+  "routes": [
+    {
+      "slug": "home",
+      "path": "/?tab=home",
+      "label": "Home"
+    },
+    {
+      "slug": "library-connections-queue",
+      "path": "/?tab=library&folder=connections&dataset=collection_queue_status",
+      "label": "Library · Apps & connections · collection queue"
+    },
+    {
+      "slug": "library",
+      "path": "/?tab=library",
+      "label": "Library root"
+    },
+    {
+      "slug": "discover",
+      "path": "/?tab=browse",
+      "label": "Discover"
+    },
+    {
+      "slug": "resources",
+      "path": "/?tab=resources",
+      "label": "Resources"
+    }
+  ],
+  "files": [
+    "desktop-home-viewport.png",
+    "desktop-home-full.png",
+    "desktop-library-connections-queue-viewport.png",
+    "desktop-library-connections-queue-full.png",
+    "desktop-library-viewport.png",
+    "desktop-library-full.png",
+    "desktop-discover-viewport.png",
+    "desktop-discover-full.png",
+    "desktop-resources-viewport.png",
+    "desktop-resources-full.png",
+    "tablet-home-viewport.png",
+    "tablet-home-full.png",
+    "tablet-library-connections-queue-viewport.png",
+    "tablet-library-connections-queue-full.png",
+    "tablet-library-viewport.png",
+    "tablet-library-full.png",
+    "tablet-discover-viewport.png",
+    "tablet-discover-full.png",
+    "tablet-resources-viewport.png",
+    "tablet-resources-full.png",
+    "mobile-home-viewport.png",
+    "mobile-home-full.png",
+    "mobile-library-connections-queue-viewport.png",
+    "mobile-library-connections-queue-full.png",
+    "mobile-library-viewport.png",
+    "mobile-library-full.png",
+    "mobile-discover-viewport.png",
+    "mobile-discover-full.png",
+    "mobile-resources-viewport.png",
+    "mobile-resources-full.png"
+  ],
+  "notes": [
+    "Screenshots committed under docs/screenshots-review/ for ChatGPT + GitHub connector review.",
+    "Zip at repo root: research-drive-screenshots.zip",
+    "Live API enriches data; offline seed still renders shell when API is down."
+  ]
+}
