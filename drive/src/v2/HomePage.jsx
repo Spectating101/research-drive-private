@@ -202,16 +202,16 @@ export function HomePage({
         </div>
         <div className="rd-v2-home-command-actions">
           <button type="button" className="primary" onClick={() => onGoTab("library")}>
-            Open Library
-            <span>{datasets.length} holdings</span>
+            Open lab vault
+            <span>{datasets.length} registered holdings</span>
           </button>
           <button type="button" onClick={() => onGoTab("browse")}>
-            Discover
-            <span>registry search</span>
+            Find missing data
+            <span>search, probe, procure</span>
           </button>
           <button type="button" onClick={() => onGoTab("resources")}>
-            Resources
-            <span>{pending > 0 ? `${pending} approvals` : "normal"}</span>
+            Check safety
+            <span>{pending > 0 ? `${pending} approvals` : "limits normal"}</span>
           </button>
         </div>
       </section>

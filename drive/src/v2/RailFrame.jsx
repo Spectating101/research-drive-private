@@ -38,3 +38,39 @@ export function RailStickyFooter({ children }) {
   if (!children) return null;
   return <div className="rd-v2-rail-sticky">{children}</div>;
 }
+
+const DECISION_ROWS = [
+  ["status", "Status"],
+  ["primary", "Use now"],
+  ["risk", "Risk"],
+  ["next", "Next"],
+];
+
+export function RailDecisionSummary({ status, primary, risk, next }) {
+  const rows = DECISION_ROWS.map(([key, label]) => [label, { status, primary, risk, next }[key]])
+    .filter(([, value]) => value != null && String(value).trim() !== "");
+  if (!rows.length) return null;
+
+  return (
+    <section className="rd-v2-rail-decision" aria-label="Decision summary">
+      {rows.map(([label, value]) => {
+        const tone =
+          label === "Use now" && /yes|ready|available|registered/i.test(String(value))
+            ? "ok"
+            : label === "Risk" && /low/i.test(String(value))
+              ? "ok"
+              : label === "Risk" && /needs|pending|offline|attention|no query/i.test(String(value))
+                ? "warn"
+                : label === "Status" && /needs|offline|check/i.test(String(value))
+                  ? "warn"
+                  : "";
+        return (
+          <div key={label} className="rd-v2-rail-decision-row">
+            <span className="rd-v2-rail-decision-label">{label}</span>
+            <span className={`rd-v2-rail-decision-value${tone ? ` ${tone}` : ""}`}>{value}</span>
+          </div>
+        );
+      })}
+    </section>
+  );
+}

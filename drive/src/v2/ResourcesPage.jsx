@@ -485,10 +485,11 @@ function resourceType(row, fallback) {
   return fallback;
 }
 
-function inventorySection(id, title, rows, type) {
+function inventorySection(id, title, rows, type, description) {
   return {
     id,
     title,
+    description,
     rows: rows.map((row) => ({
       id: `${id}-${row.key || row.label}`,
       type: resourceType(row, type),
@@ -506,9 +507,27 @@ function buildResourceInventorySections(panels) {
   const metered = (panels.metered || []).filter((row) => PINNED_ACCOUNT_KEYS.has(row.key) || needsAttention(row));
   const sources = buildPinnedSourceRows(panels.providers || [], panels.layers || []);
   return [
-    inventorySection("storage", "Storage", storage, "Storage"),
-    inventorySection("metered", "Accounts & limits", metered, "Account"),
-    inventorySection("sources", "Source routes", sources, "Route"),
+    inventorySection(
+      "storage",
+      "Storage",
+      storage,
+      "Storage",
+      "Where collected data is archived or staged.",
+    ),
+    inventorySection(
+      "metered",
+      "Accounts & limits",
+      metered,
+      "Account",
+      "Accounts and limits that may affect cost or collection.",
+    ),
+    inventorySection(
+      "sources",
+      "Source routes",
+      sources,
+      "Route",
+      "Routes the desk can use to find, probe, or collect data.",
+    ),
   ].filter((section) => section.rows.length);
 }
 
@@ -544,7 +563,10 @@ function ResourceInventory({ sections, selectedKey, onSelect }) {
       {sections.map((section) => (
         <div key={section.id} className="rd-v2-res-inventory-section">
           <div className="rd-v2-res-inventory-section-head">
-            <span>{section.title}</span>
+            <div className="rd-v2-res-inventory-section-title">
+              <span>{section.title}</span>
+              {section.description ? <em>{section.description}</em> : null}
+            </div>
             <small>{section.rows.length}</small>
           </div>
           <div className="rd-v2-res-inventory-body">

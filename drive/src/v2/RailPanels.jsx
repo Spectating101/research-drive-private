@@ -3,6 +3,7 @@ import { discoverCandidateState } from "@/v2/browseMeta";
 import { displayName } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import {
+  RailDecisionSummary,
   RailEntityHeader,
   RailField,
   RailFieldGrid,
@@ -143,21 +144,22 @@ const RAIL_ACTION_LABELS = {
 
 const PAGE_RAIL_COPY = {
   home: {
-    title: "Research desk",
-    desc: "Continue recent work, review jobs, and jump back into the vault.",
+    title: "Research Drive",
+    desc: "Start from the lab vault, missing-data search, or resource safety checks.",
     fields: [
-      ["Start", "Open a recent dataset"],
-      ["Next", "Ask about the selected record"],
-      ["When missing", "Use Discover to procure"],
+      ["Use this page", "See what needs attention now"],
+      ["Primary move", "Open Library or Discover"],
+      ["When blocked", "Check Resources for approvals, limits, or credentials"],
     ],
   },
   library: {
     title: "Library guide",
-    desc: "Browse the lab vault and select a dataset to inspect coverage, schema, and actions.",
+    desc: "The lab’s working data vault: folders, registered datasets, query readiness, and procurement memory.",
     fields: [
-      ["Primary action", "Select a dataset"],
-      ["Preview", "Double-click a row"],
-      ["Compare", "Send two datasets to Cluster"],
+      ["Use this page", "Find data the lab already has"],
+      ["Primary move", "Select a dataset or branch"],
+      ["When missing", "Add URL / DOI or procure missing data"],
+      ["Trust cue", "Rows should show readiness, source, and destination"],
     ],
   },
   profile: {
@@ -347,6 +349,24 @@ export function LibraryObjectRailPanel({
         description={desc}
         pills={<span className="rd-v2-pill lab">{folder.folderId ? "Folder" : "Lab root"}</span>}
       />
+      <RailDecisionSummary
+        status={
+          counts.datasets > 0
+            ? `${counts.datasets} dataset${counts.datasets === 1 ? "" : "s"} registered`
+            : "No datasets in this branch"
+        }
+        primary={
+          counts.queryReady > 0
+            ? "Use now — query-ready data available"
+            : "Add or procure data before analysis"
+        }
+        risk={counts.queryReady === 0 ? "No query-ready holdings here" : "Low"}
+        next={
+          counts.datasets > 0
+            ? "Select a dataset, preview rows, or ask about coverage"
+            : "Upload files, add URL / DOI, or procure missing data"
+        }
+      />
       <div className="rd-v2-rail-scroll">
         <RailFieldGrid>
           <RailField label="Destination" value={folder.destination} />
@@ -504,6 +524,14 @@ export function BrowseRailPanel({ target, onAskAbout, onAddToLab, onPreviewExter
   const state = target.discover_state || discoverCandidateState(target);
   const activeStep = state.key === "in_lab" ? 3 : state.key === "queued" ? 2 : state.key === "probe_ready" ? 1 : 0;
   const steps = ["Registry", "Probe", "Plan", "Lab"];
+  const discoverNext =
+    state.key === "probe_ready"
+      ? "Preview source, then add to lab"
+      : state.key === "queued"
+        ? "Review plan and collection destination"
+        : state.key === "in_lab"
+          ? "Open Library record"
+          : "Probe source and confirm fit";
 
   return (
     <RailFrame>
@@ -516,6 +544,12 @@ export function BrowseRailPanel({ target, onAskAbout, onAddToLab, onPreviewExter
             {state.label}
           </span>
         }
+      />
+      <RailDecisionSummary
+        status={state.label}
+        primary={state.key === "in_lab" ? "Already registered in Library" : "Candidate can be reviewed for acquisition"}
+        risk={state.access || "Check source terms before collection"}
+        next={discoverNext}
       />
       <div className="rd-v2-rail-scroll">
         <div className="rd-v2-discover-rail-path" aria-label="Acquisition path">
@@ -543,7 +577,7 @@ export function BrowseRailPanel({ target, onAskAbout, onAddToLab, onPreviewExter
           Add to lab
         </button>
         <button type="button" className="rd-v2-btn sm" onClick={onPreviewExternal}>
-          Preview ext
+          Preview source
         </button>
         <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(target)}>
           Ask about this →
@@ -752,6 +786,38 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
           </span>
         }
         description={resourceRailDescription(row)}
+      />
+      <RailDecisionSummary
+        status={resourceRailStatus(row) || fallbackStatus}
+        primary={
+          row.kind === "source"
+            ? "Available for discovery/procurement"
+            : row.kind === "metered"
+              ? "Usable with limit checks"
+              : row.kind === "usage"
+                ? "Available for storage planning"
+                : "Review before action"
+        }
+        risk={
+          row.warn
+            ? "Needs attention"
+            : row.ok === false
+              ? "Offline"
+              : row.kind === "metered"
+                ? resourceRailLimit(row)
+                : "Low"
+        }
+        next={
+          row.job?.status === "pending_approval"
+            ? "Approve or reject the job"
+            : row.kind === "source"
+              ? "Use Discover to search or probe"
+              : row.kind === "metered"
+                ? "View activity before heavy use"
+                : row.kind === "usage"
+                  ? "Check capacity before large collection"
+                  : "Ask about this resource"
+        }
       />
       <div className="rd-v2-rail-scroll">
         <RailFieldGrid>

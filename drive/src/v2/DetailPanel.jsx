@@ -2,6 +2,7 @@ import { useState } from "react";
 import { detailFields, displayName } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import {
+  RailDecisionSummary,
   RailEntityHeader,
   RailFrame,
   RailStickyFooter,
@@ -168,6 +169,39 @@ function ProvenanceBlock({ dataset, fields }) {
   );
 }
 
+function isDatasetReady(readiness) {
+  return /ready|query|instant|connected/i.test(String(readiness || ""));
+}
+
+function datasetUseStatus(dataset, fields) {
+  if (isDatasetReady(dataset.analysis_readiness)) return "Ready";
+  return "Needs review";
+}
+
+function datasetPrimary(dataset, fields) {
+  const ready = isDatasetReady(dataset.analysis_readiness);
+  let line = ready ? "Yes — preview rows or ask questions" : "Not yet confirmed";
+  if (fields.vault || fields.access) {
+    line = ready ? `${line} · registered in vault` : `${line} · vault path pending review`;
+  }
+  return line;
+}
+
+function datasetRisk(dataset, fields) {
+  if (isDatasetReady(dataset.analysis_readiness)) return "Low";
+  return "Schema or access pending";
+}
+
+function datasetNextAction(dataset, fields) {
+  if (fields.joinKeys?.length) {
+    return "Preview rows, compare/join, or ask about coverage";
+  }
+  if (isDatasetReady(dataset.analysis_readiness)) {
+    return "Preview rows or ask for schema/coverage";
+  }
+  return "Confirm schema and access before analysis";
+}
+
 export function DetailPanel({
   dataset,
   loading = false,
@@ -195,6 +229,13 @@ export function DetailPanel({
         title={displayName(dataset)}
         description={fields.description || null}
         pills={<StatusPill dataset={dataset} />}
+      />
+
+      <RailDecisionSummary
+        status={datasetUseStatus(dataset, fields)}
+        primary={datasetPrimary(dataset, fields)}
+        risk={datasetRisk(dataset, fields)}
+        next={datasetNextAction(dataset, fields)}
       />
 
       <div className="rd-v2-rail-scroll">

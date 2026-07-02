@@ -360,7 +360,11 @@ export function LibraryPage({
         <div className="rd-v2-library-pathcopy">
           <span>Location</span>
           <strong>{currentFolderName}</strong>
-          <p>{branchNote}</p>
+          <p>
+            {isRoot
+              ? "Browse the lab’s working data vault. Select a dataset for readiness, provenance, preview, and Ask actions."
+              : branchNote}
+          </p>
         </div>
         <div className="rd-v2-library-pathstats">
           <span>
