@@ -86,11 +86,92 @@ async function waitForShell(page) {
   await page.waitForTimeout(600);
 }
 
+async function waitForRouteReady(page, route) {
+  const requireLive = process.env.YZU_REQUIRE_LIVE === "1";
+
+  const run = async () => {
+    if (route.slug === "discover-search") {
+      await page.waitForFunction(() => {
+        const text = document.body?.innerText || "";
+        return !text.includes("Showing offline matches while live catalogs refresh");
+      }, { timeout: 60_000 });
+
+      await page.waitForFunction(
+        (live) => {
+          const text = document.body?.innerText || "";
+          const offlineChip = Array.from(document.querySelectorAll(".rd-v2-chip")).some((el) =>
+            (el.textContent || "").includes("Offline sample"),
+          );
+          if (offlineChip) return false;
+          const hasLiveSource = text.includes("Discover API") || text.includes("Unified search");
+          const hasResults =
+            /\d+ results?/i.test(text) ||
+            text.includes("Taiwan TWSE") ||
+            text.includes("TWSE OpenAPI");
+          if (live) {
+            return hasLiveSource && hasResults;
+          }
+          return hasResults;
+        },
+        requireLive,
+        { timeout: 60_000 },
+      );
+    }
+
+    if (route.slug === "discover" && !route.path.includes("q=")) {
+      await page.waitForFunction(() => {
+        const text = document.body?.innerText || "";
+        return text.includes("Find external datasets") || text.includes("TWSE governance");
+      }, { timeout: 20_000 });
+    }
+
+    if (route.slug === "resources") {
+      await page.waitForFunction(() => {
+        const text = document.body?.innerText || "";
+        return (
+          text.includes("ASK USAGE") ||
+          text.includes("Ask usage") ||
+          text.includes("COLLECTION WORKERS") ||
+          text.includes("Collection workers") ||
+          text.includes("DESK CONNECTION") ||
+          text.includes("Desk connection")
+        );
+      }, { timeout: 60_000 });
+    }
+
+    if (route.slug === "library-connections-queue") {
+      await page.waitForFunction(() => {
+        const text = document.body?.innerText || "";
+        return (
+          (text.includes("Data Collection Queue Status") ||
+            text.includes("collection_queue_status")) &&
+          text.includes("Query-ready")
+        );
+      }, { timeout: 45_000 });
+    }
+
+    await page.waitForTimeout(600);
+  };
+
+  try {
+    await run();
+  } catch (err) {
+    if (route.slug === "discover-search" || route.slug === "resources") {
+      await page.reload({ waitUntil: "load" });
+      await waitForShell(page);
+      await run();
+      return;
+    }
+    throw err;
+  }
+}
+
 async function captureRoute(browser, vpName, viewport, route) {
   const page = await browser.newPage({ viewport });
   const url = `${BASE_URL}${route.path}`;
   await page.goto(url, { waitUntil: "load" });
   await waitForShell(page);
+  await waitForRouteReady(page, route);
 
   const prefix = `${vpName}-${route.slug}`;
   await page.screenshot({

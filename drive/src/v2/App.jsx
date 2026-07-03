@@ -43,12 +43,19 @@ import { CLUSTER_NAV_DEFERRED } from "@/v2/nav-config.jsx";
 function readParams() {
   const p = new URLSearchParams(window.location.search);
   const rawTab = p.get("tab") || loadSettings().defaultTab || "home";
+  const folder = p.get("folder") || "";
+  const q = p.get("q") || "";
+  let tab = rawTab === "discover" ? "browse" : rawTab;
+  // Library deep links: folder+dataset without a Discover query belong on Library.
+  if (tab === "browse" && folder && !q) {
+    tab = "library";
+  }
   return {
-    tab: rawTab === "discover" ? "browse" : rawTab,
+    tab,
     dataset: p.get("dataset") || "",
-    folder: p.get("folder") || "",
+    folder,
     preview: p.get("preview") === "1",
-    q: p.get("q") || "",
+    q,
   };
 }
 
@@ -218,6 +225,27 @@ export function V2App() {
   useEffect(() => {
     refreshBackend();
   }, [refreshBackend]);
+
+  // Normalize deep links (e.g. tab=browse + folder=dataset → library) into the address bar.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const rawTab = p.get("tab") || "";
+    const rawFolder = p.get("folder") || "";
+    const rawQ = p.get("q") || "";
+    const needsLibraryRedirect =
+      (rawTab === "browse" || rawTab === "discover") && rawFolder && !rawQ && tab === "library";
+    const datasetMismatch = Boolean(selectedId && p.get("dataset") !== selectedId);
+    if (needsLibraryRedirect || datasetMismatch) {
+      writeParams({
+        tab,
+        folder: folderId,
+        dataset: selectedId,
+        preview: previewOpen,
+        q: tab === "browse" ? searchQuery.trim() : "",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot URL normalize on mount
+  }, []);
 
   useEffect(() => {
     if (!datasets.length || selectedId || tab !== "home") return;
