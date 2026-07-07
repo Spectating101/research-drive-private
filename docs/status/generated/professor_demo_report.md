@@ -1,8 +1,8 @@
 # Professor demo — automated evidence
 
-Captured: 2026-07-06T07:34:39.250Z
+Captured: 2026-07-07T17:25:01.125Z
 Faculty: drkong@saturn.yzu.edu.tw
-Registry: 128 datasets · Composer: ready
+Registry: 159 datasets · Composer: ready
 
 ## Product model exercised
 
@@ -19,14 +19,14 @@ Return → In lab filter finds registered holdings
 
 ### PASS — Home command surface + attention queue
 - **id:** `home_command`
-- **holdings:** 128
-- **attention_items:** 4
-- **header_meta:** 128 datasets · 7 pending
+- **holdings:** 159
+- **attention_items:** 3
+- **header_meta:** 159 datasets
 
 ### PASS — Library vault drill-in + query-ready detail
 - **id:** `library_vault`
 - **folder:** research_panels/gdelt
-- **visible_datasets:** 2
+- **visible_datasets:** 4
 - **selected_dataset:** data_lake/news_shock_taxonomy/processed
 
 ### PASS — Discover search + acquisition pipeline
@@ -36,10 +36,10 @@ Return → In lab filter finds registered holdings
 - **first_candidate:** Taiwan TWSE OpenAPI market layer
 - **source_badge:** “TWSE”
 
-### PASS — Discover candidate probe + Add to lab → Ask
+### PASS — Discover in-lab candidate → Open in Library
 - **id:** `discover_probe_add`
-- **candidate:** Taiwan TWSE OpenAPI market layer
-- **ask_snippet:** You: Add to lab vault: Taiwan TWSE OpenAPI market layer Candidate (structured): { "title": "Taiwan TWSE OpenAPI market layer", "dataset_id": null, "doi": null, "url": null, "source": "procured", "connector_id": null, "probe": null } If no j
+- **candidate:** Taiwan MOPS governance misconduct panel
+- **action:** open_in_library
 
 ### PASS — Resources safety ledger (professor labels)
 - **id:** `resources_safety`
@@ -54,18 +54,18 @@ Overview
 Activity
 Collectors
 5/6 busy
-2026-06-07 – 2026-07-06
-Updated 4s ago
+2026-06-09 – 2026-07-08
+Updated 0s ago
 Refresh
 ASK USAGE
-29 month
+37 month
 Procurement chat this month
 COLLECTION WORKERS
 5/6 busy
 0 running
 LAB VAULT
 quota pending
-hot 82.4%
+hot 85.6%
 DESK CONNECTION
 Connected
 Catalog and query service
@@ -80,16 +80,17 @@ Archive
 Long-term archive
 Working disk
 Workspace
-55 GB free · 82.4% used
+41 GB free · 85.6% used
 Local working space
-Accounts & limits
-Ac
+Check
+Accounts & lim
 
 ### PASS — Pending approvals surfaced in desk
 - **id:** `resources_approvals`
-- **pending_count:** 7
+- **pending_count:** 0
 - **home_strip:** false
-- **header_meta:** 128 datasets · 7 pending
+- **limits_normal:** true
+- **header_meta:** 159 datasets
 
 ### PASS — Faculty profile loaded from registry
 - **id:** `profile_faculty`
@@ -112,8 +113,8 @@ Open query engine
 
 ### PASS — Registered datasets findable after Discover session
 - **id:** `verify_in_lab`
-- **in_lab_ui_matches:** 12
-- **registry_count:** 128
+- **in_lab_ui_matches:** 0
+- **registry_count:** 159
 - **filter:** In lab
 - **query:** gdelt
 

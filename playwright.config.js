@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.YZU_DESK_URL || "http://127.0.0.1:5178";
+const baseURL = process.env.YZU_DESK_URL || "http://127.0.0.1:5179";
 
 export default defineConfig({
   testDir: "e2e",

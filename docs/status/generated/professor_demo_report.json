@@ -7,8 +7,8 @@
     "api": "http://127.0.0.1:8765",
     "composer_configured": true,
     "brain": "cursor_composer",
-    "registry_count": 128,
-    "captured_at": "2026-07-06T07:34:39.250Z",
+    "registry_count": 159,
+    "captured_at": "2026-07-07T17:25:01.125Z",
     "passed": 9,
     "total": 9,
     "all_passed": true
@@ -18,25 +18,25 @@
       "id": "home_command",
       "title": "Home command surface + attention queue",
       "ok": true,
-      "at": "2026-07-06T07:33:35.583Z",
-      "holdings": 128,
-      "attention_items": 4,
-      "header_meta": "128 datasets · 7 pending"
+      "at": "2026-07-07T17:24:20.428Z",
+      "holdings": 159,
+      "attention_items": 3,
+      "header_meta": "159 datasets"
     },
     {
       "id": "library_vault",
       "title": "Library vault drill-in + query-ready detail",
       "ok": true,
-      "at": "2026-07-06T07:33:39.733Z",
+      "at": "2026-07-07T17:24:22.826Z",
       "folder": "research_panels/gdelt",
-      "visible_datasets": 2,
+      "visible_datasets": 4,
       "selected_dataset": "data_lake/news_shock_taxonomy/processed"
     },
     {
       "id": "discover_search",
       "title": "Discover search + acquisition pipeline",
       "ok": true,
-      "at": "2026-07-06T07:33:44.043Z",
+      "at": "2026-07-07T17:24:31.323Z",
       "query": "TWSE",
       "candidates": 11,
       "first_candidate": "Taiwan TWSE OpenAPI market layer",
@@ -44,17 +44,17 @@
     },
     {
       "id": "discover_probe_add",
-      "title": "Discover candidate probe + Add to lab → Ask",
+      "title": "Discover in-lab candidate → Open in Library",
       "ok": true,
-      "at": "2026-07-06T07:33:48.906Z",
-      "candidate": "Taiwan TWSE OpenAPI market layer",
-      "ask_snippet": "You: Add to lab vault: Taiwan TWSE OpenAPI market layer Candidate (structured): { \"title\": \"Taiwan TWSE OpenAPI market layer\", \"dataset_id\": null, \"doi\": null, \"url\": null, \"source\": \"procured\", \"connector_id\": null, \"probe\": null } If no j"
+      "at": "2026-07-07T17:24:39.320Z",
+      "candidate": "Taiwan MOPS governance misconduct panel",
+      "action": "open_in_library"
     },
     {
       "id": "resources_safety",
       "title": "Resources safety ledger (professor labels)",
       "ok": true,
-      "at": "2026-07-06T07:33:53.510Z",
+      "at": "2026-07-07T17:24:48.986Z",
       "faculty_labels_found": [
         "Remote tables",
         "procurement routes",
@@ -62,22 +62,23 @@
       ],
       "has_status_strip": true,
       "has_inventory": true,
-      "page_excerpt": "Resources\n\nStorage, account limits, and procurement routes\n\nOverview\nActivity\nCollectors\n5/6 busy\n2026-06-07 – 2026-07-06\nUpdated 4s ago\nRefresh\nASK USAGE\n29 month\nProcurement chat this month\nCOLLECTION WORKERS\n5/6 busy\n0 running\nLAB VAULT\nquota pending\nhot 82.4%\nDESK CONNECTION\nConnected\nCatalog and query service\nKey resources\n10 shown · 5 source routes\nStorage\nWhere collected data is archived or staged. Check capacity before large downloads.\n2\nDrive vault\nArchive\n3 TB cap · usage pending\nLong-term archive\nWorking disk\nWorkspace\n55 GB free · 82.4% used\nLocal working space\nAccounts & limits\nAc"
+      "page_excerpt": "Resources\n\nStorage, account limits, and procurement routes\n\nOverview\nActivity\nCollectors\n5/6 busy\n2026-06-09 – 2026-07-08\nUpdated 0s ago\nRefresh\nASK USAGE\n37 month\nProcurement chat this month\nCOLLECTION WORKERS\n5/6 busy\n0 running\nLAB VAULT\nquota pending\nhot 85.6%\nDESK CONNECTION\nConnected\nCatalog and query service\nKey resources\n10 shown · 5 source routes\nStorage\nWhere collected data is archived or staged. Check capacity before large downloads.\n2\nDrive vault\nArchive\n3 TB cap · usage pending\nLong-term archive\nWorking disk\nWorkspace\n41 GB free · 85.6% used\nLocal working space\nCheck\nAccounts & lim"
     },
     {
       "id": "resources_approvals",
       "title": "Pending approvals surfaced in desk",
       "ok": true,
-      "at": "2026-07-06T07:33:57.838Z",
-      "pending_count": 7,
+      "at": "2026-07-07T17:24:50.582Z",
+      "pending_count": 0,
       "home_strip": false,
-      "header_meta": "128 datasets · 7 pending"
+      "limits_normal": true,
+      "header_meta": "159 datasets"
     },
     {
       "id": "profile_faculty",
       "title": "Faculty profile loaded from registry",
       "ok": true,
-      "at": "2026-07-06T07:34:02.185Z",
+      "at": "2026-07-07T17:24:52.759Z",
       "name_en": "Kong, De-Rong",
       "email": "drkong@saturn.yzu.edu.tw"
     },
@@ -85,7 +86,7 @@
       "id": "library_preview",
       "title": "Query-ready preview on registered dataset",
       "ok": true,
-      "at": "2026-07-06T07:34:33.035Z",
+      "at": "2026-07-07T17:24:57.922Z",
       "dataset_id": "gdelt_asia_daily_country_panel",
       "preview_hint": "Preview — GDELT Asia Daily Country News Shock Panel\n×\nPreview\nSchema\nQuery\n\nLoading preview…\n\nExport CSV\nOpen query engine"
     },
@@ -93,9 +94,9 @@
       "id": "verify_in_lab",
       "title": "Registered datasets findable after Discover session",
       "ok": true,
-      "at": "2026-07-06T07:34:39.182Z",
-      "in_lab_ui_matches": 12,
-      "registry_count": 128,
+      "at": "2026-07-07T17:25:01.001Z",
+      "in_lab_ui_matches": 0,
+      "registry_count": 159,
       "filter": "In lab",
       "query": "gdelt"
     }

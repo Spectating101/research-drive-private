@@ -1,13 +1,13 @@
-# ChatGPT review packet — Research Drive v2 (Discover complete)
+# ChatGPT review packet — Research Drive v2 (Drive + HF + Ask rail)
 
-**Generated:** 2026-07-06T07:27Z · Live desk `:5178` + API `:8765` · 128 datasets
+**Generated:** 2026-07-07T17:25Z · Live desk `:5179` + API `:8765` · **159** registered datasets
 
 ## Upload to ChatGPT
 
 **Upload this file only** (screenshots + markdown evidence):
 
 ```text
-/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/research-drive-chatgpt-packet.zip
+research-drive-chatgpt-packet.zip
 ```
 
 **Verify before upload** (must PASS):
@@ -16,7 +16,23 @@
 node scripts/verify_chatgpt_packet.mjs
 ```
 
-Expected: **~6.3 MB**, SHA256 `70b7733fb586d59e30c6b22ac48b32cd7bfa60ea1a8be6fad2b893d99879eb35`, `manifest.acquire_query` = `MOPS director pledge raw filings Taiwan`, `captured_at` = `2026-07-06T07:27:30.545Z`.
+Expected (2026-07-07 capture): **~8.95 MB**, SHA256 `fd7534dfe04473bd87738f564454df4bd99e8cd283b678d7f2d842450172d525`, `manifest.git_head` = `7eb4271` (Spectating101/yzu-cluster), `manifest.captured_at` = `2026-07-07T17:24:10.379Z`, `manifest.acquire_query` includes MOPS director pledge ladder (desktop discover-acquire/probe/ask).
+
+## Product model (current)
+
+```text
+Library ≈ Google Drive vault (folder-first, preview, register)
+Discover ≈ Hugging Face / DOI / open-web procurement ladder
+Ask ≈ right-rail Composer agent (structured rail_context, not chat-only UI)
+Home ≈ command surface + profile-aware suggested asks (not 150-card catalog dump)
+```
+
+Home hero copy:
+
+```text
+Google Drive vault for the lab. Discover Hugging Face, DOI catalogs, and the open web.
+Ask the assistant to search, query, collect, and register.
+```
 
 ## What to ask ChatGPT
 
@@ -24,25 +40,23 @@ Expected: **~6.3 MB**, SHA256 `70b7733fb586d59e30c6b22ac48b32cd7bfa60ea1a8be6fad
 Review Research Drive v2 — YZU faculty procurement desk.
 
 Product model:
-  Home = command surface
-  Library = lab vault (128 datasets)
+  Home = command surface + profile-aware asks
+  Library = lab vault (159 datasets; folder tree, preview, lane chips)
   Discover = acquisition ladder (registry → unified → web → probe → collect → Library)
   Resources = operational safety ledger
-  Right rail = Detail | Ask
+  Right rail = Detail | Ask (rail_context for selected objects)
 
 Attached:
-  - research-drive-chatgpt-packet.zip (54 PNGs + markdown; desktop-discover-acquire/probe/ask = external acquisition ladder)
-  - professor_demo_report.md (9/9 live e2e scenarios PASS, 2026-07-06)
+  - research-drive-chatgpt-packet.zip (84 PNGs + markdown)
+  - professor_demo_report.md (9/9 live e2e scenarios PASS, 2026-07-07)
   - DISCOVER_ACQUISITION.md semantics
 
-Acquisition query in manifest: "MOPS director pledge raw filings Taiwan" (local MOPS hits + open-web candidates with URLs).
-
 Judge:
-1. Is Discover a credible procurement entry (not a stub)?
-2. Probe → Add to lab → Ask flow — clear for a professor?
-3. TWSE (in-lab) vs MOPS (acquire) — both handled?
-4. Visual hierarchy vs “student repo” feel
-5. Resources ledger as ops panel, not marketing
+1. Library feels like Drive vault, not a raw catalog homepage?
+2. Discover credible for HF/DOI/web procurement (probe, fit, destination)?
+3. Ask rail receives object context — not generic chat beside pages?
+4. Home suggests faculty-aware asks without dumping all holdings?
+5. Visual hierarchy vs “student repo” feel
 
 Reference canon: docs/RESEARCH_DRIVE_UI_CANON.md (yzu-cluster repo)
 ```
@@ -51,23 +65,28 @@ Reference canon: docs/RESEARCH_DRIVE_UI_CANON.md (yzu-cluster repo)
 
 | File | Shows |
 |------|--------|
-| `desktop-discover-acquire-viewport.png` | External open-web candidate selected (not In lab); Probe source visible |
+| `desktop-home-viewport.png` | Drive+HF+Ask hero + lane strip + suggested asks |
+| `desktop-library-stablecoin-preview-viewport.png` | Vault drill-in + row preview |
+| `desktop-discover-acquire-viewport.png` | External open-web candidate (not In lab) |
 | `desktop-discover-probe-viewport.png` | Probe result + connector summary in rail |
-| `desktop-discover-ask-viewport.png` | Add to lab → Ask with structured JSON prompt |
+| `desktop-discover-ask-viewport.png` | Add to lab → Ask with structured prompt |
 | `desktop-discover-search-viewport.png` | TWSE — mostly in-lab hits |
+| `desktop-profile-viewport.png` | Faculty profile (drkong@saturn.yzu.edu.tw) |
 | `desktop-resources-viewport.png` | Safety ledger |
 
 ## Live evidence summary
 
-- Professor demo e2e: **9/9 PASS** (`npm run test:professor-demo`)
-- Discover e2e: **9/9 PASS** (`e2e/v2-discover.spec.js`)
-- API routes live: `/library/discover/web`, `/probe`, `/collect`
+- Professor demo e2e: **9/9 PASS** (`YZU_DESK_URL=http://127.0.0.1:5179 npm run test:professor-demo`)
+- Build: `npm run build` PASS
+- Packet verify: `node scripts/verify_chatgpt_packet.mjs` PASS
+- API routes live: `/library/discover/web`, `/probe`, `/collect`, `/library/faculty/profile`
 
 ## Refresh commands
 
 ```bash
-bash scripts/run_yzu_cluster.sh    # if stack down
+bash drive/scripts/run_research_query_engine.sh   # API :8765
+npm run dev -- --port 5179                         # UI (not :5178 — wrong app)
 npm run desk:capture:live
 npm run test:professor-demo
-npm run sync:yzu-cluster             # push to Spectating101/yzu-cluster
+bash scripts/sync_yzu_cluster_github.sh            # push to Spectating101/yzu-cluster
 ```

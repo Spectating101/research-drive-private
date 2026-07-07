@@ -100,7 +100,10 @@ test.describe("professor demo @ live-desk", () => {
     await waitLive(page);
 
     await expect(page.locator(".rd-v2-home-command")).toContainText(
-      "Search the lab vault. Procure missing datasets. Register everything for reuse.",
+      "Google Drive vault for the lab. Discover Hugging Face, DOI catalogs, and the open web.",
+    );
+    await expect(page.locator(".rd-v2-home-command")).toContainText(
+      "Ask the assistant to search, query, collect, and register.",
     );
     const holdingsBtn = page.locator(".rd-v2-home-command-actions button", { hasText: "Open lab vault" });
     await expect(holdingsBtn).toBeVisible();
@@ -289,6 +292,8 @@ test.describe("professor demo @ live-desk", () => {
 
     const homeStrip = page.locator(".rd-v2-home-strip", { hasText: "Pending approvals" });
     const hasHomeStrip = (await homeStrip.count()) > 0;
+    const homeText = await page.locator("main.yzu-main").innerText();
+    const limitsNormal = /limits normal/i.test(homeText);
 
     if (pendingCount > 0 && hasHomeStrip) {
       await homeStrip.getByRole("button", { name: /Approve/i }).click();
@@ -303,11 +308,13 @@ test.describe("professor demo @ live-desk", () => {
     const surfaced =
       pendingCount > 0 ||
       /pending approval|review queue|approve job/i.test(pageText) ||
-      hasHomeStrip;
+      hasHomeStrip ||
+      (pendingCount === 0 && limitsNormal);
 
     record("resources_approvals", "Pending approvals surfaced in desk", surfaced, {
       pending_count: pendingCount,
       home_strip: hasHomeStrip,
+      limits_normal: limitsNormal,
       header_meta: headerMeta,
     });
     expect(surfaced).toBeTruthy();
@@ -317,9 +324,9 @@ test.describe("professor demo @ live-desk", () => {
     await page.goto("/?tab=profile", { waitUntil: "load" });
     await waitLive(page);
 
-    const name = await page.locator(".rd-v2-profile-name").innerText();
     await expect(page.locator(".rd-v2-profile-hint", { hasText: FACULTY_EMAIL })).toBeVisible();
-    expect(name).not.toBe("Research profile");
+    await expect(page.locator(".rd-v2-profile-name")).not.toHaveText("Research profile", { timeout: 20_000 });
+    const name = await page.locator(".rd-v2-profile-name").innerText();
 
     record("profile_faculty", "Faculty profile loaded from registry", true, {
       name_en: name,

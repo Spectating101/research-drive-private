@@ -14,7 +14,7 @@ else
 fi
 cd "$ROOT"
 
-DESK_URL="${YZU_DESK_URL:-http://127.0.0.1:5178}"
+DESK_URL="${YZU_DESK_URL:-http://127.0.0.1:5179}"
 API_URL="${YZU_API_URL:-http://127.0.0.1:8765}"
 
 if ! curl -sf --max-time 3 "${DESK_URL}/" >/dev/null 2>&1; then

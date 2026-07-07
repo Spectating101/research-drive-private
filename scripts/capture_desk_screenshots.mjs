@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node scripts/capture_desk_screenshots.mjs
- *   YZU_DESK_URL=http://127.0.0.1:5178 node scripts/capture_desk_screenshots.mjs
+ *   YZU_DESK_URL=http://127.0.0.1:5179 node scripts/capture_desk_screenshots.mjs
  *   YZU_REQUIRE_LIVE=1 node scripts/capture_desk_screenshots.mjs
  */
 import { spawnSync } from "node:child_process";
@@ -106,9 +106,28 @@ const ROUTES = [
   { slug: "resources", path: "/?tab=resources", label: "Resources" },
 ];
 
-function gitHead() {
-  const r = spawnSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" });
+function gitHead(cwd = ROOT) {
+  const r = spawnSync("git", ["rev-parse", "--short", "HEAD"], { cwd, encoding: "utf8" });
   return r.status === 0 ? r.stdout.trim() : "unknown";
+}
+
+function yzuClusterHead() {
+  const candidates = [
+    process.env.YZU_CLUSTER_OUT,
+    path.resolve(ROOT, "../yzu-cluster"),
+    path.resolve(ROOT, "../../yzu-cluster"),
+  ].filter(Boolean);
+  for (const dir of candidates) {
+    if (!dir || !fs.existsSync(path.join(dir, ".git"))) continue;
+    const head = gitHead(dir);
+    if (head !== "unknown") return head;
+  }
+  return null;
+}
+
+function resolveManifestGitHead() {
+  if (process.env.CAPTURE_GIT_HEAD) return process.env.CAPTURE_GIT_HEAD;
+  return yzuClusterHead() || gitHead();
 }
 
 async function waitForTrustBadge(page, liveOnly = false) {
@@ -525,6 +544,12 @@ async function captureRoute(browser, vpName, viewport, route) {
 }
 
 function buildPacketZips(manifest) {
+  manifest.captured_at = new Date().toISOString();
+  manifest.git_head = resolveManifestGitHead();
+  const monorepoHead = gitHead();
+  if (monorepoHead !== "unknown" && monorepoHead !== manifest.git_head) {
+    manifest.monorepo_git_head = monorepoHead;
+  }
   fs.writeFileSync(path.join(OUT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
   for (const target of [ZIP_PATH, PACKET_ZIP_PATH]) {
@@ -558,7 +583,7 @@ async function main() {
     base_url: BASE_URL,
     github_repo: "Spectating101/yzu-cluster",
     github_screenshots_path: "docs/screenshots-review/",
-    git_head: gitHead(),
+    git_head: "pending",
     viewports: VIEWPORTS,
     routes: ROUTES.map((r) => ({ slug: r.slug, path: r.path, label: r.label })),
     files: [],
