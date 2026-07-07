@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "test:v2-parity": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js",
-    "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-resources.spec.js",
+    "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-resources.spec.js e2e/v2-home.spec.js e2e/v2-library.spec.js",
+    "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-resources.spec.js",
     "test:beta-workflow": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/beta-workflow.spec.js",
     "test:professor-demo": "mkdir -p .tmp-pw docs/status/generated && TMPDIR=$PWD/.tmp-pw playwright test e2e/professor-demo.spec.js",
     "desk:integration": "node scripts/desk_verify_live.mjs",
@@ -14,7 +15,7 @@
     "desk:capture:live": "YZU_REQUIRE_LIVE=1 bash scripts/capture_desk_screenshots.sh",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5178 playwright test",
+    "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:ui-contract": "playwright test e2e/ui-contract.spec.js"
   },

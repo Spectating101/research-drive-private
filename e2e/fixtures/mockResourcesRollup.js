@@ -1,0 +1,120 @@
+/** Mock rollup for GET /library/desk/resources */
+
+export const MOCK_RESOURCES_ROLLUP = {
+  status: "ok",
+  generated_at: "2026-06-30T12:00:00+00:00",
+  hero: {
+    composer: { model: "composer-2.5", configured: true, legacy_configured: false },
+    mcp_tools: 62,
+    query_engine: { port: 8765, up: true },
+    workers: { busy: 2, total: 12 },
+    vault: { used_tb: 2.1, cap_tb: 5, pct: 42 },
+    chips: {
+      bigquery: "configured",
+      tavily: "3 keys",
+      huggingface: "on",
+      collect_tokens: "3/4",
+    },
+  },
+  ai: {
+    composer_model: "composer-2.5",
+    composer_configured: true,
+    legacy_llm_configured: false,
+    desk_token_required: true,
+    mcp_tools: { total: 62, core: 13, acquire: 28, ops: 21 },
+    composer_turns_today: 0,
+  },
+  metered: {
+    bigquery: {
+      configured: true,
+      project: "molina-research",
+      default_max_bytes_billed: 10737418240,
+      gib_billed_today: 0,
+    },
+    tavily: { keys_loaded: 3, live_enabled: true, session_budget: 6, calls_today: 12 },
+    huggingface: { configured: true },
+    collect_credentials: { configured: 3, total_profiles: 4 },
+    governance_budgets: { max_tavily_live_per_magic: 6, max_probes_per_magic: 4 },
+  },
+  usage: {
+    vault: { label: "GDrive vault", used_tb: 2.1, cap_tb: 5, pct: 42, ok: true },
+    hot: { label: "NVMe hot", used_pct: 68, free_gb: 56, headroom_ok: true },
+    cache: { label: "USB bulk cache", mounted: true, used_gb: 1800, total_gb: 2000, pct: 90 },
+    staging_disk_free_gb: 112,
+  },
+  motion: {
+    jobs: { pending_approval: 1, running: 1, queued: 0, failed: 0 },
+    campaigns_active: 0,
+    gdelt: { progress: "18 / 99 mo", fleet_running: true },
+    datacite: { total_percent: 41.2, shard_workers: 2, status: "running" },
+  },
+  compute: {
+    controller: "optiplex",
+    windows_lab: { busy: 2, joined: 3, total: 12, max_parallel: 6 },
+    queue: { open: 4, runnable_tasks: 18, total_tasks: 24, pipelines: 6, connectors: 3 },
+  },
+  connect: { source_count: 10, layer_count: 9 },
+  issues: [{ key: "usb-cache", label: "USB bulk cache", section: "usage" }],
+  issues_count: 1,
+  spending: {
+    period: {
+      days: 30,
+      start: "2026-06-01",
+      end: "2026-06-30",
+      totals: {
+        tavily_calls: 47,
+        bq_bytes_billed: 133143986176,
+        bq_gib_billed: 12.4,
+        composer_turns: 83,
+        probe_calls: 19,
+      },
+      daily: Array.from({ length: 30 }, (_, i) => ({
+        date: `2026-06-${String(i + 1).padStart(2, "0")}`,
+        bq_gib_billed: i % 5 === 0 ? 1.2 : 0.1,
+        tavily_calls: i % 3,
+        composer_turns: i % 2,
+        probe_calls: 0,
+      })),
+    },
+    today: {
+      date: "2026-06-30",
+      tavily_calls: 12,
+      bq_gib_billed: 0.02,
+      composer_turns: 3,
+      probe_calls: 1,
+    },
+    drivers: [
+      { target: "usdt_transfer_panel", bq_gib: 4.2 },
+      { target: "gdelt_asia_crosswalk", bq_gib: 3.1 },
+    ],
+  },
+  activity: {
+    events: [
+      {
+        id: "ev1",
+        ts: "2026-06-30T14:02:00+00:00",
+        action: "ask",
+        target: "get Taiwan gov panel for 2020+",
+        session_id: "sess-1",
+        cost: { bq_gib: 2.4 },
+        meta: { action: "collect" },
+      },
+      {
+        id: "ev2",
+        ts: "2026-06-30T13:58:00+00:00",
+        action: "discover",
+        target: "taiwan equity",
+        cost: { tavily: 3 },
+        meta: {},
+      },
+      {
+        id: "ev3",
+        ts: "2026-06-30T13:42:00+00:00",
+        action: "discover",
+        target: "TWSE governance",
+        cost: null,
+        meta: { total: 4 },
+      },
+    ],
+  },
+};
