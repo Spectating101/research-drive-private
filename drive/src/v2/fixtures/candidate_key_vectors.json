@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Cross-language Discover candidateKey golden vectors (D0.1). JS and Python tests must consume this file identically.",
+  "version": 2,
+  "description": "Cross-language Discover candidateKey golden vectors (D0.2 Unicode-safe providers). JS and Python tests must consume this file identically.",
   "canonicalize_doi": [
     { "input": "DOI:10.5281/ZENODO.1", "expected": "10.5281/zenodo.1" },
     { "input": "https://doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" },
@@ -19,6 +19,14 @@
       "input": "https://example.com/data?page=2&q=keep",
       "expected": "https://example.com/data?page=2&q=keep"
     }
+  ],
+  "provider_slug": [
+    { "input": "公開資訊觀測站", "expected": "公開資訊觀測站" },
+    { "input": "臺灣證券交易所", "expected": "臺灣證券交易所" },
+    { "input": "MOPS Taiwan", "expected": "mops_taiwan" },
+    { "input": "DataCite / Zenodo", "expected": "datacite_zenodo" },
+    { "input": "", "expected": "unknown" },
+    { "input": "!!!", "expected": "unknown" }
   ],
   "candidate_key": [
     {
@@ -95,9 +103,34 @@
       "expected": "title:unknown:alone"
     },
     {
-      "name": "unicode_title_provider",
+      "name": "unicode_title_provider_mops",
       "row": { "title": "財報 資料集", "source": "公開資訊觀測站" },
-      "expected": "title:unknown:財報 資料集"
+      "expected": "title:公開資訊觀測站:財報 資料集"
+    },
+    {
+      "name": "unicode_title_provider_twse",
+      "row": { "title": "財報 資料集", "source": "臺灣證券交易所" },
+      "expected": "title:臺灣證券交易所:財報 資料集"
+    },
+    {
+      "name": "ascii_provider_spaces",
+      "row": { "title": "Demo", "source": "MOPS Taiwan" },
+      "expected": "title:mops_taiwan:demo"
+    },
+    {
+      "name": "ascii_provider_slash",
+      "row": { "title": "Demo", "source": "DataCite / Zenodo" },
+      "expected": "title:datacite_zenodo:demo"
+    },
+    {
+      "name": "source_ext_id_nonlatin_a",
+      "row": { "external_id": "ds-1", "source": "公開資訊觀測站", "title": "Same" },
+      "expected": "source:公開資訊觀測站:ds-1"
+    },
+    {
+      "name": "source_ext_id_nonlatin_b",
+      "row": { "external_id": "ds-1", "source": "臺灣證券交易所", "title": "Same" },
+      "expected": "source:臺灣證券交易所:ds-1"
     },
     {
       "name": "empty_identity",

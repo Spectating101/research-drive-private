@@ -77,6 +77,20 @@ export function discoverCandidateUrl(row) {
   return "";
 }
 
+/**
+ * Unicode-safe provider namespace (D0.2).
+ * NFKC → trim → lowercase → keep letters/numbers/._- → collapse other runs to _.
+ */
+export function slugifyProvider(value) {
+  const raw = trim(value);
+  if (!raw) return "unknown";
+  let s = raw.normalize("NFKC").trim().toLowerCase();
+  s = s.replace(/[^\p{L}\p{N}._-]+/gu, "_").replace(/^_+|_+$/gu, "");
+  s = Array.from(s).slice(0, 80).join("");
+  if (!/[\p{L}\p{N}]/u.test(s)) return "unknown";
+  return s || "unknown";
+}
+
 function providerSlug(row) {
   const host = (() => {
     const url = trim(row?.url || row?.source_url || row?.resolved_url || "");
@@ -94,12 +108,8 @@ function providerSlug(row) {
     trim(row?.collect_via) ||
     trim(row?.kind) ||
     host ||
-    "unknown";
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 80) || "unknown";
+    "";
+  return slugifyProvider(raw);
 }
 
 function sourceExternalId(row) {
