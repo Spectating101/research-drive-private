@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "description": "Cross-language Discover candidateKey golden vectors (D0.1). JS and Python tests must consume this file identically.",
+  "canonicalize_doi": [
+    { "input": "DOI:10.5281/ZENODO.1", "expected": "10.5281/zenodo.1" },
+    { "input": "https://doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" },
+    { "input": "http://dx.doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" }
+  ],
+  "canonicalize_url": [
+    {
+      "input": "HTTPS://Example.COM:443/path#frag",
+      "expected": "https://example.com/path"
+    },
+    {
+      "input": "http://Example.COM:80/a?b=1",
+      "expected": "http://example.com/a?b=1"
+    },
+    {
+      "input": "https://example.com/data?page=2&q=keep",
+      "expected": "https://example.com/data?page=2&q=keep"
+    }
+  ],
+  "candidate_key": [
+    {
+      "name": "server_key_first",
+      "row": { "candidate_key": "dataset:server", "dataset_id": "other", "title": "T" },
+      "expected": "dataset:server"
+    },
+    {
+      "name": "dataset_id_precedence",
+      "row": {
+        "dataset_id": "mops_financial_statements_ext",
+        "title": "MOPS financial statements",
+        "doi": "10.1/x",
+        "url": "https://mops.twse.com.tw/example"
+      },
+      "expected": "dataset:mops_financial_statements_ext"
+    },
+    {
+      "name": "doi_canonical_resolver",
+      "row": {
+        "title": "Some paper",
+        "doi": "https://doi.org/10.5281/ZENODO.9",
+        "url": "https://example.com/x"
+      },
+      "expected": "doi:10.5281/zenodo.9"
+    },
+    {
+      "name": "resolved_url_over_original_url",
+      "row": {
+        "title": "Redirected dataset",
+        "url": "https://short.example/x",
+        "resolved_url": "HTTPS://CDN.Example.com:443/final/data.csv#frag",
+        "source": "web"
+      },
+      "expected": "url:https://cdn.example.com/final/data.csv"
+    },
+    {
+      "name": "source_url_over_url",
+      "row": {
+        "title": "Source preferred",
+        "url": "https://original.example/a",
+        "source_url": "https://canonical.example/b",
+        "source": "web"
+      },
+      "expected": "url:https://canonical.example/b"
+    },
+    {
+      "name": "url_keeps_query_params",
+      "row": {
+        "title": "Paged",
+        "url": "https://api.example.com/v1/items?page=2&q=keep",
+        "source": "web"
+      },
+      "expected": "url:https://api.example.com/v1/items?page=2&q=keep"
+    },
+    {
+      "name": "huggingface_source",
+      "row": { "kind": "huggingface", "id": "org/demo", "title": "Demo" },
+      "expected": "source:huggingface:org/demo"
+    },
+    {
+      "name": "title_mops",
+      "row": { "title": "Same Title", "source": "MOPS" },
+      "expected": "title:mops:same title"
+    },
+    {
+      "name": "title_twse",
+      "row": { "title": "Same Title", "source": "TWSE" },
+      "expected": "title:twse:same title"
+    },
+    {
+      "name": "title_fallback_namespaced",
+      "row": { "title": "Alone" },
+      "expected": "title:unknown:alone"
+    },
+    {
+      "name": "unicode_title_provider",
+      "row": { "title": "財報 資料集", "source": "公開資訊觀測站" },
+      "expected": "title:unknown:財報 資料集"
+    },
+    {
+      "name": "empty_identity",
+      "row": {},
+      "expected": ""
+    }
+  ],
+  "action_url": [
+    {
+      "name": "resolved_preferred_for_probe_and_collect",
+      "row": {
+        "title": "Redirected dataset",
+        "url": "https://short.example/x",
+        "resolved_url": "https://cdn.example.com/final/data.csv",
+        "source_url": "https://ignored.example/y",
+        "source": "web"
+      },
+      "expected_url": "https://cdn.example.com/final/data.csv",
+      "expected_key": "url:https://cdn.example.com/final/data.csv"
+    },
+    {
+      "name": "doi_resolver_fallback",
+      "row": { "title": "DOI only", "doi": "10.5281/zenodo.42" },
+      "expected_url": "https://doi.org/10.5281/zenodo.42",
+      "expected_key": "doi:10.5281/zenodo.42"
+    }
+  ]
+}

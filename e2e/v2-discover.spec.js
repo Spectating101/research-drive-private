@@ -190,6 +190,225 @@ test.describe("v2 Discover tab", () => {
     await expect(page.locator(".rd-v2-pill", { hasText: "Queued" })).toHaveCount(0);
   });
 
+  test("exact candidate_key marks only the linked candidate queued", async ({ page }) => {
+    await mockV2Api(page, {
+      discoverBody: {
+        sections: [
+          {
+            title: "Registry",
+            rows: [
+              {
+                candidate_key: "url:https://mops.twse.com.tw/a",
+                title: "MOPS financial statements",
+                source: "MOPS",
+                url: "https://mops.twse.com.tw/a",
+              },
+              {
+                candidate_key: "url:https://mops.twse.com.tw/b",
+                title: "MOPS financial statements extended",
+                source: "MOPS",
+                url: "https://mops.twse.com.tw/b",
+              },
+            ],
+          },
+        ],
+        total: 2,
+      },
+      jobsBody: {
+        jobs: [
+          {
+            id: "job-exact-a",
+            status: "pending_approval",
+            candidate_key: "url:https://mops.twse.com.tw/a",
+            request: { candidate_key: "url:https://mops.twse.com.tw/a" },
+            plan: { title: "MOPS financial statements" },
+          },
+        ],
+      },
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("MOPS");
+    const rowA = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+      hasText: "MOPS financial statements",
+    }).first();
+    const rowB = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+      hasText: "MOPS financial statements extended",
+    });
+    await expect(rowA.locator(".rd-v2-pill", { hasText: "Queued" })).toHaveCount(1);
+    await expect(rowB.locator(".rd-v2-pill", { hasText: "Queued" })).toHaveCount(0);
+  });
+
+  test("in-flight probe for A does not toast or show evidence after selecting B", async ({ page }) => {
+    let releaseA;
+    const aGate = new Promise((resolve) => {
+      releaseA = resolve;
+    });
+    await mockV2Api(page, {
+      discoverBody: {
+        sections: [
+          {
+            title: "Registry",
+            rows: [
+              {
+                dataset_id: "mops_financial_statements_ext",
+                title: "MOPS financial statements (Taiwan)",
+                source: "MOPS",
+                url: "https://mops.twse.com.tw/example",
+              },
+              {
+                dataset_id: "twse_openapi_governance_ext",
+                title: "TWSE OpenAPI governance disclosures",
+                source: "TWSE",
+                url: "https://openapi.twse.com.tw/example",
+              },
+            ],
+          },
+        ],
+        total: 2,
+      },
+    });
+    await page.unroute("**/library/discover/probe");
+    await page.route("**/library/discover/probe", async (route) => {
+      if (route.request().method() !== "POST") {
+        return route.continue();
+      }
+      let body = {};
+      try {
+        body = JSON.parse(route.request().postData() || "{}");
+      } catch {
+        body = {};
+      }
+      const key = String(body.candidate_key || "");
+      if (key.includes("mops_financial_statements_ext") || String(body.url || "").includes("mops.twse")) {
+        await aGate;
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          connector: {
+            id: "delayed_probe",
+            connector_id: "delayed_probe",
+            status: "candidate",
+            spec: { access_mode: "direct_file", content_type: "text/csv", discovered_files: [] },
+          },
+          summary: "direct_file delayed for A",
+          candidate_key: key || null,
+          connector_id: "delayed_probe",
+        }),
+      });
+    });
+
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("governance");
+    const mops = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+      hasText: "MOPS financial statements",
+    });
+    const twse = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+      hasText: "TWSE OpenAPI governance",
+    });
+    await mops.click();
+    const rail = page.locator("aside.rd-v2-rail");
+    await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();
+    await twse.click();
+    await expect(rail).toContainText("TWSE OpenAPI");
+    releaseA();
+    await page.waitForTimeout(400);
+    await expect(rail).toContainText("TWSE OpenAPI");
+    await expect(rail.locator(".rd-v2-discover-probe-result")).toHaveCount(0);
+    await expect(page.locator(".rd-v2-toast")).toHaveCount(0);
+  });
+
+  test("resolved_url drives candidate key, probe URL, and collect payload", async ({ page }) => {
+    const probeBodies = [];
+    const collectBodies = [];
+    await mockV2Api(page, {
+      discoverBody: {
+        sections: [
+          {
+            title: "Registry",
+            rows: [
+              {
+                title: "Redirected dataset",
+                source: "web",
+                url: "https://short.example/x",
+                resolved_url: "https://cdn.example.com/final/data.csv",
+                dataset_id: "",
+              },
+            ],
+          },
+        ],
+        total: 1,
+      },
+    });
+    await page.unroute("**/library/discover/probe");
+    await page.route("**/library/discover/probe", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = JSON.parse(route.request().postData() || "{}");
+      probeBodies.push(body);
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          connector: {
+            id: "cdn_final",
+            connector_id: "cdn_final",
+            status: "candidate",
+            spec: {
+              access_mode: "direct_file",
+              source_url: body.url,
+              discovered_files: [],
+            },
+          },
+          summary: "direct_file",
+          candidate_key: body.candidate_key || null,
+          connector_id: "cdn_final",
+          resolved_url: body.url,
+        }),
+      });
+    });
+    await page.unroute("**/library/discover/collect");
+    await page.route("**/library/discover/collect", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      const body = JSON.parse(route.request().postData() || "{}");
+      collectBodies.push(body);
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          job: {
+            id: "job-resolved-1",
+            status: "pending_approval",
+            candidate_key: body.candidate_key,
+            connector_id: body.connector_id,
+            request: body,
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("Redirected");
+    await page.locator('.rd-v2-catalog button.row[data-kind="external"]').first().click();
+    const rail = page.locator("aside.rd-v2-rail");
+    await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();
+    await expect(rail.locator(".rd-v2-discover-probe-result")).toBeVisible();
+    expect(probeBodies[0].url).toBe("https://cdn.example.com/final/data.csv");
+    expect(probeBodies[0].candidate_key).toBe("url:https://cdn.example.com/final/data.csv");
+    await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Add to lab" }).click();
+    await expect.poll(() => collectBodies.length).toBe(1);
+    expect(collectBodies[0]).toMatchObject({
+      candidate_key: "url:https://cdn.example.com/final/data.csv",
+      connector_id: "cdn_final",
+      source_identity: "web",
+      url: "https://cdn.example.com/final/data.csv",
+    });
+    expect(collectBodies[0]).not.toHaveProperty("source");
+  });
+
   test("manually opened mobile Detail shows the selected candidate", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 1200 });
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });

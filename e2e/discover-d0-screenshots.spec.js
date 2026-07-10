@@ -91,9 +91,15 @@ test("D0 desktop identity + exact queue + probe switch", async ({ page }) => {
   await waitForShell(page);
   await page.locator(".rd-v2-search-pill input").fill("MOPS");
   await expect(page.locator('.rd-v2-catalog button.row[data-kind="external"]')).toHaveCount(2);
-  await page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+  const rowA = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
     hasText: "MOPS financial statements",
-  }).first().click();
+  }).first();
+  const rowB = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+    hasText: "MOPS financial statements extended",
+  });
+  await expect(rowA.locator(".rd-v2-pill", { hasText: "Queued" })).toHaveCount(1);
+  await expect(rowB.locator(".rd-v2-pill", { hasText: "Queued" })).toHaveCount(0);
+  await rowA.click();
   await expect(page.locator("aside.rd-v2-rail")).toContainText("MOPS financial statements");
   await shot(page, "desktop-1440x900__selected-row-rail-parity");
   await shot(page, "desktop-1440x900__similar-titles-exact-queue-only");

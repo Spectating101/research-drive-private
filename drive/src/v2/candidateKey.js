@@ -61,6 +61,22 @@ export function normalizeTitle(value) {
   return trim(value).replace(/\s+/g, " ").toLowerCase();
 }
 
+/**
+ * Canonical action URL for probe / collect / Add-to-lab.
+ * Same field preference as the url: identity tier (before DOI fallback):
+ * resolved_url → source_url → url → DOI resolver.
+ */
+export function discoverCandidateUrl(row) {
+  if (!row || typeof row !== "object") return "";
+  const raw = trim(row.resolved_url || row.source_url || row.url);
+  if (raw) return raw;
+  const doi = canonicalizeDoi(row.doi);
+  if (doi) return `https://doi.org/${doi}`;
+  const handle = trim(row.open_handle || row.handle);
+  if (handle.startsWith("doi:")) return `https://doi.org/${canonicalizeDoi(handle.slice(4))}`;
+  return "";
+}
+
 function providerSlug(row) {
   const host = (() => {
     const url = trim(row?.url || row?.source_url || row?.resolved_url || "");

@@ -1,116 +1,76 @@
 /**
- * Unit tests for Discover candidateKey (D0a).
+ * Unit tests for Discover candidateKey (D0.1 — shared golden fixture).
  * Run: node --test drive/src/v2/candidateKey.test.js
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   candidateKey,
   canonicalizeDoi,
   canonicalizeUrl,
+  discoverCandidateUrl,
   isCandidateQueued,
   jobMatchesCandidate,
   normalizeTitle,
 } from "./candidateKey.js";
 
-describe("canonicalizeDoi", () => {
-  it("strips prefixes and lowercases", () => {
-    assert.equal(canonicalizeDoi("DOI:10.5281/ZENODO.1"), "10.5281/zenodo.1");
-    assert.equal(canonicalizeDoi("https://doi.org/10.5281/zenodo.1"), "10.5281/zenodo.1");
-    assert.equal(canonicalizeDoi("http://dx.doi.org/10.5281/zenodo.1"), "10.5281/zenodo.1");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURE_PATH = join(__dirname, "fixtures", "candidate_key_vectors.json");
+const EXPECTED_FIXTURE_SHA256 =
+  "8170d7de2ba0b0d3a4cf5d71102319869b6e4337a54d025c8575ad1467358edc";
+const fixtureBytes = readFileSync(FIXTURE_PATH);
+const vectors = JSON.parse(fixtureBytes.toString("utf8"));
+
+describe("shared golden fixture", () => {
+  it("loads candidate_key_vectors.json with stable SHA-256", () => {
+    const digest = createHash("sha256").update(fixtureBytes).digest("hex");
+    assert.equal(digest, EXPECTED_FIXTURE_SHA256);
+    assert.equal(vectors.version, 1);
+    assert.ok(vectors.candidate_key.length >= 8);
   });
 });
 
-describe("canonicalizeUrl", () => {
-  it("lowercases host, drops fragment and default ports", () => {
-    assert.equal(
-      canonicalizeUrl("HTTPS://Example.COM:443/path#frag"),
-      "https://example.com/path",
-    );
-    assert.equal(
-      canonicalizeUrl("http://Example.COM:80/a?b=1"),
-      "http://example.com/a?b=1",
-    );
+describe("canonicalizeDoi (fixture)", () => {
+  for (const row of vectors.canonicalize_doi) {
+    it(row.input, () => {
+      assert.equal(canonicalizeDoi(row.input), row.expected);
+    });
+  }
+});
+
+describe("canonicalizeUrl (fixture)", () => {
+  for (const row of vectors.canonicalize_url) {
+    it(row.input, () => {
+      assert.equal(canonicalizeUrl(row.input), row.expected);
+    });
+  }
+});
+
+describe("candidateKey (fixture)", () => {
+  for (const row of vectors.candidate_key) {
+    it(row.name, () => {
+      assert.equal(candidateKey(row.row), row.expected);
+    });
+  }
+
+  it("different providers with identical titles do not collide", () => {
+    const a = vectors.candidate_key.find((r) => r.name === "title_mops");
+    const b = vectors.candidate_key.find((r) => r.name === "title_twse");
+    assert.notEqual(candidateKey(a.row), candidateKey(b.row));
   });
 });
 
-describe("candidateKey precedence", () => {
-  it("uses server candidate_key first", () => {
-    assert.equal(
-      candidateKey({ candidate_key: "dataset:server", dataset_id: "other", title: "T" }),
-      "dataset:server",
-    );
-  });
-
-  it("prefers dataset_id over title/url/doi", () => {
-    assert.equal(
-      candidateKey({
-        dataset_id: "mops_financial_statements_ext",
-        title: "MOPS financial statements",
-        doi: "10.1/x",
-        url: "https://mops.twse.com.tw/example",
-      }),
-      "dataset:mops_financial_statements_ext",
-    );
-  });
-
-  it("uses DOI before URL and title", () => {
-    assert.equal(
-      candidateKey({
-        title: "Some paper",
-        doi: "https://doi.org/10.5281/ZENODO.9",
-        url: "https://example.com/x",
-      }),
-      "doi:10.5281/zenodo.9",
-    );
-  });
-
-  it("uses source external id for huggingface", () => {
-    assert.equal(
-      candidateKey({ kind: "huggingface", id: "org/demo", title: "Demo" }),
-      "source:huggingface:org/demo",
-    );
-  });
-
-  it("uses URL before title", () => {
-    assert.equal(
-      candidateKey({
-        title: "Example open dataset",
-        url: "HTTPS://Example.com/dataset#x",
-        source: "web",
-      }),
-      "url:https://example.com/dataset",
-    );
-  });
-
-  it("namespaces title fallback by provider", () => {
-    const a = candidateKey({ title: "Same Title", source: "MOPS" });
-    const b = candidateKey({ title: "Same Title", source: "TWSE" });
-    assert.equal(a, "title:mops:same title");
-    assert.equal(b, "title:twse:same title");
-    assert.notEqual(a, b);
-  });
-
-  it("does not use raw title alone", () => {
-    const key = candidateKey({ title: "Alone" });
-    assert.match(key, /^title:/);
-    assert.ok(!key.startsWith("Alone"));
-  });
-});
-
-describe("identity stability across surfaces", () => {
-  const row = {
-    title: "MOPS financial statements (Taiwan)",
-    url: "https://mops.twse.com.tw/example",
-    source: "MOPS",
-    doi: "",
-  };
-
-  it("same key for row / selection / rail / probe / add-to-lab", () => {
-    const k = candidateKey(row);
-    assert.equal(candidateKey({ ...row }), k);
-    assert.equal(candidateKey({ ...row, discover_state: { key: "probe_ready" } }), k);
-  });
+describe("action URL alignment (fixture)", () => {
+  for (const row of vectors.action_url) {
+    it(row.name, () => {
+      assert.equal(discoverCandidateUrl(row.row), row.expected_url);
+      assert.equal(candidateKey(row.row), row.expected_key);
+    });
+  }
 });
 
 describe("queued association", () => {

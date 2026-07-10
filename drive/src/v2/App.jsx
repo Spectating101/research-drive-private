@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { V2DeskHeader } from "@/v2/V2DeskHeader";
 import {
   approveJob,
@@ -123,6 +123,8 @@ export function V2App() {
   const [selectedId, setSelectedId] = useState(() => readParams().dataset);
   const [browseRow, setBrowseRow] = useState(null);
   const [browseProbe, setBrowseProbe] = useState({ candidateKey: "", loading: false, result: null, error: "" });
+  /** Race-safe selected Discover identity — updated on selection, read after async probe. */
+  const browseSelectedKeyRef = useRef("");
   const [resourceRow, setResourceRow] = useState(null);
   const [activeObject, setActiveObject] = useState(null);
   const [compareIds, setCompareIds] = useState(DEFAULT_COMPARE);
@@ -410,6 +412,7 @@ export function V2App() {
 
   const openPreviewExternal = useCallback((row) => {
     if (!row) return;
+    browseSelectedKeyRef.current = candidateKey(row);
     setBrowseRow(row);
     setActiveObject(externalCandidateObject(row));
     setPreviewTarget(row);
@@ -473,7 +476,7 @@ export function V2App() {
             limit: 200,
             autoApprove: false,
             candidateKey: key,
-            source: target?.source || target?.collect_via || "",
+            sourceIdentity: target?.source || target?.collect_via || "",
             datasetId: target?.dataset_id || "",
             doi: target?.doi || "",
             url: discoverCandidateUrl(target) || "",
@@ -515,29 +518,25 @@ export function V2App() {
     setBrowseProbe({ candidateKey: key, loading: true, result: null, error: "" });
     try {
       const out = await probePublicSource(url, target?.title || target?.name || "", { candidateKey: key });
-      // Ignore stale responses if selection changed mid-flight
+      // Ignore stale responses if selection changed mid-flight (ref is race-safe).
+      const stillSelected = browseSelectedKeyRef.current === key;
       if (out?.error) {
-        setBrowseProbe((cur) =>
-          cur.candidateKey === key
-            ? { candidateKey: key, loading: false, result: null, error: String(out.error) }
-            : cur,
-        );
+        if (stillSelected) {
+          setBrowseProbe({ candidateKey: key, loading: false, result: null, error: String(out.error) });
+        }
         return;
       }
-      setBrowseProbe((cur) =>
-        cur.candidateKey === key
-          ? { candidateKey: key, loading: false, result: out, error: "" }
-          : cur,
-      );
-      if (candidateKey(target) === key) {
-        showToast("Source probed — review connector details");
-      }
+      if (!stillSelected) return;
+      setBrowseProbe({ candidateKey: key, loading: false, result: out, error: "" });
+      showToast("Source probed — review connector details");
     } catch (err) {
-      setBrowseProbe((cur) =>
-        cur.candidateKey === key
-          ? { candidateKey: key, loading: false, result: null, error: err?.message || "Probe failed" }
-          : cur,
-      );
+      if (browseSelectedKeyRef.current !== key) return;
+      setBrowseProbe({
+        candidateKey: key,
+        loading: false,
+        result: null,
+        error: err?.message || "Probe failed",
+      });
     }
   }, [showToast]);
 
@@ -599,6 +598,7 @@ export function V2App() {
 
   useEffect(() => {
     setBrowseRow(null);
+    browseSelectedKeyRef.current = "";
     setBrowseProbe({ candidateKey: "", loading: false, result: null, error: "" });
     setActiveObject((current) => (current?.kind === "external_candidate" ? null : current));
   }, [searchQuery]);
@@ -783,11 +783,13 @@ export function V2App() {
           }}
           onSearchWeb={askSearchWeb}
           onSelectRow={(row) => {
+            const nextKey = candidateKey(row);
+            browseSelectedKeyRef.current = nextKey;
             setBrowseRow(row);
             setBrowseProbe((current) =>
-              current.candidateKey === candidateKey(row)
+              current.candidateKey === nextKey
                 ? current
-                : { key: "", loading: false, result: null, error: "" },
+                : { candidateKey: "", loading: false, result: null, error: "" },
             );
             setActiveObject(externalCandidateObject(row));
             setRailTab("detail");

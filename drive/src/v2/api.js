@@ -60,7 +60,15 @@ export function probePublicSource(url, name = "", { candidateKey = "" } = {}) {
 
 export function submitDiscoverCollect(
   connectorId,
-  { limit = 200, autoApprove = false, candidateKey = "", source = "", datasetId = "", doi = "", url = "" } = {},
+  {
+    limit = 200,
+    autoApprove = false,
+    candidateKey = "",
+    sourceIdentity = "",
+    datasetId = "",
+    doi = "",
+    url = "",
+  } = {},
 ) {
   const body = {
     connector_id: connectorId,
@@ -68,7 +76,7 @@ export function submitDiscoverCollect(
     auto_approve: autoApprove,
   };
   if (candidateKey) body.candidate_key = candidateKey;
-  if (source) body.source = source;
+  if (sourceIdentity) body.source_identity = sourceIdentity;
   if (datasetId) body.dataset_id = datasetId;
   if (doi) body.doi = doi;
   if (url) body.url = url;

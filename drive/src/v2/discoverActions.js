@@ -1,15 +1,6 @@
-import { candidateKey, canonicalizeDoi } from "@/v2/candidateKey";
+import { candidateKey, discoverCandidateUrl } from "@/v2/candidateKey";
 
-export function discoverCandidateUrl(row) {
-  if (!row) return "";
-  const raw = String(row.url || row.resolved_url || row.source_url || "").trim();
-  if (raw) return raw;
-  const doi = canonicalizeDoi(row.doi);
-  if (doi) return `https://doi.org/${doi}`;
-  const handle = String(row.open_handle || row.handle || "").trim();
-  if (handle.startsWith("doi:")) return `https://doi.org/${canonicalizeDoi(handle.slice(4))}`;
-  return "";
-}
+export { discoverCandidateUrl } from "@/v2/candidateKey";
 
 export function buildAddToLabPrompt(target, probeResult) {
   const label = target?.title || target?.dataset_id || target?.name || "this dataset";
@@ -21,7 +12,7 @@ export function buildAddToLabPrompt(target, probeResult) {
     dataset_id: target?.dataset_id || null,
     doi: target?.doi || null,
     url: discoverCandidateUrl(target) || null,
-    source: target?.source || target?.collect_via || null,
+    source_identity: target?.source || target?.collect_via || null,
     connector_id: connector?.connector_id || connector?.id || null,
     probe: summary || null,
   };
