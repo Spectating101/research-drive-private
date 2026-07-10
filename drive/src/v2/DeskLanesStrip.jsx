@@ -1,30 +1,24 @@
-import { Strip } from "@/v2/ui";
-
 /**
- * Three-lane desk — matches DESK_STATUS + UI contract.
- * Library ≈ Google Drive vault; Discover ≈ HF/DOI/web procure; Ask ≈ Composer agent.
- * No direct API calls — lanes route context into the Ask rail.
+ * Compact Home action row — Search / Discover / Ask.
+ * Destinations unchanged from the previous desk-lanes strip.
  */
-const LANES = [
+const ACTIONS = [
   {
     id: "library",
-    label: "Library",
-    metric: "Google Drive vault",
-    detail: "What the lab already holds — folders, query-ready panels, archive paths.",
+    label: "Search the lab",
+    detail: "Browse vault holdings",
     tab: "library",
   },
   {
     id: "discover",
-    label: "Discover",
-    metric: "Hugging Face · DOI · web",
-    detail: "Find what is missing. The assistant procures via catalog search, then collects into the vault.",
+    label: "Discover data",
+    detail: "Find and probe sources",
     tab: "browse",
   },
   {
     id: "ask",
-    label: "Ask",
-    metric: "Lab assistant",
-    detail: "Search, preview, import, approve jobs, and join sources — Composer uses the research tools for you.",
+    label: "Ask the assistant",
+    detail: "Search, collect, join",
     prompt:
       "You are the lab research assistant. Start from our Google Drive vault and registry. " +
       "If I need something we do not hold, search Hugging Face or DataCite or probe a public URL, " +
@@ -34,38 +28,30 @@ const LANES = [
 
 export function DeskLanesStrip({ holdings = 0, onGoTab, onAskComposer }) {
   return (
-    <section className="rd-v2-desk-lanes" aria-label="Research desk lanes">
-      <p className="muted small rd-v2-desk-lanes-lead">
-        Three lanes — browse the vault like Drive, discover and probe like Hugging Face, and use Ask when you need
-        multi-step procure, joins, or cross-source reasoning.
-      </p>
-      <ul className="rd-v2-desk-lanes-list">
-        {LANES.map((lane) => (
-          <li key={lane.id}>
-            <button
-              type="button"
-              className="rd-v2-desk-lane-card"
-              onClick={() => {
-                if (lane.prompt) {
-                  onAskComposer?.(lane.prompt);
-                  return;
-                }
-                onGoTab?.(lane.tab);
-              }}
-            >
-              <span className="rd-v2-desk-lane-label">{lane.label}</span>
-              <strong>{lane.metric}</strong>
-              <span className="muted small">{lane.detail}</span>
-              {lane.id === "library" && holdings > 0 ? (
-                <span className="rd-v2-desk-lane-meta">{holdings} registered holdings</span>
-              ) : null}
-            </button>
-          </li>
+    <section className="rd-v2-home-actions" aria-label="Home actions">
+      <div className="rd-v2-home-actions-row">
+        {ACTIONS.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            className="rd-v2-home-action"
+            onClick={() => {
+              if (action.prompt) {
+                onAskComposer?.(action.prompt);
+                return;
+              }
+              onGoTab?.(action.tab);
+            }}
+          >
+            <strong>{action.label}</strong>
+            <span>
+              {action.id === "library" && holdings > 0
+                ? `${holdings} holdings`
+                : action.detail}
+            </span>
+          </button>
         ))}
-      </ul>
-      <Strip>
-        Collect once → lands in GDrive <code>collection/</code> → registered for the next search hit.
-      </Strip>
+      </div>
     </section>
   );
 }

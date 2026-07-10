@@ -27,6 +27,31 @@ function jobTitle(job) {
   );
 }
 
+function readinessLabel(ds) {
+  const raw = String(ds?.analysis_readiness || "").toLowerCase();
+  if (/instant|ready|query|connected/.test(raw)) return "Query-ready";
+  if (/dry/.test(raw)) return "Dry-run";
+  if (raw) return raw.replace(/_/g, " ");
+  return "In vault";
+}
+
+function purposeLine(ds) {
+  return (
+    ds?.summary ||
+    ds?.description ||
+    ds?.purpose ||
+    [ds?.source, ds?.coverage, ds?.grain].filter(Boolean).join(" · ") ||
+    "Research dataset in the lab vault"
+  );
+}
+
+function lastActivityLine(ds) {
+  const stamp = ds?.updated_at || ds?.last_accessed || ds?.last_activity || ds?.as_of;
+  if (stamp) return `Last activity · ${stamp}`;
+  if (ds?.coverage) return `Coverage · ${ds.coverage}`;
+  return "Available in the lab vault";
+}
+
 function HomeAttentionRow({ item, onOpen, onAsk }) {
   const actionName = `${item.label}: ${item.title}`;
   return (
@@ -95,19 +120,10 @@ export function HomePage({
   ).length;
   const registryTotal = cluster?.registry_datasets || health?.datasets || datasets.length;
   const instantTotal = cluster?.instant_datasets || readyCount;
-  const refinitivLane = (cluster?.lanes || []).find((lane) =>
-    String(lane.id || "").includes("refinitiv"),
-  );
-  const refinitivCount =
-    refinitivLane?.registry_datasets ||
-    refinitivLane?.detail?.registry_dataset_ids?.length ||
-    cluster?.platform_state?.refinitiv_datasets ||
-    0;
   const runningJobs = healthJobs.running ?? pipeline.filter((a) => a.stage === "running").length;
   const firstPendingJob = pendingJobs[0];
   const firstPipeline = pipeline[0] || null;
-  const heroPromise =
-    "Google Drive vault for the lab. Discover Hugging Face, DOI catalogs, and the open web. Ask the assistant to search, query, collect, and register.";
+
   const attentionItems = useMemo(() => {
     const items = [];
     if (pending > 0) {
@@ -119,7 +135,7 @@ export function HomePage({
         label: "Approval",
         title,
         metric: `${pending} pending`,
-        detail: "Decision required before the agent can collect or archive.",
+        detail: "Decision required before collection can continue.",
         next: "Review source, cost, destination",
         tab: "resources",
         warn: true,
@@ -127,7 +143,9 @@ export function HomePage({
           kind: "active",
           key: jobId ? `job-${jobId}` : "jobs-pending",
           label: title,
-          metric: firstPendingJob?.status ? String(firstPendingJob.status).replace(/_/g, " ") : `${pending} job(s) pending`,
+          metric: firstPendingJob?.status
+            ? String(firstPendingJob.status).replace(/_/g, " ")
+            : `${pending} job(s) pending`,
           section: "active",
           warn: true,
           ok: false,
@@ -145,7 +163,7 @@ export function HomePage({
         label: "Procurement",
         title,
         metric: amount,
-        detail: "Live acquisition state from the desk and backend workers.",
+        detail: "Live acquisition needs a check.",
         next: "Inspect run health",
         tab: "resources",
         warn: firstPipeline?.stage === "warn",
@@ -162,30 +180,8 @@ export function HomePage({
         prompt: `Explain the current procurement run: ${title} (${amount}). Summarize progress, blockers, resource usage, and the next safe action.`,
       });
     }
-    items.push({
-      id: "library",
-      kind: "library",
-      label: "Library",
-      title: "Faculty vault",
-      metric: `${datasets.length} holdings`,
-      detail: `${readyCount || datasets.length} query-ready datasets available from the Lab directory.`,
-      next: "Open folders or upload",
-      tab: "library",
-      prompt: `Summarize Library readiness across ${datasets.length} holdings. Identify query-ready datasets, likely gaps, and what should be uploaded, linked, or procured next.`,
-    });
-    items.push({
-      id: "discover",
-      kind: "discover",
-      label: "Discover",
-      title: "Find missing data",
-      metric: "Probe path",
-      detail: "Search registries first, then probe public sources and propose acquisition.",
-      next: "Search, probe, plan",
-      tab: "browse",
-      prompt: "Find missing datasets for this faculty workspace. Start from the local catalog, then suggest registry searches, public probes, vault destinations, and approval points.",
-    });
     return items;
-  }, [datasets.length, firstPendingJob, firstPipeline, pending, readyCount, runningJobs]);
+  }, [firstPendingJob, firstPipeline, pending, runningJobs]);
 
   const openAttention = (item) => {
     if (item.tab === "resources" && item.resourceRow && onOpenAttention) {
@@ -195,110 +191,141 @@ export function HomePage({
     onGoTab(item.tab);
   };
 
-  const askAttention = (item) => {
-    onAskAttention?.(item);
+  const continueWork = () => {
+    if (!continueDs) {
+      onGoTab("library");
+      return;
+    }
+    onSelectDataset?.(continueDs);
+  };
+
+  const openContinueInLibrary = () => {
+    if (continueDs) onSelectDataset?.(continueDs);
+    onGoTab("library");
   };
 
   return (
     <PageShell
       className="rd-v2-home-page"
       title="Home"
-      lead="Continue research and inspect live procurement state."
+      lead="Pick up where you left off — vault, discover, or ask."
       footer={null}
     >
-      <section className="rd-v2-home-command" aria-label="Research Drive command surface">
-        <div className="rd-v2-home-command-copy">
-          <span>Research Drive</span>
-          <strong>{heroPromise}</strong>
+      <section
+        className="rd-v2-home-continue-card"
+        aria-label="Continue working"
+        data-testid="home-continue"
+      >
+        <div className="rd-v2-home-continue-copy">
+          <span>Continue working</span>
           {continueDs ? (
-            <p className="rd-v2-home-continue">
-              Continue: <em>{displayName(continueDs)}</em>
-              <span className="rd-v2-home-continue-id">{continueDs.dataset_id}</span>
-            </p>
+            <>
+              <h2>{displayName(continueDs)}</h2>
+              <p>{purposeLine(continueDs)}</p>
+              <p className="rd-v2-home-continue-meta">
+                <span className="rd-v2-pill">{readinessLabel(continueDs)}</span>
+                <span>{lastActivityLine(continueDs)}</span>
+              </p>
+              <p className="rd-v2-home-continue-id mono">{continueDs.dataset_id}</p>
+            </>
           ) : (
-            <p>
-              {readyCount || instantTotal} query-ready holdings · browse Lab Drive or ask the assistant for cross-source
-              work.
-            </p>
+            <>
+              <h2>Open the vault or find missing data</h2>
+              <p>No recent dataset yet. Start from Lab holdings or Discover.</p>
+            </>
           )}
         </div>
-        <div className="rd-v2-home-cluster-stats" aria-label="Vault coverage">
-          <span className={usingSeed ? "warn" : ""}>
-            {usingSeed ? "Offline catalog — start API :8765 for full registry" : "Live registry"}
-          </span>
-          <strong>{readyCount || instantTotal} query-ready</strong>
-          <span>{registryTotal} registered</span>
-          {cluster?.refinitiv_frozen && refinitivCount ? (
-            <span>{refinitivCount} Refinitiv</span>
-          ) : null}
-          <button type="button" className="rd-v2-btn sm ghost" onClick={() => onGoTab("resources")}>
-            Acquisitions →
+        <div className="rd-v2-home-continue-actions">
+          <button type="button" className="rd-v2-btn sm primary" onClick={continueWork}>
+            Continue
           </button>
-        </div>
-        <div className="rd-v2-home-command-actions">
-          <button type="button" className="primary" onClick={() => onGoTab("library")}>
-            Open lab vault
-            <span>{datasets.length} registered holdings</span>
-          </button>
-          <button type="button" onClick={() => onGoTab("browse")}>
-            Find missing data
-            <span>search, probe, procure</span>
-          </button>
-          <button type="button" onClick={() => onGoTab("resources")}>
-            Check safety
-            <span>{pending > 0 ? `${pending} approvals` : "limits normal"}</span>
-          </button>
-        </div>
-      </section>
-
-      <section className="rd-v2-home-attention" aria-label="Attention queue">
-        <div className="rd-v2-home-attention-head">
-          <h2>Attention</h2>
-          <span>{attentionItems.length} objects</span>
-        </div>
-        <div className="rd-v2-home-attention-body">
-          {attentionItems.map((item) => (
-            <HomeAttentionRow
-              key={item.id}
-              item={item}
-              onOpen={openAttention}
-              onAsk={askAttention}
-            />
-          ))}
+          {continueDs ? (
+            <button type="button" className="rd-v2-btn sm" onClick={openContinueInLibrary}>
+              Open in Library
+            </button>
+          ) : (
+            <button type="button" className="rd-v2-btn sm" onClick={() => onGoTab("browse")}>
+              Discover data
+            </button>
+          )}
         </div>
       </section>
 
       <DeskLanesStrip holdings={datasets.length} onGoTab={onGoTab} onAskComposer={onAskComposer} />
 
+      <section className="rd-v2-home-attention" aria-label="Attention queue">
+        <div className="rd-v2-home-attention-head">
+          <h2>Attention</h2>
+          <span>
+            {attentionItems.length
+              ? `${attentionItems.length} needing action`
+              : "Clear"}
+          </span>
+        </div>
+        <div className="rd-v2-home-attention-body">
+          {attentionItems.length ? (
+            attentionItems.map((item) => (
+              <HomeAttentionRow
+                key={item.id}
+                item={item}
+                onOpen={openAttention}
+                onAsk={onAskAttention}
+              />
+            ))
+          ) : (
+            <p className="rd-v2-home-attention-empty">Nothing needs a decision right now.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rd-v2-home-recent" aria-label="Recent research assets">
+        <SectionTitle title="Recent" actionLabel="See Library →" onAction={() => onGoTab("library")} />
+        <div className="rd-v2-home-list-panel">
+          <CatalogList
+            rows={recentRows.map(datasetListItem)}
+            onSelectDataset={onSelectDataset}
+            onDoubleClick={onPreviewDataset}
+            compact
+          />
+        </div>
+      </section>
+
       <HomeSuggestedAsks profile={profile} onAskComposer={onAskComposer} />
 
-      <SectionTitle title="Recent" actionLabel="See Library →" onAction={() => onGoTab("library")} />
-      <div className="rd-v2-home-list-panel">
-        <CatalogList
-          rows={recentRows.map(datasetListItem)}
-          onSelectDataset={onSelectDataset}
-          onDoubleClick={onPreviewDataset}
-          compact
-        />
-      </div>
-
-      <SectionTitle title="Running jobs" actionLabel="All jobs →" onAction={() => onGoTab("resources")} />
-      {pipeline.length === 0 && pending === 0 ? (
-        <Strip>● Desk idle · {runningJobs || 0} running <span className="rd-v2-pill muted">OK</span></Strip>
-      ) : null}
-      {pipeline.map((a) => (
-        <Strip key={a.id || a.name} warn={a.stage === "warn"}>
-          ● {a.name || a.title} · {a.amount || a.subtitle || a.stage || "running"}{" "}
-          <span className={`rd-v2-pill${a.stage === "warn" ? " warn" : a.stage === "running" ? "" : " muted"}`}>
-            {(a.stage === "warn" ? "WARN" : a.stage === "running" ? "OK" : (a.stage || "OK")).toUpperCase()}
+      <section className="rd-v2-home-footnote" aria-label="Desk context">
+        <p>
+          Lab vault, Discover, and Ask stay available from the sidebar — Home is for resuming work.
+        </p>
+        <p className="rd-v2-home-footnote-stats">
+          <span className={usingSeed ? "warn" : ""}>
+            {usingSeed ? "Offline catalog" : "Live registry"}
           </span>
-        </Strip>
-      ))}
+          <span>
+            {readyCount || instantTotal} query-ready · {registryTotal} registered
+          </span>
+          <button type="button" className="rd-v2-linkish" onClick={() => onGoTab("resources")}>
+            Acquisitions →
+          </button>
+        </p>
+      </section>
 
-      {pending > 0 ? (
-        <Strip warn actionLabel="Approve →" onAction={() => onGoTab("resources")}>
-          ● Pending approvals · {pending} <span className="rd-v2-pill warn">WARN</span>
-        </Strip>
+      {pipeline.length || pending > 0 ? (
+        <section className="rd-v2-home-jobs" aria-label="Running jobs">
+          <SectionTitle title="Running jobs" actionLabel="All jobs →" onAction={() => onGoTab("resources")} />
+          {pipeline.map((a) => (
+            <Strip key={a.id || a.name} warn={a.stage === "warn"}>
+              ● {a.name || a.title} · {a.amount || a.subtitle || a.stage || "running"}{" "}
+              <span className={`rd-v2-pill${a.stage === "warn" ? " warn" : a.stage === "running" ? "" : " muted"}`}>
+                {(a.stage === "warn" ? "WARN" : a.stage === "running" ? "OK" : (a.stage || "OK")).toUpperCase()}
+              </span>
+            </Strip>
+          ))}
+          {pending > 0 ? (
+            <Strip warn actionLabel="Approve →" onAction={() => onGoTab("resources")}>
+              ● Pending approvals · {pending} <span className="rd-v2-pill warn">WARN</span>
+            </Strip>
+          ) : null}
+        </section>
       ) : null}
     </PageShell>
   );
