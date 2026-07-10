@@ -102,6 +102,109 @@ test.describe("v2 Discover tab", () => {
     const joined = chatBodies.join("\n");
     expect(joined).toMatch(/Candidate \(structured\)|connector|MOPS financial statements/i);
     expect(joined).toMatch(/job-discover-collect-1|Collection job queued/i);
+    expect(joined).toMatch(/candidate_key/);
+  });
+
+  test("probe evidence stays bound to the selected candidate", async ({ page }) => {
+    await mockV2Api(page, {
+      discoverBody: {
+        sections: [
+          {
+            title: "Registry",
+            rows: [
+              {
+                dataset_id: "mops_financial_statements_ext",
+                title: "MOPS financial statements (Taiwan)",
+                source: "MOPS",
+                url: "https://mops.twse.com.tw/example",
+              },
+              {
+                dataset_id: "twse_openapi_governance_ext",
+                title: "TWSE OpenAPI governance disclosures",
+                source: "TWSE",
+                url: "https://openapi.twse.com.tw/example",
+              },
+            ],
+          },
+        ],
+        total: 2,
+      },
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("governance");
+    const mops = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+      hasText: "MOPS financial statements",
+    });
+    const twse = page.locator('.rd-v2-catalog button.row[data-kind="external"]', {
+      hasText: "TWSE OpenAPI governance",
+    });
+    await mops.click();
+    const rail = page.locator("aside.rd-v2-rail");
+    await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();
+    await expect(rail.locator(".rd-v2-discover-probe-result")).toContainText("direct_file");
+    await twse.click();
+    await expect(rail).toContainText("TWSE OpenAPI");
+    await expect(rail.locator(".rd-v2-discover-probe-result")).toHaveCount(0);
+  });
+
+  test("similar titles do not inherit queued state without candidate_key", async ({ page }) => {
+    await mockV2Api(page, {
+      discoverBody: {
+        sections: [
+          {
+            title: "Registry",
+            rows: [
+              {
+                title: "MOPS financial statements",
+                source: "MOPS",
+                url: "https://mops.twse.com.tw/a",
+              },
+              {
+                title: "MOPS financial statements extended",
+                source: "MOPS",
+                url: "https://mops.twse.com.tw/b",
+              },
+            ],
+          },
+        ],
+        total: 2,
+      },
+      // Job title overlaps both candidates — must NOT mark either queued without key
+      jobsBody: {
+        jobs: [
+          {
+            id: "job-title-only",
+            status: "pending_approval",
+            type: "procure",
+            plan: { title: "MOPS financial statements" },
+            request: {},
+          },
+        ],
+      },
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("MOPS");
+    await expect(page.locator('.rd-v2-catalog button.row[data-kind="external"]')).toHaveCount(2);
+    await expect(page.locator(".rd-v2-pill", { hasText: "Queued" })).toHaveCount(0);
+  });
+
+  test("manually opened mobile Detail shows the selected candidate", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 1200 });
+    await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await page.locator('.rd-v2-catalog button.row[data-kind="external"]', { hasText: "MOPS" }).click();
+    // Open Detail sheet via rail tab control (existing mobile chrome)
+    const detailTab = page.getByRole("tab", { name: "Detail" });
+    if (await detailTab.count()) {
+      await detailTab.click();
+    }
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("MOPS financial statements");
+    await expect(rail).not.toContainText("No candidate selected");
   });
 
   test("new Discover query clears stale selected candidate and resets filters", async ({ page }) => {

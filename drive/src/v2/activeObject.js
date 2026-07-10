@@ -1,4 +1,5 @@
 import { displayName } from "@/v2/datasetMeta";
+import { candidateKey } from "@/v2/candidateKey";
 
 function compactText(value, fallback = "") {
   return String(value || fallback).trim();
@@ -21,7 +22,7 @@ export function datasetObject(row) {
 
 export function externalCandidateObject(row) {
   if (!row) return null;
-  const id = row.dataset_id || row.doi || row.url || row.title || "external";
+  const id = candidateKey(row) || row.dataset_id || row.doi || row.url || row.title || "external";
   return {
     kind: "external_candidate",
     id,

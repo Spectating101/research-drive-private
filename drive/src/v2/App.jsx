@@ -44,11 +44,11 @@ import { mergeHealth, resolveCatalog } from "@/v2/deskSeed";
 import { loadSettings } from "@/v2/settingsStore";
 import { CLUSTER_NAV_DEFERRED } from "@/v2/nav-config.jsx";
 import {
-  browseTargetKey,
   buildAddToLabDisplayText,
   buildAddToLabPrompt,
   discoverCandidateUrl,
 } from "@/v2/discoverActions";
+import { candidateKey } from "@/v2/candidateKey";
 import { discoverCandidateState } from "@/v2/browseMeta";
 import { buildRailContext } from "@/v2/railContext";
 
@@ -122,7 +122,7 @@ export function V2App() {
   const [folderId, setFolderId] = useState(() => readParams().folder);
   const [selectedId, setSelectedId] = useState(() => readParams().dataset);
   const [browseRow, setBrowseRow] = useState(null);
-  const [browseProbe, setBrowseProbe] = useState({ key: "", loading: false, result: null, error: "" });
+  const [browseProbe, setBrowseProbe] = useState({ candidateKey: "", loading: false, result: null, error: "" });
   const [resourceRow, setResourceRow] = useState(null);
   const [activeObject, setActiveObject] = useState(null);
   const [compareIds, setCompareIds] = useState(DEFAULT_COMPARE);
@@ -309,9 +309,9 @@ export function V2App() {
   }, [selectedId, selectedFromList]);
 
   const browseTarget = browseRow;
-  const browseSelectedId = browseRow ? browseTargetKey(browseRow) : "";
+  const browseSelectedId = browseRow ? candidateKey(browseRow) : "";
   const browseProbeState =
-    browseProbe.key && browseProbe.key === browseTargetKey(browseTarget)
+    browseProbe.candidateKey && browseProbe.candidateKey === candidateKey(browseTarget)
       ? browseProbe
       : { loading: false, result: null, error: "" };
 
@@ -463,13 +463,21 @@ export function V2App() {
       setActiveObject(externalCandidateObject(target));
       setRailTab("ask");
 
-      const key = browseTargetKey(target);
-      const probeResult = browseProbe.key === key ? browseProbe.result : null;
+      const key = candidateKey(target);
+      const probeResult = browseProbe.candidateKey === key ? browseProbe.result : null;
       const connectorId = probeResult?.connector?.connector_id || probeResult?.connector?.id;
 
       if (connectorId) {
         try {
-          const out = await submitDiscoverCollect(connectorId, { limit: 200, autoApprove: false });
+          const out = await submitDiscoverCollect(connectorId, {
+            limit: 200,
+            autoApprove: false,
+            candidateKey: key,
+            source: target?.source || target?.collect_via || "",
+            datasetId: target?.dataset_id || "",
+            doi: target?.doi || "",
+            url: discoverCandidateUrl(target) || "",
+          });
           const job = out?.job;
           refreshBackend();
           setPendingAsk({
@@ -499,22 +507,37 @@ export function V2App() {
 
   const probeDiscoverCandidate = useCallback(async (target) => {
     const url = discoverCandidateUrl(target);
-    const key = browseTargetKey(target);
+    const key = candidateKey(target);
     if (!url) {
-      setBrowseProbe({ key, loading: false, result: null, error: "No public URL to probe for this candidate." });
+      setBrowseProbe({ candidateKey: key, loading: false, result: null, error: "No public URL to probe for this candidate." });
       return;
     }
-    setBrowseProbe({ key, loading: true, result: null, error: "" });
+    setBrowseProbe({ candidateKey: key, loading: true, result: null, error: "" });
     try {
-      const out = await probePublicSource(url, target?.title || target?.name || "");
+      const out = await probePublicSource(url, target?.title || target?.name || "", { candidateKey: key });
+      // Ignore stale responses if selection changed mid-flight
       if (out?.error) {
-        setBrowseProbe({ key, loading: false, result: null, error: String(out.error) });
+        setBrowseProbe((cur) =>
+          cur.candidateKey === key
+            ? { candidateKey: key, loading: false, result: null, error: String(out.error) }
+            : cur,
+        );
         return;
       }
-      setBrowseProbe({ key, loading: false, result: out, error: "" });
-      showToast("Source probed — review connector details");
+      setBrowseProbe((cur) =>
+        cur.candidateKey === key
+          ? { candidateKey: key, loading: false, result: out, error: "" }
+          : cur,
+      );
+      if (candidateKey(target) === key) {
+        showToast("Source probed — review connector details");
+      }
     } catch (err) {
-      setBrowseProbe({ key, loading: false, result: null, error: err?.message || "Probe failed" });
+      setBrowseProbe((cur) =>
+        cur.candidateKey === key
+          ? { candidateKey: key, loading: false, result: null, error: err?.message || "Probe failed" }
+          : cur,
+      );
     }
   }, [showToast]);
 
@@ -576,7 +599,7 @@ export function V2App() {
 
   useEffect(() => {
     setBrowseRow(null);
-    setBrowseProbe({ key: "", loading: false, result: null, error: "" });
+    setBrowseProbe({ candidateKey: "", loading: false, result: null, error: "" });
     setActiveObject((current) => (current?.kind === "external_candidate" ? null : current));
   }, [searchQuery]);
 
@@ -762,7 +785,7 @@ export function V2App() {
           onSelectRow={(row) => {
             setBrowseRow(row);
             setBrowseProbe((current) =>
-              current.key === browseTargetKey(row)
+              current.candidateKey === candidateKey(row)
                 ? current
                 : { key: "", loading: false, result: null, error: "" },
             );

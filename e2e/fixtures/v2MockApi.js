@@ -145,7 +145,7 @@ export const MOCK_WEB_DISCOVER = {
   index_miss: true,
 };
 
-export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 } } = {}) {
+export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 }, jobsBody = MOCK_JOBS } = {}) {
   await page.route("**/datasets", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_DATASETS) }),
   );
@@ -168,21 +168,46 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
     if (route.request().method() !== "POST") {
       return route.continue();
     }
+    let candidateKey = "";
+    try {
+      candidateKey = JSON.parse(route.request().postData() || "{}").candidate_key || "";
+    } catch {
+      candidateKey = "";
+    }
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(MOCK_PROBE_RESULT),
+      body: JSON.stringify({
+        ...MOCK_PROBE_RESULT,
+        candidate_key: candidateKey || null,
+        connector_id: MOCK_PROBE_RESULT.connector.connector_id,
+      }),
     });
   });
   await page.route("**/library/discover/collect", (route) => {
     if (route.request().method() !== "POST") {
       return route.continue();
     }
+    let body = {};
+    try {
+      body = JSON.parse(route.request().postData() || "{}");
+    } catch {
+      body = {};
+    }
     return route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        job: { id: "job-discover-collect-1", status: "pending_approval" },
+        job: {
+          id: "job-discover-collect-1",
+          status: "pending_approval",
+          candidate_key: body.candidate_key || null,
+          connector_id: body.connector_id || null,
+          request: {
+            candidate_key: body.candidate_key || null,
+            connector_id: body.connector_id || null,
+          },
+        },
       }),
     });
   });
@@ -227,7 +252,7 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_CLUSTER) }),
   );
   await page.route("**/library/jobs*", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_JOBS) }),
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(jobsBody) }),
   );
   await page.route("**/library/partitions*", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ partitions: [] }) }),

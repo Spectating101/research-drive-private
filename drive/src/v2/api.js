@@ -48,23 +48,34 @@ export function webDiscover(query = "", limit = 8, tavilyLive = true) {
   return fetchJson(`/library/discover/web?${params}`);
 }
 
-export function probePublicSource(url, name = "") {
+export function probePublicSource(url, name = "", { candidateKey = "" } = {}) {
+  const body = { url, name };
+  if (candidateKey) body.candidate_key = candidateKey;
   return fetchJson("/library/discover/probe", {
     method: "POST",
     headers: deskHeaders(),
-    body: JSON.stringify({ url, name }),
+    body: JSON.stringify(body),
   });
 }
 
-export function submitDiscoverCollect(connectorId, { limit = 200, autoApprove = false } = {}) {
+export function submitDiscoverCollect(
+  connectorId,
+  { limit = 200, autoApprove = false, candidateKey = "", source = "", datasetId = "", doi = "", url = "" } = {},
+) {
+  const body = {
+    connector_id: connectorId,
+    limit,
+    auto_approve: autoApprove,
+  };
+  if (candidateKey) body.candidate_key = candidateKey;
+  if (source) body.source = source;
+  if (datasetId) body.dataset_id = datasetId;
+  if (doi) body.doi = doi;
+  if (url) body.url = url;
   return fetchJson("/library/discover/collect", {
     method: "POST",
     headers: deskHeaders(),
-    body: JSON.stringify({
-      connector_id: connectorId,
-      limit,
-      auto_approve: autoApprove,
-    }),
+    body: JSON.stringify(body),
   });
 }
 

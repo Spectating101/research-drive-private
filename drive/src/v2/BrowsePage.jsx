@@ -5,6 +5,7 @@ import {
   discoverStageCounts,
 } from "@/v2/browseMeta";
 import { webHitsToRows, discoverCandidateUrl } from "@/v2/discoverActions";
+import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidateKey";
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverEmptyState } from "@/v2/DiscoverEmptyState";
@@ -20,20 +21,6 @@ const FILTERS = [
 
 function rowFilterState(row, labIds) {
   return discoverCandidateState(row, labIds).key;
-}
-
-function normalizedTitle(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function queuedMatch(row, queuedTitles) {
-  const candidate = normalizedTitle(row.title || row.name || row.dataset_id);
-  if (!candidate) return false;
-  return queuedTitles.some((title) => candidate.includes(title) || title.includes(candidate));
-}
-
-function candidateId(row) {
-  return row?.dataset_id || row?.title || row?.doi || row?.url || row?.name || "external";
 }
 
 function candidateTitle(row) {
@@ -112,7 +99,7 @@ function DiscoverFact({ label, value }) {
 
 function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
   const state = row.discover_state || discoverCandidateState(row, labIds);
-  const selected = selectedId === candidateId(row);
+  const selected = selectedId === candidateKey(row);
   const ribbonSource = row.source || row.collect_via || row.source_route || row.publisher || row.backend;
   const route = candidateRoute(row);
   const subline = candidateSubline(row);
@@ -162,7 +149,7 @@ function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow }) {
       <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
       {rows.map((row) => (
         <DiscoverCandidateRow
-          key={candidateId(row)}
+          key={candidateKey(row) || candidateTitle(row)}
           row={row}
           labIds={labIds}
           selectedId={selectedId}
@@ -178,10 +165,11 @@ function dedupeRows(rows) {
   const seen = new Set();
   const out = [];
   for (const row of rows) {
-    const key = candidateId(row).toLowerCase();
+    const stamped = withCandidateKey(row);
+    const key = candidateKey(stamped);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    out.push(row);
+    out.push(stamped);
   }
   return out;
 }
@@ -219,15 +207,6 @@ export function BrowsePage({
   const [stateFilter, setStateFilter] = useState("all");
   const [indexMiss, setIndexMiss] = useState(false);
   const [showExternal, setShowExternal] = useState(false);
-
-  const queuedTitles = useMemo(() => {
-    const out = [];
-    for (const j of jobs) {
-      const t = j.plan?.title || j.plan?.dataset_id || j.type;
-      if (t) out.push(normalizedTitle(t));
-    }
-    return out.filter(Boolean);
-  }, [jobs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -358,14 +337,15 @@ export function BrowsePage({
     const seen = new Set();
     const out = [];
     for (const r of rows) {
-      const key = r.dataset_id || r.doi || r.title || r.url;
+      const stamped = withCandidateKey(r);
+      const key = candidateKey(stamped);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      const queued = queuedMatch(r, queuedTitles);
-      out.push(queued ? { ...r, queued: true } : r);
+      const queued = isCandidateQueued(stamped, jobs);
+      out.push(queued ? { ...stamped, queued: true } : stamped);
     }
     return out;
-  }, [rows, queuedTitles]);
+  }, [rows, jobs]);
 
   const filtered = useMemo(() => {
     if (stateFilter === "all") return merged;

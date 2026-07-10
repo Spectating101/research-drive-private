@@ -1,20 +1,14 @@
+import { candidateKey, canonicalizeDoi } from "@/v2/candidateKey";
+
 export function discoverCandidateUrl(row) {
   if (!row) return "";
-  const raw = String(row.url || "").trim();
+  const raw = String(row.url || row.resolved_url || row.source_url || "").trim();
   if (raw) return raw;
-  const doi = String(row.doi || "").trim();
-  if (doi) {
-    const bare = doi.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "");
-    return `https://doi.org/${bare}`;
-  }
-  const handle = String(row.open_handle || "").trim();
-  if (handle.startsWith("doi:")) return `https://doi.org/${handle.slice(4)}`;
+  const doi = canonicalizeDoi(row.doi);
+  if (doi) return `https://doi.org/${doi}`;
+  const handle = String(row.open_handle || row.handle || "").trim();
+  if (handle.startsWith("doi:")) return `https://doi.org/${canonicalizeDoi(handle.slice(4))}`;
   return "";
-}
-
-export function browseTargetKey(target) {
-  if (!target) return "";
-  return target.dataset_id || target.url || target.doi || target.title || target.name || "";
 }
 
 export function buildAddToLabPrompt(target, probeResult) {
@@ -23,6 +17,7 @@ export function buildAddToLabPrompt(target, probeResult) {
   const summary = probeResult?.summary;
   const payload = {
     title: label,
+    candidate_key: candidateKey(target) || null,
     dataset_id: target?.dataset_id || null,
     doi: target?.doi || null,
     url: discoverCandidateUrl(target) || null,
@@ -40,13 +35,12 @@ export function buildAddToLabPrompt(target, probeResult) {
   ].join("\n");
 }
 
-
 export function buildAddToLabDisplayText(target, probeResult, jobId = "") {
   const label = target?.title || target?.dataset_id || target?.name || "this dataset";
   const firstLine = `Add to lab vault: ${label}`;
   if (jobId) return `${firstLine}\nCollection job queued. Track it in Resources.`;
   if (probeResult?.summary) {
-    return `${firstLine}\nUse the verified source details to prepare a safe collection plan.`;
+    return `${firstLine}\nUse the probed source details to prepare a safe collection plan.`;
   }
   return `${firstLine}\nInspect the source if needed, then prepare a safe collection plan.`;
 }
