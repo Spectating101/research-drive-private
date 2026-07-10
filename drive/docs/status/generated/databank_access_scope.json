@@ -1,0 +1,1767 @@
+{
+  "generated_at": "2026-07-07T11:19:05+00:00",
+  "access_scope_version": 1,
+  "principle": "Declarative desk entitlements — what we CAN reach via license, connector, or public access. Independent of vault bytes and registry card count. Materialized truth lives in databank_research_coverage.json.",
+  "access_levels": {
+    "full": "Production-grade reach for this geo×capability without new licenses",
+    "partial": "Reachable with known thin spots, manual export, or rescue lanes",
+    "on_demand": "Live remote query or procurement — not expected to be fully mirrored locally",
+    "not_wired": "Subscription or public access exists; ingest/registry path not built on this desk",
+    "metadata_only": "Search/catalog surface only — bytes require collect job",
+    "blocked": "License or policy block on this seat"
+  },
+  "summary": {
+    "geographies": 9,
+    "capabilities": 11,
+    "entitlement_sources": 21,
+    "accessible_cells_ge_2": 42,
+    "total_cells": 99,
+    "gap_cells": 8,
+    "not_wired_sources": [],
+    "materialized_matrix_loaded": true
+  },
+  "entitlement_matrix": {
+    "US": {
+      "daily_prices": "not_wired",
+      "country_news_shocks": "full",
+      "entity_news_shocks": "partial",
+      "fundamentals": "not_wired",
+      "estimates_revisions": "full",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "partial",
+      "entity_join_gdelt_ric": "partial",
+      "governance_regulatory": "partial",
+      "social_sentiment": "partial",
+      "onchain_crypto": "blocked"
+    },
+    "Taiwan": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "partial",
+      "estimates_revisions": "full",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "partial",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "partial",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Indonesia": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "partial",
+      "fundamentals": "partial",
+      "estimates_revisions": "partial",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "partial",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Japan": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "partial",
+      "estimates_revisions": "partial",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Korea": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "partial",
+      "estimates_revisions": "partial",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "HK_SG_ASEAN": {
+      "daily_prices": "blocked",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "blocked",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Asia_multi_13": {
+      "daily_prices": "partial",
+      "country_news_shocks": "full",
+      "entity_news_shocks": "partial",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "partial",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Crypto_global": {
+      "daily_prices": "on_demand",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "blocked",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "partial",
+      "onchain_crypto": "on_demand"
+    },
+    "Macro_global": {
+      "daily_prices": "partial",
+      "country_news_shocks": "full",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "blocked",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "on_demand",
+      "social_sentiment": "on_demand",
+      "onchain_crypto": "blocked"
+    }
+  },
+  "materialized_matrix": {
+    "US": {
+      "daily_prices": 2,
+      "country_news_shocks": 1,
+      "entity_news_shocks": 1,
+      "fundamentals": 2,
+      "estimates_revisions": 3,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 2,
+      "social_sentiment": 1,
+      "onchain_crypto": 2
+    },
+    "Taiwan": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 2,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "Indonesia": {
+      "daily_prices": 3,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 2,
+      "fundamentals": 2,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 2,
+      "governance_regulatory": 2,
+      "social_sentiment": 2,
+      "onchain_crypto": 1
+    },
+    "Japan": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "Korea": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "HK_SG_ASEAN": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 2,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "Asia_multi_13": {
+      "daily_prices": 2,
+      "country_news_shocks": 3,
+      "entity_news_shocks": 2,
+      "fundamentals": 1,
+      "estimates_revisions": 1,
+      "index_pit_survivorship": 2,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 2,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 2
+    },
+    "Crypto_global": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 2,
+      "fundamentals": 0,
+      "estimates_revisions": 0,
+      "index_pit_survivorship": 0,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 2,
+      "governance_regulatory": 1,
+      "social_sentiment": 2,
+      "onchain_crypto": 3
+    },
+    "Macro_global": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 0,
+      "estimates_revisions": 0,
+      "index_pit_survivorship": 0,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 0,
+      "governance_regulatory": 0,
+      "social_sentiment": 0,
+      "onchain_crypto": 1
+    }
+  },
+  "gap_matrix": {
+    "US": {
+      "daily_prices": null,
+      "country_news_shocks": "entitlement_gap",
+      "entity_news_shocks": "entitlement_gap",
+      "fundamentals": null,
+      "estimates_revisions": null,
+      "index_pit_survivorship": null,
+      "risk_overlay": null,
+      "entity_join_gdelt_ric": "entitlement_gap",
+      "governance_regulatory": null,
+      "social_sentiment": "entitlement_gap",
+      "onchain_crypto": "license_block"
+    },
+    "Taiwan": {
+      "daily_prices": null,
+      "country_news_shocks": "license_block",
+      "entity_news_shocks": "license_block",
+      "fundamentals": "entitlement_gap",
+      "estimates_revisions": null,
+      "index_pit_survivorship": null,
+      "risk_overlay": "entitlement_gap",
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": null,
+      "social_sentiment": "license_block",
+      "onchain_crypto": "license_block"
+    },
+    "Indonesia": {
+      "daily_prices": null,
+      "country_news_shocks": "license_block",
+      "entity_news_shocks": null,
+      "fundamentals": null,
+      "estimates_revisions": null,
+      "index_pit_survivorship": null,
+      "risk_overlay": null,
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": "license_block",
+      "social_sentiment": "license_block",
+      "onchain_crypto": "license_block"
+    },
+    "Japan": {
+      "daily_prices": null,
+      "country_news_shocks": "license_block",
+      "entity_news_shocks": "license_block",
+      "fundamentals": "entitlement_gap",
+      "estimates_revisions": null,
+      "index_pit_survivorship": null,
+      "risk_overlay": "license_block",
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": "license_block",
+      "social_sentiment": "license_block",
+      "onchain_crypto": "license_block"
+    },
+    "Korea": {
+      "daily_prices": null,
+      "country_news_shocks": "license_block",
+      "entity_news_shocks": "license_block",
+      "fundamentals": "entitlement_gap",
+      "estimates_revisions": null,
+      "index_pit_survivorship": null,
+      "risk_overlay": "license_block",
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": "license_block",
+      "social_sentiment": "license_block",
+      "onchain_crypto": "license_block"
+    },
+    "HK_SG_ASEAN": {
+      "daily_prices": "license_block",
+      "country_news_shocks": "license_block",
+      "entity_news_shocks": "license_block",
+      "fundamentals": "license_block",
+      "estimates_revisions": "license_block",
+      "index_pit_survivorship": "license_block",
+      "risk_overlay": "license_block",
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": "license_block",
+      "social_sentiment": "license_block",
+      "onchain_crypto": "license_block"
+    },
+    "Asia_multi_13": {
+      "daily_prices": null,
+      "country_news_shocks": null,
+      "entity_news_shocks": null,
+      "fundamentals": "license_block",
+      "estimates_revisions": "license_block",
+      "index_pit_survivorship": null,
+      "risk_overlay": "license_block",
+      "entity_join_gdelt_ric": null,
+      "governance_regulatory": "license_block",
+      "social_sentiment": "license_block",
+      "onchain_crypto": "license_block"
+    },
+    "Crypto_global": {
+      "daily_prices": null,
+      "country_news_shocks": "license_block",
+      "entity_news_shocks": "license_block",
+      "fundamentals": "license_block",
+      "estimates_revisions": "license_block",
+      "index_pit_survivorship": "license_block",
+      "risk_overlay": "license_block",
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": "license_block",
+      "social_sentiment": null,
+      "onchain_crypto": null
+    },
+    "Macro_global": {
+      "daily_prices": null,
+      "country_news_shocks": null,
+      "entity_news_shocks": "license_block",
+      "fundamentals": "license_block",
+      "estimates_revisions": "license_block",
+      "index_pit_survivorship": "license_block",
+      "risk_overlay": "license_block",
+      "entity_join_gdelt_ric": "license_block",
+      "governance_regulatory": "on_demand_only",
+      "social_sentiment": "on_demand_only",
+      "onchain_crypto": "license_block"
+    }
+  },
+  "combined_matrix": {
+    "US": {
+      "daily_prices": {
+        "accessible": "not_wired",
+        "accessible_rank": 3,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "crsp_moveit",
+          "lseg_edp",
+          "yfinance_public"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "gdelt"
+        ]
+      },
+      "entity_news_shocks": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "derived_research_panels",
+          "gdelt"
+        ]
+      },
+      "fundamentals": {
+        "accessible": "not_wired",
+        "accessible_rank": 3,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "capital_iq_compustat",
+          "lseg_edp"
+        ]
+      },
+      "estimates_revisions": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "index_pit_survivorship": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "crsp_moveit",
+          "lseg_edp"
+        ]
+      },
+      "risk_overlay": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_desktop_rescue",
+          "lseg_edp"
+        ]
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "derived_research_panels",
+          "gdelt",
+          "lseg_edp"
+        ]
+      },
+      "governance_regulatory": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "sec_edgar"
+        ]
+      },
+      "social_sentiment": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "reddit_social"
+        ]
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "Taiwan": {
+      "daily_prices": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp",
+          "twse_official"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "fundamentals": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "estimates_revisions": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "index_pit_survivorship": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "risk_overlay": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "mops_taiwan",
+          "twse_official"
+        ]
+      },
+      "social_sentiment": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "Indonesia": {
+      "daily_prices": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_news_shocks": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "derived_research_panels"
+        ]
+      },
+      "fundamentals": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "estimates_revisions": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "index_pit_survivorship": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "risk_overlay": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "social_sentiment": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "Japan": {
+      "daily_prices": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "fundamentals": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "estimates_revisions": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "index_pit_survivorship": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "risk_overlay": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "social_sentiment": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "Korea": {
+      "daily_prices": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "fundamentals": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 1,
+        "gap": "entitlement_gap",
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "estimates_revisions": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "index_pit_survivorship": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "risk_overlay": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "social_sentiment": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "HK_SG_ASEAN": {
+      "daily_prices": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "country_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "fundamentals": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "estimates_revisions": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "index_pit_survivorship": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "risk_overlay": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "social_sentiment": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "Asia_multi_13": {
+      "daily_prices": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "yfinance_public"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "derived_research_panels",
+          "gdelt"
+        ]
+      },
+      "entity_news_shocks": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "gdelt"
+        ]
+      },
+      "fundamentals": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "estimates_revisions": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "index_pit_survivorship": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "lseg_edp"
+        ]
+      },
+      "risk_overlay": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "derived_research_panels",
+          "gdelt",
+          "lseg_edp"
+        ]
+      },
+      "governance_regulatory": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "social_sentiment": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      }
+    },
+    "Crypto_global": {
+      "daily_prices": {
+        "accessible": "on_demand",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "coingecko"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "fundamentals": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "estimates_revisions": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "index_pit_survivorship": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "risk_overlay": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 2,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "social_sentiment": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "reddit_social"
+        ]
+      },
+      "onchain_crypto": {
+        "accessible": "on_demand",
+        "accessible_rank": 2,
+        "materialized_score": 3,
+        "gap": null,
+        "sources": [
+          "bigquery_public",
+          "coingecko",
+          "ethereum_onchain"
+        ]
+      }
+    },
+    "Macro_global": {
+      "daily_prices": {
+        "accessible": "partial",
+        "accessible_rank": 2,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "public_macro"
+        ]
+      },
+      "country_news_shocks": {
+        "accessible": "full",
+        "accessible_rank": 3,
+        "materialized_score": 2,
+        "gap": null,
+        "sources": [
+          "gdelt"
+        ]
+      },
+      "entity_news_shocks": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "fundamentals": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "estimates_revisions": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "index_pit_survivorship": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "risk_overlay": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      },
+      "entity_join_gdelt_ric": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 0,
+        "gap": "license_block",
+        "sources": []
+      },
+      "governance_regulatory": {
+        "accessible": "on_demand",
+        "accessible_rank": 2,
+        "materialized_score": 0,
+        "gap": "on_demand_only",
+        "sources": [
+          "datacite_harvest",
+          "datacite_procured",
+          "open_research_catalogs",
+          "web_scrape_catalog"
+        ]
+      },
+      "social_sentiment": {
+        "accessible": "on_demand",
+        "accessible_rank": 2,
+        "materialized_score": 0,
+        "gap": "on_demand_only",
+        "sources": [
+          "huggingface"
+        ]
+      },
+      "onchain_crypto": {
+        "accessible": "blocked",
+        "accessible_rank": 0,
+        "materialized_score": 1,
+        "gap": "license_block",
+        "sources": []
+      }
+    }
+  },
+  "priority_gaps": [
+    {
+      "geography": "US",
+      "capability": "country_news_shocks",
+      "accessible": "full",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "gdelt"
+      ]
+    },
+    {
+      "geography": "Japan",
+      "capability": "fundamentals",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "Korea",
+      "capability": "fundamentals",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "Taiwan",
+      "capability": "fundamentals",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "Taiwan",
+      "capability": "risk_overlay",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "US",
+      "capability": "entity_join_gdelt_ric",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "derived_research_panels",
+        "gdelt",
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "US",
+      "capability": "entity_news_shocks",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "derived_research_panels",
+        "gdelt"
+      ]
+    },
+    {
+      "geography": "US",
+      "capability": "social_sentiment",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "reddit_social"
+      ]
+    }
+  ],
+  "not_wired_by_source": {},
+  "source_level_gaps": {
+    "crsp_moveit": [
+      {
+        "geography": "US",
+        "capability": "daily_prices",
+        "access": "not_wired",
+        "materialized_score": 2,
+        "note": "Licensed; pending MOVEit download to data_lake/crsp/"
+      },
+      {
+        "geography": "US",
+        "capability": "index_pit_survivorship",
+        "access": "not_wired",
+        "materialized_score": 3,
+        "note": null
+      }
+    ],
+    "capital_iq_compustat": [
+      {
+        "geography": "US",
+        "capability": "fundamentals",
+        "access": "not_wired",
+        "materialized_score": 2,
+        "note": "Export to data_lake/compustat/raw/"
+      }
+    ],
+    "bigquery_public": [
+      {
+        "geography": "Crypto_global",
+        "capability": "onchain_crypto",
+        "access": "on_demand",
+        "materialized_score": 3,
+        "note": "Vast public catalog; 1 registry catalogue card + RPC pilots materialized"
+      }
+    ],
+    "datacite_procured": [
+      {
+        "geography": "Macro_global",
+        "capability": "governance_regulatory",
+        "access": "on_demand",
+        "materialized_score": 0,
+        "note": null
+      }
+    ],
+    "mops_taiwan": [
+      {
+        "geography": "Taiwan",
+        "capability": "governance_regulatory",
+        "access": "on_demand",
+        "materialized_score": 2,
+        "note": null
+      }
+    ],
+    "coingecko": [
+      {
+        "geography": "Crypto_global",
+        "capability": "daily_prices",
+        "access": "on_demand",
+        "materialized_score": 2,
+        "note": null
+      }
+    ],
+    "huggingface": [
+      {
+        "geography": "Macro_global",
+        "capability": "social_sentiment",
+        "access": "on_demand",
+        "materialized_score": 0,
+        "note": null
+      }
+    ],
+    "web_scrape_catalog": [
+      {
+        "geography": "Macro_global",
+        "capability": "governance_regulatory",
+        "access": "on_demand",
+        "materialized_score": 0,
+        "note": "Per-site; 35 scrape index cards"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "source_id": "lseg_edp",
+      "subscription_status": "active",
+      "license_holder": "YZU university EDP / Workspace seat",
+      "fetch_modes": [
+        "lseg_data_api",
+        "entitlement_probe",
+        "frozen_release_read"
+      ],
+      "reachable_products": [
+        "Security master / TRBC",
+        "PIT index membership (US + Asia 0# indices)",
+        "Corporate actions",
+        "Consensus estimates + revision history",
+        "PIT fundamentals (FY; FQ blocked)",
+        "Vol / skew / put-call / short interest (thin US daily on EDP)",
+        "ESG pillar snapshot"
+      ],
+      "coverage_cell_count": 27,
+      "license_blocks": [
+        {
+          "capability": "institutional_ownership",
+          "geographies": [
+            "US",
+            "Asia_multi_13"
+          ],
+          "reason": "G1 ownership not on YZU EDP"
+        },
+        {
+          "capability": "supply_chain",
+          "geographies": [
+            "US",
+            "Asia_multi_13"
+          ],
+          "reason": "I1 supply chain graph not on EDP"
+        },
+        {
+          "capability": "estimates_revisions",
+          "geographies": [
+            "US",
+            "Asia_multi_13"
+          ],
+          "reason": "StarMine / SmartEstimate license-blocked",
+          "product": "F1 StarMine"
+        }
+      ],
+      "notes": null
+    },
+    {
+      "source_id": "lseg_desktop_rescue",
+      "subscription_status": "active",
+      "license_holder": "Desktop Eikon export (operator)",
+      "fetch_modes": [
+        "desktop_export",
+        "frozen_release_read"
+      ],
+      "reachable_products": [
+        "US vol / skew / put-call / short-interest daily history"
+      ],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "crsp_moveit",
+      "subscription_status": "active",
+      "license_holder": "YZU CRSP subscriber (MOVEit)",
+      "fetch_modes": [
+        "moveit_web",
+        "sftp_ftps",
+        "manifest"
+      ],
+      "reachable_products": [
+        "CRSP US Stock 2.5 CIZ ASCII",
+        "CRSP US Index 1925+",
+        "Index History quarterly release"
+      ],
+      "coverage_cell_count": 2,
+      "license_blocks": [],
+      "notes": "MOVEit login verified. Manifest task crsp_moveit_manifest enabled."
+    },
+    {
+      "source_id": "capital_iq_compustat",
+      "subscription_status": "active",
+      "license_holder": "YZU Capital IQ seat",
+      "fetch_modes": [
+        "capital_iq_web_export"
+      ],
+      "reachable_products": [
+        "Compustat North America fundamentals",
+        "Capital IQ Financials screens"
+      ],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": "Okta login verified. No WRDS; manual or scripted export path."
+    },
+    {
+      "source_id": "wrds_crsp_compustat",
+      "subscription_status": "unavailable",
+      "license_holder": "Wharton WRDS",
+      "fetch_modes": [],
+      "reachable_products": [],
+      "coverage_cell_count": 0,
+      "license_blocks": [],
+      "notes": "Desk credentials do not authenticate. Ask library if institutional WRDS desired."
+    },
+    {
+      "source_id": "gdelt",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "bulk_download",
+        "doc_api",
+        "pipeline_harvest"
+      ],
+      "reachable_products": [
+        "GKG 2.0",
+        "Events",
+        "DOC API",
+        "country/entity taxonomy overlays"
+      ],
+      "coverage_cell_count": 7,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "bigquery_public",
+      "subscription_status": "active",
+      "license_holder": "GCP ADC + public dataset catalog",
+      "fetch_modes": [
+        "bigquery_sql",
+        "dry_run",
+        "mcp_live_query"
+      ],
+      "reachable_products": [
+        "bigquery-public-data.crypto_ethereum.*",
+        "bigquery-public-data.crypto_bitcoin.*",
+        "US census / NOAA / other public tables (on demand)"
+      ],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "datacite_harvest",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "bulk_harvest",
+        "search_index"
+      ],
+      "reachable_products": [
+        "DataCite DOI metadata graph (~all registered DOIs)"
+      ],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "datacite_procured",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "datacite_collect_doi",
+        "per_doi_download"
+      ],
+      "reachable_products": [
+        "Any open DataCite DOI dataset"
+      ],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "sec_edgar",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "http_manifest",
+        "queue_harvest"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "twse_official",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "twse_openapi",
+        "queue_harvest"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 2,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "mops_taiwan",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "web_scrape",
+        "queue_collect"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "yfinance_public",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "yfinance_api",
+        "queue_panel_build"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 2,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "coingecko",
+      "subscription_status": "active",
+      "license_holder": "CoinGecko API key",
+      "fetch_modes": [
+        "live_api",
+        "registry_quote_cards"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 2,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "ethereum_onchain",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "ethereum_rpc",
+        "bigquery_public",
+        "local_csv"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "reddit_social",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "reddit_api",
+        "bulk_ingest"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 2,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "public_macro",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "ken_french_zip",
+        "queue_download"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "huggingface",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "hf_datasets_api",
+        "mcp_search"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "open_research_catalogs",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "zenodo_api",
+        "openalex_api",
+        "web_discover"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "web_scrape_catalog",
+      "subscription_status": "public",
+      "license_holder": null,
+      "fetch_modes": [
+        "probe_url",
+        "playwright_scrape",
+        "yzu_submit_job"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 1,
+      "license_blocks": [],
+      "notes": null
+    },
+    {
+      "source_id": "derived_research_panels",
+      "subscription_status": "internal",
+      "license_holder": null,
+      "fetch_modes": [
+        "internal_build"
+      ],
+      "reachable_products": [],
+      "coverage_cell_count": 5,
+      "license_blocks": [],
+      "notes": "Derived from upstream sources; ceiling follows bridge quality (~10.9% spine)."
+    }
+  ],
+  "refinitiv_entitlement_probe": {
+    "canonical_run_id": "2026-07-06-complete",
+    "summary": {
+      "categories_total": 12,
+      "pass": 9,
+      "partial": 0,
+      "fail": 3
+    },
+    "blocked_categories": [
+      {
+        "category_id": "G1_ownership",
+        "status": "fail",
+        "description": "Institutional ownership",
+        "reason": "Institutional ownership fields not on YZU EDP"
+      },
+      {
+        "category_id": "I1_supply_chain",
+        "status": "fail",
+        "description": "Supply chain suppliers / customers",
+        "reason": "Supply chain graph fields not on YZU EDP"
+      },
+      {
+        "category_id": "F1_starmine_probe",
+        "status": "fail",
+        "description": "StarMine / SmartEstimate probe",
+        "reason": "StarMine / SmartEstimate fields not on YZU EDP"
+      }
+    ],
+    "entitled_categories": [
+      {
+        "id": "B1_B6_security_master",
+        "description": "Security master / identifiers / TRBC"
+      },
+      {
+        "id": "B7_B8_index_constituents",
+        "description": "Current + PIT index constituent fields"
+      },
+      {
+        "id": "C1_C5_corporate_actions",
+        "description": "Corporate actions / adjustment factors"
+      },
+      {
+        "id": "A9_A11_risk",
+        "description": "Vol / skew / put-call / short interest"
+      },
+      {
+        "id": "D8_pit_fundamentals",
+        "description": "Point-in-time fundamentals (fundamental_and_reference)"
+      },
+      {
+        "id": "E4_estimate_revisions",
+        "description": "Estimate revisions / EPS mean history"
+      },
+      {
+        "id": "B8_asia_pit_indices",
+        "description": "Asia PIT index constituents (0# pattern)"
+      },
+      {
+        "id": "E1_E3_consensus_snapshot",
+        "description": "Analyst consensus snapshot (E1-E3)"
+      },
+      {
+        "id": "H1_esg_snapshot",
+        "description": "ESG pillar scores"
+      }
+    ]
+  },
+  "documentation": {
+    "canonical_config": "drive/config/databank_access_scope.json",
+    "materialized_scores": "docs/status/generated/databank_research_coverage.json",
+    "regenerate": "python3 scripts/databank_access_scope.py --json"
+  }
+}

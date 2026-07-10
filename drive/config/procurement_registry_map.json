@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "notes": [
+    "Maps collection_queue_task ids to research_query_registry.json entries after successful jobs.",
+    "Paths are relative to repo root. Promotion is skipped if the artifact is missing."
+  ],
+  "tasks": {
+    "sec_company_tickers": {
+      "dataset_id": "sec_company_tickers",
+      "name": "SEC public ticker-to-CIK mapping",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "ticker",
+      "local_path": "data_lake/sec/company_tickers.json",
+      "description": "SEC EDGAR public company_tickers.json mapping (ticker, CIK, title).",
+      "capabilities": ["limit", "export_json"],
+      "recommended_use": "Map US equity tickers to CIK before EDGAR submissions fetch."
+    },
+    "sec_sp500_submissions": {
+      "dataset_id": "sec_sp500_submissions",
+      "name": "SEC EDGAR submissions cache (S&P 500)",
+      "backend": "local_json_glob",
+      "access_shape": "local_file_tree",
+      "analysis_readiness": "metadata_search",
+      "grain": "ticker_filing",
+      "local_path": "data_lake/sec/submissions/*.json",
+      "description": "Per-ticker SEC EDGAR submissions JSON cache for S&P 500 universe.",
+      "capabilities": ["filter_ticker", "limit", "export_json"],
+      "recommended_use": "Event study and filing history for US large-cap names."
+    },
+    "twse_openapi_taiwan_market_layer": {
+      "dataset_id": "twse_openapi_taiwan_market_layer",
+      "name": "Taiwan TWSE OpenAPI market layer",
+      "backend": "local_json_glob",
+      "access_shape": "local_file_tree",
+      "analysis_readiness": "metadata_search",
+      "grain": "run_snapshot",
+      "local_path": "data_lake/official_disclosures/taiwan_twse/*",
+      "description": "TWSE OpenAPI snapshot: listings, sectors, and disclosure-adjacent market layer.",
+      "capabilities": ["limit", "export_json"],
+      "recommended_use": "Taiwan equity research and TWSE-linked event studies."
+    },
+    "mops_governance_panel": {
+      "dataset_id": "mops_governance_panel",
+      "name": "Taiwan MOPS governance misconduct panel",
+      "backend": "local_json_glob",
+      "access_shape": "local_file_tree",
+      "analysis_readiness": "metadata_search",
+      "grain": "governance_event",
+      "local_path": "data_lake/official_disclosures/taiwan_mops/*",
+      "description": "Official TWSE OpenAPI governance feeds: penalty cases, material information, ESG board structure — MOPS-adjacent misconduct panel.",
+      "capabilities": ["limit", "export_json"],
+      "recommended_use": "Corporate governance, misconduct, and trust-premium research on Taiwan listed firms.",
+      "partition_id": "official.mops-disclosures"
+    },
+    "yfinance_global_drilldown_10y": {
+      "dataset_id": "yfinance_global_drilldown_10y",
+      "name": "yfinance global drilldown 10y panel",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "ticker_date",
+      "local_path": "data_lake/markets/yfinance_global_drilldown_10y.csv",
+      "description": "Daily OHLCV panel for global drilldown ticker universe (10y).",
+      "capabilities": ["limit", "export_json"],
+      "recommended_use": "Cross-market price panels without paid market data."
+    }
+  },
+  "pipelines": {
+    "skynet_stablecoin_harvest": {
+      "dataset_id": "skynet_stablecoin_harvest",
+      "name": "CertiK Skynet stablecoin leaderboard harvest",
+      "backend": "local_json_glob",
+      "access_shape": "local_file_tree",
+      "analysis_readiness": "metadata_search",
+      "grain": "stablecoin_project_snapshot",
+      "path_resolver": "latest_skynet_harvest_projects",
+      "description": "Playwright-harvested CertiK Skynet stablecoin API payloads (leaderboard + per-project JSON).",
+      "capabilities": ["limit", "export_json", "filter_file"],
+      "domain": "crypto_finance",
+      "recommended_use": "Stablecoin security scores and Skynet project metadata without live portal scraping."
+    },
+    "ethereum_usdt_rpc_pilot": {
+      "dataset_id": "ethereum_usdt_rpc_pilot",
+      "name": "Ethereum USDT ERC-20 transfer RPC pilot sample",
+      "backend": "local_json_glob",
+      "access_shape": "local_file_tree",
+      "analysis_readiness": "metadata_search",
+      "grain": "transfer_event",
+      "path_resolver": "usdt_pilot_artifacts",
+      "description": "Local RPC pilot extracts for USDT on Ethereum (Etherscan-style research without API key).",
+      "capabilities": ["limit", "export_json"],
+      "domain": "crypto_finance",
+      "recommended_use": "Preview on-chain USDT flow panels before BigQuery historical runs."
+    }
+  }
+}

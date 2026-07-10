@@ -1,0 +1,288 @@
+{
+  "version": 1,
+  "principle": "Declarative desk entitlements — what we CAN reach via license, connector, or public access. Independent of vault bytes and registry card count. Materialized truth lives in databank_research_coverage.json.",
+  "access_levels": {
+    "full": "Production-grade reach for this geo×capability without new licenses",
+    "partial": "Reachable with known thin spots, manual export, or rescue lanes",
+    "on_demand": "Live remote query or procurement — not expected to be fully mirrored locally",
+    "not_wired": "Subscription or public access exists; ingest/registry path not built on this desk",
+    "metadata_only": "Search/catalog surface only — bytes require collect job",
+    "blocked": "License or policy block on this seat"
+  },
+  "geographies": [
+    "US",
+    "Taiwan",
+    "Indonesia",
+    "Japan",
+    "Korea",
+    "HK_SG_ASEAN",
+    "Asia_multi_13",
+    "Crypto_global",
+    "Macro_global"
+  ],
+  "capabilities": [
+    "daily_prices",
+    "country_news_shocks",
+    "entity_news_shocks",
+    "fundamentals",
+    "estimates_revisions",
+    "index_pit_survivorship",
+    "risk_overlay",
+    "entity_join_gdelt_ric",
+    "governance_regulatory",
+    "social_sentiment",
+    "onchain_crypto"
+  ],
+  "sources": [
+    {
+      "source_id": "lseg_edp",
+      "subscription_status": "active",
+      "license_holder": "YZU university EDP / Workspace seat",
+      "fetch_modes": ["lseg_data_api", "entitlement_probe", "frozen_release_read"],
+      "reachable_products": [
+        "Security master / TRBC",
+        "PIT index membership (US + Asia 0# indices)",
+        "Corporate actions",
+        "Consensus estimates + revision history",
+        "PIT fundamentals (FY; FQ blocked)",
+        "Vol / skew / put-call / short interest (thin US daily on EDP)",
+        "ESG pillar snapshot"
+      ],
+      "coverage_cells": [
+        {"capability": "daily_prices", "geography": "US", "access": "partial", "note": "EDP OHLCV skipped; yfinance/WRDS preferred"},
+        {"capability": "daily_prices", "geography": "Taiwan", "access": "partial"},
+        {"capability": "daily_prices", "geography": "Indonesia", "access": "partial"},
+        {"capability": "daily_prices", "geography": "Japan", "access": "partial"},
+        {"capability": "daily_prices", "geography": "Korea", "access": "partial"},
+        {"capability": "daily_prices", "geography": "Singapore", "access": "partial"},
+        {"capability": "fundamentals", "geography": "US", "access": "partial", "note": "FY PIT; FQ/LTM blocked"},
+        {"capability": "fundamentals", "geography": "Taiwan", "access": "partial"},
+        {"capability": "fundamentals", "geography": "Indonesia", "access": "partial"},
+        {"capability": "fundamentals", "geography": "Japan", "access": "partial"},
+        {"capability": "fundamentals", "geography": "Korea", "access": "partial"},
+        {"capability": "estimates_revisions", "geography": "US", "access": "full"},
+        {"capability": "estimates_revisions", "geography": "Taiwan", "access": "full"},
+        {"capability": "estimates_revisions", "geography": "Indonesia", "access": "partial"},
+        {"capability": "estimates_revisions", "geography": "Japan", "access": "partial"},
+        {"capability": "estimates_revisions", "geography": "Korea", "access": "partial"},
+        {"capability": "index_pit_survivorship", "geography": "US", "access": "full"},
+        {"capability": "index_pit_survivorship", "geography": "Taiwan", "access": "full"},
+        {"capability": "index_pit_survivorship", "geography": "Indonesia", "access": "full"},
+        {"capability": "index_pit_survivorship", "geography": "Japan", "access": "full"},
+        {"capability": "index_pit_survivorship", "geography": "Korea", "access": "full"},
+        {"capability": "index_pit_survivorship", "geography": "Asia_multi_13", "access": "full"},
+        {"capability": "risk_overlay", "geography": "US", "access": "partial", "note": "Thin EDP vol history — desktop rescue lane"},
+        {"capability": "risk_overlay", "geography": "Taiwan", "access": "partial"},
+        {"capability": "risk_overlay", "geography": "Indonesia", "access": "partial"},
+        {"capability": "entity_join_gdelt_ric", "geography": "US", "access": "partial"},
+        {"capability": "entity_join_gdelt_ric", "geography": "Asia_multi_13", "access": "partial"}
+      ],
+      "license_blocks": [
+        {"capability": "institutional_ownership", "geographies": ["US", "Asia_multi_13"], "reason": "G1 ownership not on YZU EDP"},
+        {"capability": "supply_chain", "geographies": ["US", "Asia_multi_13"], "reason": "I1 supply chain graph not on EDP"},
+        {"capability": "estimates_revisions", "geographies": ["US", "Asia_multi_13"], "reason": "StarMine / SmartEstimate license-blocked", "product": "F1 StarMine"}
+      ]
+    },
+    {
+      "source_id": "lseg_desktop_rescue",
+      "subscription_status": "active",
+      "license_holder": "Desktop Eikon export (operator)",
+      "fetch_modes": ["desktop_export", "frozen_release_read"],
+      "reachable_products": ["US vol / skew / put-call / short-interest daily history"],
+      "coverage_cells": [
+        {"capability": "risk_overlay", "geography": "US", "access": "partial", "note": "Rescued snapshot ~15.6M rows; not live refresh"}
+      ]
+    },
+    {
+      "source_id": "crsp_moveit",
+      "subscription_status": "active",
+      "license_holder": "YZU CRSP subscriber (MOVEit)",
+      "fetch_modes": ["moveit_web", "sftp_ftps", "manifest"],
+      "reachable_products": [
+        "CRSP US Stock 2.5 CIZ ASCII",
+        "CRSP US Index 1925+",
+        "Index History quarterly release"
+      ],
+      "coverage_cells": [
+        {"capability": "daily_prices", "geography": "US", "access": "not_wired", "note": "Licensed; pending MOVEit download to data_lake/crsp/"},
+        {"capability": "index_pit_survivorship", "geography": "US", "access": "not_wired"}
+      ],
+      "notes": "MOVEit login verified. Manifest task crsp_moveit_manifest enabled."
+    },
+    {
+      "source_id": "capital_iq_compustat",
+      "subscription_status": "active",
+      "license_holder": "YZU Capital IQ seat",
+      "fetch_modes": ["capital_iq_web_export"],
+      "reachable_products": [
+        "Compustat North America fundamentals",
+        "Capital IQ Financials screens"
+      ],
+      "coverage_cells": [
+        {"capability": "fundamentals", "geography": "US", "access": "not_wired", "note": "Export to data_lake/compustat/raw/"}
+      ],
+      "notes": "Okta login verified. No WRDS; manual or scripted export path."
+    },
+    {
+      "source_id": "wrds_crsp_compustat",
+      "subscription_status": "unavailable",
+      "license_holder": "Wharton WRDS",
+      "fetch_modes": [],
+      "coverage_cells": [],
+      "notes": "Desk credentials do not authenticate. Ask library if institutional WRDS desired."
+    },
+    {
+      "source_id": "gdelt",
+      "subscription_status": "public",
+      "fetch_modes": ["bulk_download", "doc_api", "pipeline_harvest"],
+      "reachable_products": ["GKG 2.0", "Events", "DOC API", "country/entity taxonomy overlays"],
+      "coverage_cells": [
+        {"capability": "country_news_shocks", "geography": "US", "access": "full"},
+        {"capability": "country_news_shocks", "geography": "Asia_multi_13", "access": "full"},
+        {"capability": "country_news_shocks", "geography": "Macro_global", "access": "full"},
+        {"capability": "entity_news_shocks", "geography": "US", "access": "partial"},
+        {"capability": "entity_news_shocks", "geography": "Asia_multi_13", "access": "partial"},
+        {"capability": "entity_join_gdelt_ric", "geography": "US", "access": "partial"},
+        {"capability": "entity_join_gdelt_ric", "geography": "Asia_multi_13", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "bigquery_public",
+      "subscription_status": "active",
+      "license_holder": "GCP ADC + public dataset catalog",
+      "fetch_modes": ["bigquery_sql", "dry_run", "mcp_live_query"],
+      "reachable_products": [
+        "bigquery-public-data.crypto_ethereum.*",
+        "bigquery-public-data.crypto_bitcoin.*",
+        "US census / NOAA / other public tables (on demand)"
+      ],
+      "coverage_cells": [
+        {"capability": "onchain_crypto", "geography": "Crypto_global", "access": "on_demand", "note": "Vast public catalog; 1 registry catalogue card + RPC pilots materialized"}
+      ]
+    },
+    {
+      "source_id": "datacite_harvest",
+      "subscription_status": "public",
+      "fetch_modes": ["bulk_harvest", "search_index"],
+      "reachable_products": ["DataCite DOI metadata graph (~all registered DOIs)"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "Macro_global", "access": "metadata_only", "note": "32 GiB harvest — procurement substrate"}
+      ]
+    },
+    {
+      "source_id": "datacite_procured",
+      "subscription_status": "public",
+      "fetch_modes": ["datacite_collect_doi", "per_doi_download"],
+      "reachable_products": ["Any open DataCite DOI dataset"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "Macro_global", "access": "on_demand"}
+      ]
+    },
+    {
+      "source_id": "sec_edgar",
+      "subscription_status": "public",
+      "fetch_modes": ["http_manifest", "queue_harvest"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "US", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "twse_official",
+      "subscription_status": "public",
+      "fetch_modes": ["twse_openapi", "queue_harvest"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "Taiwan", "access": "partial"},
+        {"capability": "daily_prices", "geography": "Taiwan", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "mops_taiwan",
+      "subscription_status": "public",
+      "fetch_modes": ["web_scrape", "queue_collect"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "Taiwan", "access": "on_demand"}
+      ]
+    },
+    {
+      "source_id": "yfinance_public",
+      "subscription_status": "public",
+      "fetch_modes": ["yfinance_api", "queue_panel_build"],
+      "coverage_cells": [
+        {"capability": "daily_prices", "geography": "US", "access": "partial", "note": "Not CRSP-quality; alpha paper panel"},
+        {"capability": "daily_prices", "geography": "Asia_multi_13", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "coingecko",
+      "subscription_status": "active",
+      "license_holder": "CoinGecko API key",
+      "fetch_modes": ["live_api", "registry_quote_cards"],
+      "coverage_cells": [
+        {"capability": "daily_prices", "geography": "Crypto_global", "access": "on_demand"},
+        {"capability": "onchain_crypto", "geography": "Crypto_global", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "ethereum_onchain",
+      "subscription_status": "public",
+      "fetch_modes": ["ethereum_rpc", "bigquery_public", "local_csv"],
+      "coverage_cells": [
+        {"capability": "onchain_crypto", "geography": "Crypto_global", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "reddit_social",
+      "subscription_status": "public",
+      "fetch_modes": ["reddit_api", "bulk_ingest"],
+      "coverage_cells": [
+        {"capability": "social_sentiment", "geography": "US", "access": "partial"},
+        {"capability": "social_sentiment", "geography": "Crypto_global", "access": "partial"}
+      ]
+    },
+    {
+      "source_id": "public_macro",
+      "subscription_status": "public",
+      "fetch_modes": ["ken_french_zip", "queue_download"],
+      "coverage_cells": [
+        {"capability": "daily_prices", "geography": "Macro_global", "access": "partial", "note": "Factor returns not single-name prices"}
+      ]
+    },
+    {
+      "source_id": "huggingface",
+      "subscription_status": "public",
+      "fetch_modes": ["hf_datasets_api", "mcp_search"],
+      "coverage_cells": [
+        {"capability": "social_sentiment", "geography": "Macro_global", "access": "on_demand"}
+      ]
+    },
+    {
+      "source_id": "open_research_catalogs",
+      "subscription_status": "public",
+      "fetch_modes": ["zenodo_api", "openalex_api", "web_discover"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "Macro_global", "access": "metadata_only"}
+      ]
+    },
+    {
+      "source_id": "web_scrape_catalog",
+      "subscription_status": "public",
+      "fetch_modes": ["probe_url", "playwright_scrape", "yzu_submit_job"],
+      "coverage_cells": [
+        {"capability": "governance_regulatory", "geography": "Macro_global", "access": "on_demand", "note": "Per-site; 35 scrape index cards"}
+      ]
+    },
+    {
+      "source_id": "derived_research_panels",
+      "subscription_status": "internal",
+      "fetch_modes": ["internal_build"],
+      "coverage_cells": [
+        {"capability": "entity_news_shocks", "geography": "US", "access": "partial"},
+        {"capability": "entity_news_shocks", "geography": "Indonesia", "access": "partial"},
+        {"capability": "country_news_shocks", "geography": "Asia_multi_13", "access": "partial"},
+        {"capability": "entity_join_gdelt_ric", "geography": "US", "access": "partial"},
+        {"capability": "entity_join_gdelt_ric", "geography": "Asia_multi_13", "access": "partial"}
+      ],
+      "notes": "Derived from upstream sources; ceiling follows bridge quality (~10.9% spine)."
+    }
+  ]
+}

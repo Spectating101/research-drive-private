@@ -1,0 +1,204 @@
+{
+  "generated_at": "2026-07-06T13:12:04.288116+00:00",
+  "summary": {
+    "registry_datasets_total": 143,
+    "refinitiv_registry_datasets": 15,
+    "professor_partitions": 22,
+    "acquisition_lanes": 22,
+    "scorecard_note": "platform readiness 9.0/10; entitled Refinitiv job coverage 100%"
+  },
+  "registry_by_domain": {
+    "local_derived_tables": 23,
+    "metadata_index": 2,
+    "source_family_registry": 1,
+    "api_filterable": 1,
+    "remote_bigquery_with_local_rpc_preview": 1,
+    "local_json_snapshot": 1,
+    "ops_status": 2,
+    "local_file": 1,
+    "local_file_tree": 5,
+    "procured": 36,
+    "web_scrape": 61,
+    "crypto_finance": 2,
+    "stock_investment": 7
+  },
+  "refinitiv_dataset_ids": [
+    "refinitiv_security_master",
+    "refinitiv_index_membership_pit",
+    "refinitiv_corporate_actions_snapshot",
+    "refinitiv_risk_tape_daily",
+    "refinitiv_estimate_revisions_daily",
+    "refinitiv_rescued_us_risk_desktop",
+    "refinitiv_fundamentals_snapshot",
+    "refinitiv_index_membership_current",
+    "refinitiv_analyst_consensus_snapshot",
+    "refinitiv_esg_snapshot",
+    "refinitiv_survivorship_universe_panel",
+    "refinitiv_us_risk_overlay",
+    "refinitiv_estimate_revision_panel",
+    "refinitiv_fundamental_annual_panel",
+    "refinitiv_entity_market_spine"
+  ],
+  "partition_lanes": [
+    {
+      "id": "partition_markets_equities-asia",
+      "name": "Asia equity prices & ticker universes",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_official_macro-asia",
+      "name": "Asia public macro & market baselines",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_reference_entity-mapping-asia",
+      "name": "Asia ticker & entity resolution maps",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_acquired_procured",
+      "name": "Chat & DOI procured downloads",
+      "stage": "idle",
+      "registry_datasets": 3,
+      "local_present": false
+    },
+    {
+      "id": "partition_markets_crypto-coingecko",
+      "name": "CoinGecko daily price archive (local cache)",
+      "stage": "idle",
+      "registry_datasets": 26,
+      "local_present": false
+    },
+    {
+      "id": "partition_markets_crypto-landscape",
+      "name": "Crypto protocol & token landscape snapshots",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_catalog_curated-index",
+      "name": "Curated dataset index (human-readable)",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_markets_ethereum-usdt",
+      "name": "Ethereum USDT on-chain flows (professor package)",
+      "stage": "idle",
+      "registry_datasets": 1,
+      "local_present": false
+    },
+    {
+      "id": "partition_news_gdelt-asia",
+      "name": "GDELT Asia news graph & shock panels",
+      "stage": "idle",
+      "registry_datasets": 2,
+      "local_present": false
+    },
+    {
+      "id": "partition_news_gdelt-expanded",
+      "name": "GDELT expanded news graph (Asia + US/EU/MENA adjunct)",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_derived_research-panels",
+      "name": "Merged research panels (analysis-ready)",
+      "stage": "idle",
+      "registry_datasets": 5,
+      "local_present": false
+    },
+    {
+      "id": "partition_markets_nft-opensea",
+      "name": "OpenSea NFT collection metadata",
+      "stage": "idle",
+      "registry_datasets": 1,
+      "local_present": false
+    },
+    {
+      "id": "partition_ops_pipeline-manifests",
+      "name": "Pipeline & queue operator manifests",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_social_reddit",
+      "name": "Reddit raw ingest & sentiment archive",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_reference_refinitiv-backfill",
+      "name": "Refinitiv complete harvest 2026-07-06 (frozen)",
+      "stage": "idle",
+      "registry_datasets": 15,
+      "local_present": false
+    },
+    {
+      "id": "partition_derived_research-models",
+      "name": "Saved model outputs & trial artifacts",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_ops_collection-queue",
+      "name": "Scheduled collection job outputs",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_official_mops-disclosures",
+      "name": "Taiwan MOPS & governance procured files",
+      "stage": "idle",
+      "registry_datasets": 1,
+      "local_present": false
+    },
+    {
+      "id": "partition_official_exchange-disclosures",
+      "name": "Taiwan TWSE exchange OpenAPI snapshots",
+      "stage": "idle",
+      "registry_datasets": 1,
+      "local_present": false
+    },
+    {
+      "id": "partition_reference_sec-edgar",
+      "name": "US SEC EDGAR ticker ↔ CIK reference",
+      "stage": "idle",
+      "registry_datasets": 1,
+      "local_present": false
+    },
+    {
+      "id": "partition_ops_spectator-archives",
+      "name": "Web scrape archives (local USB)",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    },
+    {
+      "id": "partition_ops_cluster-jobs",
+      "name": "YZU cluster job state (local only)",
+      "stage": "idle",
+      "registry_datasets": 0,
+      "local_present": false
+    }
+  ],
+  "gaps": [
+    "Refinitiv GDELT bridge is Asia-entity-master biased (~62/570 RICs bridged).",
+    "US SPX names need US entity map for full GDELT cross-lane joins.",
+    "Desk offline catalog is fallback only — live API serves full registry.",
+    "Bulk harvest STOP on Refinitiv; license ceilings remain on ownership/StarMine/FQ PIT."
+  ]
+}

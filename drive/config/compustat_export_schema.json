@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "export_root": "data_lake/compustat/raw",
+  "processed_output": "data_lake/compustat/processed/na_fundamentals_annual.parquet",
+  "required_columns_any": ["gvkey"],
+  "column_aliases": {
+    "gvkey": ["gvkey", "GVKEY"],
+    "datadate": ["datadate", "data_date", "Data Date", "DATA_DATE"],
+    "fyear": ["fyear", "fiscal_year", "Fiscal Year"],
+    "tic": ["tic", "ticker", "Ticker", "TIC"],
+    "cusip": ["cusip", "CUSIP"],
+    "at": ["at", "AT", "total_assets"],
+    "sale": ["sale", "SALE", "revenue", "sales"],
+    "ni": ["ni", "NI", "net_income"],
+    "ceq": ["ceq", "CEQ", "common_equity"]
+  },
+  "capital_iq_export_hints": {
+    "screen": "Compustat North America — Fundamentals Annual",
+    "format": "CSV or Excel export",
+    "drop_path": "data_lake/compustat/raw/",
+    "naming": "compustat_na_annual_*.csv"
+  }
+}

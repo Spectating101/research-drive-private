@@ -1,0 +1,42 @@
+{
+  "api": "http://127.0.0.1:8765",
+  "steps": [
+    {
+      "name": "cluster_status",
+      "ok": true,
+      "detail": "disk=41GB jobs={'pending_approval': 7, 'queued': 0, 'running': 0, 'completed': 309, 'failed': 84, 'cancelled': 100}"
+    },
+    {
+      "name": "faculty_profile",
+      "ok": true,
+      "detail": "Assistant Professor"
+    },
+    {
+      "name": "chat_search",
+      "ok": true,
+      "detail": "action=search words=69"
+    },
+    {
+      "name": "query_preview",
+      "ok": true,
+      "detail": "dataset=mops_governance_panel rows=3 matched=8"
+    },
+    {
+      "name": "chat_collect_doi",
+      "ok": true,
+      "detail": "action=in_lab campaign=None"
+    },
+    {
+      "name": "chat_probe_url",
+      "ok": true,
+      "detail": "`https://example.com` responds fine \u2014 it\u2019s a small HTML page (\u201cExample Domain\u201d) "
+    },
+    {
+      "name": "registry",
+      "ok": true,
+      "detail": "campaigns=5 datasets=159"
+    }
+  ],
+  "passed": 7,
+  "failed": 0
+}

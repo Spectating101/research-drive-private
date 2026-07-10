@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-06",
+  "principle": "Ordered high-ROI additions: wire licensed US equity, promote macro baseline, expand GDELT bridge.",
+  "items": [
+    {
+      "id": "crsp_moveit_manifest",
+      "title": "CRSP MOVEit product manifest",
+      "status": "wired",
+      "queue_task_id": "crsp_moveit_manifest",
+      "script": "scripts/crsp_moveit_manifest.py",
+      "output": "data_lake/crsp/manifest_latest.json"
+    },
+    {
+      "id": "crsp_us_stock_ingest",
+      "title": "CRSP US Stock 2.5 daily (CIZ) ingest",
+      "status": "pending_download",
+      "queue_task_id": "crsp_moveit_sync_priority",
+      "ingest_task_id": "crsp_moveit_ingest",
+      "registry_dataset_id": "crsp_us_stock_daily_ciz",
+      "depends_on": ["crsp_moveit_manifest"],
+      "notes": "Run crsp_moveit_sync.py --tier stock after index tier validated"
+    },
+    {
+      "id": "compustat_na_export",
+      "title": "Compustat NA annual via Capital IQ export",
+      "status": "pending_manual_export",
+      "queue_task_id": "compustat_export_ingest",
+      "registry_dataset_id": "compustat_na_fundamentals_annual",
+      "local_root": "data_lake/compustat",
+      "notes": "Drop Capital IQ Fundamentals Annual CSV into data_lake/compustat/raw/ then run compustat_export_ingest"
+    },
+    {
+      "id": "ccm_link",
+      "title": "CRSP/Compustat CCM link table",
+      "status": "blocked_on_link_file",
+      "queue_task_id": "crsp_compustat_ccm_link",
+      "registry_dataset_id": "crsp_compustat_ccm_link"
+    },
+    {
+      "id": "public_macro_ff_panel",
+      "title": "Ken French + public macro instant factor panel",
+      "status": "wired",
+      "queue_task_id": "public_macro_factor_panel",
+      "registry_dataset_id": "public_macro_ff_factors_daily"
+    },
+    {
+      "id": "gdelt_entity_bridge",
+      "title": "Expand Refinitiv spine GDELT entity bridge",
+      "status": "wired",
+      "queue_task_id": "gdelt_entity_bridge_expansion",
+      "registry_dataset_id": "refinitiv_entity_market_spine_expanded"
+    }
+  ]
+}

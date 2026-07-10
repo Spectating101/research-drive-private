@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "canonical_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data",
+  "local_collection_index": "data_lake/collection/_index",
+  "superseded_by": "config/collection_partitions.json",
+  "notes": "GDrive is source of truth. Local paths are hot desk (NVMe) or USB cache symlinks. legacy_local_names documents drift to reconcile.",
+  "collections": [
+    {
+      "id": "news_shock_taxonomy",
+      "label": "GDELT / news shock",
+      "drive_path": "news_shock_taxonomy",
+      "local_path": "data_lake/news_shock_taxonomy",
+      "tier": "cache",
+      "registry_dataset_ids": ["gdelt_asia_daily_country_panel", "gdelt_gkg_events"]
+    },
+    {
+      "id": "dataset_catalog",
+      "label": "DataCite harvest & curated catalog",
+      "drive_path": "dataset_catalog",
+      "local_path": "data_lake/dataset_catalog",
+      "tier": "cache"
+    },
+    {
+      "id": "crypto_landscape",
+      "label": "Crypto landscape snapshots",
+      "drive_path": "crypto_landscape",
+      "local_path": "data_lake/crypto_pipeline",
+      "tier": "cache",
+      "legacy_local_names": ["crypto_pipeline"]
+    },
+    {
+      "id": "market_data",
+      "label": "Asia / sourced market universes",
+      "drive_path": "market_data",
+      "local_path": "data_lake/markets",
+      "tier": "cache",
+      "legacy_local_names": ["markets"]
+    },
+    {
+      "id": "official_disclosures",
+      "label": "TWSE, HKEX-adjacent, official filings",
+      "drive_path": "official_disclosures",
+      "local_path": "data_lake/official_disclosures",
+      "tier": "hot",
+      "registry_dataset_ids": ["twse_openapi_taiwan_market_layer"]
+    },
+    {
+      "id": "official_macro_asia",
+      "label": "Official macro Asia baseline",
+      "drive_path": "official_macro_asia",
+      "local_path": "data_lake/public_macro_market_baseline",
+      "tier": "hot",
+      "legacy_local_names": ["public_macro_market_baseline"]
+    },
+    {
+      "id": "entity_mapping",
+      "label": "Asia entity / ticker mapping",
+      "drive_path": "entity_mapping",
+      "local_path": "data_lake/entity_mapping",
+      "tier": "hot"
+    },
+    {
+      "id": "research_panels",
+      "label": "Derived research panels",
+      "drive_path": "research_panels",
+      "local_path": "data_lake/research_panels",
+      "tier": "hot"
+    },
+    {
+      "id": "procured",
+      "label": "Chat / campaign procured files",
+      "drive_path": "procured",
+      "local_path": "data_lake/procured",
+      "tier": "hot"
+    },
+    {
+      "id": "sec",
+      "label": "SEC EDGAR extracts",
+      "drive_path": "sec",
+      "local_path": "data_lake/sec",
+      "tier": "hot"
+    },
+    {
+      "id": "social_reddit",
+      "label": "Reddit sentiment archives",
+      "drive_path": "social_reddit",
+      "local_path": "data_lake/sentiment",
+      "tier": "hot",
+      "legacy_local_names": ["sentiment", "reddit_recent.jsonl"]
+    },
+    {
+      "id": "refinitiv_backfill",
+      "label": "Refinitiv institutional vault",
+      "drive_path": "refinitiv_backfill",
+      "local_path": "data_lake/refinitiv_backfill",
+      "tier": "hot",
+      "registry_dataset_ids": [
+        "refinitiv_security_master",
+        "refinitiv_index_membership_pit",
+        "refinitiv_entity_market_spine"
+      ]
+    },
+      "label": "Saved model artifacts",
+      "drive_path": "research_models",
+      "local_path": null,
+      "tier": "canonical_only",
+      "notes": "No standard local mirror yet — hydrate on demand"
+    },
+    {
+      "id": "manifests",
+      "label": "Pipeline manifests & status JSONL",
+      "drive_path": "manifests",
+      "local_path": null,
+      "tier": "canonical_only"
+    }
+  ],
+  "local_only": [
+    {
+      "id": "coingecko_archive",
+      "local_path": "data_lake/coingecko_archive",
+      "tier": "cache",
+      "notes": "Bulk on USB; confirm Drive mirror path before promoting to canonical"
+    },
+    {
+      "id": "opensea",
+      "local_path": "data_lake/opensea",
+      "tier": "cache"
+    },
+    {
+      "id": "refinitiv_backfill",
+      "local_path": "data_lake/refinitiv_backfill",
+      "tier": "cache"
+    },
+    {
+      "id": "spectator_archives",
+      "local_path": "data_lake/spectator_archives",
+      "tier": "cache"
+    },
+    {
+      "id": "yzu_cluster",
+      "local_path": "data_lake/yzu_cluster",
+      "tier": "hot",
+      "notes": "Job SQLite and logs — not archived as collection data"
+    }
+  ]
+}

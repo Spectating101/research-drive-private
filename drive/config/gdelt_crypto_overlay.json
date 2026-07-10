@@ -1,0 +1,18 @@
+{
+  "asset_topics": {
+    "bitcoin": ["\\bbitcoin\\b", "\\bbtc\\b", "ECON_BITCOIN"],
+    "ethereum": ["\\bethereum\\b", "ECON_ETHEREUM"],
+    "stablecoin": ["\\bstablecoins?\\b", "\\btether\\b", "\\busdt\\b", "\\busdc\\b"],
+    "nft_opensea": ["\\bnfts?\\b", "non[- ]fungible", "\\bopensea\\b"],
+    "defi": ["\\bdefi\\b", "decentralized finance"],
+    "crypto_general": ["\\bcrypto(?:currency|currencies)?\\b", "digital assets?", "virtual assets?", "\\bblockchain\\b"]
+  },
+  "event_topics": {
+    "regulation_enforcement": ["regulat", "enforcement", "securities commission", "\\bcftc\\b", "\\bsec\\b", "lawsuit", "court", "ban"],
+    "exchange_market_structure": ["\\bbinance\\b", "\\bcoinbase\\b", "\\bkraken\\b", "\\bokx\\b", "\\bbybit\\b", "crypto exchange", "listing", "delisting"],
+    "security_exploit": ["\\bhack(?:ed|ing|s)?\\b", "exploit", "breach", "cyberattack", "ransomware", "stolen"],
+    "institutional_adoption": ["\\betf\\b", "exchange.traded fund", "institutional", "\\bblackrock\\b", "\\bgrayscale\\b", "custody"],
+    "payments_adoption": ["payment", "remittance", "merchant", "legal tender", "central bank"],
+    "market_stress": ["collapse", "bankruptcy", "insolven", "liquidat", "crash", "fraud", "scam"]
+  }
+}

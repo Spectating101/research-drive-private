@@ -1,0 +1,89 @@
+{
+  "version": 2,
+  "notes": [
+    "Magic procurement: index hit → query; index miss → research → probe → optional collect.",
+    "Heavy pipelines stay advise-only unless force_execute is set."
+  ],
+  "auto_approve": {
+    "job_types": ["source_probe", "harvest_shard"],
+    "harvest_shard_actions": ["status"],
+    "queue_task_ids": [
+      "sec_company_tickers",
+      "twse_openapi_taiwan_market_layer",
+      "mops_governance_panel"
+    ],
+    "pipeline_ids": [
+      "ethereum_usdt_rpc_pilot",
+      "skynet_stablecoin_harvest"
+    ],
+    "queue_task_max_runtime_minutes": 10,
+    "agent_spectator_scrape": true
+  },
+  "execute": {
+    "wait_seconds": 120,
+    "poll_seconds": 2,
+    "tick_worker": true,
+    "sync_wait_max_minutes": 2,
+    "auto_execute_job_types": ["source_probe", "harvest_shard"]
+  },
+  "discovery": {
+    "enabled": true,
+    "max_search_results": 8,
+    "probe_top_n": 3,
+    "tavily_live_on_research": true,
+    "trigger_when_no_plan": true,
+    "trigger_keywords": [
+      "find",
+      "discover",
+      "search for",
+      "look for",
+      "where can i get",
+      "open data",
+      "download from web",
+      "can you find"
+    ]
+  },
+  "research": {
+    "enabled": true,
+    "auto_on_index_miss": false,
+    "auto_acquire_on_miss": false,
+    "auto_probe": true,
+    "auto_collect": false,
+    "auto_collect_chat": true,
+    "auto_scrape_chat": true,
+    "auto_collect_datacite": true
+  },
+  "flywheel": {
+    "auto_promote_curated": true,
+    "rebuild_search_index": true,
+    "auto_follow_scrape_downloads": true,
+    "auto_approve_scrape_downloads": true
+  },
+  "agent": {
+    "max_sourcing_chain_steps": 6,
+    "auto_registry_fallback": true,
+    "auto_scrape_after_acquire": true,
+    "auto_follow_scrape_harvest": true,
+    "auto_approve_probe_collect": true,
+    "harvest_parallel_probes": 3,
+    "sync_wait_scrape_seconds": 120
+  },
+  "campaign": {
+    "auto_tick": true,
+    "tick_limit": 3,
+    "poll_active_ms": 5000
+  },
+  "chat": {
+    "brain": "cursor_composer",
+    "notes": "Desk chat = Cursor Composer + project rules (setting_sources) + procurement MCP. No scripted persona.",
+    "wait_for_completion": false,
+    "wait_seconds": 120,
+    "acquire_worker_ticks": 1
+  },
+  "cache": {
+    "advisor_ttl_hours": 24,
+    "discovery_ttl_hours": 72,
+    "semantic_ttl_hours": 168,
+    "research_plan_ttl_hours": 168
+  }
+}

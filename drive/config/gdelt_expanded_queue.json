@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "description": "Expanded GDELT (19 countries: Asia + USA/UK/CH/DE/FR/UAE). Aligns with Asia bulk span.",
+  "queue_start": "2018-01-01",
+  "queue_end": "2026-07-01",
+  "run_tag": "20260626TexpandedZ",
+  "partition_id": "news.gdelt-expanded",
+  "fleet_config": "config/gdelt_expanded_fleet.json",
+  "state_dir": "data_lake/news_shock_taxonomy/derived/gdelt_expanded_queue_state",
+  "manifest": "data_lake/news_shock_taxonomy/derived/gdelt_expanded_queue_state/queue_manifest.json",
+  "pending": "data_lake/news_shock_taxonomy/derived/gdelt_expanded_queue_state/pending_windows.jsonl",
+  "plan_command": "python3 scripts/plan_news_shock_gkg_expanded_queue.py",
+  "fleet_start": "bash scripts/run_news_shock_gkg_expanded_fleet.sh ensure",
+  "fleet_status": "bash scripts/run_news_shock_gkg_expanded_fleet.sh status",
+  "fleet_stop": "bash scripts/run_news_shock_gkg_expanded_fleet.sh stop",
+  "forward_queue": "bash scripts/run_news_shock_gkg_expanded_forward_queue.sh",
+  "work_steal_windows_template": "bash scripts/run_news_shock_gkg_expanded_work_steal_queue.sh helper_<id> windows <HOST>",
+  "notes": [
+    "Preferred: bash scripts/run_news_shock_gkg_expanded_fleet.sh ensure — starts all joined workers with lane split.",
+    "backfill lane: 2018-01 .. 2025-09 on 3 hosts; recent lane: 2025-09 .. 2026-07 on 2 hosts.",
+    "Outputs SCP to optiplex then land on Transcend via data_lake symlink. Keep Transcend mounted on optiplex.",
+    "Temp tarballs use SR_GDELT_TMP on Transcend (not NVMe)."
+  ]
+}

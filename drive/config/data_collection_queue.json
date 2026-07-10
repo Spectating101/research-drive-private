@@ -1,0 +1,540 @@
+{
+  "name": "Sharpe-Renaissance data collection queue",
+  "created_at": "2026-05-20",
+  "notes": [
+    "Only tasks with enabled=true and credential_required=false are run automatically.",
+    "Paid/lab/manual tasks stay cataloged here but blocked until credentials or lab access are handled by the user.",
+    "Outputs should land under data_lake/ or logs/ and remain ignored by git.",
+    "gdelt_gkg_asia_monthly_backlog_2024_present disabled 2026-07-01: 102/102 asia months on Transcend; desk unit blocked NVMe. Use expanded Windows fleet instead."
+  ],
+  "tasks": [
+    {
+      "id": "public_macro_market_baseline",
+      "title": "Public macro, risk, uncertainty, and factor baseline",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 10,
+      "estimated_runtime": "1-3 minutes",
+      "output_hint": "data_lake/public_macro_market_baseline/YYYY-MM-DD",
+      "command": [
+        ".venv/bin/python",
+        "scripts/download_public_macro_market_baseline.py"
+      ]
+    },
+    {
+      "id": "sec_company_tickers",
+      "title": "SEC public ticker-to-CIK mapping",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 20,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "data_lake/sec/company_tickers.json",
+      "command": [
+        ".venv/bin/python",
+        "scripts/sec_fetch_company_tickers.py",
+        "--out",
+        "data_lake/sec/company_tickers.json"
+      ]
+    },
+    {
+      "id": "sec_sp500_submissions",
+      "title": "SEC EDGAR submissions cache for S&P 500 universe",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 30,
+      "estimated_runtime": "3-10 minutes depending SEC response",
+      "output_hint": "data_lake/sec/submissions/*.json",
+      "command": [
+        ".venv/bin/python",
+        "scripts/sec_fetch_submissions.py",
+        "--tickers-file",
+        "config/tickers_sp500.txt",
+        "--mapping",
+        "data_lake/sec/company_tickers.json",
+        "--out-dir",
+        "data_lake/sec/submissions",
+        "--stale-days",
+        "7",
+        "--sleep-secs",
+        "0.25"
+      ]
+    },
+    {
+      "id": "yfinance_global_drilldown_10y",
+      "title": "Public yfinance 10-year global drilldown market panel",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 40,
+      "estimated_runtime": "5-20 minutes depending yfinance failures",
+      "output_hint": "data_lake/markets/yfinance_global_drilldown_10y.csv",
+      "command": [
+        ".venv/bin/python",
+        "scripts/fetch_yfinance_tidy_panel.py",
+        "--tickers-file",
+        "config/tickers_global_drilldown.txt",
+        "--period",
+        "10y",
+        "--interval",
+        "1d",
+        "--batch-size",
+        "8",
+        "--out",
+        "data_lake/markets/yfinance_global_drilldown_10y.csv"
+      ]
+    },
+    {
+      "id": "yfinance_accessible_market_universes_10y",
+      "title": "Public yfinance 10-year accessible market universes, full OHLCV",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 42,
+      "estimated_runtime": "3-15 minutes depending yfinance failures",
+      "output_hint": "data_lake/markets/yfinance_accessible/RUN_ID",
+      "command": [
+        ".venv/bin/python",
+        "scripts/fetch_accessible_market_universes.py",
+        "--period",
+        "10y",
+        "--interval",
+        "1d",
+        "--batch-size",
+        "25",
+        "--sleep",
+        "0.5",
+        "--write-parquet"
+      ]
+    },
+    {
+      "id": "yfinance_asia_market_universes_10y",
+      "title": "Asia-first yfinance 10-year market universes, full OHLCV",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 43,
+      "estimated_runtime": "5-20 minutes depending yfinance failures",
+      "output_hint": "data_lake/markets/yfinance_asia/RUN_ID",
+      "command": [
+        ".venv/bin/python",
+        "scripts/fetch_accessible_market_universes.py",
+        "--config",
+        "config/markets/asia_yfinance_universes.json",
+        "--out-root",
+        "data_lake/markets/yfinance_asia",
+        "--period",
+        "10y",
+        "--interval",
+        "1d",
+        "--batch-size",
+        "50",
+        "--sleep",
+        "0.3",
+        "--write-parquet"
+      ]
+    },
+    {
+      "id": "asia_sourced_etf_holdings_universe",
+      "title": "Build sourced Asia ETF holdings universes mapped to yfinance tickers",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 44,
+      "estimated_runtime": "2-10 minutes depending Yahoo validation",
+      "output_hint": "data_lake/markets/sourced_universes/RUN_ID/generated_yfinance_universes.json",
+      "command": [
+        ".venv/bin/python",
+        "scripts/fetch_asia_sourced_universes.py",
+        "--validate"
+      ]
+    },
+    {
+      "id": "gdelt_doc_headline_idn_usa_pilot",
+      "title": "GDELT DOC headline pilot for IDN/USA news shock taxonomy",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 50,
+      "estimated_runtime": "disabled after 429 rate limits; prefer GDELT GKG bulk pipeline",
+      "output_hint": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/news_shock_taxonomy",
+      "command": [
+        "python3",
+        "scripts/news_shock_taxonomy/backfill_gdelt_doc_headlines_drive.py",
+        "--countries",
+        "IDN,USA",
+        "--templates",
+        "apology_clarification,corruption_graft,policy_reversal_confusion,protest_unrest,financial_fx_stress",
+        "--start-month",
+        "2024-01",
+        "--end-month",
+        "2026-05",
+        "--sleep",
+        "2",
+        "--retries",
+        "4",
+        "--timeout",
+        "45",
+        "--maxrecords",
+        "250",
+        "--stage-root",
+        "/tmp/sharpe_news_shock_taxonomy_pilot",
+        "--status-dir",
+        "logs/data_collection_queue/gdelt_pilot"
+      ]
+    },
+    {
+      "id": "gdelt_doc_headline_full_2015_present",
+      "title": "Full GDELT DOC headline backfill for 36-country news shock taxonomy",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 80,
+      "estimated_runtime": "multi-day; run only after pilot validation",
+      "output_hint": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/news_shock_taxonomy",
+      "command": [
+        "python3",
+        "scripts/news_shock_taxonomy/backfill_gdelt_doc_headlines_drive.py"
+      ]
+    },
+    {
+      "id": "gdelt_gkg_asia_7d_pilot",
+      "title": "Asia GDELT GKG 7-day bulk news shock pilot",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 82,
+      "estimated_runtime": "1-2 hours including scoring and high-priority URL enrichment",
+      "output_hint": "data_lake/news_shock_taxonomy/{raw,normalized,processed}/RUN_ID",
+      "command": [
+        "scripts/run_news_shock_gkg_7d_pipeline.sh"
+      ]
+    },
+    {
+      "id": "gdelt_gkg_asia_monthly_backlog_2024_present",
+      "title": "Asia GDELT GKG monthly news-shock backlog, 2024-present",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 82,
+      "estimated_runtime": "multi-day; monthly windows from 2024-01 through 2026-05, no long-term raw retention",
+      "output_hint": "data_lake/news_shock_taxonomy/{normalized,processed}/asia_gkg_window_*",
+      "command": [
+        "systemd-run",
+        "--user",
+        "--unit",
+        "sharpe-data-backlog-20260521",
+        "--working-directory",
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance",
+        "/usr/bin/bash",
+        "-lc",
+        "mkdir -p logs/data_backlog; bash scripts/run_always_on_data_backlog_20260521.sh >> logs/data_backlog/systemd_backlog_20260521.log 2>&1"
+      ]
+    },
+    {
+      "id": "gdelt_gkg_expanded_full_2018_present",
+      "title": "Expanded GDELT GKG monthly queue (19 countries, 2018-06 through 2026-06)",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 81,
+      "estimated_runtime": "multi-week; ~102 monthly windows; Windows cluster work-steal or serialized forward queue",
+      "output_hint": "data_lake/news_shock_taxonomy/normalized/gdelt_gkg_expanded_bulk/expanded_gkg_window_*",
+      "notes": [
+        "Plan manifest: config/gdelt_expanded_queue.json and data_lake/.../gdelt_expanded_queue_state/queue_manifest.json",
+        "Refresh plan: python3 scripts/plan_news_shock_gkg_expanded_queue.py",
+        "One node: bash scripts/run_news_shock_gkg_expanded_forward_queue.sh",
+        "Many nodes: bash scripts/run_news_shock_gkg_expanded_fleet.sh ensure"
+      ],
+      "command": [
+        "python3",
+        "scripts/plan_news_shock_gkg_expanded_queue.py"
+      ]
+    },
+    {
+      "id": "asia_news_shock_drive_copy",
+      "title": "Copy local Asia news shock outputs to Google Drive archive",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 83,
+      "estimated_runtime": "minutes to hours depending raw GKG size; copy-only, no remote delete",
+      "output_hint": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/news_shock_taxonomy",
+      "command": [
+        "scripts/sync_news_shock_taxonomy_drive.sh"
+      ]
+    },
+    {
+      "id": "official_macro_adb_imf_bis_asia",
+      "title": "Official Asia macro and financial indicators from ADB, IMF, BIS, and World Bank",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 90,
+      "estimated_runtime": "not implemented yet; high-priority next build",
+      "output_hint": "data_lake/official_macro_asia/",
+      "command": []
+    },
+    {
+      "id": "twse_openapi_taiwan_market_layer",
+      "title": "Taiwan TWSE OpenAPI market, sector, and disclosure-adjacent layer",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 91,
+      "estimated_runtime": "2-5 minutes; official TWSE OpenAPI snapshot plus Drive copy",
+      "output_hint": "data_lake/official_disclosures/taiwan_twse/",
+      "command": [
+        "python3",
+        "scripts/fetch_twse_openapi_taiwan_market_layer.py",
+        "--copy-drive"
+      ]
+    },
+    {
+      "id": "mops_governance_panel",
+      "title": "Taiwan MOPS governance misconduct panel (TWSE OpenAPI official)",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 90,
+      "estimated_runtime": "1-3 minutes; penalty cases, material info, ESG board feeds",
+      "output_hint": "data_lake/official_disclosures/taiwan_mops/",
+      "command": [
+        "python3",
+        "scripts/fetch_taiwan_mops_governance_panel.py"
+      ]
+    },
+    {
+      "id": "opendart_korea_disclosures",
+      "title": "Korea OpenDART official corporate disclosures",
+      "enabled": false,
+      "credential_required": true,
+      "priority": 92,
+      "estimated_runtime": "blocked until free OpenDART API key is provided by user",
+      "output_hint": "data_lake/official_disclosures/korea_opendart/",
+      "command": []
+    },
+    {
+      "id": "hkex_company_announcements_index",
+      "title": "HKEX listed-company announcements index",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 93,
+      "estimated_runtime": "not implemented yet; needs careful polite index collection",
+      "output_hint": "data_lake/official_disclosures/hkex/",
+      "command": []
+    },
+    {
+      "id": "sgx_company_announcements_index",
+      "title": "SGX listed-company announcements index",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 94,
+      "estimated_runtime": "not implemented yet; needs careful polite index collection",
+      "output_hint": "data_lake/official_disclosures/sgx/",
+      "command": []
+    },
+    {
+      "id": "etherscan_stablecoin_catalog_sweep",
+      "title": "Etherscan stablecoin catalog full sweep (64 pages)",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 78,
+      "estimated_runtime": "2-6 hours on worker; Spectator catalog pagination",
+      "output_hint": "data_lake/spectator_engine/scrapes/",
+      "command": [
+        "python3",
+        "scripts/submit_etherscan_catalog_sweep.py",
+        "--max-pages",
+        "64",
+        "--max-tokens",
+        "3500"
+      ]
+    },
+    {
+      "id": "asia_entity_ticker_mapping_layer",
+      "title": "Asia entity-to-ticker mapping layer for news/disclosure joins",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 95,
+      "estimated_runtime": "1-5 minutes; reads local TWSE/yfinance/ETF holdings/IDX restore and writes derived joins",
+      "output_hint": "data_lake/entity_mapping/asia/",
+      "command": [
+        "python3",
+        "scripts/build_asia_entity_mapping_layer.py",
+        "--copy-drive"
+      ]
+    },
+    {
+      "id": "refinitiv_value_harvest",
+      "title": "Refinitiv value harvest — COMPLETE (do not re-run)",
+      "enabled": false,
+      "credential_required": true,
+      "priority": 100,
+      "estimated_runtime": "n/a — frozen at 2026-07-06-complete",
+      "output_hint": "data_lake/refinitiv_backfill/2026-07-06-complete/",
+      "notes": "Bulk harvest STOP. Entitlement ceiling reached. See REFINITIV_2026_07_06_COMPLETE_RELEASE.md. Rebuild derived panels only: scripts/refinitiv_build_derived_panels.py",
+      "command": []
+    },
+    {
+      "id": "refinitiv_targeted_probes",
+      "title": "Refinitiv targeted entitlement probes (manual only)",
+      "enabled": false,
+      "credential_required": true,
+      "priority": 101,
+      "estimated_runtime": "<1 min",
+      "output_hint": "docs/status/generated/refinitiv_value_entitlement_map.json",
+      "notes": "Run only when license may have changed: D8 FQ/LTM, G1 ownership, I1 supply chain, F1 StarMine, desktop Eikon vol refresh.",
+      "command": [
+        ".venv-refinitiv/bin/python",
+        "scripts/refinitiv_value_entitlement_probe.py",
+        "--env",
+        ".env.local"
+      ]
+    },
+    {
+      "id": "wrds_crsp_compustat_ccm",
+      "title": "WRDS CRSP/Compustat/CCM lab backfill",
+      "enabled": false,
+      "credential_required": true,
+      "priority": 110,
+      "estimated_runtime": "blocked — desk uses CRSP MOVEit + Capital IQ",
+      "output_hint": "data_lake/wrds/",
+      "command": []
+    },
+    {
+      "id": "crsp_moveit_manifest",
+      "title": "CRSP MOVEit product catalog manifest",
+      "enabled": true,
+      "credential_required": true,
+      "priority": 95,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "data_lake/crsp/manifest_latest.json",
+      "command": [
+        ".venv/bin/python",
+        "scripts/crsp_moveit_manifest.py",
+        "--json"
+      ]
+    },
+    {
+      "id": "crsp_moveit_sync_priority",
+      "title": "CRSP MOVEit download (index tier default ~2GB)",
+      "enabled": true,
+      "credential_required": true,
+      "priority": 96,
+      "estimated_runtime": "30-90 minutes for index tier",
+      "output_hint": "data_lake/crsp/raw/",
+      "notes": "Default --tier index (Stock_Index_1925). Use --tier stock for STOCK_25i (~4GB). --dry-run to plan only.",
+      "command": [
+        ".venv/bin/python",
+        "scripts/crsp_moveit_sync.py",
+        "--tier",
+        "us_core",
+        "--json"
+      ]
+    },
+    {
+      "id": "crsp_moveit_ingest",
+      "title": "Extract + ingest downloaded CRSP MOVEit packages",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 97,
+      "estimated_runtime": "5-30 minutes depending on zip size",
+      "output_hint": "data_lake/crsp/processed/",
+      "command": [
+        ".venv/bin/python",
+        "scripts/ingest_crsp_package.py",
+        "--all-downloaded",
+        "--json"
+      ]
+    },
+    {
+      "id": "compustat_export_ingest",
+      "title": "Normalize Capital IQ Compustat exports from raw/",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 98,
+      "estimated_runtime": "under 5 minutes when export present",
+      "output_hint": "data_lake/compustat/processed/na_fundamentals_annual.parquet",
+      "command": [
+        ".venv/bin/python",
+        "scripts/ingest_compustat_export.py",
+        "--json"
+      ]
+    },
+    {
+      "id": "crsp_compustat_ccm_link",
+      "title": "Build CRSP/Compustat CCM link when link file on disk",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 99,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "data_lake/crsp/processed/ccm_link.parquet",
+      "command": [
+        ".venv/bin/python",
+        "scripts/build_crsp_compustat_ccm_link.py",
+        "--json"
+      ]
+    },
+    {
+      "id": "public_macro_factor_panel",
+      "title": "Build Ken French FF3 daily factor parquet",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 11,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "data_lake/research_panels/public_macro/ff_factors_daily.parquet",
+      "command": [
+        ".venv/bin/python",
+        "scripts/build_public_macro_factor_panel.py"
+      ]
+    },
+    {
+      "id": "us_entity_mapping_layer",
+      "title": "Build US SP500 entity master for GDELT bridge",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 96,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "data_lake/entity_mapping/us/latest/us_entity_master.csv",
+      "command": [".venv/bin/python", "scripts/build_us_entity_mapping_layer.py"]
+    },
+    {
+      "id": "global_entity_master_merge",
+      "title": "Merge Asia + US entity masters (global bridge)",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 95,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "data_lake/entity_mapping/global/latest/entity_master.csv",
+      "command": [".venv/bin/python", "scripts/build_global_entity_master.py"]
+    },
+    {
+      "id": "gdelt_entity_bridge_expansion",
+      "title": "Expand Refinitiv GDELT entity bridge (global master)",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 97,
+      "estimated_runtime": "1-3 minutes",
+      "output_hint": "data_lake/research_panels/refinitiv/2026-07-06-complete/entity_market_spine_expanded.parquet",
+      "command": [
+        ".venv/bin/python",
+        "scripts/run_entity_bridge_pipeline.py"
+      ]
+    },
+    {
+      "id": "us_equity_yfinance_proxy",
+      "title": "US SP500 daily yfinance proxy (until CRSP ingest)",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 90,
+      "estimated_runtime": "5-15 minutes",
+      "output_hint": "data_lake/research_panels/public_equity/us_sp500_yfinance_daily.parquet",
+      "command": [
+        ".venv/bin/python",
+        "scripts/build_us_equity_daily_proxy.py",
+        "--stride",
+        "1"
+      ]
+    },
+    {
+      "id": "promote_high_value_registry",
+      "title": "Promote CRSP/Compustat/macro/bridge registry cards",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 5,
+      "estimated_runtime": "under 1 minute",
+      "output_hint": "config/research_query_registry.json",
+      "command": [
+        ".venv/bin/python",
+        "scripts/promote_high_value_registry.py"
+      ]
+    }
+  ]
+}

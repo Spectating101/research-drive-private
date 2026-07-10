@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "summary": "External providers and query routes the desk can reach. Not library datasets — see research_query_registry.json for catalog scope.",
+  "layers": [
+    {
+      "id": "vault_dictionary",
+      "label": "Vault dictionary",
+      "route": "collection index · GDrive FTS",
+      "detail": "Search materialized collection/ on canonical vault"
+    },
+    {
+      "id": "registry_catalog",
+      "label": "Registry catalog",
+      "route": "GET :8765/query/{id}",
+      "detail": "Local registry + on-disk handler"
+    },
+    {
+      "id": "datacite_prefetch",
+      "label": "DataCite prefetch",
+      "route": "/library/extensions/datacite/*",
+      "detail": "Harvested DOI index before collect"
+    },
+    {
+      "id": "discover_search",
+      "label": "Discover search",
+      "route": "/library/discover · /library/search",
+      "detail": "Profile-aware registry + extension merge"
+    },
+    {
+      "id": "web_discover",
+      "label": "Web discover",
+      "route": "research_web_discover (MCP)",
+      "detail": "Tavily · DuckDuckGo · Zenodo · OpenAlex"
+    },
+    {
+      "id": "probe_url",
+      "label": "Source probe",
+      "route": "procurement_probe_public_source",
+      "detail": "Classify public URL before collect"
+    },
+    {
+      "id": "shell_http",
+      "label": "Direct HTTP",
+      "route": "http_manifest · queue scripts",
+      "detail": "curl-equivalent manifest fetch"
+    },
+    {
+      "id": "playwright_scrape",
+      "label": "Playwright scrape",
+      "route": "windows_lab · spectator",
+      "detail": "Browser capture on worker fleet"
+    },
+    {
+      "id": "cluster_jobs",
+      "label": "Cluster jobs",
+      "route": "/library/jobs · yzu_submit_job",
+      "detail": "Queue · harvest · BQ · archive"
+    }
+  ],
+  "sources": [
+    {
+      "id": "lseg_edp",
+      "label": "LSEG Workspace / EDP (YZU seat)",
+      "endpoint": "lseg.com / localhost:9000",
+      "layers": ["harvest", "registry", "frozen_release"],
+      "routes": "refinitiv_backfill · refinitiv_promote_registry · entitlement probes",
+      "collect_via": ["lseg_data_api"],
+      "show_on_resources": true
+    },
+    {
+      "id": "wrds",
+      "label": "WRDS (CRSP · Compustat · CCM)",
+      "endpoint": "wrds.wharton.upenn.edu",
+      "layers": ["queue", "planned"],
+      "routes": "wrds_crsp_compustat_ccm queue task → data_lake/wrds/",
+      "collect_via": ["wrds"],
+      "show_on_resources": true,
+      "notes": "Not available on desk creds — use crsp_moveit + capital_iq instead"
+    },
+    {
+      "id": "crsp_moveit",
+      "label": "CRSP MOVEit Cloud",
+      "endpoint": "crsp.moveitcloud.com",
+      "layers": ["bulk", "manifest", "sftp"],
+      "routes": "crsp_moveit_manifest · crsp_moveit_sync_priority",
+      "collect_via": ["moveit_sftp"],
+      "show_on_resources": true
+    },
+    {
+      "id": "capital_iq",
+      "label": "S&P Capital IQ / Compustat",
+      "endpoint": "capitaliq.com",
+      "layers": ["web_export", "planned_feed"],
+      "routes": "Manual Compustat export → data_lake/compustat/raw/",
+      "collect_via": ["web_export"],
+      "show_on_resources": true
+    },
+    {
+      "id": "gdelt",
+      "label": "GDELT",
+      "endpoint": "gdeltproject.org",
+      "layers": ["harvest", "pipeline", "registry"],
+      "routes": "GKG bulk · DOC API · cluster gdelt_fetch",
+      "collect_via": ["pipeline", "queue"]
+    },
+    {
+      "id": "sec_edgar",
+      "label": "SEC EDGAR",
+      "endpoint": "sec.gov/edgar",
+      "layers": ["queue", "registry"],
+      "routes": "sec_fetch_company_tickers · submissions cache",
+      "collect_via": ["http_manifest", "queue"],
+      "show_on_resources": true
+    },
+    {
+      "id": "twse",
+      "label": "TWSE Open API",
+      "endpoint": "openapi.twse.com.tw",
+      "layers": ["queue", "discover", "sample"],
+      "routes": "twse_openapi_taiwan_market_layer",
+      "collect_via": ["queue", "http_manifest"],
+      "show_on_resources": true
+    },
+    {
+      "id": "mops",
+      "label": "MOPS Taiwan",
+      "endpoint": "mops.twse.com.tw",
+      "layers": ["discover", "queue", "sample"],
+      "routes": "mops_tw · governance panel collect",
+      "collect_via": ["queue", "web_scrape"],
+      "show_on_resources": true
+    },
+    {
+      "id": "yfinance",
+      "label": "Yahoo Finance",
+      "endpoint": "finance.yahoo.com (yfinance)",
+      "layers": ["queue", "registry"],
+      "routes": "fetch_yfinance_tidy_panel · accessible universes",
+      "collect_via": ["queue"],
+      "show_on_resources": true
+    },
+    {
+      "id": "macro_public",
+      "label": "Public macro baseline",
+      "endpoint": "Ken French · FRED-style mirrors",
+      "layers": ["queue"],
+      "routes": "download_public_macro_market_baseline",
+      "collect_via": ["queue"]
+    },
+    {
+      "id": "coingecko",
+      "label": "CoinGecko",
+      "endpoint": "api.coingecko.com",
+      "layers": ["remote_api", "registry"],
+      "routes": "coingecko_simple_price_api · live quote",
+      "collect_via": ["http_manifest"],
+      "show_on_resources": true
+    },
+    {
+      "id": "bigquery",
+      "label": "Google BigQuery",
+      "endpoint": "bigquery.googleapis.com",
+      "layers": ["remote_query", "dry_run"],
+      "routes": "bigquery_dry_run · bigquery_read_query",
+      "collect_via": ["bigquery"],
+      "show_on_resources": true
+    },
+    {
+      "id": "datacite",
+      "label": "DataCite",
+      "endpoint": "datacite.org · DOI network",
+      "layers": ["prefetch", "collect", "discover"],
+      "routes": "datacite_search · collect_doi · harvest lanes",
+      "collect_via": ["datacite"],
+      "show_on_resources": true
+    },
+    {
+      "id": "huggingface",
+      "label": "HuggingFace",
+      "endpoint": "huggingface.co/datasets",
+      "layers": ["discover", "collect"],
+      "routes": "/library/extensions/huggingface/search",
+      "collect_via": ["huggingface"],
+      "show_on_resources": true
+    },
+    {
+      "id": "open_research",
+      "label": "Zenodo · OpenAlex",
+      "endpoint": "zenodo.org · openalex.org",
+      "layers": ["discover", "web_discover"],
+      "routes": "research_web_discover · external catalogs",
+      "collect_via": ["web_discover", "datacite"],
+      "show_on_resources": true
+    },
+    {
+      "id": "reddit",
+      "label": "Reddit",
+      "endpoint": "reddit.com",
+      "layers": ["queue", "ingest"],
+      "routes": "reddit ingest scripts",
+      "collect_via": ["queue"]
+    },
+    {
+      "id": "web_generic",
+      "label": "Web (arbitrary)",
+      "endpoint": "any public URL",
+      "layers": ["probe", "scrape", "jobs"],
+      "routes": "probe → playwright → yzu_submit_job",
+      "collect_via": ["web_scrape", "probe"],
+      "show_on_resources": true
+    },
+    {
+      "id": "gdrive_vault",
+      "label": "Google Drive vault",
+      "endpoint": "drive.google.com (canonical)",
+      "layers": ["archive", "dictionary"],
+      "routes": "yzu_archive_to_gdrive · collection/",
+      "collect_via": ["archive"]
+    }
+  ]
+}

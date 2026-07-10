@@ -1,0 +1,93 @@
+{
+  "name": "Sharpe-Renaissance storage tiers",
+  "version": 1,
+  "summary": "GDrive is canonical write target. Local/USB paths are ephemeral staging only — hydrate on read when analysis needs files.",
+  "tiers": {
+    "hot": {
+      "label": "NVMe desk",
+      "role": "latency_and_sqlite",
+      "notes": "Alpha panel, job SQLite, code, one active research run. No pipeline archives.",
+      "path_prefixes": [
+        "data_lake/daily_alpha_panel",
+        "data_lake/procurement_memory",
+        "data_lake/agent_jobs",
+        "data_lake/data_collection_queue",
+        "data_lake/yzu_cluster",
+        "data_lake/sec",
+        "data_lake/sentiment",
+        "data_lake/procured",
+        "data_lake/research_context",
+        "data_lake/spk_v1",
+        "data_lake/public_macro_market_baseline",
+        "data_lake/official_disclosures",
+        "data_lake/entity_mapping",
+        "data_lake/feature_store",
+        "data_lake/analytics_pack",
+        "data_lake/prediction_markets",
+        "data_lake/research_panels"
+      ]
+    },
+    "canonical": {
+      "label": "Google Drive vault",
+      "role": "source_of_truth",
+      "drive_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data",
+      "drive_total_tb": 5,
+      "archive_quota_tb": 3,
+      "upload_policy": "copy_verify",
+      "completion_requires_verify": true,
+      "rclone_extra_flags": [
+        "--drive-acknowledge-abuse"
+      ],
+      "gdelt_backfill_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/news/gdelt-asia/gdelt_gkg_asia_backfill_2018_2023",
+      "gdelt_normalized_roots": [
+        "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/news/gdelt-asia/gdelt_gkg_asia_backfill_2018_2023/normalized/gdelt_gkg_asia_bulk",
+        "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/news/gdelt-asia/normalized/gdelt_gkg_asia_bulk"
+      ]
+    },
+    "cache": {
+      "label": "Transcend bulk cache",
+      "role": "bulk_analysis_cache",
+      "env_root": "RESEARCH_BULK_ROOT",
+      "marker": ".sharpe_research_bulk",
+      "default_candidates": [
+        "/mnt/research-data/sharpe-renaissance",
+        "/media/phyrexian/Transcend/sharpe-renaissance"
+      ],
+      "bulk_subdirs": [
+        "crypto_pipeline",
+        "news_shock_taxonomy",
+        "coingecko_archive",
+        "dataset_catalog",
+        "markets",
+        "opensea",
+        "spectator_archives",
+        "refinitiv_backfill"
+      ],
+      "retention_after_canonical_verify": "compact_staging_only",
+      "staging_globs": [
+        "normalized/gdelt_gkg_asia_bulk/*/asia_gkg_filtered.csv.gz",
+        "processed/*/asia_gkg_scored.csv.gz",
+        "processed/*/url_enrichment_queue.csv.gz",
+        "processed/*/url_enrichment_enrich_high_priority.csv.gz",
+        "processed/*/url_enrichment_enrich_high_priority.jsonl.gz"
+      ],
+      "keep_after_compact": [
+        "processed/*/daily_country_shock_panel.csv",
+        "processed/*/daily_country_shock_panel.parquet",
+        "research_panels",
+        "derived"
+      ]
+    }
+  },
+  "rules": {
+    "drive_first": true,
+    "compact_ephemeral_after_drive_verify": true,
+    "prefer_cache_for_bulk_reads": false,
+    "hydrate_cache_from_canonical": true,
+    "never_store_bulk_on_hot": true,
+    "disk_guard_scope": "nvme_only_when_cache_mounted",
+    "nvme_min_free_gb_when_cache_mounted": 40,
+    "nvme_min_free_gb_when_cache_offline": 60,
+    "nvme_target_free_gb_when_cache_mounted": 55
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "generated_at": "2026-07-07T08:20:28+00:00",
+  "live": false,
+  "principle": "Single desk snapshot: catalogue + entitlements + coverage + sourcing + storage.",
+  "headline": {
+    "registry_datasets": 157,
+    "instant_datasets": 47,
+    "instant_query_ready": 29,
+    "instant_ready_pct": 61.7,
+    "metadata_search": 105,
+    "source_systems": 24,
+    "collection_partitions": 24,
+    "enabled_collection_tasks": 16,
+    "gap_cells": 8,
+    "bulk_rich_partitions": [
+      "news.gdelt-asia",
+      "news.gdelt-expanded",
+      "catalog.datacite-harvest",
+      "catalog.curated-index",
+      "markets.crypto-landscape",
+      "markets.crypto-coingecko",
+      "markets.equities-asia",
+      "acquired.procured",
+      "ops.spectator-archives",
+      "ops.cluster-jobs"
+    ]
+  },
+  "sourcing_capability": [
+    {
+      "mode": "local_search",
+      "status": "production",
+      "surface": "research_discover_search, registry, semantic index"
+    },
+    {
+      "mode": "external_discovery",
+      "status": "production",
+      "surface": "DataCite, HuggingFace, Tavily/DDG"
+    },
+    {
+      "mode": "doi_collect",
+      "status": "production",
+      "surface": "datacite_collect, http_manifest"
+    },
+    {
+      "mode": "queue_etl",
+      "status": "production",
+      "surface": "16 enabled collection tasks"
+    },
+    {
+      "mode": "licensed_bulk",
+      "status": "partial",
+      "surface": "LSEG instant; CRSP/Compustat ingesting"
+    },
+    {
+      "mode": "web_scrape",
+      "status": "production",
+      "surface": "Playwright spectator, generic_url_scrape"
+    },
+    {
+      "mode": "gdelt_bulk",
+      "status": "production",
+      "surface": "news_shock_taxonomy + country panels"
+    },
+    {
+      "mode": "gdrive_vault",
+      "status": "production",
+      "surface": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data"
+    },
+    {
+      "mode": "live_connectors",
+      "status": "production",
+      "surface": "18 desk connectors"
+    }
+  ],
+  "storage": {
+    "architecture": "GDrive is canonical write target. Local/USB paths are ephemeral staging only — hydrate on read when analysis needs files.",
+    "canonical": {
+      "label": "Google Drive vault",
+      "role": "source_of_truth",
+      "drive_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data",
+      "upload_policy": "copy_verify",
+      "completion_requires_verify": true,
+      "pool_tb": 5.0,
+      "quota_tb": 3.0
+    },
+    "cache": {
+      "mounted": true,
+      "role": "bulk_analysis_cache",
+      "label": "Transcend bulk cache",
+      "retention": "compact_staging_only",
+      "root": "/media/phyrexian/Transcend/sharpe-renaissance",
+      "data_lake": "/media/phyrexian/Transcend/sharpe-renaissance/data_lake",
+      "total_gb": 1863.01,
+      "used_gb": 523.23,
+      "free_gb": 1339.78,
+      "mobile": true
+    },
+    "hot": {
+      "label": "NVMe desk",
+      "role": "latency_and_sqlite",
+      "data_lake": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake",
+      "free_gb": 54,
+      "required_min_gb": 40,
+      "used_pct": 82.6,
+      "headroom_ok": true
+    },
+    "rules": {
+      "drive_first": true,
+      "compact_ephemeral_after_drive_verify": true,
+      "prefer_cache_for_bulk_reads": false,
+      "hydrate_cache_from_canonical": true,
+      "never_store_bulk_on_hot": true,
+      "disk_guard_scope": "nvme_only_when_cache_mounted",
+      "nvme_min_free_gb_when_cache_mounted": 40,
+      "nvme_min_free_gb_when_cache_offline": 60,
+      "nvme_target_free_gb_when_cache_mounted": 55
+    }
+  },
+  "entitlement_summary": {
+    "geographies": 9,
+    "capabilities": 11,
+    "entitlement_sources": 21,
+    "accessible_cells_ge_2": 42,
+    "total_cells": 99,
+    "gap_cells": 8,
+    "not_wired_sources": [],
+    "materialized_matrix_loaded": true
+  },
+  "coverage_summary": {
+    "registry_datasets_profiled": 157,
+    "instant_datasets": 47,
+    "materialized_instant": 29,
+    "disk_probed": 29,
+    "collection_partitions": 25,
+    "bulk_rich_thin_surface": [
+      "news.gdelt-asia",
+      "news.gdelt-expanded",
+      "catalog.datacite-harvest",
+      "catalog.curated-index",
+      "markets.crypto-landscape",
+      "markets.crypto-coingecko",
+      "markets.equities-asia",
+      "acquired.procured",
+      "ops.spectator-archives",
+      "ops.cluster-jobs"
+    ],
+    "proxy_blocks": 7,
+    "synthesis_profiles": 3
+  },
+  "source_map_summary": {
+    "registry_datasets": 157,
+    "mapped_datasets": 157,
+    "unmapped_datasets": 0,
+    "source_systems": 24,
+    "live_connectors_desk": 18,
+    "orphan_desk_connectors": [],
+    "registry_cards_by_access_mode": {
+      "materialized_instant": 28,
+      "derived_internal": 19,
+      "materialized_bulk": 8,
+      "planned": 0,
+      "live_connector": 31,
+      "procurement_catalog": 71
+    }
+  },
+  "instant_probe": {
+    "instant_total": 47,
+    "instant_query_ready": 29,
+    "instant_ready_pct": 61.7
+  },
+  "documentation": {
+    "desk_status": "docs/DESK_STATUS.md",
+    "databank_state": "docs/DATABANK_STATE.md",
+    "procurement_pipeline": "docs/PROCUREMENT_PIPELINE.md"
+  },
+  "found": true,
+  "cache_path": "drive/docs/status/generated/consolidated_state.json"
+}

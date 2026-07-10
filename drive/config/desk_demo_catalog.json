@@ -1,0 +1,308 @@
+{
+  "label": "OFFLINE",
+  "datasets": [
+    {
+      "dataset_id": "gdelt_asia_daily_country_panel",
+      "name": "Asia daily news-risk panel",
+      "grain": "country-day",
+      "local_root": "research_panels/gdelt",
+      "join_keys": [
+        "date",
+        "country"
+      ],
+      "entity_fields": [
+        "country"
+      ],
+      "time_field": "date",
+      "coverage": "2018\u20132026",
+      "analysis_readiness": "instant",
+      "description": "GDELT Asia daily country broadcast panel",
+      "source": "GDELT GKG",
+      "recommended_use": "Asia news-risk overlays \u00b7 country-day joins",
+      "limitations": "English-heavy sources \u00b7 lag 24\u201348h",
+      "preview_rows": [
+        {
+          "date": "2026-04-30",
+          "country": "TW",
+          "score": 0.82,
+          "mentions": 412
+        },
+        {
+          "date": "2026-04-30",
+          "country": "JP",
+          "score": 0.71,
+          "mentions": 890
+        },
+        {
+          "date": "2026-04-29",
+          "country": "TW",
+          "score": 0.79,
+          "mentions": 388
+        }
+      ]
+    },
+    {
+      "dataset_id": "ticker_week_country_broadcast_panel",
+      "name": "Ticker week panel",
+      "grain": "country-week",
+      "local_root": "research_panels/ticker",
+      "join_keys": [
+        "week",
+        "country"
+      ],
+      "entity_fields": [
+        "ticker",
+        "country"
+      ],
+      "time_field": "week",
+      "coverage": "2019\u20132026",
+      "analysis_readiness": "instant",
+      "source": "GDELT + ticker registry",
+      "recommended_use": "Cross-asset week panels",
+      "limitations": "Sparse pre-2019"
+    },
+    {
+      "dataset_id": "coingecko_daily_archive",
+      "name": "CoinGecko market archive",
+      "grain": "asset-day",
+      "local_root": "research_panels/crypto/coingecko",
+      "join_keys": [
+        "date",
+        "asset_id"
+      ],
+      "time_field": "date",
+      "coverage": "2017\u20132026",
+      "analysis_readiness": "instant",
+      "source": "CoinGecko API",
+      "recommended_use": "Crypto market baselines"
+    },
+    {
+      "dataset_id": "ethereum_usdt_transfers",
+      "name": "USDT transfer catalogue",
+      "grain": "tx",
+      "local_root": "research_panels/crypto/ethereum",
+      "join_keys": [
+        "block_time",
+        "tx_hash"
+      ],
+      "time_field": "block_time",
+      "coverage": "2020\u20132026",
+      "analysis_readiness": "connected"
+    },
+    {
+      "dataset_id": "sec_crypto_enforcement_filings",
+      "name": "SEC crypto enforcement filings",
+      "grain": "filing",
+      "local_root": "reference/sec/crypto",
+      "join_keys": [
+        "filing_date",
+        "cik"
+      ],
+      "time_field": "filing_date",
+      "coverage": "2015\u20132026",
+      "analysis_readiness": "instant"
+    },
+    {
+      "dataset_id": "twse_openapi_governance_panel",
+      "name": "TWSE OpenAPI governance panel",
+      "grain": "issuer-quarter",
+      "local_root": "research_panels/taiwan/twse",
+      "join_keys": [
+        "quarter",
+        "ticker"
+      ],
+      "entity_fields": [
+        "ticker"
+      ],
+      "time_field": "quarter",
+      "coverage": "2018\u20132026",
+      "analysis_readiness": "connected"
+    },
+    {
+      "dataset_id": "stablecoin_incident_registry",
+      "name": "Stablecoin incident registry",
+      "grain": "incident",
+      "local_root": "research_panels/crypto/stablecoin",
+      "join_keys": [
+        "incident_date",
+        "asset"
+      ],
+      "time_field": "incident_date",
+      "coverage": "2017\u20132026",
+      "analysis_readiness": "instant"
+    },
+    {
+      "dataset_id": "indonesia_idx_daily_panel",
+      "name": "Indonesia IDX daily panel",
+      "grain": "ticker-day",
+      "local_root": "research_panels/indonesia/idx",
+      "join_keys": [
+        "date",
+        "ticker"
+      ],
+      "entity_fields": [
+        "ticker"
+      ],
+      "time_field": "date",
+      "coverage": "2016\u20132026",
+      "analysis_readiness": "instant"
+    },
+    {
+      "dataset_id": "refinitiv_security_master",
+      "name": "Refinitiv security master",
+      "grain": "instrument",
+      "local_root": "data_lake/refinitiv_backfill/2026-07-06-complete/processed",
+      "join_keys": [
+        "ric"
+      ],
+      "entity_fields": [
+        "ric",
+        "trbc_sector",
+        "country_code"
+      ],
+      "time_field": "pulled_at",
+      "coverage": "570 RICs",
+      "analysis_readiness": "instant",
+      "entitlement_status": "collected",
+      "field_coverage": "query-ready",
+      "known_gap": "ISIN often empty",
+      "best_use": "Join hub for institutional panels",
+      "recommended_use": "Universe construction \u00b7 cross-panel joins",
+      "limitations": "Frozen release 2026-07-06-complete"
+    },
+    {
+      "dataset_id": "refinitiv_index_membership_pit",
+      "name": "Refinitiv PIT index membership",
+      "grain": "index-constituent-month",
+      "local_root": "data_lake/refinitiv_backfill/2026-07-06-complete/processed",
+      "join_keys": [
+        "index_ric",
+        "as_of_date",
+        "constituent_ric"
+      ],
+      "entity_fields": [
+        "index_ric",
+        "constituent_ric"
+      ],
+      "time_field": "as_of_date",
+      "coverage": "548k rows \u00b7 SPX JKSE TWII N225 KS11 STI",
+      "analysis_readiness": "instant",
+      "field_coverage": "query-ready",
+      "best_use": "Survivorship-correct event studies with GDELT",
+      "limitations": "Monthly PIT 2010\u20132026"
+    },
+    {
+      "dataset_id": "refinitiv_entity_market_spine",
+      "name": "Refinitiv entity market spine",
+      "grain": "instrument",
+      "local_root": "data_lake/research_panels/refinitiv/2026-07-06-complete",
+      "join_keys": [
+        "ric",
+        "gdelt_entity_id"
+      ],
+      "entity_fields": [
+        "ric",
+        "gdelt_entity_id",
+        "country_code"
+      ],
+      "time_field": "built_at",
+      "coverage": "570 RICs + GDELT entity bridge",
+      "analysis_readiness": "instant",
+      "best_use": "GDELT \u2194 ticker/RIC \u2194 index membership joins",
+      "limitations": "GDELT entity join strongest for Asia mapped names"
+    },
+    {
+      "dataset_id": "refinitiv_rescued_us_risk_desktop",
+      "name": "Refinitiv US vol/skew (desktop rescue)",
+      "grain": "instrument-day-metric",
+      "local_root": "data_lake/refinitiv_backfill/rescued_desktop_20251215/processed",
+      "join_keys": [
+        "ric",
+        "date",
+        "metric"
+      ],
+      "entity_fields": [
+        "ric",
+        "metric"
+      ],
+      "time_field": "date",
+      "coverage": "495 S&P names \u00b7 2015\u20132025",
+      "analysis_readiness": "instant",
+      "best_use": "US vol/skew/SI history where EDP is empty",
+      "limitations": "Desktop Eikon Dec 2025; not auto-refreshed"
+    }
+  ],
+  "discover_suggestions": [
+    "TWSE governance",
+    "MOPS filings",
+    "stablecoin incidents",
+    "Indonesia IDX",
+    "Refinitiv PIT membership",
+    "GDELT news shocks"
+  ],
+  "discover_samples": [
+    {
+      "dataset_id": "twse_openapi_governance_ext",
+      "title": "TWSE OpenAPI governance disclosures",
+      "name": "TWSE OpenAPI governance disclosures",
+      "source": "TWSE",
+      "collect_via": "twse_openapi",
+      "coverage": "2018\u20132026",
+      "license": "Open Government",
+      "grain": "issuer-quarter",
+      "description": "Taiwan exchange governance panel via OpenAPI",
+      "url": "https://openapi.twse.com.tw/"
+    },
+    {
+      "dataset_id": "mops_financial_statements_ext",
+      "title": "MOPS financial statements (Taiwan)",
+      "name": "MOPS financial statements",
+      "source": "MOPS",
+      "collect_via": "mops_tw",
+      "coverage": "2015\u20132026",
+      "license": "Open Government",
+      "grain": "issuer-quarter",
+      "description": "TW listed company filings from Market Observation Post System",
+      "url": "https://mops.twse.com.tw/"
+    },
+    {
+      "dataset_id": "datacite_ocean_temperature_ext",
+      "title": "Global ocean temperature anomaly (DataCite)",
+      "name": "Ocean temperature anomaly",
+      "source": "DataCite",
+      "collect_via": "datacite",
+      "coverage": "1990\u20132025",
+      "license": "CC-BY 4.0",
+      "grain": "grid-month",
+      "description": "Published research dataset \u2014 procure via DataCite DOI harvest",
+      "url": "https://doi.org/10.5281/zenodo.example"
+    }
+  ],
+  "health": {
+    "status": "demo",
+    "desk": {
+      "jobs": {
+        "running": 4,
+        "pending_approval": 1,
+        "gdelt_progress": "18 / 99 mo"
+      },
+      "composer_configured": false,
+      "storage_tiers": {
+        "canonical": {
+          "quota_tb": 5,
+          "used_tb": 2.1
+        },
+        "cache": {
+          "used_pct": 68
+        }
+      },
+      "gdrive": {
+        "ok": true
+      },
+      "worker_pools": {
+        "busy": 3,
+        "total": 12
+      }
+    }
+  }
+}

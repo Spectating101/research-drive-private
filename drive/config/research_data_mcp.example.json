@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "research-data": {
+      "command": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/run_research_data_mcp.sh",
+      "env": {
+        "GOOGLE_CLOUD_PROJECT": "replace-with-project-id",
+        "DEEPSEEK_API_KEY": "optional-for-research_advise_datasets",
+        "RESEARCH_MCP_BIGQUERY_MAX_BYTES": "10737418240",
+        "RESEARCH_MCP_BIGQUERY_HARD_MAX_BYTES": "107374182400"
+      }
+    }
+  }
+}

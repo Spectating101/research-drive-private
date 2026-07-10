@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "summary": "Legacy backfill only — drive-first mode writes directly to GDrive partitions on job completion.",
+  "mode": "backfill_only",
+  "scheduled": false,
+  "lock_name": "collection_partition_sync.lock",
+  "report_path": "data_lake/collection/_index/migration/partition_sync_latest.json",
+  "default_rclone": {
+    "transfers": 2,
+    "checkers": 4,
+    "retries": 5,
+    "low_level_retries": 10,
+    "verify": true,
+    "verify_mode": "size-only",
+    "timeout_seconds": 7200,
+    "verify_timeout_seconds": 1800,
+    "extra_flags": [
+      "--drive-acknowledge-abuse"
+    ]
+  },
+  "large_partition_ids": [
+    "news.gdelt-asia",
+    "catalog.datacite-harvest"
+  ],
+  "do_not_sync_ids": [
+    "catalog.datacite-harvest",
+    "ops.cluster-jobs",
+    "derived.research-models"
+  ],
+  "remote_pulls": [
+    {
+      "id": "coingecko_panel_exports",
+      "script": "scripts/sync_coingecko_panels_from_backup.sh",
+      "enabled": true,
+      "notes": "rsync/scp canonical panels from spectator failover host into crypto_pipeline/exports"
+    }
+  ],
+  "extra_syncs": [
+    {
+      "id": "coingecko-exports",
+      "local_path": "data_lake/crypto_pipeline/exports",
+      "remote_suffix": "collection/markets/crypto-coingecko/exports",
+      "partition_id": "markets.crypto-coingecko"
+    },
+    {
+      "id": "stablecoin-skynet-harvest",
+      "local_path": "stablecoin_skynet/data",
+      "remote_suffix": "collection/markets/crypto-coingecko/skynet-harvest",
+      "partition_id": "markets.crypto-coingecko",
+      "optional": true
+    }
+  ],
+  "partition_overrides": {
+    "reference.sec-edgar": {
+      "exclude_globs": [
+        "submissions/**"
+      ],
+      "copyto_overrides": {
+        "company_tickers.json": "company_tickers.json/company_tickers.json"
+      },
+      "notes": "Drive keeps company_tickers.json as a folder from legacy migrate; copyto avoids file/dir clash"
+    },
+    "catalog.curated-index": {
+      "exclude_globs": [
+        "index_v3/**"
+      ],
+      "notes": "Harvest shards live in datacite_catalog/ — never copy index_v3 with curated"
+    },
+    "reference.refinitiv-backfill": {
+      "optional": true
+    },
+    "ops.spectator-archives": {
+      "optional": true
+    },
+    "markets.nft-opensea": {
+      "optional": true
+    }
+  },
+  "post_sync": {
+    "inventory": true,
+    "inventory_quick": true
+  }
+}

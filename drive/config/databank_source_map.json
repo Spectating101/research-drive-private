@@ -1,0 +1,640 @@
+{
+  "version": 1,
+  "summary": "Canonical research sources — license, materialization mode, capabilities, registry linkage. Partitions are vault folders; this is provenance and research role.",
+  "access_modes": {
+    "materialized_instant": "On-disk panel/file; query via research_query_registry instant cards",
+    "materialized_bulk": "Large archive; partial registry surface; bulk paths documented",
+    "live_connector": "Remote query at request time via desk_sources + MCP (not fully mirrored)",
+    "procurement_catalog": "Metadata/search cards; bytes land via collect jobs",
+    "derived_internal": "In-house merged panels built from other sources",
+    "planned": "Licensed or queued; not ingested on this desk yet"
+  },
+  "capabilities_glossary": {
+    "daily_prices": "Instrument-day OHLCV or return panels",
+    "country_news_shocks": "Country-day or country-week news intensity",
+    "entity_news_shocks": "Ticker/RIC-day entity-resolved news features",
+    "fundamentals": "Balance sheet / income / cash-flow style fields",
+    "estimates_revisions": "Sell-side EPS/revenue estimates and revision history",
+    "index_pit_survivorship": "Point-in-time index membership",
+    "risk_overlay": "Vol, skew, short interest, crowding",
+    "entity_join_gdelt_ric": "GDELT entity bridge to institutional RIC spine",
+    "governance_regulatory": "Filings, exchange disclosures, misconduct panels",
+    "social_sentiment": "Reddit/social text archives",
+    "onchain_crypto": "Blockchain transfers, DeFi, stablecoin telemetry"
+  },
+  "sources": [
+    {
+      "id": "lseg_edp",
+      "label": "LSEG Workspace / EDP (YZU seat)",
+      "desk_connector_id": "lseg_edp",
+      "provider": "LSEG Refinitiv",
+      "access_mode": "materialized_instant",
+      "license": "university_edp_seat",
+      "status": "frozen_release",
+      "canonical_run": "2026-07-06-complete",
+      "local_roots": [
+        "data_lake/refinitiv_backfill/2026-07-06-complete"
+      ],
+      "partition_ids": [
+        "reference.refinitiv-backfill"
+      ],
+      "capabilities": [
+        "index_pit_survivorship",
+        "estimates_revisions",
+        "fundamentals",
+        "risk_overlay",
+        "daily_prices"
+      ],
+      "geographies": [
+        "US",
+        "Taiwan",
+        "Indonesia",
+        "Japan",
+        "Korea",
+        "Singapore"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "refinitiv_",
+        "exclude_dataset_ids": [
+          "refinitiv_survivorship_universe_panel",
+          "refinitiv_us_risk_overlay",
+          "refinitiv_estimate_revision_panel",
+          "refinitiv_fundamental_annual_panel",
+          "refinitiv_entity_market_spine",
+          "refinitiv_rescued_us_risk_desktop"
+        ]
+      },
+      "known_gaps": [
+        "institutional_ownership license-blocked",
+        "StarMine / SmartEstimate license-blocked",
+        "FQ PIT fundamentals blocked; FY via FRQ=FY only",
+        "US vol daily history thin on EDP — use desktop rescue lane"
+      ],
+      "notes": "Bulk harvest STOP. Targeted entitlement probes only."
+    },
+    {
+      "id": "lseg_desktop_rescue",
+      "label": "LSEG Eikon desktop rescue (US vol/skew/SI)",
+      "desk_connector_id": "lseg_edp",
+      "provider": "LSEG Refinitiv",
+      "access_mode": "materialized_instant",
+      "license": "desktop_eikon_export",
+      "status": "rescued_snapshot",
+      "canonical_run": "rescued_desktop_20251215",
+      "local_roots": [
+        "data_lake/refinitiv_backfill/rescued_desktop_20251215"
+      ],
+      "partition_ids": [
+        "reference.refinitiv-backfill"
+      ],
+      "capabilities": [
+        "risk_overlay"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "registry_rules": {
+        "dataset_ids": [
+          "refinitiv_rescued_us_risk_desktop"
+        ]
+      },
+      "notes": "~15.6M rows US vol/skew/SI; complements thin EDP vol history."
+    },
+    {
+      "id": "derived_research_panels",
+      "label": "In-house derived research panels",
+      "provider": "YZU Cluster",
+      "access_mode": "derived_internal",
+      "status": "active",
+      "local_roots": [
+        "data_lake/research_panels"
+      ],
+      "partition_ids": [
+        "derived.research-panels"
+      ],
+      "capabilities": [
+        "entity_news_shocks",
+        "country_news_shocks",
+        "daily_prices",
+        "estimates_revisions",
+        "index_pit_survivorship",
+        "entity_join_gdelt_ric"
+      ],
+      "geographies": [
+        "US",
+        "Taiwan",
+        "Indonesia",
+        "Japan",
+        "Korea",
+        "Asia_multi_13"
+      ],
+      "registry_rules": {
+        "dataset_id_prefixes": [
+          "asia_",
+          "cross_asset_",
+          "daily_ticker_",
+          "ticker_week_",
+          "idn_",
+          "pit_",
+          "jkse_"
+        ],
+        "dataset_ids": [
+          "refinitiv_survivorship_universe_panel",
+          "refinitiv_us_risk_overlay",
+          "refinitiv_estimate_revision_panel",
+          "refinitiv_fundamental_annual_panel",
+          "refinitiv_entity_market_spine"
+        ]
+      }
+    },
+    {
+      "id": "gdelt",
+      "label": "GDELT news graph",
+      "desk_connector_id": "gdelt",
+      "provider": "GDELT Project",
+      "access_mode": "materialized_bulk",
+      "license": "public_bulk",
+      "status": "active",
+      "local_roots": [
+        "data_lake/news_shock_taxonomy"
+      ],
+      "partition_ids": [
+        "news.gdelt-asia",
+        "news.gdelt-expanded"
+      ],
+      "capabilities": [
+        "country_news_shocks",
+        "entity_news_shocks",
+        "entity_join_gdelt_ric"
+      ],
+      "geographies": [
+        "Asia_multi_13",
+        "US",
+        "Macro_global"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "gdelt_"
+      },
+      "bulk_note": "~165 GiB normalized under news_shock_taxonomy/normalized; registry cards are thin instant surface only."
+    },
+    {
+      "id": "wrds_crsp_compustat",
+      "label": "WRDS — CRSP + Compustat (+ CCM)",
+      "desk_connector_id": "wrds",
+      "provider": "Wharton WRDS",
+      "access_mode": "planned",
+      "license": "university_wrds",
+      "status": "not_available_on_desk",
+      "queue_task_id": "wrds_crsp_compustat_ccm",
+      "expected_local_root": "data_lake/wrds",
+      "capabilities": [
+        "daily_prices",
+        "fundamentals",
+        "index_pit_survivorship"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "known_gaps": [
+        "Credentials in .env.local do not authenticate to WRDS",
+        "Desk uses CRSP MOVEit + Capital IQ instead"
+      ],
+      "notes": "Optional future if YZU library provides WRDS account. Superseded operationally by crsp_moveit + capital_iq_compustat."
+    },
+    {
+      "id": "crsp_moveit",
+      "label": "CRSP MOVEit Cloud",
+      "desk_connector_id": "crsp_moveit",
+      "provider": "CRSP / Chicago Booth",
+      "access_mode": "materialized_bulk",
+      "license": "university_crsp_subscriber",
+      "status": "wired_manifest",
+      "local_roots": [
+        "data_lake/crsp"
+      ],
+      "partition_ids": [
+        "reference.crsp-moveit"
+      ],
+      "capabilities": [
+        "daily_prices",
+        "index_pit_survivorship"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "crsp_"
+      },
+      "mcp_routes": [
+        "crsp_moveit_manifest"
+      ],
+      "notes": "Subscriber bulk via crsp.moveitcloud.com. SFTP/FTPS scripting with same credentials."
+    },
+    {
+      "id": "capital_iq_compustat",
+      "label": "S&P Capital IQ / Compustat",
+      "desk_connector_id": "capital_iq",
+      "provider": "S&P Global Market Intelligence",
+      "access_mode": "materialized_bulk",
+      "license": "university_capital_iq",
+      "status": "pending_export",
+      "local_roots": [
+        "data_lake/compustat"
+      ],
+      "partition_ids": [
+        "reference.compustat-capitaliq"
+      ],
+      "capabilities": [
+        "fundamentals"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "compustat_"
+      },
+      "notes": "Web seat verified. Export fundamentals to data_lake/compustat/raw/ — no enterprise XpressAPI on this seat."
+    },
+    {
+      "id": "bigquery_public",
+      "label": "Google BigQuery (public datasets)",
+      "desk_connector_id": "bigquery",
+      "provider": "Google Cloud",
+      "access_mode": "live_connector",
+      "license": "adc_public_datasets",
+      "status": "active",
+      "capabilities": [
+        "onchain_crypto"
+      ],
+      "geographies": [
+        "Crypto_global"
+      ],
+      "registry_rules": {
+        "backends": [
+          "usdt_bigquery_catalogue"
+        ],
+        "dataset_ids": [
+          "ethereum_usdt_transfers"
+        ]
+      },
+      "mcp_routes": [
+        "bigquery_dry_run",
+        "bigquery_read_query",
+        "/library/extensions/bigquery/*"
+      ],
+      "notes": "Live remote SQL; USDT Ethereum flow pack materialized as catalogue card + RPC pilot CSVs."
+    },
+    {
+      "id": "datacite_harvest",
+      "label": "DataCite metadata harvest (operator bulk)",
+      "desk_connector_id": "datacite",
+      "provider": "DataCite",
+      "access_mode": "materialized_bulk",
+      "license": "public_metadata",
+      "status": "active",
+      "local_roots": [
+        "data_lake/dataset_catalog/index_v3"
+      ],
+      "partition_ids": [
+        "catalog.datacite-harvest"
+      ],
+      "professor_visible": false,
+      "capabilities": [],
+      "registry_rules": {
+        "dataset_ids": [
+          "datacite_local_harvest_status"
+        ]
+      },
+      "bulk_note": "~32 GiB sharded JSONL harvest; procurement search substrate, not professor partition."
+    },
+    {
+      "id": "datacite_procured",
+      "label": "DataCite DOI procured datasets",
+      "desk_connector_id": "datacite",
+      "provider": "DataCite network",
+      "access_mode": "procurement_catalog",
+      "license": "per_doi",
+      "status": "active",
+      "local_roots": [
+        "data_lake/procured"
+      ],
+      "partition_ids": [
+        "acquired.procured"
+      ],
+      "capabilities": [],
+      "registry_rules": {
+        "dataset_id_prefix": "datacite_10.",
+        "exclude_dataset_ids": [
+          "datacite_local_harvest_status"
+        ]
+      },
+      "mcp_routes": [
+        "datacite_search",
+        "datacite_collect_doi",
+        "/library/datacite/*"
+      ]
+    },
+    {
+      "id": "sec_edgar",
+      "label": "SEC EDGAR",
+      "desk_connector_id": "sec_edgar",
+      "provider": "US SEC",
+      "access_mode": "materialized_instant",
+      "license": "public",
+      "status": "active",
+      "local_roots": [
+        "data_lake/sec"
+      ],
+      "partition_ids": [
+        "reference.sec-edgar"
+      ],
+      "capabilities": [
+        "governance_regulatory"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "sec_",
+        "dataset_ids": [
+          "test_sec"
+        ]
+      }
+    },
+    {
+      "id": "twse_official",
+      "label": "TWSE Open API",
+      "desk_connector_id": "twse",
+      "provider": "Taiwan Stock Exchange",
+      "access_mode": "materialized_instant",
+      "license": "public_api",
+      "status": "active",
+      "local_roots": [
+        "data_lake/official_disclosures"
+      ],
+      "partition_ids": [
+        "official.exchange-disclosures"
+      ],
+      "capabilities": [
+        "governance_regulatory",
+        "daily_prices"
+      ],
+      "geographies": [
+        "Taiwan"
+      ],
+      "registry_rules": {
+        "dataset_ids": [
+          "twse_openapi_taiwan_market_layer"
+        ]
+      }
+    },
+    {
+      "id": "mops_taiwan",
+      "label": "Taiwan MOPS / governance procured",
+      "desk_connector_id": "mops",
+      "provider": "TWSE MOPS",
+      "access_mode": "procurement_catalog",
+      "license": "public_web",
+      "status": "procurement_wired",
+      "local_roots": [
+        "data_lake/official_disclosures/taiwan_mops"
+      ],
+      "partition_ids": [
+        "official.mops-disclosures"
+      ],
+      "capabilities": [
+        "governance_regulatory"
+      ],
+      "geographies": [
+        "Taiwan"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "mops_"
+      }
+    },
+    {
+      "id": "yfinance_public",
+      "label": "Yahoo Finance (yfinance)",
+      "desk_connector_id": "yfinance",
+      "provider": "Yahoo Finance",
+      "access_mode": "materialized_instant",
+      "license": "public_scrape",
+      "status": "active",
+      "local_roots": [
+        "data_lake/daily_alpha_panel.csv",
+        "data_lake/markets"
+      ],
+      "capabilities": [
+        "daily_prices"
+      ],
+      "geographies": [
+        "US",
+        "Asia_multi_13"
+      ],
+      "registry_rules": {
+        "dataset_id_contains": [
+          "yfinance"
+        ]
+      },
+      "notes": "Alpha paper panel + queue universes; not CRSP-quality US equity history."
+    },
+    {
+      "id": "coingecko",
+      "label": "CoinGecko",
+      "desk_connector_id": "coingecko",
+      "provider": "CoinGecko",
+      "access_mode": "live_connector",
+      "license": "api_key",
+      "status": "active",
+      "partition_ids": [
+        "markets.crypto-coingecko"
+      ],
+      "capabilities": [
+        "daily_prices",
+        "onchain_crypto"
+      ],
+      "geographies": [
+        "Crypto_global"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "coingecko",
+        "partition_ids": [
+          "markets.crypto-coingecko"
+        ]
+      }
+    },
+    {
+      "id": "ethereum_onchain",
+      "label": "Ethereum / USDT on-chain",
+      "desk_connector_id": "bigquery",
+      "provider": "Ethereum RPC + BigQuery public",
+      "access_mode": "materialized_instant",
+      "license": "public",
+      "status": "active",
+      "local_roots": [
+        "data/usdt_catalogue"
+      ],
+      "partition_ids": [
+        "markets.ethereum-usdt"
+      ],
+      "capabilities": [
+        "onchain_crypto"
+      ],
+      "geographies": [
+        "Crypto_global"
+      ],
+      "registry_rules": {
+        "dataset_id_prefix": "ethereum_",
+        "dataset_ids": [
+          "spk_v1_sepolia_runtime",
+          "spk_v1_payment_ledger",
+          "skynet_stablecoin_harvest"
+        ],
+        "partition_ids": [
+          "markets.ethereum-usdt"
+        ]
+      }
+    },
+    {
+      "id": "web_scrape_catalog",
+      "label": "Web scrape index (sites saved to disk)",
+      "desk_connector_id": "web_generic",
+      "provider": "Various public sites",
+      "access_mode": "procurement_catalog",
+      "license": "public_scrape",
+      "status": "active",
+      "partition_ids": [
+        "catalog.curated-index"
+      ],
+      "capabilities": [],
+      "registry_rules": {
+        "dataset_id_prefix": "scrape_"
+      }
+    },
+    {
+      "id": "procured_misc",
+      "label": "Lab procured downloads (non-DOI)",
+      "desk_connector_id": "web_generic",
+      "provider": "Various",
+      "access_mode": "procurement_catalog",
+      "license": "per_source",
+      "status": "active",
+      "partition_ids": [
+        "acquired.procured"
+      ],
+      "capabilities": [],
+      "registry_rules": {
+        "dataset_id_prefix": "procured_"
+      }
+    },
+    {
+      "id": "huggingface",
+      "label": "Hugging Face datasets",
+      "desk_connector_id": "huggingface",
+      "provider": "Hugging Face",
+      "access_mode": "live_connector",
+      "license": "per_dataset",
+      "status": "active",
+      "capabilities": [],
+      "mcp_routes": [
+        "/library/extensions/huggingface/search"
+      ],
+      "registry_rules": {
+        "procurement_source": "huggingface"
+      }
+    },
+    {
+      "id": "open_research_catalogs",
+      "label": "Zenodo · OpenAlex · external catalogs",
+      "desk_connector_id": "open_research",
+      "provider": "Zenodo / OpenAlex",
+      "access_mode": "live_connector",
+      "license": "public",
+      "status": "active",
+      "registry_rules": {
+        "dataset_ids": [
+          "external_dataset_catalog",
+          "external_dataset_catalog_curated",
+          "procurement_source_registry"
+        ]
+      }
+    },
+    {
+      "id": "reddit_social",
+      "label": "Reddit ingest",
+      "desk_connector_id": "reddit",
+      "provider": "Reddit",
+      "access_mode": "materialized_bulk",
+      "license": "public_api",
+      "status": "active",
+      "partition_ids": [
+        "social.reddit"
+      ],
+      "capabilities": [
+        "social_sentiment"
+      ],
+      "registry_rules": {
+        "dataset_id_contains": [
+          "reddit"
+        ]
+      }
+    },
+    {
+      "id": "public_macro",
+      "label": "Public macro baselines (Ken French etc.)",
+      "desk_connector_id": "macro_public",
+      "provider": "Public academic mirrors",
+      "access_mode": "materialized_instant",
+      "license": "public",
+      "status": "active",
+      "local_roots": [
+        "data_lake/public_macro_market_baseline"
+      ],
+      "partition_ids": [
+        "official.macro-asia"
+      ],
+      "capabilities": [],
+      "geographies": [
+        "Macro_global"
+      ]
+    },
+    {
+      "id": "ops_investment_platform",
+      "label": "Investment / ops platform JSON snapshots",
+      "provider": "Sharpe-Renaissance desk",
+      "access_mode": "materialized_instant",
+      "license": "internal",
+      "status": "active",
+      "partition_ids": [
+        "ops.collection-queue"
+      ],
+      "capabilities": [],
+      "registry_rules": {
+        "dataset_id_prefix": "investment_",
+        "dataset_ids": [
+          "collection_queue_status"
+        ]
+      }
+    },
+    {
+      "id": "nft_opensea",
+      "label": "OpenSea NFT metadata",
+      "desk_connector_id": "web_generic",
+      "provider": "OpenSea",
+      "access_mode": "materialized_instant",
+      "license": "public_scrape",
+      "status": "active",
+      "partition_ids": [
+        "markets.nft-opensea"
+      ],
+      "capabilities": [
+        "onchain_crypto"
+      ],
+      "registry_rules": {
+        "dataset_ids": [
+          "opensea_nft_metadata_layer"
+        ]
+      }
+    }
+  ]
+}

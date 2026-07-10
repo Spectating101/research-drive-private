@@ -1,0 +1,1781 @@
+{
+  "generated_at": "2026-07-07T11:19:09+00:00",
+  "principle": "Neutral inventory of what exists. Ranked next steps live in DESK_ACTIVATION.md and should be filtered through research_faculty_profile.",
+  "documentation": {
+    "databank_state": "drive/docs/DATABANK_STATE.md",
+    "desk_activation": "drive/docs/DESK_ACTIVATION.md",
+    "coverage_json": "drive/docs/status/generated/databank_coverage_report.json",
+    "research_coverage_md": "drive/docs/status/generated/databank_research_coverage.md",
+    "source_map_json": "drive/docs/status/generated/databank_source_map.json",
+    "source_map_md": "drive/docs/status/generated/databank_source_map.md",
+    "access_scope_json": "drive/docs/status/generated/databank_access_scope.json",
+    "access_scope_md": "drive/docs/status/generated/databank_access_scope.md",
+    "dataset_coverage_json": "drive/docs/status/generated/databank_dataset_coverage.json",
+    "dataset_coverage_md": "drive/docs/status/generated/databank_dataset_coverage.md"
+  },
+  "inventory": {
+    "registry_datasets": 158,
+    "instant_datasets": 94,
+    "metadata_search": 59,
+    "professor_partitions": 24,
+    "refinitiv_datasets": 16,
+    "refinitiv_share_pct": 10.1,
+    "unassigned_registry_ids": 0,
+    "collection_queue_enabled": 19,
+    "live_source_connectors": 18
+  },
+  "source_map_summary": {
+    "registry_datasets": 158,
+    "mapped_datasets": 158,
+    "unmapped_datasets": 0,
+    "source_systems": 24,
+    "live_connectors_desk": 18,
+    "orphan_desk_connectors": [],
+    "registry_cards_by_access_mode": {
+      "materialized_instant": 29,
+      "derived_internal": 19,
+      "materialized_bulk": 8,
+      "planned": 0,
+      "live_connector": 31,
+      "procurement_catalog": 71
+    }
+  },
+  "sources": [
+    {
+      "id": "lseg_edp",
+      "label": "LSEG Workspace / EDP (YZU seat)",
+      "provider": "LSEG Refinitiv",
+      "desk_connector_id": "lseg_edp",
+      "desk_connector_label": "LSEG Workspace / EDP (YZU seat)",
+      "access_mode": "materialized_instant",
+      "license": "university_edp_seat",
+      "status": "frozen_release",
+      "capabilities": [
+        "index_pit_survivorship",
+        "estimates_revisions",
+        "fundamentals",
+        "risk_overlay",
+        "daily_prices"
+      ],
+      "geographies": [
+        "US",
+        "Taiwan",
+        "Indonesia",
+        "Japan",
+        "Korea",
+        "Singapore"
+      ],
+      "partition_ids": [
+        "reference.refinitiv-backfill"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 9,
+      "instant_dataset_count": 9,
+      "registry_dataset_ids": [
+        "refinitiv_analyst_consensus_snapshot",
+        "refinitiv_corporate_actions_snapshot",
+        "refinitiv_esg_snapshot",
+        "refinitiv_estimate_revisions_daily",
+        "refinitiv_fundamentals_snapshot",
+        "refinitiv_index_membership_current",
+        "refinitiv_index_membership_pit",
+        "refinitiv_risk_tape_daily",
+        "refinitiv_security_master"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "frozen_release",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [
+        "institutional_ownership license-blocked",
+        "StarMine / SmartEstimate license-blocked",
+        "FQ PIT fundamentals blocked; FY via FRQ=FY only",
+        "US vol daily history thin on EDP — use desktop rescue lane"
+      ],
+      "notes": "Bulk harvest STOP. Targeted entitlement probes only.",
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": "2026-07-06-complete",
+      "queue_task_id": null
+    },
+    {
+      "id": "lseg_desktop_rescue",
+      "label": "LSEG Eikon desktop rescue (US vol/skew/SI)",
+      "provider": "LSEG Refinitiv",
+      "desk_connector_id": "lseg_edp",
+      "desk_connector_label": "LSEG Workspace / EDP (YZU seat)",
+      "access_mode": "materialized_instant",
+      "license": "desktop_eikon_export",
+      "status": "rescued_snapshot",
+      "capabilities": [
+        "risk_overlay"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "partition_ids": [
+        "reference.refinitiv-backfill"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 1,
+      "registry_dataset_ids": [
+        "refinitiv_rescued_us_risk_desktop"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "rescued_snapshot",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": "~15.6M rows US vol/skew/SI; complements thin EDP vol history.",
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": "rescued_desktop_20251215",
+      "queue_task_id": null
+    },
+    {
+      "id": "derived_research_panels",
+      "label": "In-house derived research panels",
+      "provider": "YZU Cluster",
+      "desk_connector_id": null,
+      "desk_connector_label": null,
+      "access_mode": "derived_internal",
+      "license": null,
+      "status": "active",
+      "capabilities": [
+        "entity_news_shocks",
+        "country_news_shocks",
+        "daily_prices",
+        "estimates_revisions",
+        "index_pit_survivorship",
+        "entity_join_gdelt_ric"
+      ],
+      "geographies": [
+        "US",
+        "Taiwan",
+        "Indonesia",
+        "Japan",
+        "Korea",
+        "Asia_multi_13"
+      ],
+      "partition_ids": [
+        "derived.research-panels"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 19,
+      "instant_dataset_count": 18,
+      "registry_dataset_ids": [
+        "asia_country_week_news_market_primary",
+        "asia_entity_ticker_mapping_layer",
+        "cross_asset_fused_primary_panel",
+        "daily_ticker_entity_shock_panel",
+        "idn_episode_reward_daily",
+        "idn_fry_daily_cross_section",
+        "idn_fry_episode_gdelt_features",
+        "jkse_pit_idn_microstructure_revisions",
+        "pit_index_revision_momentum",
+        "refinitiv_entity_market_spine",
+        "refinitiv_entity_market_spine_expanded",
+        "refinitiv_estimate_revision_panel",
+        "refinitiv_fundamental_annual_panel",
+        "refinitiv_survivorship_universe_panel",
+        "refinitiv_us_risk_overlay",
+        "ticker_week_country_broadcast_panel",
+        "ticker_week_entity_long_panel",
+        "ticker_week_entity_market_panel",
+        "ticker_week_entity_residual_panel"
+      ],
+      "materialization": {
+        "access_mode": "derived_internal",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "gdelt",
+      "label": "GDELT news graph",
+      "provider": "GDELT Project",
+      "desk_connector_id": "gdelt",
+      "desk_connector_label": "GDELT",
+      "access_mode": "materialized_bulk",
+      "license": "public_bulk",
+      "status": "active",
+      "capabilities": [
+        "country_news_shocks",
+        "entity_news_shocks",
+        "entity_join_gdelt_ric"
+      ],
+      "geographies": [
+        "Asia_multi_13",
+        "US",
+        "Macro_global"
+      ],
+      "partition_ids": [
+        "news.gdelt-asia",
+        "news.gdelt-expanded"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 2,
+      "instant_dataset_count": 2,
+      "registry_dataset_ids": [
+        "gdelt_asia_daily_country_panel",
+        "gdelt_high_priority_urls"
+      ],
+      "materialization": {
+        "access_mode": "materialized_bulk",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": "~165 GiB normalized under news_shock_taxonomy/normalized; registry cards are thin instant surface only.",
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "wrds_crsp_compustat",
+      "label": "WRDS — CRSP + Compustat (+ CCM)",
+      "provider": "Wharton WRDS",
+      "desk_connector_id": "wrds",
+      "desk_connector_label": "WRDS (CRSP · Compustat · CCM)",
+      "access_mode": "planned",
+      "license": "university_wrds",
+      "status": "not_available_on_desk",
+      "capabilities": [
+        "daily_prices",
+        "fundamentals",
+        "index_pit_survivorship"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "partition_ids": [],
+      "professor_visible": true,
+      "registry_dataset_count": 0,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [],
+      "materialization": {
+        "access_mode": "planned",
+        "status": "not_available_on_desk",
+        "local_present": false,
+        "ingested": false
+      },
+      "known_gaps": [
+        "Credentials in .env.local do not authenticate to WRDS",
+        "Desk uses CRSP MOVEit + Capital IQ instead"
+      ],
+      "notes": "Optional future if YZU library provides WRDS account. Superseded operationally by crsp_moveit + capital_iq_compustat.",
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": "wrds_crsp_compustat_ccm"
+    },
+    {
+      "id": "crsp_moveit",
+      "label": "CRSP MOVEit Cloud",
+      "provider": "CRSP / Chicago Booth",
+      "desk_connector_id": "crsp_moveit",
+      "desk_connector_label": "CRSP MOVEit Cloud",
+      "access_mode": "materialized_bulk",
+      "license": "university_crsp_subscriber",
+      "status": "wired_manifest",
+      "capabilities": [
+        "daily_prices",
+        "index_pit_survivorship"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "partition_ids": [
+        "reference.crsp-moveit"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 4,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "crsp_compustat_ccm_link",
+        "crsp_moveit_catalog_status",
+        "crsp_us_index_history",
+        "crsp_us_stock_daily_ciz"
+      ],
+      "materialization": {
+        "access_mode": "materialized_bulk",
+        "status": "wired_manifest",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": "Subscriber bulk via crsp.moveitcloud.com. SFTP/FTPS scripting with same credentials.",
+      "bulk_note": null,
+      "mcp_routes": [
+        "crsp_moveit_manifest"
+      ],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "capital_iq_compustat",
+      "label": "S&P Capital IQ / Compustat",
+      "provider": "S&P Global Market Intelligence",
+      "desk_connector_id": "capital_iq",
+      "desk_connector_label": "S&P Capital IQ / Compustat",
+      "access_mode": "materialized_bulk",
+      "license": "university_capital_iq",
+      "status": "pending_export",
+      "capabilities": [
+        "fundamentals"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "partition_ids": [
+        "reference.compustat-capitaliq"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "compustat_na_fundamentals_annual"
+      ],
+      "materialization": {
+        "access_mode": "materialized_bulk",
+        "status": "pending_export",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": "Web seat verified. Export fundamentals to data_lake/compustat/raw/ — no enterprise XpressAPI on this seat.",
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "bigquery_public",
+      "label": "Google BigQuery (public datasets)",
+      "provider": "Google Cloud",
+      "desk_connector_id": "bigquery",
+      "desk_connector_label": "Google BigQuery",
+      "access_mode": "live_connector",
+      "license": "adc_public_datasets",
+      "status": "active",
+      "capabilities": [
+        "onchain_crypto"
+      ],
+      "geographies": [
+        "Crypto_global"
+      ],
+      "partition_ids": [],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "ethereum_usdt_transfers"
+      ],
+      "materialization": {
+        "access_mode": "live_connector",
+        "status": "active",
+        "local_present": null,
+        "ingested": null,
+        "mirror_note": "Live at request time; registry may have partial catalogue cards only"
+      },
+      "known_gaps": [],
+      "notes": "Live remote SQL; USDT Ethereum flow pack materialized as catalogue card + RPC pilot CSVs.",
+      "bulk_note": null,
+      "mcp_routes": [
+        "bigquery_dry_run",
+        "bigquery_read_query",
+        "/library/extensions/bigquery/*"
+      ],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "datacite_harvest",
+      "label": "DataCite metadata harvest (operator bulk)",
+      "provider": "DataCite",
+      "desk_connector_id": "datacite",
+      "desk_connector_label": "DataCite",
+      "access_mode": "materialized_bulk",
+      "license": "public_metadata",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [
+        "catalog.datacite-harvest"
+      ],
+      "professor_visible": false,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "datacite_local_harvest_status"
+      ],
+      "materialization": {
+        "access_mode": "materialized_bulk",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": "~32 GiB sharded JSONL harvest; procurement search substrate, not professor partition.",
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "datacite_procured",
+      "label": "DataCite DOI procured datasets",
+      "provider": "DataCite network",
+      "desk_connector_id": "datacite",
+      "desk_connector_label": "DataCite",
+      "access_mode": "procurement_catalog",
+      "license": "per_doi",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [
+        "acquired.procured"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 8,
+      "instant_dataset_count": 5,
+      "registry_dataset_ids": [
+        "datacite_10.17608_k6.auckland.24773262",
+        "datacite_10.4122_1.1000000967",
+        "datacite_10.5281_zenodo.5215789",
+        "datacite_10.5281_zenodo.58938",
+        "datacite_10.5281_zenodo.6554504",
+        "datacite_10.5281_zenodo.7545157",
+        "datacite_10.5281_zenodo.8346843",
+        "datacite_10.6084_m9.figshare.9933536"
+      ],
+      "materialization": {
+        "access_mode": "procurement_catalog",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [
+        "datacite_search",
+        "datacite_collect_doi",
+        "/library/datacite/*"
+      ],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "sec_edgar",
+      "label": "SEC EDGAR",
+      "provider": "US SEC",
+      "desk_connector_id": "sec_edgar",
+      "desk_connector_label": "SEC EDGAR",
+      "access_mode": "materialized_instant",
+      "license": "public",
+      "status": "active",
+      "capabilities": [
+        "governance_regulatory"
+      ],
+      "geographies": [
+        "US"
+      ],
+      "partition_ids": [
+        "reference.sec-edgar"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 3,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "sec_company_tickers",
+        "sec_sp500_submissions",
+        "test_sec"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "twse_official",
+      "label": "TWSE Open API",
+      "provider": "Taiwan Stock Exchange",
+      "desk_connector_id": "twse",
+      "desk_connector_label": "TWSE Open API",
+      "access_mode": "materialized_instant",
+      "license": "public_api",
+      "status": "active",
+      "capabilities": [
+        "governance_regulatory",
+        "daily_prices"
+      ],
+      "geographies": [
+        "Taiwan"
+      ],
+      "partition_ids": [
+        "official.exchange-disclosures"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "twse_openapi_taiwan_market_layer"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "mops_taiwan",
+      "label": "Taiwan MOPS / governance procured",
+      "provider": "TWSE MOPS",
+      "desk_connector_id": "mops",
+      "desk_connector_label": "MOPS Taiwan",
+      "access_mode": "procurement_catalog",
+      "license": "public_web",
+      "status": "procurement_wired",
+      "capabilities": [
+        "governance_regulatory"
+      ],
+      "geographies": [
+        "Taiwan"
+      ],
+      "partition_ids": [
+        "official.mops-disclosures"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "mops_governance_panel"
+      ],
+      "materialization": {
+        "access_mode": "procurement_catalog",
+        "status": "procurement_wired",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "yfinance_public",
+      "label": "Yahoo Finance (yfinance)",
+      "provider": "Yahoo Finance",
+      "desk_connector_id": "yfinance",
+      "desk_connector_label": "Yahoo Finance",
+      "access_mode": "materialized_instant",
+      "license": "public_scrape",
+      "status": "active",
+      "capabilities": [
+        "daily_prices"
+      ],
+      "geographies": [
+        "US",
+        "Asia_multi_13"
+      ],
+      "partition_ids": [],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 1,
+      "registry_dataset_ids": [
+        "public_equity_us_sp500_yfinance_daily"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": "Alpha paper panel + queue universes; not CRSP-quality US equity history.",
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "coingecko",
+      "label": "CoinGecko",
+      "provider": "CoinGecko",
+      "desk_connector_id": "coingecko",
+      "desk_connector_label": "CoinGecko",
+      "access_mode": "live_connector",
+      "license": "api_key",
+      "status": "active",
+      "capabilities": [
+        "daily_prices",
+        "onchain_crypto"
+      ],
+      "geographies": [
+        "Crypto_global"
+      ],
+      "partition_ids": [
+        "markets.crypto-coingecko"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 27,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "coingecko_simple_price",
+        "scrape_06a0d232df9d",
+        "scrape_0cb1dbf3dd2a",
+        "scrape_0cee668dcb44",
+        "scrape_12c20613bfb2",
+        "scrape_228a3daaa283",
+        "scrape_28c42ca6465e",
+        "scrape_2d4cf4a1cfdd",
+        "scrape_3100006a13ed",
+        "scrape_38b13c2f421e",
+        "scrape_4dc4b7cab9f8",
+        "scrape_54ccdd6e7c38",
+        "scrape_567c6190fc32",
+        "scrape_58d06ed2fe87",
+        "scrape_595e74603897",
+        "scrape_60fb9fda39c7",
+        "scrape_645df8f81357",
+        "scrape_68caee63c848",
+        "scrape_87907f456ec1",
+        "scrape_8a698dde8f16",
+        "scrape_8bfddd5a1ef4",
+        "scrape_a1c12001dcae",
+        "scrape_a98ad713749e",
+        "scrape_d5a48cd9f452",
+        "scrape_e645038ff18e",
+        "scrape_e6a47f7a4376",
+        "scrape_fa4cf4c0473d"
+      ],
+      "materialization": {
+        "access_mode": "live_connector",
+        "status": "active",
+        "local_present": null,
+        "ingested": null,
+        "mirror_note": "Live at request time; registry may have partial catalogue cards only"
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "ethereum_onchain",
+      "label": "Ethereum / USDT on-chain",
+      "provider": "Ethereum RPC + BigQuery public",
+      "desk_connector_id": "bigquery",
+      "desk_connector_label": "Google BigQuery",
+      "access_mode": "materialized_instant",
+      "license": "public",
+      "status": "active",
+      "capabilities": [
+        "onchain_crypto"
+      ],
+      "geographies": [
+        "Crypto_global"
+      ],
+      "partition_ids": [
+        "markets.ethereum-usdt"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 4,
+      "instant_dataset_count": 1,
+      "registry_dataset_ids": [
+        "ethereum_usdt_rpc_pilot",
+        "skynet_stablecoin_harvest",
+        "spk_v1_payment_ledger",
+        "spk_v1_sepolia_runtime"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "web_scrape_catalog",
+      "label": "Web scrape index (sites saved to disk)",
+      "provider": "Various public sites",
+      "desk_connector_id": "web_generic",
+      "desk_connector_label": "Web (arbitrary)",
+      "access_mode": "procurement_catalog",
+      "license": "public_scrape",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [
+        "catalog.curated-index"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 35,
+      "instant_dataset_count": 29,
+      "registry_dataset_ids": [
+        "scrape_00c3f389a0f5",
+        "scrape_0a9bad731050",
+        "scrape_0c67e9fe6aa9",
+        "scrape_14ed2ca60b01",
+        "scrape_223a87fe29cc",
+        "scrape_2392043d5ab2",
+        "scrape_249e1056398b",
+        "scrape_249fa2f7be08",
+        "scrape_29fc8a842221",
+        "scrape_2ab8a1037525",
+        "scrape_414948fc1fe5",
+        "scrape_49be869dc3a1",
+        "scrape_54af347e1ceb",
+        "scrape_55e1b9f339b1",
+        "scrape_5e12ac8e7adb",
+        "scrape_65277762bee2",
+        "scrape_792e48a33e7e",
+        "scrape_7fc8fd6673ee",
+        "scrape_80ebf999e4ec",
+        "scrape_89259ee1dfcc",
+        "scrape_8b5d6829503a",
+        "scrape_9cd5f3c23156",
+        "scrape_9e3b4b53ebbd",
+        "scrape_9fa111de3278",
+        "scrape_a36a691349c4",
+        "scrape_a781e409e461",
+        "scrape_accd8e1bc04a",
+        "scrape_b673c7029eb2",
+        "scrape_c34cb3b17983",
+        "scrape_c7aeb7c5f278",
+        "scrape_d1904509b183",
+        "scrape_d1cc38729356",
+        "scrape_e2084b36a959",
+        "scrape_e7874de36111",
+        "scrape_f122a9ad3e11"
+      ],
+      "materialization": {
+        "access_mode": "procurement_catalog",
+        "status": "active",
+        "local_present": null,
+        "ingested": null
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "procured_misc",
+      "label": "Lab procured downloads (non-DOI)",
+      "provider": "Various",
+      "desk_connector_id": "web_generic",
+      "desk_connector_label": "Web (arbitrary)",
+      "access_mode": "procurement_catalog",
+      "license": "per_source",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [
+        "acquired.procured"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 27,
+      "instant_dataset_count": 20,
+      "registry_dataset_ids": [
+        "procured_1eb9759920",
+        "procured_25c43f93f5",
+        "procured_6ba2b4e795",
+        "procured_6fa88482a1",
+        "procured_8674bab402",
+        "procured_8686fb1e25",
+        "procured_ace4a0fb8e",
+        "procured_aef3f6d9b2",
+        "procured_c8c0f733ac",
+        "procured_d0d56fe4ce",
+        "procured_f40544a5b9",
+        "procured_f4fd1f8a03",
+        "procured_f702c4c866",
+        "procured_sec_live",
+        "procured_sec_tickers_test",
+        "procured_src_09c79443baa5",
+        "procured_src_21c86e103605",
+        "procured_src_47de0cfc93b3",
+        "procured_src_5e452fd2a83e",
+        "procured_src_97eb0996315c",
+        "procured_src_ace4a0fb8e9e",
+        "procured_src_c361b5108275",
+        "procured_src_c60c3f990c1c",
+        "procured_src_c8c0f733ac8d",
+        "procured_src_f1af50591851",
+        "procured_src_f40544a5b99b",
+        "procured_src_f4fd1f8a03cb"
+      ],
+      "materialization": {
+        "access_mode": "procurement_catalog",
+        "status": "active",
+        "local_present": null,
+        "ingested": null
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "huggingface",
+      "label": "Hugging Face datasets",
+      "provider": "Hugging Face",
+      "desk_connector_id": "huggingface",
+      "desk_connector_label": "HuggingFace",
+      "access_mode": "live_connector",
+      "license": "per_dataset",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [],
+      "professor_visible": true,
+      "registry_dataset_count": 0,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [],
+      "materialization": {
+        "access_mode": "live_connector",
+        "status": "active",
+        "local_present": null,
+        "ingested": null,
+        "mirror_note": "Live at request time; registry may have partial catalogue cards only"
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [
+        "/library/extensions/huggingface/search"
+      ],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "open_research_catalogs",
+      "label": "Zenodo · OpenAlex · external catalogs",
+      "provider": "Zenodo / OpenAlex",
+      "desk_connector_id": "open_research",
+      "desk_connector_label": "Zenodo · OpenAlex",
+      "access_mode": "live_connector",
+      "license": "public",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [],
+      "professor_visible": true,
+      "registry_dataset_count": 3,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "external_dataset_catalog",
+        "external_dataset_catalog_curated",
+        "procurement_source_registry"
+      ],
+      "materialization": {
+        "access_mode": "live_connector",
+        "status": "active",
+        "local_present": null,
+        "ingested": null,
+        "mirror_note": "Live at request time; registry may have partial catalogue cards only"
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "reddit_social",
+      "label": "Reddit ingest",
+      "provider": "Reddit",
+      "desk_connector_id": "reddit",
+      "desk_connector_label": "Reddit",
+      "access_mode": "materialized_bulk",
+      "license": "public_api",
+      "status": "active",
+      "capabilities": [
+        "social_sentiment"
+      ],
+      "geographies": [],
+      "partition_ids": [
+        "social.reddit"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 0,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [],
+      "materialization": {
+        "access_mode": "materialized_bulk",
+        "status": "active",
+        "local_present": null,
+        "ingested": false
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "public_macro",
+      "label": "Public macro baselines (Ken French etc.)",
+      "provider": "Public academic mirrors",
+      "desk_connector_id": "macro_public",
+      "desk_connector_label": "Public macro baseline",
+      "access_mode": "materialized_instant",
+      "license": "public",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [
+        "Macro_global"
+      ],
+      "partition_ids": [
+        "official.macro-asia"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 1,
+      "registry_dataset_ids": [
+        "public_macro_ff_factors_daily"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": true,
+        "ingested": true
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "ops_investment_platform",
+      "label": "Investment / ops platform JSON snapshots",
+      "provider": "Sharpe-Renaissance desk",
+      "desk_connector_id": null,
+      "desk_connector_label": null,
+      "access_mode": "materialized_instant",
+      "license": "internal",
+      "status": "active",
+      "capabilities": [],
+      "geographies": [],
+      "partition_ids": [
+        "ops.collection-queue"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 8,
+      "instant_dataset_count": 7,
+      "registry_dataset_ids": [
+        "collection_queue_status",
+        "investment_accounting_bundle_latest",
+        "investment_capability_audit_latest",
+        "investment_enforcement_latest",
+        "investment_manifest_gates_latest",
+        "investment_operator_dashboard",
+        "investment_repo_inventory_latest",
+        "investment_thesis_gates_latest"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": null,
+        "ingested": null
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    },
+    {
+      "id": "nft_opensea",
+      "label": "OpenSea NFT metadata",
+      "provider": "OpenSea",
+      "desk_connector_id": "web_generic",
+      "desk_connector_label": "Web (arbitrary)",
+      "access_mode": "materialized_instant",
+      "license": "public_scrape",
+      "status": "active",
+      "capabilities": [
+        "onchain_crypto"
+      ],
+      "geographies": [],
+      "partition_ids": [
+        "markets.nft-opensea"
+      ],
+      "professor_visible": true,
+      "registry_dataset_count": 1,
+      "instant_dataset_count": 0,
+      "registry_dataset_ids": [
+        "opensea_nft_metadata_layer"
+      ],
+      "materialization": {
+        "access_mode": "materialized_instant",
+        "status": "active",
+        "local_present": null,
+        "ingested": null
+      },
+      "known_gaps": [],
+      "notes": null,
+      "bulk_note": null,
+      "mcp_routes": [],
+      "canonical_run": null,
+      "queue_task_id": null
+    }
+  ],
+  "access_scope_summary": {
+    "geographies": 9,
+    "capabilities": 11,
+    "entitlement_sources": 21,
+    "accessible_cells_ge_2": 42,
+    "total_cells": 99,
+    "gap_cells": 8,
+    "not_wired_sources": [],
+    "materialized_matrix_loaded": true
+  },
+  "entitlement_matrix": {
+    "US": {
+      "daily_prices": "not_wired",
+      "country_news_shocks": "full",
+      "entity_news_shocks": "partial",
+      "fundamentals": "not_wired",
+      "estimates_revisions": "full",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "partial",
+      "entity_join_gdelt_ric": "partial",
+      "governance_regulatory": "partial",
+      "social_sentiment": "partial",
+      "onchain_crypto": "blocked"
+    },
+    "Taiwan": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "partial",
+      "estimates_revisions": "full",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "partial",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "partial",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Indonesia": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "partial",
+      "fundamentals": "partial",
+      "estimates_revisions": "partial",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "partial",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Japan": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "partial",
+      "estimates_revisions": "partial",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Korea": {
+      "daily_prices": "partial",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "partial",
+      "estimates_revisions": "partial",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "HK_SG_ASEAN": {
+      "daily_prices": "blocked",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "blocked",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Asia_multi_13": {
+      "daily_prices": "partial",
+      "country_news_shocks": "full",
+      "entity_news_shocks": "partial",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "full",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "partial",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "blocked",
+      "onchain_crypto": "blocked"
+    },
+    "Crypto_global": {
+      "daily_prices": "on_demand",
+      "country_news_shocks": "blocked",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "blocked",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "blocked",
+      "social_sentiment": "partial",
+      "onchain_crypto": "on_demand"
+    },
+    "Macro_global": {
+      "daily_prices": "partial",
+      "country_news_shocks": "full",
+      "entity_news_shocks": "blocked",
+      "fundamentals": "blocked",
+      "estimates_revisions": "blocked",
+      "index_pit_survivorship": "blocked",
+      "risk_overlay": "blocked",
+      "entity_join_gdelt_ric": "blocked",
+      "governance_regulatory": "on_demand",
+      "social_sentiment": "on_demand",
+      "onchain_crypto": "blocked"
+    }
+  },
+  "priority_access_gaps": [
+    {
+      "geography": "US",
+      "capability": "country_news_shocks",
+      "accessible": "full",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "gdelt"
+      ]
+    },
+    {
+      "geography": "Japan",
+      "capability": "fundamentals",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "Korea",
+      "capability": "fundamentals",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "Taiwan",
+      "capability": "fundamentals",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "Taiwan",
+      "capability": "risk_overlay",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "US",
+      "capability": "entity_join_gdelt_ric",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "derived_research_panels",
+        "gdelt",
+        "lseg_edp"
+      ]
+    },
+    {
+      "geography": "US",
+      "capability": "entity_news_shocks",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "derived_research_panels",
+        "gdelt"
+      ]
+    },
+    {
+      "geography": "US",
+      "capability": "social_sentiment",
+      "accessible": "partial",
+      "materialized_score": 1,
+      "gap": "entitlement_gap",
+      "sources": [
+        "reddit_social"
+      ]
+    }
+  ],
+  "dataset_coverage_summary": {
+    "registry_datasets_profiled": 158,
+    "instant_datasets": 94,
+    "materialized_instant": 30,
+    "disk_probed": 30,
+    "collection_partitions": 25,
+    "bulk_rich_thin_surface": [
+      "news.gdelt-asia",
+      "news.gdelt-expanded",
+      "catalog.datacite-harvest",
+      "markets.crypto-landscape",
+      "markets.crypto-coingecko",
+      "markets.equities-asia",
+      "ops.spectator-archives",
+      "ops.cluster-jobs",
+      "reference.crsp-moveit"
+    ],
+    "proxy_blocks": 7,
+    "synthesis_profiles": 3
+  },
+  "bulk_rich_collections": [
+    "news.gdelt-asia",
+    "news.gdelt-expanded",
+    "catalog.datacite-harvest",
+    "markets.crypto-landscape",
+    "markets.crypto-coingecko",
+    "markets.equities-asia",
+    "ops.spectator-archives",
+    "ops.cluster-jobs",
+    "reference.crsp-moveit"
+  ],
+  "proxy_coverage": [
+    {
+      "id": "us_daily_prices",
+      "target_capability": "daily_prices",
+      "target_geography": "US",
+      "paths": [
+        {
+          "rank": 3,
+          "kind": "primary",
+          "source_id": "crsp_moveit",
+          "status": "pending_ingest",
+          "label": "CRSP daily CIZ (MOVEit)"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "dataset_id": "refinitiv_survivorship_universe_panel",
+          "status": "materialized",
+          "label": "Refinitiv survivorship sample"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "artifact": "data_lake/daily_alpha_panel.csv",
+          "status": "materialized",
+          "label": "yfinance multi-asset paper panel (13 names)"
+        },
+        {
+          "rank": 1,
+          "kind": "proxy",
+          "source_id": "lseg_edp",
+          "status": "skipped",
+          "label": "EDP OHLCV bulk intentionally skipped"
+        }
+      ],
+      "effective_rank": 2,
+      "has_materialized_path": true,
+      "has_latent_path": false
+    },
+    {
+      "id": "us_entity_news",
+      "target_capability": "entity_news_shocks",
+      "target_geography": "US",
+      "paths": [
+        {
+          "rank": 2,
+          "kind": "synthetic",
+          "dataset_id": "daily_ticker_entity_shock_panel",
+          "status": "thin",
+          "label": "Entity shock panel (short window)"
+        },
+        {
+          "rank": 2,
+          "kind": "synthetic",
+          "dataset_id": "asia_country_week_news_market_primary",
+          "status": "proxy",
+          "label": "Country-week broadcast to constituents (ecological)"
+        },
+        {
+          "rank": 3,
+          "kind": "synthetic",
+          "recipe_id": "gdelt_shock_to_estimate_revision",
+          "status": "recipe",
+          "label": "GDELT shock → estimate revision event study"
+        },
+        {
+          "rank": 1,
+          "kind": "proxy",
+          "partition_id": "news.gdelt-expanded",
+          "status": "bulk_latent",
+          "label": "GKG bulk US adjunct not entity-instant yet"
+        }
+      ],
+      "effective_rank": 2,
+      "has_materialized_path": false,
+      "has_latent_path": true
+    },
+    {
+      "id": "us_gdelt_ric_bridge",
+      "target_capability": "entity_join_gdelt_ric",
+      "target_geography": "US",
+      "paths": [
+        {
+          "rank": 2,
+          "kind": "direct",
+          "dataset_id": "refinitiv_entity_market_spine",
+          "status": "materialized",
+          "label": "~10.9% spine bridged to GDELT entity"
+        },
+        {
+          "rank": 3,
+          "kind": "synthetic",
+          "recipe_id": "expand_entity_spine_fuzzy",
+          "status": "recipe",
+          "label": "Fuzzy ticker/name bridge expansion"
+        }
+      ],
+      "effective_rank": 2,
+      "has_materialized_path": true,
+      "has_latent_path": true
+    },
+    {
+      "id": "idn_equity_stack",
+      "target_capability": "daily_prices",
+      "target_geography": "Indonesia",
+      "paths": [
+        {
+          "rank": 3,
+          "kind": "direct",
+          "dataset_id": "idn_fry_daily_cross_section",
+          "status": "materialized",
+          "label": "IDN FRY daily cross-section"
+        },
+        {
+          "rank": 3,
+          "kind": "synthetic",
+          "recipe_id": "jkse_pit_idn_microstructure_revisions",
+          "status": "built",
+          "label": "JKSE PIT × IDN micro × revisions",
+          "recipe_title": "JKSE PIT × IDN microstructure × estimate revisions",
+          "recipe_status": "jkse_pit_idn"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "dataset_id": "refinitiv_index_membership_pit",
+          "status": "materialized",
+          "label": "JKSE PIT membership filter"
+        }
+      ],
+      "effective_rank": 3,
+      "has_materialized_path": true,
+      "has_latent_path": false
+    },
+    {
+      "id": "crypto_onchain",
+      "target_capability": "onchain_crypto",
+      "target_geography": "Crypto_global",
+      "paths": [
+        {
+          "rank": 3,
+          "kind": "primary",
+          "source_id": "bigquery_public",
+          "status": "on_demand",
+          "label": "BigQuery crypto_ethereum public tables"
+        },
+        {
+          "rank": 2,
+          "kind": "direct",
+          "dataset_id": "ethereum_usdt_transfers",
+          "status": "catalogue",
+          "label": "USDT flow catalogue card"
+        },
+        {
+          "rank": 2,
+          "kind": "synthetic",
+          "recipe_id": "stablecoin_trust_engagement",
+          "status": "built",
+          "label": "Skynet + GDELT + DeFiLlama synthesis",
+          "recipe_title": "Stablecoin trust ↔ engagement (full synthesis)",
+          "recipe_status": "trust_engagement"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "source_id": "coingecko",
+          "status": "live",
+          "label": "CoinGecko prices as liquidity proxy"
+        }
+      ],
+      "effective_rank": 2,
+      "has_materialized_path": true,
+      "has_latent_path": true
+    },
+    {
+      "id": "global_doi_research",
+      "target_capability": "governance_regulatory",
+      "target_geography": "Macro_global",
+      "paths": [
+        {
+          "rank": 2,
+          "kind": "primary",
+          "partition_id": "catalog.datacite-harvest",
+          "status": "bulk_metadata",
+          "label": "32 GiB DOI metadata search"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "source_id": "datacite_procured",
+          "status": "per_doi",
+          "label": "8 procured DOI datasets on disk"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "source_id": "open_research_catalogs",
+          "status": "live",
+          "label": "Zenodo/OpenAlex discover → collect"
+        }
+      ],
+      "effective_rank": 2,
+      "has_materialized_path": true,
+      "has_latent_path": true
+    },
+    {
+      "id": "asia_country_news",
+      "target_capability": "country_news_shocks",
+      "target_geography": "Asia_multi_13",
+      "paths": [
+        {
+          "rank": 3,
+          "kind": "direct",
+          "dataset_id": "gdelt_asia_daily_country_panel",
+          "status": "materialized",
+          "label": "GDELT Asia country-day panel"
+        },
+        {
+          "rank": 3,
+          "kind": "direct",
+          "dataset_id": "asia_country_week_news_market_primary",
+          "status": "materialized",
+          "label": "Fused country-week news+market"
+        },
+        {
+          "rank": 2,
+          "kind": "proxy",
+          "partition_id": "news.gdelt-asia",
+          "status": "bulk_latent",
+          "label": "Full GKG shards — rebuild panels on demand"
+        }
+      ],
+      "effective_rank": 3,
+      "has_materialized_path": true,
+      "has_latent_path": true
+    }
+  ],
+  "readiness": {
+    "instant": 94,
+    "metadata_search": 59,
+    "procurement_planning": 1,
+    "minutes_rate_limited": 1,
+    "dry_run_before_execution": 1,
+    "sample_now_full_later": 2
+  },
+  "disk_lanes": [
+    {
+      "lane": "gdelt_normalized",
+      "path": "data_lake/news_shock_taxonomy/normalized",
+      "bytes": 177079243885,
+      "human": "164.92 GiB"
+    },
+    {
+      "lane": "research_panels",
+      "path": "data_lake/research_panels",
+      "bytes": 1640721184,
+      "human": "1.53 GiB"
+    },
+    {
+      "lane": "refinitiv_frozen",
+      "path": "data_lake/refinitiv_backfill/2026-07-06-complete",
+      "bytes": 6418620,
+      "human": "6.1 MiB"
+    },
+    {
+      "lane": "refinitiv_rescued",
+      "path": "data_lake/refinitiv_backfill/rescued_desktop_20251215",
+      "bytes": 20557937,
+      "human": "19.6 MiB"
+    },
+    {
+      "lane": "procured",
+      "path": "data_lake/procured",
+      "bytes": 503160986,
+      "human": "479.9 MiB"
+    },
+    {
+      "lane": "yzu_cluster_jobs",
+      "path": "data_lake/yzu_cluster",
+      "bytes": 1053560325,
+      "human": "1004.8 MiB"
+    }
+  ],
+  "registry_families": {
+    "gdelt_news": 2,
+    "ops_metadata_other": 27,
+    "crypto_security": 2,
+    "live_api": 1,
+    "asia_derived_panels": 10,
+    "procured_catalog": 36,
+    "web_scrape_catalog": 61,
+    "refinitiv_institutional": 16,
+    "indonesia_regional": 3
+  },
+  "instant_families": {
+    "gdelt_news": 2,
+    "ops_metadata_other": 12,
+    "asia_derived_panels": 7,
+    "web_scrape_catalog": 29,
+    "procured_catalog": 25,
+    "refinitiv_institutional": 16,
+    "indonesia_regional": 3
+  },
+  "entity_bridge_pct": 10.9,
+  "instant_query_total": 94,
+  "instant_path_ok": 30,
+  "instant_path_miss": [],
+  "incomplete_items": [
+    {
+      "dataset_id": null,
+      "kind": "materialization",
+      "status": "metadata_only",
+      "count": 59,
+      "note": "Searchable/procurable cards not yet instant-query panels"
+    }
+  ],
+  "synthesis_built": [
+    "jkse_pit_idn_microstructure_revisions",
+    "pit_survivorship_revision_momentum",
+    "idn_fry_episode_outcome",
+    "cross_asset_country_risk_factor",
+    "estimate_revision_momentum",
+    "us_si_risk_overlay"
+  ],
+  "synthesis_recipes": [
+    "gdelt_shock_to_estimate_revision",
+    "country_shock_broadcast_returns",
+    "pit_constituent_country_shock",
+    "expand_entity_spine_fuzzy"
+  ],
+  "panel_manifests": [
+    {
+      "manifest": "data_lake/research_panels/jkse_pit_idn/manifest.json",
+      "summary": {
+        "rows": 180774,
+        "months": 198,
+        "unique_rics": 913,
+        "unique_yahoo_symbols": 913,
+        "idn_feature_rows": 52414,
+        "estimate_rows": 3814,
+        "spine_id_rows": 9900,
+        "idn_feature_rate_pct": 29.0,
+        "estimate_rate_pct": 2.1,
+        "as_of_month_min": "2010-01",
+        "as_of_month_max": "2026-06"
+      },
+      "generated_at": "2026-07-06T14:20:24.945998+00:00"
+    },
+    {
+      "manifest": "data_lake/research_panels/pit_revision_momentum/manifest.json",
+      "summary": {
+        "rows": 548460,
+        "months": 198,
+        "indices": [
+          ".JKSE",
+          ".KS11",
+          ".N225",
+          ".SPX",
+          ".STI",
+          ".TWII"
+        ],
+        "unique_rics": 2770,
+        "estimate_rows": 4825,
+        "estimate_rate_pct": 0.88,
+        "as_of_month_min": "2010-01",
+        "as_of_month_max": "2026-06",
+        "by_index": [
+          {
+            "index_ric": ".JKSE",
+            "rows": 180774,
+            "unique_rics": 913,
+            "estimate_rows": 3814,
+            "estimate_rate_pct": 2.1
+          },
+          {
+            "index_ric": ".KS11",
+            "rows": 19800,
+            "unique_rics": 100,
+            "estimate_rows": 0,
+            "estimate_rate_pct": 0.0
+          },
+          {
+            "index_ric": ".N225",
+            "rows": 44550,
+            "unique_rics": 225,
+            "estimate_rows": 306,
+            "estimate_rate_pct": 0.7
+          },
+          {
+            "index_ric": ".SPX",
+            "rows": 99594,
+            "unique_rics": 503,
+            "estimate_rows": 403,
+            "estimate_rate_pct": 0.4
+          },
+          {
+            "index_ric": ".STI",
+            "rows": 5940,
+            "unique_rics": 30,
+            "estimate_rows": 0,
+            "estimate_rate_pct": 0.0
+          },
+          {
+            "index_ric": ".TWII",
+            "rows": 197802,
+            "unique_rics": 999,
+            "estimate_rows": 302,
+            "estimate_rate_pct": 0.2
+          }
+        ]
+      },
+      "generated_at": "2026-07-06T14:24:42.466432+00:00"
+    },
+    {
+      "manifest": "data_lake/research_panels/public_macro/manifest.json",
+      "summary": null,
+      "generated_at": "2026-07-06T17:46:43+00:00"
+    },
+    {
+      "manifest": "data_lake/research_panels/refinitiv/2026-07-06-complete/manifest.json",
+      "summary": [
+        {
+          "file": "survivorship_universe_panel.parquet",
+          "rows": 548460,
+          "bytes": 466185
+        },
+        {
+          "file": "us_risk_overlay.parquet",
+          "rows": 234971,
+          "bytes": 722113
+        },
+        {
+          "file": "estimate_revision_panel.parquet",
+          "rows": 98873,
+          "bytes": 3561613
+        },
+        {
+          "file": "fundamental_annual_panel.parquet",
+          "rows": 227,
+          "bytes": 12352
+        },
+        {
+          "file": "entity_market_spine.parquet",
+          "rows": 570,
+          "bytes": 36742
+        }
+      ],
+      "generated_at": "2026-07-06T12:31:59.687807+00:00"
+    }
+  ],
+  "progress_log": [
+    {
+      "date": "2026-07-06",
+      "items": [
+        "DATABANK_STATE.md — neutral equal-weight databank inventory",
+        "pit_index_revision_momentum.parquet — 6-index PIT × revisions panel",
+        "jkse_pit_idn_microstructure_revisions.parquet — regional IDN cross-lane panel",
+        "Registry 150 datasets / 41 instant-query",
+        "databank_coverage_report.py + databank_research_coverage.py audits"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "description": "Windows work-steal fleet for expanded GDELT (2018-2026). One helper process per joined host.",
+  "inventory": "/home/phyrexian/cluster-lab-logs/windows-cluster-inventory.csv",
+  "queue_end": "2026-07-01",
+  "run_tag": "20260626TexpandedZ",
+  "build_overlay": true,
+  "sr_gdelt_tmp": "/media/phyrexian/Transcend/sharpe-renaissance/tmp/gdelt_expanded",
+  "default_windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe",
+  "poll_seconds": 60,
+  "lanes": {
+    "backfill": {
+      "queue_start": "2018-01-01",
+      "queue_end": "2025-09-01",
+      "notes": "2018 through Aug 2025 — deep history"
+    },
+    "recent": {
+      "queue_start": "2025-09-01",
+      "queue_end": "2026-07-01",
+      "notes": "Sep 2025 through Jun 2026 — stablecoin handoff gap on Transcend"
+    },
+    "full": {
+      "queue_start": "2018-01-01",
+      "queue_end": "2026-07-01",
+      "notes": "Entire queue if lane not specified"
+    }
+  },
+  "workers": [
+    {
+      "id": "optiplex",
+      "kind": "local",
+      "lane": "backfill",
+      "enabled": true,
+      "notes": "6th work-steal lane on desk host (2 fetch workers); uses Transcend tmp"
+    },
+    {
+      "id": "vefggdh",
+      "host": "DESKTOP-VEFGGDH",
+      "lane": "backfill",
+      "enabled": true,
+      "windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe"
+    },
+    {
+      "id": "fgedhgv",
+      "host": "DESKTOP-FGEDHGV",
+      "lane": "backfill",
+      "enabled": true,
+      "windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe"
+    },
+    {
+      "id": "edhfggv",
+      "host": "DESKTOP-EDHFGGV",
+      "lane": "backfill",
+      "enabled": true,
+      "windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe"
+    },
+    {
+      "id": "dhfggve",
+      "host": "DESKTOP-DHFGGVE",
+      "lane": "backfill",
+      "enabled": true,
+      "windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe",
+      "notes": "Reassigned from recent lane 2026-07-01 after recent queue 10/10 complete"
+    },
+    {
+      "id": "gvefgdh",
+      "host": "DESKTOP-GVEFGDH",
+      "lane": "backfill",
+      "enabled": true,
+      "windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe",
+      "notes": "Reassigned from recent lane 2026-07-01 after recent queue 10/10 complete"
+    },
+    {
+      "id": "ha6d3rh",
+      "host": "DESKTOP-HA6D3RH",
+      "user": "User",
+      "lane": "recent",
+      "enabled": false,
+      "windows_python_exe": "C:\\Users\\user\\anaconda3\\python.exe",
+      "notes": "Joined on flash 2026-06-29; enable after SSH key for User@100.115.194.98"
+    }
+  ]
+}

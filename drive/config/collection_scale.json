@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "summary": "Scaling rules for collection growth — especially catalog/DataCite shards and bulk news lanes.",
+  "partition_id_format": "{domain}.{slug}",
+  "shard_id_format": "{lane}/{shard_name}",
+  "tiers": {
+    "canonical_only": "On GDrive vault only; hydrate to cache on first read or explicit job",
+    "cache": "USB bulk symlink; partial mirror of canonical acceptable",
+    "hot": "NVMe; small analysis-ready or high-churn desk data",
+    "ops": "Manifests, job state — never promoted to research registry as datasets"
+  },
+  "hydration": {
+    "default": "canonical_to_cache",
+    "tool": "rclone copy + rclone check",
+    "never": ["rclone sync"],
+    "procurement_rule": "If partition on canonical and local coverage < min_coverage_ratio, offer hydrate job before re-collect"
+  },
+  "min_local_coverage_ratio": 0.15,
+  "catalog": {
+    "datacite": {
+      "harvest_partition_id": "catalog.datacite-harvest",
+      "curated_partition_id": "catalog.curated-index",
+      "shard_storage_subpath": "index_v3/{shard}",
+      "target_shard_subpath": "harvest/index_v3/{shard}",
+      "shard_manifest": "scripts/data_catalog/datacite_y2025_parallel_shards.list",
+      "completion_gate": "rclone check against canonical + checkpoint JSON in shard dir",
+      "search_layers": [
+        "curated FTS (_topic_index/curated.sqlite3)",
+        "shard FTS (_topic_index/shards/{shard}.sqlite3) per hydrated index_v3 piece",
+        "full_index FTS + DataCite API fallback"
+      ],
+      "scale_axes": {
+        "time": "Quarterly shards y{YYYY}_q{N}; monolith archive when merging lanes",
+        "host": "windows_lab workers per shard list",
+        "records": "target_records column in shard manifest — rebalancer splits hot shards"
+      }
+    }
+  },
+  "news": {
+    "gdelt": {
+      "partition_id": "news.gdelt-asia",
+      "scale_axes": {
+        "time": "monthly normalized dirs under normalized/gdelt_gkg_asia_bulk/",
+        "stage": "raw → normalized → processed → derived panels"
+      },
+      "compact_after_verify": true
+    }
+  },
+  "registry_promotion": {
+    "from_partitions": ["official.*", "derived.research-panels", "acquired.procured"],
+    "requires": ["local_path glob with files", "fingerprint in research_query_registry.json"]
+  },
+  "gdrive_migration": {
+    "status": "complete",
+    "completed_at": "2026-06-24",
+    "strategy": "rclone move legacy_path → collection/{partition_path}; purge legacy after verify",
+    "cutover": "collection_partitions.json status=migrated; verify_gdrive_vault.py exit 0"
+  },
+  "partition_sync": {
+    "status": "backfill_only",
+    "drive_first": true,
+    "tool": "scripts/ops/sync_collection_partitions_to_gdrive.py",
+    "wrapper": "scripts/ops/run_partition_sync.sh",
+    "config": "config/partition_sync.json",
+    "schedule": "manual — one-time legacy local→Drive backfill only",
+    "live_path": "scripts/research_data_mcp/drive_first.py (job completion → GDrive partition)",
+    "policy": "collect/scrape → ephemeral local staging → rclone copy+verify → compact",
+    "report": "data_lake/collection/_index/migration/partition_sync_latest.json"
+  }
+}

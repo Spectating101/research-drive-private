@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "principle": "Dataset-level coverage + proxy/synthetic paths. Registry cards are the query surface; collections hold bulk bytes; proxies declare how thin cells can still be researched.",
+  "research_capabilities": [
+    "daily_prices",
+    "country_news_shocks",
+    "entity_news_shocks",
+    "fundamentals",
+    "estimates_revisions",
+    "index_pit_survivorship",
+    "risk_overlay",
+    "entity_join_gdelt_ric",
+    "governance_regulatory",
+    "social_sentiment",
+    "onchain_crypto"
+  ],
+  "dataset_capability_map": {
+    "refinitiv_security_master": ["entity_join_gdelt_ric"],
+    "refinitiv_index_membership_pit": ["index_pit_survivorship"],
+    "refinitiv_corporate_actions_snapshot": ["daily_prices"],
+    "refinitiv_risk_tape_daily": ["risk_overlay"],
+    "refinitiv_estimate_revisions_daily": ["estimates_revisions"],
+    "refinitiv_rescued_us_risk_desktop": ["risk_overlay"],
+    "refinitiv_fundamentals_snapshot": ["fundamentals"],
+    "refinitiv_analyst_consensus_snapshot": ["estimates_revisions"],
+    "refinitiv_esg_snapshot": ["governance_regulatory"],
+    "refinitiv_survivorship_universe_panel": ["index_pit_survivorship", "daily_prices"],
+    "refinitiv_us_risk_overlay": ["risk_overlay"],
+    "refinitiv_estimate_revision_panel": ["estimates_revisions"],
+    "refinitiv_fundamental_annual_panel": ["fundamentals"],
+    "refinitiv_entity_market_spine": ["entity_join_gdelt_ric", "daily_prices"],
+    "gdelt_asia_daily_country_panel": ["country_news_shocks"],
+    "gdelt_high_priority_urls": ["country_news_shocks", "entity_news_shocks"],
+    "ethereum_usdt_transfers": ["onchain_crypto"],
+    "datacite_local_harvest_status": [],
+    "twse_openapi_taiwan_market_layer": ["daily_prices", "governance_regulatory"],
+    "skynet_stablecoin_harvest": ["onchain_crypto", "governance_regulatory"],
+    "idn_fry_daily_cross_section": ["daily_prices", "risk_overlay", "entity_news_shocks"],
+    "asia_country_week_news_market_primary": ["country_news_shocks"],
+    "daily_ticker_entity_shock_panel": ["entity_news_shocks", "entity_join_gdelt_ric"],
+    "refinitiv_entity_market_spine_expanded": ["entity_join_gdelt_ric"],
+    "crsp_us_stock_daily_ciz": ["daily_prices"],
+    "crsp_us_index_history": ["index_pit_survivorship"],
+    "crsp_compustat_ccm_link": ["daily_prices", "fundamentals"],
+    "compustat_na_fundamentals_annual": ["fundamentals"],
+    "public_macro_ff_factors_daily": ["daily_prices"]
+  },
+  "dataset_geography_hints": {
+    "refinitiv_index_membership_pit": ["US", "Indonesia", "Japan", "Korea", "Taiwan", "Asia_multi_13"],
+    "refinitiv_estimate_revision_panel": ["US", "Taiwan", "Indonesia", "Japan", "Korea"],
+    "refinitiv_fundamental_annual_panel": ["US", "Taiwan", "Indonesia"],
+    "refinitiv_us_risk_overlay": ["US"],
+    "refinitiv_rescued_us_risk_desktop": ["US"],
+    "gdelt_asia_daily_country_panel": ["Asia_multi_13"],
+    "gdelt_high_priority_urls": ["Asia_multi_13", "US", "Macro_global"],
+    "idn_fry_daily_cross_section": ["Indonesia"],
+    "twse_openapi_taiwan_market_layer": ["Taiwan"],
+    "ethereum_usdt_transfers": ["Crypto_global"],
+    "daily_alpha_panel": ["US", "Asia_multi_13", "Crypto_global", "Macro_global"]
+  },
+  "collection_bulk_profiles": {
+    "news.gdelt-asia": {
+      "source_id": "gdelt",
+      "bulk_grain": "gkg_article_monthly_shards",
+      "time_span": "2018–ongoing (Asia backfill + rolling)",
+      "geographies": ["Asia_multi_13"],
+      "latent_capabilities": ["country_news_shocks", "entity_news_shocks"],
+      "registry_surface": ["gdelt_asia_daily_country_panel", "gdelt_gkg_events"],
+      "surface_vs_bulk": "Country-day instant panel + URL index; bulk holds full GKG normalized shards (~156 GiB)",
+      "synthetic_paths": [
+        "asia_country_week_news_market_primary → country broadcast to tickers",
+        "daily_ticker_entity_shock_panel → entity shock (thin window today)",
+        "entity_market_spine + GDELT bridge → ric-level shocks"
+      ]
+    },
+    "news.gdelt-expanded": {
+      "source_id": "gdelt",
+      "bulk_grain": "gkg_article_monthly_shards",
+      "time_span": "US/EU/MENA adjunct",
+      "geographies": ["US", "Macro_global"],
+      "latent_capabilities": ["country_news_shocks", "entity_news_shocks"],
+      "registry_surface": ["gdelt_high_priority_urls"],
+      "surface_vs_bulk": "URL/event index on disk; expanded normalized bulk under gdelt_gkg_expanded_bulk"
+    },
+    "catalog.datacite-harvest": {
+      "source_id": "datacite_harvest",
+      "bulk_grain": "doi_metadata_jsonl",
+      "time_span": "DataCite network (harvest shards y2025–y2026)",
+      "geographies": ["Macro_global"],
+      "latent_capabilities": ["governance_regulatory"],
+      "registry_surface": ["datacite_local_harvest_status"],
+      "surface_vs_bulk": "32 GiB metadata harvest; procurement search substrate — bytes via datacite_collect_doi",
+      "synthetic_paths": [
+        "datacite_search → datacite_collect_doi → acquired.procured partition"
+      ]
+    },
+    "reference.refinitiv-backfill": {
+      "source_id": "lseg_edp",
+      "bulk_grain": "parquet_panels_frozen_release",
+      "time_span": "run 2026-07-06-complete (PIT monthly, estimates daily, fundamentals annual)",
+      "geographies": ["US", "Taiwan", "Indonesia", "Japan", "Korea", "Singapore", "Asia_multi_13"],
+      "latent_capabilities": [
+        "index_pit_survivorship",
+        "estimates_revisions",
+        "fundamentals",
+        "risk_overlay",
+        "entity_join_gdelt_ric"
+      ],
+      "registry_surface": "15 refinitiv_* instant cards + 5 derived panels",
+      "surface_vs_bulk": "Frozen EDP harvest; derived panels in research_panels/refinitiv/"
+    },
+    "markets.ethereum-usdt": {
+      "source_id": "ethereum_onchain",
+      "bulk_grain": "rpc_csv_pilots",
+      "latent_capabilities": ["onchain_crypto"],
+      "registry_surface": ["ethereum_usdt_transfers", "spk_v1_sepolia_runtime", "spk_v1_payment_ledger"],
+      "surface_vs_bulk": "Catalogue + pilots; BigQuery public ethereum tables reachable live"
+    },
+    "markets.crypto-coingecko": {
+      "source_id": "coingecko",
+      "bulk_grain": "live_api",
+      "latent_capabilities": ["daily_prices", "onchain_crypto"],
+      "registry_surface": "27 coingecko_* quote/metadata cards",
+      "surface_vs_bulk": "Live API at query time; cards are instrument catalogue not history mirror"
+    },
+    "acquired.procured": {
+      "source_id": "datacite_procured",
+      "bulk_grain": "per_doi_bytes",
+      "latent_capabilities": ["governance_regulatory"],
+      "registry_surface": "datacite_10.* + procured_* cards",
+      "surface_vs_bulk": "Metadata cards; bytes on disk when collect completed"
+    },
+    "reference.crsp-moveit": {
+      "source_id": "crsp_moveit",
+      "bulk_grain": "ciz_ascii_annual_subscription",
+      "time_span": "1925+ US stock and index history",
+      "geographies": ["US"],
+      "latent_capabilities": ["daily_prices", "index_pit_survivorship"],
+      "registry_surface": ["crsp_moveit_catalog_status", "crsp_us_stock_daily_ciz", "crsp_us_index_history", "crsp_compustat_ccm_link"],
+      "surface_vs_bulk": "MOVEit Product_Downloads; manifest wired; daily CIZ pending download"
+    },
+    "reference.compustat-capitaliq": {
+      "source_id": "capital_iq_compustat",
+      "bulk_grain": "capital_iq_export",
+      "geographies": ["US"],
+      "latent_capabilities": ["fundamentals"],
+      "registry_surface": ["compustat_na_fundamentals_annual"],
+      "surface_vs_bulk": "Capital IQ web export → data_lake/compustat/raw/"
+    }
+  },
+  "capability_proxies": [
+    {
+      "id": "us_daily_prices",
+      "target": {"capability": "daily_prices", "geography": "US"},
+      "paths": [
+        {"rank": 3, "kind": "primary", "source_id": "crsp_moveit", "status": "pending_ingest", "label": "CRSP daily CIZ (MOVEit)"},
+        {"rank": 2, "kind": "proxy", "dataset_id": "refinitiv_survivorship_universe_panel", "status": "materialized", "label": "Refinitiv survivorship sample"},
+        {"rank": 2, "kind": "proxy", "artifact": "data_lake/daily_alpha_panel.csv", "status": "materialized", "label": "yfinance multi-asset paper panel (13 names)"},
+        {"rank": 1, "kind": "proxy", "source_id": "lseg_edp", "status": "skipped", "label": "EDP OHLCV bulk intentionally skipped"}
+      ]
+    },
+    {
+      "id": "us_entity_news",
+      "target": {"capability": "entity_news_shocks", "geography": "US"},
+      "paths": [
+        {"rank": 2, "kind": "synthetic", "dataset_id": "daily_ticker_entity_shock_panel", "status": "thin", "label": "Entity shock panel (short window)"},
+        {"rank": 2, "kind": "synthetic", "dataset_id": "asia_country_week_news_market_primary", "status": "proxy", "label": "Country-week broadcast to constituents (ecological)"},
+        {"rank": 3, "kind": "synthetic", "recipe_id": "gdelt_shock_to_estimate_revision", "status": "recipe", "label": "GDELT shock → estimate revision event study"},
+        {"rank": 1, "kind": "proxy", "partition_id": "news.gdelt-expanded", "status": "bulk_latent", "label": "GKG bulk US adjunct not entity-instant yet"}
+      ]
+    },
+    {
+      "id": "us_gdelt_ric_bridge",
+      "target": {"capability": "entity_join_gdelt_ric", "geography": "US"},
+      "paths": [
+        {"rank": 2, "kind": "direct", "dataset_id": "refinitiv_entity_market_spine", "status": "materialized", "label": "~10.9% spine bridged to GDELT entity"},
+        {"rank": 3, "kind": "synthetic", "recipe_id": "expand_entity_spine_fuzzy", "status": "recipe", "label": "Fuzzy ticker/name bridge expansion"}
+      ]
+    },
+    {
+      "id": "idn_equity_stack",
+      "target": {"capability": "daily_prices", "geography": "Indonesia"},
+      "paths": [
+        {"rank": 3, "kind": "direct", "dataset_id": "idn_fry_daily_cross_section", "status": "materialized", "label": "IDN FRY daily cross-section"},
+        {"rank": 3, "kind": "synthetic", "recipe_id": "jkse_pit_idn_microstructure_revisions", "status": "built", "label": "JKSE PIT × IDN micro × revisions"},
+        {"rank": 2, "kind": "proxy", "dataset_id": "refinitiv_index_membership_pit", "status": "materialized", "label": "JKSE PIT membership filter"}
+      ]
+    },
+    {
+      "id": "crypto_onchain",
+      "target": {"capability": "onchain_crypto", "geography": "Crypto_global"},
+      "paths": [
+        {"rank": 3, "kind": "primary", "source_id": "bigquery_public", "status": "on_demand", "label": "BigQuery crypto_ethereum public tables"},
+        {"rank": 2, "kind": "direct", "dataset_id": "ethereum_usdt_transfers", "status": "catalogue", "label": "USDT flow catalogue card"},
+        {"rank": 2, "kind": "synthetic", "recipe_id": "stablecoin_trust_engagement", "status": "built", "label": "Skynet + GDELT + DeFiLlama synthesis"},
+        {"rank": 2, "kind": "proxy", "source_id": "coingecko", "status": "live", "label": "CoinGecko prices as liquidity proxy"}
+      ]
+    },
+    {
+      "id": "global_doi_research",
+      "target": {"capability": "governance_regulatory", "geography": "Macro_global"},
+      "paths": [
+        {"rank": 2, "kind": "primary", "partition_id": "catalog.datacite-harvest", "status": "bulk_metadata", "label": "32 GiB DOI metadata search"},
+        {"rank": 2, "kind": "proxy", "source_id": "datacite_procured", "status": "per_doi", "label": "8 procured DOI datasets on disk"},
+        {"rank": 2, "kind": "proxy", "source_id": "open_research_catalogs", "status": "live", "label": "Zenodo/OpenAlex discover → collect"}
+      ]
+    },
+    {
+      "id": "asia_country_news",
+      "target": {"capability": "country_news_shocks", "geography": "Asia_multi_13"},
+      "paths": [
+        {"rank": 3, "kind": "direct", "dataset_id": "gdelt_asia_daily_country_panel", "status": "materialized", "label": "GDELT Asia country-day panel"},
+        {"rank": 3, "kind": "direct", "dataset_id": "asia_country_week_news_market_primary", "status": "materialized", "label": "Fused country-week news+market"},
+        {"rank": 2, "kind": "proxy", "partition_id": "news.gdelt-asia", "status": "bulk_latent", "label": "Full GKG shards — rebuild panels on demand"}
+      ]
+    }
+  ]
+}

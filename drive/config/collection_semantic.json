@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "summary": "Semantic metadata for models and procurement — merged into MODEL_GUIDE, partition READMEs, and collection_dictionary.",
+  "domain_templates": {
+    "markets": {
+      "use_cases": ["price panels", "return studies", "cross-asset comparison", "universe construction"],
+      "example_questions": [
+        "What daily price history do we have for Asia equities?",
+        "Where is the crypto token landscape snapshot?",
+        "Can I get CoinGecko history for DeFi tokens?"
+      ]
+    },
+    "news": {
+      "use_cases": ["event studies", "news-risk overlays", "country shock panels", "headline research"],
+      "example_questions": [
+        "Where is the GDELT Asia news panel?",
+        "How do I join news shocks to stock returns?"
+      ]
+    },
+    "official": {
+      "use_cases": ["authoritative filings", "exchange disclosures", "macro baselines", "governance research"],
+      "example_questions": [
+        "Where is TWSE official market data?",
+        "Do we have Taiwan MOPS governance files?"
+      ]
+    },
+    "reference": {
+      "use_cases": ["entity resolution", "ticker mapping", "join keys before panel merges"],
+      "example_questions": [
+        "How do I map GDELT tickers to prices?",
+        "Where is the SEC CIK lookup table?"
+      ]
+    },
+    "social": {
+      "use_cases": ["sentiment studies", "alt-data", "crypto-equity sentiment"],
+      "example_questions": ["Where is the Reddit sentiment archive?"]
+    },
+    "catalog": {
+      "use_cases": ["dataset discovery", "curated lists", "procurement search"],
+      "example_questions": ["What datasets are in the curated index?"]
+    },
+    "acquired": {
+      "use_cases": ["one-off downloads", "DOI collects", "chat procurement artifacts"],
+      "example_questions": ["What did the desk download for me?", "Where is procured data for dataset X?"]
+    },
+    "derived": {
+      "use_cases": ["reproducing internal notebooks", "analysis-ready merged panels", "saved trial outputs"],
+      "example_questions": ["Where is the Asia news × market trial panel?"]
+    },
+    "ops": {
+      "use_cases": ["operator visibility", "job manifests", "pipeline debugging"],
+      "example_questions": ["What collection jobs ran recently?"]
+    }
+  },
+  "partitions": {
+    "news.gdelt-asia": {
+      "topics": ["GDELT", "GKG", "Asia news", "country shocks", "event study"],
+      "example_questions": [
+        "Show me the daily country shock panel for Indonesia.",
+        "Where are normalized GDELT GKG shards for 2018–2023?"
+      ],
+      "key_artifacts": ["processed/*/daily_country_shock_panel.csv", "normalized/gdelt_gkg_asia_bulk/"],
+      "related": ["reference.entity-mapping-asia", "derived.research-panels"]
+    },
+    "markets.crypto-coingecko": {
+      "topics": ["CoinGecko", "daily prices", "market cap", "DeFi tokens"],
+      "example_questions": [
+        "Get CoinGecko daily panels for taxonomy work.",
+        "Where are price_panel_clean.csv and mcap_panel_wide.csv?"
+      ],
+      "key_artifacts": ["exports/price_panel_clean.csv", "exports/mcap_panel_wide.csv"],
+      "related": ["markets.crypto-landscape", "markets.ethereum-usdt"]
+    },
+    "markets.ethereum-usdt": {
+      "topics": ["USDT", "Ethereum", "stablecoin flows", "on-chain", "FinTech"],
+      "example_questions": [
+        "Where is the USDT professor package?",
+        "How do I query USDT transfers on Ethereum?"
+      ],
+      "key_artifacts": ["professor_package/", "bigquery_history/"],
+      "related": ["markets.crypto-coingecko", "acquired.procured"]
+    },
+    "markets.equities-asia": {
+      "topics": ["Asia equities", "yfinance", "Taiwan", "Indonesia", "universes"],
+      "example_questions": [
+        "What Asia stock price panels do we have?",
+        "Where is the yfinance Asia universe?"
+      ],
+      "key_artifacts": ["yfinance_asia/", "sourced_universes/"],
+      "related": ["official.exchange-disclosures", "news.gdelt-asia"]
+    },
+    "markets.crypto-landscape": {
+      "topics": ["DeFi", "protocol taxonomy", "token landscape", "crypto regime"],
+      "example_questions": ["Where is the latest crypto landscape snapshot?"],
+      "key_artifacts": ["runs/", "latest/", "historical_backfill/"],
+      "related": ["markets.crypto-coingecko"]
+    },
+    "markets.nft-opensea": {
+      "topics": ["NFT", "OpenSea", "metadata", "collection graphs"],
+      "example_questions": ["Where is OpenSea collection metadata for NFT return studies?"],
+      "related": ["acquired.procured"]
+    },
+    "official.exchange-disclosures": {
+      "topics": ["TWSE", "Taiwan", "exchange API", "listings", "penalties", "ESG"],
+      "example_questions": [
+        "Get TWSE OpenAPI income statements.",
+        "Where is Taiwan material information?"
+      ],
+      "registry_handles": ["twse_openapi_taiwan_market_layer"],
+      "related": ["markets.equities-asia", "official.mops-disclosures"]
+    },
+    "official.mops-disclosures": {
+      "topics": ["MOPS", "Taiwan governance", "misconduct", "procured filings"],
+      "example_questions": ["Find Taiwan governance files from procurement."],
+      "related": ["official.exchange-disclosures", "acquired.procured"]
+    },
+    "acquired.procured": {
+      "topics": ["procurement", "DOI", "web collect", "chat download"],
+      "example_questions": [
+        "What datasets were procured this week?",
+        "Open files for procured dataset X."
+      ],
+      "related": ["catalog.curated-index"]
+    },
+    "catalog.curated-index": {
+      "topics": ["curated datasets", "tiered index", "watchdog", "external catalogs"],
+      "example_questions": ["Search the curated dataset index.", "What's in curated_strict?"],
+      "related": ["catalog.datacite-harvest", "acquired.procured"]
+    },
+    "social.reddit": {
+      "topics": ["Reddit", "sentiment", "alt-data", "crypto sentiment"],
+      "example_questions": ["Where is historical Reddit ingest?"],
+      "related": ["markets.crypto-coingecko"]
+    },
+    "derived.research-panels": {
+      "topics": ["merged panels", "asia news market", "trial outputs", "refinitiv derived"],
+      "example_questions": ["Reproduce the Asia news × market panel.", "Where is the Refinitiv survivorship universe panel?"],
+      "related": ["news.gdelt-asia", "markets.equities-asia", "reference.refinitiv-backfill"]
+    },
+    "reference.refinitiv-backfill": {
+      "topics": ["Refinitiv", "LSEG", "PIT index membership", "estimate revisions", "short interest", "institutional spine"],
+      "example_questions": [
+        "What Refinitiv panels are query-ready?",
+        "How do I join GDELT shocks to analyst revisions with survivorship-correct universes?",
+        "Where is US vol/skew history if EDP is empty?"
+      ],
+      "key_artifacts": ["2026-07-06-complete/processed/", "rescued_desktop_20251215/", "research_panels/refinitiv/2026-07-06-complete/"],
+      "registry_handles": [
+        "refinitiv_index_membership_pit",
+        "refinitiv_estimate_revisions_daily",
+        "refinitiv_entity_market_spine",
+        "refinitiv_rescued_us_risk_desktop"
+      ],
+      "related": ["news.gdelt-asia", "derived.research-panels", "reference.entity-mapping-asia"]
+    }
+  },
+  "model_system_hint": "When answering research data questions: (1) check MODEL_GUIDE.json partition by topic, (2) prefer collection/{domain}/{partition}/ on GDrive as source of truth, (3) if action is hydrate, run collection_hydrate before analysis, (4) cite partition_id and target_drive_path."
+}

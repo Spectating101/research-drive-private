@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "blocked_probe_domains": [],
+  "blocked_auto_probe_classes": ["commercial"],
+  "auto_collect_classes": ["public_government", "public_academic", "public_unknown"],
+  "budgets": {
+    "max_deepseek_calls_per_magic": 3,
+    "max_probes_per_magic": 4,
+    "max_tavily_live_per_magic": 6
+  },
+  "require_approval_for_collect": true,
+  "auto_approve_chat_collect": true,
+  "require_datacite_for_http_manifest": true,
+  "auto_approve_public_http_manifest": true
+}

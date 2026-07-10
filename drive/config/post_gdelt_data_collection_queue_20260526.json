@@ -1,0 +1,192 @@
+{
+  "name": "Post-GDELT public data collection queue",
+  "created_at": "2026-05-26",
+  "notes": [
+    "Runs after the Asia GDELT news-shock backfill finishes.",
+    "No Refinitiv, LSEG, WRDS, Compustat, CRSP, or credential-gated sources.",
+    "Commands are copy-only for Google Drive writes; no rclone sync/delete.",
+    "Disabled tasks are catalog placeholders for sources that need a new scraper or API key."
+  ],
+  "tasks": [
+    {
+      "id": "public_macro_asia_market_sidecar",
+      "title": "Refresh public macro, TWSE, Asia yfinance, sourced universes, entity mapping",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 10,
+      "estimated_runtime": "20-90 minutes depending yfinance and Drive",
+      "output_hint": "data_lake/public_macro_market_baseline, data_lake/markets/yfinance_asia, data_lake/official_disclosures/taiwan_twse, data_lake/entity_mapping/asia",
+      "command": [
+        "bash",
+        "-lc",
+        "SKIP_REDDIT_SYNC=1 MIN_FREE_GB=60 bash scripts/run_public_data_sidecar_20260525.sh"
+      ]
+    },
+    {
+      "id": "reddit_social_attention_ingest",
+      "title": "Public Reddit/social attention daily ingest",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 20,
+      "estimated_runtime": "20-90 minutes depending Reddit response and comment fetches",
+      "output_hint": "data_lake/sentiment/reddit_ingest.sqlite, data_lake/sentiment/reddit/raw, data_lake/sentiment/reddit_daily_signals.parquet",
+      "command": [
+        "python3",
+        "scripts/reddit_ingest_daily.py",
+        "--fetch-modes",
+        "new",
+        "hot",
+        "top:day",
+        "top:week",
+        "--limit",
+        "100",
+        "--max-pages",
+        "4",
+        "--sleep-secs",
+        "1.2",
+        "--stop-after-known",
+        "40",
+        "--comments-lookback-hours",
+        "48",
+        "--comments-max-posts",
+        "80",
+        "--comments-min-refetch-hours",
+        "24",
+        "--lookback-days",
+        "45",
+        "--min-upvotes",
+        "3"
+      ]
+    },
+    {
+      "id": "reddit_social_attention_health",
+      "title": "Build Reddit/social attention health report",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 30,
+      "estimated_runtime": "under 2 minutes",
+      "output_hint": "data_lake/sentiment/reddit_health.json, data_lake/sentiment/reddit_health.md",
+      "command": [
+        "python3",
+        "scripts/reddit_data_health.py"
+      ]
+    },
+    {
+      "id": "reddit_social_attention_drive_copy",
+      "title": "Copy Reddit/social attention outputs to Google Drive",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 40,
+      "estimated_runtime": "5-30 minutes depending raw file count",
+      "output_hint": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/social_reddit",
+      "command": [
+        "bash",
+        "scripts/sync_reddit_sentiment_drive.sh"
+      ]
+    },
+    {
+      "id": "asia_news_market_panel_build",
+      "title": "Build Asia news-shock plus market-return research panel",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 50,
+      "estimated_runtime": "5-20 minutes",
+      "output_hint": "data_lake/research_panels/asia_news_market/post_gdelt_20260526",
+      "command": [
+        "python3",
+        "scripts/build_asia_news_market_panel.py",
+        "--market-run",
+        "latest",
+        "--run-id",
+        "post_gdelt_20260526"
+      ]
+    },
+    {
+      "id": "asia_news_market_panel_diagnostics",
+      "title": "Analyze Asia news-shock plus market-return panel",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 60,
+      "estimated_runtime": "under 5 minutes",
+      "output_hint": "data_lake/research_panels/asia_news_market/post_gdelt_20260526/diagnostics",
+      "command": [
+        "python3",
+        "scripts/analyze_asia_news_market_panel.py",
+        "--panel-dir",
+        "data_lake/research_panels/asia_news_market/post_gdelt_20260526",
+        "--out-dir",
+        "data_lake/research_panels/asia_news_market/post_gdelt_20260526/diagnostics"
+      ]
+    },
+    {
+      "id": "asia_news_market_panel_drive_copy",
+      "title": "Copy Asia research panels to Google Drive",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 70,
+      "estimated_runtime": "5-20 minutes",
+      "output_hint": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/research_panels/asia_news_market/post_gdelt_20260526",
+      "command": [
+        "rclone",
+        "copy",
+        "data_lake/research_panels/asia_news_market/post_gdelt_20260526",
+        "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/research_panels/asia_news_market/post_gdelt_20260526",
+        "--transfers",
+        "4",
+        "--checkers",
+        "8",
+        "--stats-one-line"
+      ]
+    },
+    {
+      "id": "post_gdelt_queue_logs_drive_copy",
+      "title": "Copy post-GDELT queue logs/status to Google Drive",
+      "enabled": true,
+      "credential_required": false,
+      "priority": 80,
+      "estimated_runtime": "under 5 minutes",
+      "output_hint": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/manifests/data_collection_queue",
+      "command": [
+        "rclone",
+        "copy",
+        "logs/data_collection_queue",
+        "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/manifests/data_collection_queue/logs",
+        "--transfers",
+        "4",
+        "--checkers",
+        "8",
+        "--stats-one-line"
+      ]
+    },
+    {
+      "id": "korea_opendart_official_disclosures",
+      "title": "Korea OpenDART official corporate disclosures",
+      "enabled": false,
+      "credential_required": true,
+      "priority": 200,
+      "estimated_runtime": "blocked until a free OpenDART API key is available",
+      "output_hint": "data_lake/official_disclosures/korea_opendart",
+      "command": []
+    },
+    {
+      "id": "hkex_company_announcements_index",
+      "title": "HKEX listed-company announcements index",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 210,
+      "estimated_runtime": "not implemented yet",
+      "output_hint": "data_lake/official_disclosures/hkex",
+      "command": []
+    },
+    {
+      "id": "sgx_company_announcements_index",
+      "title": "SGX listed-company announcements index",
+      "enabled": false,
+      "credential_required": false,
+      "priority": 220,
+      "estimated_runtime": "not implemented yet",
+      "output_hint": "data_lake/official_disclosures/sgx",
+      "command": []
+    }
+  ]
+}
