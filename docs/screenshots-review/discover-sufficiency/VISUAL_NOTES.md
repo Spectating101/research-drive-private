@@ -31,6 +31,17 @@ No backend commit in this pass — comparison runs client-side against the lab `
 - The coverage block contains no duplicate Open/Inspect button; the Evaluation action bar remains the single command authority.
 - External source evidence remains available below the comparison, while exact-local uncertainty follows the local asset's readiness context.
 
+### Mobile Focus action hierarchy
+
+The mobile action region represents one decision rather than wrapping the desktop action inventory.
+
+- There is one primary action authority in the DOM and it is full-width at mobile width.
+- Desktop keeps explicit secondary buttons.
+- Mobile exposes at most one context-aware secondary action; remaining secondary actions are available from a `More actions` menu.
+- Exact local match prefers `Inspect external source` as the visible secondary because `Open local dataset` already owns the primary decision.
+- Partial/related coverage prefers the local asset action as the visible secondary.
+- Lifecycle-owned states do not surface a competing secondary beside the lifecycle primary; additional actions remain in the overflow menu.
+
 ## Screenshots
 
 | # | State | Evidence | User decision | Primary action | Claim not made |
@@ -48,10 +59,11 @@ No backend commit in this pass — comparison runs client-side against the lab `
 | 12 | Partial + Ask | Ask support rail | Ask with structured context | — | Related→Equivalent upgrade |
 | 13 | Running + partial | lifecycle overrides | Track running job | Lifecycle primary | Sufficiency decides collect |
 | 14 | Back | browse line preserved | Continue browsing | — | — |
-| 15–18 | Tablet/mobile | same states | Same decisions | — | Final responsive polish |
+| 15–18 | Tablet/mobile | same states | Same decisions | Responsive Focus hierarchy | Desktop action wrapping |
 
 ## Scope
 
 - Composition not redesigned
 - Lifecycle / Evaluation / D0 / D1 semantics unchanged
-- Final Responsive not started
+- Mobile Focus action hierarchy is now under responsive finish
+- Broader tablet/mobile Browse and page-shell responsive polish remains
