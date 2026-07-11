@@ -4494,9 +4494,233 @@
 
 .rd-v2-discover-list-panel .rd-v2-catalog button.rd-v2-discover-candidate.selected,
 .rd-v2-discover-list-panel .rd-v2-catalog li.rd-v2-row-on button.rd-v2-discover-candidate {
-  padding-left: 16px;
-  background: #f4f8ff;
-  border-left-color: var(--rd-accent);
+  padding-left: 14px;
+  background: linear-gradient(90deg, #eef4fc 0%, #f7faff 55%, #fbfcfe 100%);
+  border-color: #c5d4ea;
+  border-left-width: 4px;
+  border-left-color: #1a56a8;
+  box-shadow: inset 0 0 0 1px rgba(26, 86, 168, 0.08);
+}
+
+.rd-v2-discover-selected-mark {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #1a56a8;
+  vertical-align: middle;
+  box-shadow: 0 0 0 3px rgba(26, 86, 168, 0.15);
+}
+
+.rd-v2-discover-list-panel .rd-v2-catalog button.rd-v2-discover-candidate.selected .rd-v2-discover-candidate-title {
+  color: #0f2f5c;
+}
+
+/* ── Discover evaluation surface (selected-candidate workspace) ── */
+.rd-v2-eval-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  background: linear-gradient(180deg, #182234 0%, #121a28 42%, #101722 100%);
+  border-left: 1px solid #2a3a52;
+}
+
+.rd-v2-eval-identity {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #2a3a52;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rd-v2-eval-kicker {
+  margin: 0 0 6px;
+  color: #8090a8;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rd-v2-eval-title {
+  margin: 0 0 6px;
+  color: #f1f6ff;
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.rd-v2-eval-source {
+  margin: 0;
+  color: #9aabc2;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.rd-v2-eval-decision {
+  margin: 0;
+  padding: 14px 16px 16px;
+  border-bottom: 1px solid #2a3a52;
+  background: rgba(88, 140, 220, 0.08);
+}
+
+.rd-v2-eval-decision-headline {
+  margin: 0 0 6px;
+  color: #eff6ff;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.rd-v2-eval-decision-body {
+  margin: 0;
+  color: #b7c6da;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rd-v2-eval-scroll {
+  padding: 12px 16px 18px;
+}
+
+.rd-v2-eval-block {
+  margin: 0 0 14px;
+}
+
+.rd-v2-eval-section-label {
+  margin: 0 0 6px;
+  color: #8090a8;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rd-v2-eval-prose {
+  margin: 0;
+  color: #d5deea;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rd-v2-eval-prose.muted {
+  color: #8090a8;
+}
+
+.rd-v2-eval-list,
+.rd-v2-eval-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rd-v2-eval-list li,
+.rd-v2-eval-checklist li {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 5px;
+  color: #d5deea;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.rd-v2-eval-mark {
+  flex: 0 0 auto;
+  width: 1em;
+  color: #8090a8;
+  font-weight: 700;
+}
+
+.rd-v2-eval-mark.ok {
+  color: #6dcea0;
+}
+
+.rd-v2-eval-mark.infer {
+  color: #d2b56a;
+}
+
+.rd-v2-eval-mark.unknown {
+  color: #d4a574;
+}
+
+.rd-v2-eval-verified {
+  padding: 10px 12px;
+  border: 1px solid #2f4d3d;
+  border-radius: 6px;
+  background: rgba(60, 140, 100, 0.1);
+}
+
+.rd-v2-eval-inferred {
+  padding: 10px 12px;
+  border: 1px solid #4a4030;
+  border-radius: 6px;
+  background: rgba(180, 140, 60, 0.08);
+}
+
+.rd-v2-eval-unknown {
+  padding: 10px 12px;
+  border: 1px solid #4a3a2c;
+  border-radius: 6px;
+  background: rgba(180, 110, 50, 0.08);
+}
+
+.rd-v2-eval-ask-chips {
+  margin: 4px 0 16px;
+}
+
+.rd-v2-eval-ask-chips .rd-v2-chips-row {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rd-v2-eval-tech {
+  margin: 4px 0 8px;
+  border: 1px solid #2a3a52;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #94a3b8;
+}
+
+.rd-v2-eval-tech > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #94a3b8;
+  list-style: none;
+}
+
+.rd-v2-eval-tech > summary::-webkit-details-marker {
+  display: none;
+}
+
+.rd-v2-eval-tech > summary::before {
+  content: "▸ ";
+  color: #6b7c93;
+}
+
+.rd-v2-eval-tech[open] > summary::before {
+  content: "▾ ";
+}
+
+.rd-v2-eval-tech-body {
+  padding: 0 12px 12px;
+}
+
+.rd-v2-eval-model-note {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid #8a7340;
+  background: rgba(180, 140, 60, 0.1);
+  color: #d8c89a;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.rd-v2-eval-model-note .rd-v2-eval-section-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #d2b56a;
 }
 
 .rd-v2-discover-candidate-source {
