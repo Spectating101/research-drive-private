@@ -6665,6 +6665,13 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     overflow-x: hidden;
   }
 
+  /* Composition / Profile no-rail must not keep a sidebar-width first column.
+     `.rd-v2-shell.no-rail` is more specific than `.rd-v2-shell` above, so
+     without this override mobile Focus collapses main to ~204px. */
+  .rd-v2-shell.no-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .rd-v2-header {
     grid-column: 1;
     grid-row: 1;

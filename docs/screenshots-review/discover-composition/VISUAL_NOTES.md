@@ -1,4 +1,18 @@
-# Discover Composition — visual notes
+# Discover Composition — visual notes (C1)
+
+## Root cause (mobile 204 px)
+
+`.rd-v2-shell.no-rail` sets `grid-template-columns: var(--rd-sidebar) minmax(0, 1fr)`.
+
+At ≤760 px, `.rd-v2-shell` correctly becomes `minmax(0, 1fr)`, but `.rd-v2-shell.no-rail` is more specific and kept the sidebar-width first column. With `--rd-sidebar-min: 204px` (from the ≤1180 breakpoint), Focused Evaluation collapsed to ~204 px.
+
+**Canonical fix:** inside `@media (max-width: 760px)`, override:
+
+```css
+.rd-v2-shell.no-rail {
+  grid-template-columns: minmax(0, 1fr);
+}
+```
 
 ## Modes
 
@@ -10,57 +24,70 @@
 
 ## Browse structure
 
-1. Discover header / search
-2. Process overview counts (explanatory)
-3. “What data do you need?”
-4. Filters
-5. Groups from D1 taxonomy:
-   - **In your lab**
-   - **External candidates**
-   - **Needs access**
+Groups from D1 taxonomy only:
 
-No empty Detail rail reserved beside the list.
-
-## Focused Evaluation structure
-
-1. `← Back to results` · Ask
-2. Selected identity
-3. Can I use this? (+ Collection status when lifecycle exists)
-4. Useful for / Coverage
-5. Verified · Still unknown (side-by-side when wide)
-6. Inferred / Technical evidence
-7. Primary + secondary actions
-
-Preserves D0 identity, D1 taxonomy, Evaluation evidence, lifecycle authority, Resources deep-link, Ask context.
+- **In your lab**
+- **External candidates**
+- **Needs access** (`manual_access` / `access_mode: licensed`)
 
 ## Screenshots
 
 ### 01 — browse awaiting
-Empty Discover with full canvas; no inspector column.
+Empty Discover; no inspector column.
 
 ### 02 — browse grouped
-Search results organised by lab / external / needs-access groups.
+Visibly contains all three group headings.
 
-### 03 — focus entry
-Selecting a candidate replaces the list with Focused Evaluation.
+Needs Access fixture fields:
 
-### 04 — focus probed
-Verified evidence in the wide workspace (not a narrow rail).
+- `manual_access: true`
+- `access_mode: "licensed"`
+- `license: "commercial license"`
+
+### 03 — focus before probe
+External · Acquisition available in the wide workspace.
+
+### 04 — focus after probe
+Verified evidence in Focus (not a narrow rail).
 
 ### 05 — focus with Ask
-Ask opens as supporting rail; evaluation stays primary.
+Ask as supporting rail; evaluation remains primary.
 
-### 06 — back to browse
-Back restores the grouped result index and search state.
+### 06 — focus approval required
+Collection status · Approval required in wide workspace.
 
-### 07 — focus workspace wide
-Decision hierarchy uses main content width.
+### 07 — focus running
+Same-state counterpart to lifecycle screenshot 05 (Running + stage).
 
-### 08–11 — tablet / mobile
-Same Browse → Focus transition; not final responsive polish.
+### 08 — focus failed
+Failed summary readable; not a giant red page.
+
+### 09 — focus registration pending
+Can I use this? · Not yet reusable. Not In lab / Query ready.
+
+### 10 — focus registered
+Can I use this? · Registered in lab. Open in Library. Not Query ready.
+
+### 11 — focus query ready
+Can I use this? · In lab · Query ready. Open in Library.
+
+### 12 — back projected
+Back to Browse reveals lifecycle-projected row/counts.
+
+### 13 — tablet running
+Wide workspace coherent at 900 px.
+
+### 14 — tablet failed
+Failure readable on tablet.
+
+### 15 — mobile browse
+Browse uses full viewport width.
+
+### 16 — mobile query ready
+Focused workspace width ≥ 380 px; scrollWidth ≤ viewport; decisions do not contradict.
 
 ## Scope
 
-- Sufficiency / Equivalence **not** started
-- Final Responsive **not** started
-- Lifecycle / Evaluation semantics unchanged
+- Desktop Composition not redesigned
+- Sufficiency / Equivalence not started
+- Final Responsive not started
