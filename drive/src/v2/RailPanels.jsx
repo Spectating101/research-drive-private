@@ -339,61 +339,51 @@ export function LibraryObjectRailPanel({
   const folder = object?.kind === "library_folder" ? object : null;
   if (!folder) return null;
   const counts = folder.counts || {};
-  const desc = folder.note || "Current vault branch and acquisition destination.";
+  const root = !folder.folderId;
+  const desc = root
+    ? "The lab's owned data estate and acquisition memory."
+    : folder.note || "Datasets and research assets organized in this collection.";
 
   return (
     <RailFrame>
       <RailEntityHeader
-        id={folder.path || folder.id}
         title={folder.title}
         description={desc}
-        pills={<span className="rd-v2-pill lab">{folder.folderId ? "Folder" : "Lab root"}</span>}
+        pills={<span className="rd-v2-pill lab">{root ? "Lab library" : "Collection"}</span>}
       />
-      <RailDecisionSummary
-        status={
-          counts.datasets > 0
-            ? `${counts.datasets} dataset${counts.datasets === 1 ? "" : "s"} registered`
-            : "No datasets in this branch"
-        }
-        primary={
-          counts.queryReady > 0
-            ? "Use now — query-ready data available"
-            : "Add or procure data before analysis"
-        }
-        risk={counts.queryReady === 0 ? "No query-ready holdings here" : "Low"}
-        next={
-          counts.datasets > 0
-            ? "Select a dataset, preview rows, or ask about coverage"
-            : "Upload files, add URL / DOI, or procure missing data"
-        }
-      />
-      <div className="rd-v2-rail-scroll">
-        <RailFieldGrid>
-          <RailField label="Destination" value={folder.destination} />
-          <RailField label="Folders" value={pluralCount(counts.folders, "folder")} />
-          <RailField label="Datasets" value={pluralCount(counts.datasets, "dataset")} />
-          <RailField label="Query-ready" value={String(counts.queryReady ?? 0)} />
-          <RailField label="Items" value={pluralCount(counts.items, "item")} />
-        </RailFieldGrid>
-        <p className="rd-v2-rail-section-label">Branch actions</p>
-        <div className="rd-v2-rail-branch-actions">
-          <button type="button" onClick={() => onStartUpload?.(folder)}>
-            Upload files
-          </button>
-          <button type="button" onClick={() => onStartUrl?.(folder)}>
-            Add URL / DOI
-          </button>
-          <button type="button" onClick={() => onStartProcure?.(folder)}>
-            Procure missing data
-          </button>
-        </div>
+      <div className="rd-v2-rail-scroll rd-v2-library-folder-inspector">
+        <section className="rd-v2-library-folder-summary">
+          <p className="rd-v2-rail-section-label">{root ? "In this library" : "In this collection"}</p>
+          <h3>{pluralCount(counts.datasets, "dataset")}</h3>
+          <div className="rd-v2-library-folder-readiness">
+            {counts.queryReady > 0 ? <span><b>{counts.queryReady}</b> query ready</span> : null}
+            {counts.connected > 0 ? <span><b>{counts.connected}</b> connected</span> : null}
+            {counts.metadataOnly > 0 ? <span><b>{counts.metadataOnly}</b> metadata only</span> : null}
+            {counts.unknown > 0 ? <span><b>{counts.unknown}</b> readiness unknown</span> : null}
+          </div>
+        </section>
+
+        <section className="rd-v2-library-folder-add">
+          <p className="rd-v2-rail-section-label">Add data</p>
+          <button type="button" onClick={() => onStartUpload?.(folder)}>Upload file</button>
+          <button type="button" onClick={() => onStartUrl?.(folder)}>Add URL / DOI</button>
+          <button type="button" onClick={() => onStartProcure?.(folder)}>Find missing data</button>
+        </section>
+
+        <details className="rd-v2-library-inspector-tech rd-v2-library-folder-tech">
+          <summary>Technical details</summary>
+          <div className="rd-v2-library-inspector-tech-body">
+            <RailFieldGrid>
+              <RailField label="Destination" value={folder.destination} />
+              <RailField label="Collections" value={pluralCount(counts.folders, "collection")} />
+              <RailField label="Items" value={pluralCount(counts.items, "item")} />
+            </RailFieldGrid>
+          </div>
+        </details>
       </div>
       <RailStickyFooter>
-        <button type="button" className="rd-v2-btn sm primary" onClick={() => onStartUpload?.(folder)}>
-          Upload here
-        </button>
-        <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(folder)}>
-          Ask about branch →
+        <button type="button" className="rd-v2-btn sm primary" onClick={() => onAskAbout?.(folder)}>
+          Ask about {root ? "the library" : "this collection"} →
         </button>
       </RailStickyFooter>
     </RailFrame>

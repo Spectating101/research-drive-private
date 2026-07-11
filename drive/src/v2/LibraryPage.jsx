@@ -59,7 +59,7 @@ function sortItems(rows, sortBy, isRoot) {
 }
 
 function folderDestination(trail, folderId) {
-  if (!folderId) return "Lab root";
+  if (!folderId) return "Lab";
   return trail.map((c) => c.name).join(" / ");
 }
 
@@ -226,7 +226,8 @@ export function LibraryPage({
     () => (isRoot ? datasets : branchRows.map(itemDataset)),
     [branchRows, datasets, isRoot],
   );
-  const readyCount = libraryAssetCounts(branchDatasetRows).queryReady;
+  const branchCounts = libraryAssetCounts(branchDatasetRows);
+  const readyCount = branchCounts.queryReady;
   const folderCount = visibleRows.filter((item) => item.kind === "folder").length;
   const datasetCount = branchDatasetRows.length;
   const branchNote = branchStatusNote({
@@ -247,9 +248,12 @@ export function LibraryPage({
         folderCount,
         datasetCount,
         readyCount,
+        connectedCount: branchCounts.connected,
+        metadataOnlyCount: branchCounts.metadataOnly,
+        unknownCount: branchCounts.unknown,
         itemCount: visibleRows.length,
       }),
-    [branchNote, datasetCount, destination, folderCount, folderId, readyCount, trail, visibleRows.length],
+    [branchCounts.connected, branchCounts.metadataOnly, branchCounts.unknown, branchNote, datasetCount, destination, folderCount, folderId, readyCount, trail, visibleRows.length],
   );
 
   useEffect(() => {

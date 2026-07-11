@@ -49,10 +49,13 @@ export function libraryFolderObject({
   folderCount = 0,
   datasetCount = 0,
   readyCount = 0,
+  connectedCount = 0,
+  metadataOnlyCount = 0,
+  unknownCount = 0,
   itemCount = 0,
 } = {}) {
   const root = !folderId;
-  const title = root ? "Lab root" : compactText(trail[trail.length - 1]?.name, "Library folder");
+  const title = root ? "Lab" : compactText(trail[trail.length - 1]?.name, "Library collection");
   return {
     kind: "library_folder",
     id: folderId || "lab-root",
@@ -65,6 +68,9 @@ export function libraryFolderObject({
       folders: folderCount,
       datasets: datasetCount,
       queryReady: readyCount,
+      connected: connectedCount,
+      metadataOnly: metadataOnlyCount,
+      unknown: unknownCount,
       items: itemCount,
     },
   };
@@ -85,7 +91,7 @@ export function libraryIntakeObject(mode, folder) {
     title,
     folderId: base.folderId || "",
     path: base.path || "Lab",
-    destination: base.destination || base.title || "Lab root",
+    destination: base.destination || base.title || "Lab",
     counts: base.counts || {},
   };
 }

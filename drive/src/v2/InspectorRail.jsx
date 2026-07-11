@@ -14,6 +14,7 @@ import { RailFrame } from "@/v2/RailFrame";
 import { ProfileDetailPanel } from "@/v2/ProfilePage";
 import { activeObjectSelectionHint } from "@/v2/activeObject";
 import { displayName } from "@/v2/datasetMeta";
+import { LibraryDatasetRailPanel } from "@/v2/LibraryDatasetRailPanel";
 
 function railSelectionHint(mainTab, dataset, browseTarget, resourceRow, clusterContext) {
   if (mainTab === "browse" && browseTarget) {
@@ -161,6 +162,14 @@ export function InspectorRail({
         onSubmitUpload={onSubmitLibraryUpload}
         onSubmitUrl={onSubmitLibraryUrl}
         onSubmitProcure={onSubmitLibraryProcure}
+      />
+    );
+  } else if (mainTab === "library" && dataset?.dataset_id) {
+    detailPanel = (
+      <LibraryDatasetRailPanel
+        dataset={dataset}
+        onPreview={onPreview}
+        onAskAbout={onAskAbout}
       />
     );
   } else if (mainTab === "library" && !dataset?.dataset_id) {

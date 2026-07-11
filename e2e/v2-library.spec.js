@@ -18,9 +18,11 @@ test.describe("v2 Library directory", () => {
     await expect(page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Research panels" })).toBeVisible();
     await expect(page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Connected sources" })).toBeVisible();
     await expect(page.locator(".rd-v2-library-pathbar")).toHaveCount(0);
-    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab root");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Branch actions");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Upload here");
+    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("In this library");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("Add data");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Branch actions");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Upload here");
   });
 
   test("folders drill down to datasets and keep the rail as the selection anchor", async ({ page }) => {
@@ -33,7 +35,14 @@ test.describe("v2 Library directory", () => {
     await expect(page.locator(".rd-v2-rail-selection")).toHaveText("gdelt");
     await page.locator('.rd-v2-library-asset[data-kind="dataset"]', { hasText: "Asia daily news-risk panel" }).click();
 
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Asia daily news-risk panel");
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("Asia daily news-risk panel");
+    await expect(rail).toContainText("Can I use this?");
+    await expect(rail).toContainText("Query ready");
+    await expect(rail).toContainText("Useful for");
+    await expect(rail).toContainText("Coverage & grain");
+    await expect(rail).toContainText("Join keys");
+    await expect(rail.getByRole("button", { name: "Preview rows" })).toBeVisible();
     await expect(page.getByTestId("library-estate-browser")).not.toContainText("Selected");
   });
 
@@ -87,8 +96,9 @@ test.describe("v2 Library navigation", () => {
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Asia daily news-risk panel");
 
     await page.locator("aside.yzu-sidebar").getByRole("button", { name: "Library", exact: true }).click();
-    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab root");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Branch actions");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Upload here");
+    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("In this library");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("Add data");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Upload here");
   });
 });
