@@ -16,7 +16,9 @@ jobs:
           ref: design/discover-responsive-finish
           fetch-depth: 0
       - name: Apply bounded design patch
-        run: python3 scripts/director_discover_mobile_focus.py
+        run: |
+          python3 scripts/director_discover_mobile_focus.py
+          python3 scripts/director_discover_mobile_primary_authority.py
       - name: Validate diff
         run: git diff --check
       - name: Commit product changes
@@ -28,5 +30,5 @@ jobs:
           git config user.name "ChatGPT Design Director"
           git config user.email "christstrife+chatgpt-design@users.noreply.github.com"
           git add drive/src/v2/DiscoverEvaluationSurface.jsx drive/src/v2/v2.css
-          git commit -m "design(discover): focus mobile actions on one decision"
+          git commit -m "design(discover): finish mobile Focus action hierarchy"
           git push origin HEAD:design/discover-responsive-finish
