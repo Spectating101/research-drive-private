@@ -697,6 +697,10 @@ export function V2App() {
         const label = target.title || target.dataset_id || target.name || "this Discover candidate";
         setActiveObject(externalCandidateObject(target));
         setRailTab("ask");
+        if (promptOverride && typeof promptOverride === "object") {
+          setPendingAsk(promptOverride);
+          return;
+        }
         const override =
           typeof promptOverride === "string" && promptOverride.trim() ? promptOverride.trim() : "";
         setPendingAsk(

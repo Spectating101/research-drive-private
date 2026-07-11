@@ -15,6 +15,7 @@ import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidat
 import { buildDiscoverLifecycle, projectDiscoverCandidateLifecycle } from "@/v2/discoverLifecycle";
 import { DiscoverEvaluationSurface } from "@/v2/DiscoverEvaluationSurface";
 import { groupDiscoverBrowseRows } from "@/v2/discoverComposition";
+import { assessLocalSufficiency } from "@/v2/discoverSufficiency";
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverEmptyState } from "@/v2/DiscoverEmptyState";
@@ -50,6 +51,7 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
     row.source || row.collect_via || row.source_route || row.publisher || row.backend || hostLabel(row.url);
   const taxonomyLine = taxonomy.label;
   const exceptionPill = exceptionalRowPill(row, taxonomy, state);
+  const showSufficiency = Number(taxonomy.group) >= 3 && row.discover_sufficiency?.browseLine;
 
   return (
     <li className={selected ? "rd-v2-row-on" : undefined}>
@@ -58,6 +60,7 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
         className={`row rd-v2-discover-candidate${selected ? " selected" : ""}${exceptionPill ? " has-exception" : ""}`}
         data-kind={taxonomy.key}
         data-state={state.key}
+        data-sufficiency={showSufficiency ? row.discover_sufficiency.state : undefined}
         aria-pressed={selected}
         onClick={() => onSelectRow(row)}
       >
@@ -78,6 +81,14 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
             <b>Coverage</b>
             <em>{coverageLine(row)}</em>
           </span>
+          {showSufficiency ? (
+            <span
+              className={`rd-v2-discover-sufficiency rd-v2-discover-sufficiency-${row.discover_sufficiency.state}`}
+              data-testid="discover-sufficiency-line"
+            >
+              {row.discover_sufficiency.browseLine}
+            </span>
+          ) : null}
         </span>
       </button>
     </li>
@@ -312,7 +323,15 @@ export function BrowsePage({
         catalog,
         labIds,
       });
-      stampedRows.push(projectDiscoverCandidateLifecycle(base, life));
+      const projected = projectDiscoverCandidateLifecycle(base, life);
+      const taxonomy = projected.discover_taxonomy || classifyDiscoverResult(projected, labIds);
+      const sufficiency =
+        Number(taxonomy.group) >= 3 ? assessLocalSufficiency(projected, catalog) : null;
+      stampedRows.push({
+        ...projected,
+        discover_taxonomy: taxonomy,
+        discover_sufficiency: sufficiency,
+      });
     }
     return orderDiscoverResults(stampedRows, labIds);
   }, [rows, jobs, labIds, catalog, probeSnapshots]);
@@ -372,6 +391,7 @@ export function BrowsePage({
           variant="workspace"
           target={focusTarget}
           labIds={labIds}
+          catalog={catalog}
           onAskAbout={onAskAbout}
           onAddToLab={onAddToLab}
           onPreviewExternal={onPreviewExternal}

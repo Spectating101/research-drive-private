@@ -1,10 +1,19 @@
 /**
  * Discover Evaluation Surface body — shared by rail (legacy) and focused workspace.
- * Semantics stay in discoverEvaluation / discoverLifecycle; this is presentation only.
+ * Semantics stay in discoverEvaluation / discoverLifecycle / discoverSufficiency;
+ * this is presentation only.
  */
 
+import { useMemo } from "react";
 import { applyLifecycleToEvaluation, LIFECYCLE } from "@/v2/discoverLifecycle";
 import { buildDiscoverEvaluation } from "@/v2/discoverEvaluation";
+import {
+  assessLocalSufficiency,
+  applySufficiencyToActions,
+  buildSufficiencyAskContext,
+  sufficiencyAskPrompts,
+  SUFFICIENCY,
+} from "@/v2/discoverSufficiency";
 import {
   RailField,
   RailFieldGrid,
@@ -24,6 +33,7 @@ const PATH_STAGES = [
 export function DiscoverEvaluationSurface({
   target,
   labIds,
+  catalog = [],
   onAskAbout,
   onAddToLab,
   onPreviewExternal,
@@ -36,7 +46,20 @@ export function DiscoverEvaluationSurface({
   onRetryLifecycleRefresh,
   variant = "rail",
 }) {
-  if (!target) {
+  const evaluation = target
+    ? applyLifecycleToEvaluation(buildDiscoverEvaluation(target, labIds, probeState), lifecycle)
+    : null;
+  const sufficiency = useMemo(() => {
+    if (!target) return null;
+    if (target?.discover_sufficiency?.state) return target.discover_sufficiency;
+    const taxonomy = target.discover_taxonomy;
+    const group = Number(taxonomy?.group);
+    // Lab holdings do not need local-alternative comparison against themselves.
+    if (Number.isFinite(group) && group <= 2) return null;
+    return assessLocalSufficiency(target, catalog);
+  }, [target, catalog]);
+
+  if (!target || !evaluation) {
     if (variant === "workspace") return null;
     return (
       <RailFrame>
@@ -50,15 +73,11 @@ export function DiscoverEvaluationSurface({
     );
   }
 
-  const evaluation = applyLifecycleToEvaluation(
-    buildDiscoverEvaluation(target, labIds, probeState),
-    lifecycle,
-  );
   const probeLoading = evaluation.probeLoading;
   const submitting = lifecycle?.state === LIFECYCLE.SUBMITTING;
   const targetKey = target?.candidate_key || target?.dataset_id || target?.url || evaluation.title;
 
-  const askPrompts = lifecycle
+  const baseAskPrompts = lifecycle
     ? [
         lifecycle.state === LIFECYCLE.APPROVAL_REQUIRED
           ? {
@@ -101,22 +120,74 @@ export function DiscoverEvaluationSurface({
           prompt: `What are the main risks of using or acquiring ${evaluation.title}? Distinguish verified facts from unknowns.`,
         },
         {
-          id: "compare",
-          label: "Compare with lab holdings",
-          prompt: `Compare ${evaluation.title} with my current lab holdings. Note overlaps and gaps without inventing coverage.`,
-        },
-        {
           id: "probe_next",
           label: "What should I probe next?",
           prompt: `Given ${evaluation.title}, what should I probe next, and what would still remain unknown after a successful probe?`,
         },
       ];
 
-  const primary = lifecycle?.primaryAction || evaluation.actions.primary;
-  const secondary = lifecycle ? lifecycle.secondaryActions || [] : evaluation.actions.secondary;
+  const askPrompts = [
+    ...(sufficiency ? sufficiencyAskPrompts(sufficiency, evaluation.title) : []),
+    ...baseAskPrompts,
+  ].slice(0, 4);
+
+  const actions = sufficiency
+    ? applySufficiencyToActions(evaluation.actions, sufficiency, {
+        lifecycleOverrides: Boolean(lifecycle?.primaryAction),
+      })
+    : evaluation.actions;
+  const primary = lifecycle?.primaryAction || actions.primary;
+  const secondary = lifecycle?.primaryAction
+    ? lifecycle.secondaryActions || []
+    : actions.secondary;
+
+  const openLocal = () => {
+    const local = sufficiency?.bestLocal;
+    if (local) onOpenInLibrary?.(local);
+    else onOpenInLibrary?.(target);
+  };
+
+  const askWithSufficiency = (promptOverride) => {
+    const ctx = sufficiency ? buildSufficiencyAskContext(sufficiency, target) : null;
+    const label = evaluation.title;
+    if (typeof promptOverride === "string" && promptOverride.trim()) {
+      onAskAbout?.(
+        target,
+        ctx
+          ? {
+              prompt: [
+                promptOverride.trim(),
+                "",
+                "Local comparison (structured — do not upgrade related to equivalent):",
+                JSON.stringify(ctx, null, 2),
+              ].join("\n"),
+              displayText: promptOverride.trim().split("\n")[0],
+            }
+          : promptOverride.trim(),
+      );
+      return;
+    }
+    onAskAbout?.(
+      target,
+      ctx
+        ? {
+            prompt: [
+              `Assess this Discover source for research use: ${label}.`,
+              "Summarize what is verified, what remains unknown, access/acquisition constraints, local lab coverage, and the safest next action.",
+              "Do not invent legal clearance, query readiness, or equivalence.",
+              "",
+              "Local comparison (structured):",
+              JSON.stringify(ctx, null, 2),
+            ].join("\n"),
+            displayText: `Assess this source: ${label}`,
+          }
+        : undefined,
+    );
+  };
 
   const runAction = (id) => {
-    if (id === "open_library" || id === "inspect_record") {
+    if (id === "open_local" || id === "inspect_related") openLocal();
+    else if (id === "open_library" || id === "inspect_record") {
       const datasetId = lifecycle?.registeredDatasetId || target?.dataset_id;
       onOpenInLibrary?.(datasetId ? { ...target, dataset_id: datasetId } : target);
     } else if (id === "add_lab") onAddToLab?.(target);
@@ -124,14 +195,11 @@ export function DiscoverEvaluationSurface({
     else if (id === "preview") onPreviewExternal?.();
     else if (id === "review_approval") onReviewApproval?.(lifecycle?.job || target);
     else if (id === "track_resources") onTrackResources?.(lifecycle?.job || target);
-    else if (id === "ask" || id === "review_access") onAskAbout?.(target);
+    else if (id === "ask" || id === "review_access") askWithSufficiency();
   };
 
   const reachedStages = new Set(lifecycle?.stages || []);
-  const shellClass =
-    variant === "workspace"
-      ? "rd-v2-eval-workspace"
-      : "rd-v2-eval-rail";
+  const shellClass = variant === "workspace" ? "rd-v2-eval-workspace" : "rd-v2-eval-rail";
 
   const body = (
     <>
@@ -141,6 +209,7 @@ export function DiscoverEvaluationSurface({
         data-variant={variant}
         data-taxonomy={evaluation.taxonomyKey}
         data-lifecycle={lifecycle?.state || ""}
+        data-sufficiency={sufficiency?.state || ""}
         data-selected-title={evaluation.title}
       >
         <header className="rd-v2-eval-identity">
@@ -203,6 +272,39 @@ export function DiscoverEvaluationSurface({
                 </li>
               ))}
             </ol>
+          </section>
+        ) : null}
+
+        {sufficiency ? (
+          <section
+            className={`rd-v2-eval-sufficiency rd-v2-eval-sufficiency-${sufficiency.state}`}
+            aria-label="Lab coverage"
+            data-testid="discover-lab-coverage"
+          >
+            <p className="rd-v2-eval-section-label">Lab coverage</p>
+            <p className="rd-v2-eval-decision-headline">{sufficiency.focusHeadline}</p>
+            <p className="rd-v2-eval-decision-body">{sufficiency.focusBody}</p>
+            {sufficiency.gapLines?.length ? (
+              <div className="rd-v2-eval-sufficiency-gaps">
+                <p className="rd-v2-eval-sufficiency-gap-label">Gap</p>
+                <ul>
+                  {sufficiency.gapLines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {sufficiency.bestLocal &&
+            (sufficiency.state === SUFFICIENCY.EXACT_LOCAL ||
+              sufficiency.state === SUFFICIENCY.LIKELY_EQUIVALENT ||
+              sufficiency.state === SUFFICIENCY.PARTIAL_LOCAL ||
+              sufficiency.state === SUFFICIENCY.RELATED_LOCAL) ? (
+              <button type="button" className="rd-v2-btn sm rd-v2-eval-sufficiency-open" onClick={openLocal}>
+                {sufficiency.state === SUFFICIENCY.RELATED_LOCAL
+                  ? "Inspect local asset"
+                  : "Open local dataset"}
+              </button>
+            ) : null}
           </section>
         ) : null}
 
@@ -311,7 +413,7 @@ export function DiscoverEvaluationSurface({
             </details>
           )}
 
-          <div className="rd-v2-eval-ask-chips" aria-label="Ask about this source">
+          <section className="rd-v2-eval-ask-chips" aria-label="Ask about this source">
             <p className="rd-v2-eval-section-label">Ask about this source</p>
             <div className="rd-v2-chips-row">
               {askPrompts.map((chip) => (
@@ -319,51 +421,51 @@ export function DiscoverEvaluationSurface({
                   key={chip.id}
                   type="button"
                   className="rd-v2-chip clickable"
-                  onClick={() => onAskAbout?.(target, chip.prompt)}
+                  onClick={() => askWithSufficiency(chip.prompt)}
                 >
                   {chip.label}
                 </button>
               ))}
             </div>
-          </div>
+          </section>
         </div>
       </div>
 
-      <div data-testid="discover-eval-actions">
-        <RailStickyFooter>
-          {primary ? (
-            <button
-              type="button"
-              className="rd-v2-btn primary sm"
-              disabled={submitting || (probeLoading && primary.id === "probe")}
-              onClick={() => runAction(primary.id)}
-            >
-              {submitting
-                ? "Submitting…"
-                : probeLoading && primary.id === "probe"
-                  ? "Probing…"
-                  : primary.label}
-            </button>
-          ) : null}
-          {secondary.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              className="rd-v2-btn sm"
-              disabled={submitting || (probeLoading && action.id === "probe")}
-              onClick={() => runAction(action.id)}
-            >
-              {probeLoading && action.id === "probe" ? "Probing…" : action.label}
-            </button>
-          ))}
-        </RailStickyFooter>
+      <div className="rd-v2-eval-actions" data-testid="discover-eval-actions">
+        {probeLoading || submitting ? (
+          <p className="rd-v2-eval-action-status">{submitting ? "Submitting…" : "Probing source…"}</p>
+        ) : null}
+        <button
+          type="button"
+          className="rd-v2-btn primary"
+          disabled={probeLoading || submitting}
+          onClick={() => runAction(primary.id)}
+        >
+          {primary.label}
+        </button>
+        {secondary.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            className="rd-v2-btn"
+            disabled={probeLoading || submitting}
+            onClick={() => runAction(action.id)}
+          >
+            {action.label}
+          </button>
+        ))}
       </div>
     </>
   );
 
-  if (variant === "workspace") {
-    return <div className="rd-v2-eval-workspace-shell">{body}</div>;
-  }
+  if (variant === "workspace") return body;
 
-  return <RailFrame>{body}</RailFrame>;
+  return (
+    <RailFrame>
+      {body}
+      <RailStickyFooter>
+        <span className="rd-v2-muted">Candidate {targetKey}</span>
+      </RailStickyFooter>
+    </RailFrame>
+  );
 }
