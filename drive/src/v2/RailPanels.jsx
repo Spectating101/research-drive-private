@@ -536,6 +536,8 @@ export function BrowseRailPanel({
     probeState?.result && !probeState?.loading
       ? {
           ...target,
+          discover_state: undefined,
+          discover_taxonomy: undefined,
           probe_snapshot:
             target.probe_snapshot ||
             {
@@ -547,8 +549,8 @@ export function BrowseRailPanel({
             },
         }
       : target;
-  const state = probeBound.discover_state || discoverCandidateState(probeBound, labIds);
-  const taxonomy = state.taxonomy || classifyDiscoverResult(probeBound, labIds);
+  const taxonomy = classifyDiscoverResult(probeBound, labIds);
+  const state = discoverCandidateState({ ...probeBound, discover_taxonomy: taxonomy }, labIds);
   const probeUrl = discoverCandidateUrl(target);
   const probeSummaryText =
     typeof probeState?.result?.summary === "string" ? probeState.result.summary : "";
