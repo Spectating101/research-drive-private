@@ -6,36 +6,43 @@ const COLLECTIONS = Object.freeze({
     title: "Research panels",
     description: "Derived and analysis-ready research assets",
     tone: "derived",
+    order: 0,
   },
   procured: {
     title: "Acquired data",
     description: "Data collected through Research Drive",
     tone: "acquired",
+    order: 1,
   },
   reference: {
     title: "Reference data",
     description: "Entity maps and official reference datasets",
     tone: "reference",
+    order: 2,
   },
   connections: {
     title: "Connected sources",
     description: "Remote and query-time data access",
     tone: "connected",
+    order: 3,
   },
   lab_pipelines: {
     title: "Data pipelines",
     description: "Ingestion, catalogs, and operational datasets",
     tone: "pipeline",
+    order: 4,
   },
   campaigns: {
     title: "Research campaigns",
     description: "Active collection and research workstreams",
     tone: "campaign",
+    order: 5,
   },
   other: {
     title: "Other assets",
     description: "Registry assets not yet organized into a collection",
     tone: "other",
+    order: 6,
   },
 });
 
@@ -98,7 +105,12 @@ export function collectionDescriptor(folder) {
     title: folder?.name || "Collection",
     description: `Assets organized under ${folder?.name || "this collection"}`,
     tone: "default",
+    order: 50,
   };
+}
+
+export function collectionOrder(folder) {
+  return collectionDescriptor(folder).order ?? 50;
 }
 
 export function collectionEstateSummary(folder, datasets = []) {

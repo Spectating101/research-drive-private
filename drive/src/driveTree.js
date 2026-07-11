@@ -12,19 +12,19 @@ const DRIVE_ROOT_NAMES = {
 
 const FOLDER_LABELS = {
   uploads: "Uploads",
-  lab_pipelines: "Lab pipelines",
+  lab_pipelines: "Data pipelines",
   news_shock: "News shock (ingestion)",
   research_panels: "Research panels",
-  procured: "Procured",
+  procured: "Acquired data",
   catalogues: "Catalogues",
-  reference: "Reference",
-  connections: "Apps & connections",
+  reference: "Reference data",
+  connections: "Connected sources",
   campaigns: "Campaigns",
   processed: "Processed",
   sec: "SEC filings",
   entity_mapping: "Entity mapping",
   spk_v1: "SPK v1",
-  other: "Other",
+  other: "Other assets",
 };
 
 function cleanSegment(part) {

@@ -7,7 +7,7 @@ import {
 } from "@/driveTree";
 import { libraryFolderObject } from "@/v2/activeObject";
 import { LibraryEstateBrowser } from "@/v2/LibraryEstateBrowser";
-import { datasetBelongsToFolder, libraryAssetCounts } from "@/v2/libraryEstate";
+import { collectionOrder, datasetBelongsToFolder, libraryAssetCounts } from "@/v2/libraryEstate";
 import { PageShell } from "@/v2/ui";
 
 function datasetListItem(row) {
@@ -42,10 +42,14 @@ function itemMatchesFilter(item, mode) {
   return libraryAssetCounts([itemDataset(item)]).queryReady === 1;
 }
 
-function sortItems(rows, sortBy) {
+function sortItems(rows, sortBy, isRoot) {
   return [...rows].sort((a, b) => {
     if (a?.kind === "folder" && b?.kind !== "folder") return -1;
     if (a?.kind !== "folder" && b?.kind === "folder") return 1;
+    if (isRoot && a?.kind === "folder" && b?.kind === "folder") {
+      const delta = collectionOrder(a) - collectionOrder(b);
+      if (delta) return delta;
+    }
     if (sortBy === "updated") {
       const delta = itemUpdatedTime(b) - itemUpdatedTime(a);
       if (delta) return delta;
@@ -213,8 +217,8 @@ export function LibraryPage({
     return branchRows;
   }, [items, branchRows]);
   const visibleRows = useMemo(
-    () => sortItems(displayRows.filter((item) => itemMatchesFilter(item, filterMode)), sortBy),
-    [displayRows, filterMode, sortBy],
+    () => sortItems(displayRows.filter((item) => itemMatchesFilter(item, filterMode)), sortBy, isRoot),
+    [displayRows, filterMode, sortBy, isRoot],
   );
   const currentFolderName = isRoot ? "Lab" : trail[trail.length - 1]?.name || "Lab";
   const showingBranchFallback = !items.length && branchRows.length > 0;
