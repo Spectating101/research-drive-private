@@ -5,7 +5,7 @@
 
 /**
  * @param {object[]} rows decorated Discover rows with discover_taxonomy
- * @returns {{ id: string, title: string, rows: object[] }[]}
+ * @returns {{ id: string, title: string, description: string, rows: object[] }[]}
  */
 export function groupDiscoverBrowseRows(rows) {
   const lab = [];
@@ -18,8 +18,23 @@ export function groupDiscoverBrowseRows(rows) {
     else external.push(row);
   }
   return [
-    { id: "lab", title: "In your lab", rows: lab },
-    { id: "external", title: "External candidates", rows: external },
-    { id: "access", title: "Needs access", rows: access },
+    {
+      id: "lab",
+      title: "Already in your lab",
+      description: "Use what the lab already holds before collecting again.",
+      rows: lab,
+    },
+    {
+      id: "external",
+      title: "Sources beyond your lab",
+      description: "Evaluate public and connected sources before acquisition.",
+      rows: external,
+    },
+    {
+      id: "access",
+      title: "Needs access",
+      description: "Manual, licensed, or unavailable paths need review.",
+      rows: access,
+    },
   ].filter((g) => g.rows.length > 0);
 }
