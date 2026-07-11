@@ -499,15 +499,16 @@ export function DiscoverEvaluationSurface({
           <p className="rd-v2-eval-action-status">{submitting ? "Submitting…" : "Probing source…"}</p>
         ) : null}
 
-        <div className="rd-v2-eval-actions-wide">
-          <button
-            type="button"
-            className="rd-v2-btn primary"
-            disabled={probeLoading || submitting}
-            onClick={() => runAction(primary.id)}
-          >
-            {primary.label}
-          </button>
+        <button
+          type="button"
+          className="rd-v2-btn primary rd-v2-eval-primary-action"
+          disabled={probeLoading || submitting}
+          onClick={() => runAction(primary.id)}
+        >
+          {primary.label}
+        </button>
+
+        <div className="rd-v2-eval-actions-wide" aria-label="Additional candidate actions">
           {secondary.map((action) => (
             <button
               key={action.id}
@@ -521,16 +522,7 @@ export function DiscoverEvaluationSurface({
           ))}
         </div>
 
-        <div className="rd-v2-eval-actions-mobile" aria-label="Focused candidate actions">
-          <button
-            type="button"
-            className="rd-v2-btn primary rd-v2-eval-mobile-primary"
-            disabled={probeLoading || submitting}
-            onClick={() => runAction(primary.id)}
-          >
-            {primary.label}
-          </button>
-
+        <div className="rd-v2-eval-actions-mobile" aria-label="Additional focused candidate actions">
           {mobileSecondary || mobileOverflowActions.length ? (
             <div className="rd-v2-eval-mobile-secondary-row">
               {mobileSecondary ? (
