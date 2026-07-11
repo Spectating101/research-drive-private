@@ -12,6 +12,7 @@ import {
   applySufficiencyToActions,
   buildSufficiencyAskContext,
   sufficiencyAskPrompts,
+  SUFFICIENCY,
 } from "@/v2/discoverSufficiency";
 import {
   RailField,
@@ -76,6 +77,12 @@ export function DiscoverEvaluationSurface({
     if (Number.isFinite(group) && group <= 2) return null;
     return assessLocalSufficiency(target, catalog);
   }, [target, catalog]);
+  const exactLocalEvaluation = useMemo(() => {
+    if (lifecycle || sufficiency?.state !== SUFFICIENCY.EXACT_LOCAL || !sufficiency?.bestLocal) {
+      return null;
+    }
+    return buildDiscoverEvaluation(sufficiency.bestLocal, labIds, null);
+  }, [lifecycle, sufficiency, labIds]);
 
   if (!target || !evaluation) {
     if (variant === "workspace") return null;
@@ -94,6 +101,8 @@ export function DiscoverEvaluationSurface({
   const probeLoading = evaluation.probeLoading;
   const submitting = lifecycle?.state === LIFECYCLE.SUBMITTING;
   const targetKey = target?.candidate_key || target?.dataset_id || target?.url || evaluation.title;
+  const displayDecision = exactLocalEvaluation?.decision || evaluation.decision;
+  const displayUnknowns = exactLocalEvaluation?.unknowns || evaluation.unknowns;
 
   const baseAskPrompts = lifecycle
     ? [
@@ -386,7 +395,7 @@ export function DiscoverEvaluationSurface({
             <section className="rd-v2-eval-block rd-v2-eval-unknown" aria-label="Still unknown">
               <p className="rd-v2-eval-section-label">Still unknown</p>
               <ul className="rd-v2-eval-checklist">
-                {evaluation.unknowns.map((item) => (
+                {displayUnknowns.map((item) => (
                   <li key={item}>
                     <span className="rd-v2-eval-mark unknown" aria-hidden="true">
                       ?
