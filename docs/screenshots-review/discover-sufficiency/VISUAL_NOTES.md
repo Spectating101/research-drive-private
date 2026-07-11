@@ -42,6 +42,30 @@ The mobile action region represents one decision rather than wrapping the deskto
 - Partial/related coverage prefers the local asset action as the visible secondary.
 - Lifecycle-owned states do not surface a competing secondary beside the lifecycle primary; additional actions remain in the overflow menu.
 
+### Mobile Focus shell contract
+
+The responsive failure was structural rather than cosmetic.
+
+- `.rd-v2-eval-workspace-shell` had layout authority in CSS but was not rendered by the workspace variant, so the action-layout selectors were dead.
+- Discover candidate selection also triggered the legacy InspectorRail mobile auto-open effect. The hidden inspector state caused the shell to reserve up to `560px` for the old bottom-sheet model even while Focused Evaluation owned the main canvas.
+- Workspace now renders its shell explicitly.
+- Discover Detail selection keeps the mobile inspector collapsed; only explicit `Ask` opens it.
+- Closed Discover Focus uses the `no-rail` viewport contract and scrolls Evaluation internally above the action region.
+
+Measured acceptance at `390×1200`, for exact-local and partial-local Focus:
+
+- document width `390`; no horizontal overflow;
+- document height `1200`;
+- shell height `1200` with overflow hidden;
+- inspector `rd-v2-rail-collapsed` and `display:none` while Detail owns Focus;
+- `.yzu-main` bottom padding `0px`;
+- Evaluation workspace height `934px`;
+- action region `y=1092 → 1200`, height `108px`;
+- primary action `x=12 → 378`;
+- secondary row `x=12 → 378`.
+
+The regression suite locks both geometry and interaction ownership: selecting a candidate must keep Focus/no-rail; tapping `Ask` must intentionally open the inspector.
+
 ## Screenshots
 
 | # | State | Evidence | User decision | Primary action | Claim not made |
@@ -65,5 +89,5 @@ The mobile action region represents one decision rather than wrapping the deskto
 
 - Composition not redesigned
 - Lifecycle / Evaluation / D0 / D1 semantics unchanged
-- Mobile Focus action hierarchy is now under responsive finish
+- Mobile Focus action hierarchy and viewport ownership are completed in this responsive slice
 - Broader tablet/mobile Browse and page-shell responsive polish remains
