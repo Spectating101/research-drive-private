@@ -104,8 +104,15 @@ async function openCollection(page, name) {
   await page.locator('[data-testid="library-collection"]', { hasText: name }).click();
 }
 
+async function openNestedCollection(page, name) {
+  const folder = page.locator('[data-testid="library-collection"]', { hasText: name });
+  await expect(folder).toBeVisible();
+  await folder.click();
+}
+
 async function selectAsset(page, title) {
   const row = page.locator('.rd-v2-library-asset[data-kind="dataset"]', { hasText: title });
+  await expect(row).toBeVisible();
   await row.click();
   await expect(page.locator("aside.rd-v2-rail")).toContainText(title);
 }
@@ -120,7 +127,7 @@ test("render Library estate browser and inspector review states", async ({ page 
   await expect(page.getByTestId("library-estate-browser")).toContainText("Research panels");
   await page.screenshot({ path: `${OUT}/02-desktop-research-panels.png`, fullPage: false });
 
-  await page.locator('[data-testid="library-collection"]', { hasText: "gdelt" }).click();
+  await openNestedCollection(page, "gdelt");
   await selectAsset(page, "Asia daily news-risk panel");
   await expect(page.locator("aside.rd-v2-rail")).toContainText("Can I use this?");
   await expect(page.locator("aside.rd-v2-rail")).toContainText("Query ready");
@@ -133,12 +140,14 @@ test("render Library estate browser and inspector review states", async ({ page 
   await page.screenshot({ path: `${OUT}/04-desktop-selected-metadata-only.png`, fullPage: false });
 
   await openCollection(page, "Connected sources");
+  await openNestedCollection(page, "BigQuery");
   await selectAsset(page, "USDT BigQuery catalogue");
   await expect(page.locator("aside.rd-v2-rail")).toContainText("Connected");
   await expect(page.locator("aside.rd-v2-rail")).not.toContainText("You can preview and query this dataset now.");
   await page.screenshot({ path: `${OUT}/05-desktop-selected-connected.png`, fullPage: false });
 
   await openCollection(page, "Other assets");
+  await openNestedCollection(page, "misc");
   await selectAsset(page, "Unclassified registry asset");
   await expect(page.locator("aside.rd-v2-rail")).toContainText("Readiness unknown");
   await expect(page.locator("aside.rd-v2-rail").getByRole("button", { name: "Preview rows" })).toHaveCount(0);
@@ -148,7 +157,7 @@ test("render Library estate browser and inspector review states", async ({ page 
   await page.screenshot({ path: `${OUT}/07-mobile-root.png`, fullPage: false });
 
   await page.locator('[data-testid="library-collection"]', { hasText: "Research panels" }).click();
-  await page.locator('[data-testid="library-collection"]', { hasText: "gdelt" }).click();
+  await openNestedCollection(page, "gdelt");
   await selectAsset(page, "Asia daily news-risk panel");
   await page.screenshot({ path: `${OUT}/08-mobile-selected-query-ready.png`, fullPage: false });
 });
