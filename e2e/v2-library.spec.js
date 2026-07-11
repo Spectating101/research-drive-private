@@ -56,7 +56,7 @@ test.describe("v2 Library directory", () => {
     await expect(page.getByRole("dialog", { name: "Upload files to library" })).toHaveCount(0);
     await expect(rail).toContainText("Upload files");
     await expect(rail).toContainText("Destination");
-    await expect(rail).toContainText("Lab root");
+    await expect(rail).toContainText("Lab");
     await expect(rail.getByRole("button", { name: "Send to Ask" })).toBeDisabled();
 
     await rail.locator('input[type="file"]').setInputFiles({
@@ -67,7 +67,7 @@ test.describe("v2 Library directory", () => {
     await expect(rail).toContainText("faculty-panel.csv");
     await rail.getByRole("button", { name: "Send to Ask" }).click();
     await expect(page.locator(".rd-v2-rail-toggle button.on", { hasText: "Ask" })).toBeVisible();
-    await expect(page.getByTestId("ask-messages")).toContainText("Upload files to Lab root");
+    await expect(page.getByTestId("ask-messages")).toContainText("Upload files to Lab");
     await expect(page.getByTestId("ask-messages")).toContainText("faculty-panel.csv");
   });
 

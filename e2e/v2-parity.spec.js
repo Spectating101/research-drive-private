@@ -101,7 +101,7 @@ async function v2Nav(page, label) {
 async function selectFirstDataset(page) {
   await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "domcontentloaded" });
   await page.locator(".rd-v2-shell").waitFor({ timeout: 30_000 });
-  const row = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]').first();
+  const row = page.locator('.rd-v2-library-asset[data-kind="dataset"]').first();
   await row.waitFor({ state: "visible", timeout: 15_000 });
   await row.click();
 }
@@ -177,7 +177,7 @@ test.describe("v2 parity @ desk-v2-1440", () => {
     await expect(
       page.locator("aside .rd-v2-rail-sticky .rd-v2-btn.primary", { hasText: "Preview rows" }),
     ).toBeVisible();
-    await expect(page.locator(".rd-v2-detail-label", { hasText: "Source" })).toBeVisible();
+    await expect(page.locator('aside.rd-v2-rail [aria-label="Provenance"]')).toContainText("Source");
     await page.locator(".rd-v2-rail-toggle").getByRole("tab", { name: "Ask" }).click();
     await expect(page.getByTestId("ask-composer")).toBeVisible();
     await expect(page.locator('[data-testid="rail-pane-detail"] .rd-v2-rail-sticky')).not.toBeVisible();
