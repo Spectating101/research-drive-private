@@ -25,11 +25,11 @@ function LibraryFilterMenu({ mode, counts, onChange }) {
         {mode === "ready" ? <strong>Query ready</strong> : null}
       </summary>
       <div className="rd-v2-library-control-popover" role="group" aria-label="Filter Library assets">
-        <button type="button" className={mode === "all" ? "on" : ""} onClick={() => onChange("all")}>
+        <button type="button" className={mode === "all" ? "on" : ""} onClick={(event) => { onChange("all"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>
           <span>All assets</span>
           <b>{counts.total}</b>
         </button>
-        <button type="button" className={mode === "ready" ? "on" : ""} onClick={() => onChange("ready")}>
+        <button type="button" className={mode === "ready" ? "on" : ""} onClick={(event) => { onChange("ready"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>
           <span>Query ready</span>
           <b>{counts.queryReady}</b>
         </button>
@@ -46,10 +46,10 @@ function LibrarySortMenu({ sortBy, onChange }) {
         <strong>{sortBy === "updated" ? "Last modified" : "Name"}</strong>
       </summary>
       <div className="rd-v2-library-control-popover" role="group" aria-label="Sort Library assets">
-        <button type="button" className={sortBy === "name" ? "on" : ""} onClick={() => onChange("name")}>
+        <button type="button" className={sortBy === "name" ? "on" : ""} onClick={(event) => { onChange("name"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>
           Name
         </button>
-        <button type="button" className={sortBy === "updated" ? "on" : ""} onClick={() => onChange("updated")}>
+        <button type="button" className={sortBy === "updated" ? "on" : ""} onClick={(event) => { onChange("updated"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>
           Last modified
         </button>
       </div>
@@ -65,6 +65,7 @@ function CollectionCard({ folder, datasets, onOpen }) {
       className={`rd-v2-library-collection rd-v2-library-collection-${summary.tone}`}
       onClick={() => onOpen(folder)}
       data-testid="library-collection"
+      data-kind="folder"
     >
       <span className="rd-v2-library-collection-mark" aria-hidden>
         <span />
