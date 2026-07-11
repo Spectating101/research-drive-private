@@ -71,3 +71,7 @@ Reviewed at 1440×900 and 390×1200 across:
 8. mobile selected Query ready asset.
 
 The estate browser and inspector are visually approved. Global mobile navigation and lower-sheet polish remain part of the later cross-surface responsive pass.
+
+## Test gate
+
+The broad mock E2E suite targets the accepted estate-browser and Library-inspector contracts. Legacy `.rd-v2-catalog` dataset selectors and the retired `Lab root` presentation label are not test authorities for Library.
