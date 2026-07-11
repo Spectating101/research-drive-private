@@ -154,6 +154,9 @@ export const MOCK_WEB_DISCOVER = {
 };
 
 export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 }, jobsBody = MOCK_JOBS } = {}) {
+  const liveJobs = {
+    jobs: Array.isArray(jobsBody?.jobs) ? [...jobsBody.jobs] : [],
+  };
   await page.route("**/datasets", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_DATASETS) }),
   );
@@ -203,27 +206,28 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
     } catch {
       body = {};
     }
+    const job = {
+      id: `job-discover-collect-${liveJobs.jobs.length + 1}`,
+      status: "pending_approval",
+      candidate_key: body.candidate_key || null,
+      connector_id: body.connector_id || null,
+      registered_dataset_id: null,
+      output_manifest_id: null,
+      plan: { title: body.title || "Discover collect" },
+      request: {
+        candidate_key: body.candidate_key || null,
+        connector_id: body.connector_id || null,
+        source_identity: body.source_identity || body.source || null,
+        dataset_id: body.dataset_id || null,
+        doi: body.doi || null,
+        url: body.url || null,
+      },
+    };
+    liveJobs.jobs = [job, ...liveJobs.jobs.filter((j) => j?.id !== job.id)];
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        job: {
-          id: "job-discover-collect-1",
-          status: "pending_approval",
-          candidate_key: body.candidate_key || null,
-          connector_id: body.connector_id || null,
-          registered_dataset_id: null,
-          output_manifest_id: null,
-          request: {
-            candidate_key: body.candidate_key || null,
-            connector_id: body.connector_id || null,
-            source_identity: body.source_identity || body.source || null,
-            dataset_id: body.dataset_id || null,
-            doi: body.doi || null,
-            url: body.url || null,
-          },
-        },
-      }),
+      body: JSON.stringify({ job }),
     });
   });
   await page.route("**/library/discover/web*", (route) =>
@@ -267,7 +271,7 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_CLUSTER) }),
   );
   await page.route("**/library/jobs*", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(jobsBody) }),
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(liveJobs) }),
   );
   await page.route("**/library/partitions*", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ partitions: [] }) }),

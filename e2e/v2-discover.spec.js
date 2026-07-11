@@ -151,13 +151,7 @@ test.describe("v2 Discover tab", () => {
     await expect.poll(() => chatBodies.join("\n")).toMatch(/\[context:.*MOPS|mops_financial_statements/i);
   });
 
-  test("Add to lab after probe queues structured Ask", async ({ page }) => {
-    const chatBodies = [];
-    page.on("request", (req) => {
-      if (req.url().includes("/library/chat") && req.method() === "POST") {
-        chatBodies.push(req.postData() || "");
-      }
-    });
+  test("Add to lab after probe stays on Detail with lifecycle", async ({ page }) => {
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
@@ -167,22 +161,113 @@ test.describe("v2 Discover tab", () => {
     await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();
     await expect(page.getByTestId("discover-eval-surface").locator(".rd-v2-eval-verified")).toBeVisible();
     await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Add to lab" }).click();
-    await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
-    const ask = page.getByTestId("ask-messages");
-    await expect(ask).toContainText("Add to lab vault");
-    await expect(ask).toContainText("Collection job queued");
-    await expect(ask).toContainText("Track it in Resources");
-    await expect(ask).not.toContainText("job-discover-collect-1");
-    await expect(ask).not.toContainText("Candidate (structured)");
-    await expect(ask).not.toContainText("example_com_data");
+    await expect(rail.getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "true");
+    const life = page.getByTestId("discover-lifecycle");
+    await expect(life).toBeVisible();
+    await expect(life).toContainText("Approval required");
+    await expect(rail.locator(".rd-v2-rail-sticky .rd-v2-btn.primary")).toContainText("Review approval");
     const toast = page.locator(".rd-v2-toast");
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText("Collection job queued — track it in Resources");
-    await expect(toast).not.toContainText("job-discover-collect-1");
-    const joined = chatBodies.join("\n");
-    expect(joined).toMatch(/Candidate \(structured\)|connector|MOPS financial statements/i);
-    expect(joined).toMatch(/job-discover-collect-1|Collection job queued/i);
-    expect(joined).toMatch(/candidate_key/);
+    await expect(toast).toContainText(/approval required|queued/i);
+    await expect(toast).not.toContainText(/job-discover-collect/i);
+  });
+
+  test("exact lifecycle job drives Collection status; title-only job does not", async ({ page }) => {
+    await mockV2Api(page, {
+      discoverBody: MOCK_DISCOVER_HIT,
+      jobsBody: {
+        jobs: [
+          {
+            id: "job-title-only",
+            status: "running",
+            plan: { title: "MOPS financial statements (Taiwan)" },
+            candidate_key: null,
+            connector_id: null,
+          },
+          {
+            id: "job-exact",
+            status: "failed",
+            candidate_key: "dataset:mops_financial_statements_ext",
+            connector_id: "example_com_data",
+            error: "HTTP 403 from source",
+            updated_at: "2026-07-10T12:00:00Z",
+            plan: { title: "MOPS financial statements (Taiwan)" },
+          },
+        ],
+      },
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" }).click();
+    const life = page.getByTestId("discover-lifecycle");
+    await expect(life).toContainText("Failed");
+    await expect(life).toContainText("HTTP 403");
+    await expect(page.locator("aside .rd-v2-rail-sticky .rd-v2-btn.primary")).toContainText(
+      "Track in Resources",
+    );
+  });
+
+  test("Track in Resources selects exact job row", async ({ page }) => {
+    await mockV2Api(page, {
+      discoverBody: MOCK_DISCOVER_HIT,
+      jobsBody: {
+        jobs: [
+          {
+            id: "job-exact-track",
+            status: "pending_approval",
+            candidate_key: "dataset:mops_financial_statements_ext",
+            connector_id: "example_com_data",
+            plan: { title: "MOPS financial statements (Taiwan)" },
+          },
+        ],
+      },
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" }).click();
+    await page.locator("aside .rd-v2-rail-sticky").getByRole("button", { name: "Review approval" }).click();
+    await expect(page.locator(".yzu-sidebar")).toContainText("Resources");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("MOPS financial statements");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText(/pending approval|approval/i);
+  });
+
+  test("registered without query readiness is not Query ready", async ({ page }) => {
+    await mockV2Api(page, {
+      discoverBody: MOCK_DISCOVER_HIT,
+      jobsBody: {
+        jobs: [
+          {
+            id: "job-reg",
+            status: "completed",
+            candidate_key: "dataset:mops_financial_statements_ext",
+            registered_dataset_id: "mops_financial_statements_2026",
+            plan: { title: "MOPS" },
+          },
+        ],
+      },
+    });
+    await page.route("**/datasets", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            dataset_id: "mops_financial_statements_2026",
+            name: "MOPS statements",
+            analysis_readiness: "metadata_search",
+          },
+        ]),
+      }),
+    );
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" }).click();
+    const life = page.getByTestId("discover-lifecycle");
+    await expect(life).toContainText("Registered in lab");
+    await expect(life).not.toContainText("Query ready");
   });
 
   test("probe evidence stays bound to the selected candidate", async ({ page }) => {

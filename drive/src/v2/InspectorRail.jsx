@@ -85,6 +85,10 @@ export function InspectorRail({
   probeState,
   onOpenInLibrary,
   labIds,
+  browseLifecycle = null,
+  onTrackResources,
+  onReviewApproval,
+  onRetryLifecycleRefresh,
   onApproveJob,
   onRefresh,
   onViewActivity,
@@ -111,6 +115,10 @@ export function InspectorRail({
         onProbeSource={onProbeSource}
         probeState={probeState}
         onOpenInLibrary={onOpenInLibrary}
+        lifecycle={browseLifecycle}
+        onTrackResources={onTrackResources}
+        onReviewApproval={onReviewApproval}
+        onRetryLifecycleRefresh={onRetryLifecycleRefresh}
       />
     );
   } else if (mainTab === "resources") {

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { buildDiscoverEvaluation } from "@/v2/discoverEvaluation";
+import { LIFECYCLE } from "@/v2/discoverLifecycle";
 import { displayName } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import {
@@ -515,6 +516,10 @@ export function BrowseRailPanel({
   onProbeSource,
   probeState,
   onOpenInLibrary,
+  lifecycle = null,
+  onTrackResources,
+  onReviewApproval,
+  onRetryLifecycleRefresh,
 }) {
   if (!target) {
     return (
@@ -531,38 +536,94 @@ export function BrowseRailPanel({
 
   const evaluation = buildDiscoverEvaluation(target, labIds, probeState);
   const probeLoading = evaluation.probeLoading;
+  const submitting = lifecycle?.state === LIFECYCLE.SUBMITTING;
   const targetKey = target?.candidate_key || target?.dataset_id || target?.url || evaluation.title;
 
-  const askPrompts = [
-    {
-      id: "assess",
-      label: "Assess this source",
-      prompt: `Assess this Discover source: ${evaluation.title}. What is verified, what remains unknown, and what should I do next?`,
-    },
-    {
-      id: "risks",
-      label: "What are the main risks?",
-      prompt: `What are the main risks of using or acquiring ${evaluation.title}? Distinguish verified facts from unknowns.`,
-    },
-    {
-      id: "compare",
-      label: "Compare with lab holdings",
-      prompt: `Compare ${evaluation.title} with my current lab holdings. Note overlaps and gaps without inventing coverage.`,
-    },
-    {
-      id: "probe_next",
-      label: "What should I probe next?",
-      prompt: `Given ${evaluation.title}, what should I probe next, and what would still remain unknown after a successful probe?`,
-    },
-  ];
+  const askPrompts = lifecycle
+    ? [
+        lifecycle.state === LIFECYCLE.APPROVAL_REQUIRED
+          ? {
+              id: "why_approval",
+              label: "Why is this waiting for approval?",
+              prompt: `Why is collection of ${evaluation.title} waiting for approval, and what happens after approval?`,
+            }
+          : null,
+        lifecycle.state === LIFECYCLE.FAILED
+          ? {
+              id: "what_failed",
+              label: "What failed?",
+              prompt: `What failed while collecting ${evaluation.title}? Distinguish known errors from unknowns.`,
+            }
+          : null,
+        lifecycle.state === LIFECYCLE.COMPLETED_UNREGISTERED ||
+        lifecycle.state === LIFECYCLE.REGISTERED ||
+        lifecycle.state === LIFECYCLE.QUERY_READY
+          ? {
+              id: "what_registered",
+              label: "What will be registered?",
+              prompt: `What was or will be registered from collecting ${evaluation.title}?`,
+            }
+          : null,
+        {
+          id: "can_use",
+          label: "Can I use the output yet?",
+          prompt: `Can I use the output of ${evaluation.title} yet? Distinguish registered vs query-ready honestly.`,
+        },
+      ].filter(Boolean)
+    : [
+        {
+          id: "assess",
+          label: "Assess this source",
+          prompt: `Assess this Discover source: ${evaluation.title}. What is verified, what remains unknown, and what should I do next?`,
+        },
+        {
+          id: "risks",
+          label: "What are the main risks?",
+          prompt: `What are the main risks of using or acquiring ${evaluation.title}? Distinguish verified facts from unknowns.`,
+        },
+        {
+          id: "compare",
+          label: "Compare with lab holdings",
+          prompt: `Compare ${evaluation.title} with my current lab holdings. Note overlaps and gaps without inventing coverage.`,
+        },
+        {
+          id: "probe_next",
+          label: "What should I probe next?",
+          prompt: `Given ${evaluation.title}, what should I probe next, and what would still remain unknown after a successful probe?`,
+        },
+      ];
+
+  const primary = lifecycle?.primaryAction || evaluation.actions.primary;
+  const secondary = lifecycle ? lifecycle.secondaryActions || [] : evaluation.actions.secondary;
 
   const runAction = (id) => {
-    if (id === "open_library" || id === "inspect_record") onOpenInLibrary?.(target);
-    else if (id === "add_lab") onAddToLab?.(target);
+    if (id === "open_library" || id === "inspect_record") {
+      const datasetId = lifecycle?.registeredDatasetId || target?.dataset_id;
+      onOpenInLibrary?.(datasetId ? { ...target, dataset_id: datasetId } : target);
+    } else if (id === "add_lab") onAddToLab?.(target);
     else if (id === "probe") onProbeSource?.(target);
     else if (id === "preview") onPreviewExternal?.();
+    else if (id === "review_approval") onReviewApproval?.(lifecycle?.job || target);
+    else if (id === "track_resources") onTrackResources?.(lifecycle?.job || target);
     else if (id === "ask" || id === "review_access") onAskAbout?.(target);
-    else if (id === "track_resources") onAskAbout?.(target);
+  };
+
+  const pathStages = [
+    { id: "submitted", label: "Submitted" },
+    { id: "approval", label: "Approval" },
+    { id: "queue", label: "Queue" },
+    { id: "running", label: "Running" },
+    { id: "registered", label: "Registered" },
+  ];
+  const stageOn = (id) => {
+    const s = lifecycle?.state;
+    if (!s) return false;
+    if (id === "submitted") return true;
+    if (id === "approval") return s === LIFECYCLE.APPROVAL_REQUIRED || ["queued", "running", "failed", "completed-unregistered", "registered", "query-ready"].includes(s);
+    if (id === "queue") return ["queued", "running", "failed", "completed-unregistered", "registered", "query-ready"].includes(s);
+    if (id === "running") return ["running", "failed", "completed-unregistered", "registered", "query-ready"].includes(s);
+    if (id === "registered") return ["registered", "query-ready"].includes(s);
+    return false;
   };
 
   return (
@@ -571,6 +632,7 @@ export function BrowseRailPanel({
         className="rd-v2-eval-surface"
         data-testid="discover-eval-surface"
         data-taxonomy={evaluation.taxonomyKey}
+        data-lifecycle={lifecycle?.state || ""}
         data-selected-title={evaluation.title}
       >
         <header className="rd-v2-eval-identity">
@@ -588,6 +650,48 @@ export function BrowseRailPanel({
           <p className="rd-v2-eval-decision-headline">{evaluation.decision.headline}</p>
           <p className="rd-v2-eval-decision-body">{evaluation.decision.body}</p>
         </section>
+
+        {lifecycle ? (
+          <section
+            className={`rd-v2-eval-lifecycle rd-v2-eval-lifecycle-${lifecycle.state}`}
+            aria-label="Collection status"
+            data-testid="discover-lifecycle"
+          >
+            <p className="rd-v2-eval-section-label">Collection status</p>
+            <p className="rd-v2-eval-decision-headline">{lifecycle.label}</p>
+            <p className="rd-v2-eval-decision-body">{lifecycle.explanation}</p>
+            {lifecycle.refreshFailed ? (
+              <p className="rd-v2-eval-lifecycle-warn">
+                Status refresh failed · showing last known state{" "}
+                <button type="button" className="rd-v2-linkish" onClick={() => onRetryLifecycleRefresh?.()}>
+                  Retry
+                </button>
+              </p>
+            ) : null}
+            {lifecycle.evidence?.length ? (
+              <ul className="rd-v2-eval-lifecycle-evidence">
+                {lifecycle.evidence.map((item) => (
+                  <li key={`${item.label}-${item.value}`}>
+                    <b>{item.label}</b> {item.value}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <ol className="rd-v2-eval-lifecycle-path" aria-label="Lifecycle path">
+              {pathStages.map((stage) => (
+                <li
+                  key={stage.id}
+                  className={`${stageOn(stage.id) ? "on" : ""}${
+                    lifecycle.state === LIFECYCLE.FAILED && stage.id === "running" ? " failed" : ""
+                  }`}
+                  data-stage={stage.id}
+                >
+                  {stage.label}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
 
         <div className="rd-v2-rail-scroll rd-v2-eval-scroll">
           <section className="rd-v2-eval-block" aria-label="Useful for">
@@ -711,22 +815,26 @@ export function BrowseRailPanel({
       </div>
 
       <RailStickyFooter>
-        <button
-          type="button"
-          className="rd-v2-btn primary sm"
-          disabled={probeLoading && evaluation.actions.primary.id === "probe"}
-          onClick={() => runAction(evaluation.actions.primary.id)}
-        >
-          {probeLoading && evaluation.actions.primary.id === "probe"
-            ? "Probing…"
-            : evaluation.actions.primary.label}
-        </button>
-        {evaluation.actions.secondary.map((action) => (
+        {primary ? (
+          <button
+            type="button"
+            className="rd-v2-btn primary sm"
+            disabled={submitting || (probeLoading && primary.id === "probe")}
+            onClick={() => runAction(primary.id)}
+          >
+            {submitting
+              ? "Submitting…"
+              : probeLoading && primary.id === "probe"
+                ? "Probing…"
+                : primary.label}
+          </button>
+        ) : null}
+        {secondary.map((action) => (
           <button
             key={action.id}
             type="button"
             className="rd-v2-btn sm"
-            disabled={probeLoading && action.id === "probe"}
+            disabled={submitting || (probeLoading && action.id === "probe")}
             onClick={() => runAction(action.id)}
           >
             {probeLoading && action.id === "probe" ? "Probing…" : action.label}

@@ -37,6 +37,11 @@ import { PreviewModal } from "@/v2/PreviewModal";
 import { ProfilePage } from "@/v2/ProfilePage";
 import { ResourcesPage } from "@/v2/ResourcesPage";
 import { SettingsPage } from "@/v2/SettingsPage";
+import {
+  buildDiscoverLifecycle,
+  isLifecycleActive,
+  resourceRowForJob,
+} from "@/v2/discoverLifecycle";
 import { Toast, useToast } from "@/v2/toast";
 import { V2Sidebar } from "@/v2/V2Sidebar";
 import { touchRecent } from "@/v2/recent";
@@ -123,6 +128,10 @@ export function V2App() {
   const [selectedId, setSelectedId] = useState(() => readParams().dataset);
   const [browseRow, setBrowseRow] = useState(null);
   const [browseProbe, setBrowseProbe] = useState({ candidateKey: "", loading: false, result: null, error: "" });
+  const [collectSubmittingKey, setCollectSubmittingKey] = useState("");
+  const [lifecycleRefreshFailed, setLifecycleRefreshFailed] = useState(false);
+  const lifecycleLastKnownRef = useRef(null);
+  const jobsPollRef = useRef(null);
   /** Candidate-bound probe stamps for Discover taxonomy (survives selection changes). */
   const [probeSnapshots, setProbeSnapshots] = useState({});
   /** Race-safe selected Discover identity — updated on selection, read after async probe. */
@@ -179,7 +188,8 @@ export function V2App() {
     });
   }, []);
 
-  const refreshBackend = useCallback(() => {
+  const refreshBackend = useCallback((opts = {}) => {
+    const preserveJob = opts?.preserveJob || null;
     listDatasets()
       .then((rows) => applyCatalog(rows))
       .catch(async (err) => {
@@ -208,8 +218,18 @@ export function V2App() {
       .then(setOps)
       .catch(() => setOps(null));
     listJobs()
-      .then((rows) => setJobs(Array.isArray(rows) ? rows : []))
-      .catch(() => setJobs([]));
+      .then((rows) => {
+        const list = Array.isArray(rows) ? rows : [];
+        if (preserveJob?.id && !list.some((j) => j?.id === preserveJob.id)) {
+          setJobs([preserveJob, ...list]);
+        } else {
+          setJobs(list);
+        }
+        setLifecycleRefreshFailed(false);
+      })
+      .catch(() => {
+        setLifecycleRefreshFailed(true);
+      });
     libraryOverview()
       .then(setOverview)
       .catch(() => setOverview(null));
@@ -465,14 +485,19 @@ export function V2App() {
         return;
       }
 
-      setActiveObject(externalCandidateObject(target));
-      setRailTab("ask");
-
       const key = candidateKey(target);
+      if (collectSubmittingKey && collectSubmittingKey === key) return;
+
+      setActiveObject(externalCandidateObject(target));
+      setBrowseRow(target);
+      browseSelectedKeyRef.current = key;
+
       const probeResult = browseProbe.candidateKey === key ? browseProbe.result : null;
       const connectorId = probeResult?.connector?.connector_id || probeResult?.connector?.id;
 
       if (connectorId) {
+        setCollectSubmittingKey(key);
+        setRailTab("detail");
         try {
           const out = await submitDiscoverCollect(connectorId, {
             limit: 200,
@@ -484,30 +509,43 @@ export function V2App() {
             url: discoverCandidateUrl(target) || "",
           });
           const job = out?.job;
-          refreshBackend();
-          setPendingAsk({
-            prompt: `${buildAddToLabPrompt(target, probeResult)}\n\nCollection job queued: ${job?.id || "see Resources → Active jobs"}.`,
-            displayText: buildAddToLabDisplayText(target, probeResult, job?.id),
-          });
-          showToast(job?.id ? "Collection job queued — track it in Resources" : "Collection job queued");
-          return;
+          if (job) {
+            setJobs((prev) => {
+              const others = (Array.isArray(prev) ? prev : []).filter((j) => j?.id !== job.id);
+              return [job, ...others];
+            });
+          }
+          setLifecycleRefreshFailed(false);
+          // Refresh catalog/ops, but preserve the exact submitted job if listJobs
+          // has not indexed it yet (common race right after collect).
+          refreshBackend({ preserveJob: job || null });
+          setRailTab("detail");
+          showToast(
+            job?.status === "pending_approval"
+              ? "Collection submitted — approval required"
+              : "Collection job queued — track it in Resources",
+          );
         } catch (err) {
+          setRailTab("ask");
           setPendingAsk({
             prompt: buildAddToLabPrompt(target, probeResult),
             displayText: buildAddToLabDisplayText(target, probeResult),
           });
           showToast(err?.message || "Collect failed — queued Ask instead");
-          return;
+        } finally {
+          setCollectSubmittingKey("");
         }
+        return;
       }
 
+      setRailTab("ask");
       setPendingAsk({
         prompt: buildAddToLabPrompt(target, probeResult),
         displayText: buildAddToLabDisplayText(target, probeResult),
       });
       showToast("Queued Ask — Add to lab");
     },
-    [labIds, browseProbe, catalog, syncUrl, showToast, refreshBackend],
+    [labIds, browseProbe, catalog, syncUrl, showToast, refreshBackend, collectSubmittingKey],
   );
 
   const probeDiscoverCandidate = useCallback(async (target) => {
@@ -553,6 +591,87 @@ export function V2App() {
       });
     }
   }, [showToast]);
+
+  const browseLifecycle = useMemo(() => {
+    const key = browseTarget ? candidateKey(browseTarget) : "";
+    const submitting = Boolean(key && collectSubmittingKey === key);
+    const life = buildDiscoverLifecycle({
+      row: browseTarget,
+      jobs,
+      catalog,
+      labIds,
+      submitting,
+      refreshFailed: lifecycleRefreshFailed,
+      lastKnown: lifecycleLastKnownRef.current,
+    });
+    if (life && life.state !== "submitting") {
+      lifecycleLastKnownRef.current = life;
+    }
+    if (!browseTarget) lifecycleLastKnownRef.current = null;
+    return life;
+  }, [browseTarget, jobs, catalog, labIds, collectSubmittingKey, lifecycleRefreshFailed]);
+
+  const trackJobInResources = useCallback(
+    (jobOrTarget) => {
+      const job = jobOrTarget?.id && jobOrTarget?.status ? jobOrTarget : browseLifecycle?.job;
+      const row = resourceRowForJob(job);
+      if (!row) {
+        goTab("resources");
+        setResourceMode("spending");
+        return;
+      }
+      setResourceMode("spending");
+      setActivityFilter(null);
+      setResourceRow(row);
+      setActiveObject(resourceObject(row));
+      setRailTab("detail");
+      goTab("resources");
+    },
+    [browseLifecycle, goTab],
+  );
+
+  const reviewApprovalInResources = useCallback(
+    (jobOrTarget) => {
+      trackJobInResources(jobOrTarget);
+    },
+    [trackJobInResources],
+  );
+
+  const retryLifecycleRefresh = useCallback(() => {
+    setLifecycleRefreshFailed(false);
+    listJobs()
+      .then((rows) => {
+        setJobs(Array.isArray(rows) ? rows : []);
+        setLifecycleRefreshFailed(false);
+      })
+      .catch(() => setLifecycleRefreshFailed(true));
+  }, []);
+
+  // Poll jobs while selected Discover candidate has a nonterminal exact job.
+  useEffect(() => {
+    if (tab !== "browse" || !browseTarget || !isLifecycleActive(browseLifecycle)) {
+      if (jobsPollRef.current) {
+        window.clearInterval(jobsPollRef.current);
+        jobsPollRef.current = null;
+      }
+      return undefined;
+    }
+    const tick = () => {
+      listJobs()
+        .then((rows) => {
+          setJobs(Array.isArray(rows) ? rows : []);
+          setLifecycleRefreshFailed(false);
+        })
+        .catch(() => setLifecycleRefreshFailed(true));
+    };
+    jobsPollRef.current = window.setInterval(tick, 4000);
+    return () => {
+      if (jobsPollRef.current) {
+        window.clearInterval(jobsPollRef.current);
+        jobsPollRef.current = null;
+      }
+    };
+  }, [tab, browseTarget, browseLifecycle]);
 
   const openInLibraryFromDiscover = useCallback(
     (target) => {
@@ -942,6 +1061,10 @@ export function V2App() {
         probeState={browseProbeState}
         onOpenInLibrary={openInLibraryFromDiscover}
         labIds={labIds}
+        browseLifecycle={browseLifecycle}
+        onTrackResources={trackJobInResources}
+        onReviewApproval={reviewApprovalInResources}
+        onRetryLifecycleRefresh={retryLifecycleRefresh}
         onPreviewExternal={() => browseRow && openPreviewExternal(browseRow)}
         onApproveJob={handleApproveJob}
         onRefresh={refreshBackend}
