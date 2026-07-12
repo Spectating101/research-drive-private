@@ -134,8 +134,8 @@ test.describe("v2 parity @ desk-v2-1440", () => {
     expect(metrics.cols).toContain("px");
     expect(metrics.shellW).toBeGreaterThanOrEqual(1438);
     expect(metrics.shellW).toBeLessThanOrEqual(1442);
-    expect(metrics.headerH).toBeGreaterThanOrEqual(54);
-    expect(metrics.headerH).toBeLessThanOrEqual(58);
+    expect(metrics.headerH).toBeGreaterThanOrEqual(60);
+    expect(metrics.headerH).toBeLessThanOrEqual(66);
     expect(metrics.sidebarW / metrics.shellW).toBeGreaterThanOrEqual(0.16);
     expect(metrics.sidebarW / metrics.shellW).toBeLessThanOrEqual(0.2);
     expect(metrics.railW / metrics.shellW).toBeGreaterThanOrEqual(0.28);

@@ -58,12 +58,14 @@ test.describe("v2 Resources tab", () => {
     await expect(page.getByTestId("ask-messages")).toContainText("Explain this metered Resources provider");
   });
 
-  test("right rail starts with Resources guide", async ({ page }) => {
+  test("right rail starts with operational posture", async ({ page }) => {
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("Resources");
-    await expect(rail).toContainText("Select a key resource");
-    await expect(rail).toContainText("Main list");
-    await expect(rail).not.toContainText("Needs action");
+    await expect(rail).toContainText("Operational posture");
+    await expect(rail).toContainText("Desk state");
+    await expect(rail).toContainText(/items? need attention|Desk ready|collection.*running/i);
+    await expect(rail.getByRole("button", { name: "Open activity" })).toBeVisible();
+    await expect(rail).not.toContainText("Select a key resource");
   });
 
   test("Activity tab shows event log", async ({ page }) => {

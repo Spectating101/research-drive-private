@@ -1,0 +1,70 @@
+.rd-v2-resource-posture {
+  margin: 16px 18px 18px;
+  padding: 18px;
+  border: 1px solid #dfe4ec;
+  border-radius: 15px;
+  background: linear-gradient(145deg, #f8f9ff 0%, #ffffff 72%);
+  box-shadow: 0 8px 24px rgba(35, 48, 128, 0.06);
+}
+
+.rd-v2-resource-posture.warn {
+  border-color: #efd49f;
+  background: linear-gradient(145deg, #fff9ec 0%, #ffffff 75%);
+}
+
+.rd-v2-resource-posture > span {
+  color: #5968df;
+  font-size: 9.5px;
+  font-weight: 780;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.rd-v2-resource-posture.warn > span {
+  color: #a15c00;
+}
+
+.rd-v2-resource-posture strong {
+  display: block;
+  margin-top: 8px;
+  color: #151b2c;
+  font-size: 22px;
+  font-weight: 730;
+  line-height: 1.16;
+  letter-spacing: -.035em;
+}
+
+.rd-v2-resource-posture p {
+  margin: 8px 0 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Focus has one command authority. Generic dark-workspace button treatment
+   must never flatten the primary acquisition/lifecycle action. */
+.rd-v2-discover-focus .rd-v2-btn.primary,
+.rd-v2-discover-focus [data-testid="discover-eval-actions"] .rd-v2-btn.primary {
+  border-color: #6876ff;
+  background: linear-gradient(180deg, #6876ff 0%, #4c5ce8 100%);
+  color: #fff;
+  box-shadow: 0 9px 24px rgba(65, 82, 232, .34), inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.rd-v2-discover-focus .rd-v2-btn.primary:hover:not(:disabled),
+.rd-v2-discover-focus [data-testid="discover-eval-actions"] .rd-v2-btn.primary:hover:not(:disabled) {
+  border-color: #7b87ff;
+  background: linear-gradient(180deg, #7481ff 0%, #5666f0 100%);
+  box-shadow: 0 12px 30px rgba(65, 82, 232, .40), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+@media (max-width: 720px) {
+  .rd-v2-resource-posture {
+    margin: 12px 14px 14px;
+    padding: 15px;
+  }
+
+  .rd-v2-resource-posture strong {
+    font-size: 19px;
+  }
+}

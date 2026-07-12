@@ -15,6 +15,7 @@ import { ProfileDetailPanel } from "@/v2/ProfilePage";
 import { activeObjectSelectionHint } from "@/v2/activeObject";
 import { displayName } from "@/v2/datasetMeta";
 import { LibraryDatasetRailPanel } from "@/v2/LibraryDatasetRailPanel";
+import { ResourcesOverviewRailPanel } from "@/v2/ResourcesOverviewRailPanel";
 
 function railSelectionHint(mainTab, dataset, browseTarget, resourceRow, clusterContext) {
   if (mainTab === "browse" && browseTarget) {
@@ -134,7 +135,7 @@ export function InspectorRail({
       />
     );
   } else if (mainTab === "resources") {
-    detailPanel = (
+    detailPanel = resourceRow ? (
       <ResourcesRailPanel
         row={resourceRow}
         rollup={resourcesRollup}
@@ -143,6 +144,8 @@ export function InspectorRail({
         onViewActivity={onViewActivity}
         onAskAbout={onAskAbout}
       />
+    ) : (
+      <ResourcesOverviewRailPanel rollup={resourcesRollup} onViewActivity={onViewActivity} />
     );
   } else if (mainTab === "profile") {
     detailPanel = <ProfileDetailPanel profile={profile} />;
@@ -176,7 +179,15 @@ export function InspectorRail({
     detailPanel = <PageRailPanel page="library" onAskAbout={onAskAbout} />;
   } else if (mainTab === "home" && activeObject?.kind === "home_attention") {
     detailPanel = <HomeAttentionRailPanel object={activeObject} onAskAbout={onAskAbout} />;
-  } else if (mainTab === "home" && !dataset?.dataset_id) {
+  } else if (mainTab === "home" && dataset?.dataset_id) {
+    detailPanel = (
+      <LibraryDatasetRailPanel
+        dataset={dataset}
+        onPreview={onPreview}
+        onAskAbout={onAskAbout}
+      />
+    );
+  } else if (mainTab === "home") {
     detailPanel = <PageRailPanel page="home" onAskAbout={onAskAbout} />;
   } else {
     detailPanel = (
@@ -202,10 +213,20 @@ export function InspectorRail({
       setMobileRailOpen(Boolean(browseTarget) && railTab === "ask");
       return;
     }
-    if (!MOBILE_RAIL_IDLE_HINTS.has(selectionHint)) {
-      setMobileRailOpen(true);
+    if (mainTab === "home") {
+      setMobileRailOpen(railTab === "ask");
+      return;
     }
-  }, [selectionHint, mainTab, browseTarget, railTab]);
+    if (mainTab === "library" && activeObject?.kind === "library_folder") {
+      setMobileRailOpen(false);
+      return;
+    }
+    if (MOBILE_RAIL_IDLE_HINTS.has(selectionHint)) {
+      setMobileRailOpen(false);
+      return;
+    }
+    setMobileRailOpen(true);
+  }, [selectionHint, mainTab, browseTarget, railTab, activeObject?.kind]);
 
   return (
     <aside

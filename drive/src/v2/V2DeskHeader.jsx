@@ -50,8 +50,8 @@ export function V2DeskHeader({
         <input
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search catalog or ask…"
-          aria-label="Search catalog"
+          placeholder="Search data, sources, or ask…"
+          aria-label="Search Research Drive"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
