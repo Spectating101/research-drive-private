@@ -523,9 +523,19 @@ export function BrowsePage({
   }
 
   if (focusTarget) {
-
     return (
       <div className="rd-v2-discover-focus" data-testid="discover-focus-workspace" data-mode="focus">
+        <div className="rd-v2-discover-focus-chrome">
+          {modeTabs}
+          {reviewQueueBtn}
+        </div>
+        {showQueueStrip ? (
+          <DiscoverQueueStrip
+            rows={pendingRows}
+            selectedId={selectedId}
+            onSelectJob={(row) => onSelectRow?.(row)}
+          />
+        ) : null}
         <header className="rd-v2-discover-focus-bar">
           <button type="button" className="rd-v2-btn ghost sm" onClick={() => onBackToResults?.()}>
             ← Back to results

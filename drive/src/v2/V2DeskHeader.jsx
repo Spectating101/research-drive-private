@@ -85,9 +85,7 @@ export function V2DeskHeader({
           {fresh ? <span className="rd-v2-trust-badge muted">Updated {fresh}</span> : null}
         </div>
         <span className="rd-v2-header-meta-count">
-          {usingSeed ? (
-            metaText
-          ) : workCount > 0 && onPendingClick ? (
+          {workCount > 0 && onPendingClick ? (
             <>
               {`${datasetCount} datasets · `}
               <button

@@ -37,13 +37,11 @@ test.describe("v2 Discover Explore|History (main converge)", () => {
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     const pending = page.getByTestId("header-pending-link");
-    if (await pending.count()) {
-      await pending.click();
-      await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
-      await expect(page.getByTestId("discover-queue-strip")).toBeVisible();
-    } else {
-      test.info().annotations.push({ type: "note", description: "header pending link not shown under fixture" });
-    }
+    await expect(pending).toBeVisible({ timeout: 10_000 });
+    await pending.click();
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    await expect(page.getByRole("tab", { name: "Explore" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("discover-queue-strip")).toBeVisible({ timeout: 10_000 });
   });
 
   test("LEGACY: Activity workspace is not a Discover mode", async ({ page }) => {

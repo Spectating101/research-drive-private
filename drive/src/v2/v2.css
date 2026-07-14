@@ -8185,3 +8185,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rd-v2-discover-queue-strip__rows strong { font-size: 12px; }
 .rd-v2-discover-queue-strip__rows span { color: var(--rd-muted, #73716c); font-size: 11px; white-space: nowrap; }
 .rd-v2-discover-history { display: flex; flex-direction: column; gap: 12px; }
+
+.rd-v2-discover-focus-chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+}
