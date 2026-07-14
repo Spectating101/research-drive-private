@@ -148,6 +148,29 @@
       }
     },
     {
+      "id": "derived_synthesis",
+      "label": "In-house synthesis thread outputs",
+      "provider": "YZU Cluster",
+      "access_mode": "derived_internal",
+      "status": "active",
+      "local_roots": [
+        "data_lake/synthesis"
+      ],
+      "partition_ids": [
+        "derived.research-panels"
+      ],
+      "capabilities": [],
+      "geographies": [],
+      "registry_rules": {
+        "dataset_id_prefix": "synthesis_"
+      },
+      "known_gaps": [
+        "Outputs are derived aggregates; raw vendor bytes remain on upstream source_id cards",
+        "Thread output directories may be GC'd after Drive promotion — registry local_path can be stale while canonical_remote remains authoritative"
+      ],
+      "notes": "Bounded synthesis_execute materialisations. Map by synthesis_ prefix only — do not reassign these cards to upstream vendors. Upstream lineage is lineage.upstream_dataset_ids (and execution manifests), not this source id."
+    },
+    {
       "id": "gdelt",
       "label": "GDELT news graph",
       "desk_connector_id": "gdelt",
