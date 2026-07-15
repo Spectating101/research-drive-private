@@ -1,0 +1,89 @@
+{
+  "contract": "discover.subscription.progress",
+  "version": 1,
+  "fields": {
+    "phase": "scheduled|queued|running|completed|failed|cancelled|paused|stopped|manual",
+    "label": "human-readable one-liner for FE",
+    "next_run_at": "ISO8601 UTC or null",
+    "last_run_at": "ISO8601 UTC or null",
+    "last_job_id": "job id or null",
+    "last_run_status": "job status or null",
+    "last_run_plan": "http_manifest|scraper_run|\u2026 or null",
+    "last_run_error": "short error or null",
+    "auto_refresh": "bool \u2014 true only when scheduled+armed",
+    "execution_mode": "scheduled|non_executing"
+  },
+  "surfaces": [
+    "GET /library/discover/subscriptions",
+    "GET /library/discover/subscriptions/{id}",
+    "GET /library/discover/history?kind=subscription",
+    "GET /library/discover/history?kind=collection_run (thin progress)"
+  ],
+  "fe_guidance": "Render progress.phase + progress.label. Do not invent byte meters. Prefer next_run_at when phase=scheduled.",
+  "examples": {
+    "scheduled": {
+      "phase": "scheduled",
+      "label": "Next run 2026-07-20T02:00:00+00:00",
+      "execution_mode": "scheduled",
+      "auto_refresh": true,
+      "subscription_status": "active",
+      "next_run_at": "2026-07-20T02:00:00+00:00",
+      "last_run_at": null,
+      "last_job_id": null,
+      "last_run_status": null,
+      "last_run_plan": null,
+      "last_run_error": null,
+      "cadence": "weekly",
+      "schedule_cron": "0 10 * * 1",
+      "timezone": "Asia/Taipei"
+    },
+    "running": {
+      "phase": "running",
+      "label": "Refresh job running",
+      "execution_mode": "scheduled",
+      "auto_refresh": true,
+      "subscription_status": "active",
+      "next_run_at": "2026-07-20T02:00:00+00:00",
+      "last_run_at": null,
+      "last_job_id": "abc123",
+      "last_run_status": "running",
+      "last_run_plan": null,
+      "last_run_error": null,
+      "cadence": null,
+      "schedule_cron": null,
+      "timezone": null
+    },
+    "completed": {
+      "phase": "completed",
+      "label": "Last refresh completed",
+      "execution_mode": "scheduled",
+      "auto_refresh": true,
+      "subscription_status": "active",
+      "next_run_at": "2026-07-20T02:00:00+00:00",
+      "last_run_at": "2026-07-15T05:18:57+00:00",
+      "last_job_id": "abc123",
+      "last_run_status": "completed",
+      "last_run_plan": "http_manifest",
+      "last_run_error": null,
+      "cadence": null,
+      "schedule_cron": null,
+      "timezone": null
+    },
+    "paused": {
+      "phase": "paused",
+      "label": "Paused \u2014 next run cleared",
+      "execution_mode": "non_executing",
+      "auto_refresh": false,
+      "subscription_status": "paused",
+      "next_run_at": null,
+      "last_run_at": null,
+      "last_job_id": null,
+      "last_run_status": null,
+      "last_run_plan": null,
+      "last_run_error": null,
+      "cadence": null,
+      "schedule_cron": null,
+      "timezone": null
+    }
+  }
+}

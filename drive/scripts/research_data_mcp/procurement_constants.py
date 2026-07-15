@@ -48,6 +48,7 @@ MCP_TOOL_CORE: tuple[str, ...] = (
     "research_discover_pause_refresh_subscription",
     "research_discover_resume_refresh_subscription",
     "research_discover_stop_refresh_subscription",
+    "research_discover_tick_refresh_subscriptions",
     "research_quant_brief",
     "procurement_probe_public_source",
 )

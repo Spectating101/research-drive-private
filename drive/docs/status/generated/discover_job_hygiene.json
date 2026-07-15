@@ -1,0 +1,74 @@
+{
+  "cancelled_count": 11,
+  "cancelled": [
+    {
+      "id": "141f99d73a52",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE smoke collect",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "32f95da00ac9",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE Open API battery collect",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "1b8174efba5c",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE Open API",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "0eacf8c29548",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE catalog collect battery",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "b75c965e4563",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE Open API",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "33c94559f74b",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE catalog collect battery",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "6e5ac5a5708c",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE Open API",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "e6f315084b5a",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE Open API",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "787dd596f3c1",
+      "job_type": "source_probe",
+      "title": "Discover collect \u00b7 TWSE catalog collect battery",
+      "reason": "obsolete_twse_probe_superseded_by_openapi_manifest"
+    },
+    {
+      "id": "410b8389342d",
+      "job_type": "scraper_run",
+      "title": "Discover scrape \u00b7 TWSE niche browser collect",
+      "reason": "obsolete_twse_portal_scrape"
+    },
+    {
+      "id": "404a9922f4aa",
+      "job_type": "scraper_run",
+      "title": "Cake board Taiwan tech jobs p1-2",
+      "reason": "niche_board_noise_pending"
+    }
+  ],
+  "remaining_open": {
+    "pending_approval": 11
+  }
+}

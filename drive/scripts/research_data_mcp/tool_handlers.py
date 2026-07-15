@@ -204,8 +204,8 @@ class ResearchToolHandlers:
 
         Cadence is one of manual|daily|weekly|monthly. For "every Monday 10:00",
         pass cadence=weekly + requested_schedule (faculty wording). Optional
-        timezone/cron populate schedule_spec for a future runner — never claim
-        auto-run; next_run_at stays null until an executor exists.
+        timezone/cron populate schedule_spec. When cron is present the Discover
+        refresh runner arms next_run_at (execution_mode=scheduled).
         """
         explicit = {"timezone": timezone, "cron": cron, "requested_schedule": requested_schedule} if cron else None
         return self.gateway.discover_refresh_create(
@@ -233,6 +233,21 @@ class ResearchToolHandlers:
     def research_discover_stop_refresh_subscription(self, subscription_id: str) -> dict[str, Any]:
         """Stop a Discover refresh subscription permanently."""
         return self.gateway.discover_refresh_stop(subscription_id)
+
+    def research_discover_tick_refresh_subscriptions(
+        self,
+        limit: int = 10,
+        force_subscription_id: str = "",
+        force: bool = False,
+        auto_approve_safe: bool = True,
+    ) -> dict[str, Any]:
+        """Fire due Discover refresh subscriptions (or force one) into collection jobs."""
+        return self.gateway.discover_refresh_tick(
+            limit=limit,
+            force_subscription_id=force_subscription_id,
+            force=force,
+            auto_approve_safe=auto_approve_safe,
+        )
 
     def research_collection_hydrate(
         self,

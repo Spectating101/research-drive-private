@@ -42,10 +42,12 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/discover/sources/preview", "handler": "library_discover_source_preview"},
     {"method": "GET", "path": "/library/discover/subscriptions", "handler": "library_discover_subscriptions_list"},
     {"method": "POST", "path": "/library/discover/subscriptions", "handler": "library_discover_subscriptions_create"},
+    {"method": "POST", "path": "/library/discover/subscriptions/tick", "handler": "library_discover_subscriptions_tick"},
     {"method": "GET", "path": "/library/discover/subscriptions/{subscription_id}", "handler": "library_discover_subscription_get"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/pause", "handler": "library_discover_subscription_pause"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/resume", "handler": "library_discover_subscription_resume"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/stop", "handler": "library_discover_subscription_stop"},
+    {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/run", "handler": "library_discover_subscription_run"},
     {"method": "GET", "path": "/library/discover/history", "handler": "library_discover_history"},
     {"method": "GET", "path": "/library/overview", "handler": "library_overview"},
     {"method": "GET", "path": "/library/partitions", "handler": "library_partitions"},
@@ -258,6 +260,11 @@ def _handlers() -> dict[str, Handler]:
             pass
 
     def health(stack, query, payload, params):
+        # Soft cadence nudge — safe no-op when nothing is due / tick busy.
+        try:
+            stack.gateway.discover_refresh_tick(limit=3, auto_approve_safe=True)
+        except Exception:  # noqa: BLE001
+            pass
         return stack.gateway.desk_health(live=_live_flag(query))
 
     def datasets(stack, query, payload, params):
@@ -648,6 +655,33 @@ def _handlers() -> dict[str, Handler]:
 
     def library_discover_subscription_stop(stack, query, payload, params):
         return stack.gateway.discover_refresh_stop(params["subscription_id"])
+
+    def library_discover_subscriptions_tick(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        out = stack.gateway.discover_refresh_tick(
+            limit=int(body.get("limit") or query.get("limit") or 10),
+            force_subscription_id=str(body.get("subscription_id") or ""),
+            force=bool(body.get("force")),
+            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+        )
+        _activity(
+            stack,
+            "refresh_tick",
+            f"fired={len(out.get('fired') or [])}",
+            meta={"checked": out.get("checked"), "forced": out.get("forced")},
+        )
+        return out
+
+    def library_discover_subscription_run(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        out = stack.gateway.discover_refresh_tick(
+            limit=1,
+            force_subscription_id=params["subscription_id"],
+            force=True,
+            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+        )
+        _activity(stack, "refresh_run", params["subscription_id"], meta={"fired": len(out.get("fired") or [])})
+        return out
 
     def library_discover_history(stack, query, payload, params):
         return stack.gateway.discover_history(
@@ -1132,6 +1166,8 @@ def _handlers() -> dict[str, Handler]:
         "library_discover_subscription_pause": library_discover_subscription_pause,
         "library_discover_subscription_resume": library_discover_subscription_resume,
         "library_discover_subscription_stop": library_discover_subscription_stop,
+        "library_discover_subscriptions_tick": library_discover_subscriptions_tick,
+        "library_discover_subscription_run": library_discover_subscription_run,
         "library_discover_history": library_discover_history,
         "library_datacite_enrich": library_datacite_enrich,
         "library_license_approve": library_license_approve,

@@ -107,10 +107,11 @@ def c_tools(c: Case) -> None:
         "research_discover_stop_refresh_subscription",
         "research_discover_create_intent",
         "research_discover_source_search",
+        "research_discover_tick_refresh_subscriptions",
         "procurement_probe_public_source",
     ]
     miss = [n for n in need if n not in (d.get("tools") or [])]
-    c.ok = not miss and int(d.get("count") or 0) >= 78
+    c.ok = not miss and int(d.get("count") or 0) >= 79
     c.detail = f"count={d.get('count')} miss={miss or 'none'}"
 
 
@@ -130,11 +131,13 @@ def c_schedule_spec_api(c: Case) -> None:
     )
     spec = out.get("schedule_spec") or {}
     c.ok = (
-        out.get("execution_mode") == "non_executing"
+        out.get("execution_mode") == "scheduled"
+        and bool(out.get("auto_refresh"))
         and spec.get("cron") == "0 10 * * 1"
-        and out.get("next_run_at") in (None, "")
+        and bool(out.get("next_run_at"))
+        and bool(spec.get("executable"))
     )
-    c.detail = f"id={out.get('id')} cron={spec.get('cron')}"
+    c.detail = f"id={out.get('id')} cron={spec.get('cron')} next={out.get('next_run_at')}"
     LAST_SUB = out.get("id")
 
 
@@ -379,19 +382,122 @@ def c_spectator_scrape(c: Case) -> None:
     c.evidence = {"job_id": jid, "status": job.get("status"), "pool": res.get("pool")}
 
 
+
+
+def c_cadence_twse_http_manifest(c: Case) -> None:
+    """Schedule refresh must harvest TWSE OpenAPI JSON, not Swagger scrape."""
+    sub = http_json(
+        "POST",
+        "/library/discover/subscriptions",
+        {
+            "cadence": "weekly",
+            "source_id": "twse_official",
+            "connector_id": "twse",
+            "requested_schedule": "every Monday at 10:00",
+            "timezone": "Asia/Taipei",
+            "enabled": True,
+        },
+    )
+    sid = sub.get("id")
+    tick = http_json("POST", f"/library/discover/subscriptions/{sid}/run", {"auto_approve_safe": True}, timeout=180)
+    fired = (tick.get("fired") or [None])[0] or {}
+    jid = fired.get("job_id")
+    if not jid:
+        c.ok = False
+        c.detail = f"no fire err={tick.get('errors')}"
+        return
+    job = {}
+    for _ in range(45):
+        job = http_json("GET", f"/library/jobs/{jid}")
+        if job.get("status") in {"completed", "failed", "cancelled"}:
+            break
+        time.sleep(2)
+    plan = job.get("plan") or {}
+    res = job.get("result") if isinstance(job.get("result"), dict) else {}
+    val = ((res.get("materialized") or {}).get("validation") or {})
+    http_json("POST", "/library/discover/subscriptions/tick", {"limit": 1})
+    upd = http_json("GET", f"/library/discover/subscriptions/{sid}")
+    c.ok = (
+        plan.get("job_type") == "http_manifest"
+        and plan.get("collect_resolution") == "twse_openapi_known_manifest"
+        and job.get("status") == "completed"
+        and int(val.get("file_count") or 0) >= 4
+        and int(val.get("total_bytes") or 0) > 100_000
+        and upd.get("last_run_status") == "completed"
+    )
+    c.detail = (
+        f"job={jid} status={job.get('status')} files={val.get('file_count')} "
+        f"bytes={val.get('total_bytes')} resolution={plan.get('collect_resolution')} "
+        f"sub_status={upd.get('last_run_status')}"
+    )
+    c.evidence = {"job_id": jid, "validation": val, "subscription_id": sid}
+
+
+def c_cadence_force_tick(c: Case) -> None:
+    """Register → next_run armed → force tick → History collection_run."""
+    sub = http_json(
+        "POST",
+        "/library/discover/subscriptions",
+        {
+            "cadence": "weekly",
+            "source_id": "twse_official",
+            "connector_id": "twse",
+            "requested_schedule": "every Monday at 10:00",
+            "timezone": "Asia/Taipei",
+            "enabled": True,
+        },
+    )
+    sid = sub.get("id")
+    if not (sid and sub.get("next_run_at") and sub.get("execution_mode") == "scheduled"):
+        c.ok = False
+        c.detail = f"not armed id={sid} mode={sub.get('execution_mode')} next={sub.get('next_run_at')}"
+        return
+    tick = http_json(
+        "POST",
+        f"/library/discover/subscriptions/{sid}/run",
+        {"auto_approve_safe": True},
+        timeout=120,
+    )
+    fired = (tick.get("fired") or [])
+    jid = (fired[0].get("job_id") if fired else "") or ""
+    updated = http_json("GET", f"/library/discover/subscriptions/{sid}")
+    hist = http_json("GET", "/library/discover/history?kind=collection_run&limit=40")
+    hit = next(
+        (i for i in (hist.get("items") or []) if i.get("id") == jid or i.get("job_id") == jid),
+        None,
+    ) if jid else None
+    c.ok = bool(fired) and bool(jid) and bool(updated.get("last_run_at")) and bool(updated.get("next_run_at")) and bool(hit)
+    c.detail = (
+        f"sub={sid} job={jid} last={updated.get('last_run_at')} "
+        f"next={updated.get('next_run_at')} hist={bool(hit)} err={tick.get('errors')}"
+    )
+    c.evidence = {"subscription_id": sid, "job_id": jid, "tick": tick}
+
+
 def c_honesty(c: Case) -> None:
     subs = http_json("GET", "/library/discover/subscriptions").get("subscriptions") or []
-    lying = [s.get("id") for s in subs if s.get("auto_refresh") or s.get("next_run_at")]
-    bad_exec = [s.get("id") for s in subs if s.get("execution_mode") not in (None, "non_executing")]
-    c.ok = bool(subs) and not lying and not bad_exec
-    c.detail = f"n={len(subs)} lying={lying[:2]} bad_exec={bad_exec[:2]}"
+    lying = []
+    for s in subs:
+        mode = s.get("execution_mode")
+        auto = bool(s.get("auto_refresh"))
+        nxt = s.get("next_run_at")
+        if mode == "scheduled":
+            if not auto or not nxt:
+                lying.append(s.get("id"))
+        elif mode in (None, "non_executing"):
+            if auto or nxt:
+                lying.append(s.get("id"))
+        else:
+            lying.append(s.get("id"))
+    c.ok = bool(subs) and not lying
+    c.detail = f"n={len(subs)} lying={lying[:3]}"
 
 
 def c_composer_schedule(c: Case) -> None:
     ids0 = {i.get("id") for i in http_json("GET", "/library/discover/history?kind=subscription&limit=50").get("items") or []}
     out = chat(
         "Use research_discover_create_refresh_subscription for source_id twse_official connector_id twse "
-        "cadence weekly requested_schedule 'every Monday 10:00'. Confirm in history. No auto-run claim.",
+        "cadence weekly requested_schedule 'every Monday 10:00'. Confirm in history with next_run_at.",
         {"tab": "browse"},
         timeout=180,
     )
@@ -418,7 +524,9 @@ def main() -> int:
     run(Case("HTTP catalog collect → History", "http"), c_collect_http)
     run(Case("SEC http_manifest collect+approve", "http"), c_sec_manifest_collect)
     run(Case("spectator scrape TWSE→windows_lab", "spectator"), c_spectator_scrape)
-    run(Case("honesty non-executing", "http"), c_honesty)
+    run(Case("cadence force tick → History", "http"), c_cadence_force_tick)
+    run(Case("cadence TWSE OpenAPI harvest", "http"), c_cadence_twse_http_manifest)
+    run(Case("honesty schedule consistency", "http"), c_honesty)
     run(Case("composer schedule register", "composer"), c_composer_schedule)
 
     passed = sum(1 for r in results if r.ok)

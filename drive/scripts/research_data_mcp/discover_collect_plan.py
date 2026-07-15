@@ -78,6 +78,235 @@ def _stamp_public_collect_plan(plan: dict[str, Any]) -> dict[str, Any]:
         plan.setdefault("requires_approval", True)  # still explicit unless auto-approve policy says otherwise
     return plan
 
+
+# Curated official TWSE OpenAPI feeds for Discover refresh / collect.
+# Portal root (Swagger UI) is NOT a dataset — never scrape it as the harvest.
+TWSE_OPENAPI_REFRESH_ENDPOINTS: tuple[tuple[str, str], ...] = (
+    ("daily_trading_all", "/exchangeReport/STOCK_DAY_ALL"),
+    ("daily_close_month_avg", "/exchangeReport/STOCK_DAY_AVG_ALL"),
+    ("valuation_ratios", "/exchangeReport/BWIBBU_ALL"),
+    ("company_profile", "/opendata/t187ap03_L"),
+    ("material_information_daily", "/opendata/t187ap04_L"),
+    ("monthly_revenue", "/opendata/t187ap05_L"),
+    ("twse_news", "/news/newsList"),
+    ("twse_events", "/news/eventList"),
+)
+
+
+def _twse_openapi_manifest_plan(
+    *,
+    limit: int = 8,
+    title: str = "",
+    connector_id: str = "",
+    source_id: str = "",
+    candidate_key: str = "",
+    catalog_connector_id: str = "",
+) -> dict[str, Any]:
+    base = "https://openapi.twse.com.tw/v1"
+    n = min(max(int(limit or 8), 1), len(TWSE_OPENAPI_REFRESH_ENDPOINTS))
+    items = [
+        {
+            "url": f"{base}{path}",
+            "name": f"{name}.json",
+            "dataset_key": name,
+        }
+        for name, path in TWSE_OPENAPI_REFRESH_ENDPOINTS[:n]
+    ]
+    label = title or source_id or "TWSE OpenAPI"
+    title_out = title if str(title).lower().startswith("collect") else f"Collect {label}"
+    plan: dict[str, Any] = {
+        "title": title_out or f"Collect {label}",
+        "job_type": "http_manifest",
+        "items": items,
+        "url": "https://openapi.twse.com.tw/v1",
+        "launchable": True,
+        "requires_approval": True,
+        "public_direct_url": True,
+        "collect_class": "public_government",
+        "local_collect": True,
+        "shards": 1,
+        "per_node_workers": 2,
+        "request_timeout": 90,
+        "retries": 3,
+        "delay_seconds": 0.35,
+        "timeout_seconds": 1800,
+        "connector_id": connector_id or catalog_connector_id,
+        "catalog_connector_id": catalog_connector_id or connector_id,
+        "source_id": source_id or "twse_official",
+        "candidate_key": candidate_key,
+        "collect_resolution": "twse_openapi_known_manifest",
+        "collect_note": (
+            "Official TWSE OpenAPI JSON feeds (bounded manifest). "
+            "Not a Swagger UI page scrape."
+        ),
+    }
+    return _stamp_public_collect_plan(plan)
+
+
+
+SEC_EDGAR_REFRESH_ENDPOINTS: tuple[tuple[str, str], ...] = (
+    ("company_tickers", "https://www.sec.gov/files/company_tickers.json"),
+    ("company_tickers_exchange", "https://www.sec.gov/files/company_tickers_exchange.json"),
+)
+
+WORLDBANK_REFRESH_ENDPOINTS: tuple[tuple[str, str], ...] = (
+    ("countries", "https://api.worldbank.org/v2/country?format=json&per_page=300"),
+    ("indicators_sample", "https://api.worldbank.org/v2/indicator?format=json&per_page=100"),
+)
+
+
+def _sec_edgar_manifest_plan(
+    *,
+    limit: int = 2,
+    title: str = "",
+    connector_id: str = "",
+    source_id: str = "",
+    candidate_key: str = "",
+    catalog_connector_id: str = "",
+) -> dict[str, Any]:
+    n = min(max(int(limit or 2), 1), len(SEC_EDGAR_REFRESH_ENDPOINTS))
+    items = [
+        {"url": url, "name": f"{name}.json", "dataset_key": name}
+        for name, url in SEC_EDGAR_REFRESH_ENDPOINTS[:n]
+    ]
+    label = title or source_id or "SEC EDGAR"
+    title_out = title if str(title).lower().startswith("collect") else f"Collect {label}"
+    plan: dict[str, Any] = {
+        "title": title_out,
+        "job_type": "http_manifest",
+        "items": items,
+        "url": "https://www.sec.gov/files/company_tickers.json",
+        "launchable": True,
+        "requires_approval": True,
+        "public_direct_url": True,
+        "collect_class": "public_government",
+        "local_collect": True,
+        "shards": 1,
+        "request_timeout": 90,
+        "retries": 3,
+        "delay_seconds": 0.4,
+        "timeout_seconds": 1200,
+        "connector_id": connector_id or catalog_connector_id,
+        "catalog_connector_id": catalog_connector_id or connector_id,
+        "source_id": source_id or "sec_edgar",
+        "candidate_key": candidate_key,
+        "collect_resolution": "sec_edgar_known_manifest",
+        "collect_note": "Official SEC company ticker JSON feeds (bounded manifest).",
+        "headers": {"User-Agent": "Sharpe-Renaissance research collector faculty@yzu.edu.tw"},
+    }
+    return _stamp_public_collect_plan(plan)
+
+
+def _worldbank_manifest_plan(
+    *,
+    limit: int = 2,
+    title: str = "",
+    connector_id: str = "",
+    source_id: str = "",
+    candidate_key: str = "",
+    catalog_connector_id: str = "",
+) -> dict[str, Any]:
+    n = min(max(int(limit or 2), 1), len(WORLDBANK_REFRESH_ENDPOINTS))
+    items = [
+        {"url": url, "name": f"{name}.json", "dataset_key": name}
+        for name, url in WORLDBANK_REFRESH_ENDPOINTS[:n]
+    ]
+    label = title or source_id or "World Bank"
+    title_out = title if str(title).lower().startswith("collect") else f"Collect {label}"
+    plan: dict[str, Any] = {
+        "title": title_out,
+        "job_type": "http_manifest",
+        "items": items,
+        "url": "https://api.worldbank.org/v2/country?format=json",
+        "launchable": True,
+        "requires_approval": True,
+        "public_direct_url": True,
+        "collect_class": "public_government",
+        "local_collect": True,
+        "shards": 1,
+        "request_timeout": 90,
+        "retries": 3,
+        "delay_seconds": 0.3,
+        "timeout_seconds": 1200,
+        "connector_id": connector_id or catalog_connector_id,
+        "catalog_connector_id": catalog_connector_id or connector_id,
+        "source_id": source_id or "worldbank",
+        "candidate_key": candidate_key,
+        "collect_resolution": "worldbank_known_manifest",
+        "collect_note": "World Bank API JSON feeds (bounded manifest).",
+    }
+    return _stamp_public_collect_plan(plan)
+
+
+def _known_source_manifest_plan(
+    *,
+    source_id: str = "",
+    connector_id: str = "",
+    catalog: dict[str, Any] | None = None,
+    url: str = "",
+    limit: int = 8,
+    title: str = "",
+    candidate_key: str = "",
+) -> dict[str, Any] | None:
+    """Bounded http_manifest for well-known public APIs when probe manifests are empty."""
+    catalog = catalog or {}
+    sid = str(source_id or catalog.get("source_id") or "").strip().lower()
+    cid = str(connector_id or catalog.get("connector_id") or catalog.get("desk_connector_id") or "").strip().lower()
+    host = _host_of(url) or _host_of(str(catalog.get("endpoint") or catalog.get("url") or ""))
+    if host.startswith("mops."):
+        return None
+    twse_hit = (
+        sid in {"twse_official", "twse", "twse_openapi"}
+        or cid in {"twse", "twse_openapi"}
+        or host in {"openapi.twse.com.tw", "www.twse.com.tw"}
+        or sid.startswith("twse_")
+    )
+    if twse_hit:
+        return _twse_openapi_manifest_plan(
+            limit=limit,
+            title=title or str(catalog.get("title") or "TWSE OpenAPI"),
+            connector_id=connector_id,
+            source_id=source_id or str(catalog.get("source_id") or "twse_official"),
+            candidate_key=candidate_key,
+            catalog_connector_id=str(catalog.get("connector_id") or connector_id or "twse"),
+        )
+
+    sec_hit = (
+        sid in {"sec_edgar", "sec", "sec_company_tickers", "edgar"}
+        or cid in {"sec", "sec_edgar", "edgar"}
+        or host in {"www.sec.gov", "sec.gov", "data.sec.gov"}
+        or "sec" in sid
+        or "edgar" in sid
+    )
+    if sec_hit and not host.startswith("mops."):
+        return _sec_edgar_manifest_plan(
+            limit=min(limit, 2),
+            title=title or str(catalog.get("title") or "SEC EDGAR"),
+            connector_id=connector_id,
+            source_id=source_id or str(catalog.get("source_id") or "sec_edgar"),
+            candidate_key=candidate_key,
+            catalog_connector_id=str(catalog.get("connector_id") or connector_id or "sec_edgar"),
+        )
+
+    wb_hit = (
+        sid in {"worldbank", "world_bank", "wb_api"}
+        or cid in {"worldbank", "world_bank"}
+        or host in {"api.worldbank.org", "databank.worldbank.org", "data.worldbank.org"}
+        or "worldbank" in sid
+        or "world_bank" in sid
+    )
+    if wb_hit:
+        return _worldbank_manifest_plan(
+            limit=min(limit, 2),
+            title=title or str(catalog.get("title") or "World Bank"),
+            connector_id=connector_id,
+            source_id=source_id or str(catalog.get("source_id") or "worldbank"),
+            candidate_key=candidate_key,
+            catalog_connector_id=str(catalog.get("connector_id") or connector_id or "worldbank"),
+        )
+    return None
+
+
 def _lookup_catalog_source(repo_root: Any, *, connector_id: str = "", source_id: str = "") -> dict[str, Any]:
     from pathlib import Path
 
@@ -291,7 +520,20 @@ def resolve_discover_collect_plan(
                 plan["title"] = f"Collect {catalog_title}"
             return _stamp_public_collect_plan(plan)
 
-    # 3) Probe fallback — durable History row without inventing harvest files
+    # 2b) Known public API manifests (TWSE OpenAPI JSON feeds, etc.)
+    known = _known_source_manifest_plan(
+        source_id=catalog_sid or sid,
+        connector_id=matched or cid or catalog_cid,
+        catalog=catalog,
+        url=catalog_url or url_s,
+        limit=min(limit_n, 8),
+        title=catalog_title or title_s,
+        candidate_key=ck,
+    )
+    if known:
+        return known
+
+    # 3) Probe / scrape fallback — durable History row without inventing harvest files
     if catalog_url:
         return _probe_fallback_plan(
             url=catalog_url,

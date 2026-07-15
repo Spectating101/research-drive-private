@@ -36,6 +36,7 @@ class ResearchDataGateway:
         self.agent = AgentOrchestrator(self.engine, orchestrator=orchestrator)
         self._yzu_api = yzu_api
         self.jobs = jobs or JobService(self.agent.orchestrator)
+        self.jobs.gateway = self  # Discover refresh tick from jobs.tick()
 
         self.search = SearchService(self.engine, self.registry_path, self.repo_root)
         self.catalog = CatalogService(self.repo_root, self.search, self.agent.orchestrator, self.agent.procurement)
@@ -1393,6 +1394,24 @@ class ResearchDataGateway:
 
     def discover_refresh_stop(self, subscription_id: str) -> dict[str, Any]:
         return self._discover_refresh_store().stop(subscription_id)
+
+    def discover_refresh_tick(
+        self,
+        *,
+        limit: int = 10,
+        force_subscription_id: str = "",
+        force: bool = False,
+        auto_approve_safe: bool = True,
+    ) -> dict[str, Any]:
+        from scripts.research_data_mcp.discover_refresh_runner import tick_discover_refresh
+
+        return tick_discover_refresh(
+            self,
+            limit=limit,
+            force_subscription_id=force_subscription_id,
+            force=force,
+            auto_approve_safe=auto_approve_safe,
+        )
 
     def discover_history(
         self,

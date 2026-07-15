@@ -330,6 +330,7 @@ def is_direct_discovery_message(message: str, rail_context: dict[str, Any] | Non
         or is_direct_schedule_message(message, rail_context)
         or is_direct_intent_message(message, rail_context)
         or is_direct_subscription_lifecycle_message(message, rail_context)
+        or (parse_refresh_tick_request(message) is not None)
     )
 
 
@@ -528,6 +529,72 @@ def is_direct_schedule_message(message: str, rail_context: dict[str, Any] | None
     return parse_schedule_request(message, rail_context) is not None
 
 
+
+_TICK_REFRESH = re.compile(
+    r"\b(?:tick|run)\s+(?:due\s+)?(?:discover\s+)?(?:refresh\s+)?(?:subscriptions?|schedules?)\b"
+    r"|\bforce\s+(?:refresh\s+)?(?:tick|run)\b"
+    r"|\brun\s+(?:this\s+)?(?:refresh\s+)?subscription\b",
+    re.I,
+)
+
+
+def parse_refresh_tick_request(message: str) -> dict[str, Any] | None:
+    text = (message or "").strip()
+    if not text or len(text) > 240:
+        return None
+    if not _TICK_REFRESH.search(text):
+        return None
+    force = bool(re.search(r"\bforce\b", text, re.I))
+    m = re.search(r"subscription\s+([a-f0-9]{8,16})", text, re.I)
+    return {
+        "force": force or bool(m),
+        "force_subscription_id": (m.group(1) if m else ""),
+        "limit": 10,
+    }
+
+
+def try_direct_refresh_tick_turn(gateway: Any, message: str, state: dict[str, Any]) -> AgentTurn | None:
+    req = parse_refresh_tick_request(message)
+    if not req:
+        return None
+    try:
+        out = gateway.discover_refresh_tick(
+            limit=int(req.get("limit") or 10),
+            force_subscription_id=str(req.get("force_subscription_id") or ""),
+            force=bool(req.get("force")),
+            auto_approve_safe=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return AgentTurn(
+            plan={"action": "refresh_tick", "fast_path": True, **req},
+            action_result={"action": "refresh_tick", "fast_path": True, "error": str(exc), **req},
+            reply=f"Could not tick Discover refresh subscriptions: {exc}",
+            suggested_prompts=["Open Discover History", "Schedule a weekly refresh first"],
+            tool_name="research_discover_tick_refresh_subscriptions",
+        )
+    fired = out.get("fired") or []
+    errors = out.get("errors") or []
+    lines = [
+        f"Discover refresh tick — checked **{out.get('checked', 0)}**, fired **{len(fired)}**.",
+    ]
+    for row in fired[:5]:
+        lines.append(
+            f"- `{row.get('subscription_id','')[:12]}…` → job `{str(row.get('job_id') or '')[:12]}…` "
+            f"({row.get('job_status')}) next `{row.get('next_run_at') or '—'}`"
+        )
+    if errors:
+        lines.append(f"Errors: {len(errors)} (see action result).")
+    if not fired and not errors:
+        lines.append("Nothing due — use force tick or wait until next_run_at.")
+    return AgentTurn(
+        plan={"action": "refresh_tick", "fast_path": True, **req},
+        action_result={"action": "refresh_tick", "fast_path": True, "tick": out, **req},
+        reply="\n".join(lines),
+        suggested_prompts=["Open Discover History", "Approve pending refresh jobs"],
+        tool_name="research_discover_tick_refresh_subscriptions",
+    )
+
+
 def try_direct_schedule_turn(
     gateway: Any,
     message: str,
@@ -549,7 +616,7 @@ def try_direct_schedule_turn(
             timezone="Asia/Taipei",
             schedule_note=(
                 "Registered from Ask. Visible in Discover → History → Scheduled. "
-                "Per-source auto-run is not claimed yet."
+                "When cron is present, the Discover refresh runner arms next_run_at."
             ),
         )
     except Exception as exc:  # noqa: BLE001
@@ -568,14 +635,22 @@ def try_direct_schedule_turn(
     spec = sub.get("schedule_spec") if isinstance(sub.get("schedule_spec"), dict) else {}
     cron = str(spec.get("cron") or "")
     tz = str(spec.get("timezone") or "Asia/Taipei")
+    next_run = sub.get("next_run_at") or ""
+    mode = sub.get("execution_mode") or "non_executing"
     reply = (
         f"Registered refresh for **{target}** in Discover History.\n"
         f"- Requested: {requested}\n"
         f"- Platform cadence bucket: `{cadence}`\n"
-        f"- Schedule spec: `{cron or 'manual'}` ({tz}) — stored for a future runner\n"
-        f"- Subscription `{sub_id[:12]}…` · status **{sub.get('status') or 'active'}**\n\n"
+        f"- Schedule spec: `{cron or 'manual'}` ({tz})\n"
+        f"- Execution: `{mode}`"
+        + (f" · next run `{next_run}`" if next_run else " · no automatic next run")
+        + f"\n- Subscription `{sub_id[:12]}…` · status **{sub.get('status') or 'active'}**\n\n"
         "Open **Discover → History → Scheduled** to see it. "
-        "This record is durable on the platform; automatic execution is not claimed yet."
+        + (
+            "The refresh runner will submit a Discover collect job when due (or on force tick)."
+            if next_run
+            else "Manual cadence — run collect from Ask when you need a refresh."
+        )
     )
     try:
         from scripts.research_data_mcp.desk_activity import record_activity
@@ -1094,6 +1169,9 @@ def try_direct_equipment_turn(
     lifecycle = try_direct_subscription_lifecycle_turn(gateway, message, state)
     if lifecycle is not None:
         return lifecycle
+    tick = try_direct_refresh_tick_turn(gateway, message, state)
+    if tick is not None:
+        return tick
     probe = try_direct_probe_turn(gateway, message, state)
     if probe is not None:
         return probe
