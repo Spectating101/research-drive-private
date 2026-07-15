@@ -2,12 +2,10 @@
 
 **Status:** ACTIVE CHANGE-CONTROL LOCK  
 **Date:** 2026-07-16  
-**Scope:** Discover, Library, and Profile product composition  
-**Purpose:** prevent already-converged faculty-facing pages from being casually reopened, reinterpreted, or redesigned during remaining Research Drive convergence
+**Scope:** Discover, Library, Profile, and Home product composition  
+**Purpose:** prevent converged faculty-facing pages from being casually reopened, reinterpreted, or redesigned during remaining Research Drive convergence
 
-This is a change-control lock, not a replacement for [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md).
-
-The sole top-level authority remains `UI_PRODUCT_AUTHORITY.md`. The normative full-scale page appendices and grounded Profile freeze remain the visual / interaction evidence for their pages.
+This is a change-control lock used with [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md) and the page-specific frozen appendices.
 
 The current lock state is:
 
@@ -15,14 +13,12 @@ The current lock state is:
 DISCOVER     HARD FROZEN
 LIBRARY      HARD FROZEN
 PROFILE      GROUNDED HARD FROZEN
-HOME         INTERIM FREEZE / STILL OPEN TO PRODUCT REVIEW
+HOME         HARD FROZEN — ITERATION 10
 ```
 
-The distinction is deliberate.
+The remaining product-design work is Preview validation, Settings convergence, and Synthesis.
 
-Home is still under active design review.
-
-Discover, Library, and Profile are not.
+Responsive, component, accessibility, and pixel convergence may continue across frozen pages only when page ownership and composition are preserved.
 
 ---
 
@@ -220,27 +216,149 @@ The default answer to a proposed Profile redesign is **no**.
 
 ---
 
-## 4. What remains open
+## 4. Home — hard frozen
+
+Normative Home authority:
+
+- [`HOME_FULL_SCALE_FREEZE_2026-07-16.md`](HOME_FULL_SCALE_FREEZE_2026-07-16.md)
+- [`RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md`](RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md)
+- canonical Library / Discover / Synthesis / Resources object truth used by the Home projection
+
+Approved composition:
+
+```text
+TOP BAND
+
+PICK UP                         RESOURCE HEADROOM
+
+
+MIDDLE BAND
+
+RECOMMENDED EVIDENCE
+
+
+BOTTOM BAND
+
+RECENT TRAIL
+```
+
+Frozen Home functions:
+
+```text
+PICK UP
+=
+exact resumable work state
+
+RESOURCE HEADROOM
+=
+1 pinned + 1 material authoritative bounded resource
+
+RECOMMENDED EVIDENCE
+=
+grounded evidence suggestions with exact owning-surface handoff
+
+RECENT TRAIL
+=
+durable material machine consequences
+```
+
+Frozen caps:
+
+```text
+PICK UP
+1 primary + 1 secondary max
+
+RESOURCE HEADROOM
+2 resources max
+
+RECOMMENDED EVIDENCE
+2 recommendations max
+
+RECENT TRAIL
+3 consequences max
+
+DESKTOP HOME PAGE SCROLL
+NEVER
+```
+
+Home does not become:
+
+```text
+command centre
+metrics dashboard
+activity feed
+worker monitor
+news feed
+research pulse
+related-method recommender
+session analytics surface
+```
+
+Resource bars require authoritative used value, real cap / denominator, and current resource state.
+
+Reset / renewal copy requires explicit reset authority.
+
+Recommendations require grounded recommendation authority. Model prose alone does not create canonical recommendations.
+
+Recent Trail excludes browser history and ordinary execution noise.
+
+A Home exact resume point activates the exact underlying typed object. The centre displays object + resumable state; Detail owns structured truth and the current decision; Ask operates the same object.
+
+### Home change rule
+
+```text
+NO CASUAL HOME REDESIGN.
+```
+
+A Home composition change is permitted only when all of the following are true:
+
+1. A concrete rendered-workflow failure or cross-page contradiction exists.
+2. The problem cannot be solved inside the frozen Iteration 10 composition.
+3. The alternative is reviewed visually at full-page scale.
+4. `HOME_FULL_SCALE_FREEZE_2026-07-16.md` is explicitly amended before implementation.
+5. `UI_PRODUCT_AUTHORITY.md` is mechanically aligned where its older Home section conflicts.
+6. This change lock is updated.
+
+The default answer to a proposed Home redesign is **no**.
+
+---
+
+## 5. What remains open
 
 The following pages may still undergo active product-design iteration:
 
 ```text
-HOME          OPEN — current Iteration 06 is only interim frozen
 PREVIEW       narrow renderer / overlay validation remains
 SETTINGS      truthful low-complexity convergence remains
 SYNTHESIS     final major product-design problem remains
 ```
 
-Responsive, component, and pixel convergence may continue across all pages, but must preserve frozen page ownership and composition.
+Current order:
+
+```text
+PREVIEW
+↓
+SETTINGS
+↓
+SYNTHESIS
+↓
+RESPONSIVE / COMPONENT / PIXEL CONVERGENCE
+```
+
+Frozen pages may still be implemented, made responsive, accessibility-correct, and pixel-polished.
+
+That does not reopen their page thesis or centre composition.
 
 ---
 
-## 5. Recovery rule
+## 6. Recovery rule
 
 When a new agent, model, developer, or design session enters the repository:
 
 ```text
 READ UI_PRODUCT_AUTHORITY.md
+↓
+READ FROZEN_PAGE_CHANGE_LOCK_2026-07-16.md
 ↓
 READ THE PAGE'S FREEZE APPENDIX / GROUNDED FREEZE
 ↓
@@ -248,6 +366,8 @@ READ RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md WHERE RELEVANT
 ↓
 IMPLEMENT OR POLISH INSIDE THE FROZEN COMPOSITION
 ```
+
+For Home specifically, `HOME_FULL_SCALE_FREEZE_2026-07-16.md` is the approved Iteration 10 visual authority. The older Home section in `UI_PRODUCT_AUTHORITY.md` predates the approved Iteration 10 convergence and must be mechanically aligned before or with Home implementation; it is not permission to regress to the old research-intention / needs-you composition.
 
 Do not infer that an old component, screenshot, test, fixture, backend object, or newly added capability grants permission to redesign a frozen page.
 
@@ -278,9 +398,9 @@ PROFILE
 DO NOT REDESIGN.
 
 HOME
-STILL UNDER REVIEW.
+DO NOT REDESIGN.
 ```
 
-The frozen pages may be implemented better, rendered better, made responsive, and pixel-polished.
+These pages may be implemented better, rendered better, made responsive, accessibility-correct, and pixel-polished.
 
 They are not waiting for another conceptual pass.
