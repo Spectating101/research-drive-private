@@ -3,9 +3,11 @@
 **Status:** CURRENT PRODUCT-DESIGN BACKUP SNAPSHOT  
 **Date:** 2026-07-16  
 **Branch:** `feat/discover-main-converge`  
-**Purpose:** preserve the complete product-design convergence reached through Home before further page work
+**Purpose:** preserve the complete product-design convergence reached through the approved Home Iteration 10 freeze
 
-This file is a recovery index. It does not replace the sole top-level authority in `UI_PRODUCT_AUTHORITY.md` or the full-scale page appendices. It records the current convergence state so a new design session can recover the product direction without reconstructing it from chat history.
+This file is a recovery index. Read it with `UI_PRODUCT_AUTHORITY.md`, `FROZEN_PAGE_CHANGE_LOCK_2026-07-16.md`, and the page-specific frozen appendices.
+
+It exists so a new design or implementation session can recover the product direction without reconstructing it from chat history.
 
 ---
 
@@ -53,41 +55,42 @@ RESOURCES
 └── Method                          ✓ FROZEN
 
 DISCOVER
-├── Explore                         ✓ FROZEN
-├── History                         ✓ FROZEN
-└── Detail / Ask integration        ✓ FROZEN
+├── Explore                         ✓ HARD FROZEN
+├── History                         ✓ HARD FROZEN
+└── Detail / Ask integration        ✓ HARD FROZEN
 
 LIBRARY
-├── Research-location grammar       ✓ FROZEN
-├── Collection tree                 ✓ FROZEN
-├── Evidence ledger                 ✓ FROZEN
-├── Plain-language descriptions     ✓ FROZEN
-├── Source                          ✓ FROZEN
-├── Verification                    ✓ FROZEN
-├── Readiness                       ✓ FROZEN
-├── Multi-collection membership     ✓ FROZEN
-├── Related evidence suggestions    ✓ FROZEN
-├── Search / match explanation      ✓ FROZEN
-├── Intake / self-provided data     ✓ FROZEN
-├── Citation / source chains        ✓ FROZEN
-├── Composer / Cite-Agent rail      ✓ FROZEN
-└── Full-scale CLI state family     ✓ FROZEN
+├── Research-location grammar       ✓ HARD FROZEN
+├── Collection tree                 ✓ HARD FROZEN
+├── Evidence ledger                 ✓ HARD FROZEN
+├── Plain-language descriptions     ✓ HARD FROZEN
+├── Source                          ✓ HARD FROZEN
+├── Verification                    ✓ HARD FROZEN
+├── Readiness                       ✓ HARD FROZEN
+├── Multi-collection membership     ✓ HARD FROZEN
+├── Related evidence suggestions    ✓ HARD FROZEN
+├── Search / match explanation      ✓ HARD FROZEN
+├── Intake / self-provided data     ✓ HARD FROZEN
+├── Citation / source chains        ✓ HARD FROZEN
+├── Composer / Cite-Agent rail      ✓ HARD FROZEN
+└── Full-scale CLI state family     ✓ HARD FROZEN
 
 PROFILE
-├── Product model                   ✓ GROUNDED / KEEP
+├── Product model                   ✓ GROUNDED HARD FROZEN
 ├── Memory → Works → Lab            ✓ FROZEN IN PLACE
 ├── Faculty JSON constraint         ✓ EXPLICIT
 ├── Over-designed variants          ✓ REJECTED / DOCUMENTED
-└── Visual polish                   ○ LATER
+└── Visual polish                   ○ LATER INSIDE FREEZE
 
 HOME
-├── Re-entry ownership              ✓ INTERIM FROZEN
-├── Where You Left Off              ✓ INTERIM FROZEN
-├── What Changed                    ✓ INTERIM FROZEN
-├── New Around Your Research        ✓ RESERVED / OPTIONAL
-├── Recent                          ✓ INTERIM FROZEN
+├── Re-entry ownership              ✓ HARD FROZEN
+├── Pick Up                         ✓ HARD FROZEN
+├── Resource Headroom               ✓ HARD FROZEN
+├── Recommended Evidence            ✓ HARD FROZEN
+├── Recent Trail                    ✓ HARD FROZEN
+├── Detail / Ask object continuity  ✓ HARD FROZEN
 ├── No desktop page scroll          ✓ HARD RULE
-└── Full-scale CLI state            ✓ BACKED UP
+└── Full-scale Iteration 10 CLI      ✓ FROZEN
 
 
 NEXT
@@ -109,7 +112,7 @@ RESPONSIVE / COMPONENT / PIXEL CONVERGENCE
 
 ---
 
-## 3. Frozen / backup documents
+## 3. Frozen / recovery documents
 
 ### Discover
 
@@ -145,7 +148,9 @@ QUERY-READY LIBRARY ASSET
 SYNTHESIS
 ```
 
-Discover remains the strongest product idea / acquisition lifecycle surface.
+Discover remains the strongest product idea and the acquisition lifecycle surface.
+
+Do not revive Focused Evaluation, Activity, worker-dashboard History, semantic search tabs, Evidence Builder, or a permanent acquisition workspace.
 
 ### Library
 
@@ -178,7 +183,7 @@ One durable asset may belong to multiple collections without duplication.
 
 The right rail is Composer / Cite-Agent operating the exact selected collection or evidence asset through the stable `DETAIL | ASK` grammar.
 
-Library is currently the strongest complete product surface.
+Library remains the strongest complete product surface.
 
 ### Resources
 
@@ -231,52 +236,119 @@ procurement_recommendations
 
 Do not invent markets/entities, evidence preferences, accepted/inferred context, or ranking-effect ledgers until a durable backend model exists.
 
-Profile is not a major product-design problem right now. Polish in place later.
+Profile is hard frozen conceptually. Polish in place later.
 
 ### Home
 
 `docs/HOME_FULL_SCALE_FREEZE_2026-07-16.md`
 
-Current interim-frozen ownership:
+Approved Iteration 10 composition:
 
 ```text
-WHERE YOU LEFT OFF
-↓
-WHAT CHANGED
-↓
-NEW AROUND YOUR RESEARCH
-↓
-RECENT
+PICK UP                         RESOURCE HEADROOM
+
+        ↓
+
+RECOMMENDED EVIDENCE
+
+        ↓
+
+RECENT TRAIL
 ```
 
-Home is a research re-entry brief.
+Home is a compact research re-entry desk.
 
-It is not a command centre and not a research work surface.
+It is not a command centre and not a sustained research work surface.
+
+Frozen functions:
+
+```text
+PICK UP
+recover exact resumable work state
+
+RESOURCE HEADROOM
+show 1 pinned + 1 material bounded resource
+
+RECOMMENDED EVIDENCE
+show grounded evidence suggestions
+
+RECENT TRAIL
+show durable material machine consequences
+```
 
 Hard desktop caps:
 
 ```text
-WHERE YOU LEFT OFF
+PICK UP
 1 primary + 1 secondary max
 
-WHAT CHANGED
-3 max
+RESOURCE HEADROOM
+2 resources max
 
-NEW AROUND YOUR RESEARCH
-2 max
+RECOMMENDED EVIDENCE
+2 recommendations max
 
-RECENT
-4 max
+RECENT TRAIL
+3 consequences max
 
 DESKTOP PAGE SCROLL
 NEVER
 ```
 
-The novelty layer is optional and must disappear until a truthful freshness / source-authority projection exists.
+Resource bars require:
+
+```text
+used
++
+real cap / denominator
++
+current authoritative state
+```
+
+Reset / renewal wording requires real reset authority.
+
+Recommendations require grounded recommendation authority.
+
+Recent Trail excludes browser history and ordinary poll / worker noise.
+
+Home exact resume points activate the underlying typed object. Centre shows object + resumable state; Detail explains exact object truth and decision; Ask operates the same object.
 
 ---
 
-## 4. Current product hierarchy assessment
+## 4. Frozen-page change lock
+
+`docs/FROZEN_PAGE_CHANGE_LOCK_2026-07-16.md`
+
+Current lock:
+
+```text
+DISCOVER     HARD FROZEN
+LIBRARY      HARD FROZEN
+PROFILE      GROUNDED HARD FROZEN
+HOME         HARD FROZEN — ITERATION 10
+```
+
+Default answer to a casual redesign proposal for any of these pages:
+
+```text
+NO
+```
+
+A new backend capability does not automatically justify a new frontend surface.
+
+```text
+BACKEND CAPABILITY
+≠
+FRONTEND PAGE INVENTION
+```
+
+A frozen page may be implemented better, rendered better, made responsive, accessibility-correct, and pixel-polished.
+
+It is not waiting for another conceptual pass.
+
+---
+
+## 5. Product hierarchy assessment
 
 ```text
 STRONGEST PRODUCT IDEA
@@ -294,12 +366,12 @@ STRONGEST INFRASTRUCTURE VISUAL FAMILY
 RESOURCES
 
 
-CURRENTLY GROUNDED / KEEP
+GROUNDED RESEARCH-MEMORY SURFACE
 
 PROFILE
 
 
-CURRENT RE-ENTRY COMPOSITION
+FROZEN RE-ENTRY SURFACE
 
 HOME
 ```
@@ -321,9 +393,25 @@ Discover = strongest product idea
 Library  = strongest product surface
 ```
 
+Home now has a defensible independent role:
+
+```text
+RETURN
+↓
+PICK UP EXACT WORK
++
+GLANCE AT HEADROOM
+↓
+NOTICE GROUNDED RECOMMENDATIONS
+↓
+READ DURABLE RECENT CONSEQUENCES
+↓
+LEAVE HOME
+```
+
 ---
 
-## 5. Product-wide hard constraints
+## 6. Product-wide hard constraints
 
 Never invent:
 
@@ -380,16 +468,16 @@ Durable consequences must write to supported system state before the centre pres
 
 ---
 
-## 6. Visual-first process rule
+## 7. Visual-first process rule
 
-Product-design iteration must proceed:
+Product-design iteration proceeds:
 
 ```text
 FULL-PAGE CLI VISUAL
 ↓
 VISUAL CRITIQUE
 ↓
-STATE FAMILY
+STATE / SCALING ATTACK
 ↓
 PRODUCT REASONING
 ↓
@@ -410,13 +498,11 @@ SMALL WIREFRAME
 
 The CLI wireframe is the visual authority during convergence.
 
-A page must not be declared frozen until the complete full-page visual / state family has been approved or explicitly preserved as an interim freeze.
-
-When documenting a freeze, include the full-scale CLI wireframes rather than compressed topology summaries.
+When documenting a freeze, include the full-scale CLI wireframe rather than only a compressed topology summary.
 
 ---
 
-## 7. Immediate next work
+## 8. Immediate next work
 
 The next page target is:
 
@@ -463,15 +549,16 @@ Its current weakness remains visual communication of construction.
 
 ---
 
-## 8. Recovery rule
+## 9. Recovery rule
 
 When restarting product work from this snapshot:
 
-1. Read `UI_PRODUCT_AUTHORITY.md` first.
-2. Read the corresponding full-scale page appendix before touching a frozen page.
-3. Treat Discover, Resources, and Library as closed unless explicitly reopened or a cross-page contradiction materially forces review.
-4. Treat Profile as grounded and polish-only unless the faculty-profile backend expands.
-5. Treat Home Iteration 06 as interim frozen and preserved; do not regress to command-centre Home or session telemetry.
-6. Continue with Preview.
+1. Read `UI_PRODUCT_AUTHORITY.md`.
+2. Read `FROZEN_PAGE_CHANGE_LOCK_2026-07-16.md`.
+3. Read the corresponding full-scale page appendix before touching a frozen page.
+4. Treat Discover, Library, Profile, and Home as conceptually closed.
+5. For Home, use `HOME_FULL_SCALE_FREEZE_2026-07-16.md` Iteration 10. Do not regress to research-intention Home, Needs You Home, session telemetry, Research Pulse, or the interim Iteration 06 composition.
+6. Note that the older Home section in `UI_PRODUCT_AUTHORITY.md` predates Iteration 10 and requires mechanical alignment before or with Home implementation; the approved Home appendix and frozen-page lock preserve the current Home composition.
+7. Continue with Preview.
 
-The product-design progress through Home is now recoverable from repository documentation without the original chat transcript.
+The product-design progress through the approved Home Iteration 10 freeze is recoverable from repository documentation without the original chat transcript.
