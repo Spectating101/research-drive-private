@@ -68,6 +68,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/proposal", "handler": "library_synthesis_thread_set_proposal"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/conversation", "handler": "library_synthesis_thread_link_conversation"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/discover-handoff", "handler": "library_synthesis_thread_discover_handoff"},
+    {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/collect-missing", "handler": "library_synthesis_thread_collect_missing"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
     {"method": "GET", "path": "/library/synthesis/{id}", "handler": "library_synthesis_get"},
@@ -816,6 +817,15 @@ def _handlers() -> dict[str, Handler]:
     def library_synthesis_thread_discover_handoff(stack, query, payload, params):
         return stack.gateway.synthesis_thread_discover_handoff(params["thread_id"])
 
+    def library_synthesis_thread_collect_missing(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        return stack.gateway.synthesis_thread_collect_missing(
+            params["thread_id"],
+            evidence_ids=list(body.get("evidence_ids") or []),
+            auto_approve_safe=bool(body.get("auto_approve_safe", True)),
+            limit=int(body.get("limit") or 8),
+        )
+
     def library_synthesis_thread_materialisation(stack, query, payload, params):
         return stack.gateway.synthesis_thread_materialisation(params["thread_id"])
 
@@ -1187,6 +1197,7 @@ def _handlers() -> dict[str, Handler]:
         "library_synthesis_thread_set_proposal": library_synthesis_thread_set_proposal,
         "library_synthesis_thread_link_conversation": library_synthesis_thread_link_conversation,
         "library_synthesis_thread_discover_handoff": library_synthesis_thread_discover_handoff,
+        "library_synthesis_thread_collect_missing": library_synthesis_thread_collect_missing,
         "library_synthesis_thread_materialisation": library_synthesis_thread_materialisation,
         "library_synthesis_thread_execute": library_synthesis_thread_execute,
         "library_synthesis_get": library_synthesis_get,

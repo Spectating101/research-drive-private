@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "description": "Synthesis profiles \u2014 merge multi-source lab datasets on explicit join keys (backend-only).",
+  "profiles": [
+    {
+      "id": "jkse_pit_idn_microstructure_revisions",
+      "title": "JKSE PIT \u00d7 IDN microstructure \u00d7 estimate revisions",
+      "type": "jkse_pit_idn",
+      "description": "Regional Indonesia proof: JKSE PIT + IDN FRY microstructure + Refinitiv revisions. One regional depth lane, not the cluster center.",
+      "join_keys": [
+        "ric",
+        "as_of_month",
+        "yahoo_symbol"
+      ],
+      "sources": [
+        {
+          "id": "pit",
+          "label": "Refinitiv JKSE PIT membership",
+          "registry_dataset_id": "refinitiv_index_membership_pit"
+        },
+        {
+          "id": "idn",
+          "label": "IDN FRY daily cross-section",
+          "registry_dataset_id": "idn_fry_daily_cross_section"
+        },
+        {
+          "id": "estimates",
+          "label": "Refinitiv estimate revisions",
+          "registry_dataset_id": "refinitiv_estimate_revision_panel"
+        },
+        {
+          "id": "spine",
+          "label": "Refinitiv entity spine",
+          "registry_dataset_id": "refinitiv_entity_market_spine"
+        }
+      ],
+      "paths": {
+        "refinitiv_run": "2026-07-06-complete",
+        "idn_daily": "data_lake/research_panels/idn_fry_episode/daily_cross_section.parquet",
+        "publish_dir": "data_lake/research_panels/jkse_pit_idn"
+      },
+      "output_subdir": "jkse_pit_idn_microstructure_revisions",
+      "assumptions": [
+        "JKSE PIT month-end membership defines investable IDX universe.",
+        "yahoo_symbol = constituent_ric for .JK listings.",
+        "Monthly IDN FRY aggregates proxy local informed-flow regime.",
+        "Month-end estimate revisions proxy sell-side positioning for covered ID names."
+      ],
+      "research_questions": [
+        "Do bandar/chase regimes in IDN microstructure predict subsequent estimate revisions for JKSE large caps?",
+        "Which PIT JKSE constituents have rich IDN features but no sell-side coverage?",
+        "How stable is revision momentum across Indonesia index rebalance windows?"
+      ]
+    },
+    {
+      "id": "skynet_etherscan_stablecoin",
+      "title": "Skynet + Etherscan stablecoin synthesis",
+      "type": "skynet_etherscan",
+      "description": "Join CertiK Skynet stablecoin leaderboard with Etherscan stablecoin token scrapes on Ethereum contract address. Surfaces linked entities, Skynet-only gaps (procure Etherscan scrape), and Etherscan-only tokens.",
+      "entity_key": "entity_id",
+      "join_keys": [
+        "primary_ethereum_address"
+      ],
+      "sources": [
+        {
+          "id": "skynet",
+          "label": "CertiK Skynet",
+          "registry_dataset_id": "skynet_stablecoin_harvest"
+        },
+        {
+          "id": "etherscan",
+          "label": "Etherscan stablecoin listing",
+          "registry_dataset_id": null
+        }
+      ],
+      "paths": {
+        "skynet_harvest": "stablecoin_skynet/data/harvest_20260622T132438Z/projects",
+        "scrapes_root": "data_lake/spectator_engine/scrapes",
+        "community_dir": "stablecoin_skynet/data/community"
+      },
+      "output_subdir": "skynet_etherscan_stablecoin",
+      "research_questions": [
+        "Which coins score high on Skynet but show low on-chain adoption (holders / mcap)?",
+        "Where does security score diverge from exchange liquidity or open-source posture?",
+        "Which Skynet leaderboard coins still lack an Etherscan token page scrape?"
+      ]
+    },
+    {
+      "id": "stablecoin_trust_engagement",
+      "title": "Stablecoin trust \u2194 engagement (full synthesis)",
+      "type": "trust_engagement",
+      "description": "Cluster Skynet, Etherscan, community growth proxies, code security, DeFiLlama adoption/stress, GDELT entity+sector news, Wikipedia, GitHub activity, and curated incidents into entity\u00d7week/month panels.",
+      "join_keys": [
+        "entity_id"
+      ],
+      "sources": [
+        {
+          "id": "skynet",
+          "label": "CertiK Skynet harvest"
+        },
+        {
+          "id": "etherscan",
+          "label": "Etherscan token scrapes"
+        },
+        {
+          "id": "community",
+          "label": "Google Trends / Reddit / Twitter window"
+        },
+        {
+          "id": "defillama",
+          "label": "Adoption + peg stress"
+        },
+        {
+          "id": "gdelt",
+          "label": "Entity + sector news overlay"
+        },
+        {
+          "id": "wikipedia",
+          "label": "Pageview attention"
+        },
+        {
+          "id": "github",
+          "label": "Security-related repo activity"
+        },
+        {
+          "id": "incidents",
+          "label": "Curated depeg/hack/regulation events"
+        }
+      ],
+      "paths": {
+        "skynet_harvest": "stablecoin_skynet/data/harvest_20260622T132438Z/projects",
+        "scrapes_root": "data_lake/spectator_engine/scrapes",
+        "community_dir": "stablecoin_skynet/data/community",
+        "gdelt_overlay": "data_lake/news_shock_taxonomy/derived/gdelt_crypto_overlay"
+      },
+      "output_subdir": "stablecoin_trust_engagement",
+      "options": {
+        "validate_existing": true
+      },
+      "research_questions": [
+        "Which stablecoins combine rising community attention with deteriorating peg stress?",
+        "Does code security score (cross-section) align with GDELT security-exploit mention spikes?",
+        "Which entities have 5+ source layers for a credible trust vs engagement panel study?",
+        "Where are community growth proxies present but GDELT entity coverage is thin?"
+      ]
+    },
+    {
+      "id": "sec_edgar_company_universe",
+      "title": "SEC EDGAR company ticker universe",
+      "type": "registry_dataset",
+      "description": "Hydrate-first snapshot of SEC company_tickers.json (CIK, ticker, title) for entity spine research.",
+      "registry_dataset_id": "sec_company_tickers",
+      "fallback_local_path": "data_lake/yzu_cluster/acquisitions/07e2b73618c5/raw/company_tickers.json",
+      "research_questions": [
+        "How many distinct CIK / ticker pairs are in the current SEC universe?",
+        "Which title strings look like funds vs operating companies for entity filtering?",
+        "What fraction of tickers collide across CIKs (share-class / dual listing noise)?"
+      ]
+    },
+    {
+      "id": "twse_daily_quotes_snapshot",
+      "title": "TWSE daily quotes snapshot",
+      "type": "registry_dataset",
+      "description": "Held TWSE STOCK_DAY_ALL OpenAPI harvest \u2014 cross-section of Taiwan listed names for microstructure / liquidity desk work.",
+      "registry_dataset_id": "",
+      "fallback_local_path": "data_lake/yzu_cluster/acquisitions/d2dc68ab16cb/raw/STOCK_DAY_ALL",
+      "research_questions": [
+        "Which names dominate trade value on the latest TWSE daily cross-section?",
+        "How wide are open-to-close ranges for high-volume vs low-volume names?",
+        "What share of the board trades below a liquidity floor useful for research universes?"
+      ]
+    }
+  ]
+}

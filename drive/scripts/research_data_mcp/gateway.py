@@ -1515,7 +1515,143 @@ class ResearchDataGateway:
         return self._synthesis_thread_store().set_proposal(thread_id, proposal)
 
     def synthesis_thread_discover_handoff(self, thread_id: str) -> dict:
-        return self._synthesis_thread_store().discover_handoff(thread_id)
+        handoff = self._synthesis_thread_store().discover_handoff(thread_id)
+        intents = list(handoff.get("collect_intents") or [])
+        enriched: list[dict] = []
+        for intent in intents:
+            row = dict(intent)
+            if not row.get("resolvable_hint"):
+                row["resolvable"] = False
+                enriched.append(row)
+                continue
+            try:
+                from scripts.research_data_mcp.discover_collect_plan import (
+                    resolve_discover_collect_plan,
+                )
+
+                plan = resolve_discover_collect_plan(
+                    self.procurement,
+                    self.repo_root,
+                    connector_id=str(row.get("connector_id") or ""),
+                    source_id=str(row.get("source_id") or ""),
+                    candidate_key=str(row.get("candidate_key") or ""),
+                    title=str(row.get("label") or row.get("evidence_id") or ""),
+                    limit=8,
+                )
+                row["resolvable"] = True
+                row["plan_preview"] = {
+                    "job_type": plan.get("job_type"),
+                    "title": plan.get("title"),
+                    "collect_resolution": plan.get("collect_resolution"),
+                    "item_count": len(plan.get("items") or ([] if not plan.get("url") else [plan.get("url")])),
+                    "public_direct_url": bool(plan.get("public_direct_url")),
+                }
+            except Exception as exc:  # noqa: BLE001
+                row["resolvable"] = False
+                row["reason"] = str(exc)[:400]
+            enriched.append(row)
+        handoff["collect_intents"] = enriched
+        handoff["resolvable_collect_count"] = sum(1 for r in enriched if r.get("resolvable"))
+        return handoff
+
+    def synthesis_thread_collect_missing(
+        self,
+        thread_id: str,
+        *,
+        evidence_ids: list[str] | None = None,
+        auto_approve_safe: bool = True,
+        limit: int = 8,
+    ) -> dict:
+        """Submit Discover collect jobs for resolvable missing-evidence intents.
+
+        Does not invent plans: only resolves identities already on the thread.
+        """
+        handoff = self.synthesis_thread_discover_handoff(thread_id)
+        wanted = {str(x) for x in (evidence_ids or []) if str(x).strip()}
+        submitted: list[dict] = []
+        skipped: list[dict] = []
+        from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
+        from scripts.research_data_mcp.procurement_auto_approve import should_auto_approve_plan
+
+        for intent in handoff.get("collect_intents") or []:
+            eid = str(intent.get("evidence_id") or "")
+            if wanted and eid not in wanted:
+                skipped.append({"evidence_id": eid, "reason": "not_selected"})
+                continue
+            if not intent.get("resolvable"):
+                skipped.append(
+                    {
+                        "evidence_id": eid,
+                        "reason": intent.get("reason") or "not_resolvable",
+                    }
+                )
+                continue
+            try:
+                plan = dict(
+                    resolve_discover_collect_plan(
+                        self.procurement,
+                        self.repo_root,
+                        connector_id=str(intent.get("connector_id") or ""),
+                        source_id=str(intent.get("source_id") or ""),
+                        candidate_key=str(intent.get("candidate_key") or ""),
+                        title=str(intent.get("label") or eid),
+                        limit=min(max(int(limit or 8), 1), 25),
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                skipped.append({"evidence_id": eid, "reason": f"plan:{exc}"})
+                continue
+            plan["synthesis_thread_id"] = thread_id
+            plan["discover_handoff"] = True
+            approve = False
+            if auto_approve_safe:
+                try:
+                    approve = bool(
+                        should_auto_approve_plan(
+                            plan, self.repo_root, orchestrator=self.orchestrator
+                        )
+                    )
+                except Exception:  # noqa: BLE001
+                    approve = False
+            request = {
+                "source": "synthesis_discover_handoff",
+                "synthesis_thread_id": thread_id,
+                "evidence_id": eid,
+                "connector_id": intent.get("connector_id") or "",
+                "source_id": intent.get("source_id") or "",
+                "candidate_key": intent.get("candidate_key") or "",
+            }
+            out = self.jobs.submit(
+                plan.get("title") or f"Collect missing {eid}",
+                plan,
+                request,
+                auto_approve=approve,
+            )
+            job = out.get("job") if isinstance(out, dict) else None
+            if not isinstance(job, dict) or not job.get("id"):
+                skipped.append(
+                    {
+                        "evidence_id": eid,
+                        "reason": (out.get("error") if isinstance(out, dict) else "submit_failed"),
+                    }
+                )
+                continue
+            submitted.append(
+                {
+                    "evidence_id": eid,
+                    "job_id": job.get("id"),
+                    "job_status": job.get("status"),
+                    "auto_approved": approve,
+                    "plan": plan.get("job_type") or plan.get("collect_resolution"),
+                }
+            )
+        return {
+            "thread_id": thread_id,
+            "submitted": submitted,
+            "skipped": skipped,
+            "fake_collection": False,
+            "note": "Jobs created only from resolvable missing-evidence identities.",
+        }
 
     def synthesis_thread_materialisation(self, thread_id: str) -> dict:
         return self._synthesis_thread_store().materialisation(thread_id)
