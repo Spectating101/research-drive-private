@@ -5,6 +5,7 @@
   position: sticky;
   bottom: -18px;
   z-index: 4;
+  margin-top: 82px;
   margin-right: -18px;
   margin-left: -18px;
   padding: 12px 18px 18px;
@@ -58,6 +59,7 @@
   /* On mobile the next primary action stays above the fixed app navigation. */
   .s04-card > .s04-actions {
     bottom: 72px;
+    margin-top: 64px;
     margin-right: -18px;
     margin-left: -18px;
     padding: 10px 12px 12px;
