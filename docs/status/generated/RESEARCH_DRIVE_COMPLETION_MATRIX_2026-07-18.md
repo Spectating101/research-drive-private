@@ -127,7 +127,11 @@ A major late-stage correction was identified:
 
 > Ask had been visually present across the product, but too detached from the primary page interactions.
 
-The corrected app-wide contract is:
+The corrected app-wide contract is now documented in:
+
+- `docs/product/ASK_INTEGRATION_APP_WIDE_CONTRACT.md`.
+
+The contract is:
 
 ```text
 PAGE INPUT
@@ -195,6 +199,10 @@ The product avoids claiming query readiness, execution, registration, or empiric
 ### 7. Synthesis destination
 
 The final major product surface now has a coherent end-to-end definition.
+
+### 8. App-wide Ask integration contract
+
+The relationship between page input, Ask interpretation, structured proposals, approval, durable consequences, and cross-page handoffs is now explicitly defined.
 
 ## What is not complete
 
