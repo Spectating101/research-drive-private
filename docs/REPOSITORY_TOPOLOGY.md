@@ -16,18 +16,21 @@ Public and private are not fake versus real. The public runtime is an executable
 
 ### Public
 
-- Release candidate PR: `yzu-cluster#41`
-- Candidate branch: `agent/cluster-runtime-truth`
-- Target branch: `main`
-- The branch contains the cumulative interface line from Synthesis S-04 through Discover, Synthesis thread truth, Library, Resources, Home, and interoperability contracts.
+- Canonical branch: `main`
+- RC1 merge commit: `db75061f229048c063c4201b701e4917fcbfe9e3`
+- Pre-RC1 rollback branch: `archive/pre-rc1-main-2026-07-20`
+- Merged PR: `yzu-cluster#41`
+- `main` contains the cumulative interface line from Synthesis S-04 through Discover, Synthesis thread truth, Library, Resources, Home, and interoperability contracts.
 
-PRs preceding #41 are development provenance, not parallel release candidates.
+PRs preceding #41 are closed development provenance, not parallel release candidates.
 
 ### Private
 
 - Deployment candidate PR: `research-drive-private#1`
 - Candidate branch: `terra/runtime-integration`
+- Current candidate head: `eaa1858d313cd5ee9dc37d2ba149010c2bda570b`
 - Target branch: `main`
+- Pre-runtime rollback branch: `archive/pre-runtime-main-2026-07-20`
 - The branch name is historical. PR #1 is the only production runtime candidate until it is merged or explicitly replaced.
 
 ## Canonical paths
@@ -68,25 +71,26 @@ The private runtime may retain compatibility symlinks or import namespaces, but 
 
 1. One active cumulative release PR per repository.
 2. Experimental and superseded PRs are closed, not deleted; their branches and commits remain available for archaeology or selective recovery.
-3. New work branches from the current cumulative candidate or merged `main`, never from an older page-specific branch.
+3. New public work branches from current `main`; new private runtime fixes branch from or land on the active private candidate until it is merged.
 4. No agent pushes to another agent's active branch without first checking the current head.
 5. Host-specific fixes remain on the private candidate and require automated coverage before acceptance is repeated.
-6. Public interface changes after RC creation must be driven by real payload or rendered evidence, not a new broad redesign cycle.
+6. Public interface changes after RC1 must be driven by real payload or rendered evidence, not a new broad redesign cycle.
 
-## Merge order
+## Remaining release sequence
 
 1. Complete live Optiplex/Windows/GDrive acceptance against private PR #1.
 2. Patch only evidenced host defects and rerun private CI and acceptance.
 3. Merge private PR #1 with a merge commit after preserving the pre-runtime `main` SHA.
-4. Capture a sanitized golden production payload chain.
-5. Replay that payload through the public interface and complete desktop/mobile rendered acceptance.
-6. Merge the public cumulative RC with a merge commit.
+4. Deploy merged private `main` and repeat the success smoke path.
+5. Capture a sanitized golden production payload chain.
+6. Replay that payload through public `main` and complete desktop/mobile rendered acceptance.
+7. Land any evidence-driven public adapter or interface correction through a focused follow-up PR.
 
 ## Rollback
 
 - Never rewrite shared history to perform normal cleanup.
-- Preserve pre-merge SHAs in the release record.
-- Prefer merge commits so either release can be reverted with one merge revert.
+- Public RC1 can be reverted through merge commit `db75061f229048c063c4201b701e4917fcbfe9e3`; the previous main remains at `archive/pre-rc1-main-2026-07-20`.
+- Preserve the private pre-merge SHA and use a merge commit so the runtime release can also be reverted through one merge revert.
 - Closing a PR or removing a transitional file does not delete its branch history.
 
 ## Product identity chain
