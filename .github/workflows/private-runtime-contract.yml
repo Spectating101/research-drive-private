@@ -44,9 +44,17 @@ jobs:
         run: |
           python -m compileall -q drive/scripts/yzu_cluster drive/scripts/research_data_mcp
 
-      - name: Run worker control contracts
+      - name: Run worker control service contracts
         run: |
-          python -m pytest -q tests/test_worker_control.py tests/test_remote_worker.py tests/test_scraper_manifest.py
+          python -m pytest -q tests/test_worker_control.py
+
+      - name: Run remote worker agent contracts
+        run: |
+          python -m pytest -q tests/test_remote_worker.py
+
+      - name: Run scraper manifest contracts
+        run: |
+          python -m pytest -q tests/test_scraper_manifest.py
 
       - name: Run private suite excluding optional HMM tests
         run: |
