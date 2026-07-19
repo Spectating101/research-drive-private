@@ -1,6 +1,7 @@
 import { displayName } from "@/v2/datasetMeta";
 import { candidateKey } from "@/v2/candidateKey";
 import { assetAuthorityContext } from "@/v2/assetAuthority";
+import { connectorContext } from "@/v2/connectorContract";
 import { normalizeSynthesisExecution } from "@/v2/executionLifecycle";
 
 function readinessLabel(dataset) {
@@ -61,26 +62,30 @@ export function buildRailContext({
 
   if (activeObject?.kind === "external_candidate") {
     const row = activeObject.row || {};
-    const sourceId = row.source_id || "";
-    const connectorId = row.connector_id || row.desk_connector_id || "";
+    const contract = connectorContext(row);
     const key = row.candidate_key || candidateKey(row) || activeObject.id || "";
     entity = {
       kind: "external_candidate",
       id: activeObject.id,
       title: activeObject.title,
-      source_id: sourceId || undefined,
-      connector_id: connectorId || undefined,
+      source_id: contract.source_id,
+      connector_id: contract.connector_id,
       candidate_key: key || undefined,
+      status: contract.access_state || undefined,
     };
     selected = {
       title: activeObject.title,
-      source_id: sourceId || undefined,
-      connector_id: connectorId || undefined,
       candidate_key: key || undefined,
-      endpoint: row.endpoint || row.url || undefined,
+      ...contract,
     };
     datasetId = row.dataset_id || row.doi || "";
-    actions = ["add_to_lab", "probe", "ask_about", "schedule_refresh"];
+    actions = ["ask_about"];
+    if (contract.supported) actions.push("probe");
+    if (contract.access_state === "available") actions.unshift("add_to_lab");
+    if (contract.refresh_policy) actions.push("schedule_refresh");
+    if (contract.credential_required) actions.push("configure_access");
+    if (contract.access_state === "rate_limited" && contract.retryable) actions.push("retry_later");
+    if (!contract.supported) actions.push("find_alternative_source");
   } else if (activeObject?.kind === "discover_history") {
     const row = activeObject.row || {};
     const meta = row.meta || {};
@@ -112,17 +117,19 @@ export function buildRailContext({
   } else if (activeObject?.kind === "resource_row") {
     const row = activeObject.row || {};
     const lifecycle = row.lifecycle || {};
+    const sourceContract = row.kind === "source" ? connectorContext(row) : null;
     entity = {
       kind: "resource_row",
       id: activeObject.id,
       title: activeObject.title,
-      status: lifecycle.stage || row.metric || undefined,
+      status: lifecycle.stage || sourceContract?.access_state || row.metric || undefined,
     };
     selected = {
       title: activeObject.title,
       resource_kind: row.kind || undefined,
-      status: lifecycle.stage || row.metric || undefined,
+      status: lifecycle.stage || sourceContract?.access_state || row.metric || undefined,
       detail: row.detail || lifecycle.detail || undefined,
+      ...(sourceContract || {}),
       ...lifecycleSelection(lifecycle),
     };
     actions = ["explain"];
@@ -132,6 +139,8 @@ export function buildRailContext({
     if (lifecycle.retryable && /failed|blocked/.test(String(lifecycle.stage || ""))) {
       actions.push("retry_job");
     }
+    if (sourceContract?.credential_required) actions.push("configure_access");
+    if (sourceContract?.probe_required) actions.push("probe");
   } else if (activeObject?.kind === "library_folder" || activeObject?.kind === "library_intake") {
     entity = { kind: activeObject.kind, id: activeObject.id, title: activeObject.title };
     actions = ["upload", "add_url", "procure"];
