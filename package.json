@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "test:candidate-key": "node --test drive/src/v2/candidateKey.test.js drive/src/v2/discoverTaxonomy.test.js drive/src/v2/discoverProbeEvidence.test.js drive/src/v2/discoverEvaluation.test.js drive/src/v2/discoverLifecycle.test.js drive/src/v2/discoverComposition.test.js drive/src/v2/discoverSufficiency.test.js drive/src/v2/datasetMeta.test.js",
-    "test:runtime-contract": "node --test drive/src/v2/executionLifecycle.test.js drive/src/v2/assetAuthority.test.js drive/src/v2/workerRouting.test.js drive/src/v2/connectorContract.test.js",
+    "test:runtime-contract": "node --test drive/src/v2/executionLifecycle.test.js drive/src/v2/assetAuthority.test.js drive/src/v2/workerRouting.test.js drive/src/v2/connectorContract.test.js drive/src/v2/interoperabilityContract.test.js",
     "test:v2-parity": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js",
     "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js e2e/v2-home.spec.js e2e/v2-library.spec.js",
     "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js",
