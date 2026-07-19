@@ -6,7 +6,9 @@ This repository is the production control-plane authority for Research Drive. It
 
 - Canonical deployment candidate: PR #1
 - Candidate branch: `terra/runtime-integration`
+- Tested runtime head: `439f302a1394e9dfa9c04c2880d3c8a6a352c0db`
 - Target branch: `main`
+- Pre-runtime rollback branch: `archive/pre-runtime-main-2026-07-20`
 - Current `main` is the pre-runtime baseline and is not the production-candidate tip.
 - The branch name is historical; no additional Terra implementation lane is implied.
 
@@ -41,9 +43,11 @@ The import namespace may appear as `scripts.*` when `drive/` is on `PYTHONPATH`.
 2. Namespaced `cluster_*` tables are authoritative for runtime lifecycle, leases, attempts, workers, resources, usage, and registration proof.
 3. Compatibility payloads project runtime truth; they do not independently invent lifecycle state.
 4. `completed`, `registered`, and `query_ready` remain distinct.
-5. Canonical registry mutation requires a matching manifest, verified archive, and registry read-back.
+5. Canonical registry mutation requires a matching manifest, verified archive, registry read-back, a process-safe update lock, and atomic file replacement.
 6. Old attempts cannot heartbeat, report usage, upload artifacts, complete, fail, or register over a newer attempt.
-7. Unknown capacity and progress remain unknown.
+7. Attempt lease renewal remains active through execution, artifact transfer, archive verification, promotion, read-back, and terminal recording.
+8. Remote artifacts are streamed in bounded chunks, incrementally hashed, fenced to one worker attempt, and committed atomically only after complete transfer.
+9. Unknown capacity and progress remain unknown.
 
 ## Host boundary
 
@@ -69,7 +73,7 @@ Host inventory should be configuration-driven and private. Do not copy productio
 ## Acceptance and merge order
 
 1. Run the Optiplex controller and one Windows worker at the exact PR head.
-2. Prove one public `http_manifest` job through materialisation, GDrive verification, registry read-back, and Library readiness.
+2. Prove one public `http_manifest` job through streamed artifact transfer, materialisation, GDrive verification, registry read-back, and Library readiness.
 3. Prove real lease expiry, attempt increment, and rejection of every stale-attempt write.
 4. Record sanitized evidence and any host-specific fixes.
 5. Preserve the pre-runtime `main` SHA.
