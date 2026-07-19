@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -144,18 +145,23 @@ class ClusterRuntimeAdapter:
         self.database_path = Path(database_path)
         self.config = dict(config or {})
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self._store_lock = threading.RLock()
         self.connection = sqlite3.connect(
             self.database_path,
             timeout=30,
             isolation_level=None,
+            check_same_thread=False,
             factory=_NamespacedConnection,
         )
+        self.connection.execute("PRAGMA busy_timeout=30000")
+        self.connection.execute("PRAGMA journal_mode=WAL")
         self.store = InteropStore(self.connection)
         self.controller_id = str((self.config.get("controller") or {}).get("hostname") or "optiplex")
         self.register_controller()
 
     def close(self) -> None:
-        self.connection.close()
+        with self._store_lock:
+            self.connection.close()
 
     def register_controller(self) -> dict[str, Any]:
         """Register or refresh the local controller heartbeat and measured capacity."""
@@ -164,25 +170,27 @@ class ClusterRuntimeAdapter:
         operations = self.config.get("operations") or {}
         if not operations.get("disable_local_http_collect"):
             capabilities.append("http")
-        return self.store.upsert_worker(
-            self.controller_id,
-            pool="optiplex",
-            capabilities=_canonical_capabilities(capabilities),
-            capacity=_controller_capacity(self.database_path),
-        )
+        with self._store_lock:
+            return self.store.upsert_worker(
+                self.controller_id,
+                pool="optiplex",
+                capabilities=_canonical_capabilities(capabilities),
+                capacity=_controller_capacity(self.database_path),
+            )
 
     def join_worker(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         worker_id = str(payload.get("worker_id") or payload.get("id") or "").strip()
         if not worker_id:
             raise ValueError("worker_id is required")
-        return self.store.upsert_worker(
-            worker_id,
-            pool=payload.get("pool") or payload.get("worker_pool"),
-            status=str(payload.get("status") or "online"),
-            capabilities=_canonical_capabilities(payload.get("capabilities") or []),
-            capacity=payload.get("capacity") if isinstance(payload.get("capacity"), Mapping) else {},
-            heartbeat_at=payload.get("heartbeat_at"),
-        )
+        with self._store_lock:
+            return self.store.upsert_worker(
+                worker_id,
+                pool=payload.get("pool") or payload.get("worker_pool"),
+                status=str(payload.get("status") or "online"),
+                capabilities=_canonical_capabilities(payload.get("capabilities") or []),
+                capacity=payload.get("capacity") if isinstance(payload.get("capacity"), Mapping) else {},
+                heartbeat_at=payload.get("heartbeat_at"),
+            )
 
     def requirements(self, plan: Mapping[str, Any]) -> list[str]:
         explicit = plan.get("required_capabilities") or plan.get("capabilities") or []
@@ -193,50 +201,56 @@ class ClusterRuntimeAdapter:
     def ensure(self, job: Mapping[str, Any]) -> dict[str, Any]:
         plan = job.get("plan") if isinstance(job.get("plan"), Mapping) else {}
         status = str(job.get("status") or "pending_approval")
-        return self.store.submit(
-            job_id=str(job["id"]),
-            job_type=str(plan.get("job_type") or "legacy_job"),
-            title=str(job.get("title") or plan.get("title") or ""),
-            required_capabilities=self.requirements(plan),
-            inputs=_plan_inputs(plan),
-            outputs=_plan_outputs(plan),
-            pending_approval=status == "pending_approval",
-            max_attempts=int(plan.get("max_attempts") or 3),
-            retryable=plan.get("retryable") is not False,
-            resource_requirements=(plan.get("resource_requirements") or plan.get("resources")),
-        )
+        with self._store_lock:
+            return self.store.submit(
+                job_id=str(job["id"]),
+                job_type=str(plan.get("job_type") or "legacy_job"),
+                title=str(job.get("title") or plan.get("title") or ""),
+                required_capabilities=self.requirements(plan),
+                inputs=_plan_inputs(plan),
+                outputs=_plan_outputs(plan),
+                pending_approval=status == "pending_approval",
+                max_attempts=int(plan.get("max_attempts") or 3),
+                retryable=plan.get("retryable") is not False,
+                resource_requirements=(plan.get("resource_requirements") or plan.get("resources")),
+            )
 
     def _run_id(self, job_id: str) -> str:
-        row = self.connection.execute("SELECT run_id FROM runs WHERE job_id=?", (job_id,)).fetchone()
+        with self._store_lock:
+            row = self.connection.execute("SELECT run_id FROM runs WHERE job_id=?", (job_id,)).fetchone()
         if row is None:
             raise KeyError(job_id)
         return str(row[0])
 
     def snapshot(self, job_id: str) -> dict[str, Any]:
-        return self.store.snapshot(self._run_id(job_id))
+        with self._store_lock:
+            return self.store.snapshot(self._run_id(job_id))
 
     def approve(self, job_id: str) -> dict[str, Any]:
-        run_id = self._run_id(job_id)
-        current = self.store.snapshot(run_id)
-        if current["status"] == "pending_approval":
-            return self.store.approve(run_id)
-        if current["status"] in {"queued", "assigned", "running"}:
-            return current
+        with self._store_lock:
+            run_id = self._run_id(job_id)
+            current = self.store.snapshot(run_id)
+            if current["status"] == "pending_approval":
+                return self.store.approve(run_id)
+            if current["status"] in {"queued", "assigned", "running"}:
+                return current
         raise ValueError(f"runtime job is {current['status']}, not pending_approval")
 
     def cancel(self, job_id: str, *, message: str = "Job cancelled by user") -> dict[str, Any]:
-        run_id = self._run_id(job_id)
-        current = self.store.snapshot(run_id)
-        if current["status"] not in {"pending_approval", "queued", "retrying"}:
-            raise ValueError(f"runtime job is {current['status']}, not cancellable")
-        return self.store.record(run_id, "blocked", message=message)
+        with self._store_lock:
+            run_id = self._run_id(job_id)
+            current = self.store.snapshot(run_id)
+            if current["status"] not in {"pending_approval", "queued", "retrying"}:
+                raise ValueError(f"runtime job is {current['status']}, not cancellable")
+            return self.store.record(run_id, "blocked", message=message)
 
     def claim_next(self, worker_id: str | None = None, *, lease_seconds: int = 120) -> Claim | None:
         resolved_worker = worker_id or self.controller_id
         if resolved_worker == self.controller_id:
             self.register_controller()
-        self.store.reap_expired()
-        return self.store.claim(resolved_worker, lease_seconds=lease_seconds)
+        with self._store_lock:
+            self.store.reap_expired()
+            return self.store.claim(resolved_worker, lease_seconds=lease_seconds)
 
     def claim_job(self, job_id: str, worker_id: str | None = None, *, lease_seconds: int = 120) -> Claim | None:
         """Claim one named legacy job without disturbing queue order elsewhere."""
@@ -244,21 +258,23 @@ class ClusterRuntimeAdapter:
         resolved_worker = worker_id or self.controller_id
         if resolved_worker == self.controller_id:
             self.register_controller()
-        self.store.reap_expired()
-        return self.store.claim(
-            resolved_worker,
-            lease_seconds=lease_seconds,
-            job_id=job_id,
-        )
+        with self._store_lock:
+            self.store.reap_expired()
+            return self.store.claim(
+                resolved_worker,
+                lease_seconds=lease_seconds,
+                job_id=job_id,
+            )
 
     def start(self, claim: Claim, *, lease_seconds: int = 120) -> dict[str, Any]:
-        return self.store.heartbeat(
-            claim.run_id,
-            claim.worker_id,
-            lease_seconds=lease_seconds,
-            next_stage="running",
-            expected_attempt=claim.attempt,
-        )
+        with self._store_lock:
+            return self.store.heartbeat(
+                claim.run_id,
+                claim.worker_id,
+                lease_seconds=lease_seconds,
+                next_stage="running",
+                expected_attempt=claim.attempt,
+            )
 
     def heartbeat(
         self,
@@ -271,15 +287,16 @@ class ClusterRuntimeAdapter:
         lease_seconds: int = 120,
     ) -> dict[str, Any]:
         progress = progress or {}
-        return self.store.heartbeat(
-            self._run_id(job_id),
-            worker_id,
-            current=progress.get("current"),
-            total=progress.get("total"),
-            next_stage=stage,
-            lease_seconds=lease_seconds,
-            expected_attempt=attempt,
-        )
+        with self._store_lock:
+            return self.store.heartbeat(
+                self._run_id(job_id),
+                worker_id,
+                current=progress.get("current"),
+                total=progress.get("total"),
+                next_stage=stage,
+                lease_seconds=lease_seconds,
+                expected_attempt=attempt,
+            )
 
     def complete(self, claim: Claim, result: Mapping[str, Any] | None) -> dict[str, Any]:
         result = dict(result or {})
@@ -292,77 +309,79 @@ class ClusterRuntimeAdapter:
         fields = result.get("fields") or materialized.get("fields") or materialized.get("field_count")
         entities = result.get("entities") or materialized.get("entities") or materialized.get("entity_count")
 
-        if drive:
-            self.store.record(run_id, "validating", worker_id=claim.worker_id, expected_attempt=claim.attempt)
-            self.store.record(
+        with self._store_lock:
+            if drive:
+                self.store.record(run_id, "validating", worker_id=claim.worker_id, expected_attempt=claim.attempt)
+                self.store.record(
+                    run_id,
+                    "archiving",
+                    worker_id=claim.worker_id,
+                    archive_verified=bool(drive.get("ok")),
+                    expected_attempt=claim.attempt,
+                )
+                if result.get("registry_promotion"):
+                    self.store.record(run_id, "registering", worker_id=claim.worker_id, expected_attempt=claim.attempt)
+
+            completed = self.store.record(
                 run_id,
-                "archiving",
+                "completed",
                 worker_id=claim.worker_id,
-                archive_verified=bool(drive.get("ok")),
+                outputs=outputs or None,
+                manifest_id=str(manifest_id) if manifest_id else None,
+                archive_verified=bool(drive.get("ok")) if drive else None,
+                rows=int(rows) if isinstance(rows, (int, float)) else None,
+                fields=int(fields) if isinstance(fields, (int, float)) else None,
+                entities=int(entities) if isinstance(entities, (int, float)) else None,
                 expected_attempt=claim.attempt,
             )
-            if result.get("registry_promotion"):
-                self.store.record(run_id, "registering", worker_id=claim.worker_id, expected_attempt=claim.attempt)
-
-        completed = self.store.record(
-            run_id,
-            "completed",
-            worker_id=claim.worker_id,
-            outputs=outputs or None,
-            manifest_id=str(manifest_id) if manifest_id else None,
-            archive_verified=bool(drive.get("ok")) if drive else None,
-            rows=int(rows) if isinstance(rows, (int, float)) else None,
-            fields=int(fields) if isinstance(fields, (int, float)) else None,
-            entities=int(entities) if isinstance(entities, (int, float)) else None,
-            expected_attempt=claim.attempt,
-        )
-        evidence = result.get("registration_evidence")
-        if not isinstance(evidence, Mapping) or evidence.get("registry_readback") is not True:
-            return completed
-        required = ("dataset_id", "registry_id", "manifest_id", "vault_path")
-        if not all(str(evidence.get(key) or "").strip() for key in required):
-            return completed
-        if evidence.get("archive_verified") is not True:
-            return completed
-        if manifest_id and str(evidence["manifest_id"]) != str(manifest_id):
-            raise ValueError("registration manifest_id does not match completed run proof")
-        self.store.register(
-            run_id,
-            dataset_id=str(evidence["dataset_id"]),
-            registry_id=str(evidence["registry_id"]),
-            manifest_id=str(evidence["manifest_id"]),
-            vault_path=str(evidence["vault_path"]),
-            archive_verified=True,
-            readiness=str(evidence.get("readiness") or "registered"),
-            title=evidence.get("title"),
-            verification_state=str(evidence.get("verification_state") or "not_checked"),
-            verification_summary=evidence.get("verification_summary"),
-            source=evidence.get("source"),
-            lineage_inputs=evidence.get("lineage_inputs"),
-            source_snapshots=evidence.get("source_snapshots") or (),
-            checksum=evidence.get("checksum"),
-            method_revision=evidence.get("method_revision"),
-            refresh_policy=evidence.get("refresh_policy"),
-            last_refreshed_at=evidence.get("last_refreshed_at"),
-            next_refresh_at=evidence.get("next_refresh_at"),
-            rows=evidence.get("rows"),
-            fields=evidence.get("fields"),
-            entities=evidence.get("entities"),
-            grain=evidence.get("grain"),
-            coverage=evidence.get("coverage"),
-            expected_attempt=claim.attempt,
-        )
-        return self.store.snapshot(run_id)
+            evidence = result.get("registration_evidence")
+            if not isinstance(evidence, Mapping) or evidence.get("registry_readback") is not True:
+                return completed
+            required = ("dataset_id", "registry_id", "manifest_id", "vault_path")
+            if not all(str(evidence.get(key) or "").strip() for key in required):
+                return completed
+            if evidence.get("archive_verified") is not True:
+                return completed
+            if manifest_id and str(evidence["manifest_id"]) != str(manifest_id):
+                raise ValueError("registration manifest_id does not match completed run proof")
+            self.store.register(
+                run_id,
+                dataset_id=str(evidence["dataset_id"]),
+                registry_id=str(evidence["registry_id"]),
+                manifest_id=str(evidence["manifest_id"]),
+                vault_path=str(evidence["vault_path"]),
+                archive_verified=True,
+                readiness=str(evidence.get("readiness") or "registered"),
+                title=evidence.get("title"),
+                verification_state=str(evidence.get("verification_state") or "not_checked"),
+                verification_summary=evidence.get("verification_summary"),
+                source=evidence.get("source"),
+                lineage_inputs=evidence.get("lineage_inputs"),
+                source_snapshots=evidence.get("source_snapshots") or (),
+                checksum=evidence.get("checksum"),
+                method_revision=evidence.get("method_revision"),
+                refresh_policy=evidence.get("refresh_policy"),
+                last_refreshed_at=evidence.get("last_refreshed_at"),
+                next_refresh_at=evidence.get("next_refresh_at"),
+                rows=evidence.get("rows"),
+                fields=evidence.get("fields"),
+                entities=evidence.get("entities"),
+                grain=evidence.get("grain"),
+                coverage=evidence.get("coverage"),
+                expected_attempt=claim.attempt,
+            )
+            return self.store.snapshot(run_id)
 
     def fail(self, claim: Claim, error: str, *, retryable: bool = True) -> dict[str, Any]:
-        return self.store.record(
-            claim.run_id,
-            "failed",
-            worker_id=claim.worker_id,
-            error=error,
-            retryable=retryable,
-            expected_attempt=claim.attempt,
-        )
+        with self._store_lock:
+            return self.store.record(
+                claim.run_id,
+                "failed",
+                worker_id=claim.worker_id,
+                error=error,
+                retryable=retryable,
+                expected_attempt=claim.attempt,
+            )
 
     def project(self, job: Mapping[str, Any]) -> dict[str, Any]:
         """Add authoritative runtime truth while preserving legacy compatibility."""
@@ -391,4 +410,5 @@ class ClusterRuntimeAdapter:
         return projected
 
     def health(self) -> dict[str, Any]:
-        return InteropAPI(self.store).health()
+        with self._store_lock:
+            return InteropAPI(self.store).health()
