@@ -125,6 +125,7 @@ class WorkerControlPlane:
         attempt = int(payload.get("attempt") or 0)
         if not worker_id or attempt < 1:
             raise ValueError("worker_id and positive attempt are required")
+        self._claim_for_attempt(job_id, worker_id, attempt)
         return self.orchestrator.runtime.heartbeat(
             job_id,
             worker_id,
@@ -250,14 +251,22 @@ class WorkerControlPlane:
         worker_id = str(payload.get("worker_id") or "").strip()
         attempt = int(payload.get("attempt") or 0)
         error = str(payload.get("error") or "remote worker failed").strip()
+        retryable = payload.get("retryable") is not False
         if not worker_id or attempt < 1:
             raise ValueError("worker_id and positive attempt are required")
         claim = self._claim_for_attempt(job_id, worker_id, attempt)
         runtime_state = self.orchestrator.runtime.fail(
             claim,
             error,
-            retryable=payload.get("retryable") is not False,
+            retryable=retryable,
         )
+        if (
+            retryable
+            and runtime_state.get("retryable") is not False
+            and int(runtime_state.get("attempt") or attempt) < int(runtime_state.get("max_attempts") or attempt)
+        ):
+            with self.orchestrator.runtime._lock:
+                runtime_state = self.orchestrator.runtime.store.retry(claim.run_id)
         self.orchestrator.reconcile_runtime()
         if runtime_state.get("status") != "retrying":
             job = self.orchestrator.store.get(job_id)
