@@ -34,7 +34,9 @@ jobs:
           python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance
 
       - name: Apply staged lease patch
-        run: python .github/agent_patches/lease_scope.py
+        run: |
+          python .github/agent_patches/lease_scope.py
+          python .github/agent_patches/fix_lease_test_escape.py
 
       - name: Compile runtime modules
         run: python -m compileall -q drive/scripts/yzu_cluster drive/scripts/research_data_mcp
