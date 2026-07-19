@@ -37,6 +37,15 @@ class YzuOrchestrator:
         self.runtime = ClusterRuntimeAdapter(self.store.path, self.cfg)
         self.executor = YzuExecutor(self.repo_root, self.cfg, jobs_root, event_cb=self.store.event)
         self.scheduler = YzuScheduler(self.repo_root, self.cfg)
+        operations = self.cfg.get("operations") or {}
+        self._runtime_lease_seconds = max(2, int(operations.get("runtime_lease_seconds") or 120))
+        default_heartbeat = max(1.0, min(30.0, self._runtime_lease_seconds / 3.0))
+        self._runtime_heartbeat_seconds = max(
+            0.1,
+            float(operations.get("runtime_heartbeat_seconds") or default_heartbeat),
+        )
+        if self._runtime_heartbeat_seconds >= self._runtime_lease_seconds:
+            self._runtime_heartbeat_seconds = max(0.1, self._runtime_lease_seconds / 3.0)
         self._lock = threading.Lock()
         self._running_job: str | None = None
 
@@ -71,6 +80,44 @@ class YzuOrchestrator:
             and self._canonical(job.get("request") or {}) == self._canonical(request)
             and self._canonical(job.get("plan") or {}) == self._canonical(plan)
         )
+
+    def _start_lease_renewal(self, claim: Any) -> tuple[threading.Event, threading.Thread, list[Exception]]:
+        """Renew one claimed attempt while its blocking executor/callback is active."""
+
+        stop = threading.Event()
+        errors: list[Exception] = []
+
+        def _renew() -> None:
+            while not stop.wait(self._runtime_heartbeat_seconds):
+                try:
+                    self.runtime.heartbeat(
+                        claim.job_id,
+                        claim.worker_id,
+                        attempt=claim.attempt,
+                        lease_seconds=self._runtime_lease_seconds,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+                    return
+
+        thread = threading.Thread(
+            target=_renew,
+            name=f"runtime-lease-{claim.job_id}-{claim.attempt}",
+            daemon=True,
+        )
+        thread.start()
+        return stop, thread, errors
+
+    def _stop_lease_renewal(
+        self,
+        state: tuple[threading.Event, threading.Thread, list[Exception]] | None,
+    ) -> list[Exception]:
+        if state is None:
+            return []
+        stop, thread, errors = state
+        stop.set()
+        thread.join(timeout=max(1.0, self._runtime_heartbeat_seconds * 2.0))
+        return errors
 
     def project_job(self, job: dict[str, Any]) -> dict[str, Any]:
         return self.runtime.project(job)
@@ -201,13 +248,14 @@ class YzuOrchestrator:
                 raise RuntimeError(f"worker busy with job {self._running_job}")
             self._running_job = job_id
         job: dict[str, Any] = {}
+        lease_state: tuple[threading.Event, threading.Thread, list[Exception]] | None = None
         try:
             job = self.store.get(job_id)
             if job["status"] == "cancelled":
                 return self.project_job(job)
             self.runtime.ensure(job)
             if claim is None:
-                claim = self.runtime.claim_job(job_id)
+                claim = self.runtime.claim_job(job_id, lease_seconds=self._runtime_lease_seconds)
             if claim is None:
                 # A configured remote pool is not a live worker. Keep this job
                 # queued until a fresh worker advertises the required capability.
@@ -215,16 +263,23 @@ class YzuOrchestrator:
                 return self.get_job(job_id)
             if claim.job_id != job_id:
                 raise RuntimeError("runtime claim does not match the requested legacy job")
-            self.runtime.start(claim)
+            self.runtime.start(claim, lease_seconds=self._runtime_lease_seconds)
+            lease_state = self._start_lease_renewal(claim)
             self.store.update(job_id, "running")
             self.store.event(job_id, "info", f"Execution started (attempt {claim.attempt} on {claim.worker_id})")
-            result = self.executor.execute(job_id, job["plan"])
-            self.store.event(job_id, "info", "Execution completed")
-            if self._on_job_completed:
-                promo = self._on_job_completed(job_id, job["plan"], result)
-                if promo:
-                    result = dict(result or {})
-                    result["registry_promotion"] = promo
+            try:
+                result = self.executor.execute(job_id, job["plan"])
+                self.store.event(job_id, "info", "Execution completed")
+                if self._on_job_completed:
+                    promo = self._on_job_completed(job_id, job["plan"], result)
+                    if promo:
+                        result = dict(result or {})
+                        result["registry_promotion"] = promo
+            finally:
+                lease_errors = self._stop_lease_renewal(lease_state)
+                lease_state = None
+            if lease_errors:
+                raise RuntimeError(f"runtime lease renewal failed: {lease_errors[-1]}")
             self.runtime.complete(claim, result)
             self.store.update(job_id, "completed", result=result)
             return self.get_job(job_id)
@@ -240,6 +295,7 @@ class YzuOrchestrator:
             self.store.update(job_id, "failed", error=str(exc))
             return self.get_job(job_id)
         finally:
+            self._stop_lease_renewal(lease_state)
             with self._lock:
                 if self._running_job == job_id:
                     self._running_job = None
@@ -250,7 +306,7 @@ class YzuOrchestrator:
         self.scheduler_tick()
         for job in self.store.list(limit=200, status="queued"):
             self.runtime.ensure(job)
-        claim = self.runtime.claim_next()
+        claim = self.runtime.claim_next(lease_seconds=self._runtime_lease_seconds)
         if not claim:
             return None
         return self.execute_job(claim.job_id, claim=claim)
