@@ -1,0 +1,38 @@
+name: Repository boundary
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-package-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check public package ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          unexpected="$(find drive/scripts/research_data_mcp drive/scripts/yzu_cluster -type f ! -name README.md -print 2>/dev/null || true)"
+          if [[ -n "$unexpected" ]]; then
+            echo "Production package files are present in public drive/scripts paths:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+          test ! -e drive/scripts/research_query_engine
+
+      - name: Check reference runtime authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/yzu_cluster/interop_contract.py
+          test -f scripts/yzu_cluster/interop_worker.py
+          test -f tests/test_yzu_interop_contract.py
+          test -f docs/REPOSITORY_TOPOLOGY.md

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deskWarm, sendChatMessage } from "@/v2/api";
+import { normalizeActivityStep } from "@/v2/deskIntegration";
 import { loadChatSessionId, loadUserEmail } from "@/v2/deskSession";
 
 function normalizeOutgoingMessage(value, fallback = "") {
@@ -57,7 +58,13 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
       setStatus("Planning response…");
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: "", streaming: true, activity: "Planning response…" },
+        {
+          role: "assistant",
+          text: "",
+          streaming: true,
+          activity: "Planning response…",
+          activityLog: [{ phase: "planning", text: "Planning response…", at: Date.now() }],
+        },
       ]);
 
       try {
@@ -70,15 +77,25 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
             setMessages((m) =>
               m.map((item) =>
                 item.streaming
-                  ? { ...item, text: `${item.text || ""}${chunk}`, activity: "" }
+                  ? { ...item, text: `${item.text || ""}${chunk}` }
                   : item,
               ),
             );
           },
-          onActivity: (line) => {
+          onActivity: (event) => {
+            const line =
+              event && typeof event === "object" ? String(event.text || "") : String(event || "");
             setStatus(line);
             setMessages((m) =>
-              m.map((item) => (item.streaming ? { ...item, activity: line } : item)),
+              m.map((item) =>
+                item.streaming
+                  ? {
+                      ...item,
+                      activity: line,
+                      activityLog: normalizeActivityStep(event, item.activityLog || []),
+                    }
+                  : item,
+              ),
             );
           },
         });
@@ -90,8 +107,11 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         const pendingJobId =
           artifacts.job?.id || statePatch.pending_job_id || out.pending_job_id || null;
         const jobStatus = artifacts.job?.status || statePatch.job_status;
+        const toolName = artifacts.tool_name || out.tool_name || null;
 
         setMessages((m) => {
+          const streaming = m.find((x) => x.streaming);
+          const activityLog = streaming?.activityLog || [];
           const trimmed = m.filter((x) => !x.streaming);
           return [
             ...trimmed,
@@ -99,6 +119,8 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
               role: "assistant",
               text: reply,
               action: out.action,
+              toolName,
+              activityLog,
               candidates: out.candidates || artifacts.candidates || [],
               suggestedPrompts: out.suggested_prompts || artifacts.suggestions || [],
               pendingJobId,
@@ -107,9 +129,24 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           ];
         });
         setStatus(out.campaign_id ? `Campaign ${String(out.campaign_id).slice(0, 8)}…` : "");
-        if (["collect", "acquire", "collect_doi", "approve_collect", "queue"].includes(out.action)) {
+        if (["collect", "acquire", "collect_doi", "approve_collect", "queue", "schedule_refresh"].includes(out.action)) {
           onCollected?.();
-          onToast?.("Queued for collection");
+          onToast?.(
+            out.action === "schedule_refresh"
+              ? "Refresh registered in Discover History"
+              : "Queued for collection",
+          );
+        }
+        const subId =
+          artifacts.subscription_id ||
+          artifacts.subscription?.id ||
+          out.subscription_id ||
+          null;
+        if (subId || out.action === "schedule_refresh") {
+          onCollected?.();
+          if (out.action !== "schedule_refresh") {
+            onToast?.("Refresh registered in Discover History");
+          }
         }
         if (pendingJobId && jobStatus === "pending_approval") {
           onToast?.("Job pending approval — use Approve below");

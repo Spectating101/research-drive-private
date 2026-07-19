@@ -1,0 +1,206 @@
+{
+  "audit": "synthesis_cleanliness",
+  "generated_at": "2026-07-15T17:04:38.703021+00:00",
+  "scope": "re-audit after hydrate/transforms/profiles/handoff ROI",
+  "unit_tests": {
+    "test_synthesis_executor": "6 passed",
+    "test_synthesis_thread_state": "15 passed (approve boundary rewritten for desk vs agent)",
+    "combined": "21 passed"
+  },
+  "checks": {
+    "hydrate_then_execute": {
+      "ok": true,
+      "summary": "restored + executed count=1",
+      "hydrate": {
+        "ok": true,
+        "skipped": null,
+        "reason": null,
+        "error": null,
+        "dataset_id": "sec_company_tickers"
+      },
+      "rows": 1,
+      "output": "data_lake/synthesis/thread_outputs/audit_hydrate_thread_20260715T170438Z/audit_hydrate_20260715T170438Z/output.parquet",
+      "input_bytes": 1056200
+    },
+    "filter_join_execute": {
+      "ok": true,
+      "summary": "join materialised rows=1 frame=[{'bucket': 'mega', 'matched': 2}]",
+      "rows": 1,
+      "frame": [
+        {
+          "bucket": "mega",
+          "matched": 2
+        }
+      ],
+      "output": "data_lake/synthesis/thread_outputs/audit_join_thread_20260715T170438Z/audit_join_20260715T170438Z/output.parquet",
+      "left_dataset_id": "audit_focus_tickers_20260715t170438z"
+    },
+    "handoff_collect_missing": {
+      "ok": true,
+      "summary": "thread=59dad56e9ac3418f job=98199f774122 status=completed",
+      "thread_id": "59dad56e9ac3418f",
+      "intents": [
+        {
+          "evidence_id": "twse_missing",
+          "resolvable": true,
+          "reason": null,
+          "plan_preview": {
+            "job_type": "http_manifest",
+            "title": "Collect TWSE OpenAPI daily quotes",
+            "collect_resolution": "twse_openapi_known_manifest",
+            "item_count": 8,
+            "public_direct_url": true
+          }
+        },
+        {
+          "evidence_id": "x_unresolvable",
+          "resolvable": false,
+          "reason": "'unresolvable_collect (no catalog endpoint or procurement manifest)'",
+          "plan_preview": null
+        }
+      ],
+      "submitted": [
+        {
+          "evidence_id": "twse_missing",
+          "job_id": "98199f774122",
+          "job_status": "queued",
+          "auto_approved": true,
+          "plan": "http_manifest"
+        }
+      ],
+      "skipped": [
+        {
+          "evidence_id": "x_unresolvable",
+          "reason": "not_selected"
+        }
+      ],
+      "job_status": "completed",
+      "job_type": "http_manifest",
+      "collection_null_on_handoff": true
+    },
+    "thread_lifecycle_execute": {
+      "ok": true,
+      "summary": "job=be13bfbc77d9 status=running materialisation=not_materialised",
+      "thread_id": "c86e297e2eef4e3d",
+      "job_id": "be13bfbc77d9",
+      "job_status": "running",
+      "materialisation": {
+        "thread_id": "c86e297e2eef4e3d",
+        "materialisation": "not_materialised",
+        "executed": false,
+        "output_registered": false,
+        "execution_recorded": true,
+        "job_id": "be13bfbc77d9",
+        "output_dataset_id": "synthesis_audit_lifecycle_20260715t170438z",
+        "note": "Honest materialisation only: no output is claimed generated without an execution record on this thread."
+      },
+      "approve_keys": [
+        "id",
+        "created_at",
+        "updated_at",
+        "status",
+        "title",
+        "error",
+        "request",
+        "plan",
+        "result",
+        "events",
+        "candidate_key",
+        "connector_id",
+        "registered_dataset_id",
+        "output_manifest_id"
+      ],
+      "output_dataset_id": "synthesis_audit_lifecycle_20260715t170438z",
+      "follow_up": {
+        "job_status_after_wait": "completed",
+        "materialisation": "registered",
+        "output_registered": true,
+        "note": "Audit wait ended while status=running; job finished and thread materialisation registered shortly after."
+      }
+    },
+    "approve_safe_skips_synthesis": {
+      "ok": true,
+      "summary": "auto_approve=False",
+      "auto": false
+    },
+    "held_data_profiles": {
+      "ok": true,
+      "summary": "n=5 sec=10407 twse=1369",
+      "profile_ids": [
+        "jkse_pit_idn_microstructure_revisions",
+        "skynet_etherscan_stablecoin",
+        "stablecoin_trust_engagement",
+        "sec_edgar_company_universe",
+        "twse_daily_quotes_snapshot"
+      ],
+      "results": {
+        "sec_edgar_company_universe": {
+          "rows": 10407,
+          "path": "data_lake/sec/company_tickers.json",
+          "type": "registry_dataset"
+        },
+        "twse_daily_quotes_snapshot": {
+          "rows": 1369,
+          "path": "data_lake/yzu_cluster/acquisitions/d2dc68ab16cb/raw/STOCK_DAY_ALL",
+          "type": "registry_dataset"
+        }
+      }
+    }
+  },
+  "grades": {
+    "unit_tests": "A",
+    "hydrate_then_execute": "A",
+    "filter_join_transforms": "A",
+    "handoff_collect_loop": "A",
+    "thread_lifecycle_gated_execute": "A",
+    "approve_safe_skips_synthesis": "A",
+    "held_data_profiles": "A",
+    "overall_honesty": "A",
+    "overall_operate_loop": "A",
+    "as_designed_ceiling": "near_ceiling",
+    "residual_product_ceiling": "near_ceiling_for_designed_contract"
+  },
+  "gaps": [
+    "Open LLM invents-joins still out of scope (by design) \u2014 ceiling is gated workspace + curated profiles.",
+    "Join/filter proven on executor path; lifecycle used head+count (transform present) not full join-in-thread.",
+    "Collect-missing completed TWSE http_manifest; evidence node status is not auto-flipped to held (handoff is collect, not graph patch)."
+  ],
+  "proven": {
+    "hydrate_output": "data_lake/synthesis/thread_outputs/audit_hydrate_thread_20260715T170438Z/audit_hydrate_20260715T170438Z/output.parquet",
+    "join_output": "data_lake/synthesis/thread_outputs/audit_join_thread_20260715T170438Z/audit_join_20260715T170438Z/output.parquet",
+    "join_frame": [
+      {
+        "bucket": "mega",
+        "matched": 2
+      }
+    ],
+    "handoff_thread_id": "59dad56e9ac3418f",
+    "collect_job_id": "98199f774122",
+    "collect_job_status": "completed",
+    "lifecycle_job_id": "be13bfbc77d9",
+    "lifecycle_status": "completed",
+    "lifecycle_materialisation": "registered"
+  },
+  "notes": [],
+  "summary": {
+    "checks_passed": 6,
+    "checks_total": 6,
+    "pass_rate": 1.0,
+    "verdict": "Re-audit complete: 6/6 checks evidence-backed. Mid-audit fixed SEC JSON transpose and desk synthesis approve gate (agent/approve-safe still blocked). Lifecycle job completed with materialisation=registered. Near ceiling for the designed gated-workspace contract."
+  },
+  "mid_audit_fixes": [
+    {
+      "id": "sec_json_transpose",
+      "severity": "synthesis_executor._read_frame used pd.read_json on SEC company_tickers, producing a wide transposed frame (no ticker column). Join failed.",
+      "fix": "Parse dict-of-dicts via json.loads \u2192 DataFrame(list(values)) before any pd.read_json.",
+      "regression_test": "tests/test_synthesis_executor.py::test_read_frame_sec_company_tickers_shape"
+    },
+    {
+      "id": "desk_synthesis_approve_blocked",
+      "severity": "gateway.approve_yzu_job raised PermissionError for all synthesis_execute jobs, including desk UI POST /library/jobs/{id}/approve. Researcher could submit but not approve.",
+      "fix": "Allow desk approve via jobs.approve; keep approve-safe and Composer/agent tools blocked.",
+      "severity_grade_impact": "thread_lifecycle was C until fixed; now A after re-run"
+    }
+  ],
+  "refreshed_at": "2026-07-15T17:09:13.273801+00:00"
+}

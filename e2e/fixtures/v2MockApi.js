@@ -246,7 +246,15 @@ export const MOCK_WEB_DISCOVER = {
   index_miss: true,
 };
 
-export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 }, jobsBody = MOCK_JOBS } = {}) {
+export async function mockV2Api(
+  page,
+  {
+    discoverBody = { sections: [], total: 0 },
+    jobsBody = MOCK_JOBS,
+    historyBody = { items: [] },
+    profileBody = { found: true, profile: { name_en: "Test Prof", discipline: "YZU" } },
+  } = {},
+) {
   const liveJobs = {
     jobs: Array.isArray(jobsBody?.jobs) ? [...jobsBody.jobs] : [],
   };
@@ -330,6 +338,9 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
       body: JSON.stringify(MOCK_WEB_DISCOVER),
     }),
   );
+  await page.route("**/library/discover/history?*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(historyBody) }),
+  );
   await page.route("**/library/discover?*", (route) =>
     route.fulfill({
       status: 200,
@@ -344,6 +355,19 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
       body: JSON.stringify(discoverBody),
     }),
   );
+  await page.route("**/library/discover/sources?*", (route) => {
+    const sections = Array.isArray(discoverBody?.sections) ? discoverBody.sections : [];
+    const rows = sections.length
+      ? sections.flatMap((section) => section?.rows || [])
+      : Array.isArray(discoverBody?.results)
+        ? discoverBody.results
+        : [];
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: rows }),
+    });
+  });
   await page.route("**/library/search*", (route) =>
     route.fulfill({
       status: 200,
@@ -442,25 +466,25 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
       body: JSON.stringify({ primed: true, session_id: "warm-test" }),
     });
   });
-  const chatReply = {
-    session_id: "test-session",
-    reply: "Resources context received.",
-    action: "answer",
+  const fulfillChat = (route) => {
+    const body = route.request().postDataJSON?.() || {};
+    const entity = body?.rail_context?.entity || {};
+    const reply =
+      entity.kind === "discover_history"
+        ? `Lifecycle context received for ${entity.title || "selected record"}.`
+        : entity.kind === "external_candidate"
+          ? `Source context received for ${entity.title || "selected candidate"}.`
+          : entity.kind === "synthesis_thread"
+            ? `Synthesis thread context received for ${entity.title || "selected thread"}.`
+          : "Resources context received.";
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ session_id: "test-session", reply, action: "answer" }),
+    });
   };
-  await page.route("**/api/library/chat/stream", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(chatReply),
-    }),
-  );
-  await page.route("**/api/library/chat", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(chatReply),
-    }),
-  );
+  await page.route("**/api/library/chat/stream", fulfillChat);
+  await page.route("**/api/library/chat", fulfillChat);
   await page.route("**/yzu/acquisitions*", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ acquisitions: [] }) }),
   );
@@ -468,7 +492,7 @@ export async function mockV2Api(page, { discoverBody = { sections: [], total: 0 
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ found: true, profile: { name_en: "Test Prof", discipline: "YZU" } }),
+      body: JSON.stringify(profileBody),
     }),
   );
   await page.route("**/query/*", (route) =>

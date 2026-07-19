@@ -1,0 +1,37 @@
+{
+  "session": "spectator-niche-1784051917",
+  "scrape_job": "50b74df7407d",
+  "scrape_status": "completed",
+  "pool": "windows_lab",
+  "extract_path": "data_lake/spectator_engine/scrapes/50b74df7407d/extract.json",
+  "history_status": "completed",
+  "http_collect_resolution": "catalog_browser_scrape_fallback",
+  "pending_after_hygiene_note": "cancelled 9 stale >=14d earlier",
+  "spectator_meaning": {
+    "SpectatorEngine": "Dispatcher that runs allowlisted Playwright/Node scrapers across worker pools",
+    "spectator_remote_machine": "SSH host `spectator` in worker_pools (ssh_linux) \u2014 personal box, enabled=false; not used for procurement routing",
+    "windows_lab": "Live scrape pool (ssh_windows); probe=True; pool_order default",
+    "optiplex": "Local controller; scrape disabled (disable_local_scrape)",
+    "allowlist": [
+      "generic_url_scrape",
+      "cake_board",
+      "yourator_board",
+      "tw_boards_refresh"
+    ]
+  },
+  "twse_browser_scrape": {
+    "job": "50b74df7407d",
+    "status": "completed",
+    "pool": "windows_lab",
+    "extract_path": "data_lake/spectator_engine/scrapes/50b74df7407d/extract.json"
+  },
+  "cake_board_attempt": {
+    "job": "4e38dd02c5d5",
+    "status": "failed",
+    "note": "windows_lab cd/path encoding failure for molina cake script \u2014 niche board path not green yet"
+  },
+  "hygiene": {
+    "cancelled_stale_ge_14d": 9,
+    "pending_left_note": "synthesis_execute + recent source_probe"
+  }
+}

@@ -32,9 +32,33 @@ jobs:
           # Match Pages artifact base path without poisoning the mock e2e dev server.
           YZU_PAGES: "true"
 
-      - name: Mock e2e (no live API)
-        run: npm run test:v2-mock
-        env:
+      - name: Mock e2e — Home
+        run: mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-home.spec.js --reporter=dot
+        env: &mock-env
           CI: "true"
           # Explicit: mock desk must serve at / so Playwright webServer url is 2xx.
           YZU_PAGES: "false"
+
+      - name: Mock e2e — Parity
+        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-parity.spec.js --reporter=dot
+        env: *mock-env
+
+      - name: Mock e2e — Discover
+        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-discover.spec.js --reporter=dot
+        env: *mock-env
+
+      - name: Mock e2e — Library
+        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-library.spec.js --reporter=dot
+        env: *mock-env
+
+      - name: Mock e2e — Preview
+        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-preview.spec.js --reporter=dot
+        env: *mock-env
+
+      - name: Mock e2e — Synthesis
+        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-synthesis.spec.js --reporter=dot
+        env: *mock-env
+
+      - name: Mock e2e — Resources
+        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-resources.spec.js --reporter=dot
+        env: *mock-env

@@ -1,0 +1,31 @@
+name: Synthesis UI Validation
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  synthesis-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run build
+        env:
+          YZU_PAGES: "true"
+      - name: Run Synthesis suite
+        run: mkdir -p .tmp-pw artifacts/synthesis-renders && TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-synthesis.spec.js --reporter=line
+        env:
+          CI: "true"
+          YZU_PAGES: "false"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthesis-s04-render-evidence
+          path: |
+            artifacts/synthesis-renders
+            test-results
+          if-no-files-found: warn

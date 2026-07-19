@@ -23,18 +23,18 @@ test.describe("v2 Home continuation surface", () => {
 
   test("Continue opens dataset preview and keeps rail grounded", async ({ page }) => {
     const cont = page.getByTestId("home-continue");
-    await expect(cont.locator(".rd-v2-home-continue-id")).toBeVisible();
+    await expect(cont.locator(".rd-v2-home-continue-id")).toBeAttached();
     const title = (await cont.locator("h2").innerText()).trim();
     const datasetId = (await cont.locator(".rd-v2-home-continue-id").innerText()).trim();
     await cont.getByRole("button", { name: "Continue" }).click();
 
-    const modal = page.locator(".rd-v2-preview-modal");
-    await expect(modal).toBeVisible();
-    await expect(modal).toContainText(title);
+    const preview = page.getByRole("dialog", { name: `${title} preview` });
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText(title);
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Home" })).toBeVisible();
 
-    await modal.getByRole("button", { name: "Close" }).click();
-    await expect(modal).toHaveCount(0);
+    await preview.getByRole("button", { name: "Close preview" }).click();
+    await expect(preview).toHaveCount(0);
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.locator(".rd-v2-rail-selection")).toContainText(title);
@@ -66,22 +66,20 @@ test.describe("v2 Home continuation surface", () => {
     await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
   });
 
-  test("attention queue shows only actionable work", async ({ page }) => {
+  test("attention queue shows only decisions that need the researcher", async ({ page }) => {
     const queue = page.getByRole("region", { name: "Attention queue" });
     await expect(queue).toContainText(/needing action|Clear/i);
     await expect(queue.locator('[data-kind="approval"]')).toContainText("MOPS financial statements");
     await expect(queue.locator('[data-kind="approval"]')).toContainText("1 pending");
-    await expect(queue.locator('[data-kind="procurement"]')).toContainText("Procurement in progress");
-    await expect(queue.locator('[data-kind="procurement"]')).toContainText(/running/i);
+    await expect(queue.locator('[data-kind="procurement"]')).toHaveCount(0);
     await expect(queue.locator('[data-kind="library"]')).toHaveCount(0);
     await expect(queue.locator('[data-kind="discover"]')).toHaveCount(0);
-    await expect(queue.getByRole("button", { name: /^Open / })).toHaveCount(2);
-    await expect(queue.getByRole("button", { name: /^Ask about / })).toHaveCount(2);
+    await expect(queue.getByRole("button", { name: /^Review / })).toHaveCount(1);
   });
 
-  test("Open on approval attention selects the Resources job rail", async ({ page }) => {
+  test("Review on approval attention selects the Resources job rail", async ({ page }) => {
     const queue = page.getByRole("region", { name: "Attention queue" });
-    await queue.locator('[data-kind="approval"]').getByRole("button", { name: /^Open Approval/ }).click();
+    await queue.locator('[data-kind="approval"]').getByRole("button", { name: /^Review Approval/ }).click();
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Resources" })).toBeVisible();
@@ -91,22 +89,15 @@ test.describe("v2 Home continuation surface", () => {
     await expect(rail.getByRole("button", { name: "Approve job" })).toBeVisible();
   });
 
-  test("Ask on approval attention sends grounded Home context", async ({ page }) => {
+  test("reviewed attention keeps the shared Ask rail available", async ({ page }) => {
     const queue = page.getByRole("region", { name: "Attention queue" });
-    await queue.locator('[data-kind="approval"]').getByRole("button", { name: /^Ask about Approval/ }).click();
+    await queue.locator('[data-kind="approval"]').getByRole("button", { name: /^Review Approval/ }).click();
 
     const rail = page.locator("aside.rd-v2-rail");
+    await rail.getByRole("tab", { name: "Ask" }).click();
     await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("MOPS financial statements");
-    await expect(rail.locator(".rd-v2-ask-ctx")).toContainText("Home · MOPS financial statements");
-    await expect(page.getByTestId("ask-messages")).toContainText("Review the pending procurement approval");
-    await expect(page.getByTestId("ask-messages")).toContainText("MOPS financial statements");
-
-    await rail.getByRole("tab", { name: "Detail" }).click();
-    await expect(rail.getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "true");
-    await expect(rail).toContainText("Type");
-    await expect(rail).toContainText("Approval");
-    await expect(rail).toContainText("Review source, cost, destination");
+    await expect(rail.locator(".rd-v2-ask-ctx")).toContainText("Resources · MOPS financial statements");
   });
 
   test("recent assets remain below attention", async ({ page }) => {
@@ -115,10 +106,9 @@ test.describe("v2 Home continuation surface", () => {
     await expect(recent.locator(".rd-v2-catalog button.row").first()).toBeVisible();
   });
 
-  test("suggested asks render from faculty profile", async ({ page }) => {
-    const asks = page.locator(".rd-v2-home-suggested");
-    await expect(asks).toBeVisible();
-    await expect(asks.getByRole("button").first()).toBeVisible();
+  test("Home does not duplicate the persistent Ask rail", async ({ page }) => {
+    await expect(page.locator(".rd-v2-home-suggested")).toHaveCount(0);
+    await expect(page.locator("aside.rd-v2-rail").getByRole("tab", { name: "Ask" })).toBeVisible();
   });
 });
 

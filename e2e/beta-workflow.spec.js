@@ -61,7 +61,7 @@ test.describe("beta workflow @ live-desk", () => {
   test("2 — library lists registry datasets", async ({ page }) => {
     await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "domcontentloaded" });
     await page.locator(".rd-v2-shell").waitFor({ timeout: 30_000 });
-    const rows = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]');
+    const rows = page.locator('.rd-v2-library-asset[data-kind="dataset"]');
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     expect(await rows.count()).toBeGreaterThan(0);
   });
@@ -73,12 +73,12 @@ test.describe("beta workflow @ live-desk", () => {
     await expect(page.locator(".rd-v2-profile-hint", { hasText: FACULTY_EMAIL })).toBeVisible();
   });
 
-  test("4 — discover search pipeline", async ({ page }) => {
+  test("4 — discover search and evidence evaluation", async ({ page }) => {
     await page.goto("/?tab=browse&q=TWSE", { waitUntil: "domcontentloaded" });
     await page.locator(".rd-v2-shell").waitFor({ timeout: 30_000 });
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
-    const stage = page.locator(".rd-v2-discover-pipeline, .rd-v2-pipeline-bar").first();
-    await expect(stage).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "Discover result summary" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "Sources beyond your lab" })).toBeVisible();
   });
 
   test("5 — resources desk connection", async ({ page }) => {
@@ -91,12 +91,12 @@ test.describe("beta workflow @ live-desk", () => {
   test("6 — dataset detail and preview", async ({ page }) => {
     await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "domcontentloaded" });
     await page.locator(".rd-v2-shell").waitFor({ timeout: 30_000 });
-    const row = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]').first();
+    const row = page.locator('.rd-v2-library-asset[data-kind="dataset"]').first();
     await row.waitFor({ state: "visible", timeout: 30_000 });
     await row.click();
     await expect(page.locator(".rd-v2-rail-toggle button.on", { hasText: "Detail" })).toBeVisible();
     await page.locator("aside .rd-v2-rail-sticky").getByRole("button", { name: "Preview rows" }).click();
-    await expect(page.locator(".rd-v2-preview-modal")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("dialog", { name: /preview/i })).toBeVisible({ timeout: 20_000 });
     await page.keyboard.press("Escape");
   });
 

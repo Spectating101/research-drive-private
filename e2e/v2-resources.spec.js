@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 import { mockV2Api, waitForShell } from "./fixtures/v2MockApi.js";
 import { MOCK_RESOURCES_ROLLUP } from "./fixtures/mockResourcesRollup.js";
 
+function capacityInventory(page) {
+  return page.getByRole("region", { name: "Capacity and access" });
+}
+
+async function openSourceRoutes(page) {
+  await capacityInventory(page).locator(".rd-v2-res-routes > summary").click();
+}
+
 test.describe("v2 Resources tab", () => {
   test.beforeEach(async ({ page }) => {
     await mockV2Api(page);
@@ -10,17 +18,20 @@ test.describe("v2 Resources tab", () => {
     await waitForShell(page);
   });
 
-  test("Overview shows key resources", async ({ page }) => {
+  test("Overview shows capacity, value, and progressive source routes", async ({ page }) => {
     await expect(page.locator("main").getByRole("heading", { name: "Resources", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Overview", exact: true })).toBeVisible();
     const main = page.locator("main");
-    const inventory = main.getByRole("region", { name: "Key resources" });
-    await expect(inventory).toContainText("Key resources");
+    const inventory = capacityInventory(page);
+    await expect(inventory).toContainText("Capacity & access");
     await expect(inventory).toContainText("Storage");
     await expect(inventory).toContainText("Accounts & limits");
-    await expect(inventory).toContainText("Source routes");
+    await expect(inventory).toContainText("Available source routes");
     await expect(inventory).not.toContainText("Work capacity");
     await expect(inventory.locator('[data-kind="usage"]', { hasText: "Drive vault" })).toBeVisible();
+    await expect(inventory.locator('[data-kind="source"]')).toHaveCount(5);
+    await expect(inventory.locator('[data-kind="source"]', { hasText: "Market & filings" })).not.toBeVisible();
+    await openSourceRoutes(page);
     await expect(inventory.locator('[data-kind="source"]', { hasText: "GDELT" })).toHaveCount(0);
     await expect(inventory.locator('[data-kind="source"]', { hasText: "Market & filings" })).toBeVisible();
     await expect(inventory.locator('[data-kind="source"]', { hasText: "Catalog APIs" })).toBeVisible();
@@ -37,7 +48,8 @@ test.describe("v2 Resources tab", () => {
   });
 
   test("inventory row opens the matching rail resource", async ({ page }) => {
-    const inventory = page.getByRole("region", { name: "Key resources" });
+    const inventory = capacityInventory(page);
+    await openSourceRoutes(page);
     await inventory.locator('[data-kind="source"]', { hasText: "Catalog APIs" }).click();
 
     const rail = page.getByRole("complementary", { name: "Inspector" });
@@ -48,7 +60,7 @@ test.describe("v2 Resources tab", () => {
   });
 
   test("selected inventory resource can be sent to Ask from the rail", async ({ page }) => {
-    const inventory = page.getByRole("region", { name: "Key resources" });
+    const inventory = capacityInventory(page);
     await inventory.locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
 
     const rail = page.getByRole("complementary", { name: "Inspector" });
@@ -58,11 +70,11 @@ test.describe("v2 Resources tab", () => {
     await expect(page.getByTestId("ask-messages")).toContainText("Explain this metered Resources provider");
   });
 
-  test("right rail starts with operational posture", async ({ page }) => {
+  test("right rail starts with lab capacity context", async ({ page }) => {
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("Resources");
-    await expect(rail).toContainText("Operational posture");
-    await expect(rail).toContainText("Desk state");
+    await expect(rail).toContainText("Lab capacity");
+    await expect(rail).toContainText("Current capacity");
     await expect(rail).toContainText(/items? need attention|Desk ready|collection.*running/i);
     await expect(rail.getByRole("button", { name: "Open activity" })).toBeVisible();
     await expect(rail).not.toContainText("Select a key resource");
@@ -93,21 +105,21 @@ test.describe("v2 Resources tab", () => {
   });
 
   test("selecting meter row shows rail drill-down", async ({ page }) => {
-    await page.getByRole("region", { name: "Key resources" }).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
+    await capacityInventory(page).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
     await expect(
       page.locator("aside").getByRole("button", { name: "View activity →" }),
     ).toBeVisible();
   });
 
   test("View activity switches to Activity tab filtered", async ({ page }) => {
-    await page.getByRole("region", { name: "Key resources" }).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
+    await capacityInventory(page).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
     await page.locator("aside").getByRole("button", { name: "View activity →" }).click();
     await expect(page.getByRole("button", { name: /Remote table events/ })).toBeVisible();
     await expect(page.getByText("get Taiwan gov panel")).toBeVisible();
   });
 
   test("Ask about account limit carries Resources context into rail", async ({ page }) => {
-    await page.getByRole("region", { name: "Key resources" }).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
+    await capacityInventory(page).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await rail.getByRole("button", { name: "Ask about this →" }).click();
     await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
@@ -163,5 +175,5 @@ test("v2 Resources loading state does not flash account summary", async ({ page 
 
   releaseResources();
   await waitForShell(page);
-  await expect(main.getByRole("region", { name: "Key resources" })).toBeVisible();
+  await expect(main.getByRole("region", { name: "Capacity and access" })).toBeVisible();
 });

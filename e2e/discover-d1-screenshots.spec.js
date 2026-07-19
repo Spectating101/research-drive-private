@@ -97,7 +97,7 @@ test.describe("Discover D1 screenshots", () => {
     await waitForShell(page);
     await page.locator(".rd-v2-search-pill input").fill("csv");
     await page.locator(".rd-v2-catalog button.row.rd-v2-discover-candidate").first().click();
-    await page.locator("aside.rd-v2-rail .rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();
+    await page.getByTestId("discover-eval-actions").getByRole("button", { name: "Probe source" }).click();
     await expect(page.locator('.rd-v2-catalog button.row[data-kind="external-probed"]')).toHaveCount(1);
     await shot(page, "desktop-1440x900-external-probed");
   });

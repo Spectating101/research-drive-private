@@ -1,44 +1,46 @@
-# Research Drive (procurement)
+# Research Drive public product slice
 
-Acquire, catalog, vault, and serve datasets for the professor desk.
+This `drive/` tree in `Spectating101/yzu-cluster` is the **public product and review slice** of Research Drive.
 
-## Owns
+It does not own or deploy the production control plane. The full API, MCP, orchestrator, workers, scrapers, registry mutation, archive integration, and lab data paths live in the private repository `Spectating101/research-drive-private`.
 
-- `drive/scripts/yzu_cluster/` — job queue, Windows fleet, worker
-- `drive/scripts/research_data_mcp/` — MCP tools, Composer chat, flywheel
-- `drive/scripts/research_query_engine/` — HTTP API `:8765`
-- `drive/src/v2/` — Research Drive React UI (Vite `:5178`)
-- `drive/config/` — registry (write), collection queue, GDrive partitions, GDELT fleet
-- `drive/docs/` — **canonical desk documentation** (databank state, activation backlog)
+See [`../docs/REPOSITORY_TOPOLOGY.md`](../docs/REPOSITORY_TOPOLOGY.md) for the canonical public/private boundary.
 
-## Documentation (neutral inventory vs activation)
+## Public authorities in this tree
 
-| Doc | Role |
-|-----|------|
-| [`docs/DATABANK_STATE.md`](docs/DATABANK_STATE.md) | **What we have** — equal-weight inventory, paths, coverage |
-| [`docs/DESK_ACTIVATION.md`](docs/DESK_ACTIVATION.md) | **What to do next** — operational queue; filter via faculty profile |
-| `docs/status/generated/platform_progress.json` | Machine-readable progress + incomplete items |
+- `src/v2/` — Research Drive React interface
+- public demo and fixture configuration
+- public design, product, and rendered-review material
+- frontend contract tests and browser evidence
 
-Refresh: `python3 drive/scripts/sync_drive_platform_state.py`
+The executable public interoperability reference lives at repository root under:
 
-API: `GET /library/platform/state` · `GET /health` (cluster block includes doc pointers)
+- `../scripts/yzu_cluster/`
+- `../tests/test_yzu_interop_*.py`
 
-## Entry points
+## Not authoritative here
+
+Historical branches may contain copied or transitional Python facades under `drive/scripts/`. They are not the deployed backend and must not be treated as a second control plane.
+
+Production source edits belong in the private repository under:
+
+- `drive/scripts/research_data_mcp/`
+- `drive/scripts/research_query_engine/`
+- `drive/scripts/yzu_cluster/`
+- `drive/config/`
+- `kernel/`
+
+A public facade that imports packages absent from this repository is transitional, not runnable product authority.
+
+## Frontend entry point
 
 ```bash
-bash drive/scripts/run_yzu_cluster.sh          # API + UI + worker
-bash drive/scripts/run_research_query_engine.sh
-bash drive/scripts/run_research_data_mcp.sh
-python3 drive/scripts/sync_drive_platform_state.py
-bash drive/scripts/run_data_collection_queue.py
+npm install
+npm run dev
 ```
 
-Legacy paths under `scripts/` are symlinks into this tree.
+The Vite frontend can use mock/demo fixtures by itself. Live Composer, Library, Resources, Synthesis execution, and registry state require the private API on port `8765`.
 
-## Contract with Alpha
+## Release rule
 
-- **Writes** `drive/config/research_query_registry.json` (symlinked at `config/`)
-- **Writes** `data_lake/collection/` and bulk panels on Transcend
-- Alpha **reads** registry only via `kernel/sharpe_kernel/platform_bridge.py`
-
-See `../REPO_LAYOUT.md`.
+Only the cumulative public release candidate may change the product surface. Older page-specific branches and PRs are retained as history, not as parallel product authorities.

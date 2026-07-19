@@ -1,5 +1,8 @@
 /** Resources — running jobs, stack, storage (sources/layers live in deskSourcesManifest.js). */
 
+import { normalizeExecutionLifecycle } from "./executionLifecycle.js";
+import { evaluateJobRouting } from "./workerRouting.js";
+
 function fracProgress(text) {
   const m = String(text || "").match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
   if (!m) return null;
@@ -13,17 +16,28 @@ function rowBase(row) {
   return { ok: true, warn: false, ...row };
 }
 
-const ACTIVE_JOB_STATUS = new Set(["running", "pending_approval", "queued"]);
-
 export function buildRunningRows({ health, ops, jobs = [] }) {
   const list = [];
   const desk = health?.desk || {};
   const cq = ops?.collection_queue;
   const dh = ops?.datacite_harvest;
+  const sharedWorkers = health?.cluster?.workers ?? desk?.workers ?? ops?.workers ?? [];
 
-  const activeJobs = jobs.filter((job) => ACTIVE_JOB_STATUS.has(String(job.status || "")));
-  for (const job of activeJobs.slice(0, 8)) {
-    const st = job.status || "unknown";
+  const activeJobs = jobs
+    .map((job) => {
+      const normalized = normalizeExecutionLifecycle(job);
+      const routing = evaluateJobRouting(job, job?.worker_inventory ?? job?.available_workers ?? sharedWorkers);
+      const lifecycle = {
+        ...normalized,
+        routing,
+        ok: normalized.ok && !routing.warn,
+        warn: normalized.warn || routing.warn,
+        detail: [normalized.detail, routing.warn ? routing.detail : null].filter(Boolean).join(" · ") || null,
+      };
+      return { job, lifecycle };
+    })
+    .filter(({ lifecycle }) => lifecycle.visible);
+  for (const { job, lifecycle } of activeJobs.slice(0, 8)) {
     const title = job.plan?.title || job.type || job.name || job.id;
     list.push(
       rowBase({
@@ -31,11 +45,14 @@ export function buildRunningRows({ health, ops, jobs = [] }) {
         kind: "active",
         key: `job-${job.id}`,
         label: title,
-        metric: st.replace(/_/g, " "),
-        ok: st === "completed" || st === "running",
-        warn: st === "pending_approval" || st === "queued",
+        metric: lifecycle.label,
+        detail: lifecycle.detail,
+        progress: lifecycle.progress,
+        ok: lifecycle.ok,
+        warn: lifecycle.warn,
+        lifecycle,
         job,
-        priority: st === "pending_approval" ? 0 : st === "running" ? 1 : 2,
+        priority: lifecycle.priority,
       }),
     );
   }

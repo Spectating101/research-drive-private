@@ -1,0 +1,61 @@
+name: Runtime contracts
+
+on:
+  pull_request:
+    paths:
+      - "drive/src/v2/**"
+      - "scripts/yzu_cluster/**"
+      - "tests/test_yzu_interop_*.py"
+      - "docs/product/CLUSTER_RUNTIME_INTEROP_CONTRACT.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/runtime-contract.yml"
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "drive/src/v2/**"
+      - "scripts/yzu_cluster/**"
+      - "tests/test_yzu_interop_*.py"
+      - "docs/product/CLUSTER_RUNTIME_INTEROP_CONTRACT.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/runtime-contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify backend orchestration contracts
+        run: python -m unittest discover -s tests -p "test_yzu_interop_*.py" -v
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify frontend runtime contracts
+        run: npm run test:runtime-contract
+
+      - name: Build Research Drive
+        run: npm run build

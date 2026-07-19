@@ -8,15 +8,6 @@ import {
   libraryAssetCounts,
 } from "@/v2/libraryEstate";
 
-function countSummary(counts) {
-  const parts = [];
-  if (counts.queryReady) parts.push(`${counts.queryReady} ready to query`);
-  if (counts.connected) parts.push(`${counts.connected} connected`);
-  if (counts.metadataOnly) parts.push(`${counts.metadataOnly} metadata only`);
-  if (counts.unknown) parts.push(`${counts.unknown} readiness unknown`);
-  return parts.join(" · ");
-}
-
 function LibraryFilterMenu({ mode, counts, onChange }) {
   return (
     <details className="rd-v2-library-control-menu" data-testid="library-filter-menu">
@@ -135,16 +126,17 @@ export function LibraryEstateBrowser({
   const folders = rows.filter((item) => item?.kind === "folder");
   const assets = rows.filter((item) => item?.kind !== "folder");
   const counts = libraryAssetCounts(branchDatasets);
+  const rootTitle = "All holdings";
 
   return (
     <div className="rd-v2-library-estate" data-testid="library-estate-browser">
       <section className="rd-v2-library-estate-summary" aria-label="Library estate summary">
         <div>
-          <p className="rd-v2-library-estate-eyebrow">{isRoot ? "Lab library" : "Collection"}</p>
-          <h2>{currentFolderName}</h2>
+          <p className="rd-v2-library-estate-eyebrow">{isRoot ? "Research data estate" : "Folder"}</p>
+          <h2>{isRoot ? rootTitle : currentFolderName}</h2>
           <p className="rd-v2-library-estate-scope">
-            {counts.total} dataset{counts.total === 1 ? "" : "s"}
-            {countSummary(counts) ? ` · ${countSummary(counts)}` : ""}
+            {counts.total} asset{counts.total === 1 ? "" : "s"}
+            {counts.queryReady ? ` · ${counts.queryReady} ready to use` : ""}
           </p>
           {!isRoot && branchNote ? <p className="rd-v2-library-estate-note">{branchNote}</p> : null}
         </div>
@@ -158,8 +150,8 @@ export function LibraryEstateBrowser({
         <section className="rd-v2-library-estate-section" aria-label="Collections">
           <header className="rd-v2-library-estate-section-head">
             <div>
-              <p>Collections</p>
-              <span>{isRoot ? "How the lab's data estate is organized" : "Folders in this collection"}</span>
+              <p>Folders</p>
+              <span>{isRoot ? "Organize and browse the lab's data estate" : "Folders in this collection"}</span>
             </div>
             <b>{folders.length}</b>
           </header>
@@ -175,8 +167,8 @@ export function LibraryEstateBrowser({
         <section className="rd-v2-library-estate-section" aria-label="Assets">
           <header className="rd-v2-library-estate-section-head">
             <div>
-              <p>Assets</p>
-              <span>Owned datasets and registered research objects</span>
+              <p>Data assets</p>
+              <span>Registered datasets and reusable research objects</span>
             </div>
             <b>{assets.length}</b>
           </header>

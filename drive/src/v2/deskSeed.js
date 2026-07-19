@@ -38,17 +38,19 @@ const NEUTRAL_DESK = {
   worker_pools: { busy: 0, total: 0 },
 };
 
-/** Live desk health — never blend demo job fiction when API reports ok. */
+/** Live desk health — never blend demo job fiction when API reports live desk. */
 export function mergeHealth(live) {
   const liveOk = live?.status === "ok";
-  if (live && (liveOk || live.datasets || live.desk)) {
+  const liveDesk = Boolean(live?.desk && typeof live.desk === "object");
+  if (live && (liveOk || live.datasets != null || liveDesk)) {
     return {
       ...live,
       status: live.status || (liveOk ? "ok" : "unknown"),
       datasets: live.datasets != null ? live.datasets : undefined,
-      desk: liveOk
-        ? { ...NEUTRAL_DESK, ...(live.desk || {}) }
-        : { ...FALLBACK_HEALTH.desk, ...(live.desk || {}) },
+      desk:
+        liveOk || liveDesk
+          ? { ...NEUTRAL_DESK, ...(live.desk || {}) }
+          : { ...FALLBACK_HEALTH.desk, ...(live.desk || {}) },
     };
   }
   return FALLBACK_HEALTH;

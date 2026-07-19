@@ -547,31 +547,49 @@ function buildResourceInventorySections(panels) {
   ].filter((section) => section.rows.length);
 }
 
-function DatabankStatusStrip({ cluster }) {
-  const inv = cluster?.platform_state;
-  if (!inv && !cluster?.registry_datasets) return null;
-  const registry = inv?.registry_datasets ?? cluster?.registry_datasets ?? "—";
-  const instant = inv?.instant_datasets ?? cluster?.instant_datasets ?? "—";
-  const partitions = inv?.professor_partitions ?? cluster?.professor_partitions ?? "—";
-  const refinitiv = inv?.refinitiv_datasets ?? 0;
-  const unassigned = inv?.unassigned_registry_ids ?? 0;
-  const incomplete = cluster?.incomplete_items?.length ?? 0;
+function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
+  const platform = cluster?.platform_state || cluster || {};
+  const registry = platform.registry_datasets ?? catalogSummary?.registry_datasets;
+  const instant = platform.instant_datasets ?? catalogSummary?.instant_datasets;
+  const partitions = platform.professor_partitions ?? catalogSummary?.partitions;
+  const routeCount = buildPinnedSourceRows(panels.providers || [], panels.layers || []).length;
+  const workers = rollup?.hero?.workers || {};
+  const collectorCount = workers.online ?? workers.joined ?? workers.busy ?? workers.total;
+  const collectorLabel = workers.total != null && collectorCount != null
+    ? `${collectorCount}/${workers.total} collectors available`
+    : collectorCount != null
+      ? `${collectorCount} collectors available`
+      : "Collector state pending";
+  const bigQuery = (panels.metered || []).find((row) => row.key === "bigquery");
+
   return (
-    <section className="rd-v2-res-databank" aria-label="Databank inventory">
-      <div className="rd-v2-res-databank-head">
-        <h2>Databank</h2>
-        <span>
-          {registry} registry · {instant} instant · {partitions} partitions
-          {refinitiv ? ` · ${refinitiv} Refinitiv` : ""}
-          {unassigned === 0 ? " · fully mapped" : ` · ${unassigned} unmapped`}
-        </span>
+    <section className="rd-v2-res-capability" aria-label="Research capability">
+      <header>
+        <div>
+          <p>What this enables</p>
+          <span>Verified capability available to the lab today.</span>
+        </div>
+      </header>
+      <div className="rd-v2-res-capability-lines">
+        <div>
+          <span>Reusable research estate</span>
+          <strong>
+            {registry != null ? `${registry} registered assets` : "Registered estate available"}
+            {instant != null ? ` · ${instant} query ready` : ""}
+          </strong>
+          <em>{partitions != null ? `${partitions} organized collections available in Library.` : "Registered assets remain available in Library."}</em>
+        </div>
+        <div>
+          <span>Evidence acquisition reach</span>
+          <strong>{routeCount || "Configured"} source routes</strong>
+          <em>{collectorLabel}. Discover can probe and collect within the available access rules.</em>
+        </div>
+        <div>
+          <span>Guarded remote analysis</span>
+          <strong>{bigQuery ? resourceQuota(bigQuery) : "Query limit available"}</strong>
+          <em>Remote table work is estimated before execution, rather than silently spending quota.</em>
+        </div>
       </div>
-      <p className="rd-v2-res-databank-note">
-        {cluster?.refinitiv_frozen
-          ? "Refinitiv harvest frozen (2026-07-06-complete) — query-ready institutional spine."
-          : "Neutral catalog inventory from platform_progress."}
-        {incomplete ? ` ${incomplete} activation item(s) tracked.` : ""}
-      </p>
     </section>
   );
 }
@@ -597,15 +615,17 @@ function ResourceInventoryRow({ item, selected, onSelect }) {
 
 function ResourceInventory({ sections, selectedKey, onSelect }) {
   if (!sections.length) return null;
-  const total = sections.reduce((sum, section) => sum + section.rows.length, 0);
-  const sourceRoutes = sections.find((section) => section.id === "sources")?.rows.length || 0;
+  const primarySections = sections.filter((section) => section.id !== "sources");
+  const sourceSection = sections.find((section) => section.id === "sources");
+  const total = primarySections.reduce((sum, section) => sum + section.rows.length, 0);
+  const sourceRoutes = sourceSection?.rows.length || 0;
   return (
-    <section className="rd-v2-res-inventory" aria-label="Key resources">
+    <section className="rd-v2-res-inventory" aria-label="Capacity and access">
       <div className="rd-v2-res-inventory-head">
-        <h2>Key resources</h2>
-        <span>{total} shown · {sourceRoutes} source routes</span>
+        <h2>Capacity &amp; access</h2>
+        <span>{total} resources</span>
       </div>
-      {sections.map((section) => (
+      {primarySections.map((section) => (
         <div key={section.id} className="rd-v2-res-inventory-section">
           <div className="rd-v2-res-inventory-section-head">
             <div className="rd-v2-res-inventory-section-title">
@@ -626,6 +646,28 @@ function ResourceInventory({ sections, selectedKey, onSelect }) {
           </div>
         </div>
       ))}
+      {sourceSection ? (
+        <details className="rd-v2-res-routes">
+          <summary>
+            <span>
+              <strong>Available source routes</strong>
+              <em>{sourceRoutes} configured routes used by Discover when evidence is missing.</em>
+            </span>
+            <b>Show routes</b>
+          </summary>
+          <div className="rd-v2-res-routes-body">
+            <p>Routes remain available for inspection here; sourcing choices and collection progress stay in Discover.</p>
+            {sourceSection.rows.map((item) => (
+              <ResourceInventoryRow
+                key={item.id}
+                item={item}
+                selected={selectedKey === item.row.key}
+                onSelect={onSelect}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }
@@ -712,7 +754,7 @@ export function ResourcesPage({
   return (
     <PageShell
       title="Resources"
-      lead="Storage, account limits, and procurement routes"
+      lead="Capacity, usage, and research capability across the lab."
       toolbar={
         <>
           <Chip active={mode === "spending"} onClick={() => onModeChange?.("spending")}>
@@ -749,7 +791,12 @@ export function ResourcesPage({
         ) : (
           <>
             <ResourcesStatusStrip rollup={viewRollup} />
-            <DatabankStatusStrip cluster={health?.cluster || cluster} />
+            <ResearchCapability
+              cluster={health?.cluster || cluster}
+              panels={panels}
+              rollup={viewRollup}
+              catalogSummary={catalogSummary}
+            />
             <ResourceInventory
               sections={inventorySections}
               selectedKey={selectedKey}

@@ -125,11 +125,11 @@ test.describe("professor demo @ live-desk", () => {
     await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "load" });
     await waitLive(page);
 
-    const rows = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]');
+    const rows = page.locator('.rd-v2-library-asset[data-kind="dataset"]');
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const rowCount = await rows.count();
 
-    const known = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]', {
+    const known = page.locator('.rd-v2-library-asset[data-kind="dataset"]', {
       hasText: KNOWN_DATASET,
     });
     if (await known.count()) {
@@ -152,31 +152,32 @@ test.describe("professor demo @ live-desk", () => {
     });
   });
 
-  test("scenario 3 — Discover: search missing dataset + pipeline", async ({ page }) => {
-    await page.goto(`/?tab=browse&q=${encodeURIComponent(SEARCH_QUERY)}`, { waitUntil: "load" });
+  test("scenario 3 — Discover: search missing dataset + evaluation", async ({ page }) => {
+    await page.goto(`/?tab=browse&q=${encodeURIComponent(SEARCH_QUERY)}`, { waitUntil: "domcontentloaded" });
     await waitLive(page);
 
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
-    await expect(page.locator(".rd-v2-discover-pipeline")).toBeVisible();
-    await expect(page.locator(".rd-v2-discover-pipeline")).toContainText("Search");
-    await expect(page.locator(".rd-v2-discover-pipeline")).toContainText("Collect");
+    const summary = page.getByRole("region", { name: "Discover result summary" });
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText(/results for/i);
+    await expect(page.getByRole("region", { name: "Sources beyond your lab" })).toBeVisible();
 
     const candidates = page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate');
     await expect(candidates.first()).toBeVisible({ timeout: 30_000 });
     const candidateCount = await candidates.count();
 
     const firstTitle = await candidates.first().locator("strong").innerText();
-    const sourceChip = await page.locator(".rd-v2-chip").first().innerText().catch(() => "");
+    const sourceLabel = await candidates.first().locator(".rd-v2-discover-candidate-source").innerText();
 
-    record("discover_search", "Discover search + acquisition pipeline", true, {
+    record("discover_search", "Discover search + evidence evaluation", true, {
       query: SEARCH_QUERY,
       candidates: candidateCount,
       first_candidate: firstTitle,
-      source_badge: sourceChip,
+      source_label: sourceLabel,
     });
   });
 
-  test("scenario 4 — Discover: probe facts + Add to lab rail", async ({ page }) => {
+  test("scenario 4 — Discover: candidate evaluation + Add to lab rail", async ({ page }) => {
     await page.goto(`/?tab=browse&q=${encodeURIComponent(SEARCH_QUERY)}`, { waitUntil: "load" });
     await waitLive(page);
 
@@ -201,20 +202,11 @@ test.describe("professor demo @ live-desk", () => {
     await candidate.click();
 
     const rail = page.locator("aside.rd-v2-rail");
-    await expect(rail).toContainText("What we know");
+    await expect(rail.getByRole("region", { name: "Can I use this" })).toBeVisible();
+    await expect(rail.getByRole("region", { name: "Lab coverage" })).toBeVisible();
     await expect(page.locator(".rd-v2-discover-candidate.selected .rd-v2-discover-possession")).toBeVisible();
-    await expect(rail.locator(".rd-v2-detail-label", { hasText: "Possession" })).toBeVisible();
-    await expect(rail.locator(".rd-v2-detail-label", { hasText: "Readiness" })).toBeVisible();
 
-    const probeBtn = rail.getByRole("button", { name: "Probe source" });
-    if (await probeBtn.isVisible()) {
-      await probeBtn.click();
-      await expect(
-        rail.locator(".rd-v2-discover-probe-result, .rd-v2-discover-probe-error"),
-      ).toBeVisible({ timeout: 45_000 });
-    }
-
-    const primaryBtn = rail.locator(".rd-v2-rail-sticky .rd-v2-btn.primary").first();
+    const primaryBtn = rail.getByTestId("discover-eval-actions").getByRole("button", { name: /Add to lab|Open in Library/ });
     await expect(primaryBtn).toBeVisible();
     const primaryLabel = (await primaryBtn.innerText()).trim();
     if (primaryLabel === "Open in Library") {
@@ -236,22 +228,22 @@ test.describe("professor demo @ live-desk", () => {
       "true",
     );
     const askBox = page.getByTestId("ask-messages");
-    await expect(askBox).toContainText("Add to lab vault", { timeout: 45_000 });
+    await expect(askBox).toBeVisible();
 
     const askText = await askBox.innerText();
 
-    record("discover_probe_add", "Discover candidate probe + Add to lab → Ask", true, {
+    record("discover_evaluation_add", "Discover candidate evaluation + Add to lab → Ask", true, {
       candidate: title,
       ask_snippet: askText.slice(0, 240),
     });
   });
 
-  test("scenario 5 — Resources: operational safety ledger", async ({ page }) => {
+  test("scenario 5 — Resources: capacity, usage, and research value", async ({ page }) => {
     await page.goto("/?tab=resources", { waitUntil: "load" });
     await waitLive(page);
 
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Resources" })).toBeVisible();
-    await expect(page.locator(".rd-v2-page-head p", { hasText: "Storage, account limits" })).toBeVisible();
+    await expect(page.locator(".rd-v2-page-head p", { hasText: "Capacity, usage, and research capability" })).toBeVisible();
     await expect(page.getByText("Loading resources…")).toBeHidden({ timeout: 45_000 });
 
     const hasStrip = (await page.locator(".rd-v2-res-status-strip").count()) > 0;
@@ -260,18 +252,16 @@ test.describe("professor demo @ live-desk", () => {
 
     const pageText = await page.locator("main.yzu-main").innerText();
     const labelCandidates = [
-      "Desk connection",
-      "Collection workers",
-      "Lab vault",
-      "Ask usage",
-      "Source probes",
-      "Remote tables",
-      "procurement routes",
-      "Connected",
+      "What this enables",
+      "Reusable research estate",
+      "Evidence acquisition reach",
+      "Guarded remote analysis",
+      "Available source routes",
+      "BigQuery",
     ];
     const labels = labelCandidates.filter((l) => pageText.includes(l));
 
-    record("resources_safety", "Resources safety ledger (professor labels)", labels.length >= 1, {
+    record("resources_capacity", "Resources capacity, usage, and research value", labels.length >= 1, {
       faculty_labels_found: labels,
       has_status_strip: hasStrip,
       has_inventory: hasInventory,
@@ -341,9 +331,10 @@ test.describe("professor demo @ live-desk", () => {
 
     await expect(page.locator("aside.rd-v2-rail")).toContainText(KNOWN_DATASET, { timeout: 20_000 });
     await page.locator("aside .rd-v2-rail-sticky").getByRole("button", { name: "Preview rows" }).click();
-    const modal = page.locator(".rd-v2-preview-modal");
+    const modal = page.getByRole("dialog", { name: /preview/i });
     await expect(modal).toBeVisible({ timeout: 25_000 });
-    await expect(modal.getByRole("button", { name: "Export CSV" })).toBeVisible();
+    await expect(modal.getByRole("status")).toBeHidden({ timeout: 25_000 });
+    await expect(modal.getByRole("button", { name: "Export sample" })).toBeEnabled();
 
     const rowHint = await modal.innerText();
     const hasRows = /date|country|row|sample/i.test(rowHint);

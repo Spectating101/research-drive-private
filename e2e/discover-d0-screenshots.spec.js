@@ -116,12 +116,12 @@ test("D0 desktop identity + exact queue + probe switch", async ({ page }) => {
   });
   await mops.click();
   const rail = page.locator("aside.rd-v2-rail");
-  await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();
-  await expect(rail.locator(".rd-v2-discover-probe-result")).toBeVisible();
+  await rail.getByTestId("discover-eval-actions").getByRole("button", { name: "Probe source" }).click();
+  await expect(rail.locator(".rd-v2-eval-verified")).toBeVisible();
   await shot(page, "desktop-1440x900__probe-candidate-a");
   await twse.click();
   await expect(rail).toContainText("TWSE OpenAPI");
-  await expect(rail.locator(".rd-v2-discover-probe-result")).toHaveCount(0);
+  await expect(rail.locator(".rd-v2-eval-verified")).toHaveCount(0);
   await shot(page, "desktop-1440x900__probe-switch-b-no-stale-a");
 });
 

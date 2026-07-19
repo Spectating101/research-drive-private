@@ -42,8 +42,8 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
     <RailFrame>
       <RailEntityHeader
         id="resources"
-        title="Operational posture"
-        description="Capacity, collection motion, and source reach across the research drive."
+        title="Lab capacity"
+        description="Access, current usage, and research capability across the lab."
         pills={
           <span className={`rd-v2-pill${attention > 0 ? " warn" : ""}`}>
             {attention > 0 ? "Attention" : query.up === false ? "Offline" : "Ready"}
@@ -62,7 +62,7 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
                 : "Source routes and collection capacity are available for inspection."}
           </p>
         </section>
-        <p className="rd-v2-rail-section-label">Desk state</p>
+        <p className="rd-v2-rail-section-label">Current capacity</p>
         <RailFieldGrid>
           <RailField label="Attention" value={attention ? String(attention) : "Clear"} />
           <RailField label="Running" value={jobs.running ? String(jobs.running) : "None"} />

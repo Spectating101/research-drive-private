@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { discoverSearch, unifiedSearch, webDiscover } from "@/v2/api";
+import { discoverSearch, discoverSources, unifiedSearch, webDiscover } from "@/v2/api";
+import { sourcesResponseToRows } from "@/v2/discoverAdapters";
+import { DiscoverHistoryPanel } from "@/v2/DiscoverHistoryPanel";
+import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
 import {
   classifyDiscoverResult,
   coverageLine,
@@ -13,7 +16,6 @@ import {
 import { discoverCandidateUrl, webHitsToRows } from "@/v2/discoverActions";
 import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidateKey";
 import { buildDiscoverLifecycle, projectDiscoverCandidateLifecycle } from "@/v2/discoverLifecycle";
-import { DiscoverEvaluationSurface } from "@/v2/DiscoverEvaluationSurface";
 import { groupDiscoverBrowseRows } from "@/v2/discoverComposition";
 import { assessLocalSufficiency } from "@/v2/discoverSufficiency";
 import { loadUserEmail } from "@/v2/deskSession";
@@ -60,6 +62,29 @@ function hostLabel(value) {
   } catch {
     return "";
   }
+}
+
+function DiscoverModeTabs({ mode = "explore", pendingCount = 0, onChange }) {
+  const tabs = [
+    { id: "explore", label: "Explore" },
+    { id: "history", label: pendingCount ? `History · ${pendingCount}` : "History" },
+  ];
+  return (
+    <div className="rd-v2-discover-modes" role="tablist" aria-label="Discover mode">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={mode === tab.id}
+          className={mode === tab.id ? "on" : ""}
+          onClick={() => onChange?.(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
@@ -153,27 +178,19 @@ export function BrowsePage({
   labIds,
   catalog = [],
   selectedId,
-  focusTarget = null,
   onSelectRow,
-  onBackToResults,
-  onOpenAsk,
   searchQuery,
   jobs = [],
   usingSeed = false,
   probeSnapshots = {},
   onSuggestSearch,
   onSearchWeb,
-  // Focused evaluation wiring
-  probeState,
-  browseLifecycle,
-  onAskAbout,
-  onAddToLab,
-  onPreviewExternal,
-  onProbeSource,
-  onOpenInLibrary,
-  onTrackResources,
-  onReviewApproval,
-  onRetryLifecycleRefresh,
+  discoverMode = "explore",
+  onDiscoverModeChange,
+  discoverFocusAwaiting = false,
+  historyEvents = [],
+  selectedHistoryId = "",
+  onSelectHistoryEvent,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -182,6 +199,21 @@ export function BrowsePage({
   const [demoFallback, setDemoFallback] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
   const [indexMiss, setIndexMiss] = useState(false);
+
+  const pendingRows = useMemo(
+    () => pendingApprovalJobs(jobs).map((job) => jobToCandidateRow(job)).filter(Boolean),
+    [jobs],
+  );
+  const isExplore = discoverMode === "explore" || discoverMode === "search";
+  const showHistory = discoverMode === "history";
+
+  useEffect(() => {
+    if (!isExplore) return;
+    if (!pendingRows.length) return;
+    if (selectedId) return;
+    if (!discoverFocusAwaiting) return;
+    onSelectRow?.(pendingRows[0]);
+  }, [isExplore, pendingRows, selectedId, onSelectRow, discoverFocusAwaiting]);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,11 +244,31 @@ export function BrowsePage({
 
     const run = async () => {
       try {
+        if (discoverMode === "history") {
+          setRows([]);
+          setSource("");
+          setDemoFallback(false);
+          setLoading(false);
+          return;
+        }
         if (!q) {
           setRows([]);
           setSource("");
           setDemoFallback(false);
           return;
+        }
+        // Prefer Explore sources contract; fall back to legacy discover/search path.
+        try {
+          const sources = await discoverSources(q, { limit: 12 });
+          const sourceRows = sourcesResponseToRows(sources);
+          if (sourceRows.length) {
+            apply({ results: sourceRows }, sources.demo ? "demo" : "sources");
+            if (sources.demo) setDemoFallback(true);
+            setIndexMiss(false);
+            return;
+          }
+        } catch {
+          /* sources endpoint optional — continue */
         }
         const discover = await discoverSearch(q, 12, email);
         const discoverRows = flattenRows(discover);
@@ -296,7 +348,7 @@ export function BrowsePage({
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, labIds]);
+  }, [searchQuery, discoverMode, labIds]);
 
   const merged = useMemo(() => {
     const seen = new Set();
@@ -383,47 +435,37 @@ export function BrowsePage({
       ? `${plural(merged.length, "result")} for “${q}”`
       : `${plural(filtered.length, "result")} · ${activeFilter.label}`;
 
-  // Focused Evaluation mode — evaluation owns the main canvas.
-  if (focusTarget) {
+  const modeTabs = (
+    <DiscoverModeTabs
+      mode={showHistory ? "history" : "explore"}
+      pendingCount={pendingRows.length}
+      onChange={onDiscoverModeChange}
+    />
+  );
+
+  if (showHistory) {
     return (
-      <div className="rd-v2-discover-focus" data-testid="discover-focus-workspace" data-mode="focus">
-        <header className="rd-v2-discover-focus-bar">
-          <button type="button" className="rd-v2-btn ghost sm" onClick={() => onBackToResults?.()}>
-            ← Back to results
-          </button>
-          <span className="rd-v2-discover-focus-spacer" />
-          <button
-            type="button"
-            className="rd-v2-btn sm"
-            onClick={() => onOpenAsk?.(focusTarget)}
-          >
-            Ask
-          </button>
-        </header>
-        <DiscoverEvaluationSurface
-          variant="workspace"
-          target={focusTarget}
-          labIds={labIds}
-          catalog={catalog}
-          onAskAbout={onAskAbout}
-          onAddToLab={onAddToLab}
-          onPreviewExternal={onPreviewExternal}
-          onProbeSource={onProbeSource}
-          probeState={probeState}
-          onOpenInLibrary={onOpenInLibrary}
-          lifecycle={browseLifecycle}
-          onTrackResources={onTrackResources}
-          onReviewApproval={onReviewApproval}
-          onRetryLifecycleRefresh={onRetryLifecycleRefresh}
+      <PageShell
+        className="rd-v2-discover-page rd-v2-discover-page--history"
+        title="Discover"
+        lead="Trace research questions to reusable evidence"
+        headExtra={modeTabs}
+      >
+        <DiscoverHistoryPanel
+          events={historyEvents}
+          selectedId={selectedHistoryId}
+          onSelectEvent={onSelectHistoryEvent}
         />
-      </div>
+      </PageShell>
     );
   }
 
   return (
     <PageShell
+      className="rd-v2-discover-page"
       title="Discover"
       lead="Search the lab first, then evaluate sources beyond it before you collect"
+      headExtra={modeTabs}
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >
       <div className="rd-v2-discover-browse" data-testid="discover-browse-mode" data-mode="browse">

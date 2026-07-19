@@ -31,6 +31,18 @@ export function externalCandidateObject(row) {
   };
 }
 
+export function discoverHistoryObject(event) {
+  if (!event) return null;
+  const meta = event.meta || {};
+  const id = event.id || meta.intent_id || meta.job_id || meta.subscription_id || event.target || "discover-history";
+  return {
+    kind: "discover_history",
+    id,
+    title: compactText(event.target || event.title, "Discover lifecycle item"),
+    row: event,
+  };
+}
+
 export function resourceObject(row) {
   if (!row) return null;
   return {
@@ -103,6 +115,16 @@ export function homeAttentionObject(item) {
     id: item.id || item.kind || "home-attention",
     title: compactText(item.title, "Home attention"),
     row: item,
+  };
+}
+
+export function synthesisThreadObject(thread) {
+  if (!thread) return null;
+  return {
+    kind: "synthesis_thread",
+    id: thread.id || "synthesis-thread",
+    title: compactText(thread.title || thread.state?.title, "Synthesis thread"),
+    thread,
   };
 }
 

@@ -183,15 +183,17 @@ test.describe("v2 parity @ desk-v2-1440", () => {
     await expect(page.locator('[data-testid="rail-pane-detail"] .rd-v2-rail-sticky')).not.toBeVisible();
   });
 
-  test("preview modal overlays main only with footer actions", async ({ page }) => {
+  test("adaptive Preview overlays the main surface with bounded evidence actions", async ({ page }) => {
     await selectFirstDataset(page);
     await page.locator("aside .rd-v2-rail-sticky").getByRole("button", { name: "Preview rows" }).click();
-    const modal = page.locator(".rd-v2-preview-modal");
-    await expect(modal).toBeVisible();
-    await expect(modal.getByRole("button", { name: "Export CSV" })).toBeVisible();
-    await expect(modal.getByRole("button", { name: "Open query engine" })).toBeVisible();
+    const preview = page.getByRole("dialog", { name: "Asia daily news-risk panel preview" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Rows", exact: true })).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Fields", exact: true })).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Export sample" })).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Open query" })).toBeVisible();
     await expect(page.locator(".rd-v2-rail-toggle")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(modal).toHaveCount(0);
+    await expect(preview).toHaveCount(0);
   });
 });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { detailFields, displayName } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
+import { buildObjectEstateCrumb } from "@/v2/deskIntegration";
 import {
   RailDecisionSummary,
   RailEntityHeader,
@@ -81,6 +82,7 @@ function GlanceRow({ label, value, mono = false }) {
 }
 
 function AtAGlance({ dataset, fields }) {
+  const estate = buildObjectEstateCrumb(dataset);
   const rowCount = dataset.rows || dataset.row_count || dataset.num_rows || dataset.records;
   const columnCount = dataset.columns || dataset.column_count || dataset.num_columns;
   const size = dataset.size || dataset.size_mb || dataset.size_gb || dataset.bytes;
@@ -89,7 +91,9 @@ function AtAGlance({ dataset, fields }) {
     ["Grain", dataset.grain || fields.partition],
     ["Coverage", fields.coverage || dataset.coverage || dataset.date_range],
     ["Source", fields.source],
-    ["Location", fields.vault || fields.access, true],
+    ["Location", estate.location || fields.vault || fields.access, true],
+    ["Authority", estate.authority],
+    ["Freshness", estate.freshness],
     ["Readiness", dataset.analysis_readiness || "unknown"],
     ["Rows", rowCount],
     ["Columns", columnCount],

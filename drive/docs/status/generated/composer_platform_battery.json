@@ -1,0 +1,176 @@
+{
+  "session_id": "battery-1784048666",
+  "score": "16/16",
+  "passed": 16,
+  "total": 16,
+  "ladder": [
+    "tools",
+    "schedule_spec",
+    "probe",
+    "vault_search",
+    "discover_search",
+    "schedule",
+    "intent",
+    "pause",
+    "resume",
+    "stop",
+    "collect",
+    "approve_lifecycle",
+    "http_collect",
+    "sec_manifest",
+    "honesty",
+    "composer_schedule"
+  ],
+  "cases": [
+    {
+      "name": "mcp tools 78+",
+      "kind": "http",
+      "ok": true,
+      "elapsed": 0.02,
+      "detail": "count=78 miss=none",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "API schedule_spec cron",
+      "kind": "http",
+      "ok": true,
+      "elapsed": 0.02,
+      "detail": "id=cf83e6077840448e cron=0 10 * * 1",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct probe",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.12,
+      "detail": "action=probe_url 0.12s",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct vault search",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 2.51,
+      "detail": "action=search total=19",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct Discover catalog search",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.05,
+      "detail": "action=discover_search sids=['twse_official', 'mops_taiwan']",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct schedule+spec",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.07,
+      "detail": "sub=cc2e835279f143b9 cron=0 10 * * 1",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct create intent",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.33,
+      "detail": "new=['5c78812bf6a84b48'] id=5c78812bf6a84b48",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct pause sub",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.52,
+      "detail": "status=paused",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct resume sub",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.16,
+      "detail": "status=active",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct stop sub",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.1,
+      "detail": "action=stop_subscription status=stopped enabled=False",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "direct collect selected \u2192 History",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.68,
+      "detail": "action=discover_collect job=49c6ecd54b46 in_history=True",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "approve job \u2192 History lifecycle",
+      "kind": "direct",
+      "ok": true,
+      "elapsed": 0.29,
+      "detail": "action=approve_job job_status=completed hist_status=completed",
+      "error": "",
+      "evidence": {
+        "job_id": "49c6ecd54b46",
+        "status": "completed"
+      }
+    },
+    {
+      "name": "HTTP catalog collect \u2192 History",
+      "kind": "http",
+      "ok": true,
+      "elapsed": 0.42,
+      "detail": "job=787dd596f3c1 type=source_probe status=pending_approval",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "SEC http_manifest collect+approve",
+      "kind": "http",
+      "ok": true,
+      "elapsed": 19.33,
+      "detail": "job=66739bd56336 type=http_manifest public=True status=completed hist=True",
+      "error": "",
+      "evidence": {
+        "job_id": "66739bd56336",
+        "status": "completed"
+      }
+    },
+    {
+      "name": "honesty non-executing",
+      "kind": "http",
+      "ok": true,
+      "elapsed": 0.0,
+      "detail": "n=29 lying=[] bad_exec=[]",
+      "error": "",
+      "evidence": {}
+    },
+    {
+      "name": "composer schedule register",
+      "kind": "composer",
+      "ok": true,
+      "elapsed": 40.61,
+      "detail": "action=schedule_refresh new=['a6f71bd8c45d48c6'] brain=cursor_composer",
+      "error": "",
+      "evidence": {}
+    }
+  ]
+}

@@ -80,6 +80,7 @@ function branchStatusNote({ isRoot, items, showingBranchFallback, displayCount, 
 }
 
 function LibraryBreadcrumb({ trail, onFolderChange }) {
+  if (trail.length <= 1) return null;
   return (
     <nav className="rd-v2-breadcrumb rd-v2-crumb" aria-label="Breadcrumb">
       {trail.map((c, i) => {
@@ -286,7 +287,7 @@ export function LibraryPage({
     <PageShell
       className="rd-v2-library-page"
       title="Library"
-      lead="Everything the lab owns, connects to, acquires, and builds."
+      lead="Browse the lab's owned research data and reusable assets."
       headExtra={
         <div className="rd-v2-library-headline">
           <LibraryBreadcrumb trail={trail} onFolderChange={onFolderChange} />

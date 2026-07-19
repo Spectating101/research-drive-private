@@ -48,6 +48,46 @@ export function webDiscover(query = "", limit = 8, tavilyLive = true) {
   return fetchJson(`/library/discover/web?${params}`);
 }
 
+/** Explore source catalogue — preferred Discover search contract when backend supports it. */
+export function discoverSources(query = "", { limit = 12, live = false, prefer = "" } = {}) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  if (live) params.set("live", "1");
+  if (prefer) params.set("prefer", prefer);
+  return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: 10000 });
+}
+
+/** Durable Discover history (intents / subscriptions / collection runs). */
+export function discoverHistory({ limit = 50, kind = "", sessionId = "" } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (kind) params.set("kind", kind);
+  if (sessionId) params.set("session_id", sessionId);
+  return fetchJson(`/library/discover/history?${params}`, { timeoutMs: 8000 });
+}
+
+/** Bounded Explore source preview. */
+export function previewDiscoverSource({
+  sourceId = "",
+  connectorId = "",
+  candidateKey = "",
+  url = "",
+  datasetId = "",
+  limit = 20,
+} = {}) {
+  return fetchJson("/library/discover/sources/preview", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      source_id: sourceId || undefined,
+      connector_id: connectorId || undefined,
+      candidate_key: candidateKey || undefined,
+      url: url || undefined,
+      dataset_id: datasetId || undefined,
+      limit,
+    }),
+    timeoutMs: 15000,
+  });
+}
+
 export function probePublicSource(url, name = "", { candidateKey = "" } = {}) {
   const body = { url, name };
   if (candidateKey) body.candidate_key = candidateKey;
@@ -187,6 +227,54 @@ export function listSynthesisProfiles() {
   return fetchJson("/library/synthesis/profiles");
 }
 
+/** Durable Synthesis workspaces. The thread, not a browser-local stage, is authoritative. */
+export function listSynthesisThreads({ limit = 30, sessionId = "" } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (sessionId) params.set("session_id", sessionId);
+  return fetchJson(`/library/synthesis/threads?${params}`);
+}
+
+export function getSynthesisThread(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}`);
+}
+
+export function createSynthesisThread({ objective, title = "", requiredGrain = "", sessionId = "" } = {}) {
+  return fetchJson("/library/synthesis/threads", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      objective,
+      title: title || undefined,
+      required_grain: requiredGrain || undefined,
+      session_id: sessionId || loadChatSessionId() || undefined,
+    }),
+  });
+}
+
+export function decideSynthesisProposal(threadId, { decision, proposalId, proposalHash } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/patches`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      decision,
+      proposal_id: proposalId,
+      proposal_hash: proposalHash,
+    }),
+  });
+}
+
+export function requestSynthesisExecution(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/execute`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({}),
+  });
+}
+
+export function synthesisMaterialisation(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/materialisation`);
+}
+
 export function getSynthesisProfile(profileId, { refresh = false } = {}) {
   const q = refresh ? "?refresh=1" : "";
   return fetchJson(`/library/synthesis/${encodeURIComponent(profileId)}${q}`);
@@ -280,7 +368,12 @@ export async function sendChatMessage(
         const event = JSON.parse(line);
         if (event.type === "delta" && event.text) onDelta?.(event.text);
         if ((event.type === "activity" || event.type === "progress") && event.text) {
-          onActivity?.(event.text);
+          onActivity?.({
+            text: event.text,
+            phase: event.phase || event.action || event.type,
+            action: event.action || null,
+            elapsed_seconds: event.elapsed_seconds,
+          });
         }
         if (event.type === "error") {
           throw new Error(event.message || event.error || "Chat stream error");

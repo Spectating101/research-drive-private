@@ -12,9 +12,9 @@ test.describe("v2 Library directory", () => {
   test("Lab root renders as a folder-first directory", async ({ page }) => {
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Library" })).toBeVisible();
     const estate = page.getByTestId("library-estate-browser");
-    await expect(estate).toContainText("Lab library");
-    await expect(estate).toContainText(/3 datasets/);
-    await expect(estate).toContainText(/3 ready to query/);
+    await expect(estate).toContainText("All holdings");
+    await expect(estate).toContainText(/3 assets/);
+    await expect(estate).toContainText(/3 ready to use/);
     await expect(page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Research panels" })).toBeVisible();
     await expect(page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Connected sources" })).toBeVisible();
     await expect(page.locator(".rd-v2-library-pathbar")).toHaveCount(0);
