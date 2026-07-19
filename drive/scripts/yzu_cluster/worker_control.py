@@ -2,11 +2,12 @@
 
 The controller remains authoritative for lifecycle, archive, registry, and legacy
 compatibility state. Remote workers only join, claim, heartbeat, report usage,
-and submit attempt-fenced results through this surface.
+upload attempt-fenced artifacts, and submit results through this surface.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import hmac
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from typing import Any, Mapping
 from ._interop_common import Claim
 
 TOKEN_ENV = "YZU_WORKER_CONTROL_TOKEN"
+MAX_ARTIFACT_ENV = "YZU_WORKER_MAX_ARTIFACT_BYTES"
 ACTIVE_ATTEMPT_STAGES = {"assigned", "running", "validating", "archiving", "registering"}
 
 
@@ -30,12 +32,14 @@ def _bearer_token(authorization: str | None, explicit: str | None = None) -> str
 class WorkerControlPlane:
     """Pure service layer used by both FastAPI and focused contract tests."""
 
-    def __init__(self, orchestrator: Any, *, token: str) -> None:
+    def __init__(self, orchestrator: Any, *, token: str, max_artifact_bytes: int | None = None) -> None:
         token = str(token or "").strip()
         if not token:
             raise RuntimeError(f"{TOKEN_ENV} is required for the worker control plane")
         self.orchestrator = orchestrator
         self.token = token
+        configured_limit = max_artifact_bytes or int(os.environ.get(MAX_ARTIFACT_ENV, 512 * 1024 * 1024))
+        self.max_artifact_bytes = max(1, int(configured_limit))
 
     def authorize(self, candidate: str | None) -> None:
         supplied = str(candidate or "").strip()
@@ -121,7 +125,7 @@ class WorkerControlPlane:
         attempt = int(payload.get("attempt") or 0)
         if not worker_id or attempt < 1:
             raise ValueError("worker_id and positive attempt are required")
-        state = self.orchestrator.runtime.heartbeat(
+        return self.orchestrator.runtime.heartbeat(
             job_id,
             worker_id,
             attempt=attempt,
@@ -129,7 +133,6 @@ class WorkerControlPlane:
             stage=str(payload.get("stage") or "") or None,
             lease_seconds=int(payload.get("lease_seconds") or self.orchestrator.runtime.lease_seconds),
         )
-        return state
 
     def usage(self, job_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         worker_id = str(payload.get("worker_id") or "").strip()
@@ -157,6 +160,46 @@ class WorkerControlPlane:
                 **values,
             )
 
+    def upload_artifact(
+        self,
+        job_id: str,
+        *,
+        worker_id: str,
+        attempt: int,
+        name: str,
+        content: bytes,
+        expected_sha256: str | None = None,
+    ) -> dict[str, Any]:
+        self._claim_for_attempt(job_id, worker_id, attempt)
+        safe_name = Path(str(name or "")).name
+        if not safe_name or safe_name != name or safe_name in {".", ".."}:
+            raise ValueError("artifact name must be a plain filename")
+        if len(content) > self.max_artifact_bytes:
+            raise ValueError(f"artifact exceeds {self.max_artifact_bytes} byte limit")
+        digest = hashlib.sha256(content).hexdigest()
+        expected = str(expected_sha256 or "").strip().lower()
+        if expected and not hmac.compare_digest(expected, digest):
+            raise ValueError("artifact sha256 does not match request proof")
+
+        destination = self.orchestrator.jobs_root / job_id / "remote_artifacts" / safe_name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_suffix(destination.suffix + ".part")
+        temporary.write_bytes(content)
+        temporary.replace(destination)
+        try:
+            relative = destination.relative_to(self.orchestrator.repo_root)
+        except ValueError as exc:
+            destination.unlink(missing_ok=True)
+            raise ValueError("artifact destination is outside the repository") from exc
+        return {
+            "artifact": str(relative),
+            "name": safe_name,
+            "bytes": len(content),
+            "sha256": digest,
+            "worker_id": worker_id,
+            "attempt": attempt,
+        }
+
     def complete(self, job_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         worker_id = str(payload.get("worker_id") or "").strip()
         attempt = int(payload.get("attempt") or 0)
@@ -165,9 +208,24 @@ class WorkerControlPlane:
             raise ValueError("worker_id and positive attempt are required")
         claim = self._claim_for_attempt(job_id, worker_id, attempt)
         job = self.orchestrator.store.get(job_id)
+        plan = job.get("plan") or {}
         result = dict(result)
+        if (
+            str(plan.get("job_type") or "") == "http_manifest"
+            and result.get("artifacts")
+            and not isinstance(result.get("materialized"), Mapping)
+        ):
+            from scripts.yzu_cluster.acquisitions import materialize_job
+
+            result = materialize_job(
+                self.orchestrator.repo_root,
+                job_id,
+                plan,
+                result,
+                cfg=self.orchestrator.cfg,
+            )
         if self.orchestrator._on_job_completed:
-            promoted = self.orchestrator._on_job_completed(job_id, job.get("plan") or {}, result)
+            promoted = self.orchestrator._on_job_completed(job_id, plan, result)
             if promoted:
                 result["registry_promotion"] = promoted
         runtime_state = self.orchestrator.runtime.complete(claim, result)
@@ -176,7 +234,7 @@ class WorkerControlPlane:
             try:
                 self.orchestrator._on_job_post_completed(
                     job_id,
-                    job.get("plan") or {},
+                    plan,
                     result,
                     runtime_state,
                 )
@@ -220,7 +278,7 @@ def create_app(
 ):
     """Build a small FastAPI app suitable for a Tailscale-only controller port."""
 
-    from fastapi import Depends, FastAPI, Header, HTTPException
+    from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
     if orchestrator is None:
         from scripts.research_data_mcp.bootstrap import create_stack
@@ -240,9 +298,9 @@ def create_app(
         except PermissionError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
 
-    def invoke(method, *args):
+    def invoke(method, *args, **kwargs):
         try:
-            return method(*args)
+            return method(*args, **kwargs)
         except PermissionError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except KeyError as exc:
@@ -269,6 +327,29 @@ def create_app(
     @app.post("/v1/jobs/{job_id}/usage", dependencies=[Depends(authorize)])
     def usage(job_id: str, payload: dict[str, Any]):
         return invoke(control.usage, job_id, payload)
+
+    @app.put("/v1/jobs/{job_id}/artifacts/{name}", dependencies=[Depends(authorize)])
+    async def upload_artifact(
+        job_id: str,
+        name: str,
+        request: Request,
+        x_yzu_worker_id: str = Header(),
+        x_yzu_attempt: int = Header(),
+        x_content_sha256: str | None = Header(default=None),
+    ):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > control.max_artifact_bytes:
+            raise HTTPException(status_code=413, detail="artifact exceeds configured byte limit")
+        content = await request.body()
+        return invoke(
+            control.upload_artifact,
+            job_id,
+            worker_id=x_yzu_worker_id,
+            attempt=x_yzu_attempt,
+            name=name,
+            content=content,
+            expected_sha256=x_content_sha256,
+        )
 
     @app.post("/v1/jobs/{job_id}/complete", dependencies=[Depends(authorize)])
     def complete(job_id: str, payload: dict[str, Any]):
