@@ -1,8 +1,9 @@
-"""Authenticated HTTP control plane for remote YZU workers.
+"""Authenticated control plane for bounded remote YZU workers.
 
-The controller remains authoritative for lifecycle, archive, registry, and legacy
-compatibility state. Remote workers only join, claim, heartbeat, report usage,
-upload attempt-fenced artifacts, and submit results through this surface.
+Remote workers may advertise capacity, claim compatible jobs, heartbeat, report
+usage, upload attempt-fenced artifacts, and submit terminal results. The
+controller remains authoritative for materialisation, archive verification,
+registry promotion, registration, and legacy compatibility state.
 """
 from __future__ import annotations
 
@@ -24,22 +25,18 @@ def _bearer_token(authorization: str | None, explicit: str | None = None) -> str
     if explicit:
         return explicit.strip()
     value = str(authorization or "").strip()
-    if value.lower().startswith("bearer "):
-        return value[7:].strip()
-    return value
+    return value[7:].strip() if value.lower().startswith("bearer ") else value
 
 
 class WorkerControlPlane:
-    """Pure service layer used by both FastAPI and focused contract tests."""
-
     def __init__(self, orchestrator: Any, *, token: str, max_artifact_bytes: int | None = None) -> None:
         token = str(token or "").strip()
         if not token:
             raise RuntimeError(f"{TOKEN_ENV} is required for the worker control plane")
         self.orchestrator = orchestrator
         self.token = token
-        configured_limit = max_artifact_bytes or int(os.environ.get(MAX_ARTIFACT_ENV, 512 * 1024 * 1024))
-        self.max_artifact_bytes = max(1, int(configured_limit))
+        configured = max_artifact_bytes or int(os.environ.get(MAX_ARTIFACT_ENV, 512 * 1024 * 1024))
+        self.max_artifact_bytes = max(1, int(configured))
 
     def authorize(self, candidate: str | None) -> None:
         supplied = str(candidate or "").strip()
@@ -67,23 +64,26 @@ class WorkerControlPlane:
     def _claim_for_attempt(self, job_id: str, worker_id: str, attempt: int) -> Claim:
         snapshot = self.orchestrator.runtime.snapshot(job_id)
         current_attempt = int(snapshot.get("attempt") or 0)
-        assigned_worker = str(snapshot.get("assigned_worker") or snapshot.get("worker_id") or "")
-        stage = str(snapshot.get("status") or snapshot.get("stage") or "")
+        assigned = snapshot.get("assigned_worker")
+        if isinstance(assigned, Mapping):
+            assigned_worker = str(assigned.get("id") or assigned.get("worker_id") or "")
+        else:
+            assigned_worker = str(assigned or snapshot.get("worker_id") or "")
+        state = str(snapshot.get("status") or snapshot.get("stage") or "")
         if current_attempt != int(attempt):
-            raise PermissionError(
-                f"stale execution attempt: expected {attempt}, current {current_attempt}"
-            )
+            raise PermissionError(f"stale execution attempt: expected {attempt}, current {current_attempt}")
         if assigned_worker != worker_id:
             raise PermissionError("worker does not own this execution attempt")
-        if stage not in ACTIVE_ATTEMPT_STAGES:
-            raise ValueError(f"runtime job is {stage}, not writable by a worker")
-        requirements = snapshot.get("resource_requirements") or snapshot.get("requirements") or {}
+        if state not in ACTIVE_ATTEMPT_STAGES:
+            raise ValueError(f"runtime job is {state}, not writable by a worker")
+
         job = self.orchestrator.store.get(job_id)
         plan = job.get("plan") or {}
+        requirements = snapshot.get("resource_requirements") or snapshot.get("requirements") or {}
         return Claim(
             run_id=str(snapshot["run_id"]),
             job_id=job_id,
-            job_type=str(snapshot.get("job_type") or plan.get("job_type") or "legacy_job"),
+            job_type=str(snapshot.get("type") or snapshot.get("job_type") or plan.get("job_type") or "legacy_job"),
             attempt=current_attempt,
             worker_id=worker_id,
             required_capabilities=tuple(snapshot.get("required_capabilities") or ()),
@@ -115,10 +115,7 @@ class WorkerControlPlane:
             lease_seconds=int(payload.get("lease_seconds") or self.orchestrator.runtime.lease_seconds),
             reap_expired=False,
         )
-        if claim is None:
-            return None
-        job = self.orchestrator.store.get(claim.job_id)
-        return self._claim_payload(claim, job)
+        return self._claim_payload(claim, self.orchestrator.store.get(claim.job_id)) if claim else None
 
     def heartbeat(self, job_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         worker_id = str(payload.get("worker_id") or "").strip()
@@ -204,47 +201,47 @@ class WorkerControlPlane:
     def complete(self, job_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         worker_id = str(payload.get("worker_id") or "").strip()
         attempt = int(payload.get("attempt") or 0)
-        result = payload.get("result") if isinstance(payload.get("result"), Mapping) else {}
         if not worker_id or attempt < 1:
             raise ValueError("worker_id and positive attempt are required")
         claim = self._claim_for_attempt(job_id, worker_id, attempt)
         job = self.orchestrator.store.get(job_id)
         plan = job.get("plan") or {}
-        result = dict(result)
-        if (
-            str(plan.get("job_type") or "") == "http_manifest"
-            and result.get("artifacts")
-            and not isinstance(result.get("materialized"), Mapping)
-        ):
-            from scripts.yzu_cluster.acquisitions import materialize_job
+        result = dict(payload.get("result") if isinstance(payload.get("result"), Mapping) else {})
 
-            result = materialize_job(
-                self.orchestrator.repo_root,
-                job_id,
-                plan,
-                result,
-                cfg=self.orchestrator.cfg,
-            )
-        if self.orchestrator._on_job_completed:
-            promoted = self.orchestrator._on_job_completed(job_id, plan, result)
-            if promoted:
-                result["registry_promotion"] = promoted
+        # Materialisation, GDrive copy/check, promotion, and registry read-back may
+        # take longer than the worker's initial lease. The controller renews the
+        # same fenced attempt until it is ready to record the terminal state.
+        renewal = self.orchestrator.runtime.lease_renewer(claim).start()
+        try:
+            if (
+                str(plan.get("job_type") or "") == "http_manifest"
+                and result.get("artifacts")
+                and not isinstance(result.get("materialized"), Mapping)
+            ):
+                from scripts.yzu_cluster.acquisitions import materialize_job
+
+                result = materialize_job(
+                    self.orchestrator.repo_root,
+                    job_id,
+                    plan,
+                    result,
+                    cfg=self.orchestrator.cfg,
+                )
+            if self.orchestrator._on_job_completed:
+                promoted = self.orchestrator._on_job_completed(job_id, plan, result)
+                if promoted:
+                    result["registry_promotion"] = promoted
+        finally:
+            renewal.stop()
+        renewal.raise_if_lost()
+
         runtime_state = self.orchestrator.runtime.complete(claim, result)
         self.orchestrator.store.update(job_id, "completed", result=result)
         if self.orchestrator._on_job_post_completed:
             try:
-                self.orchestrator._on_job_post_completed(
-                    job_id,
-                    plan,
-                    result,
-                    runtime_state,
-                )
+                self.orchestrator._on_job_post_completed(job_id, plan, result, runtime_state)
             except Exception as exc:  # noqa: BLE001
-                self.orchestrator.store.event(
-                    job_id,
-                    "warning",
-                    f"Post-registration follow-up failed: {exc}",
-                )
+                self.orchestrator.store.event(job_id, "warning", f"Post-registration follow-up failed: {exc}")
         return self.orchestrator.get_job(job_id)
 
     def fail(self, job_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -255,11 +252,7 @@ class WorkerControlPlane:
         if not worker_id or attempt < 1:
             raise ValueError("worker_id and positive attempt are required")
         claim = self._claim_for_attempt(job_id, worker_id, attempt)
-        runtime_state = self.orchestrator.runtime.fail(
-            claim,
-            error,
-            retryable=retryable,
-        )
+        runtime_state = self.orchestrator.runtime.fail(claim, error, retryable=retryable)
         if (
             retryable
             and runtime_state.get("retryable") is not False
@@ -285,25 +278,22 @@ def create_app(
     token: str | None = None,
     orchestrator: Any | None = None,
 ):
-    """Build a small FastAPI app suitable for a Tailscale-only controller port."""
-
+    """Build a Tailscale/private-interface FastAPI worker-control service."""
     from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
     if orchestrator is None:
         from scripts.research_data_mcp.bootstrap import create_stack
 
         orchestrator = create_stack(repo_root=repo_root).orchestrator
-    expected = token or os.environ.get(TOKEN_ENV, "")
-    control = WorkerControlPlane(orchestrator, token=expected)
+    control = WorkerControlPlane(orchestrator, token=token or os.environ.get(TOKEN_ENV, ""))
     app = FastAPI(title="YZU Worker Control", version="1")
 
     def authorize(
         authorization: str | None = Header(default=None),
         x_yzu_worker_token: str | None = Header(default=None),
     ) -> None:
-        candidate = _bearer_token(authorization, x_yzu_worker_token)
         try:
-            control.authorize(candidate)
+            control.authorize(_bearer_token(authorization, x_yzu_worker_token))
         except PermissionError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
 
@@ -346,9 +336,13 @@ def create_app(
         x_yzu_attempt: int = Header(),
         x_content_sha256: str | None = Header(default=None),
     ):
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > control.max_artifact_bytes:
-            raise HTTPException(status_code=413, detail="artifact exceeds configured byte limit")
+        raw_length = request.headers.get("content-length")
+        if raw_length:
+            try:
+                if int(raw_length) > control.max_artifact_bytes:
+                    raise HTTPException(status_code=413, detail="artifact exceeds configured byte limit")
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="invalid content-length") from exc
         content = await request.body()
         return invoke(
             control.upload_artifact,
