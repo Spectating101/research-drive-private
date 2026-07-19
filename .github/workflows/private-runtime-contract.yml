@@ -37,6 +37,7 @@ jobs:
         run: |
           python .github/agent_patches/stream_remote.py
           python .github/agent_patches/stream_control.py
+          python .github/agent_patches/fix_fastapi_request.py
           python .github/agent_patches/stream_test.py
 
       - name: Compile runtime modules
