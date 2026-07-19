@@ -1,5 +1,6 @@
 name: Private runtime contract
 
+# Exact-head gate for runtime, registry authority, and remote worker adoption.
 on:
   pull_request:
     branches: [main]
