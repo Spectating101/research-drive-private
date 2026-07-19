@@ -28,6 +28,9 @@ class JobContext:
             at=at,
         )
 
+    def usage(self, **values: Any) -> dict[str, Any]:
+        return self.store.record_usage(self.claim.run_id, worker_id=self.claim.worker_id, **values)
+
 
 class WorkerRunner:
     def __init__(self, store: InteropStore, worker_id: str, handlers: Mapping[str, Handler], *, lease_seconds: int = 120) -> None:
@@ -68,6 +71,20 @@ class WorkerRunner:
                 at=at,
             )
 
+        usage = result.get("usage")
+        if isinstance(usage, Mapping):
+            self.store.record_usage(
+                claim.run_id,
+                worker_id=self.worker_id,
+                cpu_seconds=usage.get("cpu_seconds"),
+                memory_peak_mb=usage.get("memory_peak_mb"),
+                disk_written_mb=usage.get("disk_written_mb"),
+                network_bytes=usage.get("network_bytes"),
+                api_calls=usage.get("api_calls"),
+                storage_bytes=usage.get("storage_bytes"),
+                at=usage.get("timestamp") or at,
+            )
+
         progress = result.get("progress") if isinstance(result.get("progress"), Mapping) else {}
         completed = self.store.record(
             claim.run_id,
@@ -91,14 +108,18 @@ class WorkerRunner:
         connector_state = None
         connector_probe = result.get("connector_probe")
         if isinstance(connector_probe, Mapping):
-            connector_id = str(connector_probe.get("connector_id") or connector_probe.get("source_id") or "").strip()
+            connector_id = str(
+                connector_probe.get("connector_id") or connector_probe.get("source_id") or ""
+            ).strip()
             if not connector_id:
                 raise ValueError("connector_probe requires connector_id")
             connector_state = self.store.record_probe(connector_id, connector_probe)
 
         connector_sync = result.get("connector_sync")
         if isinstance(connector_sync, Mapping):
-            connector_id = str(connector_sync.get("connector_id") or connector_sync.get("source_id") or "").strip()
+            connector_id = str(
+                connector_sync.get("connector_id") or connector_sync.get("source_id") or ""
+            ).strip()
             if not connector_id:
                 raise ValueError("connector_sync requires connector_id")
             connector_state = self.store.record_sync(
