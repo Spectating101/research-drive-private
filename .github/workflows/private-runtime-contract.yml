@@ -34,9 +34,28 @@ jobs:
           python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance
 
       - name: Apply staged lease patch
+        id: patch_apply
+        continue-on-error: true
+        shell: bash
         run: |
-          python .github/agent_patches/lease_scope.py
-          python .github/agent_patches/fix_lease_test_escape.py
+          set -o pipefail
+          {
+            python .github/agent_patches/lease_scope.py
+            python .github/agent_patches/fix_lease_test_escape.py
+          } 2>&1 | tee patch-apply.log
+
+      - name: Upload staged patch diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patch-apply-log
+          path: patch-apply.log
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Enforce staged patch result
+        if: steps.patch_apply.outcome == 'failure'
+        run: exit 1
 
       - name: Compile runtime modules
         run: python -m compileall -q drive/scripts/yzu_cluster drive/scripts/research_data_mcp
