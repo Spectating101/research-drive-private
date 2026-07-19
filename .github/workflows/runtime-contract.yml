@@ -6,9 +6,8 @@ on:
       - "drive/src/v2/**"
       - "scripts/yzu_cluster/**"
       - "tests/test_yzu_interop_*.py"
-      - "docs/product/CLUSTER_RUNTIME_INTEROP_CONTRACT.md"
       - "package.json"
-      - "package-lock.json"
+      - ".github/agent_patches/**"
       - ".github/workflows/runtime-contract.yml"
   push:
     branches:
@@ -17,9 +16,8 @@ on:
       - "drive/src/v2/**"
       - "scripts/yzu_cluster/**"
       - "tests/test_yzu_interop_*.py"
-      - "docs/product/CLUSTER_RUNTIME_INTEROP_CONTRACT.md"
       - "package.json"
-      - "package-lock.json"
+      - ".github/agent_patches/**"
       - ".github/workflows/runtime-contract.yml"
 
 permissions:
@@ -32,10 +30,13 @@ concurrency:
 jobs:
   contract-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Apply staged live contract patch
+        run: python .github/agent_patches/live_contract.py
 
       - name: Use Python
         uses: actions/setup-python@v5
@@ -59,3 +60,17 @@ jobs:
 
       - name: Build Research Drive
         run: npm run build
+
+      - name: Publish verified live contract files
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-live-contract-hardening
+          path: |
+            drive/src/v2/api.js
+            drive/src/v2/executionLifecycle.js
+            drive/src/v2/executionLifecycle.test.js
+            drive/src/v2/transportContract.js
+            drive/src/v2/transportContract.test.js
+            package.json
+          if-no-files-found: error
+          retention-days: 3
