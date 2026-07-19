@@ -41,7 +41,7 @@ class WorkerRunnerTests(unittest.TestCase):
         self.assertIn("validating", [event["stage"] for event in events])
 
     def test_missing_handler_blocks_without_false_execution(self) -> None:
-        run = self.store.submit(job_id="unknown", job_type="custom", required_capabilities=[])
+        self.store.submit(job_id="unknown", job_type="custom", required_capabilities=[])
         result = WorkerRunner(self.store, "optiplex", {}).run_once()
         self.assertEqual(result["status"], "blocked")
         self.assertIn("unsupported job type", result["error"])
@@ -60,6 +60,27 @@ class WorkerRunnerTests(unittest.TestCase):
         self.assertTrue(result["retryable"])
         self.assertIsNotNone(result["started_at"])
         self.assertEqual(self.store.snapshot(run["run_id"])["attempt"], 1)
+
+    def test_connector_sync_checkpoint_is_committed_with_completed_job(self) -> None:
+        self.store.upsert_connector({
+            "connector_id": "datacite", "source_id": "datacite", "access": "public",
+            "sync_mode": "incremental", "cursor_field": "updated",
+        })
+        self.store.submit(job_id="sync-datacite", job_type="pipeline", required_capabilities=["pipeline"])
+
+        def sync(_context):
+            return {
+                "outputs": ["datacite-snapshot"],
+                "connector_sync": {
+                    "connector_id": "datacite", "state_token": "cursor-42",
+                    "last_synced_at": "2026-07-19T14:00:00Z", "quota_remaining": 52,
+                },
+            }
+
+        result = WorkerRunner(self.store, "optiplex", {"pipeline": sync}).run_once()
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["connector"]["state_token"], "cursor-42")
+        self.assertEqual(self.store.connector("datacite")["quota_remaining"], 52)
 
 
 if __name__ == "__main__":
