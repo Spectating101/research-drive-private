@@ -27,7 +27,7 @@ test("normalizes an available incremental connector with discovered schema", () 
 test("keeps credential requirements explicit", () => {
   const contract = normalizeConnectorContract({
     source_id: "licensed-feed",
-    access_state: "credential required",
+    credential_required: true,
     credential_profile: "faculty-license",
     license: "institutional",
   });
@@ -49,6 +49,17 @@ test("does not claim a connector is available when access is unknown", () => {
   const contract = normalizeConnectorContract({ source_id: "unknown-source" });
   assert.equal(contract.access.state, "unknown");
   assert.equal(contract.execution.probe_required, true);
+});
+
+test("normalizes nested source identity without object leakage", () => {
+  const contract = normalizeConnectorContract({
+    source: { id: "sec-edgar", name: "SEC EDGAR", url: "https://www.sec.gov" },
+    access: "public",
+  });
+
+  assert.equal(contract.identity.source_id, "sec-edgar");
+  assert.equal(contract.identity.name, "SEC EDGAR");
+  assert.equal(contract.identity.endpoint, "https://www.sec.gov");
 });
 
 test("builds compact Discover Ask context", () => {
