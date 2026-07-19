@@ -56,6 +56,81 @@ def get_latest_synthesis(repo_root: Path, profile_id: str) -> dict[str, Any] | N
     return out
 
 
+
+def _run_registry_dataset(repo_root: Path, profile: dict[str, Any]) -> dict[str, Any]:
+    """Hydrate (if needed) and summarize one registered / held tabular dataset."""
+    import pandas as pd
+    from scripts.research_data_mcp.registry_hydrate import ensure_dataset_hydrated
+
+    dataset_id = str(profile.get("registry_dataset_id") or "").strip()
+    fallback = str(profile.get("fallback_local_path") or "").strip()
+    hydrate: dict[str, Any] = {}
+    file_path: Path | None = None
+    if dataset_id:
+        hydrate = ensure_dataset_hydrated(repo_root, dataset_id)
+        reg = json.loads((repo_root / "config/research_query_registry.json").read_text(encoding="utf-8"))
+        row = next((r for r in reg.get("datasets") or [] if r.get("dataset_id") == dataset_id), None) or {}
+        local = str(row.get("local_path") or "").strip()
+        if local and "*" not in local:
+            candidate = repo_root / local
+            if candidate.is_file():
+                file_path = candidate
+            elif candidate.is_dir():
+                hits = sorted(
+                    p
+                    for p in candidate.rglob("*")
+                    if p.is_file() and (p.suffix.lower() in {".csv", ".json", ".parquet"} or p.name in {"STOCK_DAY_ALL", "STOCK_DAY_AVG_ALL", "company_tickers.json"})
+                )
+                file_path = hits[0] if hits else None
+    if file_path is None and fallback:
+        candidate = repo_root / fallback
+        if candidate.is_file():
+            file_path = candidate
+    if file_path is None:
+        raise ValueError(
+            f"registry_dataset profile {profile.get('id')!r} has no local bytes"
+            + (f" (hydrate={hydrate.get('error') or hydrate.get('reason')})" if hydrate else "")
+        )
+
+    suffix = file_path.suffix.lower()
+    if suffix == ".parquet":
+        frame = pd.read_parquet(file_path)
+    elif suffix == ".csv":
+        frame = pd.read_csv(file_path)
+    else:
+        raw = json.loads(file_path.read_text(encoding="utf-8"))
+        if isinstance(raw, list):
+            frame = pd.DataFrame(raw)
+        elif isinstance(raw, dict) and all(isinstance(v, dict) for v in raw.values()):
+            frame = pd.DataFrame(list(raw.values()))
+        else:
+            frame = pd.json_normalize(raw)
+
+    rel = str(file_path.relative_to(repo_root)) if file_path.is_relative_to(repo_root) else str(file_path)
+    summary = {
+        "profile_id": profile.get("id"),
+        "type": "registry_dataset",
+        "registry_dataset_id": dataset_id or None,
+        "path": rel,
+        "rows": int(len(frame)),
+        "columns": list(map(str, frame.columns)),
+        "hydrate": {k: hydrate.get(k) for k in ("ok", "skipped", "reason", "error", "dataset_id") if k in hydrate},
+    }
+    preview_cols = list(frame.columns)[:8]
+    preview = frame[preview_cols].head(int(profile.get("preview_limit") or 5)).fillna("").astype(str).to_dict("records")
+    return {
+        "profile_id": profile.get("id"),
+        "title": profile.get("title"),
+        "type": "registry_dataset",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": summary,
+        "preview": preview,
+        "research_questions": profile.get("research_questions") or [],
+        "artifacts": {"input_path": rel},
+        "note": "Held/registry snapshot — hydrate-first; no invented joins.",
+    }
+
+
 def _run_published_panel(repo_root: Path, profile: dict[str, Any]) -> dict[str, Any]:
     paths = profile.get("paths") or {}
     package_root = repo_root / str(paths.get("package_root", ""))
@@ -136,6 +211,8 @@ def run_synthesis(
         return run_jkse_pit_idn_synthesis(repo_root, profile, preview_limit=preview_limit)
     if ptype == "published_panel":
         return _run_published_panel(repo_root, profile)
+    if ptype == "registry_dataset":
+        return _run_registry_dataset(repo_root, profile)
     raise ValueError(f"unsupported synthesis profile type: {ptype}")
 
 

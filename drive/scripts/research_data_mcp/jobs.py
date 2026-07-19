@@ -55,10 +55,18 @@ class JobService:
         return self.orchestrator.run_schedule(schedule_id)
 
     def tick(self) -> dict[str, Any] | None:
+        # Cadence first — must not wait behind a long-running job execution.
+        gateway = getattr(self, "gateway", None) or getattr(self.campaign_runner, "gateway", None)
+        if gateway is not None and hasattr(gateway, "discover_refresh_tick"):
+            try:
+                gateway.discover_refresh_tick(limit=5, auto_approve_safe=True)
+            except Exception:  # noqa: BLE001
+                pass
         job = self.orchestrator.worker_tick()
         if self.campaign_runner:
             self.campaign_runner.tick()
         return job
+
 
     def archive_plan(
         self,

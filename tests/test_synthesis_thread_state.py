@@ -303,17 +303,22 @@ def test_failed_execution_is_visible_on_the_thread(store):
     assert "Drive verification failed" in failed["state"]["execution"]["error"]
 
 
-def test_agent_facing_job_approval_rejects_synthesis_execution(stack):
-    from scripts.research_data_mcp.jobs import JobService
-
+def test_synthesis_approval_boundaries(stack):
+    """Desk can approve synthesis; agents and approve-safe cannot."""
     job = stack.orchestrator.store.create(
         "Synthesis approval boundary",
         {},
-        {"job_type": "synthesis_execute", "launchable": True},
+        {"job_type": "synthesis_execute", "launchable": True, "title": "Synthesis boundary"},
         status="pending_approval",
     )
-    with pytest.raises(PermissionError, match="researcher approval"):
-        stack.gateway.approve_yzu_job(job["id"])
+    with pytest.raises(PermissionError, match="researcher confirmation"):
+        stack.tools.yzu_approve_job(job["id"])
+    safe = stack.gateway.approve_safe_pending_jobs(limit=50)
+    assert job["id"] not in (safe.get("approved") or [])
+    approved = stack.gateway.approve_yzu_job(job["id"])
+    assert isinstance(approved, dict)
+    got = stack.gateway.jobs.get(job["id"])
+    assert got.get("status") in {"queued", "running", "completed"}
 
 
 def test_discover_handoff_preserves_identities_only(store):
@@ -328,6 +333,13 @@ def test_discover_handoff_preserves_identities_only(store):
     assert handoff["required_grain"] == "asset-week"
     assert handoff["collection"] is None
     assert handoff["fake_collection"] is False
+    assert isinstance(handoff.get("collect_intents"), list)
+    assert len(handoff["collect_intents"]) == 1
+    intent = handoff["collect_intents"][0]
+    assert intent["evidence_id"] == "x_followers"
+    assert intent["candidate_key"] == "src:x:followers:historical"
+    assert intent["resolvable_hint"] is True
+    assert intent["status"] == "intent_only"
 
     held_ids = {row["id"] for row in handoff["held_evidence"]}
     missing_ids = {row["id"] for row in handoff["missing_evidence"]}

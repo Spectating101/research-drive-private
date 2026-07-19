@@ -36,6 +36,7 @@ class ResearchDataGateway:
         self.agent = AgentOrchestrator(self.engine, orchestrator=orchestrator)
         self._yzu_api = yzu_api
         self.jobs = jobs or JobService(self.agent.orchestrator)
+        self.jobs.gateway = self  # Discover refresh tick from jobs.tick()
 
         self.search = SearchService(self.engine, self.registry_path, self.repo_root)
         self.catalog = CatalogService(self.repo_root, self.search, self.agent.orchestrator, self.agent.procurement)
@@ -1268,7 +1269,20 @@ class ResearchDataGateway:
         connector_id = str(route.get("connector_id") or "")
         if not connector_id:
             raise ValueError("selected route cannot be collected until it has a verified connector")
-        plan = dict(self.procurement.manifest_plan_from_connector(connector_id, limit=min(max(int(limit), 1), 2000)))
+        from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
+
+        plan = dict(
+            resolve_discover_collect_plan(
+                self.procurement,
+                self.repo_root,
+                connector_id=connector_id,
+                source_id=str((state.get("candidate") or {}).get("source_id") or intent.get("source_id") or ""),
+                limit=min(max(int(limit), 1), 2000),
+                title=str(intent.get("title") or ""),
+                url=str(route.get("url") or route.get("source_url") or ""),
+                candidate_key=str(route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or ""),
+            )
+        )
         plan.update({"discover_intent_id": intent_id, "candidate_key": route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or "", "destination": route.get("destination") or plan.get("destination") or "", "refresh_strategy": route.get("refresh") or ""})
         submitted = self.jobs.submit(plan.get("title") or intent.get("title") or "Discover collection", plan, {"source": "discover_intent", "discover_intent_id": intent_id, "research_need": intent.get("research_need") or "", "route_id": selected_id, "connector_id": connector_id}, auto_approve=False)
         job = submitted.get("job") or {}
@@ -1346,6 +1360,10 @@ class ResearchDataGateway:
         connector_id: str = "",
         candidate_key: str = "",
         enabled: bool = True,
+        requested_schedule: str = "",
+        schedule_note: str = "",
+        timezone: str = "",
+        schedule_spec: dict | None = None,
     ) -> dict[str, Any]:
         return self._discover_refresh_store().create(
             cadence=cadence,
@@ -1355,6 +1373,10 @@ class ResearchDataGateway:
             connector_id=connector_id,
             candidate_key=candidate_key,
             enabled=enabled,
+            requested_schedule=requested_schedule,
+            schedule_note=schedule_note,
+            timezone=timezone,
+            schedule_spec=schedule_spec,
         )
 
     def discover_refresh_list(self, *, limit: int = 50, intent_id: str = "", status: str = "") -> dict[str, Any]:
@@ -1372,6 +1394,24 @@ class ResearchDataGateway:
 
     def discover_refresh_stop(self, subscription_id: str) -> dict[str, Any]:
         return self._discover_refresh_store().stop(subscription_id)
+
+    def discover_refresh_tick(
+        self,
+        *,
+        limit: int = 10,
+        force_subscription_id: str = "",
+        force: bool = False,
+        auto_approve_safe: bool = True,
+    ) -> dict[str, Any]:
+        from scripts.research_data_mcp.discover_refresh_runner import tick_discover_refresh
+
+        return tick_discover_refresh(
+            self,
+            limit=limit,
+            force_subscription_id=force_subscription_id,
+            force=force,
+            auto_approve_safe=auto_approve_safe,
+        )
 
     def discover_history(
         self,
@@ -1471,11 +1511,161 @@ class ResearchDataGateway:
         if node_id:
             proposal["nodeId"] = node_id
         if execution_spec is not None:
-            proposal["execution_spec"] = execution_spec
+            from scripts.research_data_mcp.synthesis_executor import preflight_execution_spec
+
+            preflight = preflight_execution_spec(Path(self.repo_root), dict(execution_spec))
+            if not preflight.get("ok"):
+                issues = preflight.get("issues") or []
+                detail = "; ".join(
+                    f"{i.get('code')}:{i.get('column') or i.get('columns') or i.get('dataset_id') or i.get('detail')}"
+                    for i in issues[:6]
+                )
+                raise ValueError(f"execution_spec preflight failed: {detail}")
+            proposal["execution_spec"] = preflight["execution_spec"]
+            proposal["execution_preflight"] = {
+                "ok": True,
+                "warnings": preflight.get("warnings") or [],
+            }
         return self._synthesis_thread_store().set_proposal(thread_id, proposal)
 
     def synthesis_thread_discover_handoff(self, thread_id: str) -> dict:
-        return self._synthesis_thread_store().discover_handoff(thread_id)
+        handoff = self._synthesis_thread_store().discover_handoff(thread_id)
+        intents = list(handoff.get("collect_intents") or [])
+        enriched: list[dict] = []
+        for intent in intents:
+            row = dict(intent)
+            if not row.get("resolvable_hint"):
+                row["resolvable"] = False
+                enriched.append(row)
+                continue
+            try:
+                from scripts.research_data_mcp.discover_collect_plan import (
+                    resolve_discover_collect_plan,
+                )
+
+                plan = resolve_discover_collect_plan(
+                    self.procurement,
+                    self.repo_root,
+                    connector_id=str(row.get("connector_id") or ""),
+                    source_id=str(row.get("source_id") or ""),
+                    candidate_key=str(row.get("candidate_key") or ""),
+                    title=str(row.get("label") or row.get("evidence_id") or ""),
+                    limit=8,
+                )
+                row["resolvable"] = True
+                row["plan_preview"] = {
+                    "job_type": plan.get("job_type"),
+                    "title": plan.get("title"),
+                    "collect_resolution": plan.get("collect_resolution"),
+                    "item_count": len(plan.get("items") or ([] if not plan.get("url") else [plan.get("url")])),
+                    "public_direct_url": bool(plan.get("public_direct_url")),
+                }
+            except Exception as exc:  # noqa: BLE001
+                row["resolvable"] = False
+                row["reason"] = str(exc)[:400]
+            enriched.append(row)
+        handoff["collect_intents"] = enriched
+        handoff["resolvable_collect_count"] = sum(1 for r in enriched if r.get("resolvable"))
+        return handoff
+
+    def synthesis_thread_collect_missing(
+        self,
+        thread_id: str,
+        *,
+        evidence_ids: list[str] | None = None,
+        auto_approve_safe: bool = True,
+        limit: int = 8,
+    ) -> dict:
+        """Submit Discover collect jobs for resolvable missing-evidence intents.
+
+        Does not invent plans: only resolves identities already on the thread.
+        """
+        handoff = self.synthesis_thread_discover_handoff(thread_id)
+        wanted = {str(x) for x in (evidence_ids or []) if str(x).strip()}
+        submitted: list[dict] = []
+        skipped: list[dict] = []
+        from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
+        from scripts.research_data_mcp.procurement_auto_approve import should_auto_approve_plan
+
+        for intent in handoff.get("collect_intents") or []:
+            eid = str(intent.get("evidence_id") or "")
+            if wanted and eid not in wanted:
+                skipped.append({"evidence_id": eid, "reason": "not_selected"})
+                continue
+            if not intent.get("resolvable"):
+                skipped.append(
+                    {
+                        "evidence_id": eid,
+                        "reason": intent.get("reason") or "not_resolvable",
+                    }
+                )
+                continue
+            try:
+                plan = dict(
+                    resolve_discover_collect_plan(
+                        self.procurement,
+                        self.repo_root,
+                        connector_id=str(intent.get("connector_id") or ""),
+                        source_id=str(intent.get("source_id") or ""),
+                        candidate_key=str(intent.get("candidate_key") or ""),
+                        title=str(intent.get("label") or eid),
+                        limit=min(max(int(limit or 8), 1), 25),
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                skipped.append({"evidence_id": eid, "reason": f"plan:{exc}"})
+                continue
+            plan["synthesis_thread_id"] = thread_id
+            plan["discover_handoff"] = True
+            approve = False
+            if auto_approve_safe:
+                try:
+                    approve = bool(
+                        should_auto_approve_plan(
+                            plan, self.repo_root, orchestrator=self.orchestrator
+                        )
+                    )
+                except Exception:  # noqa: BLE001
+                    approve = False
+            request = {
+                "source": "synthesis_discover_handoff",
+                "synthesis_thread_id": thread_id,
+                "evidence_id": eid,
+                "connector_id": intent.get("connector_id") or "",
+                "source_id": intent.get("source_id") or "",
+                "candidate_key": intent.get("candidate_key") or "",
+            }
+            out = self.jobs.submit(
+                plan.get("title") or f"Collect missing {eid}",
+                plan,
+                request,
+                auto_approve=approve,
+            )
+            job = out.get("job") if isinstance(out, dict) else None
+            if not isinstance(job, dict) or not job.get("id"):
+                skipped.append(
+                    {
+                        "evidence_id": eid,
+                        "reason": (out.get("error") if isinstance(out, dict) else "submit_failed"),
+                    }
+                )
+                continue
+            submitted.append(
+                {
+                    "evidence_id": eid,
+                    "job_id": job.get("id"),
+                    "job_status": job.get("status"),
+                    "auto_approved": approve,
+                    "plan": plan.get("job_type") or plan.get("collect_resolution"),
+                }
+            )
+        return {
+            "thread_id": thread_id,
+            "submitted": submitted,
+            "skipped": skipped,
+            "fake_collection": False,
+            "note": "Jobs created only from resolvable missing-evidence identities.",
+        }
 
     def synthesis_thread_materialisation(self, thread_id: str) -> dict:
         return self._synthesis_thread_store().materialisation(thread_id)
@@ -1627,9 +1817,11 @@ class ResearchDataGateway:
         return self.jobs.submit(title, plan, request, auto_approve=auto_approve)
 
     def approve_yzu_job(self, job_id: str) -> dict[str, Any]:
-        job = self.jobs.get(job_id)
-        if (job.get("plan") or {}).get("job_type") == "synthesis_execute":
-            raise PermissionError("Synthesis execution requires researcher approval through the desk UI")
+        """Researcher desk approve path.
+
+        Synthesis jobs are allowed here (History / approve button). They must
+        still never pass approve-safe bulk policy or Composer/agent tool wrappers.
+        """
         return self.jobs.approve(job_id)
 
     def cancel_yzu_job(self, job_id: str) -> dict[str, Any]:

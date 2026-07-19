@@ -42,10 +42,12 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/discover/sources/preview", "handler": "library_discover_source_preview"},
     {"method": "GET", "path": "/library/discover/subscriptions", "handler": "library_discover_subscriptions_list"},
     {"method": "POST", "path": "/library/discover/subscriptions", "handler": "library_discover_subscriptions_create"},
+    {"method": "POST", "path": "/library/discover/subscriptions/tick", "handler": "library_discover_subscriptions_tick"},
     {"method": "GET", "path": "/library/discover/subscriptions/{subscription_id}", "handler": "library_discover_subscription_get"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/pause", "handler": "library_discover_subscription_pause"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/resume", "handler": "library_discover_subscription_resume"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/stop", "handler": "library_discover_subscription_stop"},
+    {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/run", "handler": "library_discover_subscription_run"},
     {"method": "GET", "path": "/library/discover/history", "handler": "library_discover_history"},
     {"method": "GET", "path": "/library/overview", "handler": "library_overview"},
     {"method": "GET", "path": "/library/partitions", "handler": "library_partitions"},
@@ -66,6 +68,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/proposal", "handler": "library_synthesis_thread_set_proposal"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/conversation", "handler": "library_synthesis_thread_link_conversation"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/discover-handoff", "handler": "library_synthesis_thread_discover_handoff"},
+    {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/collect-missing", "handler": "library_synthesis_thread_collect_missing"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
     {"method": "GET", "path": "/library/synthesis/{id}", "handler": "library_synthesis_get"},
@@ -258,6 +261,11 @@ def _handlers() -> dict[str, Handler]:
             pass
 
     def health(stack, query, payload, params):
+        # Soft cadence nudge — safe no-op when nothing is due / tick busy.
+        try:
+            stack.gateway.discover_refresh_tick(limit=3, auto_approve_safe=True)
+        except Exception:  # noqa: BLE001
+            pass
         return stack.gateway.desk_health(live=_live_flag(query))
 
     def datasets(stack, query, payload, params):
@@ -410,14 +418,36 @@ def _handlers() -> dict[str, Handler]:
 
     def library_discover_collect(stack, query, payload, params):
         cid = str(payload.get("connector_id") or "").strip()
-        if not cid:
-            return {"error": "connector_id is required", "status": "error"}
+        source_id = str(payload.get("source_id") or "").strip()
+        if not cid and not source_id:
+            return {"error": "connector_id or source_id is required", "status": "error"}
         from scripts.research_data_mcp.candidate_key import candidate_key
+        from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
         from scripts.research_data_mcp.job_identity import enrich_job_identity
 
         limit = int(payload.get("limit") or 200)
         auto_approve = bool(payload.get("auto_approve"))
-        plan = stack.gateway.procurement.manifest_plan_from_connector(cid, limit=limit)
+        try:
+            plan = resolve_discover_collect_plan(
+                stack.gateway.procurement,
+                stack.gateway.repo_root,
+                connector_id=cid,
+                source_id=source_id,
+                limit=limit,
+                title=str(payload.get("name") or payload.get("title") or "").strip(),
+                url=str(payload.get("url") or payload.get("source_url") or "").strip(),
+                candidate_key=str(payload.get("candidate_key") or "").strip(),
+            )
+        except KeyError as exc:
+            return {
+                "error": "not_found",
+                "message": f"No collectable plan for connector_id={cid!r} source_id={source_id!r}: {exc}",
+                "status": "error",
+                "connector_id": cid,
+                "source_id": source_id,
+            }
+        # Prefer resolved procurement/catalog id for identity stamping
+        cid = str(plan.get("connector_id") or plan.get("catalog_connector_id") or cid).strip()
         dest = str(payload.get("destination") or "").strip()
         if dest:
             plan["destination"] = dest
@@ -450,6 +480,12 @@ def _handlers() -> dict[str, Handler]:
             "limit": limit,
             "source": "discover_ui",
         }
+        for link_key in ("discover_intent_id", "discover_subscription_id"):
+            link_val = str(payload.get(link_key) or "").strip()
+            if link_val:
+                request[link_key] = link_val
+                plan = dict(plan)
+                plan[link_key] = link_val
         if ck:
             request["candidate_key"] = ck
         for field in ("dataset_id", "doi", "url", "external_id", "kind", "provider"):
@@ -592,6 +628,14 @@ def _handlers() -> dict[str, Handler]:
             connector_id=str(payload.get("connector_id") or ""),
             candidate_key=str(payload.get("candidate_key") or ""),
             enabled=bool(payload.get("enabled", True)),
+            requested_schedule=str(payload.get("requested_schedule") or ""),
+            schedule_note=str(payload.get("schedule_note") or ""),
+            timezone=str(payload.get("timezone") or ""),
+            schedule_spec=payload.get("schedule_spec") if isinstance(payload.get("schedule_spec"), dict) else (
+                {"cron": str(payload.get("cron") or ""), "timezone": str(payload.get("timezone") or ""), "requested_schedule": str(payload.get("requested_schedule") or "")}
+                if payload.get("cron")
+                else None
+            ),
         )
         _activity(
             stack,
@@ -612,6 +656,33 @@ def _handlers() -> dict[str, Handler]:
 
     def library_discover_subscription_stop(stack, query, payload, params):
         return stack.gateway.discover_refresh_stop(params["subscription_id"])
+
+    def library_discover_subscriptions_tick(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        out = stack.gateway.discover_refresh_tick(
+            limit=int(body.get("limit") or query.get("limit") or 10),
+            force_subscription_id=str(body.get("subscription_id") or ""),
+            force=bool(body.get("force")),
+            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+        )
+        _activity(
+            stack,
+            "refresh_tick",
+            f"fired={len(out.get('fired') or [])}",
+            meta={"checked": out.get("checked"), "forced": out.get("forced")},
+        )
+        return out
+
+    def library_discover_subscription_run(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        out = stack.gateway.discover_refresh_tick(
+            limit=1,
+            force_subscription_id=params["subscription_id"],
+            force=True,
+            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+        )
+        _activity(stack, "refresh_run", params["subscription_id"], meta={"fired": len(out.get("fired") or [])})
+        return out
 
     def library_discover_history(stack, query, payload, params):
         return stack.gateway.discover_history(
@@ -745,6 +816,15 @@ def _handlers() -> dict[str, Handler]:
 
     def library_synthesis_thread_discover_handoff(stack, query, payload, params):
         return stack.gateway.synthesis_thread_discover_handoff(params["thread_id"])
+
+    def library_synthesis_thread_collect_missing(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        return stack.gateway.synthesis_thread_collect_missing(
+            params["thread_id"],
+            evidence_ids=list(body.get("evidence_ids") or []),
+            auto_approve_safe=bool(body.get("auto_approve_safe", True)),
+            limit=int(body.get("limit") or 8),
+        )
 
     def library_synthesis_thread_materialisation(stack, query, payload, params):
         return stack.gateway.synthesis_thread_materialisation(params["thread_id"])
@@ -978,7 +1058,8 @@ def _handlers() -> dict[str, Handler]:
         return stack.jobs.get(params["id"])
 
     def job_approve(stack, query, payload, params):
-        out = stack.jobs.approve(params["id"])
+        # Desk researcher approve (gateway); synthesis allowed here, not via approve-safe/agents.
+        out = stack.gateway.approve_yzu_job(params["id"])
         ticked = stack.jobs.tick()
         if isinstance(out, dict) and isinstance(ticked, dict) and ticked.get("id"):
             out["tick_started"] = ticked.get("id")
@@ -1096,6 +1177,8 @@ def _handlers() -> dict[str, Handler]:
         "library_discover_subscription_pause": library_discover_subscription_pause,
         "library_discover_subscription_resume": library_discover_subscription_resume,
         "library_discover_subscription_stop": library_discover_subscription_stop,
+        "library_discover_subscriptions_tick": library_discover_subscriptions_tick,
+        "library_discover_subscription_run": library_discover_subscription_run,
         "library_discover_history": library_discover_history,
         "library_datacite_enrich": library_datacite_enrich,
         "library_license_approve": library_license_approve,
@@ -1114,6 +1197,7 @@ def _handlers() -> dict[str, Handler]:
         "library_synthesis_thread_set_proposal": library_synthesis_thread_set_proposal,
         "library_synthesis_thread_link_conversation": library_synthesis_thread_link_conversation,
         "library_synthesis_thread_discover_handoff": library_synthesis_thread_discover_handoff,
+        "library_synthesis_thread_collect_missing": library_synthesis_thread_collect_missing,
         "library_synthesis_thread_materialisation": library_synthesis_thread_materialisation,
         "library_synthesis_thread_execute": library_synthesis_thread_execute,
         "library_synthesis_get": library_synthesis_get,

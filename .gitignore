@@ -71,6 +71,14 @@ scripts/data_lake/
 # Generated large local catalogs
 reports/asset_catalog.json
 
+# Research Drive private runtime: local data and generated proof never enter Git.
+drive/data/
+drive/data_lake/
+drive/logs/
+drive/.playwright-mcp/
+drive/docs/status/generated/
+drive/config/*.local.json
+
 # OS/editor noise
 .DS_Store
 Thumbs.db

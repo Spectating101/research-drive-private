@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from scripts.research_data_mcp.discover_progress import attach_subscription_progress
+
 _DISCOVER_JOB_SOURCES = frozenset(
     {
         "discover_ui",
@@ -52,10 +54,16 @@ def _intent_item(intent: dict[str, Any]) -> dict[str, Any]:
 
 
 def _subscription_item(sub: dict[str, Any]) -> dict[str, Any]:
-    return {
+    cadence = str(sub.get("cadence") or "manual")
+    requested = str(sub.get("requested_schedule") or "").strip()
+    title_src = sub.get("source_id") or sub.get("connector_id") or sub.get("candidate_key") or sub.get("id")
+    cadence_label = requested or cadence
+    note = str(sub.get("execution_note") or "Refresh subscription")
+    summary = f"{cadence_label} · {note}" if cadence_label else note
+    item = {
         "kind": "subscription",
         "id": sub.get("id"),
-        "title": f"Refresh · {sub.get('source_id') or sub.get('connector_id') or sub.get('candidate_key') or sub.get('id')}",
+        "title": f"Refresh · {title_src}",
         "status": sub.get("status"),
         "updated_at": sub.get("updated_at") or sub.get("created_at"),
         "created_at": sub.get("created_at"),
@@ -64,14 +72,39 @@ def _subscription_item(sub: dict[str, Any]) -> dict[str, Any]:
         "source_id": sub.get("source_id") or "",
         "connector_id": sub.get("connector_id") or "",
         "candidate_key": sub.get("candidate_key") or "",
-        "cadence": sub.get("cadence"),
+        "cadence": cadence,
+        "requested_schedule": requested,
+        "schedule_spec": sub.get("schedule_spec") or {},
         "enabled": bool(sub.get("enabled")),
         "execution_mode": sub.get("execution_mode"),
-        "auto_refresh": False,
+        "auto_refresh": bool(sub.get("auto_refresh")),
         "last_run_at": sub.get("last_run_at"),
         "next_run_at": sub.get("next_run_at"),
-        "summary": sub.get("execution_note") or "Non-executing refresh subscription",
+        "last_job_id": sub.get("last_job_id"),
+        "last_run_status": sub.get("last_run_status"),
+        "last_run_plan": sub.get("last_run_plan"),
+        "summary": summary,
     }
+    # Prefer store-attached progress; rebuild if absent.
+    if not item.get("progress"):
+        item = attach_subscription_progress(
+            {
+                **item,
+                "execution_mode": sub.get("execution_mode"),
+                "auto_refresh": bool(sub.get("auto_refresh")),
+                "cadence": cadence,
+                "schedule_spec": sub.get("schedule_spec") or {},
+                "last_run_at": sub.get("last_run_at"),
+                "next_run_at": sub.get("next_run_at"),
+                "last_job_id": sub.get("last_job_id"),
+                "last_run_status": sub.get("last_run_status"),
+                "last_run_plan": sub.get("last_run_plan"),
+                "last_run_error": sub.get("last_run_error"),
+            }
+        )
+    else:
+        item["progress"] = sub.get("progress")
+    return item
 
 
 def _run_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str = "") -> dict[str, Any]:
@@ -92,6 +125,12 @@ def _run_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str 
         "job_id": job.get("id"),
         "candidate_key": plan.get("candidate_key") or request.get("candidate_key") or "",
         "summary": f"Job {job.get('status') or 'unknown'}",
+        "progress": {
+            "phase": str(job.get("status") or "unknown"),
+            "label": f"Collection {job.get('status') or 'unknown'}",
+            "last_job_id": job.get("id"),
+            "last_run_status": job.get("status"),
+        },
     }
 
 

@@ -350,17 +350,40 @@ def build_discover_handoff(thread: dict[str, Any]) -> dict[str, Any]:
         elif status in MISSING_STATUSES:
             missing.append(_evidence_identity(node))
 
+    collect_intents: list[dict[str, Any]] = []
+    for row in missing:
+        connectors = [
+            str(row.get(k) or "").strip()
+            for k in ("connector_id", "source_id", "candidate_key", "source_identity")
+        ]
+        has_hook = bool(connectors[0] or connectors[1] or connectors[2])
+        intent: dict[str, Any] = {
+            "evidence_id": row.get("id"),
+            "label": row.get("label"),
+            "connector_id": row.get("connector_id") or "",
+            "source_id": row.get("source_id") or "",
+            "candidate_key": row.get("candidate_key") or "",
+            "source_identity": row.get("source_identity") or "",
+            "resolvable_hint": has_hook,
+            "status": "intent_only",
+        }
+        if not has_hook:
+            intent["reason"] = "missing_source_hooks"
+        collect_intents.append(intent)
+
     return {
         "thread_id": thread.get("id"),
         "objective": thread.get("objective") or state.get("objective") or "",
         "required_grain": required_grain,
         "held_evidence": held,
         "missing_evidence": missing,
+        "collect_intents": collect_intents,
         "collection": None,
         "fake_collection": False,
         "note": (
-            "Conservative Discover handoff: objective, required grain, and "
-            "held/missing evidence identities only. No acquisition jobs invented."
+            "Conservative Discover handoff: identities + collect_intents from "
+            "missing evidence hooks. No acquisition jobs invented until "
+            "researcher calls collect-missing."
         ),
     }
 
