@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "drive/src/v2/**"
+      - "docs/product/CLUSTER_RUNTIME_INTEROP_CONTRACT.md"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/runtime-contract.yml"
@@ -12,6 +13,7 @@ on:
       - "agent/**"
     paths:
       - "drive/src/v2/**"
+      - "docs/product/CLUSTER_RUNTIME_INTEROP_CONTRACT.md"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/runtime-contract.yml"
