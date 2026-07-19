@@ -77,17 +77,23 @@ function numberValue(...values) {
 
 export function normalizeConnectorContract(candidate = {}) {
   const connector = candidate?.connector && typeof candidate.connector === "object" ? candidate.connector : {};
-  const state = accessState(candidate, connector);
+  const nestedSource = candidate?.source && typeof candidate.source === "object" ? candidate.source : {};
+  const sourceLabel = typeof candidate?.source === "string" ? candidate.source : null;
+  const explicitCredentialRequired = truthy(
+    firstValue(connector?.credential_required, candidate?.credential_required),
+  );
+  const detectedState = accessState(candidate, connector);
+  const state = explicitCredentialRequired ? "credential_required" : detectedState;
   const mode = syncMode(candidate, connector);
   const schema = schemaFields(
     firstValue(connector?.schema?.fields, connector?.schema, candidate?.schema?.fields, candidate?.fields),
   );
-  const credentialRequired =
-    state === "credential_required" || truthy(firstValue(connector?.credential_required, candidate?.credential_required));
+  const credentialRequired = state === "credential_required";
   const retryable = truthy(firstValue(connector?.retryable, candidate?.retryable)) || state === "rate_limited";
   const sourceId = firstValue(
     candidate?.source_id,
     connector?.source_id,
+    nestedSource?.id,
     connector?.id,
     candidate?.connector_id,
     candidate?.desk_connector_id,
@@ -97,8 +103,22 @@ export function normalizeConnectorContract(candidate = {}) {
     identity: {
       connector_id: firstValue(candidate?.connector_id, candidate?.desk_connector_id, connector?.id) || null,
       source_id: sourceId || null,
-      name: firstValue(connector?.name, candidate?.source_name, candidate?.provider, candidate?.source) || null,
-      endpoint: firstValue(connector?.endpoint, connector?.url, candidate?.endpoint, candidate?.url) || null,
+      name: firstValue(
+        connector?.name,
+        nestedSource?.name,
+        nestedSource?.label,
+        candidate?.source_name,
+        candidate?.provider,
+        sourceLabel,
+      ) || null,
+      endpoint: firstValue(
+        connector?.endpoint,
+        connector?.url,
+        nestedSource?.endpoint,
+        nestedSource?.url,
+        candidate?.endpoint,
+        candidate?.url,
+      ) || null,
     },
     access: {
       state,
