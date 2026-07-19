@@ -11,6 +11,7 @@ on:
       - "tests/test_bootstrap_drive_order.py"
       - "tests/test_acquisition_manifest.py"
       - "tests/test_scraper_manifest.py"
+      - "tests/test_registry_authority.py"
       - "tests/test_worker_control.py"
       - "tests/test_remote_worker.py"
       - "tests/test_job_status_counts.py"
@@ -52,9 +53,9 @@ jobs:
         run: |
           python -m pytest -q tests/test_remote_worker.py
 
-      - name: Run scraper manifest contracts
+      - name: Run scraper and registry authority contracts
         run: |
-          python -m pytest -q tests/test_scraper_manifest.py
+          python -m pytest -q tests/test_scraper_manifest.py tests/test_registry_authority.py
 
       - name: Run private suite excluding optional HMM tests
         run: |
