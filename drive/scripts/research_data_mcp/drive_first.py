@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -163,6 +165,99 @@ def remote_suffix_for_collect(
     return f"collection/acquired/procured/{dataset_id or job_id}"
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _normalize_scraper_materialization(
+    repo_root: Path,
+    *,
+    job_id: str,
+    plan: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """Create canonical manifest proof for either catalog or single-page scrapes."""
+
+    raw_catalog = str(result.get("catalog_dir") or "").strip()
+    raw_extract = str(result.get("extract_path") or "").strip()
+    if raw_catalog:
+        output_path = Path(raw_catalog)
+    elif raw_extract:
+        output_path = Path(raw_extract)
+    else:
+        output_path = Path(f"data_lake/spectator_engine/scrapes/{job_id}")
+    output_path = output_path if output_path.is_absolute() else repo_root / output_path
+    output_path = output_path.resolve()
+    try:
+        output_path.relative_to(repo_root.resolve())
+    except ValueError as exc:
+        raise ValueError("scraper output path escapes the repository") from exc
+    canonical_dir = output_path if output_path.is_dir() else output_path.parent
+    if not canonical_dir.is_dir():
+        raise ValueError("scraper produced no local output directory")
+
+    manifest_path = canonical_dir / "output_manifest.json"
+    files: list[dict[str, Any]] = []
+    for path in sorted(canonical_dir.rglob("*")):
+        if not path.is_file() or path == manifest_path:
+            continue
+        files.append(
+            {
+                "name": str(path.relative_to(canonical_dir)),
+                "path": str(path.relative_to(repo_root)),
+                "bytes": path.stat().st_size,
+                "sha256": _sha256_file(path),
+            }
+        )
+    if not files:
+        raise ValueError("scraper produced no non-empty output files")
+
+    dataset_id = f"scrape_{job_id}"
+    manifest_id = f"scrape_manifest_{job_id}"
+    validation = {
+        "ok": True,
+        "file_count": len(files),
+        "total_bytes": sum(int(row["bytes"]) for row in files),
+    }
+    manifest = {
+        "manifest_id": manifest_id,
+        "job_id": job_id,
+        "output": {
+            "dataset_id": dataset_id,
+            "canonical_dir": str(canonical_dir.relative_to(repo_root)),
+        },
+        "files": files,
+        "validation": validation,
+        "plan": {
+            "job_type": "scraper_run",
+            "url": plan.get("url"),
+            "title": plan.get("title"),
+            "scrape_mode": plan.get("scrape_mode") or "page",
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    materialized = {
+        "dataset_id": dataset_id,
+        "canonical_dir": str(canonical_dir.relative_to(repo_root)),
+        "files": files,
+        "validation": validation,
+        "manifest_id": manifest_id,
+        "manifest_path": str(manifest_path.relative_to(repo_root)),
+    }
+    result["materialized"] = materialized
+    result["dataset_id"] = dataset_id
+    result["canonical_dir"] = materialized["canonical_dir"]
+    result["manifest_id"] = manifest_id
+    result["output_manifest_id"] = manifest_id
+    result["manifest_path"] = materialized["manifest_path"]
+    return materialized
+
+
 def finalize_job_to_drive(
     repo_root: Path,
     *,
@@ -214,21 +309,30 @@ def finalize_job_to_drive(
             )
         return row
 
-    mat = materialized or result.get("materialized") or {}
+    mat = materialized if materialized is not None else (result.get("materialized") or {})
+    if str(plan.get("job_type") or "") == "scraper_run":
+        try:
+            normalized = _normalize_scraper_materialization(
+                repo_root,
+                job_id=job_id,
+                plan=plan,
+                result=result,
+            )
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": "scrape_manifest_failed", "detail": str(exc), "archives": archives}
+        if materialized is not None:
+            materialized.clear()
+            materialized.update(normalized)
+            mat = materialized
+        else:
+            mat = normalized
+
     if mat.get("canonical_dir"):
         ds_id = str(mat.get("dataset_id") or job_id)
         suffix = remote_suffix_for_collect(repo_root, plan, dataset_id=ds_id, job_id=job_id)
         row = _archive(str(mat["canonical_dir"]), suffix, dataset_id=ds_id)
         if not row.get("ok"):
             return {"ok": False, "error": "materialized_archive_failed", "archives": archives, "failed": row}
-
-    if str(plan.get("job_type") or "") == "scraper_run":
-        catalog_dir = str(result.get("catalog_dir") or f"data_lake/spectator_engine/scrapes/{job_id}")
-        ds_id = f"scrape_{job_id}"
-        suffix = remote_suffix_for_collect(repo_root, plan, dataset_id=ds_id, job_id=job_id)
-        row = _archive(catalog_dir, suffix, dataset_id=ds_id)
-        if not row.get("ok"):
-            return {"ok": False, "error": "scrape_archive_failed", "archives": archives, "failed": row}
 
     if not mat.get("canonical_dir") and str(plan.get("job_type") or "") != "scraper_run" and promoted:
         from scripts.research_data_mcp.archive_after_job import archive_targets_from_promoted, resolve_archive_target
