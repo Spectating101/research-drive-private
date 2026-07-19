@@ -1,5 +1,6 @@
 import { displayName } from "@/v2/datasetMeta";
 import { candidateKey } from "@/v2/candidateKey";
+import { assetAuthorityContext } from "@/v2/assetAuthority";
 import { normalizeSynthesisExecution } from "@/v2/executionLifecycle";
 
 function readinessLabel(dataset) {
@@ -159,13 +160,21 @@ export function buildRailContext({
     if (lifecycle.retryable && /failed|blocked/.test(lifecycle.stage)) actions.push("retry_execution");
     if (lifecycle.stage === "registered") actions.push("open_output", "refresh_output");
   } else if (dataset?.dataset_id) {
+    const authority = assetAuthorityContext(dataset);
     entity = {
       kind: "dataset",
       id: dataset.dataset_id,
       title: displayName(dataset),
+      status: authority.readiness || undefined,
+    };
+    selected = {
+      title: displayName(dataset),
+      ...authority,
     };
     datasetId = dataset.dataset_id;
-    actions = ["preview_rows", "ask_about"];
+    actions = ["ask_about", "inspect_lineage"];
+    if (authority.readiness === "query_ready") actions.unshift("preview_rows");
+    if (authority.refresh_policy) actions.push("refresh_asset");
   }
 
   const compare =
