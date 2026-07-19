@@ -1,0 +1,7 @@
+# host|shard|remote_dir — must match datacite_y2025_parallel_shards.list (Windows only)
+100.102.0.84|y2025_q1|C:/cw/dataset_index_y2025_q1
+100.102.0.84|y2025_q2|C:/cw/dataset_index_y2025_q2
+100.102.0.84|y2025_q3|C:/cw/dataset_index_y2025_q3
+100.102.0.84|y2025_q4|C:/cw/dataset_index_y2025_q4
+100.102.0.84|y2026|C:/cw/dataset_index_y2026
+100.83.34.59|y2023_2024|C:/cw/dataset_index_y2023_2024

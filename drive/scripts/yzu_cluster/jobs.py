@@ -48,8 +48,16 @@ class YzuJobStore:
     def _db(self):
         return sqlite3.connect(self.path, timeout=30)
 
-    def create(self, title: str, request: dict, plan: dict, *, status: str = "pending_approval") -> dict:
-        job_id = uuid.uuid4().hex[:12]
+    def create(
+        self,
+        title: str,
+        request: dict,
+        plan: dict,
+        *,
+        status: str = "pending_approval",
+        job_id: str | None = None,
+    ) -> dict:
+        job_id = job_id or uuid.uuid4().hex[:12]
         stamp = now()
         with self._db() as db:
             db.execute(

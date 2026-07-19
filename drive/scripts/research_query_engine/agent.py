@@ -15,12 +15,16 @@ ROOT = repo_root_from_file(__file__)
 class AgentOrchestrator:
     def __init__(self, engine, config_path: str = "config/research_agent.json", orchestrator: YzuOrchestrator | None = None):
         self.engine = engine
-        self.config = json.loads((ROOT / config_path).read_text(encoding="utf-8"))
         self.orchestrator = orchestrator or YzuOrchestrator(ROOT, engine=engine)
+        self.repo_root = self.orchestrator.repo_root
+        config_file = self.repo_root / config_path
+        # This is a deprecated compatibility shell.  Its optional host inventory
+        # must not make the primary Research Drive runtime unbootable.
+        self.config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
         self.jobs_root = self.orchestrator.jobs_root
         self.store = self.orchestrator.store
         self.procurement = self.orchestrator.executor.procurement
-        self.remote_worker = ROOT / "scripts/cluster_agent/remote_collect.py"
+        self.remote_worker = self.repo_root / "scripts/cluster_agent/remote_collect.py"
         self._planner = None
 
     def set_planner(self, planner) -> None:
@@ -77,7 +81,10 @@ class AgentOrchestrator:
         return self.orchestrator.submit(plan["title"], plan, {"connector_id": connector_id, "limit": limit})
 
     def _workers(self) -> list[dict]:
-        path = Path(self.config["inventory"])
+        inventory = self.config.get("inventory")
+        if not inventory:
+            return []
+        path = Path(inventory)
         if not path.exists():
             return []
         with path.open(encoding="utf-8-sig", newline="") as handle:

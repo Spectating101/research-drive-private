@@ -1,1 +1,1 @@
-"""YZU Cluster — data procurement control plane."""
+"""YZU Cluster - data procurement control plane."""
