@@ -55,7 +55,9 @@ def test_resources_activity_projects_verified_registered_asset_without_log_write
     assert len(events) == 1
     event = events[0]
     assert event["id"] == "registered-smoke-job"
-    assert event["action"] == "registered_asset"
+    assert event["action"] == "Registered"
+    assert event["target"] == "Registered · Registered smoke_asset"
+    assert event["meta"]["action"] == "Registered Library asset"
     assert event["meta"]["dataset_id"] == "smoke_asset"
     assert event["meta"]["registry_id"] == "smoke_asset"
     assert event["meta"]["manifest_id"] == "manifest-smoke_asset"
