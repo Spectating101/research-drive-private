@@ -8,15 +8,21 @@ out_root="${repo_root}/artifacts/rc2-release"
 stage="${out_root}/research-drive-rc2"
 archive="${repo_root}/artifacts/research-drive-rc2-public.tar.gz"
 archive_checksum="${archive}.sha256"
+attestation="${repo_root}/artifacts/rc2-release-verification.json"
 
 rm -rf "${stage}" "${archive}" "${archive_checksum}"
 mkdir -p "${stage}/docs/releases" "${repo_root}/artifacts"
 
-npm run release:verify
+if [[ "${YZU_REUSE_RELEASE_VERIFICATION:-0}" == "1" ]]; then
+  node scripts/verify_rc2_release.mjs --attestation-only
+else
+  npm run release:verify
+fi
 npm run build
 
 cp -R dist "${stage}/dist"
 cp release/research-drive-rc2.json "${stage}/release-manifest.json"
+cp "${attestation}" "${stage}/release-verification.json"
 cp docs/releases/RESEARCH_DRIVE_RC2.md "${stage}/docs/releases/"
 cp docs/releases/RC2_OPERATOR_QUICKSTART.md "${stage}/docs/releases/"
 cp README.md "${stage}/README.md"
