@@ -170,3 +170,44 @@ Return:
 - retry/fencing evidence;
 - final Resources, Synthesis, and Library state;
 - any remaining deployment-specific blocker.
+
+## 8. Durable supervision and token drift (repository-owned procedure)
+
+The accepted Optiplex lane failed twice in production for host ritual debt — not architecture:
+
+1. the Windows loop process exited and was not supervised;
+2. `.yzu-worker-token` on the Windows checkout drifted from the controller process env `YZU_WORKER_CONTROL_TOKEN`, so `/v1/workers/join` returned 401.
+
+### Token identity (never log the secret)
+
+On the Optiplex controller process, hash the live env value:
+
+```bash
+# presence + fingerprint only
+python3 - <<'PY'
+from pathlib import Path
+import hashlib, os
+# Prefer reading the controller process environ in ops; example fingerprint helper:
+token = os.environ.get("YZU_WORKER_CONTROL_TOKEN", "").encode()
+print("present" if token else "missing", hashlib.sha256(token).hexdigest() if token else "")
+PY
+```
+
+On Windows, fingerprint the token file the same way and sync **only when hashes differ** (write via a temporary helper script + base64; do not echo the secret into shell history). Keep the file mode restricted to the worker account.
+
+### Supervised loop
+
+Prefer a durable Windows Task Scheduler entry or a small `win_worker_loop.py` started with `Start-Process` that:
+
+- loads the token from the local token file into `YZU_WORKER_CONTROL_TOKEN`;
+- sets `PYTHONPATH` for repo/kernel/drive;
+- calls `scripts.yzu_cluster.remote_worker` with `windows-01` / `windows_lab` / `http,python`;
+- appends stdout/stderr to a local log (for example `windows-01-worker.log`).
+
+After restart, confirm join succeeds (no 401) and the desk job can move `queued → running → registered` for an allowed `http_manifest` only.
+
+### Out of scope for this procedure
+
+- committing the token or log contents;
+- exposing `:8780` beyond Tailscale;
+- claiming non-`http_manifest` job types on the Windows acceptance worker.

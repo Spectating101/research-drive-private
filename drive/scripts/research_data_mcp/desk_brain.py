@@ -126,7 +126,18 @@ def _load_magic_chat(repo_root: Path | None = None) -> dict[str, Any]:
 
 
 def cursor_composer_available() -> bool:
-    return bool(os.getenv("CURSOR_API_KEY", "").strip())
+    """True only when Composer can actually run — key present *and* cursor_sdk importable.
+
+    Health used to report composer_configured from the key alone, which masked
+    ModuleNotFoundError on Ask when the front door ran on system Python.
+    """
+    if not os.getenv("CURSOR_API_KEY", "").strip():
+        return False
+    try:
+        import cursor_sdk  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def desk_brain_mode(repo_root: Path | None = None) -> str:
