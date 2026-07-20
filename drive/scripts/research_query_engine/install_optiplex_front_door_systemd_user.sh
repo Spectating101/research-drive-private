@@ -20,14 +20,17 @@ command -v systemctl >/dev/null 2>&1 || {
   echo "systemctl is required" >&2
   exit 2
 }
+command -v bash >/dev/null 2>&1 || {
+  echo "bash is required" >&2
+  exit 2
+}
 [[ -f "${env_file}" ]] || {
   echo "environment file missing: ${env_file}" >&2
   echo "copy drive/config/optiplex-front-door.env.example and fill secret values out of git" >&2
   exit 2
 }
-[[ -x "${run_script}" ]] || {
-  echo "runtime launcher is not executable: ${run_script}" >&2
-  echo "run chmod +x on the three front-door scripts after checkout if file mode was not preserved" >&2
+[[ -f "${run_script}" ]] || {
+  echo "runtime launcher missing: ${run_script}" >&2
   exit 2
 }
 
@@ -48,7 +51,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=${repo_root}
 EnvironmentFile=${env_file}
-ExecStart=${run_script}
+ExecStart=/usr/bin/env bash ${run_script}
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=20
