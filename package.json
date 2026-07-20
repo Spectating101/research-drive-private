@@ -7,9 +7,9 @@
     "dev": "vite --host 127.0.0.1",
     "test:candidate-key": "node --test drive/src/v2/candidateKey.test.js drive/src/v2/discoverTaxonomy.test.js drive/src/v2/discoverProbeEvidence.test.js drive/src/v2/discoverEvaluation.test.js drive/src/v2/discoverLifecycle.test.js drive/src/v2/discoverComposition.test.js drive/src/v2/discoverSufficiency.test.js drive/src/v2/datasetMeta.test.js drive/src/v2/liveIdentity.test.js drive/tests/discoverAdapters.test.mjs",
     "test:runtime-contract": "node --test drive/src/v2/executionLifecycle.test.js drive/src/v2/assetAuthority.test.js drive/src/v2/workerRouting.test.js drive/src/v2/connectorContract.test.js drive/src/v2/interoperabilityContract.test.js drive/src/v2/transportContract.test.js",
-    "test:v2-parity": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js",
-    "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js e2e/v2-home.spec.js e2e/v2-library.spec.js",
-    "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js",
+    "test:v2-parity": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js",
+    "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js e2e/v2-home.spec.js e2e/v2-library.spec.js",
+    "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js",
     "test:beta-workflow": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/beta-workflow.spec.js",
     "test:professor-demo": "mkdir -p .tmp-pw docs/status/generated && TMPDIR=$PWD/.tmp-pw playwright test e2e/professor-demo.spec.js",
     "desk:integration": "node scripts/desk_verify_live.mjs",
@@ -19,7 +19,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:ui-contract": "playwright test e2e/ui-contract.spec.js"
+    "test:ui-contract": "playwright test e2e/ui-contract.spec.js e2e/release-visual-convergence.spec.js"
   },
   "dependencies": {
     "@radix-ui/react-separator": "^1.1.10",

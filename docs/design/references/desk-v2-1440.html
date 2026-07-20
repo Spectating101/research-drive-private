@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Research Drive — release visual authority</title>
+  <style>
+    :root {
+      --sidebar: 232px;
+      --rail: 410px;
+      --header: 64px;
+      --canvas: #f3f5f8;
+      --surface: #fff;
+      --side: #f6f7f9;
+      --line: #dfe4ec;
+      --line2: #cfd6e2;
+      --ink: #172033;
+      --body: #344054;
+      --muted: #6b778c;
+      --blue: #4656e8;
+      --blue-soft: #edf0ff;
+      --green: #157347;
+      --green-soft: #edf8f1;
+      --amber: #9a6700;
+      --amber-soft: #fff7e6;
+      --shadow: 0 12px 34px rgba(17,24,39,.075);
+      font-family: Inter, "IBM Plex Sans", system-ui, sans-serif;
+      color: var(--body);
+      background: var(--canvas);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--canvas); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .shell {
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0,1fr) var(--rail);
+      grid-template-rows: var(--header) minmax(0,1fr);
+      min-height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(circle at 43% -10%, rgba(95,105,240,.11), transparent 34rem), var(--canvas);
+    }
+    header {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(320px,720px) minmax(0,1fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 0 18px 0 16px;
+      border-bottom: 1px solid rgba(218,223,232,.9);
+      background: rgba(255,255,255,.9);
+      backdrop-filter: blur(18px);
+      z-index: 3;
+    }
+    .brand { display:flex; align-items:center; gap:11px; font-weight:750; color:var(--ink); }
+    .mark { width:34px; height:34px; border-radius:11px; display:grid; place-items:center; color:#fff; font-size:10px; letter-spacing:.08em; background:linear-gradient(145deg,#6b72ff,#4656e8 52%,#2436b9); box-shadow:0 8px 22px rgba(70,86,232,.25); }
+    .search { height:44px; display:flex; align-items:center; gap:9px; padding:0 13px; border:1px solid #dce1e9; border-radius:13px; background:#f7f8fb; }
+    .search input { min-width:0; flex:1; border:0; outline:0; background:transparent; color:var(--ink); }
+    .kbd { padding:4px 7px; border:1px solid #d8dde7; border-radius:7px; background:#fff; font-size:10px; color:var(--muted); }
+    .trust { display:flex; justify-content:flex-end; gap:5px; flex-wrap:wrap; }
+    .badge { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border:1px solid #dde2ea; border-radius:999px; background:#fff; font-size:9.5px; font-weight:750; white-space:nowrap; }
+    .badge.ok { color:var(--green); border-color:#b8dfca; background:var(--green-soft); }
+    .avatar { width:34px; height:34px; border-radius:50%; border:0; background:#161b2b; color:#fff; font-weight:750; }
+    aside.nav { grid-column:1; grid-row:2; padding:16px 10px 12px; border-right:1px solid rgba(218,223,232,.9); background:rgba(246,247,249,.88); }
+    .nav button { width:100%; height:42px; display:flex; align-items:center; gap:12px; padding:0 13px; border:0; border-radius:11px; background:transparent; cursor:pointer; font-size:13px; font-weight:620; color:#475467; }
+    .nav button:hover { background:#fff; }
+    .nav button.active { color:#3040c5; background:#fff; box-shadow:0 6px 20px rgba(35,48,128,.08),0 0 0 1px rgba(70,86,232,.08); }
+    .nav button.active::after { content:""; width:5px; height:5px; margin-left:auto; border-radius:50%; background:#5362ee; box-shadow:0 0 0 4px rgba(83,98,238,.1); }
+    .icon { width:18px; color:#6d7788; text-align:center; }
+    main { grid-column:2; grid-row:2; min-width:0; overflow:auto; padding:22px 24px 28px; }
+    .page { display:none; max-width:1160px; margin:0 auto; }
+    .page.active { display:block; }
+    .head { margin-bottom:15px; }
+    .head h1 { margin:0 0 5px; color:var(--ink); font-size:25px; line-height:1.12; letter-spacing:-.035em; }
+    .head p { margin:0; color:var(--muted); font-size:12.5px; }
+    .panel { border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.96); box-shadow:var(--shadow); }
+    .continue { position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:22px; align-items:center; padding:24px 26px; background:radial-gradient(circle at 100% 0,rgba(82,97,238,.12),transparent 34%),linear-gradient(145deg,#fff,#fafbff); }
+    .continue::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:linear-gradient(#6b72ff,#3c4cdd); }
+    .eyebrow { display:block; margin-bottom:8px; color:#69758b; font-family:"IBM Plex Mono",monospace; font-size:9px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    h2 { margin:0; color:var(--ink); font-size:20px; letter-spacing:-.025em; }
+    .copy { margin:8px 0; color:#5e6b80; font-size:12.5px; line-height:1.55; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--muted); font-size:11px; }
+    .pill { display:inline-flex; padding:4px 8px; border-radius:999px; background:var(--green-soft); color:var(--green); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.045em; }
+    .mono { font-family:"IBM Plex Mono",monospace; font-size:10.5px; overflow-wrap:anywhere; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { min-height:36px; padding:0 13px; border:1px solid #d8dee8; border-radius:10px; background:#fff; cursor:pointer; font-weight:680; font-size:12px; }
+    .btn.primary { color:#fff; border-color:#4656e8; background:linear-gradient(#5968f1,#4656e8); box-shadow:0 7px 18px rgba(70,86,232,.22); }
+    .entry-grid, .summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:12px 0; }
+    .entry, .summary { padding:15px; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 8px 22px rgba(17,24,39,.045); }
+    .entry strong, .summary strong { display:block; color:var(--ink); }
+    .entry span, .summary span { display:block; margin-top:5px; color:var(--muted); font-size:11px; }
+    .section { margin-top:12px; overflow:hidden; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .section-head h3 { margin:0; color:var(--ink); font-size:13px; }
+    .section-head span { color:var(--muted); font-size:10px; }
+    .row { display:grid; grid-template-columns:minmax(0,1fr) 130px 110px; gap:12px; align-items:center; min-height:58px; padding:10px 16px; border-bottom:1px solid #e9edf2; background:#fff; }
+    .row:last-child { border-bottom:0; }
+    .row.selected { background:var(--blue-soft); box-shadow:inset 3px 0 0 var(--blue); }
+    .row strong { display:block; color:var(--ink); font-size:12.5px; }
+    .row small { display:block; margin-top:3px; color:var(--muted); font-size:10.5px; }
+    .row > span { color:var(--muted); font-size:10.5px; }
+    .toolbar { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:10px 0; }
+    .chip { padding:7px 10px; border:1px solid #dce1ea; border-radius:9px; background:#fff; font-size:10.5px; font-weight:700; }
+    .chip.on { color:#3545c8; border-color:#ced3ff; background:#eef0ff; }
+    .split { display:grid; grid-template-columns:230px minmax(0,1fr); gap:12px; }
+    .threads { overflow:hidden; }
+    .thread { display:flex; gap:10px; width:100%; padding:12px; border:0; border-bottom:1px solid #e8ecf2; background:#fff; text-align:left; }
+    .thread.active { background:var(--blue-soft); box-shadow:inset 3px 0 0 var(--blue); }
+    .map { min-height:260px; padding:20px; border:1px solid var(--line); border-radius:14px; background:linear-gradient(rgba(92,105,145,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(92,105,145,.055) 1px,transparent 1px),#fbfcff; background-size:24px 24px; }
+    .nodes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:20px; }
+    .node { padding:12px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+    .identity { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; padding:20px; }
+    .memory { display:grid; grid-template-columns:1fr 1.2fr; gap:12px; padding:16px; }
+    .card { padding:14px; border:1px solid var(--line); border-radius:13px; background:#fbfcfe; }
+    .settings { display:grid; gap:12px; }
+    details { border:1px solid var(--line); border-radius:12px; background:#fbfcfe; }
+    summary { padding:12px 14px; cursor:pointer; font-weight:700; }
+    .detail-list { padding:0 14px 12px; }
+    aside.rail { grid-column:3; grid-row:2; min-width:0; border-left:1px solid rgba(214,220,231,.92); background:rgba(249,250,252,.92); overflow:hidden; }
+    .rail-head { padding:13px 14px 10px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.92); }
+    .toggle { display:grid; grid-template-columns:1fr 1fr; padding:3px; border-radius:10px; background:#f1f3f8; }
+    .toggle button { height:31px; border:0; border-radius:8px; background:transparent; font-size:11px; font-weight:750; }
+    .toggle button.active { color:#3040c5; background:#fff; box-shadow:0 4px 14px rgba(35,48,128,.1); }
+    .selection { margin:9px 0 0; color:var(--muted); font-size:10.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .rail-body { height:calc(100vh - var(--header) - 80px); overflow:auto; padding:16px 16px 92px; }
+    .rail-body h2 { font-size:17px; }
+    .decision { margin:12px 0; padding:13px; border:1px solid var(--line); border-radius:13px; background:#fff; }
+    .decision strong { display:block; color:var(--green); }
+    dl { margin:14px 0 0; }
+    dl div { padding:9px 0; border-bottom:1px solid #e8ecf2; }
+    dt { color:#748096; font-family:"IBM Plex Mono",monospace; font-size:9px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+    dd { margin:4px 0 0; color:#253047; font-size:11px; overflow-wrap:anywhere; }
+    .rail-actions { position:absolute; right:0; bottom:0; width:var(--rail); display:flex; gap:8px; padding:24px 16px 16px; background:linear-gradient(transparent,#f9fafc 30%); }
+    @media (max-width: 980px) {
+      :root { --sidebar: 76px; --rail: 340px; }
+      .nav button { justify-content:center; padding:0; }
+      .nav button span:not(.icon) { display:none; }
+      .brand strong { display:none; }
+      .entry-grid, .summary-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="mark">RD</span><strong>Research Drive</strong></div>
+      <label class="search">⌕ <input value="" placeholder="Search data, sources, or ask…" /><span class="kbd">⌘K</span></label>
+      <div class="trust"><span class="badge ok">Live registry</span><span class="badge">Dry-run protected</span><span class="badge">Updated now</span></div>
+      <button class="avatar">YZ</button>
+    </header>
+
+    <aside class="nav" aria-label="Navigation">
+      <button class="active" data-page="home"><span class="icon">⌂</span><span>Home</span></button>
+      <button data-page="library"><span class="icon">▤</span><span>Library</span></button>
+      <button data-page="discover"><span class="icon">⌕</span><span>Discover</span></button>
+      <button data-page="synthesis"><span class="icon">◇</span><span>Synthesis</span></button>
+      <button data-page="resources"><span class="icon">▣</span><span>Resources</span></button>
+      <button data-page="profile"><span class="icon">○</span><span>Profile</span></button>
+      <button data-page="settings"><span class="icon">⚙</span><span>Settings</span></button>
+    </aside>
+
+    <main>
+      <section id="home" class="page active">
+        <div class="head"><h1>Home</h1><p>Resume a research context or address the one decision that needs you.</p></div>
+        <article class="panel continue">
+          <div><span class="eyebrow">Continue working</span><h2>RFC 9110 — HTTP Semantics</h2><p class="copy">Official protocol semantics collected from the RFC Editor and archived as a reusable research asset.</p><div class="meta"><span class="pill">Registered</span><span>Last activity · Jul 20</span><span class="mono">procured_src_b0a7ba3817a5</span></div></div>
+          <div class="actions"><button class="btn primary">Continue</button><button class="btn">Open Library</button></div>
+        </article>
+        <div class="entry-grid"><article class="entry"><strong>Search the lab</strong><span>Browse owned evidence</span></article><article class="entry"><strong>Discover data</strong><span>Find and probe sources</span></article><article class="entry"><strong>Ask the assistant</strong><span>Search, collect, join</span></article></div>
+        <section class="panel section"><div class="section-head"><h3>Attention</h3><span>Clear</span></div><div class="row"><div><strong>Nothing needs a decision right now.</strong><small>Approved work and registered outputs remain in History and Resources.</small></div><span>—</span><span>—</span></div></section>
+        <section class="panel section"><div class="section-head"><h3>Recent research assets</h3><span>Open Library →</span></div><div class="row selected"><div><strong>RFC 9110 — HTTP Semantics</strong><small>Official HTTP semantics specification</small></div><span>RFC Editor</span><span class="pill">Registered</span></div><div class="row"><div><strong>Asia daily news-risk panel</strong><small>Country-day research panel</small></div><span>GDELT</span><span class="pill">Query ready</span></div></section>
+      </section>
+
+      <section id="library" class="page">
+        <div class="head"><h1>Library</h1><p>Browse the lab's owned research data and reusable assets.</p></div>
+        <div class="toolbar"><button class="btn primary">New ▾</button><button class="btn">Refresh</button><span class="chip on">All</span><span class="chip">Query ready</span></div>
+        <section class="panel section"><div class="section-head"><div><span class="eyebrow">Lab / Procured sources</span><h3>Registered evidence</h3></div><span>8 datasets</span></div><div class="row selected"><div><strong>RFC 9110 — HTTP Semantics</strong><small>HTTP fields, methods, caching and intermediary behaviour</small></div><span>RFC Editor</span><span class="pill">Registered</span></div><div class="row"><div><strong>Day-2 deployment smoke</strong><small>Internal archive and registry proof</small></div><span>Host smoke</span><span class="pill">Registered</span></div><div class="row"><div><strong>Asia daily news-risk panel</strong><small>Country-day news-risk evidence</small></div><span>GDELT</span><span class="pill">Query ready</span></div></section>
+      </section>
+
+      <section id="discover" class="page">
+        <div class="head"><h1>Discover</h1><p>Compare what the lab already owns with evidence available beyond it.</p></div>
+        <div class="toolbar"><span class="chip on">Explore</span><span class="chip">History</span><span class="chip">All results</span><span class="chip">In lab</span><span class="chip">Beyond your lab</span><span class="chip">Needs access</span></div>
+        <section class="panel section"><div class="section-head"><h3>In your lab</h3><span>1 result</span></div><div class="row selected"><div><strong>RFC 9110 — HTTP Semantics</strong><small>Official semantics text · local evidence satisfies the request</small></div><span>RFC Editor</span><span class="pill">Registered</span></div></section>
+        <section class="panel section"><div class="section-head"><h3>Beyond your lab</h3><span>2 sources</span></div><div class="row"><div><strong>HTTP Semantics specification</strong><small>Official standards document · full coverage</small></div><span>RFC Editor</span><span>Public</span></div><div class="row"><div><strong>Commercial HTTP traffic corpus</strong><small>Large request-response corpus</small></div><span>Licensed</span><span style="color:var(--amber)">Needs access</span></div></section>
+      </section>
+
+      <section id="synthesis" class="page">
+        <div class="head"><h1>Synthesis</h1><p>Construct durable research objects from owned evidence and reviewable methods.</p></div>
+        <div class="split"><section class="panel threads"><div class="section-head"><h3>Research construction</h3><span>+ New</span></div><button class="thread active"><span>✓</span><span><strong>HTTP market impact</strong><small>Registered</small></span></button><button class="thread"><span>S</span><span><strong>Stablecoin trust</strong><small>Evidence mapping</small></span></button><button class="thread"><span>!</span><span><strong>Failed ESG build</strong><small>Needs recovery</small></span></button></section><section class="panel" style="padding:18px"><span class="eyebrow">Registered output</span><h2>HTTP market-impact synthesis</h2><p class="copy">Build a reusable event-day panel from protocol evidence and market outcomes.</p><div class="map"><span class="eyebrow">Evidence map</span><div class="nodes"><article class="node"><strong>RFC 9110</strong><small>Protocol evidence</small></article><article class="node"><strong>Market returns</strong><small>Outcome series</small></article><article class="node"><strong>Event dates</strong><small>Alignment keys</small></article></div></div></section></div>
+      </section>
+
+      <section id="resources" class="page">
+        <div class="head"><h1>Resources</h1><p>Capacity, usage, source routes, and operational research capability.</p></div>
+        <div class="summary-grid"><article class="summary"><span>Research assistant</span><strong>Ready</strong><span>14 turns this month</span></article><article class="summary"><span>Collection workers</span><strong>1 online</strong><span>0 busy</span></article><article class="summary"><span>Research archive</span><strong>Connected</strong><span>Long-term storage</span></article></div>
+        <section class="panel section"><div class="section-head"><h3>Capability</h3><span>Healthy</span></div><div class="row"><div><strong>Lab vault</strong><small>Verified long-term archive</small></div><span>Connected</span><span>Ready</span></div><div class="row"><div><strong>Public web collection</strong><small>Probe, approve, then collect</small></div><span>windows-01</span><span>Online</span></div><div class="row selected"><div><strong>Registered · RFC 9110 — HTTP Semantics</strong><small>Windows collect → archive → registry</small></div><span>run-eb54da…</span><span class="pill">Registered</span></div></section>
+      </section>
+
+      <section id="profile" class="page">
+        <div class="head"><h1>Profile</h1><p>Research memory carried into Discover and Ask.</p></div>
+        <section class="panel identity"><div><span class="eyebrow">Research memory</span><h2>Christopher Ongko</h2><p class="copy">Finance · applied data and AI research</p><span class="mono">christopher@…</span></div><div><strong>6 works</strong><br><small>4 saved contexts</small></div></section>
+        <section class="panel section"><div class="section-head"><h3>Memory</h3><span>4 saved</span></div><div class="memory"><div><article class="card"><span class="eyebrow">Research focus</span><strong>AI research systems and applied finance</strong></article><article class="card" style="margin-top:10px"><span class="eyebrow">Methods</span><strong>Python · causal inference · data acquisition</strong></article></div><article class="card"><span class="eyebrow">Current research direction</span><h2>Build deployed, reusable research products rather than isolated papers.</h2><p class="copy">Used to rank evidence and ground Ask.</p></article></div></section>
+      </section>
+
+      <section id="settings" class="page">
+        <div class="head"><h1>Settings</h1><p>Identity, access, and research-desk preferences.</p></div>
+        <div class="summary-grid"><article class="summary"><span>Browser access</span><strong>Connected</strong><span>Browser session</span></article><article class="summary"><span>Research assistant</span><strong>Ready</strong><span>Ask and acquisition planning</span></article><article class="summary"><span>Archive</span><strong>Connected</strong><span>Research archive</span></article></div>
+        <div class="settings"><section class="panel section"><div class="section-head"><h3>Research identity</h3><span>Profile-aware</span></div><div class="row"><div><strong>Faculty email</strong><small>Used for memory and source ranking</small></div><span>christopher@…</span><span>Saved</span></div></section><section class="panel section"><div class="section-head"><h3>Research services</h3><span>Ready</span></div><div class="row"><div><strong>Ask and acquisition planning</strong><small>Search holdings and prepare reviewable collection plans</small></div><span>Connected</span><span>OK</span></div><div class="row"><div><strong>Research archive</strong><small>Verified storage for registered assets</small></div><span>Connected</span><span>OK</span></div></section><details><summary>Advanced connection details</summary><div class="detail-list"><p class="mono">Research API · :8765</p><p class="mono">Development preview · :5178</p></div></details></div>
+      </section>
+    </main>
+
+    <aside class="rail">
+      <div class="rail-head"><div class="toggle"><button class="active">Detail</button><button>Ask</button></div><p class="selection">RFC 9110 — HTTP Semantics</p></div>
+      <div class="rail-body"><span class="eyebrow">Research asset</span><h2>RFC 9110 — HTTP Semantics</h2><div class="decision"><strong>Registered</strong><p class="copy">Registered and reusable as an archived research asset. Query promotion is not implied.</p></div><dl><div><dt>Dataset</dt><dd>procured_src_b0a7ba3817a5</dd></div><div><dt>Registry</dt><dd>procured_src_b0a7ba3817a5</dd></div><div><dt>Manifest</dt><dd>collection_manifest_01bf070a7e86</dd></div><div><dt>Worker</dt><dd>windows-01 · attempt 1</dd></div><div><dt>Archive</dt><dd>Verified</dd></div><div><dt>Registry read-back</dt><dd>Verified</dd></div></dl></div>
+      <div class="rail-actions"><button class="btn primary">Open in Library</button><button class="btn">Ask about this</button></div>
+    </aside>
+  </div>
+  <script>
+    const pages = [...document.querySelectorAll('.page')];
+    const buttons = [...document.querySelectorAll('.nav button')];
+    buttons.forEach(button => button.addEventListener('click', () => {
+      buttons.forEach(item => item.classList.toggle('active', item === button));
+      pages.forEach(page => page.classList.toggle('active', page.id === button.dataset.page));
+      document.querySelector('.selection').textContent = button.textContent.trim();
+    }));
+  </script>
+</body>
+</html>

@@ -43,6 +43,14 @@ jobs:
         run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-parity.spec.js --reporter=dot
         env: *mock-env
 
+      - name: Mock e2e — Release visual contract
+        run: |
+          mkdir -p artifacts/release-visual
+          TMPDIR=$PWD/.tmp-pw \
+          PLAYWRIGHT_JSON_OUTPUT_NAME=artifacts/release-visual/playwright-results.json \
+          npx playwright test e2e/release-visual-convergence.spec.js --reporter=line,json
+        env: *mock-env
+
       - name: Mock e2e — Discover
         run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-discover.spec.js --reporter=dot
         env: *mock-env
@@ -62,3 +70,14 @@ jobs:
       - name: Mock e2e — Resources
         run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-resources.spec.js --reporter=dot
         env: *mock-env
+
+      - name: Upload release visual renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-drive-release-visuals
+          path: |
+            artifacts/release-visual
+            test-results
+          if-no-files-found: warn
+          retention-days: 14
