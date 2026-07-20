@@ -5,6 +5,14 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 : "${YZU_PUBLIC_REPO:?set YZU_PUBLIC_REPO to the public yzu-cluster checkout}"
 : "${YZU_DESK_HOST:?set YZU_DESK_HOST to the Optiplex Tailscale IP}"
+: "${YZU_DESK_ACCESS_TOKEN:?set YZU_DESK_ACCESS_TOKEN to protect material desk writes}"
+
+case "${YZU_DESK_HOST}" in
+  0.0.0.0|::|"[::]")
+    echo "refusing broad bind for the Tailscale-internal release: ${YZU_DESK_HOST}" >&2
+    exit 2
+    ;;
+esac
 
 public_root="$(cd "${YZU_PUBLIC_REPO}" && pwd)"
 static_dir="${YZU_DESK_STATIC_DIR:-${public_root}/dist}"
