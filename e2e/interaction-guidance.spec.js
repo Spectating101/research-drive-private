@@ -13,28 +13,38 @@ test.describe("Research Drive interaction guidance", () => {
     await waitForShell(page);
   });
 
-  test("readiness states explain themselves on hover and keyboard focus", async ({ page }) => {
+  test("readiness states open a richer explanation by click and keyboard", async ({ page }) => {
     const help = page.getByRole("button", { name: /^Explain / }).first();
     await expect(help).toBeVisible();
 
-    await help.hover();
-    const tooltip = page.getByRole("tooltip");
-    await expect(tooltip).toBeVisible();
-    await expect(tooltip).toContainText(/Registered|Available|Research Drive/);
+    await help.click();
+    const popover = page.getByTestId("rich-context-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText(/Query ready|Registered|Connected source/);
+    await expect(popover).toContainText("Safest next step");
+    await page.keyboard.press("Escape");
+    await expect(popover).toHaveCount(0);
 
-    await page.mouse.move(0, 0);
     await help.focus();
-    await expect(tooltip).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("rich-context-popover")).toBeVisible();
   });
 
-  test("context help also opens by tap-sized click on mobile", async ({ page }) => {
+  test("rich context help opens by tap and remains inside the mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
 
     const help = page.getByRole("button", { name: /^Explain / }).first();
     await help.click();
-    await expect(page.getByRole("tooltip")).toBeVisible();
+    const popover = page.getByTestId("rich-context-popover");
+    await expect(popover).toBeVisible();
+    const box = await popover.boundingBox();
+    expect(box).toBeTruthy();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(844);
   });
 
   test("Settings accepts an active runtime identity when the boolean signal is omitted", async ({ page }) => {
