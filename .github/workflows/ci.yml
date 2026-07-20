@@ -44,7 +44,11 @@ jobs:
         env: *mock-env
 
       - name: Mock e2e — Release visual contract
-        run: TMPDIR=$PWD/.tmp-pw npx playwright test e2e/release-visual-convergence.spec.js --reporter=dot
+        run: |
+          mkdir -p artifacts/release-visual
+          TMPDIR=$PWD/.tmp-pw \
+          PLAYWRIGHT_JSON_OUTPUT_NAME=artifacts/release-visual/playwright-results.json \
+          npx playwright test e2e/release-visual-convergence.spec.js --reporter=line,json
         env: *mock-env
 
       - name: Mock e2e — Discover
@@ -72,6 +76,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: research-drive-release-visuals
-          path: artifacts/release-visual
+          path: |
+            artifacts/release-visual
+            test-results
           if-no-files-found: warn
           retention-days: 14
