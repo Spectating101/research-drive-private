@@ -40,7 +40,12 @@ function stateLabel(event) {
   if (kind === "scheduled") return "Scheduled refresh";
   if (kind === "active") return status === "queued" ? "Queued" : "Collecting";
   if (kind === "needs_recovery") return "Recovery required";
-  if (kind === "ready") return /query[_ -]?ready/.test(status) ? "Query ready" : "Completed";
+  if (kind === "ready") {
+    if (/query[_ -]?ready/.test(status)) return "Query ready";
+    if (status === "registered") return "Registered";
+    if (status === "archived") return "Archived";
+    return "Completed";
+  }
   return "Route investigating";
 }
 
