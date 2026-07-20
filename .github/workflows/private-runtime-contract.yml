@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest -q tests/test_worker_control.py tests/test_worker_completion_lease.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py 2>&1 | tee worker-control.log
+          python -m pytest -q tests/test_worker_control.py tests/test_worker_completion_lease.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py tests/test_live_identity.py tests/test_remote_claim_isolation.py 2>&1 | tee worker-control.log
 
       - name: Upload worker control diagnostics
         if: always()

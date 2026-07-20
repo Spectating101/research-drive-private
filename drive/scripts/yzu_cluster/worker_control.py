@@ -34,6 +34,84 @@ def _bearer_token(authorization: str | None, explicit: str | None = None) -> str
     return value[7:].strip() if value.lower().startswith("bearer ") else value
 
 
+def build_live_identity(orchestrator: Any, *, dataset_id: str | None = None, job_id: str | None = None) -> dict[str, Any]:
+    """Return the sanitized cross-surface identity for a registered asset or job."""
+
+    dataset_id = str(dataset_id or "").strip() or None
+    job_id = str(job_id or "").strip() or None
+    if not dataset_id and not job_id:
+        raise ValueError("dataset_id or job_id is required")
+
+    job: dict[str, Any] | None = None
+    if job_id:
+        job = orchestrator.get_job(job_id)
+    elif dataset_id:
+        for candidate in orchestrator.store.list(limit=500):
+            result = candidate.get("result") if isinstance(candidate.get("result"), Mapping) else {}
+            evidence = result.get("registration_evidence") if isinstance(result.get("registration_evidence"), Mapping) else {}
+            outputs = list((candidate.get("lifecycle") or {}).get("outputs") or result.get("outputs") or [])
+            materialized = result.get("materialized") if isinstance(result.get("materialized"), Mapping) else {}
+            matches = {
+                str(evidence.get("dataset_id") or ""),
+                str(materialized.get("dataset_id") or ""),
+                str(result.get("dataset_id") or ""),
+                *[str(item) for item in outputs],
+            }
+            if dataset_id in matches:
+                job = candidate
+                break
+        if job is None:
+            raise KeyError(dataset_id)
+
+    assert job is not None
+    resolved_job_id = str(job.get("id") or job_id or "")
+    result = job.get("result") if isinstance(job.get("result"), Mapping) else {}
+    evidence = result.get("registration_evidence") if isinstance(result.get("registration_evidence"), Mapping) else {}
+    materialized = result.get("materialized") if isinstance(result.get("materialized"), Mapping) else {}
+    snap = orchestrator.runtime.snapshot(resolved_job_id)
+    worker = snap.get("assigned_worker") if isinstance(snap.get("assigned_worker"), Mapping) else {}
+    vault = str(evidence.get("vault_path") or "")
+    vault_suffix = vault.split("Sharpe-Renaissance-data/", 1)[-1] if "Sharpe-Renaissance-data/" in vault else vault
+    resolved_dataset = str(
+        dataset_id
+        or evidence.get("dataset_id")
+        or materialized.get("dataset_id")
+        or result.get("dataset_id")
+        or (snap.get("outputs") or [None])[0]
+        or ""
+    )
+    readiness = str(evidence.get("readiness") or snap.get("status") or job.get("status") or "unknown")
+    return {
+        "dataset_id": resolved_dataset,
+        "registry_id": str(evidence.get("registry_id") or snap.get("registration_id") or resolved_dataset),
+        "manifest_id": str(
+            evidence.get("manifest_id")
+            or materialized.get("manifest_id")
+            or snap.get("manifest_id")
+            or ""
+        ),
+        "job_id": resolved_job_id,
+        "run_id": str(snap.get("run_id") or ""),
+        "attempt": int(snap.get("attempt") or 0),
+        "worker_id": str(worker.get("id") or snap.get("worker_id") or ""),
+        "readiness": readiness,
+        "archive_verified": bool(
+            evidence.get("archive_verified") if "archive_verified" in evidence else snap.get("drive_verified")
+        ),
+        "registry_readback": bool(evidence.get("registry_readback", False)),
+        "lifecycle": str(snap.get("status") or readiness),
+        "legacy_status": str(job.get("status") or ""),
+        "vault_suffix": vault_suffix,
+        "synthesis_expectation": {
+            "badge": "Query ready"
+            if readiness == "query_ready"
+            else ("Registered" if readiness == "registered" else readiness),
+            "not_badge": "Query ready" if readiness == "registered" else None,
+            "openable_in_library": readiness in {"registered", "query_ready"},
+        },
+    }
+
+
 class WorkerControlPlane:
     def __init__(self, orchestrator: Any, *, token: str, max_artifact_bytes: int | None = None) -> None:
         token = str(token or "").strip()
@@ -365,6 +443,16 @@ class WorkerControlPlane:
     def job(self, job_id: str) -> dict[str, Any]:
         return self.orchestrator.get_job(job_id)
 
+    def live_identity(
+        self,
+        *,
+        dataset_id: str | None = None,
+        job_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Return the sanitized cross-surface identity for a registered asset or job."""
+
+        return build_live_identity(self.orchestrator, dataset_id=dataset_id, job_id=job_id)
+
 
 def create_app(
     repo_root: str | Path | None = None,
@@ -497,6 +585,10 @@ def create_app(
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(authorize)])
     def job(job_id: str):
         return invoke(control.job, job_id)
+
+    @app.get("/v1/identity", dependencies=[Depends(authorize)])
+    def identity(dataset_id: str | None = None, job_id: str | None = None):
+        return invoke(control.live_identity, dataset_id=dataset_id, job_id=job_id)
 
     app.state.worker_control = control
     return app

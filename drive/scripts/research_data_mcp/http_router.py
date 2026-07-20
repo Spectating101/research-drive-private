@@ -103,6 +103,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/jobs/approve-safe", "handler": "library_jobs_approve_safe"},
     {"method": "GET", "path": "/library/jobs", "handler": "job_list"},
     {"method": "GET", "path": "/library/jobs/{id}", "handler": "job_get"},
+    {"method": "GET", "path": "/library/live-identity", "handler": "library_live_identity"},
     {"method": "POST", "path": "/library/archive", "handler": "library_archive"},
     {"method": "GET", "path": "/library/extensions/tools", "handler": "extension_tool_catalog"},
     {"method": "GET", "path": "/library/extensions/datacite/search", "handler": "extension_datacite_search"},
@@ -1057,6 +1058,15 @@ def _handlers() -> dict[str, Handler]:
     def job_get(stack, query, payload, params):
         return stack.jobs.get(params["id"])
 
+    def library_live_identity(stack, query, payload, params):
+        from scripts.yzu_cluster.worker_control import build_live_identity
+
+        return build_live_identity(
+            stack.orchestrator,
+            dataset_id=query.get("dataset_id"),
+            job_id=query.get("job_id"),
+        )
+
     def job_approve(stack, query, payload, params):
         # Desk researcher approve (gateway); synthesis allowed here, not via approve-safe/agents.
         out = stack.gateway.approve_yzu_job(params["id"])
@@ -1231,6 +1241,7 @@ def _handlers() -> dict[str, Handler]:
         "yzu_submit_job": yzu_submit_job,
         "job_list": job_list,
         "job_get": job_get,
+        "library_live_identity": library_live_identity,
         "job_approve": job_approve,
         "library_jobs_approve_safe": library_jobs_approve_safe,
         "job_cancel": job_cancel,
