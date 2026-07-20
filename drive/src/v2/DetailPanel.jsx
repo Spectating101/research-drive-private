@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fetchLiveIdentity } from "@/v2/api";
 import { detailFields, displayName } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import { buildObjectEstateCrumb } from "@/v2/deskIntegration";
+import { applyLiveIdentity, identityLookupFromRow } from "@/v2/liveIdentity";
 import {
   RailDecisionSummary,
   RailEntityHeader,
@@ -214,6 +216,28 @@ export function DetailPanel({
   onSeeCluster,
   onAddToLab,
 }) {
+  const [liveIdentity, setLiveIdentity] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const { datasetId, jobId } = identityLookupFromRow(dataset || {});
+    if (!datasetId && !jobId) {
+      setLiveIdentity(null);
+      return undefined;
+    }
+    setLiveIdentity(null);
+    fetchLiveIdentity({ datasetId, jobId })
+      .then((identity) => {
+        if (!cancelled) setLiveIdentity(identity);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveIdentity(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset?.dataset_id, dataset?.job_id, dataset?.originating_job_id]);
+
   if (!dataset) {
     return (
       <RailFrame>
@@ -224,40 +248,69 @@ export function DetailPanel({
     );
   }
 
-  const fields = detailFields(dataset);
+  const view = applyLiveIdentity(dataset, liveIdentity) || dataset;
+  const fields = detailFields(view);
+  const identity = view.live_identity;
 
   return (
     <RailFrame>
       <RailEntityHeader
-        id={dataset.dataset_id}
-        title={displayName(dataset)}
+        id={view.dataset_id}
+        title={displayName(view)}
         description={fields.description || null}
-        pills={<StatusPill dataset={dataset} />}
+        pills={<StatusPill dataset={view} />}
       />
 
       <RailDecisionSummary
-        status={datasetUseStatus(dataset, fields)}
-        primary={datasetPrimary(dataset, fields)}
-        risk={datasetRisk(dataset, fields)}
-        next={datasetNextAction(dataset, fields)}
+        status={datasetUseStatus(view, fields)}
+        primary={datasetPrimary(view, fields)}
+        risk={datasetRisk(view, fields)}
+        next={datasetNextAction(view, fields)}
       />
 
       <div className="rd-v2-rail-scroll">
-        <AtAGlance dataset={dataset} fields={fields} />
-        <EvidenceFiles dataset={dataset} fields={fields} />
-        <EvidenceMap dataset={dataset} fields={fields} />
-        <ProvenanceBlock dataset={dataset} fields={fields} />
+        <AtAGlance dataset={view} fields={fields} />
+        <EvidenceFiles dataset={view} fields={fields} />
+        <EvidenceMap dataset={view} fields={fields} />
+        <ProvenanceBlock dataset={view} fields={fields} />
+
+        {identity ? (
+          <DetailSection label="Live identity" defaultOpen>
+            <FieldRow label="Readiness" value={identity.synthesis_expectation?.badge || identity.readiness} />
+            <FieldRow label="Worker" value={identity.worker_id} mono hideEmpty />
+            <FieldRow label="Run" value={identity.run_id} mono hideEmpty />
+            <FieldRow label="Attempt" value={identity.attempt ? String(identity.attempt) : null} hideEmpty />
+            <FieldRow label="Job" value={identity.job_id} mono hideEmpty />
+            <FieldRow label="Manifest" value={identity.manifest_id} mono hideEmpty />
+            <FieldRow label="Vault" value={identity.vault_suffix} mono hideEmpty />
+            <FieldRow
+              label="Archive"
+              value={
+                identity.archive_verified == null
+                  ? null
+                  : identity.archive_verified
+                    ? "Verified"
+                    : "Unverified"
+              }
+              hideEmpty
+            />
+          </DetailSection>
+        ) : null}
 
         <DetailSection label="Coverage">
-          <FieldRow label="Period" value={fields.coverage || dataset.coverage} loading={loading} />
-          <FieldRow label="Grain" value={dataset.grain} loading={loading} />
+          <FieldRow label="Period" value={fields.coverage || view.coverage} loading={loading} />
+          <FieldRow label="Grain" value={view.grain} loading={loading} />
           <FieldRow label="Partition" value={fields.partition} loading={loading} />
         </DetailSection>
 
         <DetailSection label="Access">
           <FieldRow label="Source" value={fields.source} loading={loading} />
           <FieldRow label="Location" value={fields.access} loading={loading} mono />
-          <FieldRow label="Readiness" value={dataset.analysis_readiness} loading={loading} />
+          <FieldRow
+            label="Readiness"
+            value={identity?.synthesis_expectation?.badge || view.analysis_readiness}
+            loading={loading}
+          />
         </DetailSection>
 
         <DetailSection label="Schema">
@@ -281,19 +334,19 @@ export function DetailPanel({
       </div>
 
       <RailStickyFooter>
-        <button type="button" className="rd-v2-btn primary sm" onClick={onPreview}>
+        <button type="button" className="rd-v2-btn primary sm" onClick={() => onPreview?.(view)}>
           Preview rows
         </button>
-        <button type="button" className="rd-v2-btn sm" onClick={onAskAbout}>
+        <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(view)}>
           Ask about this →
         </button>
         {onSeeCluster ? (
-          <button type="button" className="rd-v2-btn sm" onClick={onSeeCluster}>
+          <button type="button" className="rd-v2-btn sm" onClick={() => onSeeCluster(view)}>
             See on Cluster →
           </button>
         ) : null}
         {onAddToLab ? (
-          <button type="button" className="rd-v2-btn sm" onClick={() => onAddToLab(dataset)}>
+          <button type="button" className="rd-v2-btn sm" onClick={() => onAddToLab(view)}>
             Add to lab
           </button>
         ) : null}

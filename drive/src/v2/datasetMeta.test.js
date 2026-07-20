@@ -16,6 +16,8 @@ test("unknown readiness is never promoted to query ready", () => {
 test("dataset readiness labels preserve the explicit access contract", () => {
   assert.equal(statusPillKind({ analysis_readiness: "instant" }).kind, "query-ready");
   assert.equal(statusPillKind({ analysis_readiness: "instant_or_minutes" }).kind, "query-ready");
+  assert.equal(statusPillKind({ analysis_readiness: "query_ready" }).label, "Query ready");
+  assert.equal(statusPillKind({ analysis_readiness: "registered" }).label, "Registered");
   assert.equal(statusPillKind({ analysis_readiness: "connected" }).kind, "connected");
   assert.equal(statusPillKind({ analysis_readiness: "dry_run_before_execution" }).kind, "connected");
   assert.equal(statusPillKind({ analysis_readiness: "metadata_search" }).label, "Metadata only");

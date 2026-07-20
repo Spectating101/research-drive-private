@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { fetchLiveIdentity } from "@/v2/api";
 import { DiscoverEvaluationSurface } from "@/v2/DiscoverEvaluationSurface";
 import { displayName } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
+import { identityLookupFromRow } from "@/v2/liveIdentity";
 import {
   RailDecisionSummary,
   RailEntityHeader,
@@ -510,6 +512,33 @@ export function BrowseRailPanel(props) {
 }
 
 export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onViewActivity, onAskAbout }) {
+  const [liveIdentity, setLiveIdentity] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const lookup = identityLookupFromRow({
+      ...(row || {}),
+      ...(row?.event || {}),
+      meta: row?.event?.meta || row?.meta,
+      job: row?.job,
+    });
+    if (!lookup.datasetId && !lookup.jobId) {
+      setLiveIdentity(null);
+      return undefined;
+    }
+    setLiveIdentity(null);
+    fetchLiveIdentity(lookup)
+      .then((identity) => {
+        if (!cancelled) setLiveIdentity(identity);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveIdentity(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row?.key, row?.job?.id, row?.event?.id, row?.event?.meta?.job_id, row?.event?.meta?.dataset_id]);
+
   if (!row) {
     const workers = rollup?.hero?.workers || {};
     const sourceCount = rollup?.connect?.source_count;
@@ -558,6 +587,18 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
             <RailField label="Target" value={ev.target} />
             <RailField label="Session" value={ev.session_id || "—"} mono />
             {meta.action ? <RailField label="Outcome" value={meta.action} /> : null}
+            {liveIdentity ? (
+              <>
+                <RailField
+                  label="Readiness"
+                  value={liveIdentity.synthesis_expectation?.badge || liveIdentity.readiness}
+                />
+                <RailField label="Worker" value={liveIdentity.worker_id || "—"} mono />
+                <RailField label="Run" value={liveIdentity.run_id || "—"} mono />
+                <RailField label="Job" value={liveIdentity.job_id || "—"} mono />
+                <RailField label="Lifecycle" value={liveIdentity.lifecycle || "—"} />
+              </>
+            ) : null}
           </RailFieldGrid>
         </div>
         <RailStickyFooter>
@@ -750,6 +791,16 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
             <>
               <RailField label="Job ID" value={row.job.id} mono />
               <RailField label="Job status" value={row.job.status} />
+            </>
+          ) : null}
+          {liveIdentity ? (
+            <>
+              <RailField
+                label="Readiness"
+                value={liveIdentity.synthesis_expectation?.badge || liveIdentity.readiness}
+              />
+              <RailField label="Worker" value={liveIdentity.worker_id || "—"} mono />
+              <RailField label="Run" value={liveIdentity.run_id || "—"} mono />
             </>
           ) : null}
           {row.key === "datacite" ? (

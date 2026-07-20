@@ -2,6 +2,7 @@ import { statusPillKind } from "@/v2/datasetMeta";
 
 const STYLES = {
   "query-ready": "rd-v2-status-pill rd-v2-status-ready",
+  registered: "rd-v2-status-pill rd-v2-status-connected",
   connected: "rd-v2-status-pill rd-v2-status-connected",
   review: "rd-v2-status-pill rd-v2-status-review",
   failed: "rd-v2-status-pill rd-v2-status-failed",
