@@ -6,6 +6,13 @@ async function openTab(page, label) {
   await page.locator("aside.yzu-sidebar").getByRole("button", { name: label, exact: true }).click();
 }
 
+async function waitForHomeEvidence(page) {
+  const continuation = page.getByTestId("home-continue");
+  await expect(continuation.locator("h2")).toBeVisible();
+  await expect(continuation.getByRole("button", { name: "Continue" })).toBeVisible();
+  await expect(page.locator(".rd-v2-home-recent .rd-v2-catalog button.row").first()).toBeVisible();
+}
+
 test.describe("Research Drive release visual contract", () => {
   test.beforeEach(async ({ page }) => {
     await mockV2Api(page);
@@ -57,7 +64,7 @@ test.describe("Research Drive release visual contract", () => {
     const attention = page.getByRole("region", { name: "Attention queue" });
     const recent = page.getByRole("region", { name: "Recent research assets" });
 
-    await expect(continuation).toBeVisible();
+    await waitForHomeEvidence(page);
     await expect(actions.getByRole("button", { name: /Search the lab/i })).toBeVisible();
     await expect(actions.getByRole("button", { name: /Discover data/i })).toBeVisible();
     await expect(actions.getByRole("button", { name: /Ask the assistant/i })).toBeVisible();
@@ -74,6 +81,7 @@ test.describe("Research Drive release visual contract", () => {
       return selectors.map((selector) => root.querySelector(selector)?.getBoundingClientRect().top || 0);
     });
     expect(order).toEqual([...order].sort((a, b) => a - b));
+    await expect(continuation).toBeVisible();
   });
 
   test("all faculty pages remain implemented in the shared shell", async ({ page }) => {
@@ -110,7 +118,7 @@ test.describe("Research Drive release visual contract", () => {
     await expect(page.getByText(":5178", { exact: true })).toBeVisible();
   });
 
-  test("long research identities wrap instead of breaking the rail", async ({ page }) => {
+  test("long research identities wrap instead of breaking the visible Detail pane", async ({ page }) => {
     await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
 
@@ -119,8 +127,10 @@ test.describe("Research Drive release visual contract", () => {
     await firstDataset.click();
 
     const rail = page.locator("aside.rd-v2-rail");
+    const detailPane = rail.locator('[data-testid="rail-pane-detail"]');
     const railBox = await rail.boundingBox();
-    const overflowing = await rail.evaluate((node) => node.scrollWidth > node.clientWidth + 2);
+    await expect(detailPane).toBeVisible();
+    const overflowing = await detailPane.evaluate((node) => node.scrollWidth > node.clientWidth + 2);
     expect(overflowing).toBe(false);
     expect(railBox?.width || 0).toBeGreaterThanOrEqual(370);
   });
@@ -137,6 +147,7 @@ test.describe("Research Drive release visual contract", () => {
       ["Settings", "settings"],
     ];
 
+    await waitForHomeEvidence(page);
     for (const [label, file] of pages) {
       if (label !== "Home") await openTab(page, label);
       await page.waitForTimeout(120);
@@ -146,21 +157,27 @@ test.describe("Research Drive release visual contract", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
+    await waitForHomeEvidence(page);
     await page.screenshot({ path: "artifacts/release-visual/home-390x844.png", fullPage: false });
   });
 });
 
 test.describe("Research Drive mobile composition", () => {
-  test("the active page remains primary and Detail Ask becomes a collapsible panel", async ({ page }) => {
+  test("the active page remains primary and the complete resume object precedes the collapsible rail", async ({ page }) => {
     await mockV2Api(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
+    await waitForHomeEvidence(page);
 
     await expect(page.locator("main.yzu-main")).toBeVisible();
+    const continuation = page.getByTestId("home-continue");
+    await expect(continuation.locator("h2")).toBeVisible();
+    await expect(continuation.getByRole("button", { name: "Continue" })).toBeVisible();
+    await expect(continuation.getByRole("button", { name: "Open in Library" })).toBeVisible();
+
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByRole("button", { name: /Show Detail · Ask|Hide panel/ })).toBeVisible();
-    await expect(page.getByTestId("home-continue")).toBeVisible();
 
     const viewportOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(viewportOverflow).toBe(false);
