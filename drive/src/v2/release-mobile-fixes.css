@@ -4,12 +4,13 @@
   .rd-v2-home-continue-card {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
     grid-auto-rows: max-content;
     gap: 16px !important;
-    min-height: 190px !important;
+    min-height: 282px !important;
     height: auto !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     padding: 20px !important;
   }
 
@@ -51,11 +52,16 @@
 
   .rd-v2-home-continue-actions {
     display: grid !important;
-    grid-template-columns: 1fr;
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: repeat(2, minmax(40px, auto)) !important;
+    grid-auto-flow: row !important;
+    gap: 8px !important;
     width: 100%;
     min-width: 0;
+    min-height: 88px !important;
     height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
     visibility: visible !important;
     opacity: 1 !important;
     position: static !important;
@@ -64,10 +70,13 @@
 
   .rd-v2-home-continue-actions .rd-v2-btn {
     display: inline-flex !important;
+    position: static !important;
     width: 100%;
     min-height: 40px;
+    margin: 0 !important;
     align-items: center;
     justify-content: center;
+    transform: none !important;
   }
 
   .rd-v2-home-recent .rd-v2-catalog,
