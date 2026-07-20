@@ -1,7 +1,8 @@
-"""Derived Discover History — intents, subscriptions, and linked runs only.
+"""Derived Discover History — intents, subscriptions, and durable linked outcomes.
 
-Raw global job queues stay out unless the job is linked to a Discover intent,
-subscription, or discover_* request source.
+Raw global job queues stay out. A global job may enter History only when it is
+linked to Discover or carries a fully verified registration receipt; in the
+latter case History shows the registered asset outcome, not a generic job row.
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from scripts.research_data_mcp.discover_progress import attach_subscription_progress
+from scripts.research_data_mcp.registered_asset_authority import _receipt_from_job
 
 _DISCOVER_JOB_SOURCES = frozenset(
     {
@@ -85,7 +87,6 @@ def _subscription_item(sub: dict[str, Any]) -> dict[str, Any]:
         "last_run_plan": sub.get("last_run_plan"),
         "summary": summary,
     }
-    # Prefer store-attached progress; rebuild if absent.
     if not item.get("progress"):
         item = attach_subscription_progress(
             {
@@ -134,6 +135,49 @@ def _run_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str 
     }
 
 
+def _registered_asset_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str = "") -> dict[str, Any] | None:
+    receipt = _receipt_from_job(job)
+    if receipt is None:
+        return None
+    identity = receipt.get("registration_receipt") or {}
+    return {
+        "kind": "registered_asset",
+        "id": receipt.get("dataset_id"),
+        "title": receipt.get("name") or receipt.get("dataset_id") or "Registered asset",
+        "status": receipt.get("analysis_readiness") or "registered",
+        "updated_at": receipt.get("updated_at") or receipt.get("created_at"),
+        "created_at": receipt.get("created_at"),
+        "intent_id": intent_id,
+        "subscription_id": subscription_id,
+        "dataset_id": receipt.get("dataset_id"),
+        "registry_id": receipt.get("registry_id"),
+        "manifest_id": receipt.get("manifest_id"),
+        "job_id": receipt.get("job_id"),
+        "readiness": receipt.get("analysis_readiness"),
+        "archive_verified": True,
+        "registry_readback": True,
+        "vault_path": receipt.get("vault_path"),
+        "summary": "Archive verified · registry read-back verified · Registered",
+        "progress": {
+            "phase": "registered",
+            "label": "Registered in Library",
+            "last_job_id": receipt.get("job_id"),
+            "last_run_status": "registered",
+        },
+        "registration_receipt": identity,
+        "catalog_reconciliation": receipt.get("catalog_reconciliation"),
+    }
+
+
+def _job_history_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str = "") -> dict[str, Any] | None:
+    registered = _registered_asset_item(job, intent_id=intent_id, subscription_id=subscription_id)
+    if registered is not None:
+        return registered
+    if _job_linked_to_discover(job):
+        return _run_item(job, intent_id=intent_id, subscription_id=subscription_id)
+    return None
+
+
 def build_discover_history(
     *,
     intents: list[dict[str, Any]] | None = None,
@@ -143,7 +187,7 @@ def build_discover_history(
     kind: str = "",
     session_id: str = "",
 ) -> dict[str, Any]:
-    """Collapse intents + subscriptions + Discover-linked runs into researcher history."""
+    """Collapse intents, subscriptions and durable outcomes into researcher History."""
     limit = max(1, min(int(limit or 50), 200))
     kind_filter = str(kind or "").strip().lower()
     session_id = str(session_id or "").strip()
@@ -159,11 +203,12 @@ def build_discover_history(
         jid = str(item.get("job_id") or "")
         if jid:
             intent_job_ids.add(jid)
-        # Collapse: if job attached on intent payload, emit one run under the intent.
         job = intent.get("job") if isinstance(intent.get("job"), dict) else None
-        if job and _job_linked_to_discover(job):
-            items.append(_run_item(job, intent_id=str(intent.get("id") or "")))
-            intent_job_ids.add(str(job.get("id") or ""))
+        if job:
+            outcome = _job_history_item(job, intent_id=str(intent.get("id") or ""))
+            if outcome is not None:
+                items.append(outcome)
+                intent_job_ids.add(str(job.get("id") or ""))
 
     for sub in subscriptions or []:
         items.append(_subscription_item(sub))
@@ -171,10 +216,10 @@ def build_discover_history(
     for job in jobs or []:
         jid = str(job.get("id") or "")
         if jid and jid in intent_job_ids:
-            continue  # already collapsed under intent
-        if not _job_linked_to_discover(job):
             continue
-        items.append(_run_item(job))
+        outcome = _job_history_item(job)
+        if outcome is not None:
+            items.append(outcome)
 
     if kind_filter:
         if kind_filter in {"intent", "intents"}:
@@ -183,6 +228,8 @@ def build_discover_history(
             items = [i for i in items if i.get("kind") == "subscription"]
         elif kind_filter in {"run", "runs", "collection_run", "job", "jobs"}:
             items = [i for i in items if i.get("kind") == "collection_run"]
+        elif kind_filter in {"registered", "registered_asset", "asset", "assets", "ready"}:
+            items = [i for i in items if i.get("kind") == "registered_asset"]
 
     items.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
     clipped = items[:limit]
@@ -194,5 +241,6 @@ def build_discover_history(
             "session_id": session_id or None,
             "limit": limit,
             "excludes_raw_global_jobs": True,
+            "includes_verified_registration_receipts": True,
         },
     }
