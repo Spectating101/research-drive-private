@@ -65,31 +65,48 @@ export function durableHistoryToEvents(data) {
   const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   return items
     .filter((item) => item && (item.id || item.title))
-    .map((item) => ({
-      id: item.id,
-      ts: item.updated_at || item.created_at || "",
-      action: item.kind || "discover",
-      target: item.title || item.summary || item.id,
-      meta: {
+    .map((item) => {
+      const identity = {
+        dataset_id: item.dataset_id || item.registration_receipt?.dataset_id || "",
+        registry_id: item.registry_id || item.registration_receipt?.registry_id || "",
+        manifest_id: item.manifest_id || item.registration_receipt?.manifest_id || "",
+        job_id: item.job_id || item.registration_receipt?.job_id || "",
+        readiness: item.readiness || item.registration_receipt?.readiness || item.status || "",
+        archive_verified: item.archive_verified ?? item.registration_receipt?.archive_verified ?? null,
+        registry_readback: item.registry_readback ?? item.registration_receipt?.registry_readback ?? null,
+        vault_path: item.vault_path || item.registration_receipt?.vault_path || "",
+      };
+      return {
+        id: item.id,
+        ts: item.updated_at || item.created_at || "",
+        action: item.kind || "discover",
+        target: item.title || item.summary || item.id,
+        meta: {
+          status: item.status,
+          kind: item.kind,
+          summary: item.summary,
+          job_id: identity.job_id,
+          intent_id: item.intent_id,
+          candidate_key: item.candidate_key,
+          subscription_id: item.subscription_id,
+          cadence: item.cadence,
+          requested_schedule: item.requested_schedule,
+          execution_mode: item.execution_mode,
+          source_id: item.source_id,
+          ...identity,
+          catalog_reconciliation: item.catalog_reconciliation || null,
+          registration_receipt: item.registration_receipt || null,
+        },
+        durable: true,
         status: item.status,
         kind: item.kind,
         summary: item.summary,
-        job_id: item.job_id,
-        intent_id: item.intent_id,
-        candidate_key: item.candidate_key,
-        subscription_id: item.subscription_id,
         cadence: item.cadence,
         requested_schedule: item.requested_schedule,
-        execution_mode: item.execution_mode,
-        source_id: item.source_id,
-      },
-      durable: true,
-      status: item.status,
-      kind: item.kind,
-      summary: item.summary,
-      cadence: item.cadence,
-      requested_schedule: item.requested_schedule,
-    }));
+        ...identity,
+        catalog_reconciliation: item.catalog_reconciliation || null,
+      };
+    });
 }
 
 export function mergeHistoryEvents(durableEvents = [], deskEvents = []) {

@@ -49,6 +49,37 @@ test("durableHistoryToEvents adapts backend history items to trail events", () =
   assert.ok(events[0].ts);
 });
 
+test("durableHistoryToEvents preserves verified registered asset identity", () => {
+  const [event] = durableHistoryToEvents({
+    items: [
+      {
+        kind: "registered_asset",
+        id: "day2_deploy_smoke_20260720",
+        title: "Day-2 deploy smoke",
+        status: "registered",
+        dataset_id: "day2_deploy_smoke_20260720",
+        registry_id: "day2_deploy_smoke_20260720",
+        manifest_id: "collection_manifest_day2-deploy-smoke-20260720a",
+        job_id: "day2-deploy-smoke-20260720a",
+        archive_verified: true,
+        registry_readback: true,
+        vault_path: "gdrive:Research-Drive/day2_deploy_smoke_20260720",
+        catalog_reconciliation: { state: "receipt_only", query_allowed: false },
+      },
+    ],
+  });
+
+  assert.equal(event.kind, "registered_asset");
+  assert.equal(event.dataset_id, "day2_deploy_smoke_20260720");
+  assert.equal(event.meta.registry_id, "day2_deploy_smoke_20260720");
+  assert.equal(event.meta.manifest_id, "collection_manifest_day2-deploy-smoke-20260720a");
+  assert.equal(event.meta.job_id, "day2-deploy-smoke-20260720a");
+  assert.equal(event.meta.readiness, "registered");
+  assert.equal(event.meta.archive_verified, true);
+  assert.equal(event.meta.registry_readback, true);
+  assert.equal(event.meta.catalog_reconciliation.query_allowed, false);
+});
+
 test("normalizeDiscoverMode maps legacy Search/Activity to Explore/History", () => {
   assert.equal(normalizeDiscoverMode("search"), "explore");
   assert.equal(normalizeDiscoverMode("activity"), "explore");

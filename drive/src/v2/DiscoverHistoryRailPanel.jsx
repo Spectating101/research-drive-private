@@ -8,6 +8,7 @@ function text(value) {
 function historyState(event) {
   const status = String(event?.status || event?.meta?.status || "").toLowerCase();
   const kind = String(event?.kind || event?.action || "").toLowerCase();
+  const meta = event?.meta || {};
 
   if (kind === "subscription" || /scheduled|paused|subscription/.test(status)) {
     return {
@@ -45,12 +46,32 @@ function historyState(event) {
       next: "Inspect the failure and create a revised request if the route changed.",
     };
   }
-  if (/completed|ready|registered|archived|done|succeeded/.test(status)) {
+  if (/query[_ -]?ready/.test(status)) {
     return {
-      label: /query[_ -]?ready/.test(status) ? "Query ready" : "Completed",
+      label: "Query ready",
+      explanation: "The registered asset has an explicit query-ready authority state.",
+      risk: "Use the recorded query evidence rather than inferring readiness from registration alone.",
+      next: "Open the asset in Library or inspect its query evidence.",
+    };
+  }
+  if (status === "registered" || kind === "registered_asset") {
+    const archive = meta.archive_verified === true || event?.archive_verified === true;
+    const readback = meta.registry_readback === true || event?.registry_readback === true;
+    return {
+      label: "Registered",
+      explanation: archive && readback
+        ? "Archive verification and canonical registry read-back both succeeded for this Library asset."
+        : "The durable record reports registration; inspect its proof fields before reuse.",
+      risk: "Registered is not Query ready. No query capability is claimed here.",
+      next: "Open the exact Library asset or ask about its provenance and readiness gap.",
+    };
+  }
+  if (/completed|ready|archived|done|succeeded/.test(status)) {
+    return {
+      label: "Completed",
       explanation: "The latest durable record reports completion. Verify registry/readiness evidence before reuse.",
-      risk: "Completion alone does not imply query readiness.",
-      next: "Inspect the registered asset or its supporting evidence.",
+      risk: "Completion alone does not imply registration or query readiness.",
+      next: "Inspect the output and its supporting evidence.",
     };
   }
   return {
@@ -70,6 +91,12 @@ function updatedAt(event) {
     : date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function proofLabel(value) {
+  if (value === true) return "Verified";
+  if (value === false) return "Not verified";
+  return null;
+}
+
 export function DiscoverHistoryRailPanel({ event, job, onAskAbout, onReviewRequest }) {
   if (!event) {
     return (
@@ -87,9 +114,12 @@ export function DiscoverHistoryRailPanel({ event, job, onAskAbout, onReviewReque
   const state = historyState(event);
   const meta = event.meta || {};
   const title = event.target || event.title || event.id || "Discover request";
-  const source = meta.source_id || meta.candidate_key || meta.intent_id || "Durable Discover record";
-  const requestId = meta.intent_id || meta.job_id || meta.subscription_id || event.id || "";
+  const datasetId = meta.dataset_id || event.dataset_id || "";
+  const source = datasetId || meta.source_id || meta.candidate_key || meta.intent_id || "Durable Discover record";
+  const requestId = datasetId || meta.intent_id || meta.job_id || meta.subscription_id || event.id || "";
   const canReview = state.label === "Approval required" && Boolean(job?.id || meta.job_id);
+  const registered = state.label === "Registered" || state.label === "Query ready";
+  const libraryHref = datasetId ? `?tab=library&dataset=${encodeURIComponent(datasetId)}` : "";
 
   return (
     <RailFrame>
@@ -105,6 +135,22 @@ export function DiscoverHistoryRailPanel({ event, job, onAskAbout, onReviewReque
           <RailField label="Latest durable update" value={updatedAt(event)} />
           <RailField label="Recorded event" value={text(event.kind || event.action || "discover")} />
           {meta.summary || event.summary ? <RailField label="Evidence" value={meta.summary || event.summary} /> : null}
+          {datasetId ? <RailField label="Dataset" value={datasetId} mono /> : null}
+          {meta.registry_id || event.registry_id ? <RailField label="Registry" value={meta.registry_id || event.registry_id} mono /> : null}
+          {meta.manifest_id || event.manifest_id ? <RailField label="Manifest" value={meta.manifest_id || event.manifest_id} mono /> : null}
+          {meta.job_id || event.job_id ? <RailField label="Job" value={meta.job_id || event.job_id} mono /> : null}
+          {meta.archive_verified != null || event.archive_verified != null ? (
+            <RailField label="Archive" value={proofLabel(meta.archive_verified ?? event.archive_verified)} />
+          ) : null}
+          {meta.registry_readback != null || event.registry_readback != null ? (
+            <RailField label="Registry read-back" value={proofLabel(meta.registry_readback ?? event.registry_readback)} />
+          ) : null}
+          {meta.catalog_reconciliation?.state || event.catalog_reconciliation?.state ? (
+            <RailField
+              label="Catalog state"
+              value={text(meta.catalog_reconciliation?.state || event.catalog_reconciliation?.state)}
+            />
+          ) : null}
           {meta.cadence || event.cadence ? <RailField label="Schedule" value={meta.cadence || event.cadence} /> : null}
           {meta.requested_schedule || event.requested_schedule ? (
             <RailField label="Requested cadence" value={meta.requested_schedule || event.requested_schedule} />
@@ -117,6 +163,11 @@ export function DiscoverHistoryRailPanel({ event, job, onAskAbout, onReviewReque
           <button type="button" className="rd-v2-btn sm primary" onClick={() => onReviewRequest?.(job || event)}>
             Review request
           </button>
+        ) : null}
+        {registered && libraryHref ? (
+          <a className="rd-v2-btn sm primary" href={libraryHref}>
+            Open in Library
+          </a>
         ) : null}
         <button
           type="button"
