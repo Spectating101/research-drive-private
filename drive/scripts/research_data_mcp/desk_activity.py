@@ -63,13 +63,13 @@ def record_activity(
     return event
 
 
-def read_recent(*, limit: int = 50, repo_root: Path | None = None) -> list[dict[str, Any]]:
+def _logged_events(*, limit: int, repo_root: Path) -> list[dict[str, Any]]:
     path = log_path(repo_root)
     if not path.is_file():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
     out: list[dict[str, Any]] = []
-    for line in reversed(lines[-limit * 2 :]):
+    for line in reversed(lines[-max(limit * 2, 20) :]):
         line = line.strip()
         if not line:
             continue
@@ -82,6 +82,76 @@ def read_recent(*, limit: int = 50, repo_root: Path | None = None) -> list[dict[
         if len(out) >= limit:
             break
     return out
+
+
+def _registered_asset_events(repo_root: Path, *, limit: int) -> list[dict[str, Any]]:
+    """Project verified receipts into Resources without writing duplicate log rows."""
+    try:
+        from scripts.research_data_mcp.registered_asset_authority import list_verified_registration_receipts
+
+        receipts = list_verified_registration_receipts(repo_root, limit=max(limit, 50))
+    except Exception:
+        return []
+
+    events: list[dict[str, Any]] = []
+    for receipt in receipts[:limit]:
+        dataset_id = str(receipt.get("dataset_id") or "").strip()
+        job_id = str(receipt.get("job_id") or "").strip()
+        if not dataset_id or not job_id:
+            continue
+        name = str(receipt.get("name") or dataset_id).strip()
+        events.append(
+            {
+                "id": f"registered-{job_id}",
+                "ts": receipt.get("updated_at") or receipt.get("created_at") or "",
+                "action": "Registered",
+                "target": f"Registered · {name}",
+                "session_id": None,
+                "cost": None,
+                "meta": {
+                    "action": "Registered Library asset",
+                    "dataset_id": dataset_id,
+                    "registry_id": receipt.get("registry_id") or dataset_id,
+                    "manifest_id": receipt.get("manifest_id"),
+                    "job_id": job_id,
+                    "readiness": receipt.get("analysis_readiness"),
+                    "archive_verified": receipt.get("archive_verified") is True,
+                    "registry_readback": receipt.get("registry_readback") is True,
+                    "lifecycle": receipt.get("lifecycle") or receipt.get("analysis_readiness"),
+                    "vault_path": receipt.get("vault_path"),
+                    "catalog_reconciliation": receipt.get("catalog_reconciliation") or {},
+                },
+            }
+        )
+    return events
+
+
+def read_recent(*, limit: int = 50, repo_root: Path | None = None) -> list[dict[str, Any]]:
+    """Return append-only activity plus verified registered-asset outcomes.
+
+    Registered outcomes are a read-only projection of durable receipts, not new
+    activity-log writes.  They are deduplicated by event ID and sorted with the
+    ordinary feed so Resources can resolve the same job/dataset through the live
+    identity endpoint.
+    """
+    root = (repo_root or repo_root_from_file(__file__)).resolve()
+    bounded = max(1, min(int(limit or 50), 500))
+    rows = [
+        *_logged_events(limit=bounded, repo_root=root),
+        *_registered_asset_events(root, limit=bounded),
+    ]
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda item: str(item.get("ts") or ""), reverse=True):
+        event_id = str(row.get("id") or "")
+        if event_id and event_id in seen:
+            continue
+        if event_id:
+            seen.add(event_id)
+        merged.append(row)
+        if len(merged) >= bounded:
+            break
+    return merged
 
 
 def top_bq_drivers(*, limit: int = 5, repo_root: Path | None = None) -> list[dict[str, Any]]:
