@@ -99,15 +99,17 @@ def _registered_asset_events(repo_root: Path, *, limit: int) -> list[dict[str, A
         job_id = str(receipt.get("job_id") or "").strip()
         if not dataset_id or not job_id:
             continue
+        name = str(receipt.get("name") or dataset_id).strip()
         events.append(
             {
                 "id": f"registered-{job_id}",
                 "ts": receipt.get("updated_at") or receipt.get("created_at") or "",
-                "action": "registered_asset",
-                "target": receipt.get("name") or dataset_id,
+                "action": "Registered",
+                "target": f"Registered · {name}",
                 "session_id": None,
                 "cost": None,
                 "meta": {
+                    "action": "Registered Library asset",
                     "dataset_id": dataset_id,
                     "registry_id": receipt.get("registry_id") or dataset_id,
                     "manifest_id": receipt.get("manifest_id"),
