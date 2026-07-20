@@ -53,12 +53,18 @@ export function formatMetaValue(value) {
 }
 
 export function statusPillKind(dataset) {
+  if (dataset?.live_identity_badge?.kind && dataset?.live_identity_badge?.label) {
+    return dataset.live_identity_badge;
+  }
   const readiness = String(dataset?.analysis_readiness || "").toLowerCase();
   if (dataset?.external || dataset?.collect_via) {
     return { kind: "external", label: "External" };
   }
-  if (readiness === "instant" || readiness === "instant_or_minutes") {
-    return { kind: "query-ready", label: "Query-ready" };
+  if (readiness === "query_ready" || readiness === "instant" || readiness === "instant_or_minutes") {
+    return { kind: "query-ready", label: "Query ready" };
+  }
+  if (readiness === "registered") {
+    return { kind: "registered", label: "Registered" };
   }
   if (readiness === "dry_run_before_execution" || /bigquery/i.test(dataset?.backend || "")) {
     return { kind: "connected", label: "Connected" };
@@ -70,7 +76,7 @@ export function statusPillKind(dataset) {
   if (readiness === "procurement_planning") return { kind: "queued", label: "Queued" };
   if (readiness === "sample_now_full_later") return { kind: "warn", label: "Review" };
   if (readiness === "failed") return { kind: "failed", label: "Failed" };
-  return { kind: "query-ready", label: "Query-ready" };
+  return { kind: "unknown", label: "Readiness unknown" };
 }
 
 export function statusPill(dataset) {

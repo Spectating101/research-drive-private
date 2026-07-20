@@ -219,6 +219,17 @@ export function listJobs() {
   return fetchJson("/library/jobs").then((d) => d.jobs || d.items || d || []);
 }
 
+/** RC2-A: sanitized cross-surface identity from the private factory / desk gateway. */
+export function fetchLiveIdentity({ datasetId = "", jobId = "" } = {}) {
+  const params = new URLSearchParams();
+  if (datasetId) params.set("dataset_id", datasetId);
+  if (jobId) params.set("job_id", jobId);
+  if (![...params.keys()].length) {
+    return Promise.reject(new Error("dataset_id or job_id is required"));
+  }
+  return fetchJson(`/library/live-identity?${params}`);
+}
+
 export function getJob(jobId) {
   return fetchJson(`/library/jobs/${encodeURIComponent(jobId)}`);
 }
