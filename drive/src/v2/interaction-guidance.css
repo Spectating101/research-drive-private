@@ -1,0 +1,187 @@
+/* Research Drive interaction guidance and motion hierarchy. */
+
+:root {
+  --rd-motion-fast: 120ms;
+  --rd-motion-standard: 190ms;
+  --rd-motion-slow: 280ms;
+  --rd-motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --rd-motion-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes rd-page-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rd-pane-enter {
+  from { opacity: 0; transform: translateX(5px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes rd-tooltip-enter {
+  from { opacity: 0; transform: translateY(2px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes rd-toast-enter {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.rd-v2-page {
+  animation: rd-page-enter var(--rd-motion-standard) var(--rd-motion-emphasized) both;
+}
+
+.rd-v2-rail-pane,
+.rd-v2-ask-rail {
+  animation: rd-pane-enter var(--rd-motion-standard) var(--rd-motion-emphasized) both;
+}
+
+.rd-v2-toast {
+  animation: rd-toast-enter var(--rd-motion-standard) var(--rd-motion-emphasized) both;
+}
+
+.rd-v2-btn,
+.rd-v2-chip,
+.yzu-sidebar button,
+.rd-v2-library-asset,
+.rd-v2-library-collection,
+.rd-v2-discover-candidate,
+.rd-v2-statement-row,
+.rd-v2-ledger-row {
+  transition-duration: var(--rd-motion-fast);
+  transition-timing-function: var(--rd-motion-ease);
+}
+
+.rd-v2-btn:active:not(:disabled),
+.rd-v2-chip.clickable:active,
+.yzu-sidebar button:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.rd-v2-context-help {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.5;
+  cursor: help;
+  vertical-align: middle;
+  transition: opacity var(--rd-motion-fast) var(--rd-motion-ease), background var(--rd-motion-fast) var(--rd-motion-ease), transform var(--rd-motion-fast) var(--rd-motion-ease);
+}
+
+.rd-v2-context-help svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+.rd-v2-context-help:hover,
+.rd-v2-context-help:focus-visible,
+.rd-v2-context-help[data-state="instant-open"],
+.rd-v2-context-help[data-state="delayed-open"] {
+  opacity: 1;
+  background: rgba(70, 86, 232, 0.09);
+  transform: translateY(-1px);
+}
+
+.rd-v2-context-help:focus-visible {
+  outline: 2px solid rgba(70, 86, 232, 0.34);
+  outline-offset: 2px;
+}
+
+.rd-v2-tooltip {
+  z-index: 120;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 9px 11px;
+  border: 1px solid rgba(208, 215, 227, 0.95);
+  border-radius: 10px;
+  background: rgba(25, 31, 45, 0.97);
+  color: #f8fafc;
+  box-shadow: 0 14px 38px rgba(15, 23, 42, 0.22);
+  font-size: 11.5px;
+  font-weight: 540;
+  line-height: 1.45;
+  text-align: left;
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+  animation: rd-tooltip-enter var(--rd-motion-fast) var(--rd-motion-emphasized) both;
+  user-select: none;
+}
+
+.rd-v2-tooltip-arrow {
+  fill: rgba(25, 31, 45, 0.97);
+}
+
+.rd-v2-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rd-v2-status-pill .rd-v2-context-help {
+  width: 15px;
+  height: 15px;
+  margin-left: 1px;
+}
+
+.rd-v2-status-pill .rd-v2-context-help svg {
+  width: 12px;
+  height: 12px;
+}
+
+.rd-v2-settings-summary-card > span,
+.rd-v2-statement-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rd-v2-library-action-menu,
+.rd-v2-library-control-popover,
+.rd-v2-discover-filter-popover {
+  transform-origin: top right;
+  animation: rd-tooltip-enter var(--rd-motion-fast) var(--rd-motion-emphasized) both;
+}
+
+@media (max-width: 720px) {
+  .rd-v2-tooltip {
+    max-width: min(280px, calc(100vw - 20px));
+    font-size: 12px;
+  }
+
+  .rd-v2-context-help {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .rd-v2-page,
+  .rd-v2-rail-pane,
+  .rd-v2-ask-rail,
+  .rd-v2-toast,
+  .rd-v2-tooltip,
+  .rd-v2-library-action-menu,
+  .rd-v2-library-control-popover,
+  .rd-v2-discover-filter-popover {
+    animation-name: none !important;
+    transform: none !important;
+  }
+}
