@@ -1,0 +1,93 @@
+name: Publish Research Drive RC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/rc2-publish.yml"
+      - "scripts/verify_rc2_release.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: research-drive-rc2-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'Spectating101/yzu-cluster'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out complete release history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify frozen release ancestry and boundary
+        run: npm run release:verify
+        env:
+          YZU_REQUIRE_RELEASE_ANCESTRY: "1"
+
+      - name: Build and checksum release package
+        run: npm run release:package
+        env:
+          YZU_REQUIRE_RELEASE_ANCESTRY: "1"
+
+      - name: Create immutable RC2 tag
+        env:
+          TAG: research-drive-rc2
+        run: |
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            existing="$(git rev-list -n 1 "${TAG}")"
+            if [[ "${existing}" != "${GITHUB_SHA}" ]]; then
+              echo "Tag ${TAG} already points to ${existing}, not ${GITHUB_SHA}" >&2
+              exit 1
+            fi
+            echo "Tag ${TAG} already points to this release commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "${TAG}" "${GITHUB_SHA}" -m "Research Drive RC2 — accepted release"
+            git push origin "refs/tags/${TAG}"
+          fi
+
+      - name: Publish GitHub Release and verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: research-drive-rc2
+        run: |
+          assets=(
+            artifacts/research-drive-rc2-public.tar.gz
+            artifacts/research-drive-rc2-public.tar.gz.sha256
+            release/research-drive-rc2.json
+          )
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" "${assets[@]}" --clobber
+            gh release edit "${TAG}" \
+              --title "Research Drive RC2" \
+              --notes-file docs/releases/RESEARCH_DRIVE_RC2.md
+          else
+            gh release create "${TAG}" "${assets[@]}" \
+              --title "Research Drive RC2" \
+              --notes-file docs/releases/RESEARCH_DRIVE_RC2.md \
+              --verify-tag
+          fi
+
+      - name: Record release identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: research-drive-rc2
+        run: |
+          git rev-parse "${TAG}"
+          gh release view "${TAG}" --json tagName,name,isDraft,isPrerelease,publishedAt,url
