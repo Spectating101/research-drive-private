@@ -1,6 +1,6 @@
 name: Private runtime contract
 
-# Exact-head gate for runtime, registry authority, and remote worker adoption.
+# Exact-head gate for runtime, registry authority, remote worker adoption, and the internal desk front door.
 on:
   pull_request:
     branches: [main]
@@ -8,6 +8,9 @@ on:
       - "drive/scripts/yzu_cluster/**"
       - "drive/scripts/cluster_agent/**"
       - "drive/scripts/research_data_mcp/**"
+      - "drive/scripts/research_query_engine/**"
+      - "drive/config/optiplex-front-door.env.example"
+      - "drive/docs/status/releases/RC2_FRONT_DOOR_CONTRACT.md"
       - "tests/test_cluster_runtime_adapter.py"
       - "tests/test_orchestrator_runtime.py"
       - "tests/test_bootstrap_drive_order.py"
@@ -22,6 +25,7 @@ on:
       - "tests/test_remote_collect.py"
       - "tests/test_artifact_streaming.py"
       - "tests/test_job_status_counts.py"
+      - "tests/test_research_query_server.py"
       - "tests/test_yzu_interop_*.py"
       - ".github/workflows/private-runtime-contract.yml"
   workflow_dispatch:
@@ -50,7 +54,14 @@ jobs:
 
       - name: Compile runtime modules
         run: |
-          python -m compileall -q drive/scripts/yzu_cluster drive/scripts/cluster_agent drive/scripts/research_data_mcp
+          python -m compileall -q drive/scripts/yzu_cluster drive/scripts/cluster_agent drive/scripts/research_data_mcp drive/scripts/research_query_engine
+
+      - name: Validate same-origin front door contract
+        run: |
+          python -m pytest -q tests/test_research_query_server.py
+          bash -n drive/scripts/research_query_engine/build_optiplex_front_door.sh
+          bash -n drive/scripts/research_query_engine/run_optiplex_front_door.sh
+          bash -n drive/scripts/research_query_engine/install_optiplex_front_door_systemd_user.sh
 
       - name: Run worker control service contracts
         id: worker_control
