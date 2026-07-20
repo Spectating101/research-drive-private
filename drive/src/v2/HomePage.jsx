@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { CatalogList } from "@/v2/CatalogList";
 import { DeskLanesStrip } from "@/v2/DeskLanesStrip";
+import { GuidedState, Skeleton } from "@/v2/InteractionFeedback";
 import { recentDatasets } from "@/v2/recent";
 import { PageShell, SectionTitle } from "@/v2/ui";
 import { displayName, statusPill } from "@/v2/datasetMeta";
@@ -71,6 +72,19 @@ function HomeAttentionRow({ item, onOpen }) {
   );
 }
 
+function HomeContinueSkeleton() {
+  return (
+    <div className="rd-v2-home-loading-copy" data-testid="home-loading-state">
+      <span>Restoring research context</span>
+      <Skeleton lines={3} label="Loading the most recent research asset" />
+      <div className="rd-v2-home-loading-meta">
+        <Skeleton lines={1} label="Loading readiness" />
+        <Skeleton lines={1} label="Loading activity" />
+      </div>
+    </div>
+  );
+}
+
 export function HomePage({
   datasets,
   health,
@@ -83,6 +97,7 @@ export function HomePage({
 }) {
   const recent = useMemo(() => recentDatasets(datasets, 3), [datasets]);
   const continueDs = recent[0] || datasets[0] || null;
+  const loading = health == null && datasets.length === 0;
   const healthJobs = health?.desk?.jobs || {};
   const pendingJobs = useMemo(
     () => jobs.filter((job) => /pending|approval|hold/i.test(String(job.status || job.state || ""))),
@@ -157,56 +172,77 @@ export function HomePage({
       <section
         className="rd-v2-home-continue-card"
         aria-label="Continue working"
+        aria-busy={loading}
         data-testid="home-continue"
       >
         <div className="rd-v2-home-continue-copy">
-          <span>Continue working</span>
-          {continueDs ? (
-            <>
-              <h2>{displayName(continueDs)}</h2>
-              <p className="rd-v2-home-continue-purpose">{purposeLine(continueDs)}</p>
-              <p className="rd-v2-home-continue-meta">
-                <span className="rd-v2-pill">{statusPill(continueDs)}</span>
-                <span>{lastActivityLine(continueDs)}</span>
-              </p>
-              <p className="rd-v2-home-continue-id mono">{continueDs.dataset_id}</p>
-            </>
+          {loading ? (
+            <HomeContinueSkeleton />
           ) : (
             <>
-              <h2>Open the vault or find missing data</h2>
-              <p>No recent dataset yet. Start from Lab holdings or Discover.</p>
+              <span>Continue working</span>
+              {continueDs ? (
+                <>
+                  <h2>{displayName(continueDs)}</h2>
+                  <p className="rd-v2-home-continue-purpose">{purposeLine(continueDs)}</p>
+                  <p className="rd-v2-home-continue-meta">
+                    <span className="rd-v2-pill">{statusPill(continueDs)}</span>
+                    <span>{lastActivityLine(continueDs)}</span>
+                  </p>
+                  <p className="rd-v2-home-continue-id mono">{continueDs.dataset_id}</p>
+                </>
+              ) : (
+                <GuidedState
+                  eyebrow="No recent asset"
+                  title="Open the vault or find missing data"
+                  detail="Research Drive has no recent dataset to resume in this browser yet."
+                  checks={["Library holds registered assets", "Discover searches beyond current holdings"]}
+                />
+              )}
             </>
           )}
         </div>
         <div className="rd-v2-home-continue-actions">
-          <button type="button" className="rd-v2-btn sm primary" onClick={continueWork}>
-            Continue
-          </button>
-          {continueDs ? (
-            <button type="button" className="rd-v2-btn sm" onClick={openContinueInLibrary}>
-              Open in Library
-            </button>
+          {loading ? (
+            <Skeleton className="rd-v2-home-action-skeleton" lines={2} label="Loading actions" />
           ) : (
-            <button type="button" className="rd-v2-btn sm" onClick={() => onGoTab("browse")}>
-              Discover data
-            </button>
+            <>
+              <button type="button" className="rd-v2-btn sm primary" onClick={continueWork}>
+                Continue
+              </button>
+              {continueDs ? (
+                <button type="button" className="rd-v2-btn sm" onClick={openContinueInLibrary}>
+                  Open in Library
+                </button>
+              ) : (
+                <button type="button" className="rd-v2-btn sm" onClick={() => onGoTab("browse")}>
+                  Discover data
+                </button>
+              )}
+            </>
           )}
         </div>
       </section>
 
-      <DeskLanesStrip holdings={datasets.length} onGoTab={onGoTab} onAskComposer={onAskComposer} />
+      {loading ? (
+        <div className="rd-v2-home-lanes-loading" aria-label="Loading research entrances">
+          <Skeleton lines={2} />
+          <Skeleton lines={2} />
+          <Skeleton lines={2} />
+        </div>
+      ) : (
+        <DeskLanesStrip holdings={datasets.length} onGoTab={onGoTab} onAskComposer={onAskComposer} />
+      )}
 
-      <section className="rd-v2-home-attention" aria-label="Attention queue">
+      <section className="rd-v2-home-attention" aria-label="Attention queue" aria-busy={loading}>
         <div className="rd-v2-home-attention-head">
           <h2>Attention</h2>
-          <span>
-            {attentionItems.length
-              ? `${attentionItems.length} needing action`
-              : "Clear"}
-          </span>
+          <span>{loading ? "Checking" : attentionItems.length ? `${attentionItems.length} needing action` : "Clear"}</span>
         </div>
         <div className="rd-v2-home-attention-body">
-          {attentionItems.length ? (
+          {loading ? (
+            <Skeleton className="rd-v2-home-attention-skeleton" lines={2} label="Checking the attention queue" />
+          ) : attentionItems.length ? (
             attentionItems.map((item) => (
               <HomeAttentionRow
                 key={item.id}
@@ -220,15 +256,23 @@ export function HomePage({
         </div>
       </section>
 
-      <section className="rd-v2-home-recent" aria-label="Recent research assets">
+      <section className="rd-v2-home-recent" aria-label="Recent research assets" aria-busy={loading}>
         <SectionTitle title="Recent research assets" actionLabel="Open Library →" onAction={() => onGoTab("library")} />
         <div className="rd-v2-home-list-panel">
-          <CatalogList
-            rows={recentRows.map(datasetListItem)}
-            onSelectDataset={onSelectDataset}
-            onDoubleClick={onPreviewDataset}
-            compact
-          />
+          {loading ? (
+            <div className="rd-v2-home-list-skeletons">
+              <Skeleton lines={2} label="Loading recent research assets" />
+              <Skeleton lines={2} />
+              <Skeleton lines={2} />
+            </div>
+          ) : (
+            <CatalogList
+              rows={recentRows.map(datasetListItem)}
+              onSelectDataset={onSelectDataset}
+              onDoubleClick={onPreviewDataset}
+              compact
+            />
+          )}
         </div>
       </section>
     </PageShell>
