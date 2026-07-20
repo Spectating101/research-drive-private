@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "researchDriveRelease": "rc2",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "test:candidate-key": "node --test drive/src/v2/candidateKey.test.js drive/src/v2/discoverTaxonomy.test.js drive/src/v2/discoverProbeEvidence.test.js drive/src/v2/discoverEvaluation.test.js drive/src/v2/discoverLifecycle.test.js drive/src/v2/discoverComposition.test.js drive/src/v2/discoverSufficiency.test.js drive/src/v2/datasetMeta.test.js drive/src/v2/liveIdentity.test.js drive/tests/discoverAdapters.test.mjs",
@@ -15,6 +16,9 @@
     "desk:integration": "node scripts/desk_verify_live.mjs",
     "desk:capture": "bash scripts/capture_desk_screenshots.sh",
     "desk:capture:live": "YZU_REQUIRE_LIVE=1 bash scripts/capture_desk_screenshots.sh",
+    "release:verify": "node scripts/verify_rc2_release.mjs",
+    "release:test": "npm run release:verify && npm run test:candidate-key && npm run test:runtime-contract && python -m unittest discover -s tests -p \"test_yzu_interop_*.py\" -v && mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/rc2-release-journey.spec.js",
+    "release:package": "bash scripts/package_rc2_release.sh",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
