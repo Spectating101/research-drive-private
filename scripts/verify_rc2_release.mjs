@@ -14,6 +14,7 @@ const REQUIRED_FILES = [
   "docs/releases/RC2_OPERATOR_QUICKSTART.md",
   "e2e/rc2-release-journey.spec.js",
   ".github/workflows/rc2-release.yml",
+  ".github/workflows/rc2-publish.yml",
   "scripts/package_rc2_release.sh",
 ];
 const ALLOWED_RELEASE_CHANGES = [
@@ -26,6 +27,7 @@ const ALLOWED_RELEASE_CHANGES = [
   /^scripts\/package_rc2_release\.sh$/,
   /^e2e\/rc2-release-journey\.spec\.js$/,
   /^\.github\/workflows\/rc2-release\.yml$/,
+  /^\.github\/workflows\/rc2-publish\.yml$/,
 ];
 const SHA_RE = /^[0-9a-f]{40}$/;
 const failures = [];
