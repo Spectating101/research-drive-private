@@ -43,10 +43,11 @@ def hydrate(*, repo_root: Path, job_id: str, dry_run: bool = False) -> dict:
     canonical = str(meta.get("canonical_dir") or "").strip()
     if not canonical:
         raise ValueError("meta.canonical_dir is required")
+
+    procured_root = (root / "data_lake/procured").resolve()
     dest = (root / canonical).resolve()
-    if root not in dest.parents and dest != root:
-        # allow dest under root only
-        raise ValueError(f"canonical_dir escapes repo root: {canonical}")
+    if procured_root not in dest.parents:
+        raise ValueError(f"canonical_dir must resolve under data_lake/procured: {canonical}")
 
     raw_dir = acquisition_dir / "raw"
     if not raw_dir.is_dir():
