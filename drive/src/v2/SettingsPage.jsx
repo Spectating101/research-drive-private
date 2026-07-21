@@ -9,6 +9,7 @@ import {
 import { clearDeskSession, ensureDeskSession } from "@/v2/api";
 import { ContextHelp } from "@/v2/InteractionGuidance";
 import { loadSettings, saveSettings } from "@/v2/settingsStore";
+import { PILOT_PREVIEW_EMAIL } from "@/v2/profileViewModel";
 import { PageShell, StatementRow, StatementSection } from "@/v2/ui";
 import { V2_TABS } from "@/v2/nav-config.jsx";
 
@@ -24,7 +25,8 @@ function deskAccessStatus(health) {
 
 function archiveStatus(desk) {
   if (desk?.gdrive?.ok === false) return { ok: false, label: "Needs review", detail: "Archive connection" };
-  return { ok: true, label: "Connected", detail: "Research archive" };
+  if (desk?.gdrive?.ok === true) return { ok: true, label: "Connected", detail: "Research archive" };
+  return { ok: null, label: "Not reported", detail: "No archive health on /health" };
 }
 
 function assistantStatus(health) {
@@ -47,12 +49,26 @@ function assistantStatus(health) {
   if (model) {
     return { ready: true, known: true, label: "Ready", detail: `${model} runtime signal` };
   }
-  return { ready: false, known: false, label: "Check status", detail: "No assistant health signal" };
+  return { ready: false, known: false, label: "Not reported", detail: "No assistant signal on /health" };
 }
 
-function SummaryCard({ label, value, detail, help }) {
+function jobsStatus(health) {
+  const jobs = health?.desk?.jobs || {};
+  const failed = Number(jobs.failed_recent ?? jobs.failed ?? 0);
+  const pending = Number(jobs.pending_approval ?? 0);
+  const running = Number(jobs.running ?? 0);
+  if (!health?.desk?.jobs) {
+    return { label: "Not reported", detail: "Job counters missing from /health", warn: false };
+  }
+  if (pending > 0) return { label: `${pending} pending approval`, detail: "Discover owns approvals", warn: true };
+  if (running > 0) return { label: `${running} running`, detail: "Active collection / execution", warn: false };
+  if (failed > 0) return { label: `${failed} failed (recent)`, detail: "See Discover History / Resources Usage", warn: true };
+  return { label: "Quiet", detail: "No pending or running jobs", warn: false };
+}
+
+function SummaryCard({ label, value, detail, help, warn }) {
   return (
-    <article className="rd-v2-settings-summary-card">
+    <article className={`rd-v2-settings-summary-card${warn ? " warn" : ""}`}>
       <span>
         {label}
         <ContextHelp content={help} label={`Explain ${label}`} side="bottom" align="start" />
@@ -63,7 +79,7 @@ function SummaryCard({ label, value, detail, help }) {
   );
 }
 
-export function SettingsPage({ health, onProfileRefresh, onToast }) {
+export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToast }) {
   const [settings, setSettings] = useState(() => loadSettings());
   const [emailDraft, setEmailDraft] = useState(() => settings.email || "");
   const [tokenDraft, setTokenDraft] = useState("");
@@ -72,6 +88,9 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
   const access = deskAccessStatus(health);
   const archive = archiveStatus(desk);
   const assistant = assistantStatus(health);
+  const jobs = jobsStatus(health);
+  const mcpTools = resourcesRollup?.ai?.mcp_tools?.total ?? resourcesRollup?.hero?.mcp_tools ?? null;
+  const healthOk = health?.status === "ok";
 
   const patch = (p) => setSettings(saveSettings(p));
 
@@ -80,6 +99,14 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
     patch({ email });
     onProfileRefresh?.();
     onToast?.(email ? `Research profile loaded for ${email}` : "Research profile email cleared");
+  };
+
+  const bindPilot = () => {
+    setEmailDraft(PILOT_PREVIEW_EMAIL);
+    const email = saveUserEmail(PILOT_PREVIEW_EMAIL);
+    patch({ email });
+    onProfileRefresh?.();
+    onToast?.(`Bound EXAMPLE identity ${email}`);
   };
 
   const connectSession = async () => {
@@ -114,26 +141,29 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
   };
 
   return (
-    <PageShell title="Settings" lead="Identity, access, and research-desk preferences">
+    <PageShell title="Settings" lead="Identity, access, and research-desk preferences — status from live /health only">
       <div className="rd-v2-settings-statement">
         <section className="rd-v2-settings-summary" aria-label="Research desk status">
           <SummaryCard
-            label="Browser access"
-            value={access.label}
-            detail={access.detail}
-            help="Controls authorized actions such as approvals. Browsing and read-only inspection may remain available without a write session."
+            label="Desk API"
+            value={healthOk ? "Live" : health?.status || "Unknown"}
+            detail={healthOk ? "Catalog · Ask · jobs reachable" : "Health payload missing or degraded"}
+            help="Truth from GET /health on the Tailscale desk."
+            warn={!healthOk}
           />
           <SummaryCard
             label="Research assistant"
             value={assistant.label}
             detail={assistant.detail}
-            help="Derived from explicit Composer health, a legacy assistant signal, or an active runtime/model identity. Missing data is shown as unknown rather than incorrectly offline."
+            help="Composer / legacy assistant flags from /health.desk — never invents Ready."
+            warn={!assistant.ready}
           />
           <SummaryCard
-            label="Archive"
-            value={archive.label}
-            detail={archive.detail}
-            help="The verified long-term store for registered assets. Archive connected does not by itself mean a dataset is query ready."
+            label="Jobs"
+            value={jobs.label}
+            detail={jobs.detail}
+            help="Pending / running / recent failed counters from /health.desk.jobs."
+            warn={jobs.warn}
           />
         </section>
 
@@ -149,9 +179,12 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
             <button type="button" className="rd-v2-btn sm primary" onClick={saveEmail}>
               Save identity
             </button>
+            <button type="button" className="rd-v2-btn sm" onClick={bindPilot}>
+              Use EXAMPLE (Kong)
+            </button>
           </div>
           <p className="rd-v2-settings-hint">
-            Used to load research memory and improve source ranking, evidence-fit explanations, and Ask context.
+            Loads Memory / Works / Lab from the faculty registry. Unbound desks preview EXAMPLE only until an email is saved.
           </p>
         </StatementSection>
 
@@ -172,7 +205,7 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
             </button>
           </div>
           <p className="rd-v2-settings-hint">
-            Authorized internal entry connects automatically. The fallback below is only for a browser that cannot establish that session.
+            Authorized internal entry connects automatically. Fallback token is only for browsers that cannot mint a session cookie.
           </p>
           <div className="rd-v2-settings-row stack">
             <input
@@ -193,22 +226,29 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
           <StatementRow
             label="Ask and acquisition planning"
             metric={assistant.label}
-            sublabel="Search holdings, explain gaps, and prepare reviewable collection plans"
-            detail={assistant.ready ? "OK" : assistant.known ? "CHECK" : "VERIFY"}
+            sublabel={assistant.detail}
+            detail={assistant.ready ? "OK" : assistant.known ? "CHECK" : "UNKNOWN"}
             warn={!assistant.ready}
           />
           <StatementRow
             label="Research archive"
             metric={archive.label}
-            sublabel="Verified long-term storage for registered research assets"
-            detail={archive.ok ? "OK" : "CHECK"}
-            warn={!archive.ok}
+            sublabel={archive.detail}
+            detail={archive.ok === true ? "OK" : archive.ok === false ? "CHECK" : "UNKNOWN"}
+            warn={archive.ok === false}
           />
           <StatementRow
-            label="Remote tables"
-            metric="Available"
-            sublabel="Dry-run protected access for large public datasets"
-            detail="READY"
+            label="Desk equipment"
+            metric={mcpTools != null ? `${mcpTools} MCP tools` : "Not reported"}
+            sublabel="From desk resources rollup when available — not a faculty ops console"
+            detail={mcpTools != null ? "REPORTED" : "UNKNOWN"}
+          />
+          <StatementRow
+            label="Browser access"
+            metric={access.label}
+            sublabel={access.detail}
+            detail={access.ok ? "OK" : "NEED"}
+            warn={!access.ok}
           />
         </StatementSection>
 
@@ -244,11 +284,10 @@ export function SettingsPage({ health, onProfileRefresh, onToast }) {
           <summary>Advanced connection details</summary>
           <div className="rd-v2-settings-advanced-body">
             <StatementRow label="Research API" metric=":8765" sublabel="Catalog, Ask, jobs, and query service" detail="INTERNAL" />
-            <StatementRow label="Development desk" metric=":5178" sublabel="Local frontend preview" detail="DEV" />
             <StatementRow
               label="Assistant runtime"
               metric={desk.brain || desk.composer_model || "Not reported"}
-              sublabel="Private orchestration authority"
+              sublabel="Private orchestration authority from /health"
               detail={assistant.ready ? "READY" : assistant.known ? "CHECK" : "UNKNOWN"}
               warn={!assistant.ready}
             />

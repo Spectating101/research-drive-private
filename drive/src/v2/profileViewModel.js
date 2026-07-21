@@ -72,7 +72,7 @@ export function workTitleFromHighlight(highlight) {
     rest = rest.replace(/\.\s*Pacific-Basin.*$/i, "").trim();
     rest = rest.replace(/\.\s*Forthcoming\.?$/i, "").trim();
     if (rest.endsWith(".")) rest = rest.slice(0, -1);
-    return clipText(rest, 90);
+  return clipText(rest, 140);
   }
   return clipText(text, 90);
 }
@@ -146,7 +146,7 @@ export function buildWorks(profile) {
   const items = highlights
     .map((h) => ({ raw: h, title: workTitleFromHighlight(h) }))
     .filter((w) => w.title)
-    .slice(0, 2);
+    .slice(0, 6);
   return { paperCount, items };
 }
 

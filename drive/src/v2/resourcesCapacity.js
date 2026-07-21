@@ -34,10 +34,18 @@ export function buildCapacityAccessPairs(rollup) {
 
   const vaultPctRaw =
     vault.pct != null ? Number(vault.pct) : pctOf(vault.used_tb, vault.cap_tb);
-  const vaultUsed = Number.isFinite(Number(vault.used_tb)) ? Number(vault.used_tb) : null;
-  const vaultCap = Number.isFinite(Number(vault.cap_tb)) ? Number(vault.cap_tb) : null;
-  const vaultObserved = vault.observed !== false && vaultUsed != null;
-  const vaultPct = vaultObserved ? vaultPctRaw : null;
+  const vaultUsedRaw = vault.used_tb;
+  const vaultCapRaw = vault.cap_tb;
+  const vaultUsed =
+    vaultUsedRaw === null || vaultUsedRaw === undefined || vaultUsedRaw === ""
+      ? null
+      : Number(vaultUsedRaw);
+  const vaultCap =
+    vaultCapRaw === null || vaultCapRaw === undefined || vaultCapRaw === ""
+      ? null
+      : Number(vaultCapRaw);
+  const vaultObserved = vault.observed !== false && Number.isFinite(vaultUsed);
+  const vaultPct = vaultObserved && Number.isFinite(vaultPctRaw) ? vaultPctRaw : null;
   const cachePct =
     cache.pct != null ? Number(cache.pct) : pctOf(cache.used_gb, cache.total_gb);
   const hotPct = hot.used_pct != null ? Number(hot.used_pct) : null;
@@ -54,15 +62,15 @@ export function buildCapacityAccessPairs(rollup) {
       id: "vault",
       name: vault.label || "GDrive vault",
       metric: vaultObserved
-        ? vaultUsed === 0 && vaultCap != null
+        ? vaultUsed === 0 && Number.isFinite(vaultCap)
           ? `Empty · ${vaultCap} TB capacity`
-          : `${vaultUsed}/${vaultCap ?? "?"} TB`
-        : vaultCap != null
+          : `${vaultUsed}/${Number.isFinite(vaultCap) ? vaultCap : "?"} TB`
+        : Number.isFinite(vaultCap)
           ? `${vaultCap} TB · use not observed`
           : "NOT OBSERVED",
       pct: vaultPct,
       available: vaultObserved
-        ? vaultCap != null && vaultUsed != null
+        ? Number.isFinite(vaultCap) && Number.isFinite(vaultUsed)
           ? `${Math.max(0, vaultCap - vaultUsed).toFixed(1)} TB available`
           : null
         : "NOT OBSERVED",

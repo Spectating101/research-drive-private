@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { facultyProfile } from "@/v2/api";
+import { saveUserEmail } from "@/v2/deskSession";
 import {
   PILOT_PREVIEW_EMAIL,
   buildDeskRead,
@@ -25,7 +26,7 @@ function memoryLabel(card) {
  * Profile — Memory · Works · Lab (PROFILE_GROUNDED_FREEZE).
  * Unbound desk shows labelled EXAMPLE pilot from faculty registry.
  */
-export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
+export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefresh }) {
   const bound = Boolean(profile && !profile.unknown);
   const [pilot, setPilot] = useState(null);
   const [pilotLoading, setPilotLoading] = useState(!bound);
@@ -109,11 +110,22 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
               </span>
             ) : null}
           </div>
-          {bound ? null : (
+          {previewing ? (
+            <button
+              type="button"
+              className="rd-v2-btn sm primary"
+              onClick={() => {
+                saveUserEmail(PILOT_PREVIEW_EMAIL);
+                onProfileRefresh?.();
+              }}
+            >
+              Bind example identity
+            </button>
+          ) : !bound ? (
             <button type="button" className="rd-v2-btn sm primary" onClick={() => onGoTab?.("settings")}>
               Use my email
             </button>
-          )}
+          ) : null}
         </div>
       </section>
 

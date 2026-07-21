@@ -4,6 +4,7 @@ import {
   createSynthesisThread,
   decideSynthesisProposal,
   getSynthesisThread,
+  listSynthesisProfiles,
   listSynthesisThreads,
   requestSynthesisExecution,
 } from "@/v2/api";
@@ -348,46 +349,54 @@ function NewThread({ objective, setObjective, busy, onCreate, onAsk }) {
   );
 }
 
-function EmptyWorkspace({ onNew }) {
-  const recipes = [
-    {
-      id: "pair",
-      title: "Pair two lab assets",
-      body: "Join owned Library evidence on a shared grain — coverage, time overlap, readiness checked first.",
-    },
-    {
-      id: "panel",
-      title: "Build a research panel",
-      body: "Compose a reusable panel recipe from registered inputs; build/refresh stays an explicit mutation.",
-    },
-    {
-      id: "gap",
-      title: "Fill an input gap",
-      body: "Missing grain or coverage becomes an exact Discover handoff — Synthesis does not invent sources.",
-    },
-  ];
+function EmptyWorkspace({ profiles, profilesLoading, profilesError, onStartBlueprint, onNew }) {
+  const list = Array.isArray(profiles) ? profiles : [];
   return (
     <section className="s04-intent s04-intent-quiet s04-exploration-ready" data-testid="synthesis-empty-state">
       <small>Exploration ready</small>
       <h2>Choose a blueprint or start a custom construction</h2>
       <p>
         Synthesis is blueprint/recipe oriented: owned Library inputs → defined method → verified output.
-        Viewing is read-only until you accept a proposal and request a build.
+        Blueprints below come from the lab registry — not invented UI copy.
       </p>
-      <ul className="s04-blueprint-recipes" aria-label="Recommended constructions">
-        {recipes.map((recipe) => (
-          <li key={recipe.id}>
-            <button type="button" className="s04-blueprint-recipe" onClick={onNew}>
-              <strong>{recipe.title}</strong>
-              <span>{recipe.body}</span>
-              <em>Start →</em>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {profilesLoading ? <p className="s04-fixture">Loading registered blueprints…</p> : null}
+      {profilesError ? <p className="s04-fixture">{profilesError}</p> : null}
+      {!profilesLoading && !profilesError && !list.length ? (
+        <p className="s04-fixture">No synthesis blueprints are registered on this desk yet.</p>
+      ) : null}
+      {list.length ? (
+        <ul className="s04-blueprint-recipes" aria-label="Registered synthesis blueprints" data-testid="synthesis-blueprints">
+          {list.map((profile) => {
+            const sources = Array.isArray(profile.sources) ? profile.sources : [];
+            const joins = Array.isArray(profile.join_keys) ? profile.join_keys : [];
+            const body =
+              text(profile.description) ||
+              (sources.length
+                ? `Inputs: ${sources.map((s) => s.label || s.id).filter(Boolean).join(" · ")}`
+                : "Registered construction recipe");
+            return (
+              <li key={profile.id}>
+                <button
+                  type="button"
+                  className="s04-blueprint-recipe"
+                  data-testid="synthesis-blueprint"
+                  onClick={() => onStartBlueprint?.(profile)}
+                >
+                  <strong>{text(profile.title, profile.id)}</strong>
+                  <span>
+                    {body}
+                    {joins.length ? ` · join ${joins.join(", ")}` : ""}
+                  </span>
+                  <em>Start →</em>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
       <footer>
-        <button type="button" className="rd-v2-btn primary" onClick={onNew}>
-          New synthesis thread
+        <button type="button" className="rd-v2-btn" onClick={onNew}>
+          Custom objective…
         </button>
       </footer>
     </section>
@@ -396,6 +405,9 @@ function EmptyWorkspace({ onNew }) {
 
 export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) {
   const [threads, setThreads] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profilesError, setProfilesError] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -434,6 +446,29 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
   useEffect(() => {
     refreshThreads();
   }, [refreshThreads]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProfilesLoading(true);
+    setProfilesError("");
+    listSynthesisProfiles()
+      .then((result) => {
+        if (cancelled) return;
+        const next = Array.isArray(result?.profiles) ? result.profiles : [];
+        setProfiles(next);
+      })
+      .catch((cause) => {
+        if (cancelled) return;
+        setProfiles([]);
+        setProfilesError(text(cause?.message, "Registered blueprints could not be loaded."));
+      })
+      .finally(() => {
+        if (!cancelled) setProfilesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selected = useMemo(() => threads.find((thread) => thread.id === selectedId) || null, [threads, selectedId]);
 
@@ -500,6 +535,44 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
     }
   };
 
+  const startBlueprint = async (profile) => {
+    if (!profile?.id) return;
+    const title = text(profile.title, profile.id);
+    const sources = Array.isArray(profile.sources)
+      ? profile.sources.map((s) => s.label || s.id).filter(Boolean).join("; ")
+      : "";
+    const questions = Array.isArray(profile.research_questions) ? profile.research_questions.filter(Boolean) : [];
+    const objectiveText = [
+      `Blueprint: ${title}`,
+      text(profile.description),
+      sources ? `Registered inputs: ${sources}` : "",
+      questions[0] ? `Lead question: ${questions[0]}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    setBusy(true);
+    setError("");
+    try {
+      const created = await createSynthesisThread({
+        objective: objectiveText,
+        title,
+        requiredGrain: Array.isArray(profile.join_keys) ? profile.join_keys.join(", ") : "",
+      });
+      replaceThread(created);
+      setSelectedId(created.id);
+      setNewMode(false);
+      setObjective("");
+      onSelectThread?.(created);
+      ask(
+        `Use registered blueprint ${profile.id} (${title}). Propose the smallest defensible construction from owned Library inputs. Do not invent missing sources.`,
+      );
+    } catch (cause) {
+      setError(text(cause?.message, "Could not start this blueprint as a Synthesis thread."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const decideProposal = async (decision) => {
     const proposal = selected?.state?.proposal;
     if (!selected || !proposal?.id || !proposal?.proposal_hash) return;
@@ -556,14 +629,30 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
         <main className="s04-main">
           {error ? <p className="s04-fixture" role="alert">{error}</p> : null}
           {newMode ? <NewThread objective={objective} setObjective={setObjective} busy={busy} onCreate={createThread} onAsk={ask} /> : null}
-          {!newMode && !loading && !selected ? <EmptyWorkspace onNew={() => setNewMode(true)} /> : null}
+          {!newMode && !loading && !selected ? (
+            <EmptyWorkspace
+              profiles={profiles}
+              profilesLoading={profilesLoading}
+              profilesError={profilesError}
+              onStartBlueprint={startBlueprint}
+              onNew={() => setNewMode(true)}
+            />
+          ) : null}
           {!newMode && selected ? (
             <>
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
               {showExecution ? <ExecutionRecord thread={selected} busy={busy} onRequest={requestExecution} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
               {mode === "explore" ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
-              {mode === "draft" ? <EmptyWorkspace onNew={() => setNewMode(true)} /> : null}
+              {mode === "draft" ? (
+                <EmptyWorkspace
+                  profiles={profiles}
+                  profilesLoading={profilesLoading}
+                  profilesError={profilesError}
+                  onStartBlueprint={startBlueprint}
+                  onNew={() => setNewMode(true)}
+                />
+              ) : null}
             </>
           ) : null}
         </main>

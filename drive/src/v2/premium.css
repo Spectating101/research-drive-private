@@ -932,32 +932,27 @@ summary:focus-visible {
 }
 
 .rd-v2-profile-identity {
-  min-height: 138px;
-  padding: 26px 28px;
-  border: 1px solid #dfe4ec;
-  border-radius: 18px;
-  background: linear-gradient(120deg, #fff 0%, #fafbff 60%, #f0f2ff 100%);
-  box-shadow: var(--rd-shadow-sm);
+  min-height: 0;
+  padding: 18px 20px;
+  border: 1px solid #d0d7e4;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: none;
 }
 
 .rd-v2-profile-name {
   color: #111827;
-  font-size: 29px;
-  font-weight: 730;
-  letter-spacing: -.04em;
-}
-
-.rd-v2-profile-org {
-  color: #536174;
-  font-size: 13px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.02em;
 }
 
 .rd-v2-profile-section {
   overflow: visible;
-  border: 1px solid #dfe4ec;
-  border-radius: 16px;
+  border: 1px solid #d0d7e4;
+  border-radius: 4px;
   background: #fff;
-  box-shadow: var(--rd-shadow-xs);
+  box-shadow: none;
   flex-shrink: 0;
 }
 

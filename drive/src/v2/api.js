@@ -295,7 +295,6 @@ export function libraryConsolidated(live = false) {
 }
 
 export function listSynthesisProfiles() {
-  /** MCP/Composer equipment — not a faculty UI surface. */
   return fetchJson("/library/synthesis/profiles");
 }
 

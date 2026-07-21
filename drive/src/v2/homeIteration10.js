@@ -121,9 +121,17 @@ export function buildResourceHeadroom(rollup) {
 
   const vault = usage.vault || hero.vault || {};
   if (vault.used_tb != null || vault.cap_tb != null) {
-    const used = Number.isFinite(Number(vault.used_tb)) ? Number(vault.used_tb) : null;
-    const cap = Number.isFinite(Number(vault.cap_tb)) ? Number(vault.cap_tb) : null;
-    const observed = vault.observed !== false && used != null;
+    const usedRaw = vault.used_tb;
+    const capRaw = vault.cap_tb;
+    const used =
+      usedRaw === null || usedRaw === undefined || usedRaw === ""
+        ? null
+        : Number(usedRaw);
+    const cap =
+      capRaw === null || capRaw === undefined || capRaw === "" ? null : Number(capRaw);
+    const usedOk = Number.isFinite(used);
+    const capOk = Number.isFinite(cap);
+    const observed = vault.observed !== false && usedOk;
     const pct = observed
       ? vault.pct != null
         ? Number(vault.pct)
@@ -134,10 +142,10 @@ export function buildResourceHeadroom(rollup) {
       name: vault.label || "GDrive vault",
       pinned: true,
       metric: observed
-        ? used === 0 && cap != null
+        ? used === 0 && capOk
           ? `Empty · ${cap} TB capacity`
-          : `${used}/${cap ?? "?"} TB`
-        : cap != null
+          : `${used}/${capOk ? cap : "?"} TB`
+        : capOk
           ? `${cap} TB capacity · use not observed`
           : "Quota not observed",
       pct: Number.isFinite(pct) ? Math.round(pct) : null,

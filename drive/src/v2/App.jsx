@@ -1216,6 +1216,7 @@ export function V2App() {
         <ProfilePage
           profile={profile}
           onGoTab={goTab}
+          onProfileRefresh={reloadProfile}
           onSuggestSearch={(q) => {
             setSearchQuery(q);
             setTab("browse");
@@ -1225,7 +1226,14 @@ export function V2App() {
       );
       break;
     case "settings":
-      main = <SettingsPage health={health} onProfileRefresh={reloadProfile} onToast={showToast} />;
+      main = (
+        <SettingsPage
+          health={health}
+          resourcesRollup={resourcesRollup}
+          onProfileRefresh={reloadProfile}
+          onToast={showToast}
+        />
+      );
       break;
     default:
       main = null;
