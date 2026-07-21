@@ -796,9 +796,20 @@ export function V2App() {
         setPendingAsk(resourceAskPrompt(target));
         return;
       }
+      if (tab === "profile") {
+        const work = target?.title ? target : selectedProfileWork;
+        const label = work?.title || "this work";
+        setRailTab("ask");
+        setPendingAsk(
+          work?.title
+            ? `Ask about this work: ${label}. Summarize its contribution, how it fits the desk research context, and the safest next Discover or Lab action.`
+            : "Ask about this research profile and its works.",
+        );
+        return;
+      }
       setRailTab("ask");
     },
-    [activeObject, tab],
+    [activeObject, selectedProfileWork, tab],
   );
 
   const focusLibraryFolder = useCallback((object) => {
@@ -1272,8 +1283,9 @@ export function V2App() {
                     }
                 : tab === "profile"
                   ? {
-                      title:
-                        profile?.name_en && !profile.unknown
+                      title: selectedProfileWork?.title
+                        ? `Work · ${selectedProfileWork.title}`
+                        : profile?.name_en && !profile.unknown
                           ? `Profile · ${profile.name_en}`
                           : "Profile",
                     }

@@ -174,6 +174,7 @@ export function InspectorRail({
         selectedWork={selectedProfileWork}
         onGoTab={onGoTab}
         onClearWork={onClearProfileWork}
+        onAskAbout={onAskAbout}
       />
     );
   } else if (mainTab === "settings") {

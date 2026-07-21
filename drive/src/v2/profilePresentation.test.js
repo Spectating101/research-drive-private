@@ -65,6 +65,19 @@ test("Profile Detail rail never says Loading when profile data exists", () => {
   assert.equal(work.status, "work");
   assert.equal(work.loadingLabel, null);
   assert.match(work.identity[0], /NFT/);
+  assert.equal(work.primaryAction?.id, "ask-work");
+  assert.match(work.primaryAction?.label || "", /Ask about this work/i);
+  assert.doesNotMatch(work.primaryAction?.label || "", /Show research context/i);
+});
+
+test("selected work Detail primary action asks about the work", () => {
+  const work = buildProfileRailState({
+    profile: { name_en: "Kong, De-Rong" },
+    profileResolved: true,
+    selectedWork: { title: "Token taxonomy", type: "Publication", raw: "x" },
+  });
+  assert.equal(work.primaryAction?.id, "ask-work");
+  assert.equal(work.primaryAction?.label, "Ask about this work");
 });
 
 test("Works presentation exposes real titles without fabricating success", () => {

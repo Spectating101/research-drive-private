@@ -63,7 +63,7 @@ export function buildProfileRailState({
           : null,
       ].filter(Boolean).slice(0, 5),
       unknowns: [],
-      primaryAction: { id: "clear-work", label: "Show research context" },
+      primaryAction: { id: "ask-work", label: "Ask about this work" },
       secondaryActions: [],
       loadingLabel: null,
     };

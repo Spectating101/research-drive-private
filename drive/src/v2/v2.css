@@ -6158,21 +6158,21 @@ code {
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ── 20. Profile & Settings pages ───────────────────────────────── */
-/* Flat Memory → Works → Lab; dividers over nested cards; compact rail. */
+/* Flat Memory → Works → Lab; compact memory rows lift Works into first viewport. */
 
 .rd-v2-profile-page .rd-v2-page-head {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .rd-v2-profile-page .rd-v2-page-head h1 {
-  font-size: 22px;
-  margin: 0 0 2px;
+  font-size: 20px;
+  margin: 0 0 1px;
   line-height: 1.15;
 }
 
 .rd-v2-profile-page .rd-v2-lead {
   margin: 0;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--rd-muted);
 }
 
@@ -6189,9 +6189,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px 16px;
-  margin: 0 0 10px;
-  padding: 0 0 10px;
+  gap: 6px 16px;
+  margin: 0 0 8px;
+  padding: 0 0 8px;
   border-bottom: 1px solid var(--rd-border);
 }
 
@@ -6225,24 +6225,24 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   margin: 0;
   color: var(--rd-text);
   font-family: var(--rd-font);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.2px;
 }
 
 .rd-v2-profile-org {
-  margin: 3px 0 0;
+  margin: 2px 0 0;
   color: var(--rd-body);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .rd-v2-profile-hint {
-  margin: 2px 0 0;
+  margin: 1px 0 0;
   color: var(--rd-muted);
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .rd-v2-profile-identity-actions {
@@ -6267,7 +6267,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 
 .rd-v2-profile-section {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
 }
 
 .rd-v2-profile-section:last-child {
@@ -6279,7 +6279,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   padding: 0;
   border-bottom: 0;
 }
@@ -6300,9 +6300,10 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   font-family: var(--rd-mono);
 }
 
-/* Memory: compact editable rows — no nested cards / metric tiles / promo blocks */
+/* Memory: compact label/value lines — at most one expanded editor */
 .rd-v2-profile-memory-section {
   max-width: 720px;
+  margin-bottom: 8px;
 }
 
 .rd-v2-profile-memory {
@@ -6316,17 +6317,21 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 
 .rd-v2-profile-memory-row {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
   margin: 0;
-  padding: 6px 0;
+  padding: 0;
   border-bottom: 1px solid var(--rd-border);
 }
 
+.rd-v2-profile-memory-line {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 0;
+}
+
 .rd-v2-profile-memory-label {
-  padding-top: 6px;
   color: var(--rd-muted);
   font-family: var(--rd-mono);
   font-size: 10px;
@@ -6335,10 +6340,57 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   text-transform: uppercase;
 }
 
+.rd-v2-profile-memory-value {
+  min-width: 0;
+  color: var(--rd-text);
+  font-family: var(--rd-font);
+  font-size: 12.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-v2-profile-memory-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 26px;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rd-accent);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rd-v2-profile-memory-edit-btn:hover {
+  background: color-mix(in srgb, var(--rd-accent) 8%, transparent);
+}
+
+.rd-v2-profile-memory-edit {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 6px 0 8px;
+}
+
+.rd-v2-profile-memory-edit .rd-v2-profile-memory-label {
+  padding-top: 8px;
+}
+
 .rd-v2-profile-memory-input {
+  grid-column: 2;
   width: 100%;
-  min-height: 40px;
-  max-height: 72px;
+  min-height: 56px;
+  max-height: 96px;
   margin: 0;
   padding: 6px 8px;
   border: 1px solid var(--rd-border);
@@ -6356,6 +6408,14 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   border-color: var(--rd-accent);
 }
 
+.rd-v2-profile-memory-edit-actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
 .rd-v2-profile-memory-card {
   margin: 0;
   padding: 8px 0;
@@ -6367,9 +6427,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   line-height: 1.4;
 }
 
-/* Works is the primary scan surface after Memory */
+/* Works lands in the first desktop viewport after compact Memory */
 .rd-v2-profile-works-section {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .rd-v2-profile-works,
@@ -6392,7 +6452,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   gap: 10px;
   width: 100%;
   margin: 0;
-  padding: 8px 4px 8px 0;
+  padding: 6px 4px 6px 0;
   border: 0;
   background: transparent;
   text-align: left;
@@ -8183,24 +8243,35 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .yzu-sidebar {
     grid-column: 1;
     grid-row: 2;
-    padding: 8px;
+    padding: 6px 8px;
     border-right: 0;
     border-bottom: 1px solid var(--rd-border);
-    overflow: visible;
+    overflow: hidden;
   }
 
   .yzu-sidebar nav {
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-wrap: nowrap;
+    gap: 4px;
     min-width: 0;
     padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   .yzu-sidebar button {
     width: auto;
-    flex: 0 1 auto;
-    padding: 0 12px;
+    flex: 0 0 auto;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .yzu-sidebar button .rd-nav-label {
+    font-size: 12px;
   }
 
   .yzu-main {
@@ -8265,7 +8336,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .rd-v2-body-scroll {
     overflow: visible;
-    border-radius: 12px;
+    border-radius: 8px;
   }
 
   .rd-v2-profile-identity {
