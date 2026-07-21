@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { GuidedState, ProgressSteps } from "@/v2/InteractionFeedback";
 import { useAskChat } from "@/v2/useAskChat";
 
@@ -38,27 +38,17 @@ export function AskRail({
     });
   }, [pendingMessage, busy, send, onPendingConsumed]);
 
-  useEffect(() => () => {
-    Object.values(approvalState).forEach((entry) => {
-      if (entry?.timer) window.clearTimeout(entry.timer);
-    });
-  }, [approvalState]);
-
   const requestApproval = async (jobId) => {
     if (!jobId || approvalState[jobId]?.status === "working") return;
     setApprovalState((current) => ({ ...current, [jobId]: { status: "working" } }));
     try {
       await Promise.resolve(onApproveJob?.(jobId));
-      const timer = window.setTimeout(() => {
-        setApprovalState((current) => {
-          const next = { ...current };
-          delete next[jobId];
-          return next;
-        });
-      }, 1800);
-      setApprovalState((current) => ({ ...current, [jobId]: { status: "sent", timer } }));
-    } catch {
-      setApprovalState((current) => ({ ...current, [jobId]: { status: "idle" } }));
+    } finally {
+      setApprovalState((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
     }
   };
 
@@ -243,15 +233,13 @@ export function AskRail({
                         <div className="rd-v2-ask-actions">
                           <button
                             type="button"
-                            className={`rd-v2-btn sm primary${approval === "sent" ? " success" : ""}`}
-                            disabled={busy || approval === "working" || approval === "sent"}
+                            className="rd-v2-btn sm primary"
+                            disabled={busy || approval === "working"}
                             aria-busy={approval === "working"}
                             onClick={() => requestApproval(m.pendingJobId)}
                           >
                             {approval === "working" ? (
                               <><LoaderCircle className="rd-v2-inline-spinner" aria-hidden="true" /> Approving…</>
-                            ) : approval === "sent" ? (
-                              <><Check aria-hidden="true" /> Approval requested</>
                             ) : (
                               "Approve job"
                             )}
