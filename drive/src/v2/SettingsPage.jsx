@@ -31,7 +31,7 @@ export const SETTINGS_GROUPS = [
 /**
  * Settings — compact personal workspace controls.
  * Research context → Workspace → Advanced (collapsed).
- * No operational health rows; Profile owns research understanding.
+ * No operational health rows; Research context overlay owns understanding.
  */
 export function SettingsPage({
   profile = null,
