@@ -114,6 +114,7 @@ test.describe("Account cluster navigation", () => {
     await expect(prefs.getByTestId("workspace-default-tab")).toBeVisible();
     await expect(prefs.getByTestId("workspace-on-select")).toBeVisible();
     await expect(prefs.getByTestId("settings-group-context")).toHaveCount(0);
+    await expect(prefs.getByTestId("settings-open-health")).toHaveCount(0);
 
     await page.screenshot({
       path: path.join(OUT, "account_workspace_prefs_desktop_1440.png"),
