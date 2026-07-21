@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { GuidedState, ProgressSteps } from "@/v2/InteractionFeedback";
 import { useAskChat } from "@/v2/useAskChat";
 
@@ -38,27 +38,17 @@ export function AskRail({
     });
   }, [pendingMessage, busy, send, onPendingConsumed]);
 
-  useEffect(() => () => {
-    Object.values(approvalState).forEach((entry) => {
-      if (entry?.timer) window.clearTimeout(entry.timer);
-    });
-  }, [approvalState]);
-
   const requestApproval = async (jobId) => {
     if (!jobId || approvalState[jobId]?.status === "working") return;
     setApprovalState((current) => ({ ...current, [jobId]: { status: "working" } }));
     try {
       await Promise.resolve(onApproveJob?.(jobId));
-      const timer = window.setTimeout(() => {
-        setApprovalState((current) => {
-          const next = { ...current };
-          delete next[jobId];
-          return next;
-        });
-      }, 1800);
-      setApprovalState((current) => ({ ...current, [jobId]: { status: "sent", timer } }));
-    } catch {
-      setApprovalState((current) => ({ ...current, [jobId]: { status: "idle" } }));
+    } finally {
+      setApprovalState((current) => {
+        const next = { ...current };
+        delete next[jobId];
+        return next;
+      });
     }
   };
 
@@ -207,6 +197,7 @@ export function AskRail({
               </p>
             ) : null}
             {messages.map((m, i) => {
+              if (m.streaming && !m.text) return null;
               const approval = m.pendingJobId ? approvalState[m.pendingJobId]?.status : "";
               return (
                 <div
@@ -221,7 +212,7 @@ export function AskRail({
                     m.text
                   ) : (
                     <>
-                      {m.activityLog?.length ? (
+                      {!m.streaming && m.activityLog?.length ? (
                         <ol className="rd-v2-ask-phases" data-testid="ask-tool-phases" aria-label="Agent tool activity">
                           {m.activityLog.map((step, si) => (
                             <li key={`${step.phase}-${si}`} data-phase={step.phase}>
@@ -230,10 +221,10 @@ export function AskRail({
                             </li>
                           ))}
                         </ol>
-                      ) : m.activity ? (
+                      ) : !m.streaming && m.activity ? (
                         <p className="muted small">{m.activity}</p>
                       ) : null}
-                      <strong>Agent:</strong> {m.text || (m.streaming ? "…" : "")}
+                      <strong>Agent:</strong> {m.text}
                       {m.action || m.toolName ? (
                         <p className="rd-v2-ask-action-meta muted small">
                           {[m.toolName, m.action].filter(Boolean).join(" · ")}
@@ -243,15 +234,13 @@ export function AskRail({
                         <div className="rd-v2-ask-actions">
                           <button
                             type="button"
-                            className={`rd-v2-btn sm primary${approval === "sent" ? " success" : ""}`}
-                            disabled={busy || approval === "working" || approval === "sent"}
+                            className="rd-v2-btn sm primary"
+                            disabled={busy || approval === "working"}
                             aria-busy={approval === "working"}
                             onClick={() => requestApproval(m.pendingJobId)}
                           >
                             {approval === "working" ? (
                               <><LoaderCircle className="rd-v2-inline-spinner" aria-hidden="true" /> Approving…</>
-                            ) : approval === "sent" ? (
-                              <><Check aria-hidden="true" /> Approval requested</>
                             ) : (
                               "Approve job"
                             )}

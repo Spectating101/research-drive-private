@@ -8,6 +8,13 @@ function ensureArtifactDir() {
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 }
 
+function durationSeconds(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  if (raw.endsWith("ms")) return Number.parseFloat(raw) / 1000;
+  return Number.parseFloat(raw);
+}
+
 test.describe("Research Drive RC2.1 transient decoration layer", () => {
   test("Ask uses compact, honest indeterminate activity feedback", async ({ page }) => {
     await mockV2Api(page);
@@ -42,6 +49,7 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
     const announcement = progress.locator(".rd-v2-progress-announcement");
     const elapsedMeta = progress.locator(".rd-v2-progress-card-meta");
     await expect(progress).toBeVisible();
+    await expect(rail.locator(".rd-v2-ask-bubble.agent")).toHaveCount(0);
     await expect(progress.locator("li")).toHaveCount(4);
     await expect(progress).toContainText(/Active · \d+s/);
     await expect(announcement).toHaveAttribute("role", "status");
@@ -77,6 +85,7 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
 
     await expect(progress).toHaveCount(0, { timeout: 10_000 });
     await expect(rail).toContainText("grounded in the current Research Drive context");
+    await expect(rail.locator(".rd-v2-ask-bubble.agent")).toHaveCount(1);
     await expect(rail.getByRole("progressbar")).toHaveCount(0);
   });
 
@@ -154,7 +163,8 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
       return { transform: computed.transform, transitionDuration: computed.transitionDuration };
     });
     expect(reducedStyles.transform).toBe("none");
-    expect(reducedStyles.transitionDuration).toMatch(/0s|0\.00001s|0\.01ms/);
+    const reducedDurations = reducedStyles.transitionDuration.split(",").map(durationSeconds);
+    expect(Math.max(...reducedDurations)).toBeLessThanOrEqual(0.00001);
 
     const reducedPageAnimation = await page.locator(".rd-v2-page").first().evaluate(
       (node) => getComputedStyle(node).animationName,

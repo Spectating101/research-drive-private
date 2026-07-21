@@ -22,6 +22,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
   const sessionRef = useRef(loadChatSessionId());
   const warmStartedRef = useRef(false);
   const railRef = useRef(railContext);
+  const busyRef = useRef(false);
 
   useEffect(() => {
     railRef.current = railContext;
@@ -47,7 +48,8 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
     async (text) => {
       const outgoing = normalizeOutgoingMessage(text, input);
       const prompt = outgoing.prompt;
-      if (!prompt || busy) return;
+      if (!prompt || busyRef.current) return;
+      busyRef.current = true;
       const full = contextPrefix && !prompt.startsWith("[context:")
         ? `${contextPrefix}${prompt}`
         : prompt;
@@ -158,10 +160,11 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         ]);
         setStatus(err.message || "Chat failed");
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },
-    [busy, contextPrefix, input, onCollected, onToast],
+    [contextPrefix, input, onCollected, onToast],
   );
 
   return {

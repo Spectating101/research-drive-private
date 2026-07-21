@@ -57,15 +57,17 @@ export function useToast() {
   }, [clearTimers, dismissAnimated]);
 
   const dismissIf = useCallback((predicate) => {
-    if (!toast) return;
-    try {
-      if (!predicate(toast)) return;
-      clearTimers();
-      setToast(null);
-    } catch {
-      /* Keep the current toast when a caller predicate is invalid. */
-    }
-  }, [clearTimers, toast]);
+    setToast((current) => {
+      if (!current) return current;
+      try {
+        if (!predicate(current)) return current;
+        clearTimers();
+        return null;
+      } catch {
+        return current;
+      }
+    });
+  }, [clearTimers]);
 
   const clear = useCallback(() => {
     clearTimers();
