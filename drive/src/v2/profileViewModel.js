@@ -1,8 +1,10 @@
 /**
  * Organic Profile view-model — derived only from faculty_profile / registry fields.
  * No hardcoded Kong copy; thin profiles simply yield fewer blocks.
+ * Pilot email is exported for explicit local tests only — never auto-bound.
  */
 
+/** @deprecated Prefer PROFILE_TEST_EMAIL from profilePresentation — explicit test identity only. */
 export const PILOT_PREVIEW_EMAIL = "drkong@saturn.yzu.edu.tw";
 
 const IN_LAB_ROUTES = new Set(["vault", "bigquery"]);

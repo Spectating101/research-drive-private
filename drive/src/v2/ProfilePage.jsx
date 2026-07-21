@@ -7,9 +7,11 @@ import {
 } from "@/v2/profileViewModel";
 import {
   buildProfileRailState,
+  buildUnboundProfileCentre,
   isProfileBound,
   profileCentreMode,
   profilePrimaryCommand,
+  profileSectionsVisible,
 } from "@/v2/profilePresentation";
 import { PageShell } from "@/v2/ui";
 import {
@@ -46,8 +48,8 @@ function MemoryEditIcon() {
 }
 
 /**
- * Profile — Memory · Works · Lab.
- * Unbound desks stay quiet; EXAMPLE / pilot is never a primary CTA.
+ * Profile — Memory · Works · Lab when bound.
+ * Unbound: one compact zero state + Settings CTA; no empty section shells; no pilot identity.
  */
 export function ProfilePage({
   profile,
@@ -57,22 +59,24 @@ export function ProfilePage({
   onSuggestSearch,
 }) {
   const bound = isProfileBound(profile);
+  const showSections = profileSectionsVisible(profile);
   const mode = profileCentreMode(profile);
   const primary = profilePrimaryCommand(mode);
+  const unbound = bound ? null : buildUnboundProfileCentre();
   const name = bound
     ? profile?.name_en || profile?.name || "Research profile"
-    : "Desk unbound";
+    : unbound.title;
   const orgLine = bound
     ? [profile?.title, profile?.discipline].filter(Boolean).join(" · ")
-    : "Connect a faculty email to load research context";
+    : unbound.lead;
   const email = bound ? profile?.email || "" : "";
-  const memory = bound ? buildMemoryCards(profile) : [];
-  const works = bound ? buildWorks(profile) : { paperCount: null, items: [] };
-  const lab = bound ? buildLab(profile) : { linked: [], suggested: [] };
+  const memory = showSections ? buildMemoryCards(profile) : [];
+  const works = showSections ? buildWorks(profile) : { paperCount: null, items: [] };
+  const lab = showSections ? buildLab(profile) : { linked: [], suggested: [] };
   const [memoryDraft, setMemoryDraft] = useState([]);
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editBuffer, setEditBuffer] = useState("");
-  const memoryKey = bound
+  const memoryKey = showSections
     ? `${profile?.email || ""}:${memory.map((c) => c.id).join(",")}:${memory.map((c) => c.text).join("|")}`
     : "unbound";
 
@@ -117,26 +121,30 @@ export function ProfilePage({
     <PageShell
       className={`rd-v2-profile-page${bound ? "" : " is-unbound"}`}
       title="Profile"
-      lead="Saved research context for Discover and Ask"
+      lead={bound ? "Saved research context for Discover and Ask" : "Researcher context for this browser"}
     >
-      <section className="rd-v2-profile-identity" aria-label="Faculty identity">
+      <section
+        className={`rd-v2-profile-identity${bound ? "" : " is-zero"}`}
+        aria-label="Faculty identity"
+        data-testid={bound ? "profile-bound-identity" : "profile-unbound-zero"}
+      >
         <div className="rd-v2-profile-ident">
           {!bound ? (
             <span className="rd-v2-profile-badge quiet" data-testid="profile-unbound-badge">
-              Unbound
+              {unbound.badge}
             </span>
           ) : null}
           <h2 className="rd-v2-profile-name">{name}</h2>
           {orgLine ? <p className="rd-v2-profile-org">{orgLine}</p> : null}
           <p className="rd-v2-profile-hint">
-            {email || (bound ? "—" : "No faculty email on this browser")}
+            {bound ? email || "—" : unbound.hint}
           </p>
         </div>
         <div className="rd-v2-profile-identity-actions">
           {primary ? (
             <button
               type="button"
-              className="rd-v2-btn sm"
+              className="rd-v2-btn sm primary"
               data-testid="profile-primary-command"
               onClick={() => onGoTab?.(primary.tab || "settings")}
             >
@@ -146,6 +154,8 @@ export function ProfilePage({
         </div>
       </section>
 
+      {!showSections ? null : (
+      <>
       <section
         className="rd-v2-profile-section rd-v2-profile-memory-section"
         data-testid="profile-memory"
@@ -154,9 +164,9 @@ export function ProfilePage({
       >
         <header className="rd-v2-profile-section-head">
           <h2 id="profile-memory-title">Memory</h2>
-          <span>{bound ? (memoryDraft.length ? `${memoryDraft.length} saved` : "None yet") : "Unavailable"}</span>
+          <span>{memoryDraft.length ? `${memoryDraft.length} saved` : "None yet"}</span>
         </header>
-        {bound && memoryDraft.length ? (
+        {memoryDraft.length ? (
           <ul className="rd-v2-profile-memory">
             {memoryDraft.map((card) => {
               const label = MEMORY_LABELS[card.id] || card.id;
@@ -232,9 +242,7 @@ export function ProfilePage({
           </ul>
         ) : (
           <p className="rd-v2-empty-inline" data-testid="profile-memory-empty">
-            {bound
-              ? "No specialties, tracks, or methods on file."
-              : "Memory unavailable until a faculty email is attached."}
+            No specialties, tracks, or methods on file.
           </p>
         )}
       </section>
@@ -247,10 +255,9 @@ export function ProfilePage({
       >
         <header className="rd-v2-profile-section-head">
           <h2 id="profile-works-title">Works</h2>
-          {bound && works.paperCount ? <span>{works.paperCount} indexed</span> : null}
-          {!bound ? <span>Unavailable</span> : null}
+          {works.paperCount ? <span>{works.paperCount} indexed</span> : null}
         </header>
-        {bound && works.items.length ? (
+        {works.items.length ? (
           <ul className="rd-v2-profile-works" role="listbox" aria-label="Publication works">
             {works.items.map((work, index) => {
               const selected = Boolean(selectedWorkId) && selectedWorkId === work.raw;
@@ -280,11 +287,9 @@ export function ProfilePage({
           </ul>
         ) : (
           <p className="rd-v2-empty-inline" data-testid="profile-works-empty">
-            {bound
-              ? works.paperCount
-                ? "Indexed count on file; highlights not listed."
-                : "No works on file."
-              : "Works unavailable until a faculty email is attached."}
+            {works.paperCount
+              ? "Indexed count on file; highlights not listed."
+              : "No works on file."}
           </p>
         )}
       </section>
@@ -302,7 +307,7 @@ export function ProfilePage({
 
         <div className="rd-v2-profile-lab-block">
           <h3 className="rd-v2-profile-lab-label">Linked evidence</h3>
-          {bound && lab.linked.length ? (
+          {lab.linked.length ? (
             <ul className="rd-v2-profile-lab-rows">
               {lab.linked.map((row) => (
                 <li key={row.id}>
@@ -321,14 +326,14 @@ export function ProfilePage({
             </ul>
           ) : (
             <p className="rd-v2-empty-inline" data-testid="profile-lab-linked-empty">
-              {bound ? "None linked yet" : "Lab links unavailable until a faculty email is attached."}
+              None linked yet
             </p>
           )}
         </div>
 
         <div className="rd-v2-profile-lab-block">
           <h3 className="rd-v2-profile-lab-label">Evidence gaps</h3>
-          {bound && lab.suggested.length ? (
+          {lab.suggested.length ? (
             <ul className="rd-v2-profile-lab-rows">
               {lab.suggested.map((row) => (
                 <li key={row.id}>
@@ -348,11 +353,13 @@ export function ProfilePage({
             </ul>
           ) : (
             <p className="rd-v2-empty-inline" data-testid="profile-lab-gaps-empty">
-              {bound ? "No open gaps" : "Gaps unavailable until a faculty email is attached."}
+              No open gaps
             </p>
           )}
         </div>
       </section>
+      </>
+      )}
     </PageShell>
   );
 }

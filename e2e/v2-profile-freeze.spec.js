@@ -111,9 +111,14 @@ test.describe("Profile freeze showcase", () => {
     await page.goto("/?tab=profile", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     await expect(page.getByTestId("profile-unbound-badge")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId("profile-primary-command")).toHaveText(/Connect faculty email/i);
+    await expect(page.getByTestId("profile-primary-command")).toHaveText(/Open Settings/i);
+    await expect(page.getByTestId("profile-unbound-zero")).toBeVisible();
+    await expect(page.getByTestId("profile-memory")).toHaveCount(0);
+    await expect(page.getByTestId("profile-works")).toHaveCount(0);
+    await expect(page.getByTestId("profile-lab")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Bind example|Use EXAMPLE/i })).toHaveCount(0);
     await expect(page.getByText(/^EXAMPLE$/)).toHaveCount(0);
+    await expect(page.getByText(/Kong|drkong@saturn/i)).toHaveCount(0);
     await expect(page.getByTestId("profile-detail-rail")).not.toContainText(/^Loading/);
   });
 });

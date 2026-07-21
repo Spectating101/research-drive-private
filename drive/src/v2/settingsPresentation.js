@@ -96,16 +96,17 @@ export function buildSettingsRailState({
   if (g === "identity") {
     return {
       group: g,
-      identity: ["Faculty identity", email || "Not connected"],
+      identity: ["Faculty email preference", email || "Not set"],
       judgement: email
-        ? "Profile routing uses this faculty email."
-        : "Desk is unbound until a faculty email is saved.",
+        ? "Profile routing uses this faculty email preference for this browser."
+        : "Desk is unbound until a faculty email preference is saved.",
       facts: [
         email ? `Email · ${email}` : "Email · not set",
+        "Scope · this browser only (not authentication)",
         `Default tab · ${settings.defaultTab || "home"}`,
       ].slice(0, 5),
-      unknowns: email ? [] : ["Faculty identity"],
-      primaryAction: { id: "focus-email", label: email ? "Update email" : "Connect faculty email" },
+      unknowns: email ? [] : ["Faculty email preference"],
+      primaryAction: { id: "focus-email", label: email ? "Update email" : "Save faculty email" },
       secondaryActions: [],
       disclosure: null,
     };

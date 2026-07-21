@@ -6195,6 +6195,24 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   border-bottom: 1px solid var(--rd-border);
 }
 
+.rd-v2-profile-page.is-unbound .rd-v2-profile-identity.is-zero {
+  margin: 4px 0 0;
+  padding: 10px 0 12px;
+  border-bottom: 0;
+  max-width: 36rem;
+}
+
+.rd-v2-profile-page.is-unbound .rd-v2-profile-org {
+  max-width: 34rem;
+}
+
+.rd-v2-profile-page.is-unbound .rd-v2-profile-identity-actions .rd-v2-btn.sm.primary {
+  color: #fff;
+  border-color: var(--rd-text);
+  background: var(--rd-text);
+  font-weight: 600;
+}
+
 .rd-v2-profile-ident {
   flex: 1 1 240px;
   min-width: 0;

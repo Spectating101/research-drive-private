@@ -189,7 +189,15 @@ export function V2App() {
       return;
     }
     facultyProfile(email)
-      .then((data) => setProfile(data?.found ? data.profile : { email, unknown: true }))
+      .then((data) => {
+        const row = data?.found ? data.profile : null;
+        // Registry fallback stubs set unknown:true — keep desk unbound, no fabricated name.
+        if (!row || row.unknown) {
+          setProfile({ email, unknown: true });
+          return;
+        }
+        setProfile(row);
+      })
       .catch(() => setProfile({ email, unknown: true }));
   }, []);
 

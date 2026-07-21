@@ -136,7 +136,11 @@ export function SettingsPage({
     const email = saveUserEmail(emailDraft);
     patch({ email });
     onProfileRefresh?.();
-    onToast?.(email ? `Profile loaded for ${email}` : "Email cleared");
+    onToast?.(
+      email
+        ? `Faculty email saved for this browser · ${email}`
+        : "Faculty email cleared on this browser",
+    );
     selectGroup("identity");
   };
 
@@ -192,11 +196,12 @@ export function SettingsPage({
                 autoComplete="email"
               />
               <button type="button" className="rd-v2-btn sm primary" onClick={saveEmail}>
-                Save identity
+                Save faculty email
               </button>
             </div>
             <p className="rd-v2-settings-hint">
-              Used for profile-aware Discover ranking and Ask context. Binding happens here — not on Profile.
+              Contextual preference for this browser — used for Profile, Discover ranking, and Ask.
+              Not a sign-in. Binding happens here — not on Profile.
             </p>
           </div>
         </StatementSection>
@@ -359,7 +364,8 @@ export function SettingsPage({
 
 const GROUP_COPY = {
   identity: {
-    judgement: "Faculty email drives Profile memory, Discover ranking, and Ask context.",
+    judgement:
+      "Faculty email is a browser preference that binds Profile memory — not authentication.",
     actionLabel: "Focus Identity",
   },
   access: {
