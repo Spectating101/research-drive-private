@@ -24,6 +24,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
   const warmStartedRef = useRef(false);
   const railRef = useRef(railContext);
   const busyRef = useRef(false);
+  const intentRef = useRef("general");
 
   useEffect(() => {
     railRef.current = railContext;
@@ -51,22 +52,29 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
       const prompt = outgoing.prompt;
       if (!prompt || busyRef.current) return;
       busyRef.current = true;
-      const full = contextPrefix && !prompt.startsWith("[context:")
-        ? `${contextPrefix}${prompt}`
-        : prompt;
+      const intent = classifyAskIntent(outgoing.displayText || prompt);
+      intentRef.current = intent;
+      const full =
+        contextPrefix && !prompt.startsWith("[context:")
+          ? `${contextPrefix}${prompt}`
+          : prompt;
 
-      setMessages((m) => [...m, { role: "user", text: outgoing.displayText }]);
+      setMessages((m) => [...m, { role: "user", text: outgoing.displayText, intent }]);
       setInput("");
       setBusy(true);
-      setStatus("Planning response…");
+      setStatus(intent === "status" ? "Checking status…" : "Planning response…");
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
           text: "",
           streaming: true,
-          activity: "Planning response…",
-          activityLog: [{ phase: "planning", text: "Planning response…", at: Date.now() }],
+          intent,
+          activity: intent === "status" ? "Checking status…" : "Planning response…",
+          activityLog:
+            intent === "status"
+              ? []
+              : [{ phase: "planning", text: "Planning response…", at: Date.now() }],
         },
       ]);
 
@@ -79,13 +87,15 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
             setStatus("");
             setMessages((m) =>
               m.map((item) =>
-                item.streaming
-                  ? { ...item, text: `${item.text || ""}${chunk}` }
-                  : item,
+                item.streaming ? { ...item, text: `${item.text || ""}${chunk}` } : item,
               ),
             );
           },
           onActivity: (event) => {
+            if (intentRef.current === "status") {
+              setStatus("Checking status…");
+              return;
+            }
             const line =
               event && typeof event === "object" ? String(event.text || "") : String(event || "");
             setStatus(line);
@@ -104,7 +114,6 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         });
 
         if (out.session_id) sessionRef.current = out.session_id;
-        const intent = classifyAskIntent(outgoing.displayText || prompt);
         const reply = out.reply || out.message || "Done.";
         const artifacts = out.artifacts || {};
         const statePatch = artifacts.state_patch || out.state_patch || {};
@@ -115,7 +124,6 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         const shaped = shapeAskReplyForIntent(intent, {
           action: out.action,
           toolName,
-          activityLog: undefined,
           candidates: out.candidates || artifacts.candidates || [],
           suggestedPrompts: out.suggested_prompts || artifacts.suggestions || [],
           pendingJobId,
@@ -124,8 +132,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
 
         setMessages((m) => {
           const streaming = m.find((x) => x.streaming);
-          const activityLog =
-            intent === "status" ? [] : streaming?.activityLog || [];
+          const activityLog = intent === "status" ? [] : streaming?.activityLog || [];
           const trimmed = m.filter((x) => !x.streaming);
           return [
             ...trimmed,
@@ -174,11 +181,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
             onToast?.("Refresh registered in Discover History");
           }
         }
-        if (
-          intent !== "status" &&
-          shaped.pendingJobId &&
-          shaped.jobStatus === "pending_approval"
-        ) {
+        if (intent !== "status" && shaped.pendingJobId && shaped.jobStatus === "pending_approval") {
           onToast?.("Job pending approval — use Approve below");
         }
       } catch (err) {
@@ -190,6 +193,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
       } finally {
         busyRef.current = false;
         setBusy(false);
+        intentRef.current = "general";
       }
     },
     [contextPrefix, input, onCollected, onToast],
