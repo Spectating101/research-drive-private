@@ -207,6 +207,7 @@ export function InspectorRail({
     <aside
       className={`yzu-inspector rd-v2-rail${mobileRailOpen ? "" : " rd-v2-rail-collapsed"}`}
       aria-label="Inspector"
+      data-rail-collapsed={mobileRailOpen ? "false" : "true"}
     >
       <div className="yzu-inspector-stack rd-v2-rail-stack">
         <div className="rd-v2-rail-chrome">
