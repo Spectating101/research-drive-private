@@ -8,6 +8,13 @@ function ensureArtifactDir() {
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 }
 
+function durationSeconds(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  if (raw.endsWith("ms")) return Number.parseFloat(raw) / 1000;
+  return Number.parseFloat(raw);
+}
+
 test.describe("Research Drive RC2.1 transient decoration layer", () => {
   test("Ask uses compact, honest indeterminate activity feedback", async ({ page }) => {
     await mockV2Api(page);
@@ -154,7 +161,8 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
       return { transform: computed.transform, transitionDuration: computed.transitionDuration };
     });
     expect(reducedStyles.transform).toBe("none");
-    expect(reducedStyles.transitionDuration).toMatch(/0s|0\.00001s|0\.01ms/);
+    const reducedDurations = reducedStyles.transitionDuration.split(",").map(durationSeconds);
+    expect(Math.max(...reducedDurations)).toBeLessThanOrEqual(0.00001);
 
     const reducedPageAnimation = await page.locator(".rd-v2-page").first().evaluate(
       (node) => getComputedStyle(node).animationName,
