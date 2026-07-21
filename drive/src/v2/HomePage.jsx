@@ -195,7 +195,6 @@ export function HomePage({
                   <div className="rd-v2-home-headroom-row">
                     <strong>
                       {slot.name}
-                      {slot.pinned ? <span className="rd-v2-pill">Pinned</span> : null}
                     </strong>
                     <span>{slot.metric}</span>
                   </div>
@@ -219,11 +218,11 @@ export function HomePage({
         </section>
       </div>
 
-      <section className="rd-v2-home-recommended" aria-label="Recommended evidence">
-        <div className="rd-v2-home-section-head">
-          <h2>Recommended evidence</h2>
-        </div>
-        {recommended.length ? (
+      {recommended.length ? (
+        <section className="rd-v2-home-recommended" aria-label="Recommended evidence">
+          <div className="rd-v2-home-section-head">
+            <h2>Recommended evidence</h2>
+          </div>
           <ul className="rd-v2-home-recommended-list">
             {recommended.map((item) => (
               <li key={item.id}>
@@ -254,12 +253,8 @@ export function HomePage({
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="rd-v2-home-section-empty">
-            No grounded recommendations yet. Profile memory and Discover suggestions appear here when available.
-          </p>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="rd-v2-home-trail" aria-label="Recent trail">
         <div className="rd-v2-home-section-head">
@@ -297,7 +292,7 @@ export function HomePage({
             ))}
           </ul>
         ) : (
-          <p className="rd-v2-home-section-empty">Durable consequences appear here when collections complete.</p>
+          <p className="rd-v2-home-section-empty">No material machine consequences to show.</p>
         )}
       </section>
     </PageShell>

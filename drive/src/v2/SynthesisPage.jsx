@@ -350,11 +350,15 @@ function NewThread({ objective, setObjective, busy, onCreate, onAsk }) {
 
 function EmptyWorkspace({ onNew }) {
   return (
-    <section className="s04-intent" data-testid="synthesis-empty-state">
+    <section className="s04-intent s04-intent-quiet" data-testid="synthesis-empty-state">
       <small>Synthesis</small>
-      <h2>Start a research construction</h2>
-      <p>No persisted Synthesis thread is available in this desk session. Create one from a research objective; the thread becomes the shared context for Detail and Ask.</p>
-      <footer><span>No local sample is substituted for missing work.</span><button type="button" className="rd-v2-btn primary" onClick={onNew}>New synthesis</button></footer>
+      <h2>No construction thread yet</h2>
+      <p>Start from a research object. Detail and Ask share the thread once it exists.</p>
+      <footer>
+        <button type="button" className="rd-v2-btn primary" onClick={onNew}>
+          New synthesis
+        </button>
+      </footer>
     </section>
   );
 }

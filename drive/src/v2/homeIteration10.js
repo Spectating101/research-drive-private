@@ -5,6 +5,7 @@
 import { displayName, statusPill } from "./datasetMeta.js";
 import { buildLab } from "./profileViewModel.js";
 import { recentDatasets } from "./recent.js";
+import { isHistoryNoise } from "./historyNoiseFence.js";
 
 function purposeLine(ds) {
   return (
@@ -187,40 +188,62 @@ export function buildRecommendedEvidence(profile, { limit = 2 } = {}) {
 }
 
 export function buildRecentTrail({ jobs = [], datasets = [], limit = 3 } = {}) {
-  const fromJobs = [...jobs]
-    .filter((job) =>
-      /completed|registered|failed|cancelled|canceled|running|queued/i.test(
-        String(job.status || ""),
-      ),
-    )
-    .sort((a, b) =>
-      String(b.updated_at || b.created_at || "").localeCompare(
-        String(a.updated_at || a.created_at || ""),
-      ),
-    )
-    .slice(0, limit)
-    .map((job) => {
-      const status = String(job.status || "").toLowerCase();
-      let kind = "PROCUREMENT";
-      if (/registered|completed/.test(status)) kind = "COLLECTION COMPLETED";
-      else if (/failed|cancelled|canceled/.test(status)) kind = "COLLECTION STOPPED";
-      else if (/running|queued/.test(status)) kind = "REFRESH ADVANCED";
-      return {
+  const material = [...jobs]
+    .filter((job) => {
+      const status = String(job.status || "");
+      if (!/completed|registered|failed|cancelled|canceled|running|queued/i.test(status)) return false;
+      return !isHistoryNoise({
         id: job.id,
-        kind,
-        title:
-          job?.plan?.title ||
-          job?.title ||
-          job?.name ||
-          job?.dataset_id ||
-          "Collection job",
-        summary:
-          job.error ||
-          job.result?.summary ||
-          String(job.status || "").replace(/_/g, " "),
-        dest: /registered|completed/.test(status) ? "library" : "history",
+        target: job?.plan?.title || job?.title || job?.name || job?.dataset_id,
+        title: job?.plan?.title || job?.title || job?.name,
+        summary: job.error || job.result?.summary || status,
+        status,
+        error: job.error,
+        meta: { summary: job.error || job.result?.summary, status },
+      });
+    })
+    .sort((a, b) => {
+      const rank = (job) => {
+        const s = String(job.status || "").toLowerCase();
+        if (/registered|completed/.test(s)) return 0;
+        if (/running|queued/.test(s)) return 1;
+        if (/failed/.test(s)) return 2;
+        return 3;
       };
+      const byRank = rank(a) - rank(b);
+      if (byRank !== 0) return byRank;
+      return String(b.updated_at || b.created_at || "").localeCompare(
+        String(a.updated_at || a.created_at || ""),
+      );
     });
+
+  const seen = new Set();
+  const fromJobs = [];
+  for (const job of material) {
+    const status = String(job.status || "").toLowerCase();
+    let kind = "PROCUREMENT";
+    if (/registered|completed/.test(status)) kind = "COLLECTION COMPLETED";
+    else if (/failed/.test(status)) kind = "COLLECTION FAILED";
+    else if (/cancelled|canceled/.test(status)) kind = "COLLECTION CANCELLED";
+    else if (/running|queued/.test(status)) kind = "REFRESH ADVANCED";
+    const title =
+      job?.plan?.title ||
+      job?.title ||
+      job?.name ||
+      job?.dataset_id ||
+      "Collection job";
+    const key = `${kind}|${String(title).toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fromJobs.push({
+      id: job.id,
+      kind,
+      title,
+      summary: String(job.error || job.result?.summary || status).replace(/_/g, " "),
+      dest: /registered|completed/.test(status) ? "library" : "history",
+    });
+    if (fromJobs.length >= limit) break;
+  }
 
   if (fromJobs.length) return fromJobs;
 

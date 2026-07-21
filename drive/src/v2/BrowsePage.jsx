@@ -464,7 +464,7 @@ export function BrowsePage({
     <PageShell
       className="rd-v2-discover-page"
       title="Discover"
-      lead="Search the lab first, then evaluate sources beyond it before you collect"
+      lead="Search the lab first, then evaluate sources beyond it"
       headExtra={modeTabs}
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >

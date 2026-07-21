@@ -18,10 +18,14 @@ test.describe("v2 Home Iteration 10 freeze", () => {
     await expect(page.getByRole("region", { name: "Attention queue" })).toHaveCount(0);
   });
 
-  test("Resource headroom and recommended / trail bands exist", async ({ page }) => {
+  test("Resource headroom and trail bands exist; recommended only when grounded", async ({ page }) => {
     await expect(page.getByRole("region", { name: "Resource headroom" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recommended evidence" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent trail" })).toBeVisible();
+    const recommended = page.getByRole("region", { name: "Recommended evidence" });
+    // Freeze: no grounded authority → section disappears (count 0), else ≤2 rows.
+    if ((await recommended.count()) > 0) {
+      await expect(recommended.locator(".rd-v2-home-recommended-row")).toHaveCount({ min: 1 });
+    }
   });
 
   test("Continue opens dataset preview and keeps rail grounded", async ({ page }) => {

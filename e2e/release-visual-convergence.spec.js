@@ -57,25 +57,22 @@ test.describe("Research Drive release visual contract", () => {
     expect(geometry.rail).toBeGreaterThanOrEqual(370);
   });
 
-  test("Home follows Iteration 10: Pick Up · Headroom · Recommended · Trail", async ({ page }) => {
+  test("Home follows Iteration 10: Pick Up · Headroom · Trail (Recommended when grounded)", async ({ page }) => {
     const pageRoot = page.locator(".rd-v2-home-page");
     const continuation = page.getByTestId("home-continue");
     const headroom = page.getByRole("region", { name: "Resource headroom" });
-    const recommended = page.getByRole("region", { name: "Recommended evidence" });
     const trail = page.getByRole("region", { name: "Recent trail" });
 
     await waitForHomeEvidence(page);
     await expect(page.locator(".rd-v2-home-actions")).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Attention queue" })).toHaveCount(0);
     await expect(headroom).toBeVisible();
-    await expect(recommended).toBeVisible();
     await expect(trail).toBeVisible();
 
     const order = await pageRoot.evaluate((root) => {
       const selectors = [
         "[data-testid='home-continue']",
         ".rd-v2-home-headroom",
-        ".rd-v2-home-recommended",
         ".rd-v2-home-trail",
       ];
       return selectors.map((selector) => root.querySelector(selector)?.getBoundingClientRect().top || 0);

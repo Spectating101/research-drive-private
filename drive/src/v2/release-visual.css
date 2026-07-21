@@ -757,6 +757,37 @@
 .rd-v2-home-trail-row > span:not(.rd-v2-home-trail-kind) { grid-column: 1; }
 .rd-v2-home-trail-row em { grid-column: 2; grid-row: 2 / span 2; }
 
+/* Starters: list rows, not marketing cards */
+.rd-v2-discover-starter-list .rd-v2-discover-starter-row {
+  border: 0;
+  border-bottom: 1px solid #e8ecf3;
+  border-radius: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 2px;
+}
+
+.rd-v2-discover-starter-list .rd-v2-discover-starter-row:hover {
+  background: #f7f8fc;
+}
+
+.s04-intent-quiet {
+  max-width: 36rem;
+  padding: 28px 8px;
+}
+
+.s04-intent-quiet h2 {
+  font-size: 1.35rem;
+}
+
+.s04-intent-quiet footer {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+}
+
 /* Discover Explore starter (freeze-shaped empty) */
 .rd-v2-discover-explore-start {
   display: grid;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Chip } from "@/v2/ui";
 import { fenceHistoryEvents } from "@/v2/historyNoiseFence";
 import { historyLifecycleBucket } from "@/v2/discoverAdapters";
+import { historyLifecycleLabel } from "@/v2/historyLifecycleLabel";
 
 const HISTORY_FILTERS = [
   { id: "all", label: "All" },
@@ -27,26 +28,8 @@ function eventKind(event) {
   return "other";
 }
 
-/** One Recovery vocabulary — failed/blocked only; cancelled noise is fenced out. */
 function stateLabel(event) {
-  const kind = eventKind(event);
-  const status = String(event?.status || event?.meta?.status || "").toLowerCase();
-  if (kind === "needs_approval") return "Approval required";
-  if (kind === "scheduled") return "Scheduled refresh";
-  if (kind === "active") return status === "queued" ? "Queued" : "Collecting";
-  if (kind === "needs_recovery") {
-    if (/blocked/.test(status)) return "Blocked — needs recovery";
-    if (/error/.test(status)) return "Failed — needs recovery";
-    return "Failed — needs recovery";
-  }
-  if (kind === "ready") {
-    if (/cancelled|canceled/.test(status)) return "Cancelled";
-    if (/query[_ -]?ready/.test(status)) return "Query ready";
-    if (status === "registered") return "Registered";
-    if (status === "archived") return "Archived";
-    return "Completed";
-  }
-  return "Route investigating";
+  return historyLifecycleLabel(event);
 }
 
 function eventTime(event) {

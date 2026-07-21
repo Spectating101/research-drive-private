@@ -96,3 +96,34 @@ test("recent trail prefers durable jobs", () => {
   assert.equal(trail.length, 2);
   assert.match(trail[0].kind, /REFRESH|COLLECTION|PROCUREMENT/);
 });
+
+test("recent trail fences triage fixture noise and collapses duplicates", () => {
+  const trail = buildRecentTrail({
+    jobs: [
+      {
+        id: "n1",
+        status: "cancelled",
+        title: "Collect USDT",
+        error: "triage noise: fixture_http_manifest_stuck",
+        updated_at: "2026-07-21T10:00:00Z",
+      },
+      {
+        id: "n2",
+        status: "cancelled",
+        title: "Collect USDT",
+        error: "triage noise: fixture_http_manifest_stuck",
+        updated_at: "2026-07-21T10:01:00Z",
+      },
+      {
+        id: "ok",
+        status: "completed",
+        title: "TWSE governance panel",
+        updated_at: "2026-07-21T09:00:00Z",
+      },
+    ],
+    datasets: [],
+  });
+  assert.equal(trail.length, 1);
+  assert.match(trail[0].title, /TWSE/);
+  assert.equal(trail[0].kind, "COLLECTION COMPLETED");
+});
