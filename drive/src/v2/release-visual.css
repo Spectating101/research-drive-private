@@ -89,7 +89,10 @@
 
 .rd-v2-home-continue-card {
   position: relative;
-  overflow: hidden;
+  /* Keep the accent bar; do not clip title/purpose into it.
+     premium.css sets padding: 20px 0 which leaves no room for ::before. */
+  overflow: visible;
+  padding: 18px 18px 18px 22px;
   border: 1px solid #d8deea;
   background:
     radial-gradient(circle at 100% 0, rgba(82, 97, 238, 0.12), transparent 34%),
@@ -102,7 +105,9 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
+  border-radius: 10px 0 0 10px;
   background: linear-gradient(180deg, #6b72ff, #3c4cdd);
+  pointer-events: none;
 }
 
 .rd-v2-home-continue-copy > span,
