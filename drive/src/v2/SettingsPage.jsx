@@ -235,22 +235,6 @@ export function SettingsPage({
               detail={archive.ok === true ? "OK" : archive.ok === false ? "CHECK" : "UNKNOWN"}
               warn={archive.ok === false}
             />
-            {toolCount != null ? (
-              <StatementRow
-                label="MCP tools"
-                metric={String(toolCount)}
-                sublabel="From /health.desk.mcp_tools"
-                detail="REPORTED"
-              />
-            ) : null}
-            {pendingJobs != null ? (
-              <StatementRow
-                label="Jobs pending approval"
-                metric={String(pendingJobs)}
-                sublabel="From /health.desk.jobs"
-                detail="REPORTED"
-              />
-            ) : null}
             {!healthLoaded ? (
               <p className="rd-v2-settings-hint">
                 Desk health not loaded — Access stays Not reported until /health verifies.
@@ -342,6 +326,18 @@ export function SettingsPage({
               <span>Fallback token</span>
               <code>{tokenPresent ? "present in sessionStorage" : "absent"}</code>
             </div>
+            <StatementRow
+              label="MCP tools"
+              metric={toolCount != null ? String(toolCount) : "Not reported"}
+              sublabel="From /health.desk.mcp_tools"
+              detail={toolCount != null ? "REPORTED" : "UNKNOWN"}
+            />
+            <StatementRow
+              label="Jobs pending approval"
+              metric={pendingJobs == null ? "Not reported" : String(pendingJobs)}
+              sublabel="From /health.desk.jobs"
+              detail={pendingJobs == null ? "UNKNOWN" : "REPORTED"}
+            />
             <div className="rd-v2-settings-row stack">
               <label className="rd-v2-settings-label" htmlFor="settings-fallback-token">
                 Fallback access token
