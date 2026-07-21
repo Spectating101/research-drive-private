@@ -4,7 +4,7 @@
  * this is presentation only.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { applyLifecycleToEvaluation, LIFECYCLE } from "@/v2/discoverLifecycle";
 import { buildDiscoverEvaluation } from "@/v2/discoverEvaluation";
 import {
@@ -83,6 +83,11 @@ export function DiscoverEvaluationSurface({
     }
     return buildDiscoverEvaluation(sufficiency.bestLocal, labIds, null);
   }, [lifecycle, sufficiency, labIds]);
+  const [requestConfirm, setRequestConfirm] = useState(false);
+
+  useEffect(() => {
+    setRequestConfirm(false);
+  }, [target]);
 
   if (!target || !evaluation) {
     if (variant === "workspace") return null;
@@ -242,12 +247,18 @@ export function DiscoverEvaluationSurface({
     else if (id === "open_library" || id === "inspect_record") {
       const datasetId = lifecycle?.registeredDatasetId || target?.dataset_id;
       onOpenInLibrary?.(datasetId ? { ...target, dataset_id: datasetId } : target);
-    } else if (id === "add_lab") onAddToLab?.(target);
-    else if (id === "probe") onProbeSource?.(target);
+    } else if (id === "add_lab") {
+      setRequestConfirm(true);
+    } else if (id === "probe") onProbeSource?.(target);
     else if (id === "preview") onPreviewExternal?.();
     else if (id === "review_approval") onReviewApproval?.(lifecycle?.job || target);
     else if (id === "track_resources") onTrackResources?.(lifecycle?.job || target);
     else if (id === "ask" || id === "review_access") askWithSufficiency();
+  };
+
+  const confirmRequestEvidence = () => {
+    setRequestConfirm(false);
+    onAddToLab?.(target);
   };
 
   const reachedStages = new Set(lifecycle?.stages || []);
@@ -518,14 +529,28 @@ export function DiscoverEvaluationSurface({
           <p className="rd-v2-eval-action-status">{submitting ? "Submitting…" : "Probing source…"}</p>
         ) : null}
 
-        <button
-          type="button"
-          className="rd-v2-btn primary rd-v2-eval-primary-action"
-          disabled={probeLoading || submitting}
-          onClick={() => runAction(primary.id)}
-        >
-          {primary.label}
-        </button>
+        {requestConfirm ? (
+          <div className="rd-v2-eval-confirm" data-testid="discover-request-confirm">
+            <p>Request this evidence as a durable Discover lifecycle item?</p>
+            <div className="rd-v2-eval-confirm-actions">
+              <button type="button" className="rd-v2-btn primary" disabled={probeLoading || submitting} onClick={confirmRequestEvidence}>
+                Confirm request
+              </button>
+              <button type="button" className="rd-v2-btn" onClick={() => setRequestConfirm(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="rd-v2-btn primary rd-v2-eval-primary-action"
+            disabled={probeLoading || submitting}
+            onClick={() => runAction(primary.id)}
+          >
+            {primary.label}
+          </button>
+        )}
 
         <div className="rd-v2-eval-actions-wide" aria-label="Additional candidate actions">
           {footerSecondary.map((action) => (
@@ -533,7 +558,7 @@ export function DiscoverEvaluationSurface({
               key={action.id}
               type="button"
               className="rd-v2-btn"
-              disabled={probeLoading || submitting}
+              disabled={probeLoading || submitting || requestConfirm}
               onClick={() => runAction(action.id)}
             >
               {action.label}

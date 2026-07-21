@@ -5,6 +5,7 @@ import {
   buildActivityRows,
   spendingPeriodLabel,
 } from "@/v2/resourcesSpending";
+import { buildCapacityAccessPairs, groupSourceCapabilities } from "@/v2/resourcesCapacity";
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
 import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
 
@@ -145,6 +146,95 @@ function facultyOpsSub(label, key, sub) {
   if (key === "statement-ask") return "Procurement chat this month";
   if (label === "Query engine") return "Catalog and query service";
   return sub;
+}
+
+function CapacityAccessGrid({ rollup, selectedKey, onSelect }) {
+  const pairs = buildCapacityAccessPairs(rollup);
+  return (
+    <div className="rd-v2-res-capacity-pairs" data-testid="resources-capacity-grid" aria-label="Capacity and access">
+      {pairs.map((pair) => (
+        <section key={pair.id} className="rd-v2-res-capacity-pair" aria-label={pair.title}>
+          <header className="rd-v2-res-capacity-pair-head">
+            <span>{pair.title}</span>
+          </header>
+          <div className="rd-v2-res-capacity-pair-grid">
+            {pair.meters.map((meter) => {
+              const key = `capacity-${meter.id}`;
+              const pct = meter.pct;
+              return (
+                <button
+                  key={meter.id}
+                  type="button"
+                  className={`rd-v2-res-capacity-meter${selectedKey === key ? " on" : ""}${meter.warn ? " warn" : ""}`}
+                  onClick={() =>
+                    onSelect?.({
+                      key,
+                      label: meter.name,
+                      metric: meter.metric,
+                      kind: "usage",
+                      section: pair.id,
+                      progress: pct,
+                      warn: meter.warn,
+                    })
+                  }
+                >
+                  <span className="rd-v2-res-capacity-meter-name">{meter.name}</span>
+                  <strong>{meter.metric}</strong>
+                  {pct != null ? (
+                    <span className="rd-v2-res-capacity-meter-bar" aria-hidden>
+                      <i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+                    </span>
+                  ) : (
+                    <span className="rd-v2-res-capacity-meter-bar empty" aria-hidden />
+                  )}
+                  <em>
+                    {meter.available || (pct != null ? `${pct}%` : "—")}
+                    {meter.action ? ` · ${meter.action}` : ""}
+                  </em>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function SourceCapabilityLedger({ panels, selectedKey, onSelect }) {
+  const families = groupSourceCapabilities([
+    { rows: panels?.providers || [] },
+    { rows: panels?.layers || [] },
+  ]);
+  if (!families.length) {
+    return <p className="rd-v2-res-idle">Source capability rows appear when the desk reports routes.</p>;
+  }
+  return (
+    <div className="rd-v2-res-source-ledger" data-testid="resources-source-ledger">
+      <header className="rd-v2-res-source-ledger-head">
+        <span>Source</span>
+        <span>Access</span>
+        <span>Authority</span>
+      </header>
+      {families.map((family) => (
+        <section key={family.id} className="rd-v2-res-source-family" aria-label={family.title}>
+          <h3>{family.title}</h3>
+          {family.rows.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              className={`rd-v2-res-source-row${selectedKey === row.id || selectedKey === row.row?.key ? " on" : ""}`}
+              onClick={() => onSelect?.(row.row || row)}
+            >
+              <strong>{row.name}</strong>
+              <span>{row.access}</span>
+              <em data-authority={row.authority}>{row.authority}</em>
+            </button>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
 }
 
 function StatusStripCell({ label, value, sub, tone = "" }) {
@@ -725,19 +815,6 @@ export function ResourcesPage({
     () => actionRows.filter((row) => row.issue?.section === "motion" || String(row.issue?.key || "").includes("jobs")),
     [actionRows],
   );
-  const inventorySections = useMemo(() => buildResourceInventorySections(panels), [panels]);
-  const showActivityAttention = reviewRows.length > 0 && !activityFilter;
-
-  const selectIssue = (issue) =>
-    onSelectRow?.({
-      key: issue.key,
-      label: issue.label,
-      metric: "Action required",
-      kind: "active",
-      section: issue.section,
-      warn: true,
-      ok: false,
-    });
 
   const freshness =
     refreshedAt != null ? `${Math.max(0, Math.round((Date.now() - refreshedAt) / 1000))}s ago` : null;
@@ -801,10 +878,19 @@ export function ResourcesPage({
           <>
             <section className="rd-v2-res-wire-band" aria-label="Sources overview">
               <h2 className="rd-v2-res-wire-title">Capacity &amp; access</h2>
-              <ResourcesStatusStrip rollup={viewRollup} />
+              <CapacityAccessGrid
+                rollup={viewRollup}
+                selectedKey={selectedKey}
+                onSelect={onSelectRow}
+              />
             </section>
             <section className="rd-v2-res-wire-band" aria-label="Source capabilities">
               <h2 className="rd-v2-res-wire-title">Source capabilities</h2>
+              <SourceCapabilityLedger
+                panels={panels}
+                selectedKey={selectedKey}
+                onSelect={onSelectRow}
+              />
               <ResearchCapability
                 cluster={health?.cluster || cluster}
                 panels={panels}
@@ -812,11 +898,6 @@ export function ResourcesPage({
                 catalogSummary={catalogSummary}
               />
             </section>
-            <ResourceInventory
-              sections={inventorySections}
-              selectedKey={selectedKey}
-              onSelect={onSelectRow}
-            />
           </>
         )
       ) : mode === "method" ? (
@@ -842,9 +923,15 @@ export function ResourcesPage({
           </ol>
           <div className="rd-v2-res-method-progress">
             <h3>Current method progress</h3>
+            <ol className="rd-v2-res-method-stages">
+              <li className={reviewRows.length ? "pending" : "idle"}>Find</li>
+              <li className={reviewRows.length ? "active" : "idle"}>Acquire</li>
+              <li className="idle">Execute</li>
+              <li className="idle">Promote</li>
+            </ol>
             <p>
               {reviewRows.length
-                ? `${reviewRows.length} item${reviewRows.length === 1 ? "" : "s"} need researcher review before collection continues.`
+                ? `${reviewRows.length} item${reviewRows.length === 1 ? "" : "s"} need researcher review on Discover History before collection continues.`
                 : "No method decisions waiting. Active routes appear here when collection is in flight."}
             </p>
           </div>
@@ -853,6 +940,9 @@ export function ResourcesPage({
         <>
           <section className="rd-v2-res-wire-band" aria-label="Usage">
             <h2 className="rd-v2-res-wire-title">Recorded expenditure</h2>
+            <p className="rd-v2-res-usage-hierarchy muted small">
+              Period totals → daily history → attribution. Approvals stay on Discover History / Needs you — not here.
+            </p>
             <ActivityFilterBar
               value={activityFilter ? null : activityKind}
               onChange={(next) => {
@@ -862,24 +952,9 @@ export function ResourcesPage({
             />
             <ActivityUsageSummary rollup={viewRollup} />
           </section>
-          {showActivityAttention ? (
-            <StatementSection title="Review queue">
-              {reviewRows.map((r) => {
-                const { key, issue, ...rowProps } = r;
-                return (
-                  <StatementRow
-                    key={key}
-                    {...rowProps}
-                    active={selectedKey === key}
-                    onClick={() => (issue ? selectIssue(issue) : onSelectRow?.(r))}
-                  />
-                );
-              })}
-            </StatementSection>
-          ) : null}
           {showActivityFeed ? (
             <ActivityLog rows={activity} selectedKey={selectedKey} onSelectRow={onSelectRow} />
-          ) : reviewRows.length ? null : (
+          ) : (
             <p className="rd-v2-res-idle">No usage rows in this period.</p>
           )}
         </>

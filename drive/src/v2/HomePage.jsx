@@ -115,19 +115,21 @@ export function HomePage({
 
   const continuePrimary = (point) => {
     if (!point?.dataset) {
-      onGoTab("library");
+      onGoTab(point?.tab || "library");
       return;
     }
+    onGoTab("library");
     onSelectDataset?.(point.dataset);
-    onPreviewDataset?.(point.dataset);
   };
 
   const reviewDecision = (point) => {
+    // Freeze: approvals / Needs you live on Discover History, not Resources Usage.
     if (onOpenAttention) {
       onOpenAttention({
         id: point.id,
         kind: "approval",
-        tab: "resources",
+        tab: "browse",
+        discoverMode: "history",
         title: point.title,
         resourceRow: {
           kind: "active",
@@ -142,7 +144,7 @@ export function HomePage({
       });
       return;
     }
-    onGoTab("resources");
+    onGoTab("browse");
   };
 
   return (

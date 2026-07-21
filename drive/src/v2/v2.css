@@ -5081,13 +5081,17 @@
 
 .rd-v2-discover-selected-mark {
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-right: 8px;
-  border-radius: 50%;
-  background: #1a56a8;
-  vertical-align: middle;
-  box-shadow: 0 0 0 3px rgba(26, 86, 168, 0.15);
+  width: auto;
+  height: auto;
+  margin-right: 6px;
+  border-radius: 0;
+  background: transparent;
+  color: #1a56a8;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+  vertical-align: baseline;
+  box-shadow: none;
 }
 
 .rd-v2-discover-candidates button.rd-v2-discover-candidate.selected .rd-v2-discover-candidate-title {

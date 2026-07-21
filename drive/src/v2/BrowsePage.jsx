@@ -126,7 +126,11 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
         <span className="rd-v2-discover-candidate-main">
           <span className="rd-v2-discover-candidate-heading">
             <strong className="rd-v2-discover-candidate-title">
-              {selected ? <span className="rd-v2-discover-selected-mark" aria-hidden="true" /> : null}
+              {selected ? (
+                <span className="rd-v2-discover-selected-mark" aria-hidden="true">
+                  ▌
+                </span>
+              ) : null}
               {candidateTitle(row)}
             </strong>
             <em className="rd-v2-discover-possession">{taxonomyLine}</em>
@@ -480,9 +484,29 @@ export function BrowsePage({
             >
               <header className="rd-v2-discover-explore-need">
                 <h2>What evidence are you looking for?</h2>
-                <p className="rd-v2-discover-need-query" data-testid="discover-need-query">
-                  {q}
-                </p>
+                <form
+                  className="rd-v2-discover-need-form"
+                  data-testid="discover-need-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const next = String(event.currentTarget.elements.need?.value || "").trim();
+                    if (next) onSuggestSearch?.(next);
+                  }}
+                >
+                  <textarea
+                    name="need"
+                    className="rd-v2-discover-need-input"
+                    data-testid="discover-need-query"
+                    defaultValue={q}
+                    key={q}
+                    rows={2}
+                    placeholder="Describe the evidence need — keyword, gap, or research question…"
+                    aria-label="Evidence need"
+                  />
+                  <button type="submit" className="rd-v2-btn sm primary" aria-label="Search evidence need">
+                    ⌕
+                  </button>
+                </form>
               </header>
 
               {interpretation.chips.length ? (
@@ -500,6 +524,20 @@ export function BrowsePage({
                       </span>
                     ) : null}
                   </div>
+                  <details className="rd-v2-discover-refine">
+                    <summary>Refine evidence need</summary>
+                    <div className="rd-v2-discover-refine-body">
+                      <p>
+                        <b>Research object</b> {interpretation.chips[0] || "—"}
+                      </p>
+                      <p>
+                        <b>Evidence need</b> {q}
+                      </p>
+                      <p>
+                        <b>Signals</b> {interpretation.tokens?.join(" · ") || interpretation.chips.join(" · ")}
+                      </p>
+                    </div>
+                  </details>
                 </div>
               ) : null}
 

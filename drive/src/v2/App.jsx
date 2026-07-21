@@ -656,7 +656,7 @@ export function V2App() {
         prompt: buildAddToLabPrompt(target, probeResult),
         displayText: buildAddToLabDisplayText(target, probeResult),
       });
-      showToast("Queued Ask — Add to lab");
+      showToast("Queued Ask — Request this evidence");
     },
     [labIds, browseProbe, catalog, syncUrl, showToast, refreshBackend, collectSubmittingKey],
   );
@@ -964,6 +964,12 @@ export function V2App() {
 
   const openHomeAttention = useCallback(
     (item) => {
+      if (item?.tab === "browse" || item?.discoverMode === "history") {
+        setDiscoverModeSafe("history");
+        goTab("browse");
+        setRailTab("detail");
+        return;
+      }
       if (item?.tab === "resources" && item.resourceRow) {
         setResourceMode("sources");
         setActivityFilter(null);
@@ -975,7 +981,7 @@ export function V2App() {
       }
       goTab(item?.tab || "home");
     },
-    [goTab],
+    [goTab, setDiscoverModeSafe],
   );
 
   const filteredDatasets = useMemo(() => {

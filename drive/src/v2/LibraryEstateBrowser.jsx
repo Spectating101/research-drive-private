@@ -58,7 +58,9 @@ function CollectionTreeItem({ folder, datasets, onOpen, active }) {
       onClick={() => onOpen(folder)}
       data-testid="library-collection"
       data-kind="folder"
+      aria-pressed={active}
     >
+      {active ? <span className="rd-v2-library-selected-mark" aria-hidden>▌</span> : null}
       <strong>{summary.title}</strong>
       <span>{summary.counts.total}</span>
     </button>
@@ -78,6 +80,7 @@ function EvidenceLedgerRow({ item, selected, onSelect, onDoubleClick }) {
       aria-pressed={selected}
     >
       <span className="rd-v2-library-ledger-title">
+        {selected ? <span className="rd-v2-library-selected-mark" aria-hidden>▌</span> : null}
         <strong>{displayName(row)}</strong>
         {purpose ? <em>{purpose}</em> : null}
       </span>
@@ -94,7 +97,9 @@ export function LibraryEstateBrowser({
   rows,
   datasets,
   branchDatasets,
+  collectionFolders = null,
   isRoot,
+  currentFolderId = "",
   currentFolderName,
   branchNote,
   selectedId,
@@ -108,12 +113,16 @@ export function LibraryEstateBrowser({
   onSelectDataset,
   onPreviewDataset,
 }) {
-  const folders = rows.filter((item) => item?.kind === "folder");
+  const folders = Array.isArray(collectionFolders) && collectionFolders.length
+    ? collectionFolders
+    : rows.filter((item) => item?.kind === "folder");
   const assetsFromRows = rows.filter((item) => item?.kind !== "folder");
-  // Freeze: at estate root, COLLECTIONS tree + EVIDENCE ledger of holdings (not only loose root files).
-  const assets = isRoot && !assetsFromRows.length
+  // Freeze: COLLECTIONS tree + EVIDENCE ledger. Selected collection filters branchDatasets.
+  const assets = Array.isArray(collectionFolders)
     ? (branchDatasets || []).map((row) => ({ kind: "dataset", id: row.dataset_id, row }))
-    : assetsFromRows;
+    : isRoot && !assetsFromRows.length
+      ? (branchDatasets || []).map((row) => ({ kind: "dataset", id: row.dataset_id, row }))
+      : assetsFromRows;
   const counts = libraryAssetCounts(branchDatasets);
   const q = String(estateQuery || "").trim().toLowerCase();
   const visibleAssets = q
@@ -164,6 +173,7 @@ export function LibraryEstateBrowser({
                   folder={folder}
                   datasets={datasets}
                   onOpen={onOpenFolder}
+                  active={Boolean(currentFolderId) && currentFolderId === folder.id}
                 />
               ))
             ) : (
@@ -196,7 +206,10 @@ export function LibraryEstateBrowser({
             ) : (
               <div className="rd-v2-library-empty">
                 <strong>No holdings in this collection</strong>
-                <p>Clear the filter or return to Lab to browse the indexed data estate.</p>
+                <p>Add evidence to this collection, clear the readiness filter, or return to Lab.</p>
+                <div className="rd-v2-library-empty-actions">
+                  <span className="muted small">Use + Add evidence to upload, add a URL/DOI, or find external evidence.</span>
+                </div>
               </div>
             )}
           </div>

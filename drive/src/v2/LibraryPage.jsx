@@ -232,6 +232,10 @@ export function LibraryPage({
   );
   const branchCounts = libraryAssetCounts(branchDatasetRows);
   const readyCount = branchCounts.queryReady;
+  const rootCollectionFolders = useMemo(
+    () => listFolderChildren(tree, null).filter((item) => item?.kind === "folder"),
+    [tree],
+  );
   const folderCount = visibleRows.filter((item) => item.kind === "folder").length;
   const datasetCount = branchDatasetRows.length;
   const branchNote = branchStatusNote({
@@ -310,7 +314,9 @@ export function LibraryPage({
         rows={visibleRows}
         datasets={datasets}
         branchDatasets={branchDatasetRows}
+        collectionFolders={rootCollectionFolders}
         isRoot={isRoot}
+        currentFolderId={folderId || ""}
         currentFolderName={currentFolderName}
         branchNote={branchNote}
         selectedId={selectedId}

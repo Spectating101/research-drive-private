@@ -178,7 +178,7 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
                         className="rd-v2-profile-lab-action"
                         onClick={() => runQuery(row.label)}
                       >
-                        {row.routeLabel} · Open →
+                        {row.routeLabel} · Explore →
                       </button>
                     </li>
                   ))}

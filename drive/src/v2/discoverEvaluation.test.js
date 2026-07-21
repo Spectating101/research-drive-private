@@ -31,24 +31,25 @@ describe("evaluationActions", () => {
     assert.equal(actions.primary.label, "Open in Library");
   });
 
-  it("licensed/manual does not use Add to lab as primary", () => {
+  it("licensed/manual does not use Request this evidence as primary", () => {
     const taxonomy = { key: "licensed-manual", label: "Licensed / manual access" };
     const actions = evaluationActions({}, taxonomy, { hasProbeUrl: true });
     assert.equal(actions.primary.id, "review_access");
     assert.ok(!actions.secondary.some((a) => a.id === "add_lab"));
   });
 
-  it("external discoverable with URL probes first; Add to lab is secondary", () => {
+  it("external discoverable with URL probes first; Request this evidence is secondary", () => {
     const taxonomy = { key: "external-discoverable", label: "External · Available to inspect" };
     const actions = evaluationActions({}, taxonomy, { hasProbeUrl: true });
     assert.equal(actions.primary.id, "probe");
-    assert.ok(actions.secondary.some((a) => a.id === "add_lab"));
+    assert.ok(actions.secondary.some((a) => a.id === "add_lab" && a.label === "Request this evidence"));
   });
 
-  it("external acquirable primary is Add to lab", () => {
+  it("external acquirable primary is Request this evidence", () => {
     const taxonomy = { key: "external-acquirable", label: "External · Acquisition available" };
     const actions = evaluationActions({}, taxonomy, { hasProbeUrl: true, probed: false });
     assert.equal(actions.primary.id, "add_lab");
+    assert.equal(actions.primary.label, "Request this evidence");
   });
 
   it("external-probed primary is Preview, not Ask-as-review", () => {

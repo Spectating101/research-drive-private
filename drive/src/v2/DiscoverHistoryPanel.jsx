@@ -48,6 +48,46 @@ function eventSummary(event) {
   return "Durable Discover record";
 }
 
+function eventSourceIdentity(event) {
+  const meta = event?.meta || {};
+  const source =
+    meta.source ||
+    meta.source_route ||
+    meta.collect_via ||
+    meta.provider ||
+    event?.source ||
+    "Source pending";
+  const identity =
+    meta.evidence_identity ||
+    meta.identity ||
+    meta.entity ||
+    meta.scope ||
+    eventSummary(event);
+  return `${source} · ${identity}`;
+}
+
+function eventEvidenceLine(event) {
+  const meta = event?.meta || {};
+  const parts = [];
+  if (meta.bytes_received || meta.received) parts.push(String(meta.bytes_received || meta.received));
+  if (meta.archive_note) parts.push(String(meta.archive_note));
+  if (meta.progress_note) parts.push(String(meta.progress_note));
+  if (!parts.length) parts.push(stateLabel(event));
+  parts.push(eventTime(event));
+  return parts.filter(Boolean).join(" · ");
+}
+
+function eventMethodCue(event) {
+  const meta = event?.meta || {};
+  const cue = meta.method_cue || meta.method || meta.route_method || event?.method_cue;
+  if (!cue) return null;
+  const kind = eventKind(event);
+  if (!["active", "needs_approval", "needs_recovery"].includes(kind) && !meta.method_material) {
+    return null;
+  }
+  return String(cue);
+}
+
 function eventId(event, index = 0) {
   return event?.id || `${event?.ts || "event"}:${index}`;
 }
@@ -56,23 +96,29 @@ function HistoryRow({ event, selectedId, index, onSelectEvent }) {
   const id = eventId(event, index);
   const title = cleanTarget(event.target) || event.title || "Discover request";
   const kind = eventKind(event);
+  const selected = selectedId === id;
+  const methodCue = eventMethodCue(event);
   return (
     <button
       key={id}
       type="button"
-      className={`rd-v2-history-row${selectedId === id ? " on" : ""}`}
+      className={`rd-v2-history-row rd-v2-history-row-3line${selected ? " on" : ""}`}
       aria-label={`${title} ${stateLabel(event)}`}
-      aria-pressed={selectedId === id}
+      aria-pressed={selected}
       onClick={() => onSelectEvent?.({ ...event, id })}
     >
       <span className={`rd-v2-history-node ${kind}`} aria-hidden />
       <span className="rd-v2-history-main">
-        <strong>{title}</strong>
-        <span>{eventSummary(event)}</span>
+        <span className="rd-v2-history-line1">
+          {selected ? <span className="rd-v2-history-selected-mark" aria-hidden>▌</span> : null}
+          <strong>{title}</strong>
+        </span>
+        <span className="rd-v2-history-line2">{eventSourceIdentity(event)}</span>
+        <span className="rd-v2-history-line3">{eventEvidenceLine(event)}</span>
+        {methodCue ? <span className="rd-v2-history-method-cue">Method · {methodCue}</span> : null}
       </span>
       <span className="rd-v2-history-state">
         <em>{stateLabel(event)}</em>
-        <time>{eventTime(event)}</time>
       </span>
     </button>
   );
@@ -118,6 +164,14 @@ export function DiscoverHistoryPanel({ events = [], selectedId = "", onSelectEve
   const visible = filtered.slice(0, visibleCount);
   const needsYou = filter === "all" ? visible.filter((event) => eventKind(event) === "needs_approval") : [];
   const lifecycle = filter === "all" ? visible.filter((event) => eventKind(event) !== "needs_approval") : visible;
+  const filterCounts = useMemo(() => {
+    const counts = { all: normalized.length };
+    for (const item of HISTORY_FILTERS) {
+      if (item.id === "all") continue;
+      counts[item.id] = normalized.filter((event) => eventKind(event) === item.id).length;
+    }
+    return counts;
+  }, [normalized]);
 
   useEffect(() => {
     setVisibleCount(8);
@@ -151,7 +205,7 @@ export function DiscoverHistoryPanel({ events = [], selectedId = "", onSelectEve
       <div className="rd-v2-toolbar inline rd-v2-history-filters" aria-label="History filters">
         {HISTORY_FILTERS.map((item) => (
           <Chip key={item.id} active={filter === item.id} onClick={() => setFilter(item.id)}>
-            {item.label}
+            {item.label} <b>{filterCounts[item.id] ?? 0}</b>
           </Chip>
         ))}
       </div>
