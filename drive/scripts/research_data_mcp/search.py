@@ -39,6 +39,7 @@ class SearchService:
     def reload_registry(self) -> None:
         self.engine.registry = __import__("json").loads(self.registry_path.read_text(encoding="utf-8"))
         self.engine.datasets = {d["dataset_id"]: d for d in self.engine.registry.get("datasets", [])}
+        self.engine._reconcile_local_panel_readiness()
         self._registry_mtime = self._registry_mtime_on_disk()
 
     def _reload_if_unknown(self, dataset_id: str) -> None:

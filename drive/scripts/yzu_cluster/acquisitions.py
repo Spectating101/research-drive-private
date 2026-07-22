@@ -83,7 +83,9 @@ def procured_root(repo_root: Path, cfg: dict[str, Any] | None = None) -> Path:
 
 
 def dataset_id_for_plan(plan: dict[str, Any], job_id: str) -> str:
-    cid = str(plan.get("connector_id") or plan.get("dataset_id") or "").strip()
+    # A declared output identity is authoritative.  The connector identifies
+    # where the data came from, not which durable asset this run creates.
+    cid = str(plan.get("dataset_id") or plan.get("connector_id") or "").strip()
     if cid.startswith("src_"):
         return f"procured_{cid}"
     if cid:
