@@ -14,22 +14,25 @@ _ROOT = repo_root_from_file(__file__)
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from scripts.yzu_cluster.pools import ssh_run, windows_target, windows_workers
+from scripts.yzu_cluster.pools import ssh_run, windows_host_reachable, windows_target, windows_workers
 from scripts.yzu_cluster.windows_remote import windows_lab_paths
 
 _CACHE: dict[str, Any] = {"ts": 0.0, "payload": {}}
 _CACHE_TTL = 300.0
 
 
-def _probe_sharpe_repo(target: str, sharpe_repo: str, key: str, timeout: int = 12) -> bool:
+def _probe_sharpe_repo(target: str, sharpe_repo: str, key: str, timeout: int = 12) -> str:
+    """Return FULL for queue execution, THIN for HTTP pull-workers, or missing."""
     ps = (
         "powershell.exe -NoProfile -Command "
-        f"\"if (Test-Path '{sharpe_repo}\\.venv\\Scripts\\python.exe') {{ 'OK' }} "
+        f"\"if (Test-Path '{sharpe_repo}\\.venv\\Scripts\\python.exe') {{ 'FULL' }} "
+        f"elseif ((Test-Path '{sharpe_repo}\\drive\\scripts\\yzu_cluster\\remote_worker.py') "
+        f"-and (Get-Command py -ErrorAction SilentlyContinue)) {{ 'THIN' }} "
         f"elseif (Test-Path '{sharpe_repo}') {{ 'PARTIAL' }} else {{ 'MISSING' }}\""
     )
     run = ssh_run(target, ps, key=key, timeout=timeout)
     line = (run.stdout or "").strip().splitlines()[-1].strip() if run.stdout else ""
-    return run.returncode == 0 and line == "OK"
+    return line if run.returncode == 0 else "ERROR"
 
 
 def _probe_scraper_host(target: str, sharpe_repo: str, key: str, timeout: int = 20) -> str:
@@ -68,7 +71,9 @@ def probe_windows_lab(
     sharpe_repo = paths["sharpe_repo"]
     key = paths["key"]
     provisioned: list[str] = []
+    thin_workers: list[str] = []
     partial: list[str] = []
+    reachable_hosts: list[str] = []
     scraper_hosts: list[str] = []
     errors: list[str] = []
     scraper_errors: list[str] = []
@@ -77,8 +82,15 @@ def probe_windows_lab(
         host = str(worker.get("hostname") or worker.get("tailscale_ip") or "")
         target = windows_target(worker)
         try:
-            if _probe_sharpe_repo(target, sharpe_repo, key):
+            if not windows_host_reachable(worker, key=key, force=force):
+                errors.append(f"{host}: ssh unreachable")
+                continue
+            reachable_hosts.append(host)
+            repo_state = _probe_sharpe_repo(target, sharpe_repo, key)
+            if repo_state == "FULL":
                 provisioned.append(host)
+            elif repo_state == "THIN":
+                thin_workers.append(host)
             else:
                 ps = (
                     "powershell.exe -NoProfile -Command "
@@ -101,15 +113,20 @@ def probe_windows_lab(
     payload = {
         "sharpe_repo": sharpe_repo,
         "joined_workers": len(workers),
+        "reachable_workers": len(reachable_hosts),
+        "reachable_hosts": reachable_hosts[:8],
         "provisioned_workers": len(provisioned),
+        "thin_workers": len(thin_workers),
         "partial_workers": len(partial),
         "provisioned_hosts": provisioned[:8],
         "scraper_ready_hosts": scraper_hosts[:8],
         "scraper_ready": len(scraper_hosts) > 0,
         "queue_ready": len(provisioned) > 0,
-        "http_shard_ready": len(workers) > 0,
+        # HTTP SCP shards only need SSH+python; full Sharpe venv is optional.
+        "http_shard_ready": len(reachable_hosts) > 0,
         "reason": (
-            f"{len(provisioned)}/{len(workers)} workers have {sharpe_repo}"
+            f"{len(reachable_hosts)}/{len(workers)} joined hosts SSH-reachable; "
+            f"{len(provisioned)} full queue workers and {len(thin_workers)} thin HTTP workers at {sharpe_repo}"
             if workers
             else "no joined windows_lab workers"
         ),
