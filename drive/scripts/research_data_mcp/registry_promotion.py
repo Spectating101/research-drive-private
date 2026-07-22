@@ -32,8 +32,22 @@ class RegistryPromoter:
 
     def _artifact_exists(self, local_path: str) -> bool:
         if "*" in local_path:
-            return bool(glob(str(self.repo_root / local_path)))
-        return (self.repo_root / local_path).exists()
+            if glob(str(self.repo_root / local_path)):
+                return True
+            # Runtime-bind fallback (front-door / SR → runtime-integration).
+            import os
+            runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
+            if runtime:
+                return bool(glob(str(Path(runtime) / local_path)))
+            return False
+        path = self.repo_root / local_path
+        if path.exists():
+            return True
+        import os
+        runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
+        if runtime:
+            return (Path(runtime) / local_path).exists()
+        return False
 
     def _task_ids_from_job(self, job: dict[str, Any]) -> list[str]:
         plan = job.get("plan") or {}
@@ -237,6 +251,11 @@ class RegistryPromoter:
             spec = self._spec_for_task(task_id, job, campaign_id)
             if not spec:
                 continue
+            revision_id = str((job.get("plan") or {}).get("revision_id") or "").strip()
+            if revision_id:
+                # Refreshes reuse the logical dataset identity but must advance
+                # the canonical pointer and runtime registration proof together.
+                spec["revision_id"] = revision_id
             local_path = spec.get("local_path") or spec.get("local_root")
             if local_path and not self._artifact_exists(local_path):
                 continue
@@ -415,6 +434,16 @@ class RegistryPromoter:
         dataset_id = spec["dataset_id"]
         now = datetime.now(timezone.utc).isoformat()
         entry = dict(spec)
+        local_path = str(entry.get("local_path") or entry.get("local_root") or "")
+        if "*" in local_path:
+            backend = str(entry.get("backend") or "")
+            entry["backend"] = {
+                "local_json_file": "local_json_glob",
+                "local_csv_file": "local_csv_glob",
+                "local_file": "local_file_tree",
+            }.get(backend, backend)
+            if entry.get("access_shape") == "local_file":
+                entry["access_shape"] = "local_file_tree"
         job_type = (
             "huggingface_collect"
             if task_id.startswith("hf_")

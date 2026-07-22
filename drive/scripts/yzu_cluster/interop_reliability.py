@@ -241,6 +241,30 @@ class ReliabilityMixin:
             _same_optional(existing.get("coverage"), coverage),
         ))
 
+    @staticmethod
+    def _is_verified_revision(
+        existing: Mapping[str, Any],
+        *,
+        registry_id: str,
+        revision_id: str | None,
+        manifest_id: str,
+    ) -> bool:
+        """Allow an explicit refresh to replace one verified asset pointer.
+
+        A dataset identity is logical, so scheduled refreshes reuse it. The
+        revision and manifest must both change, while the registry identity and
+        prior archive proof remain stable. This keeps retries idempotent and
+        prevents an unrelated proof from overwriting an existing asset.
+        """
+
+        return bool(
+            revision_id
+            and str(existing.get("registry_id") or "") == str(registry_id)
+            and str(existing.get("revision_id") or "") != str(revision_id)
+            and str(existing.get("manifest_id") or "") != str(manifest_id)
+            and existing.get("drive_verified") is True
+        )
+
     def register(
         self,
         run_id: str,
@@ -287,7 +311,7 @@ class ReliabilityMixin:
         existing = self.asset(dataset_id) if existing_row is not None else None
         snapshots = list(source_snapshots)
         if existing is not None:
-            if not self._registration_matches(
+            matches = self._registration_matches(
                 existing,
                 registry_id=registry_id,
                 revision_id=revision_id,
@@ -303,9 +327,15 @@ class ReliabilityMixin:
                 entities=entities,
                 grain=grain,
                 coverage=coverage,
+            )
+            if not matches and not self._is_verified_revision(
+                existing,
+                registry_id=registry_id,
+                revision_id=revision_id,
+                manifest_id=manifest_id,
             ):
                 raise ValueError("dataset_id already exists with conflicting registration proof")
-            if run["stage"] == "registered":
+            if matches and run["stage"] == "registered":
                 return existing
 
         if run["stage"] not in {"completed", "registering", "registered"}:

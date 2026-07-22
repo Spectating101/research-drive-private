@@ -510,7 +510,16 @@
         "procured_src_f4fd1f8a03cb",
         "sec_company_tickers",
         "twse_openapi_taiwan_market_layer",
-        "procured_src_b9a817c6ac09"
+        "procured_src_b9a817c6ac09",
+        "host_acceptance_main_smoke_20260720",
+        "day2_deploy_smoke_20260720",
+        "procured_src_b0a7ba3817a5",
+        "canary.winclaim2.10683",
+        "sec_edgar",
+        "sec_company_tickers_canary_20260722_v2",
+        "sec_company_tickers_mcp_canary_v3_20260722",
+        "sec_company_tickers_scheduled_canary_20260722",
+        "sec_company_tickers_land_land.http.20260722192011"
       ],
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
     },

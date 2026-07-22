@@ -321,7 +321,7 @@ class YzuClusterAPI:
                 "amount": f"{_fmt_num(dc['total_progress'])} / {_fmt_num(dc['total_target'])} records",
                 "worker": f"{len(dc['y2025_shards'])} shards",
                 "destination": "GDrive · dataset_catalog/datacite",
-                "updated_at": max((s.get("updated_at") or "") for s in dc["y2025_shards"]) or _now(),
+                "updated_at": (max((s.get("updated_at") or "") for s in dc["y2025_shards"]) if dc["y2025_shards"] else "") or _now(),
                 "detail": dc,
             }
         )

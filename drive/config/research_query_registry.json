@@ -1,6 +1,6 @@
 {
   "version": "0.1",
-  "updated_at": "2026-07-09T09:45:41.382961+00:00",
+  "updated_at": "2026-07-22T19:20:48.165461+00:00",
   "datasets": [
     {
       "dataset_id": "gdelt_asia_daily_country_panel",
@@ -6362,6 +6362,605 @@
       "collection": {
         "partition_id": "acquired.procured",
         "wired_at": "2026-07-09T09:46:53Z"
+      }
+    },
+    {
+      "dataset_id": "host_acceptance_main_smoke_20260720",
+      "name": "host_acceptance_main_smoke_20260720",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/host_acceptance_main_smoke_20260720",
+      "description": "Procured via http_manifest job `host-acceptance-main-smoke-20260720a` from https://www.rfc-editor.org/rfc/rfc7232.txt.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/host_acceptance_main_smoke_20260720",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "host_acceptance_main_smoke_20260720",
+        "promoted_at": "2026-07-20T08:41:59.790562+00:00",
+        "promoted_from_job": "host-acceptance-main-smoke-20260720a",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/host_acceptance_main_smoke_20260720",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/host_acceptance_main_smoke_20260720"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-20T08:42:00Z"
+      }
+    },
+    {
+      "dataset_id": "day2_deploy_smoke_20260720",
+      "name": "day2_deploy_smoke_20260720",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/day2_deploy_smoke_20260720",
+      "description": "Procured via http_manifest job `day2-deploy-smoke-20260720a` from https://www.rfc-editor.org/rfc/rfc7233.txt.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/day2_deploy_smoke_20260720",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "day2_deploy_smoke_20260720",
+        "promoted_at": "2026-07-20T08:42:42.369517+00:00",
+        "promoted_from_job": "day2-deploy-smoke-20260720a",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/day2_deploy_smoke_20260720",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/day2_deploy_smoke_20260720"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-20T08:42:42Z"
+      }
+    },
+    {
+      "dataset_id": "procured_src_b0a7ba3817a5",
+      "name": "RFC 9110 HTTP Semantics",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/rfc9110_http_semantics_20260720",
+      "description": "Procured via http_manifest job `01bf070a7e86` from https://www.rfc-editor.org/rfc/rfc9110.txt.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/rfc9110_http_semantics_20260720",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "procured_src_b0a7ba3817a5",
+        "promoted_at": "2026-07-20T12:43:52.214813+00:00",
+        "promoted_from_job": "01bf070a7e86",
+        "job_type": "http_manifest"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/procured_src_b0a7ba3817a5",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/procured_src_b0a7ba3817a5"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-20T12:43:52Z"
+      }
+    },
+    {
+      "dataset_id": "capability_canary_http_20260722T081945Z",
+      "name": "Capability canary SR-worker-fixed",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/capability_canary_http_20260722T081945Z",
+      "description": "Procured via http_manifest job `f63cdabd08e1` from https://raw.githubusercontent.com/python/cpython/main/LICENSE.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/capability_canary_http_20260722T081945Z",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "capability_canary_http_20260722T081945Z",
+        "promoted_at": "2026-07-22T08:26:10.035017+00:00",
+        "promoted_from_job": "f63cdabd08e1",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/capability_canary_http_20260722T081945Z",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/capability_canary_http_20260722T081945Z"
+      }
+    },
+    {
+      "dataset_id": "capability_canary_http_20260722T083003Z",
+      "name": "Capability canary post-heal",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/capability_canary_http_20260722T083003Z",
+      "description": "Procured via http_manifest job `73a858489841` from https://raw.githubusercontent.com/python/cpython/main/LICENSE.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/capability_canary_http_20260722T083003Z",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "capability_canary_http_20260722T083003Z",
+        "promoted_at": "2026-07-22T08:30:51.768946+00:00",
+        "promoted_from_job": "73a858489841",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/capability_canary_http_20260722T083003Z",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/capability_canary_http_20260722T083003Z"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T08:30:52Z"
+      }
+    },
+    {
+      "dataset_id": "canary.fullops.10361",
+      "name": "Full ops procure canary GPL",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/canary.fullops.10361",
+      "description": "Procured via http_manifest job `201eb7ee748e` from https://www.gnu.org/licenses/gpl-3.0.txt.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/canary.fullops.10361",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "canary.fullops.10361",
+        "promoted_at": "2026-07-22T08:53:05.274596+00:00",
+        "promoted_from_job": "201eb7ee748e",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/canary.fullops.10361",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/canary.fullops.10361"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T08:53:05Z"
+      }
+    },
+    {
+      "dataset_id": "canary.winclaim2.10683",
+      "name": "Windows claim procure canary 2",
+      "backend": "local_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/canary.winclaim2.10683",
+      "description": "Procured via http_manifest job `9157e9f31198` from https://www.gnu.org/licenses/lgpl-3.0.txt.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/canary.winclaim2.10683",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "canary.winclaim2.10683",
+        "promoted_at": "2026-07-22T09:00:45.884948+00:00",
+        "promoted_from_job": "9157e9f31198",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/canary.winclaim2.10683",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/canary.winclaim2.10683"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T09:00:46Z"
+      }
+    },
+    {
+      "dataset_id": "codex_sec_tickers_canary_20260722",
+      "name": "Codex live SEC company tickers canary",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/codex_sec_tickers_canary_20260722",
+      "description": "Procured via http_manifest job `codex-sec-tickers-canary-20260722` from https://www.sec.gov/files/company_tickers.json.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/codex_sec_tickers_canary_20260722",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "codex_sec_tickers_canary_20260722",
+        "promoted_at": "2026-07-22T10:21:34.852623+00:00",
+        "promoted_from_job": "codex-sec-tickers-canary-20260722",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/codex_sec_tickers_canary_20260722",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/codex_sec_tickers_canary_20260722"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T10:21:35Z"
+      }
+    },
+    {
+      "dataset_id": "codex_sec_tickers_canary_v2_20260722",
+      "name": "Codex live SEC company tickers canary v2",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/codex_sec_tickers_canary_v2_20260722",
+      "description": "Procured via http_manifest job `codex-sec-tickers-canary-v2-20260722` from https://www.sec.gov/files/company_tickers.json.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/codex_sec_tickers_canary_v2_20260722",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "codex_sec_tickers_canary_v2_20260722",
+        "promoted_at": "2026-07-22T10:26:43.480033+00:00",
+        "promoted_from_job": "codex-sec-tickers-canary-v2-20260722",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/codex_sec_tickers_canary_v2_20260722",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/codex_sec_tickers_canary_v2_20260722"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T10:26:44Z"
+      }
+    },
+    {
+      "dataset_id": "codex_sec_tickers_canary_v3_20260722",
+      "name": "Codex live SEC company tickers canary v3",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/codex_sec_tickers_canary_v3_20260722/company_tickers.json",
+      "description": "Procured via http_manifest job `codex-sec-tickers-canary-v3-20260722` from https://www.sec.gov/files/company_tickers.json.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/codex_sec_tickers_canary_v3_20260722/company_tickers.json",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "codex_sec_tickers_canary_v3_20260722",
+        "promoted_at": "2026-07-22T10:29:00.885347+00:00",
+        "promoted_from_job": "codex-sec-tickers-canary-v3-20260722",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/codex_sec_tickers_canary_v3_20260722",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/codex_sec_tickers_canary_v3_20260722"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T10:29:01Z"
+      }
+    },
+    {
+      "dataset_id": "synthesis_sec_ticker_count_canary_20260722",
+      "name": "Synthesis: Live SEC ticker synthesis canary",
+      "backend": "local_parquet_panel",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/synthesis/thread_outputs/4959207c6eb942fc/c9843c7553e4/output.parquet",
+      "description": "Materialised by synthesis execution job `c9843c7553e4`.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/synthesis/thread_outputs/4959207c6eb942fc/c9843c7553e4/output.parquet",
+      "domain": "procured",
+      "source_id": "derived_synthesis",
+      "source_system": "In-house synthesis thread outputs",
+      "source_access_mode": "derived_internal",
+      "lineage": {
+        "upstream_dataset_ids": [
+          "sec_company_tickers"
+        ],
+        "derived_via": "synthesis_execute",
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/derived/research-panels/synthesis_sec_ticker_count_canary_20260722",
+        "partition_id": "derived.research-panels"
+      },
+      "procurement": {
+        "source_task_id": "synthesis_sec_ticker_count_canary_20260722",
+        "promoted_at": "2026-07-22T12:22:57.859556+00:00",
+        "promoted_from_job": "c9843c7553e4",
+        "job_type": "synthesis_execute"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/derived/research-panels/synthesis_sec_ticker_count_canary_20260722",
+      "source_of_truth": "gdrive",
+      "partition_id": "derived.research-panels",
+      "collection": {
+        "partition_id": "derived.research-panels",
+        "wired_at": "2026-07-22T12:22:58Z"
+      }
+    },
+    {
+      "dataset_id": "synthesis_sec_ticker_count_canary_20260722b",
+      "name": "Synthesis: Live SEC ticker synthesis canary 2",
+      "backend": "local_parquet_panel",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/synthesis/thread_outputs/667ec033b96c4a23/73c9d35a79f6/output.parquet",
+      "description": "Materialised by synthesis execution job `73c9d35a79f6`.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/synthesis/thread_outputs/667ec033b96c4a23/73c9d35a79f6/output.parquet",
+      "domain": "procured",
+      "local_root": "data_lake/synthesis/thread_outputs/667ec033b96c4a23/73c9d35a79f6",
+      "local_file": "output.parquet",
+      "source_id": "derived_synthesis",
+      "source_system": "In-house synthesis thread outputs",
+      "source_access_mode": "derived_internal",
+      "lineage": {
+        "upstream_dataset_ids": [
+          "sec_company_tickers"
+        ],
+        "derived_via": "synthesis_execute",
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/derived/research-panels/synthesis_sec_ticker_count_canary_20260722b",
+        "partition_id": "derived.research-panels"
+      },
+      "procurement": {
+        "source_task_id": "synthesis_sec_ticker_count_canary_20260722b",
+        "promoted_at": "2026-07-22T12:28:42.196917+00:00",
+        "promoted_from_job": "73c9d35a79f6",
+        "job_type": "synthesis_execute"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/derived/research-panels/synthesis_sec_ticker_count_canary_20260722b",
+      "source_of_truth": "gdrive",
+      "partition_id": "derived.research-panels",
+      "collection": {
+        "partition_id": "derived.research-panels",
+        "wired_at": "2026-07-22T12:28:42Z"
+      }
+    },
+    {
+      "dataset_id": "synthesis_agent_canary_20260722_204056",
+      "name": "Synthesis: Agent canary 20260722_204056",
+      "backend": "local_parquet_panel",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/synthesis/thread_outputs/d8a7795d1d464034/e4012e686d6d/output.parquet",
+      "description": "Materialised by synthesis execution job `e4012e686d6d`.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/synthesis/thread_outputs/d8a7795d1d464034/e4012e686d6d/output.parquet",
+      "domain": "procured",
+      "local_root": "data_lake/synthesis/thread_outputs/d8a7795d1d464034/e4012e686d6d",
+      "local_file": "output.parquet",
+      "source_id": "derived_synthesis",
+      "source_system": "In-house synthesis thread outputs",
+      "source_access_mode": "derived_internal",
+      "lineage": {
+        "upstream_dataset_ids": [
+          "sec_company_tickers"
+        ],
+        "derived_via": "synthesis_execute",
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/derived/research-panels/synthesis_agent_canary_20260722_204056",
+        "partition_id": "derived.research-panels"
+      },
+      "procurement": {
+        "source_task_id": "synthesis_agent_canary_20260722_204056",
+        "promoted_at": "2026-07-22T12:41:58.935449+00:00",
+        "promoted_from_job": "e4012e686d6d",
+        "job_type": "synthesis_execute"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/derived/research-panels/synthesis_agent_canary_20260722_204056",
+      "source_of_truth": "gdrive",
+      "partition_id": "derived.research-panels",
+      "collection": {
+        "partition_id": "derived.research-panels",
+        "wired_at": "2026-07-22T12:41:59Z"
+      }
+    },
+    {
+      "dataset_id": "sec_company_tickers_canary_20260722_v2",
+      "name": "Windows HTTP procurement canary v2",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/sec_company_tickers_canary_20260722_v2",
+      "description": "Procured via http_manifest job `canary.windows.http.20260722.v2` from sec_edgar.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/sec_company_tickers_canary_20260722_v2",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "sec_company_tickers_canary_20260722_v2",
+        "promoted_at": "2026-07-22T16:27:45.025511+00:00",
+        "promoted_from_job": "canary.windows.http.20260722.v2",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_canary_20260722_v2",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_canary_20260722_v2"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T16:27:45Z"
+      }
+    },
+    {
+      "dataset_id": "sec_company_tickers_mcp_canary_20260722",
+      "name": "sec_company_tickers_mcp_canary_20260722",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "instant",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/sec_company_tickers_mcp_canary_20260722/company_tickers.json",
+      "description": "Procured via http_manifest job `0cd2d8d3805c` from https://www.sec.gov/files/company_tickers.json.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/sec_company_tickers_mcp_canary_20260722/company_tickers.json",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "sec_company_tickers_mcp_canary_20260722",
+        "promoted_at": "2026-07-22T16:42:54.249589+00:00",
+        "promoted_from_job": "0cd2d8d3805c",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_mcp_canary_20260722",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_mcp_canary_20260722"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T16:42:54Z"
+      }
+    },
+    {
+      "dataset_id": "sec_company_tickers_mcp_canary_v3_20260722",
+      "name": "sec_company_tickers_mcp_canary_v3_20260722",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/sec_company_tickers_mcp_canary_v3_20260722",
+      "description": "Procured via http_manifest job `341cb4b27a44` from https://www.sec.gov/files/company_tickers.json.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/sec_company_tickers_mcp_canary_v3_20260722",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "sec_company_tickers_mcp_canary_v3_20260722",
+        "promoted_at": "2026-07-22T16:55:44.565352+00:00",
+        "promoted_from_job": "341cb4b27a44",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_mcp_canary_v3_20260722",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_mcp_canary_v3_20260722"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T16:55:44Z"
+      }
+    },
+    {
+      "dataset_id": "sec_company_tickers_scheduled_canary_20260722",
+      "name": "Scheduled Windows SEC canary 20260722",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/sec_company_tickers_scheduled_canary_20260722",
+      "description": "Procured via http_manifest job `b9b915da89c9` from https://www.sec.gov/files/company_tickers.json.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/sec_company_tickers_scheduled_canary_20260722",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "sec_company_tickers_scheduled_canary_20260722",
+        "promoted_at": "2026-07-22T16:59:01.892575+00:00",
+        "promoted_from_job": "b9b915da89c9",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_scheduled_canary_20260722",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_scheduled_canary_20260722"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T16:59:02Z"
+      }
+    },
+    {
+      "dataset_id": "sec_company_tickers_land_land.http.20260722192011",
+      "name": "Landing prove Windows HTTP",
+      "backend": "local_json_file",
+      "access_shape": "local_file",
+      "analysis_readiness": "metadata_search",
+      "grain": "procured_snapshot",
+      "local_path": "data_lake/procured/sec_company_tickers_land_land.http.20260722192011",
+      "description": "Procured via http_manifest job `155749fd9218` from sec_edgar.",
+      "capabilities": [
+        "limit",
+        "export_json"
+      ],
+      "recommended_use": "Inspect files under data_lake/procured/sec_company_tickers_land_land.http.20260722192011",
+      "domain": "procured",
+      "procurement": {
+        "source_task_id": "sec_company_tickers_land_land.http.20260722192011",
+        "promoted_at": "2026-07-22T19:20:48.165461+00:00",
+        "promoted_from_job": "155749fd9218",
+        "job_type": "collection_queue"
+      },
+      "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_land_land.http.20260722192011",
+      "source_of_truth": "gdrive",
+      "lineage": {
+        "canonical_remote": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/acquired/procured/sec_company_tickers_land_land.http.20260722192011"
+      },
+      "partition_id": "acquired.procured",
+      "collection": {
+        "partition_id": "acquired.procured",
+        "wired_at": "2026-07-22T19:20:48Z"
       }
     }
   ],

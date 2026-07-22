@@ -83,7 +83,9 @@ def build_registry_hydrate_plan(repo_root: Path, spec: dict[str, Any]) -> dict[s
         "scope": "full",
         "remote_path": remote,
         "local_path": local_rel.rstrip("*").rstrip("/") or local_rel,
-        "local_abs": str(local_abs.parent if local_abs.suffix else local_abs),
+        # A glob is a read pattern, never a directory name. Hydrate into its
+        # parent so rclone does not create a literal `*` directory.
+        "local_abs": str(local_abs.parent if "*" in local_rel else local_abs),
         "verify": True,
         "launchable": True,
         "timeout_seconds": 1200,

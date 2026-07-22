@@ -130,6 +130,69 @@ class ReliabilityPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "conflicting registration proof"):
             store.register(run["run_id"], **{**proof, "manifest_id": "manifest-other"})
 
+    def test_verified_refresh_replaces_same_dataset_pointer(self) -> None:
+        store = InteropStore()
+        self.addCleanup(store.close)
+        store.upsert_worker("windows-01", capabilities=["http", "archive"])
+
+        first = store.submit(
+            job_id="refresh-1",
+            job_type="http_manifest",
+            required_capabilities=["http", "archive"],
+            outputs=["panel-a"],
+        )
+        first_claim = store.claim("windows-01")
+        assert first_claim is not None
+        store.record(
+            first["run_id"],
+            "completed",
+            worker_id="windows-01",
+            outputs=["panel-a"],
+            manifest_id="manifest-a",
+            archive_verified=True,
+            expected_attempt=first_claim.attempt,
+        )
+        store.register(
+            first["run_id"],
+            dataset_id="panel-a",
+            registry_id="registry:panel-a",
+            revision_id="refresh-1",
+            manifest_id="manifest-a",
+            vault_path="gdrive:collection/panel-a",
+            archive_verified=True,
+        )
+
+        second = store.submit(
+            job_id="refresh-2",
+            job_type="http_manifest",
+            required_capabilities=["http", "archive"],
+            outputs=["panel-a"],
+        )
+        second_claim = store.claim("windows-01")
+        assert second_claim is not None
+        store.record(
+            second["run_id"],
+            "completed",
+            worker_id="windows-01",
+            outputs=["panel-a"],
+            manifest_id="manifest-b",
+            archive_verified=True,
+            expected_attempt=second_claim.attempt,
+        )
+        refreshed = store.register(
+            second["run_id"],
+            dataset_id="panel-a",
+            registry_id="registry:panel-a",
+            revision_id="refresh-2",
+            manifest_id="manifest-b",
+            vault_path="gdrive:collection/panel-a",
+            archive_verified=True,
+        )
+
+        self.assertEqual(refreshed["revision_id"], "refresh-2")
+        self.assertEqual(refreshed["manifest_id"], "manifest-b")
+        self.assertEqual(store.snapshot(second["run_id"])["status"], "registered")
+
 
 if __name__ == "__main__":
     unittest.main()

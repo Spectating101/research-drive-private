@@ -434,6 +434,12 @@ class ClusterRuntimeAdapter:
             return completed
         if manifest_id and str(evidence["manifest_id"]) != str(manifest_id):
             raise ValueError("registration manifest_id does not match completed run proof")
+        readiness = str(evidence.get("readiness") or "registered").strip().lower().replace("-", "_")
+        if readiness not in {"registered", "query_ready"}:
+            # Catalog readiness such as metadata_search is not a runtime
+            # registration state. Preserve the asset as registered until the
+            # query engine proves a stronger readiness claim.
+            readiness = "registered"
         self.store.register(
             run_id,
             dataset_id=str(evidence["dataset_id"]),
@@ -441,7 +447,8 @@ class ClusterRuntimeAdapter:
             manifest_id=str(evidence["manifest_id"]),
             vault_path=str(evidence["vault_path"]),
             archive_verified=True,
-            readiness=str(evidence.get("readiness") or "registered"),
+            revision_id=str(evidence.get("revision_id") or "") or None,
+            readiness=readiness,
             title=evidence.get("title"),
             verification_state=str(evidence.get("verification_state") or "not_checked"),
             verification_summary=evidence.get("verification_summary"),
