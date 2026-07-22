@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.research_query_engine.engine import ResearchQueryEngine
+from scripts.yzu_cluster.acquisitions import repo_relpath
 
 
 class SearchService:
@@ -38,6 +39,7 @@ class SearchService:
     def reload_registry(self) -> None:
         self.engine.registry = __import__("json").loads(self.registry_path.read_text(encoding="utf-8"))
         self.engine.datasets = {d["dataset_id"]: d for d in self.engine.registry.get("datasets", [])}
+        self.engine._reconcile_local_panel_readiness()
         self._registry_mtime = self._registry_mtime_on_disk()
 
     def _reload_if_unknown(self, dataset_id: str) -> None:
@@ -211,7 +213,7 @@ class SearchService:
             else:
                 buckets["other"].append(item)
         return {
-            "registry": str(self.registry_path.relative_to(self.repo_root)),
+            "registry": repo_relpath(self.registry_path, self.repo_root),
             "total_datasets": sum(len(rows) for rows in buckets.values()),
             "buckets": buckets,
             "partitions": self._partition_summary(),
