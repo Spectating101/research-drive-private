@@ -21,18 +21,18 @@ _CACHE: dict[str, Any] = {"ts": 0.0, "payload": {}}
 _CACHE_TTL = 300.0
 
 
-def _probe_sharpe_repo(target: str, sharpe_repo: str, key: str, timeout: int = 12) -> bool:
-    """Return True for a full venv checkout or a thin pull-worker layout."""
+def _probe_sharpe_repo(target: str, sharpe_repo: str, key: str, timeout: int = 12) -> str:
+    """Return FULL for queue execution, THIN for HTTP pull-workers, or missing."""
     ps = (
         "powershell.exe -NoProfile -Command "
-        f"\"if (Test-Path '{sharpe_repo}\\.venv\\Scripts\\python.exe') {{ 'OK' }} "
+        f"\"if (Test-Path '{sharpe_repo}\\.venv\\Scripts\\python.exe') {{ 'FULL' }} "
         f"elseif ((Test-Path '{sharpe_repo}\\drive\\scripts\\yzu_cluster\\remote_worker.py') "
-        f"-and (Get-Command py -ErrorAction SilentlyContinue)) {{ 'OK' }} "
+        f"-and (Get-Command py -ErrorAction SilentlyContinue)) {{ 'THIN' }} "
         f"elseif (Test-Path '{sharpe_repo}') {{ 'PARTIAL' }} else {{ 'MISSING' }}\""
     )
     run = ssh_run(target, ps, key=key, timeout=timeout)
     line = (run.stdout or "").strip().splitlines()[-1].strip() if run.stdout else ""
-    return run.returncode == 0 and line == "OK"
+    return line if run.returncode == 0 else "ERROR"
 
 
 def _probe_scraper_host(target: str, sharpe_repo: str, key: str, timeout: int = 20) -> str:
@@ -71,6 +71,7 @@ def probe_windows_lab(
     sharpe_repo = paths["sharpe_repo"]
     key = paths["key"]
     provisioned: list[str] = []
+    thin_workers: list[str] = []
     partial: list[str] = []
     reachable_hosts: list[str] = []
     scraper_hosts: list[str] = []
@@ -85,8 +86,11 @@ def probe_windows_lab(
                 errors.append(f"{host}: ssh unreachable")
                 continue
             reachable_hosts.append(host)
-            if _probe_sharpe_repo(target, sharpe_repo, key):
+            repo_state = _probe_sharpe_repo(target, sharpe_repo, key)
+            if repo_state == "FULL":
                 provisioned.append(host)
+            elif repo_state == "THIN":
+                thin_workers.append(host)
             else:
                 ps = (
                     "powershell.exe -NoProfile -Command "
@@ -112,6 +116,7 @@ def probe_windows_lab(
         "reachable_workers": len(reachable_hosts),
         "reachable_hosts": reachable_hosts[:8],
         "provisioned_workers": len(provisioned),
+        "thin_workers": len(thin_workers),
         "partial_workers": len(partial),
         "provisioned_hosts": provisioned[:8],
         "scraper_ready_hosts": scraper_hosts[:8],
@@ -121,7 +126,7 @@ def probe_windows_lab(
         "http_shard_ready": len(reachable_hosts) > 0,
         "reason": (
             f"{len(reachable_hosts)}/{len(workers)} joined hosts SSH-reachable; "
-            f"{len(provisioned)} provisioned at {sharpe_repo}"
+            f"{len(provisioned)} full queue workers and {len(thin_workers)} thin HTTP workers at {sharpe_repo}"
             if workers
             else "no joined windows_lab workers"
         ),

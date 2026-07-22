@@ -545,13 +545,30 @@ class YzuExecutor:
             prefer_local = prefer_local_collect(self.cfg, agent_cfg=self.agent_cfg)
         if prefer_local:
             result = collect_local_manifest(self.repo_root, job_id, plan, jobs_root=self.jobs_root)
+            if not force_local and cluster_only(self.cfg):
+                from scripts.yzu_cluster.windows_lab_readiness import probe_windows_lab
+
+                if not probe_windows_lab(self.cfg, self.agent_cfg, force=True).get("http_shard_ready"):
+                    result["collect_mode"] = "local_fallback"
         else:
             try:
                 result = self._http_manifest_remote(job_id, plan)
             except Exception as exc:
-                if disable_local or not self.cfg.get("operations", {}).get("http_remote_fallback", True):
+                # The personal controller is a disaster-recovery path, not a
+                # second attempt after a Windows collection failure. Re-probe
+                # the pool so source/provider errors stay attached to the
+                # Windows attempt instead of silently moving execution local.
+                from scripts.yzu_cluster.windows_lab_readiness import probe_windows_lab
+
+                ready = probe_windows_lab(self.cfg, self.agent_cfg, force=True)
+                windows_unavailable = not bool(ready.get("http_shard_ready"))
+                if (
+                    disable_local
+                    or not self.cfg.get("operations", {}).get("http_remote_fallback", True)
+                    or not windows_unavailable
+                ):
                     raise
-                self._event(job_id, "warn", f"remote http_manifest failed ({exc}); collecting locally")
+                self._event(job_id, "warn", f"windows_lab unavailable ({exc}); collecting on controller fallback")
                 result = collect_local_manifest(self.repo_root, job_id, plan, jobs_root=self.jobs_root)
                 result["collect_mode"] = "local_fallback"
         return materialize_job(self.repo_root, job_id, plan, result, cfg=self.cfg)
