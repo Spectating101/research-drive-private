@@ -100,7 +100,9 @@ def test_controller_yields_http_run_to_fresh_windows_worker(tmp_path: Path) -> N
 
     assert orchestrator.worker_tick() is None
     assert orchestrator.runtime.snapshot(job["id"])["status"] == "queued"
-    assert control.claim({"worker_id": "windows-01"}) is not None
+    claim = control.claim({"worker_id": "windows-01"})
+    assert claim is not None
+    assert claim["plan"]["items"] == [{"url": "https://example.test/data.csv"}]
 
 
 def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_path: Path) -> None:
