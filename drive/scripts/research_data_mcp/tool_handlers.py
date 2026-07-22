@@ -481,10 +481,17 @@ class ResearchToolHandlers:
         local_path: str,
         remote_suffix: str = "",
         verify: bool = True,
-        auto_approve: bool = True,
+        auto_approve: bool = False,
     ) -> dict[str, Any]:
-        """Stage a local data_lake path to GDrive via rclone."""
-        return self.gateway.archive_to_gdrive(local_path, remote_suffix=remote_suffix, verify=verify, auto_approve=auto_approve)
+        """Prepare a GDrive archive job; researcher approval remains outside MCP."""
+        if auto_approve:
+            raise PermissionError("Archive approval requires researcher confirmation in the desk UI")
+        return self.gateway.archive_to_gdrive(
+            local_path,
+            remote_suffix=remote_suffix,
+            verify=verify,
+            auto_approve=False,
+        )
 
     def procurement_probe_public_source(self, url: str, name: str = "") -> dict[str, Any]:
         """Inspect a public source and save a connector candidate."""
@@ -722,13 +729,13 @@ class ResearchToolHandlers:
         self,
         dataset_id: str,
         split: str = "train",
-        auto_execute: bool = True,
+        auto_execute: bool = False,
     ) -> dict[str, Any]:
-        """Collect HF dataset → registry + GDrive vault (same flywheel as DataCite)."""
+        """Prepare an HF collection job; approval and execution remain in the desk UI."""
         return self.gateway.collect_huggingface_dataset(
             dataset_id,
             split=split,
-            auto_execute=auto_execute,
+            auto_execute=False,
         )
 
     def datacite_scope(self, created: str) -> dict[str, Any]:
