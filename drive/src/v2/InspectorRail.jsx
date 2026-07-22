@@ -12,6 +12,7 @@ import {
 } from "@/v2/RailPanels";
 import { activeObjectSelectionHint } from "@/v2/activeObject";
 import { displayName } from "@/v2/datasetMeta";
+import { SynthesisThreadRailPanel } from "@/v2/SynthesisThreadRailPanel";
 
 /** Matches mobile sheet breakpoint in v2.css — collapsed class is mobile-only. */
 const MOBILE_RAIL_MQ = "(max-width: 720px)";
@@ -75,6 +76,7 @@ function activeHintBelongsToTab(mainTab, object) {
   if (mainTab === "resources") return object.kind === "resource_row";
   if (mainTab === "home") return ["dataset", "home_attention"].includes(object.kind);
   if (mainTab === "cluster") return object.kind === "comparison";
+  if (mainTab === "synthesis") return object.kind === "synthesis_thread";
   return false;
 }
 
@@ -118,6 +120,7 @@ export function InspectorRail({
   onSubmitLibraryUrl,
   onSubmitLibraryProcure,
   askPanel,
+  resourceMode = "spending",
 }) {
   let detailPanel;
   if (mainTab === "cluster") {
@@ -159,11 +162,20 @@ export function InspectorRail({
       <ResourcesRailPanel
         row={resourceRow}
         rollup={resourcesRollup}
+        resourceMode={resourceMode}
         onApproveJob={onApproveJob}
         onRefresh={onRefresh}
         onViewActivity={onViewActivity}
         onAskAbout={onAskAbout}
         onOpenDiscoverAwaiting={onOpenDiscoverAwaiting}
+      />
+    );
+  } else if (mainTab === "synthesis" && activeObject?.kind === "synthesis_thread") {
+    detailPanel = (
+      <SynthesisThreadRailPanel
+        thread={activeObject.thread}
+        onAskAbout={onAskAbout}
+        onOpenInLibrary={onOpenInLibrary}
       />
     );
   } else if (mainTab === "synthesis") {
@@ -223,12 +235,23 @@ export function InspectorRail({
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
   const isMobileRail = useMobileRailViewport();
   const railCollapsed = isMobileRail && !mobileRailOpen;
+  const composerLabel = mainTab === "synthesis" ? "Composer" : "Ask";
+  const hideMobileActivityRail =
+    isMobileRail &&
+    mainTab === "resources" &&
+    resourceMode === "activity" &&
+    !resourceRow &&
+    !mobileRailOpen;
 
   return (
     <aside
-      className={`yzu-inspector rd-v2-rail${railCollapsed ? " rd-v2-rail-collapsed" : ""}`}
+      className={`yzu-inspector rd-v2-rail${railCollapsed ? " rd-v2-rail-collapsed" : ""}${
+        hideMobileActivityRail ? " rd-v2-rail-activity-idle" : ""
+      }`}
       aria-label="Inspector"
       data-rail-collapsed={railCollapsed ? "true" : "false"}
+      data-activity-idle={hideMobileActivityRail ? "true" : "false"}
+      hidden={hideMobileActivityRail || undefined}
     >
       <div className="yzu-inspector-stack rd-v2-rail-stack">
         <div className="rd-v2-rail-chrome">
@@ -238,7 +261,7 @@ export function InspectorRail({
             aria-expanded={mobileRailOpen}
             onClick={() => setMobileRailOpen((open) => !open)}
           >
-            {mobileRailOpen ? "Hide panel" : "Show Detail · Ask"}
+            {mobileRailOpen ? "Hide panel" : `Show Detail · ${composerLabel}`}
           </button>
           <div className="rd-v2-rail-toggle" role="tablist" aria-label="Inspector mode">
             <button
@@ -256,8 +279,9 @@ export function InspectorRail({
               aria-selected={railTab === "ask"}
               className={railTab === "ask" ? "on" : ""}
               onClick={() => onRailTabChange("ask")}
+              data-testid={mainTab === "synthesis" ? "synthesis-composer-tab" : undefined}
             >
-              Ask
+              {composerLabel}
             </button>
           </div>
           <p className="rd-v2-rail-selection" title={selectionHint}>

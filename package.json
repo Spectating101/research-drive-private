@@ -1,0 +1,48 @@
+{
+  "name": "yzu-cluster",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "researchDriveRelease": "rc2",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "test:candidate-key": "node --test drive/src/v2/candidateKey.test.js drive/src/v2/discoverTaxonomy.test.js drive/src/v2/discoverProbeEvidence.test.js drive/src/v2/discoverEvaluation.test.js drive/src/v2/discoverLifecycle.test.js drive/src/v2/discoverComposition.test.js drive/src/v2/discoverSufficiency.test.js drive/src/v2/datasetMeta.test.js drive/src/v2/phase1Truth.test.js drive/src/v2/homeIteration10.test.js drive/src/v2/historyLifecycleLabel.test.js drive/src/v2/liveIdentity.test.js drive/tests/discoverAdapters.test.mjs",
+    "test:runtime-contract": "node --test drive/src/v2/executionLifecycle.test.js drive/src/v2/assetAuthority.test.js drive/src/v2/workerRouting.test.js drive/src/v2/connectorContract.test.js drive/src/v2/interoperabilityContract.test.js drive/src/v2/transportContract.test.js",
+    "test:v2-parity": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js e2e/interaction-guidance.spec.js e2e/interaction-feedback.spec.js",
+    "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js e2e/interaction-guidance.spec.js e2e/interaction-feedback.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js e2e/v2-home.spec.js e2e/v2-library.spec.js",
+    "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js e2e/interaction-guidance.spec.js e2e/interaction-feedback.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js",
+    "test:beta-workflow": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/beta-workflow.spec.js",
+    "test:professor-demo": "mkdir -p .tmp-pw docs/status/generated && TMPDIR=$PWD/.tmp-pw playwright test e2e/professor-demo.spec.js",
+    "desk:integration": "node scripts/desk_verify_live.mjs",
+    "desk:capture": "bash scripts/capture_desk_screenshots.sh",
+    "desk:capture:live": "YZU_REQUIRE_LIVE=1 bash scripts/capture_desk_screenshots.sh",
+    "release:verify": "node scripts/verify_rc2_release.mjs",
+    "release:test": "npm run release:verify && npm run test:candidate-key && npm run test:runtime-contract && python -m unittest discover -s tests -p \"test_yzu_interop_*.py\" -v && mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/rc2-release-journey.spec.js",
+    "release:package": "bash scripts/package_rc2_release.sh",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:ui-contract": "playwright test e2e/ui-contract.spec.js e2e/release-visual-convergence.spec.js e2e/interaction-guidance.spec.js e2e/interaction-feedback.spec.js"
+  },
+  "dependencies": {
+    "@radix-ui/react-separator": "^1.1.10",
+    "@radix-ui/react-slot": "^1.3.0",
+    "@radix-ui/react-tabs": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.10",
+    "@tailwindcss/vite": "^4.3.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.21.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.1",
+    "tailwindcss-animate": "^1.0.7",
+    "vite": "^6.3.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

@@ -8,7 +8,22 @@ import {
 import { mergeJobsIntoActivity } from "@/v2/jobActivityRows";
 import { jobStatusLabel } from "@/v2/askArtifacts";
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
-import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
+import { Chip, PageShell } from "@/v2/ui";
+
+const ACTIVITY_PRIMARY = [
+  ["all", "All activity"],
+  ["review", "Needs review"],
+  ["jobs", "Runs"],
+];
+
+const ACTIVITY_SECONDARY = [
+  ["ask", "Ask"],
+  ["discovery", "Discovery"],
+  ["query", "Query"],
+  ["metered", "Metered"],
+];
+
+const ACTIVITY_SECONDARY_LABEL = Object.fromEntries(ACTIVITY_SECONDARY);
 
 const PLACEHOLDER_ROLLUP = {
   hero: {
@@ -186,20 +201,68 @@ function ResourcesStatusStrip({ rollup }) {
   );
 }
 
-function ActivityUsageSummary({ rollup }) {
+function activityUsageParts(rollup) {
   const period = rollup?.spending?.period?.totals || {};
   const today = rollup?.spending?.today || {};
-  const cells = [
-    ["Remote tables", fmtGiBValue(period.bq_gib_billed), `${fmtGiBValue(today.bq_gib_billed)} today`],
-    ["Web search", fmtCount(period.tavily_calls, "call"), `${today.tavily_calls ?? 0} today`],
-    ["Ask usage", fmtCount(period.composer_turns, "turn"), `${today.composer_turns ?? 0} today`],
-    ["Source probes", fmtCount(period.probe_calls, "probe"), `${today.probe_calls ?? 0} today`],
-  ];
+  const parts = [];
+  if (Number(period.bq_gib_billed) > 0) {
+    parts.push(`Remote tables ${fmtGiBValue(period.bq_gib_billed)}`);
+  }
+  if (Number(period.tavily_calls) > 0) {
+    parts.push(`Web ${fmtCount(period.tavily_calls, "call")}`);
+  }
+  if (Number(period.composer_turns) > 0) {
+    parts.push(`Ask ${fmtCount(period.composer_turns, "turn")}`);
+  }
+  if (Number(period.probe_calls) > 0) {
+    parts.push(`Probes ${fmtCount(period.probe_calls, "probe")}`);
+  }
+  const todayBits = [];
+  if (Number(today.bq_gib_billed) > 0) todayBits.push(fmtGiBValue(today.bq_gib_billed));
+  if (Number(today.tavily_calls) > 0) todayBits.push(`${today.tavily_calls} web`);
+  if (Number(today.composer_turns) > 0) todayBits.push(`${today.composer_turns} ask`);
+  if (Number(today.probe_calls) > 0) todayBits.push(`${today.probe_calls} probe`);
+  return { parts, todayBits };
+}
+
+function ActivityUsageContext({ rollup }) {
+  const { parts, todayBits } = activityUsageParts(rollup);
+  if (!parts.length) return null;
   return (
-    <section className="rd-v2-res-status-strip rd-v2-res-status-strip-activity" aria-label="Usage report">
-      {cells.map(([label, value, sub]) => (
-        <StatusStripCell key={label} label={label} value={value} sub={sub} />
-      ))}
+    <p className="rd-v2-res-activity-usage" aria-label="Usage report">
+      <span className="rd-v2-res-activity-usage-label">Period usage</span>
+      <span className="rd-v2-res-activity-usage-parts">{parts.join(" · ")}</span>
+      {todayBits.length ? (
+        <span className="rd-v2-res-activity-usage-today">Today {todayBits.join(" · ")}</span>
+      ) : null}
+    </p>
+  );
+}
+
+function ActivityReviewStrip({ rows, selectedKey, onSelectRow, selectIssue }) {
+  if (!rows.length) return null;
+  return (
+    <section className="rd-v2-res-activity-review" aria-label="Needs review" data-testid="resources-activity-review">
+      <div className="rd-v2-res-activity-review-head">
+        <h2>Review</h2>
+        <span>{rows.length}</span>
+      </div>
+      <div className="rd-v2-res-activity-review-list">
+        {rows.map((r) => {
+          const { key, issue } = r;
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`rd-v2-res-activity-review-row${selectedKey === key ? " on" : ""}`}
+              onClick={() => (issue ? selectIssue?.(issue, key) : onSelectRow?.(r))}
+            >
+              <strong>{r.label}</strong>
+              <em>{r.metric}</em>
+            </button>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -219,7 +282,7 @@ function ActivityLog({ rows, selectedKey, onSelectRow }) {
         <section key={section.key} className="rd-v2-res-log-section">
           <div className="rd-v2-res-log-day">
             <span>{section.label}</span>
-            <small>{section.count} event{section.count === 1 ? "" : "s"}</small>
+            <small>{section.count}</small>
           </div>
           <div className="rd-v2-res-activity-table">
             {section.items.map((item) => {
@@ -264,23 +327,74 @@ function ActivityLog({ rows, selectedKey, onSelectRow }) {
   );
 }
 
-function ActivityFilterBar({ value, onChange }) {
-  const filters = [
-    ["all", "All"],
-    ["review", "Review"],
-    ["jobs", "Jobs"],
-    ["ask", "Ask"],
-    ["discovery", "Discovery"],
-    ["query", "Query"],
-    ["metered", "Metered"],
-  ];
+function ActivityViewControls({ value, onChange }) {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const secondaryActive = Boolean(value && ACTIVITY_SECONDARY_LABEL[value]);
+  const secondaryLabel = secondaryActive ? ACTIVITY_SECONDARY_LABEL[value] : null;
+
   return (
-    <div className="rd-v2-res-filterbar">
-      {filters.map(([id, label]) => (
-        <Chip key={id} active={value === id} onClick={() => onChange(id)}>
-          {label}
-        </Chip>
-      ))}
+    <div className="rd-v2-res-activity-controls" data-testid="resources-activity-controls">
+      <div className="rd-v2-res-activity-control-row">
+        <div className="rd-v2-res-activity-segment" role="group" aria-label="Activity view">
+          {ACTIVITY_PRIMARY.map(([id, label]) => (
+            <Chip
+              key={id}
+              active={!secondaryActive && value === id}
+              onClick={() => {
+                setFilterOpen(false);
+                onChange(id);
+              }}
+            >
+              {label}
+            </Chip>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={`rd-v2-chip clickable rd-v2-res-activity-filter-trigger${secondaryActive || filterOpen ? " on" : ""}`}
+          aria-expanded={filterOpen}
+          aria-controls="resources-activity-filters"
+          data-testid="resources-activity-filter"
+          onClick={() => setFilterOpen((open) => !open)}
+        >
+          {secondaryActive ? `Filter · ${secondaryLabel}` : "Filter"}
+          <span aria-hidden="true">{filterOpen ? " ▴" : " ▾"}</span>
+        </button>
+      </div>
+      {filterOpen ? (
+        <div
+          id="resources-activity-filters"
+          className="rd-v2-res-activity-filter-disclosure"
+          role="group"
+          aria-label="Activity category filters"
+          data-testid="resources-activity-filters"
+        >
+          {ACTIVITY_SECONDARY.map(([id, label]) => (
+            <Chip
+              key={id}
+              active={value === id}
+              onClick={() => {
+                onChange(id);
+                setFilterOpen(false);
+              }}
+            >
+              {label}
+            </Chip>
+          ))}
+          {secondaryActive ? (
+            <button
+              type="button"
+              className="rd-v2-res-activity-filter-clear"
+              onClick={() => {
+                onChange("all");
+                setFilterOpen(false);
+              }}
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -735,18 +849,25 @@ export function ResourcesPage({
     [actionRows],
   );
   const inventorySections = useMemo(() => buildResourceInventorySections(panels), [panels]);
-  const showActivityAttention = reviewRows.length > 0 && !activityFilter;
+  const showActivityAttention =
+    reviewRows.length > 0 && !activityFilter && (activityKind === "all" || activityKind === "review");
 
-  const selectIssue = (issue) =>
+  const selectIssue = (issue, rowKey = null) => {
+    if (!issue?.key && !rowKey) {
+      onSelectRow?.(issue);
+      return;
+    }
     onSelectRow?.({
-      key: issue.key,
+      key: rowKey || issue.key,
       label: issue.label,
       metric: "Action required",
       kind: "active",
       section: issue.section,
       warn: true,
       ok: false,
+      issue,
     });
+  };
 
   const freshness =
     refreshedAt != null ? `${Math.max(0, Math.round((Date.now() - refreshedAt) / 1000))}s ago` : null;
@@ -762,6 +883,7 @@ export function ResourcesPage({
 
   return (
     <PageShell
+      className={`rd-v2-resources-page${mode === "activity" ? " rd-v2-resources-page--activity" : ""}`}
       title="Resources"
       lead="Storage, account limits, and procurement routes"
       toolbar={
@@ -815,36 +937,41 @@ export function ResourcesPage({
           </>
         )
       ) : (
-        <>
-          <ActivityFilterBar
-            value={activityFilter ? null : activityKind}
-            onChange={(next) => {
-              onClearActivityFilter?.();
-              setActivityKind(next);
-            }}
-          />
-          <ActivityUsageSummary rollup={viewRollup} />
-          {showActivityAttention ? (
-            <StatementSection title="Review queue">
-              {reviewRows.map((r) => {
-                const { key, issue, ...rowProps } = r;
-                return (
-                  <StatementRow
-                    key={key}
-                    {...rowProps}
-                    active={selectedKey === key}
-                    onClick={() => issue ? selectIssue(issue) : onSelectRow?.(r)}
-                  />
-                );
-              })}
-            </StatementSection>
+        <div className="rd-v2-res-activity-panel">
+          <ActivityUsageContext rollup={viewRollup} />
+          <div className="rd-v2-res-activity-feed-head">
+            <div className="rd-v2-res-activity-feed-label">
+              <h2>Activity</h2>
+            </div>
+            <ActivityViewControls
+              value={activityFilter ? null : activityKind}
+              onChange={(next) => {
+                onClearActivityFilter?.();
+                setActivityKind(next);
+              }}
+            />
+          </div>
+          {showActivityAttention && showActivityFeed ? (
+            <ActivityReviewStrip
+              rows={reviewRows}
+              selectedKey={selectedKey}
+              onSelectRow={onSelectRow}
+              selectIssue={selectIssue}
+            />
           ) : null}
           {showActivityFeed ? (
             <ActivityLog rows={activity} selectedKey={selectedKey} onSelectRow={onSelectRow} />
-          ) : reviewRows.length ? null : (
+          ) : reviewRows.length ? (
+            <ActivityReviewStrip
+              rows={reviewRows}
+              selectedKey={selectedKey}
+              onSelectRow={onSelectRow}
+              selectIssue={selectIssue}
+            />
+          ) : (
             <p className="rd-v2-res-idle">No review items right now.</p>
           )}
-        </>
+        </div>
       )}
     </PageShell>
   );

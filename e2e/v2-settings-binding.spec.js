@@ -58,10 +58,13 @@ test.describe("Settings via account menu / deep link", () => {
 
     await page.getByTestId("header-account-menu").click();
     await page.getByTestId("account-menu-workspace").click();
+    await expect(page.getByTestId("account-dialog-overlay")).toHaveAttribute("data-mode", "preferences");
     await expect(page.getByTestId("workspace-preferences")).toBeVisible();
-    await expect(page.getByTestId("workspace-prefs-compact")).toBeVisible();
-    await page.getByTestId("workspace-default-tab").selectOption("library");
-    await page.getByTestId("workspace-on-select").selectOption("ask");
+    await expect(page.getByTestId("settings-group-workspace")).toBeVisible();
+    await expect(page.getByTestId("settings-group-context")).toHaveCount(0);
+    await expect(page.getByTestId("settings-email-input")).toHaveCount(0);
+    await page.getByTestId("settings-default-tab").selectOption("library");
+    await page.getByTestId("settings-on-select").selectOption("ask");
 
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("rd_v2_settings") || "{}"));
     expect(stored.defaultTab).toBe("library");

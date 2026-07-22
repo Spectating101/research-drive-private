@@ -30,8 +30,9 @@ export const SETTINGS_GROUPS = [
 
 /**
  * Settings — compact personal workspace controls.
- * Research context → Workspace → Advanced (collapsed).
- * No operational health rows; Research context overlay owns understanding.
+ * Embedded Workspace preferences: default tab, selection behavior, Advanced only.
+ * Faculty-email binding lives in Research context (not duplicated here).
+ * Non-embedded keeps Research context → Workspace → Advanced for legacy page use.
  */
 export function SettingsPage({
   profile = null,
@@ -44,8 +45,25 @@ export function SettingsPage({
   onClearContext,
   embedded = false,
 }) {
-  const groupId = activeGroup || selectedGroup || "context";
+  const propGroupId = activeGroup || selectedGroup || (embedded ? "workspace" : "context");
+  // Embedded (account dialog) keeps group focus local — never drives the app inspector/Detail rail.
+  const [embeddedGroupId, setEmbeddedGroupId] = useState(
+    propGroupId === "context" && embedded ? "workspace" : propGroupId,
+  );
+  useEffect(() => {
+    if (!embedded) return;
+    setEmbeddedGroupId(propGroupId === "context" ? "workspace" : propGroupId);
+  }, [embedded, propGroupId]);
+  const groupId = embedded
+    ? embeddedGroupId === "context"
+      ? "workspace"
+      : embeddedGroupId
+    : propGroupId;
   const selectGroup = (id) => {
+    if (embedded) {
+      setEmbeddedGroupId(id);
+      return;
+    }
     onSelectGroup?.(id);
     onActiveGroupChange?.(id);
   };
@@ -180,7 +198,15 @@ export function SettingsPage({
       title={embedded ? null : "Settings"}
       lead={embedded ? null : "Browser-local research context and workspace preferences"}
     >
-      <div className="rd-v2-settings-panel" data-testid="settings-centre">
+      <div
+        className={`rd-v2-settings-panel${embedded ? " is-dialog-layout" : ""}`}
+        data-testid="settings-centre"
+      >
+        <div
+          className={embedded ? "rd-v2-settings-dialog-stack" : undefined}
+          data-testid={embedded ? "settings-dialog-columns" : undefined}
+        >
+        {!embedded ? (
         <section
           className={`rd-v2-settings-block${groupId === "context" ? " is-active-group" : ""}`}
           data-testid="settings-group-context"
@@ -190,7 +216,7 @@ export function SettingsPage({
             <h2>Research context</h2>
           </header>
           <p className="rd-v2-settings-scope" data-testid="settings-context-scope">
-            This browser only — not sign-in or access control.
+            This browser only — not sign-in or access control. Prefer binding from the Research context dialog.
           </p>
 
           {boundName ? (
@@ -223,8 +249,7 @@ export function SettingsPage({
               data-testid="settings-email-input"
             />
             <p className="rd-v2-settings-hint" data-testid="settings-email-hint">
-              Contextual preference for this browser — used for Research context, Discover ranking, and Ask.
-              Not a sign-in. Binding happens here — not in the Research context overlay.
+              Contextual preference for this browser — used for Research context, Discover ranking, and Ask. Not a sign-in.
             </p>
             <div className="rd-v2-settings-actions">
               <button
@@ -250,17 +275,16 @@ export function SettingsPage({
 
           {bindStatus?.ok ? (
             <p className="rd-v2-settings-bind-ok" data-testid="settings-bind-status">
-              Context bound to {bindStatus.name} on this browser. Research context updates from this
-              selection; Discover ranking and Ask use it here only.
+              {`Context bound to ${bindStatus.name} on this browser. Research context updates from this selection; Discover ranking and Ask use it here only.`}
             </p>
           ) : null}
           {bindStatus && !bindStatus.ok ? (
             <p className="rd-v2-settings-bind-fail" data-testid="settings-bind-status">
-              No faculty profile resolved for {bindStatus.email}. The email is saved on this
-              browser; ranking stays on generic defaults until a known profile resolves.
+              {`No faculty profile resolved for ${bindStatus.email}. The email is saved on this browser; ranking stays on generic defaults until a known profile resolves.`}
             </p>
           ) : null}
         </section>
+        ) : null}
 
         <section
           className={`rd-v2-settings-block${groupId === "workspace" ? " is-active-group" : ""}`}
@@ -291,7 +315,9 @@ export function SettingsPage({
               ))}
             </select>
             <p className="rd-v2-settings-hint">
-              Chooses which page opens when you load Research Drive on this browser.
+              {embedded
+                ? "Which page opens on this browser."
+                : "Chooses which page opens when you load Research Drive on this browser."}
             </p>
           </div>
 
@@ -312,7 +338,9 @@ export function SettingsPage({
               <option value="ask">Open Ask</option>
             </select>
             <p className="rd-v2-settings-hint">
-              Chooses whether selecting evidence opens Detail or Ask on this browser.
+              {embedded
+                ? "Whether selecting evidence opens Detail or Ask."
+                : "Chooses whether selecting evidence opens Detail or Ask on this browser."}
             </p>
           </div>
         </section>
@@ -380,12 +408,16 @@ export function SettingsPage({
             </div>
           </div>
         </details>
+        </div>
       </div>
     </PageShell>
   );
 }
 
-/** DETAIL rail — quiet local values; Clear context only when it works. */
+/**
+ * DETAIL rail companion for Settings — page-level inspector only.
+ * Never mount inside the account dialog; embedded SettingsPage is modal body only.
+ */
 export function SettingsDetailPanel({
   settings: settingsProp = null,
   profile = null,

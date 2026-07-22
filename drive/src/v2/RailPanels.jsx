@@ -2,17 +2,25 @@ import { useRef, useState } from "react";
 import { discoverCandidateState } from "@/v2/browseMeta";
 import { browseTargetKey, discoverCandidateUrl } from "@/v2/discoverActions";
 import { discoverCollectPreflight } from "@/v2/discoverCollectPreflight";
+import {
+  PAGE_DETAIL_EMPTY,
+  buildDiscoverCandidateRailState,
+} from "@/v2/discoverRailPresentation";
 import { DiscoverComparePanel } from "@/v2/DiscoverComparePanel";
 import { DiscoverDestinationField } from "@/v2/DiscoverDestinationField";
 import { ProcurementDecisionCard } from "@/v2/ProcurementDecisionCard";
 import { displayName, formatMetaValue } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import {
+  RailActionFooter,
   RailDecisionSummary,
   RailEntityHeader,
+  RailEvidenceDetails,
+  RailFactSection,
   RailField,
   RailFieldGrid,
   RailFrame,
+  RailJudgment,
   RailStickyFooter,
 } from "@/v2/RailFrame";
 import { DetailPanel } from "@/v2/DetailPanel";
@@ -153,42 +161,22 @@ const RAIL_ACTION_LABELS = {
 
 const PAGE_RAIL_COPY = {
   home: {
-    title: "Research Drive",
-    desc: "Start from the lab vault, missing-data search, or resource safety checks.",
-    fields: [
-      ["Use this page", "See what needs attention now"],
-      ["Primary move", "Open Library or Discover"],
-      ["When blocked", "Check Resources for approvals, limits, or credentials"],
-    ],
+    title: PAGE_DETAIL_EMPTY.home,
   },
   library: {
-    title: "Library guide",
-    desc: "The lab’s working data vault: folders, registered datasets, query readiness, and procurement memory.",
-    fields: [
-      ["Use this page", "Find data the lab already has"],
-      ["Primary move", "Select a dataset or branch"],
-      ["When missing", "Add URL / DOI or procure missing data"],
-      ["Trust cue", "Rows should show readiness, source, and destination"],
-    ],
+    title: PAGE_DETAIL_EMPTY.library,
   },
   synthesis: {
-    title: "Synthesis workspace",
-    desc: "Turn several registered holdings into a reusable, query-ready research panel.",
-    fields: [
-      ["Inputs", "Registered datasets already held by the lab"],
-      ["Method", "Join keys, transformations, and coverage checks"],
-      ["Primary move", "Choose a research question, then build or refresh its panel"],
-      ["Output", "Registered under data_lake/synthesis for reuse"],
-    ],
+    title: PAGE_DETAIL_EMPTY.synthesis,
   },
   settings: {
-    title: "Settings",
-    desc: "Account, credentials, and display preferences for the research drive.",
-    fields: [
-      ["Account", "Faculty email"],
-      ["Credentials", "BQ, GDrive, DataCite"],
-      ["Display", "Default tab and rail mode"],
-    ],
+    title: PAGE_DETAIL_EMPTY.settings,
+  },
+  resources: {
+    title: PAGE_DETAIL_EMPTY.resources,
+  },
+  browse: {
+    title: PAGE_DETAIL_EMPTY.browse,
   },
 };
 
@@ -349,42 +337,33 @@ export function LibraryObjectRailPanel({
   const folder = object?.kind === "library_folder" ? object : null;
   if (!folder) return null;
   const counts = folder.counts || {};
-  const desc = folder.note || "Current vault branch and acquisition destination.";
 
   return (
     <RailFrame>
       <RailEntityHeader
+        compact
         id={folder.path || folder.id}
         title={folder.title}
-        description={desc}
         pills={<span className="rd-v2-pill lab">{folder.folderId ? "Folder" : "Lab root"}</span>}
       />
-      <RailDecisionSummary
-        status={
-          counts.datasets > 0
-            ? `${counts.datasets} dataset${counts.datasets === 1 ? "" : "s"} registered`
-            : "No datasets in this branch"
-        }
-        primary={
-          counts.queryReady > 0
-            ? "Use now — query-ready data available"
-            : "Add or procure data before analysis"
-        }
-        risk={counts.queryReady === 0 ? "No query-ready holdings here" : "Low"}
-        next={
-          counts.datasets > 0
-            ? "Select a dataset, preview rows, or ask about coverage"
-            : "Upload files, add URL / DOI, or procure missing data"
-        }
-      />
+      <RailJudgment>
+        {counts.queryReady > 0
+          ? "Branch has query-ready holdings — select a dataset or upload more here."
+          : counts.datasets > 0
+            ? "Branch has registered datasets — none are query-ready yet."
+            : "Empty branch — upload, add URL / DOI, or procure missing data."}
+      </RailJudgment>
       <div className="rd-v2-rail-scroll">
-        <RailFieldGrid>
-          <RailField label="Destination" value={folder.destination} />
-          <RailField label="Folders" value={pluralCount(counts.folders, "folder")} />
-          <RailField label="Datasets" value={pluralCount(counts.datasets, "dataset")} />
-          <RailField label="Query-ready" value={String(counts.queryReady ?? 0)} />
-          <RailField label="Items" value={pluralCount(counts.items, "item")} />
-        </RailFieldGrid>
+        <RailFactSection
+          title="Confirmed"
+          testId="rail-confirmed"
+          items={[
+            { label: "Destination", value: folder.destination },
+            { label: "Folders", value: pluralCount(counts.folders, "folder") },
+            { label: "Datasets", value: pluralCount(counts.datasets, "dataset") },
+            { label: "Query-ready", value: String(counts.queryReady ?? 0) },
+          ].filter((row) => row.value != null && row.value !== "")}
+        />
         <p className="rd-v2-rail-section-label">Branch actions</p>
         <div className="rd-v2-rail-branch-actions">
           <button type="button" onClick={() => onStartUpload?.(folder)}>
@@ -398,14 +377,20 @@ export function LibraryObjectRailPanel({
           </button>
         </div>
       </div>
-      <RailStickyFooter>
-        <button type="button" className="rd-v2-btn sm primary" onClick={() => onStartUpload?.(folder)}>
-          Upload here
-        </button>
-        <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(folder)}>
-          Ask about branch →
-        </button>
-      </RailStickyFooter>
+      <RailActionFooter
+        primary={{
+          key: "upload",
+          label: "Upload here",
+          onClick: () => onStartUpload?.(folder),
+        }}
+        secondary={[
+          {
+            key: "ask",
+            label: "Ask about branch →",
+            onClick: () => onAskAbout?.(folder),
+          },
+        ]}
+      />
     </RailFrame>
   );
 }
@@ -414,19 +399,20 @@ export function PageRailPanel({ page = "home", onAskAbout }) {
   const copy = PAGE_RAIL_COPY[page] || PAGE_RAIL_COPY.home;
   return (
     <RailFrame>
-      <RailEntityHeader id={page} title={copy.title} description={copy.desc} />
       <div className="rd-v2-rail-scroll">
-        <RailFieldGrid>
-          {copy.fields.map(([label, value]) => (
-            <RailField key={label} label={label} value={value} />
-          ))}
-        </RailFieldGrid>
+        <EmptyRailState title={copy.title} minimal />
       </div>
-      <RailStickyFooter>
-        <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.()}>
-          Ask about this page →
-        </button>
-      </RailStickyFooter>
+      {onAskAbout ? (
+        <RailActionFooter
+          secondary={[
+            {
+              key: "ask-page",
+              label: "Ask about this page →",
+              onClick: () => onAskAbout?.(),
+            },
+          ]}
+        />
+      ) : null}
     </RailFrame>
   );
 }
@@ -472,10 +458,7 @@ export function ClusterRailPanel({ compare, onAskAbout }) {
     return (
       <RailFrame>
         <div className="rd-v2-rail-scroll">
-          <EmptyRailState
-            title="No compare selected"
-            hint="Pick two datasets in Cluster to inspect join-key overlap."
-          />
+          <EmptyRailState title={PAGE_DETAIL_EMPTY.cluster} minimal />
         </div>
       </RailFrame>
     );
@@ -531,10 +514,7 @@ export function HistoryRailPanel({ object, onAskAbout, onOpenInLibrary }) {
     return (
       <RailFrame>
         <div className="rd-v2-rail-scroll">
-          <EmptyRailState
-            title="Select a history event"
-            hint="Choose a search, probe, query or procurement outcome to reconstruct its research trail."
-          />
+          <EmptyRailState title="Select a history event." minimal />
         </div>
       </RailFrame>
     );
@@ -636,67 +616,50 @@ export function BrowseRailPanel({
 }) {
   if (!target) {
     if (contextDataset?.dataset_id) {
+      const ready = /instant|ready|query/i.test(String(contextDataset.analysis_readiness || ""));
+      const confirmed = [
+        { label: "Source", value: railMeta(contextDataset.source || contextDataset.publisher || contextDataset.backend) },
+        { label: "Grain", value: railMeta(contextDataset.grain) },
+        { label: "Coverage", value: railMeta(contextDataset.coverage || contextDataset.date_range) },
+        { label: "Readiness", value: railMeta(contextDataset.analysis_readiness, "Registered") },
+      ].filter((row) => row.value && row.value !== "—");
       return (
         <RailFrame>
           <RailEntityHeader
+            compact
             id={contextDataset.dataset_id}
             title={displayName(contextDataset)}
-            description="Source discovery context"
             pills={<span className="rd-v2-pill lab">In lab</span>}
           />
+          <RailJudgment>
+            {ready
+              ? "Registered lab evidence — query-ready and reusable without re-collecting."
+              : "Registered lab evidence — use as Discover context for complementary sources."}
+          </RailJudgment>
           <div className="rd-v2-rail-scroll">
-            <section className="rd-v2-rail-value-brief" aria-label="Why this matters">
-              <p className="rd-v2-rail-section-label">Why this matters</p>
-              <p>
-                Registered evidence can be queried now, compared with external sources, and reused in future synthesis without collecting it again.
-              </p>
-            </section>
-            <RailFieldGrid>
-              <RailField label="Source confidence" value="High · registered evidence" />
-              <RailField
-                label="Vault state"
-                value={/instant|ready|query/i.test(String(contextDataset.analysis_readiness || ""))
-                  ? "Saved · query-ready"
-                  : "Registered"}
-              />
-              <RailField
-                label="Next gap"
-                value={contextDataset.limitations || "Find complementary coverage"}
-              />
-              <RailField
-                label="Source"
-                value={railMeta(contextDataset.source || contextDataset.publisher || contextDataset.backend)}
-              />
-              <RailField label="Grain" value={railMeta(contextDataset.grain)} />
-              <RailField label="Coverage" value={railMeta(contextDataset.coverage || contextDataset.date_range)} />
-              <RailField label="Readiness" value={railMeta(contextDataset.analysis_readiness, "Registered")} />
-            </RailFieldGrid>
+            <RailFactSection title="Confirmed" items={confirmed} testId="rail-confirmed" />
           </div>
-          <RailStickyFooter>
-            <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(contextDataset)}>
-              Ask about this →
-            </button>
-          </RailStickyFooter>
+          <RailActionFooter
+            secondary={[
+              {
+                key: "ask",
+                label: "Ask about this →",
+                onClick: () => onAskAbout?.(contextDataset),
+              },
+            ]}
+          />
         </RailFrame>
       );
     }
     return (
       <RailFrame>
         <div className="rd-v2-rail-scroll">
-          <EmptyRailState
-            title={contextDataset?.dataset_id ? `Discover for ${displayName(contextDataset)}` : "No candidate selected"}
-            hint={
-              contextDataset?.dataset_id
-                ? "Search related sources, then select a candidate to inspect fit, probe access, and add it to the lab."
-                : "Search Discover, then select a row to inspect source, probe, destination, and Add to lab."
-            }
-          />
+          <EmptyRailState title={PAGE_DETAIL_EMPTY.browse} minimal />
         </div>
       </RailFrame>
     );
   }
 
-  const title = target.title || target.name || target.dataset_id || "External dataset";
   const state = target.discover_state || discoverCandidateState(target, labIds, jobs);
   const boundJob = target.bound_job || state.boundJob;
   const collectBusy = Boolean(collectState?.loading && collectState?.key);
@@ -705,60 +668,124 @@ export function BrowseRailPanel({
   const procurementActive = Boolean(
     boundJob && ["pending_approval", "queued", "running"].includes(String(boundJob.status || "")),
   );
-  const probeUrl = discoverCandidateUrl(target);
-  const probeSummaryText =
-    typeof probeState?.result?.summary === "string" ? probeState.result.summary : "";
-  const connector = probeState?.result?.connector;
-  const connectorSpec = connector?.spec || {};
   const probeLoading = Boolean(probeState?.loading);
   const probeError = probeState?.error || "";
   const probeKey = browseTargetKey(target);
   const probeResult =
     probeState?.key === probeKey ? probeState.result : target.probe_snapshot || null;
+  const probeSummaryText =
+    typeof probeResult?.summary === "string"
+      ? probeResult.summary
+      : typeof probeState?.result?.summary === "string" && probeState?.key === probeKey
+        ? probeState.result.summary
+        : "";
+  const connector = probeResult?.connector || (probeState?.key === probeKey ? probeState?.result?.connector : null);
   const preflight = discoverCollectPreflight({
     target,
     probeResult,
     boundJob,
     destination: discoverDestination,
   });
-  const discoverNext =
-    state.key === "in_lab"
-      ? "Open the Library record"
-      : awaitingApproval
-        ? "Approve collection to continue"
-        : procurementActive
-          ? "Track collection status below"
-          : probeSummaryText
-            ? "Review probe results, then add to lab"
-            : state.key === "probe_ready"
-                ? "Probe source, then add to lab"
-              : state.key === "queued"
-                ? "Review plan and collection destination"
-                : probeUrl
-                  ? "Probe source and confirm fit"
-                  : "Resolve a source link before collection";
-
+  const rail = buildDiscoverCandidateRailState({
+    target,
+    labIds,
+    jobs,
+    catalog,
+    profile,
+    peers: browsePeerRows,
+    probeSummary: probeSummaryText,
+    connector,
+    preflight,
+  });
   const compactAwaiting = awaitingApproval;
+
+  let primary = null;
+  if (awaitingApproval && boundJob && onApproveJob) {
+    primary = {
+      key: "approve",
+      label: "Approve collection",
+      testId: "discover-approve-sticky",
+      disabled: collectBusy,
+      busy: collectBusy,
+      busyLabel: "Queuing…",
+      onClick: () => onApproveJob(boundJob.id),
+    };
+  } else if (state.key === "in_lab") {
+    primary = {
+      key: "open-library",
+      label: "Open in Library",
+      onClick: () => onOpenInLibrary?.(target),
+    };
+  } else if (!(procurementActive && !awaitingApproval) && !awaitingApproval) {
+    primary = {
+      key: "add-lab",
+      label: collectBusy ? "Queuing…" : "Add to lab",
+      disabled: probeLoading || collectBusy || !preflight.canAdd,
+      busy: collectBusy,
+      busyLabel: "Queuing…",
+      onClick: () => onAddToLab?.(target),
+    };
+  }
+
+  const secondary = [];
+  if (rail.canProbe && onProbeSource) {
+    secondary.push({
+      key: "probe",
+      label: probeLoading ? "Probing…" : "Probe source",
+      disabled: probeLoading,
+      busy: probeLoading,
+      busyLabel: "Probing…",
+      onClick: () => onProbeSource?.(target),
+    });
+  } else if (onPreviewExternal) {
+    secondary.push({
+      key: "preview",
+      label: "Preview source",
+      onClick: () => onPreviewExternal?.(),
+    });
+  }
+  if (onAskAbout) {
+    secondary.push({
+      key: "ask",
+      label: "Ask about this →",
+      onClick: () => onAskAbout?.(target),
+    });
+  }
+  // Prefer Preview when there is room (probe already claimed a slot).
+  if (secondary.length < 2 && onPreviewExternal && !secondary.some((a) => a.key === "preview")) {
+    secondary.push({
+      key: "preview",
+      label: "Preview source",
+      onClick: () => onPreviewExternal?.(),
+    });
+  }
+
+  const evidenceRows = rail.evidence.length
+    ? rail.evidence.map((row) => (
+        <RailField key={row.label} label={row.label} value={row.value} mono={/id|doi|url|path|connector/i.test(row.label)} />
+      ))
+    : null;
 
   return (
     <RailFrame className={compactAwaiting ? "rd-v2-rail-awaiting" : ""}>
       <RailEntityHeader
+        compact
         id={target.dataset_id || target.doi || "external"}
-        title={title}
-        description={compactAwaiting ? discoverNext : target.description}
+        title={rail.title}
         pills={
-          <span className={`rd-v2-pill ${state.className}`}>
-            {state.label}
+          <span className={`rd-v2-pill ${rail.statusClass}`}>
+            {rail.statusLabel}
           </span>
         }
       />
+      <RailJudgment>{rail.judgment}</RailJudgment>
       {(boundJob || collectError) && (
         <div className="rd-v2-rail-procure-slot">
           <ProcurementDecisionCard
             job={boundJob}
             error={collectError}
             busy={collectBusy}
-            title={title}
+            title={rail.title}
             onApprove={onApproveJob}
             showApproveButton={!compactAwaiting}
           />
@@ -776,18 +803,9 @@ export function BrowseRailPanel({
       <div className="rd-v2-rail-scroll">
         {!compactAwaiting ? (
           <>
-            <div className="rd-v2-rail-fields" aria-label="Candidate fields">
-              <RailField
-                label="Source"
-                value={railMeta(target.source || target.collect_via || target.publisher || target.backend || target.domain)}
-              />
-              <RailField label="Access" value={railMeta(state.access)} />
-              <RailField label="Coverage" value={railMeta(target.coverage || target.subtitle)} />
-              <RailField label="Grain" value={railMeta(target.grain)} />
-              <RailField label="License" value={railMeta(target.license, "See source terms")} />
-              <RailField label="Probe" value={railMeta(state.probe)} />
-            </div>
-            {state.key !== "in_lab" ? (
+            <RailFactSection title="Confirmed" items={rail.confirmed} testId="rail-confirmed" />
+            <RailFactSection title="Unknown" items={rail.unknowns} testId="rail-unknown" />
+            {rail.showCollectionPlan ? (
               <>
                 <p className="rd-v2-rail-section-label">Collection plan</p>
                 <DiscoverDestinationField
@@ -796,7 +814,7 @@ export function BrowseRailPanel({
                   onChange={onDiscoverDestinationChange}
                   disabled={procurementActive || collectBusy}
                 />
-                <div className="rd-v2-rail-fields">
+                <div className="rd-v2-rail-fields" aria-label="Collection plan fields">
                   <RailField label="Connector" value={preflight.connector} mono />
                   <RailField label="On Add to lab" value={preflight.onAdd} />
                   <RailField label="Approval" value={preflight.approval} />
@@ -812,9 +830,7 @@ export function BrowseRailPanel({
             <RailField label="Connector" value={preflight.connector} mono />
           </div>
         )}
-        {probeError ? (
-          <p className="rd-v2-discover-probe-error">{probeError}</p>
-        ) : null}
+        {probeError ? <p className="rd-v2-discover-probe-error">{probeError}</p> : null}
         {probeSummaryText || connector ? (
           <div className="rd-v2-discover-probe-result" aria-label="Probe result">
             <p className="rd-v2-rail-section-label">Probe result</p>
@@ -822,60 +838,21 @@ export function BrowseRailPanel({
             {connector ? (
               <div className="rd-v2-rail-fields">
                 <RailField label="Connector" value={connector.connector_id || connector.id || "—"} />
-                <RailField label="Access" value={railMeta(connectorSpec.access_mode)} />
-                <RailField label="Format" value={railMeta(connectorSpec.content_type)} />
+                <RailField label="Access" value={railMeta(connector.spec?.access_mode)} />
+                <RailField label="Format" value={railMeta(connector.spec?.content_type)} />
                 <RailField
                   label="Files"
-                  value={String((connectorSpec.discovered_files || []).length || 0)}
+                  value={String((connector.spec?.discovered_files || []).length || 0)}
                 />
               </div>
             ) : null}
           </div>
         ) : null}
+        {evidenceRows ? (
+          <RailEvidenceDetails label="Technical evidence">{evidenceRows}</RailEvidenceDetails>
+        ) : null}
       </div>
-      <RailStickyFooter>
-        {awaitingApproval && boundJob && onApproveJob ? (
-          <button
-            type="button"
-            className="rd-v2-btn primary sm"
-            disabled={collectBusy}
-            data-testid="discover-approve-sticky"
-            onClick={() => onApproveJob(boundJob.id)}
-          >
-            Approve collection
-          </button>
-        ) : null}
-        {state.key === "in_lab" ? (
-          <button type="button" className="rd-v2-btn primary sm" onClick={() => onOpenInLibrary?.(target)}>
-            Open in Library
-          </button>
-        ) : procurementActive && !awaitingApproval ? null : awaitingApproval ? null : (
-          <button
-            type="button"
-            className="rd-v2-btn primary sm"
-            onClick={() => onAddToLab?.(target)}
-            disabled={probeLoading || collectBusy || !preflight.canAdd}
-          >
-            {collectBusy ? "Queuing…" : "Add to lab"}
-          </button>
-        )}
-        {state.key !== "in_lab" && probeUrl ? (
-          <button
-            type="button"
-            className="rd-v2-btn sm"
-            onClick={() => onProbeSource?.(target)}
-            disabled={probeLoading}
-          >
-            {probeLoading ? "Probing…" : "Probe source"}
-          </button>
-        ) : null}
-        <button type="button" className="rd-v2-btn sm" onClick={onPreviewExternal}>
-          Preview source
-        </button>
-        <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(target)}>
-          Ask about this →
-        </button>
-      </RailStickyFooter>
+      <RailActionFooter primary={primary} secondary={secondary} />
     </RailFrame>
   );
 }
@@ -883,39 +860,33 @@ export function BrowseRailPanel({
 export function ResourcesRailPanel({
   row,
   rollup,
+  resourceMode = "spending",
   onApproveJob,
   onRefresh,
   onViewActivity,
   onAskAbout,
   onOpenDiscoverAwaiting,
 }) {
+  const inActivity = resourceMode === "activity";
   if (!row) {
-    const workers = rollup?.hero?.workers || {};
-    const sourceCount = rollup?.connect?.source_count;
-    const vault = rollup?.hero?.vault || {};
     return (
       <RailFrame>
-        <RailEntityHeader
-          id="resources"
-          title="Resources"
-          description="Select a key resource to inspect access, limits, or activity."
-        />
         <div className="rd-v2-rail-scroll">
-          <p className="rd-v2-rail-section-label">How to read this page</p>
-          <RailFieldGrid>
-            <RailField label="Main list" value="Storage, account limits, and source routes" />
-            <RailField label="Selection" value="Click any row for details and Ask context" />
-            <RailField label="Activity" value="Open the feed for approvals, asks, and metered use" />
-            <RailField label="Routes" value={sourceCount != null ? `${sourceCount} configured` : "Configured procurement routes"} />
-            <RailField label="Workers" value={`${workers.busy ?? "—"}/${workers.total ?? "—"} busy`} />
-            <RailField label="Vault" value={vault.used_tb != null ? `${vault.used_tb}/${vault.cap_tb ?? "?"} TB` : "quota pending"} />
-          </RailFieldGrid>
+          <EmptyRailState title={PAGE_DETAIL_EMPTY.resources} minimal />
         </div>
-        <RailStickyFooter>
-          <button type="button" className="rd-v2-btn sm" onClick={() => onViewActivity?.(null)}>
-            View activity →
-          </button>
-        </RailStickyFooter>
+        <RailActionFooter
+          secondary={
+            !inActivity && onViewActivity
+              ? [
+                  {
+                    key: "activity",
+                    label: "View activity →",
+                    onClick: () => onViewActivity?.(null),
+                  },
+                ]
+              : []
+          }
+        />
       </RailFrame>
     );
   }
@@ -923,33 +894,73 @@ export function ResourcesRailPanel({
   if (row.kind === "activity" && row.event) {
     const ev = row.event;
     const meta = ev.meta || {};
-    const jobId = meta.job_id || meta.jobId;
+    const job = row.job || null;
+    const jobId = job?.id || meta.job_id || meta.jobId || null;
+    const jobStatus = job?.status || meta.status || null;
+    const jobProgress =
+      row.jobProgress ??
+      (typeof meta.progress === "number" ? meta.progress : null) ??
+      (typeof job?.progress === "number" ? job.progress : null);
+    const actionLabel = row.actionLabel || row.metric || String(ev.action || "Activity");
+    const target = cleanRailTarget(ev.target) || row.label;
+    const recordedTime = row.sublabel || null;
+    const pending = jobStatus === "pending_approval";
+    const statusPill = pending
+      ? "Needs review"
+      : jobStatus
+        ? String(jobStatus).replace(/_/g, " ")
+        : actionLabel;
+    const recordedFacts = [
+      { label: "Action", value: actionLabel },
+      target ? { label: "Target", value: target } : null,
+    ].filter(Boolean);
+    const showJobEvidence = Boolean(job);
     const jobEvent = ["job_submit", "job_approve", "approve_collect"].includes(ev.action);
+
     return (
       <RailFrame>
         <RailEntityHeader
-          id={ev.id}
+          compact
           title={row.label}
-          description={row.sublabel}
-          pills={<span className="rd-v2-pill">{row.costLabel}</span>}
+          description={recordedTime || undefined}
+          pills={<span className={`rd-v2-pill${pending ? " warn" : ""}`}>{statusPill}</span>}
         />
         <div className="rd-v2-rail-scroll">
-          <RailFieldGrid>
-            <RailField label="Action" value={ev.action} />
-            <RailField label="Target" value={ev.target} />
-            <RailField label="Session" value={ev.session_id || "—"} mono />
-            {meta.action ? <RailField label="Outcome" value={meta.action} /> : null}
-            {jobId ? <RailField label="Job ID" value={jobId} mono /> : null}
-          </RailFieldGrid>
+          <RailFactSection title="Recorded facts" testId="rail-recorded-facts" items={recordedFacts} />
+          {showJobEvidence ? (
+            <RailEvidenceDetails label="Run evidence" defaultOpen={pending}>
+              {jobId ? <RailField label="Job ID" value={jobId} mono /> : null}
+              {jobStatus ? <RailField label="Status" value={String(jobStatus)} /> : null}
+              {jobProgress != null ? <RailField label="Progress" value={`${jobProgress}%`} /> : null}
+              {job?.type ? <RailField label="Type" value={job.type} /> : null}
+              {meta.action ? <RailField label="Outcome" value={meta.action} /> : null}
+              {job?.result?.summary ? <RailField label="Output" value={String(job.result.summary)} /> : null}
+              {job?.error ? <RailField label="Error" value={String(job.error)} /> : null}
+              {job?.retry_count != null ? <RailField label="Retries" value={String(job.retry_count)} /> : null}
+            </RailEvidenceDetails>
+          ) : null}
         </div>
         <RailStickyFooter>
-          {jobEvent && jobId && onOpenDiscoverAwaiting ? (
+          {pending && onOpenDiscoverAwaiting ? (
+            <button
+              type="button"
+              className="rd-v2-btn sm primary"
+              onClick={() => onOpenDiscoverAwaiting?.(job || { id: jobId })}
+            >
+              Review in Discover →
+            </button>
+          ) : jobEvent && jobId && onOpenDiscoverAwaiting ? (
             <button
               type="button"
               className="rd-v2-btn sm primary"
               onClick={() => onOpenDiscoverAwaiting?.({ id: jobId })}
             >
               Review in Discover →
+            </button>
+          ) : null}
+          {pending && jobId && onApproveJob ? (
+            <button type="button" className="rd-v2-btn sm" onClick={() => onApproveJob?.(jobId)}>
+              Approve job
             </button>
           ) : null}
           <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(row)}>
@@ -977,7 +988,7 @@ export function ResourcesRailPanel({
               Open in Discover →
             </button>
           ) : null}
-          {row.section === "metered" ? (
+          {row.section === "metered" && !inActivity ? (
             <button type="button" className="rd-v2-btn sm primary" onClick={() => onViewActivity?.({ meterId: row.meterId })}>
               View activity →
             </button>
@@ -1020,9 +1031,11 @@ export function ResourcesRailPanel({
           ) : null}
         </div>
         <RailStickyFooter>
-          <button type="button" className="rd-v2-btn sm primary" onClick={() => onViewActivity?.({ meterId: row.meterId })}>
-            View activity →
-          </button>
+          {!inActivity ? (
+            <button type="button" className="rd-v2-btn sm primary" onClick={() => onViewActivity?.({ meterId: row.meterId })}>
+              View activity →
+            </button>
+          ) : null}
           <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(row)}>
             Ask about spend →
           </button>
@@ -1097,6 +1110,7 @@ export function ResourcesRailPanel({
   return (
     <RailFrame>
       <RailEntityHeader
+        compact
         id={row.job?.id || row.endpoint || row.section || row.key}
         title={shortLabel}
         pills={
@@ -1104,93 +1118,112 @@ export function ResourcesRailPanel({
             {pillLabel}
           </span>
         }
-        description={resourceRailDescription(row)}
       />
-      <RailDecisionSummary
-        status={resourceRailStatus(row) || fallbackStatus}
-        primary={
-          row.kind === "source"
-            ? "Available for discovery/procurement"
-            : row.kind === "metered"
-              ? "Usable with limit checks"
-              : row.kind === "usage"
-                ? "Available for storage planning"
-                : "Review before action"
-        }
-        risk={
-          row.warn
-            ? "Needs attention"
-            : row.ok === false
-              ? "Offline"
-              : row.kind === "metered"
-                ? resourceRailLimit(row)
-                : "Low"
-        }
-        next={
-          isReviewQueue
-            ? "Open Discover to approve each collection job"
-            : row.job?.status === "pending_approval"
-              ? "Approve or reject the job"
-              : row.kind === "source"
-                ? "Use Discover to search or probe"
-                : row.kind === "metered"
-                  ? "View activity before heavy use"
-                  : row.kind === "usage"
-                    ? "Check capacity before large collection"
-                    : "Ask about this resource"
-        }
-      />
+      <RailJudgment>
+        {isReviewQueue
+          ? "Pending collection jobs need approval before workers run."
+          : row.job?.status === "pending_approval"
+            ? "This run is awaiting approval — recover from Discover or approve here."
+            : row.warn
+              ? "Needs attention — check limits, credentials, or output proof before trusting this route."
+              : row.ok === false
+                ? "Offline or failed — recovery required before use."
+                : row.kind === "capacity"
+                  ? "Capacity state from the live desk rollup — not a synthetic progress claim."
+                  : "Healthy resource — use Discover or Ask when you need to act on it."}
+      </RailJudgment>
       <div className="rd-v2-rail-scroll">
-        <RailFieldGrid>
-          {fields.map(([label, value]) => (
-            <RailField key={label} label={label} value={value} />
-          ))}
-          {row.job ? (
-            <>
-              <RailField label="Job ID" value={row.job.id} mono />
-              <RailField label="Job status" value={row.job.status} />
-            </>
-          ) : null}
-          {row.key === "datacite" ? (
-            <RailField label="Harvest" value={row.meta?.status || row.meta?.message || "See ops log"} />
-          ) : null}
-          {row.progress != null ? <RailField label="Progress" value={`${row.progress}%`} /> : null}
-        </RailFieldGrid>
+        <RailFactSection
+          title="Confirmed"
+          testId="rail-confirmed"
+          items={fields
+            .filter(([, value]) => value != null && String(value).trim() !== "" && value !== "—")
+            .map(([label, value]) => ({ label, value }))}
+        />
+        {(row.job || row.progress != null || row.key === "datacite") && (
+          <RailEvidenceDetails label="Run / capacity evidence" defaultOpen={Boolean(row.job)}>
+            {row.job ? (
+              <>
+                <RailField label="Job ID" value={row.job.id} mono />
+                <RailField label="Job status" value={row.job.status} />
+              </>
+            ) : null}
+            {row.key === "datacite" ? (
+              <RailField label="Harvest" value={row.meta?.status || row.meta?.message || "See ops log"} />
+            ) : null}
+            {row.progress != null ? <RailField label="Used" value={`${row.progress}%`} /> : null}
+          </RailEvidenceDetails>
+        )}
       </div>
-      <RailStickyFooter>
-        {isReviewQueue && onOpenDiscoverAwaiting ? (
-          <button type="button" className="rd-v2-btn sm primary" onClick={() => onOpenDiscoverAwaiting?.()}>
-            Open in Discover →
-          </button>
-        ) : null}
-        {row.job?.status === "pending_approval" && onOpenDiscoverAwaiting ? (
-          <button type="button" className="rd-v2-btn sm primary" onClick={() => onOpenDiscoverAwaiting?.(row.job)}>
-            Review in Discover →
-          </button>
-        ) : null}
-        {row.job?.status === "pending_approval" ? (
-          <button type="button" className="rd-v2-btn sm" onClick={() => onApproveJob?.(row.job.id)}>
-            Approve job
-          </button>
-        ) : null}
-        {meterActivityFilter ? (
-          <button type="button" className="rd-v2-btn sm primary" onClick={() => onViewActivity?.(meterActivityFilter)}>
-            View activity →
-          </button>
-        ) : null}
-        <button type="button" className="rd-v2-btn sm" onClick={() => onAskAbout?.(row)}>
-          Ask about this →
-        </button>
-      </RailStickyFooter>
+      <RailActionFooter
+        primary={
+          isReviewQueue && onOpenDiscoverAwaiting
+            ? { key: "discover", label: "Open in Discover →", onClick: () => onOpenDiscoverAwaiting?.() }
+            : row.job?.status === "pending_approval" && onOpenDiscoverAwaiting
+              ? {
+                  key: "review",
+                  label: "Review in Discover →",
+                  onClick: () => onOpenDiscoverAwaiting?.(row.job),
+                }
+              : meterActivityFilter && !inActivity
+                ? {
+                    key: "activity",
+                    label: "View activity →",
+                    onClick: () => onViewActivity?.(meterActivityFilter),
+                  }
+                : row.job?.status === "pending_approval"
+                  ? {
+                      key: "approve",
+                      label: "Approve job",
+                      onClick: () => onApproveJob?.(row.job.id),
+                    }
+                  : {
+                      key: "ask",
+                      label: "Ask about this →",
+                      onClick: () => onAskAbout?.(row),
+                    }
+        }
+        secondary={
+          row.job?.status === "pending_approval" && onOpenDiscoverAwaiting
+            ? [
+                {
+                  key: "approve",
+                  label: "Approve job",
+                  onClick: () => onApproveJob?.(row.job.id),
+                },
+                {
+                  key: "ask",
+                  label: "Ask about this →",
+                  onClick: () => onAskAbout?.(row),
+                },
+              ]
+            : primaryIsAskFallback(row, isReviewQueue, meterActivityFilter, inActivity)
+              ? []
+              : [
+                  {
+                    key: "ask",
+                    label: "Ask about this →",
+                    onClick: () => onAskAbout?.(row),
+                  },
+                ]
+        }
+      />
     </RailFrame>
   );
+}
+
+function primaryIsAskFallback(row, isReviewQueue, meterActivityFilter, inActivity = false) {
+  if (isReviewQueue) return false;
+  if (row.job?.status === "pending_approval") return false;
+  if (meterActivityFilter && !inActivity) return false;
+  return true;
 }
 
 export function EmptyRailPanel() {
   return (
     <RailFrame>
       <div className="rd-v2-rail-scroll">
-        <EmptyRailState />
+        <EmptyRailState title={PAGE_DETAIL_EMPTY.library} minimal />
       </div>
     </RailFrame>
   );

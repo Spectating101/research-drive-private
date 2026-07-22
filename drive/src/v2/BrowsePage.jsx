@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ListFilter } from "lucide-react";
 import { discoverSearch, discoverSources, semanticDiscover, unifiedSearch, webDiscover } from "@/v2/api";
 import { sourcesResponseToRows } from "@/v2/discoverAdapters";
 import {
@@ -19,11 +20,77 @@ import { discoverSuggestedRows } from "@/v2/discoverSuggested";
 import { displayName, formatMetaValue, isEmptyishMetaValue } from "@/v2/datasetMeta";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
-const RESULT_FILTERS = [
+const ACCESS_FILTERS = [
   { id: "all", label: "All" },
   { id: "external", label: "External" },
   { id: "in_lab", label: "In lab" },
 ];
+
+const RELATIONSHIP_FILTERS = [
+  { id: "", label: "Any" },
+  { id: "in_lab", label: "In vault" },
+  { id: "external", label: "Not in vault" },
+];
+
+const EMPTY_FACETS = {
+  access: "all",
+  sourceType: "",
+  grain: "",
+  relationship: "",
+};
+
+function rowSourceType(row) {
+  return formatMetaValue(row?.source || row?.publisher || row?.backend || row?.collect_via || row?.source_route);
+}
+
+function rowGrain(row) {
+  return formatMetaValue(row?.grain);
+}
+
+function collectFacetOptions(rows = []) {
+  const sources = new Set();
+  const grains = new Set();
+  for (const row of rows) {
+    const source = rowSourceType(row);
+    const grain = rowGrain(row);
+    if (source) sources.add(source);
+    if (grain) grains.add(grain);
+  }
+  return {
+    sourceTypes: [...sources].sort((a, b) => a.localeCompare(b)),
+    grains: [...grains].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+function activeFacetEntries(facets = EMPTY_FACETS) {
+  const out = [];
+  if (facets.access && facets.access !== "all") {
+    out.push({
+      key: "access",
+      label: ACCESS_FILTERS.find((f) => f.id === facets.access)?.label || facets.access,
+    });
+  }
+  if (facets.relationship) {
+    out.push({
+      key: "relationship",
+      label: RELATIONSHIP_FILTERS.find((f) => f.id === facets.relationship)?.label || facets.relationship,
+    });
+  }
+  if (facets.sourceType) out.push({ key: "sourceType", label: facets.sourceType });
+  if (facets.grain) out.push({ key: "grain", label: facets.grain });
+  return out;
+}
+
+function rowMatchesFacets(row, facets = EMPTY_FACETS, labIds, jobs) {
+  const stateKey = discoverCandidateState(row, labIds, jobs).key;
+  if (facets.access === "external" && stateKey === "in_lab") return false;
+  if (facets.access === "in_lab" && stateKey !== "in_lab") return false;
+  if (facets.relationship === "in_lab" && stateKey !== "in_lab") return false;
+  if (facets.relationship === "external" && stateKey === "in_lab") return false;
+  if (facets.sourceType && rowSourceType(row) !== facets.sourceType) return false;
+  if (facets.grain && rowGrain(row) !== facets.grain) return false;
+  return true;
+}
 
 function DiscoverQueueStrip({ rows = [], selectedId, onSelectJob }) {
   if (!rows.length) return null;
@@ -78,7 +145,7 @@ function DiscoverModeTabs({ mode = "explore", pendingCount = 0, onChange }) {
   );
 }
 
-/** Shared Discover chrome — search stays mounted across Search / Activity / History. */
+/** Shared Discover chrome — intent is search mode only; shell geometry stays fixed. */
 function DiscoverToolbar({
   draftQuery,
   setDraftQuery,
@@ -87,6 +154,7 @@ function DiscoverToolbar({
   onCommit,
   onSemanticSearch,
   onClear,
+  filterControl = null,
   trailing = null,
 }) {
   const [intent, setIntent] = useState("catalog");
@@ -103,12 +171,13 @@ function DiscoverToolbar({
   };
 
   return (
-    <div className={`rd-v2-discover-toolbar${researchMode ? " is-research" : ""}`}>
+    <div className="rd-v2-discover-toolbar" data-testid="discover-toolbar">
       <div className="rd-v2-discover-intent" role="group" aria-label="Discover method">
         <button
           type="button"
           className={!researchMode ? "on" : ""}
           aria-pressed={!researchMode}
+          data-testid="discover-intent-catalog"
           onClick={() => setIntent("catalog")}
         >
           Catalog
@@ -117,6 +186,7 @@ function DiscoverToolbar({
           type="button"
           className={researchMode ? "on" : ""}
           aria-pressed={researchMode}
+          data-testid="discover-intent-research"
           onClick={() => setIntent("research")}
         >
           Research question
@@ -134,9 +204,14 @@ function DiscoverToolbar({
         <input
           ref={searchInputRef}
           value={draftQuery}
-          placeholder={researchMode ? "Describe the evidence, comparison, or data gap you need…" : placeholder}
+          placeholder={
+            researchMode
+              ? "Describe the evidence, comparison, or data gap you need…"
+              : placeholder
+          }
           aria-label="Discover datasets"
           data-testid="discover-search-input"
+          data-intent={researchMode ? "research" : "catalog"}
           onChange={(e) => setDraftQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -156,25 +231,195 @@ function DiscoverToolbar({
           </button>
         ) : null}
       </label>
-      {researchMode ? (
-        <button
-          type="button"
-          className="rd-v2-discover-research-btn"
-          disabled={!draftQuery.trim()}
-          onClick={() => submit(draftQuery)}
-        >
-          Search by meaning
-        </button>
-      ) : null}
+      <div className="rd-v2-discover-toolbar-controls">
+        {filterControl}
+        <div className="rd-v2-discover-toolbar-action" data-testid="discover-toolbar-action">
+          <button
+            type="button"
+            className="rd-v2-discover-action-btn"
+            data-testid="discover-search-action"
+            disabled={!draftQuery.trim()}
+            onClick={() => submit(draftQuery)}
+          >
+            {researchMode ? "Search by meaning" : "Search catalog"}
+          </button>
+        </div>
+      </div>
       {trailing}
     </div>
   );
 }
 
-function rowFilterState(row, labIds, jobs) {
-  return discoverCandidateState(row, labIds, jobs).key;
-}
+function DiscoverFilterControl({
+  facets = EMPTY_FACETS,
+  onChange,
+  options = { sourceTypes: [], grains: [] },
+  disabled = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const sourceTypes = options.sourceTypes || [];
+  const grains = options.grains || [];
+  const active = activeFacetEntries(facets);
+  const count = active.length;
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocClick = (event) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target)) setOpen(false);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const setFacet = (key, value) => onChange?.({ ...facets, [key]: value });
+  const clearFacet = (key) => {
+    if (key === "access") onChange?.({ ...facets, access: "all" });
+    else onChange?.({ ...facets, [key]: "" });
+  };
+  const clearAll = () => onChange?.({ ...EMPTY_FACETS });
+
+  return (
+    <div className="rd-v2-discover-filter" ref={wrapRef} data-testid="discover-result-filters">
+      <button
+        type="button"
+        className={`rd-v2-discover-filter-trigger${open || count ? " on" : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={count ? `Filters, ${count} active` : "Filters"}
+        data-testid="discover-filter-trigger"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ListFilter size={15} strokeWidth={2} aria-hidden="true" />
+        <span>Filter</span>
+        {count ? <strong data-testid="discover-filter-count">{count}</strong> : null}
+      </button>
+      {open ? (
+        <div
+          className="rd-v2-discover-filter-panel"
+          role="dialog"
+          aria-label="Discover filters"
+          data-testid="discover-filter-panel"
+        >
+          {count ? (
+            <div className="rd-v2-discover-filter-chips" aria-label="Active filters">
+              {active.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className="rd-v2-discover-filter-chip"
+                  data-testid="discover-filter-chip"
+                  aria-label={`Remove ${chip.label} filter`}
+                  onClick={() => clearFacet(chip.key)}
+                >
+                  {chip.label}
+                  <span aria-hidden="true">×</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="rd-v2-discover-filter-section">
+            <span>Access state</span>
+            <div className="rd-v2-discover-filter-options">
+              {ACCESS_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={facets.access === f.id ? "on" : ""}
+                  aria-pressed={facets.access === f.id}
+                  onClick={() => setFacet("access", f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rd-v2-discover-filter-section">
+            <span>Local relationship</span>
+            <div className="rd-v2-discover-filter-options">
+              {RELATIONSHIP_FILTERS.map((f) => (
+                <button
+                  key={f.id || "any"}
+                  type="button"
+                  className={facets.relationship === f.id ? "on" : ""}
+                  aria-pressed={facets.relationship === f.id}
+                  onClick={() => setFacet("relationship", f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {sourceTypes.length ? (
+            <div className="rd-v2-discover-filter-section">
+              <span>Source type</span>
+              <div className="rd-v2-discover-filter-options">
+                <button
+                  type="button"
+                  className={!facets.sourceType ? "on" : ""}
+                  aria-pressed={!facets.sourceType}
+                  onClick={() => setFacet("sourceType", "")}
+                >
+                  Any
+                </button>
+                {sourceTypes.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={facets.sourceType === value ? "on" : ""}
+                    aria-pressed={facets.sourceType === value}
+                    onClick={() => setFacet("sourceType", value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {grains.length ? (
+            <div className="rd-v2-discover-filter-section">
+              <span>Grain</span>
+              <div className="rd-v2-discover-filter-options">
+                <button
+                  type="button"
+                  className={!facets.grain ? "on" : ""}
+                  aria-pressed={!facets.grain}
+                  onClick={() => setFacet("grain", "")}
+                >
+                  Any
+                </button>
+                {grains.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={facets.grain === value ? "on" : ""}
+                    aria-pressed={facets.grain === value}
+                    onClick={() => setFacet("grain", value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {count ? (
+            <button type="button" className="rd-v2-discover-filter-clear" onClick={clearAll}>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function candidateId(row) {
   return browseTargetKey(row) || "external";
@@ -291,26 +536,31 @@ function contextStatus(dataset, labIds) {
 function DiscoverContextPanel({ dataset, labIds, pendingCount = 0, onSearch }) {
   if (!dataset?.dataset_id) return null;
   const title = displayName(dataset);
-  const fields = [
-    ["Status", contextStatus(dataset, labIds)],
-    ["Grain", contextField(dataset, "grain")],
-    ["Coverage", contextField(dataset, "coverage") || contextField(dataset, "date_range")],
-    ["Source", contextField(dataset, "source") || contextField(dataset, "publisher") || contextField(dataset, "backend")],
-    ["Queue", pendingCount ? `${pendingCount} review${pendingCount === 1 ? "" : "s"}` : "Clear"],
-  ].filter(([, value]) => value);
-  const queries = discoverContextQueries(dataset);
+  const status = contextStatus(dataset, labIds);
+  const grain = contextField(dataset, "grain");
+  const source =
+    contextField(dataset, "source") ||
+    contextField(dataset, "publisher") ||
+    contextField(dataset, "backend");
+  const meta = uniqueParts([
+    status,
+    grain,
+    source,
+    pendingCount ? `${pendingCount} review${pendingCount === 1 ? "" : "s"}` : null,
+  ]).join(" · ");
+  const queries = discoverContextQueries(dataset).slice(0, 2);
   return (
     <section
-      className="rd-v2-discover-context rd-v2-discover-brief"
+      className="rd-v2-discover-context rd-v2-discover-context--compact"
       aria-label="Discover dataset context"
       data-testid="discover-research-context"
     >
-      <div className="rd-v2-discover-context-main">
-        <span>Working from</span>
-        <h2>{title}</h2>
-        <p className="rd-v2-discover-context-intent">
-          Search the catalog for adjacent evidence, or ask a research question to retrieve related lab evidence by meaning and have the desk assess the material gap.
-        </p>
+      <div className="rd-v2-discover-context-line">
+        <span className="rd-v2-discover-context-kicker">Working from</span>
+        <strong className="rd-v2-discover-context-title">{title}</strong>
+        {meta ? <span className="rd-v2-discover-context-meta">{meta}</span> : null}
+      </div>
+      {queries.length ? (
         <div className="rd-v2-discover-context-actions" aria-label="Suggested context searches">
           {queries.map((query) => (
             <button
@@ -323,36 +573,23 @@ function DiscoverContextPanel({ dataset, labIds, pendingCount = 0, onSearch }) {
             </button>
           ))}
         </div>
-      </div>
-      {fields.length ? (
-        <div className="rd-v2-research-evidence">
-          <span className="rd-v2-research-evidence-label">Evidence and coverage</span>
-          <dl className="rd-v2-discover-context-fields">
-            {fields.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
       ) : null}
     </section>
   );
 }
 
-function DiscoverContextSourceList({ rows = [], labIds, onSearchTitle }) {
+function DiscoverContextSourceList({ rows = [], labIds, selectedId, onSelectRow, onSearchTitle }) {
   if (!rows.length) return null;
   return (
-    <section className="rd-v2-discover-source-list" data-testid="discover-suggested">
+    <section className="rd-v2-discover-source-list rd-v2-discover-source-list--results" data-testid="discover-suggested">
       <div className="rd-v2-discover-source-list-head">
         <span>Suggested searches</span>
-        <strong>{rows.length} routes</strong>
+        <strong>{rows.length} route{rows.length === 1 ? "" : "s"}</strong>
       </div>
-      <ul aria-label="Related source candidates">
+      <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Related source candidates">
         {rows.map((row) => {
-          const id = row.dataset_id || row.title || row.name;
-          const title = row.title || row.name || id;
+          const id = candidateId(row);
+          const title = row.title || row.name || row.dataset_id || id;
           const inLab = Boolean(row.dataset_id && labIds?.has?.(row.dataset_id)) || row.kind === "lab";
           const ribbonSource = row.source || row.collect_via || row.source_route || row.publisher || row.backend;
           const meta = uniqueParts([
@@ -360,13 +597,28 @@ function DiscoverContextSourceList({ rows = [], labIds, onSearchTitle }) {
             formatMetaValue(row.grain),
             formatMetaValue(row.source || row.publisher || row.backend),
           ]).join(" · ");
+          const selected = selectedId === id;
           return (
-            <li key={String(id)}>
-              <button type="button" onClick={() => onSearchTitle?.(title)} data-testid="discover-suggested-card">
-                <SourceRibbon source={ribbonSource} />
-                <span>
-                  <strong>{title}</strong>
-                  {meta ? <small>{meta}</small> : null}
+            <li key={String(id)} className={selected ? "rd-v2-row-on" : undefined}>
+              <button
+                type="button"
+                className={`row rd-v2-discover-candidate rd-v2-discover-candidate--compact${selected ? " selected" : ""}`}
+                data-kind={inLab ? "lab" : "external"}
+                data-testid="discover-suggested-card"
+                aria-pressed={selected}
+                onClick={() => {
+                  if (inLab && onSelectRow) onSelectRow(row);
+                  else onSearchTitle?.(title);
+                }}
+              >
+                <span className="rd-v2-discover-candidate-source">
+                  <SourceRibbon source={ribbonSource} />
+                </span>
+                <span className="rd-v2-discover-candidate-main">
+                  <span className="rd-v2-discover-candidate-top">
+                    <strong>{title}</strong>
+                  </span>
+                  {meta ? <span className="rd-v2-discover-route">{meta}</span> : null}
                 </span>
                 <em>{inLab ? "View holding" : "Find sources"}</em>
               </button>
@@ -505,15 +757,13 @@ function DiscoverCandidateRow({ row, labIds, jobs, selectedId, onSelectRow }) {
   const state = row.discover_state || discoverCandidateState(row, labIds, jobs);
   const selected = selectedId === candidateId(row);
   const ribbonSource = row.source || row.collect_via || row.source_route || row.publisher || row.backend;
-  const badges = candidateBadgeLine(row, state);
-  const snippet = candidateSnippet(row);
   const meta = candidateMetaLine(row);
 
   return (
     <li className={selected ? "rd-v2-row-on" : undefined}>
       <button
         type="button"
-        className={`row rd-v2-discover-candidate${selected ? " selected" : ""}`}
+        className={`row rd-v2-discover-candidate rd-v2-discover-candidate--compact${selected ? " selected" : ""}`}
         data-kind="external"
         data-state={state.key}
         aria-pressed={selected}
@@ -526,8 +776,6 @@ function DiscoverCandidateRow({ row, labIds, jobs, selectedId, onSelectRow }) {
           <span className="rd-v2-discover-candidate-top">
             <strong>{candidateTitle(row)}</strong>
           </span>
-          {snippet ? <span className="rd-v2-discover-snippet">{snippet}</span> : null}
-          {badges ? <span className="rd-v2-discover-badges">{badges}</span> : null}
           {meta ? <span className="rd-v2-discover-route">{meta}</span> : null}
         </span>
         <span className={`rd-v2-pill ${state.className}`}>{stateLabel(state)}</span>
@@ -637,7 +885,7 @@ export function BrowsePage({
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
   const [demoFallback, setDemoFallback] = useState(false);
-  const [stateFilter, setStateFilter] = useState("all");
+  const [facets, setFacets] = useState(() => ({ ...EMPTY_FACETS }));
   const [indexMiss, setIndexMiss] = useState(false);
   const [showExternal, setShowExternal] = useState(false);
   const [searchPhase, setSearchPhase] = useState("idle");
@@ -661,10 +909,10 @@ export function BrowsePage({
 
   useEffect(() => {
     if (discoverMode !== "explore" && discoverMode !== "search") return;
-    if (discoverFilter && discoverFilter !== "awaiting" && discoverFilter !== stateFilter) {
-      setStateFilter(discoverFilter);
+    if (discoverFilter && discoverFilter !== "awaiting" && discoverFilter !== facets.access) {
+      setFacets((prev) => ({ ...prev, access: discoverFilter }));
     }
-  }, [discoverFilter, discoverMode, stateFilter]);
+  }, [discoverFilter, discoverMode, facets.access]);
 
   useEffect(() => {
     if (discoverMode !== "explore" && discoverMode !== "search") return;
@@ -714,7 +962,7 @@ export function BrowsePage({
     setDemoFallback(false);
     onSelectRow?.(null);
     if (q) {
-      setStateFilter("all");
+      setFacets({ ...EMPTY_FACETS });
       onDiscoverFilterChange?.("all");
       const immediateRows = immediateCatalog.length
         ? immediateCatalog
@@ -899,13 +1147,10 @@ export function BrowsePage({
     onMergedRowsChange?.(merged);
   }, [merged, onMergedRowsChange]);
 
-  const filtered = useMemo(() => {
-    if (stateFilter === "all") return merged;
-    if (stateFilter === "external") {
-      return merged.filter((r) => rowFilterState(r, labIds, jobs) !== "in_lab");
-    }
-    return merged.filter((r) => rowFilterState(r, labIds, jobs) === stateFilter);
-  }, [merged, stateFilter, labIds, jobs]);
+  const filtered = useMemo(
+    () => merged.filter((r) => rowMatchesFacets(r, facets, labIds, jobs)),
+    [merged, facets, labIds, jobs],
+  );
   const stageCounts = useMemo(() => discoverStageCounts(merged, labIds, jobs), [merged, labIds, jobs]);
 
   const sourceLabel =
@@ -943,6 +1188,25 @@ export function BrowsePage({
     () => bindJobsToCandidates(suggestedRows, jobs, jobBindings),
     [suggestedRows, jobs, jobBindings],
   );
+  const suggestedFiltered = useMemo(
+    () => suggestedBound.filter((r) => rowMatchesFacets(r, facets, labIds, jobs)),
+    [suggestedBound, facets, labIds, jobs],
+  );
+  const facetOptions = useMemo(
+    () => collectFacetOptions(showSearchResults ? merged : suggestedBound),
+    [showSearchResults, merged, suggestedBound],
+  );
+  const onFacetsChange = (next) => {
+    setFacets(next);
+    onDiscoverFilterChange?.(next.access || "all");
+  };
+  const filterControl = isExplore ? (
+    <DiscoverFilterControl
+      facets={facets}
+      onChange={onFacetsChange}
+      options={facetOptions}
+    />
+  ) : null;
 
   const commitSearch = (raw, { switchToExplore = false } = {}) => {
     const next = String(raw ?? draftQuery ?? "").trim();
@@ -1022,15 +1286,15 @@ export function BrowsePage({
           Review queue <strong>{pendingRows.length}</strong>
         </button>
       ) : null}
-      <span className="rd-v2-toolbar-count">
-        {showHistory
-          ? `${(historyEvents || []).length} recorded`
-          : showSearchResults
-            ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}`
-            : pendingRows.length
-              ? `${pendingRows.length} awaiting approval`
-              : "Type to search"}
-      </span>
+      {showHistory || showSearchResults || pendingRows.length ? (
+        <span className="rd-v2-toolbar-count">
+          {showHistory
+            ? `${(historyEvents || []).length} recorded`
+            : showSearchResults
+              ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}`
+              : `${pendingRows.length} awaiting approval`}
+        </span>
+      ) : null}
     </>
   );
 
@@ -1062,6 +1326,7 @@ export function BrowsePage({
           onCommit={(value) => commitSearch(value, { switchToExplore: true })}
           onSemanticSearch={runSemanticSearch}
           onClear={clearSearch}
+          filterControl={filterControl}
           trailing={toolbarTrailing}
         />
       }
@@ -1089,8 +1354,10 @@ export function BrowsePage({
               onSearch={runSuggestedSearch}
             />
             <DiscoverContextSourceList
-              rows={suggestedBound}
+              rows={suggestedFiltered}
               labIds={labIds}
+              selectedId={selectedId}
+              onSelectRow={onSelectRow}
               onSearchTitle={(title) => {
                 setDraftQuery(title);
                 commitSearch(title);
@@ -1103,7 +1370,7 @@ export function BrowsePage({
             onSuggest={runSuggestedSearch}
           >
             <DiscoverSuggestedCards
-              rows={suggestedBound}
+              rows={suggestedFiltered}
               labIds={labIds}
               onSearchTitle={(title) => {
                 setDraftQuery(title);
@@ -1114,20 +1381,6 @@ export function BrowsePage({
         )
       ) : (
         <>
-          <div className="rd-v2-toolbar inline" data-testid="discover-result-filters">
-            {RESULT_FILTERS.map((f) => (
-              <Chip
-                key={f.id}
-                active={stateFilter === f.id}
-                onClick={() => {
-                  setStateFilter(f.id);
-                  onDiscoverFilterChange?.(f.id);
-                }}
-              >
-                {f.label}
-              </Chip>
-            ))}
-          </div>
           <DiscoverSearchSummary
             rows={filtered}
             loading={loading || semanticSearch.loading}
@@ -1156,7 +1409,7 @@ export function BrowsePage({
             <div className="rd-v2-discover-miss">
               <p className="rd-v2-empty-inline">
                 No matches for “{q}”
-                {stateFilter !== "all" ? ` with filter ${stateFilter.replace("_", " ")}` : ""}
+                {activeFacetEntries(facets).length ? " with current filters" : ""}
                 {indexMiss ? " in the local lab index." : "."}
               </p>
               {onSearchWeb ? (

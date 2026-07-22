@@ -25,7 +25,8 @@ export function profileSectionsVisible(profile) {
 
 export function profilePrimaryCommand(mode) {
   if (mode === "unbound") {
-    return { id: "connect-email", label: "Connect faculty email", tab: "settings" };
+    // Binding lives inline on Research context — no handoff to Workspace preferences.
+    return { id: "connect-email", label: "Connect faculty email", inline: true };
   }
   return null;
 }
@@ -61,14 +62,14 @@ export function buildProfileRailState({
     return {
       status: "unbound",
       identity: ["Desk unbound", "No researcher context"],
-      judgement: "Connect a faculty email in Settings to bind research context for this browser.",
+      judgement: "Connect a faculty email in Research context to bind this browser.",
       facts: [
         "Binding · browser preference (not authentication)",
         "Ranking · generic desk defaults until bound",
       ],
       unknowns: [],
       provenance: [],
-      primaryAction: { id: "connect-email", label: "Connect faculty email", tab: "settings" },
+      primaryAction: { id: "connect-email", label: "Connect faculty email", inline: true },
       secondaryActions: [],
       loadingLabel: null,
     };
@@ -136,14 +137,14 @@ export function buildProfileRailState({
   return {
     status: "unbound",
     identity: ["Desk unbound", "No researcher context"],
-    judgement: "Connect a faculty email in Settings to bind research context for this browser.",
+    judgement: "Connect a faculty email in Research context to bind this browser.",
     facts: [
       "Binding · browser preference (not authentication)",
       "Ranking · generic desk defaults until bound",
     ],
     unknowns: [],
     provenance: [],
-    primaryAction: { id: "connect-email", label: "Connect faculty email", tab: "settings" },
+    primaryAction: { id: "connect-email", label: "Connect faculty email", inline: true },
     secondaryActions: [],
     loadingLabel: null,
   };

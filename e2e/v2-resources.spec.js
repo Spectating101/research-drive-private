@@ -63,32 +63,77 @@ test.describe("v2 Resources tab", () => {
   test("right rail starts with Resources guide", async ({ page }) => {
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("Resources");
-    await expect(rail).toContainText("Select a key resource");
-    await expect(rail).toContainText("Main list");
+    await expect(rail).toContainText("Select an activity to inspect");
     await expect(rail).not.toContainText("Needs action");
+    await page.getByRole("button", { name: "Activity", exact: true }).click();
+    await expect(rail).toContainText("Select an activity to inspect");
+    await expect(rail.getByRole("button", { name: "View activity →" })).toHaveCount(0);
   });
 
   test("Activity tab shows event log", async ({ page }) => {
     const main = page.locator("main");
     await page.getByRole("button", { name: "Activity", exact: true }).click();
+    await expect(main.getByTestId("resources-activity-controls")).toBeVisible();
+    await expect(main.getByRole("button", { name: "All activity", exact: true })).toHaveClass(/on/);
+    await expect(main.getByRole("button", { name: "Needs review", exact: true })).toBeVisible();
+    await expect(main.getByRole("button", { name: "Runs", exact: true })).toBeVisible();
+    await expect(main.getByTestId("resources-activity-filter")).toBeVisible();
+    await expect(main.getByRole("button", { name: "Discovery", exact: true })).toHaveCount(0);
+    await expect(main.getByRole("button", { name: "Ask", exact: true })).toHaveCount(0);
+    await expect(main.getByRole("button", { name: "Metered", exact: true })).toHaveCount(0);
     await expect(main.locator('[aria-label="Usage report"]')).toContainText("Remote tables");
-    await expect(main.getByRole("heading", { name: "Review queue" })).toBeVisible();
+    await expect(main.locator(".rd-v2-res-status-strip-activity")).toHaveCount(0);
+    await expect(main.getByTestId("resources-activity-review")).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Review queue" })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Run log" })).toBeVisible();
+    await expect(main.locator(".rd-v2-res-activity-feed-label")).not.toContainText(/event/i);
     await expect(main.getByText("USB bulk cache")).toHaveCount(0);
     await expect(main.getByText("get Taiwan gov panel")).toBeVisible();
     await expect(main.getByText("taiwan equity")).toBeVisible();
     await expect(main.getByText("Remote tables 2.4 GiB")).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Inspector" }).getByRole("button", { name: "View activity →" })).toHaveCount(0);
+  });
+
+  test("mobile Activity idle hides Show Detail bar over the run log", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/?tab=resources", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.getByRole("button", { name: "Activity", exact: true }).click();
+    await expect(page.locator("main").getByRole("heading", { name: "Run log" })).toBeVisible();
+    await expect(page.locator(".rd-v2-rail-mobile-grip")).not.toBeVisible();
+    await expect(page.locator("aside.rd-v2-rail-activity-idle")).toHaveCount(1);
+
+    await page.locator("main").getByRole("button", { name: /get Taiwan gov panel/ }).click();
+    await expect(page.locator("aside.rd-v2-rail-activity-idle")).toHaveCount(0);
+    await expect(page.locator(".rd-v2-rail-mobile-grip")).toBeVisible();
+    await expect(page.locator(".rd-v2-rail-mobile-grip")).toContainText("Show Detail");
+  });
+
+  test("selected activity event rail shows research-facing recorded facts", async ({ page }) => {
+    await page.getByRole("button", { name: "Activity", exact: true }).click();
+    await page.locator("main").getByRole("button", { name: /get Taiwan gov panel/ }).click();
+    const rail = page.getByRole("complementary", { name: "Inspector" });
+    await expect(rail.getByRole("heading", { name: /get Taiwan gov panel/ })).toBeVisible();
+    await expect(rail.locator(".rd-v2-rail-id")).toHaveCount(0);
+    await expect(rail).not.toContainText("desk_activity");
+    await expect(rail).not.toContainText("no invented progress");
+    await expect(rail.getByTestId("rail-recorded-facts")).toContainText("Action");
+    await expect(rail.getByTestId("rail-recorded-facts")).toContainText("Ask");
+    await expect(rail.getByTestId("rail-recorded-facts")).toContainText("Target");
+    await expect(rail.getByTestId("rail-recorded-facts")).toContainText("get Taiwan gov panel");
+    await expect(rail.locator(".rd-v2-pill")).toContainText("Ask");
   });
 
   test("Activity filters log categories", async ({ page }) => {
     const main = page.locator("main");
     await page.getByRole("button", { name: "Activity", exact: true }).click();
-    await main.getByRole("button", { name: "Discovery", exact: true }).click();
-    await expect(main.getByRole("button", { name: "Discovery", exact: true })).toHaveClass(/on/);
+    await main.getByTestId("resources-activity-filter").click();
+    await main.getByTestId("resources-activity-filters").getByRole("button", { name: "Discovery", exact: true }).click();
+    await expect(main.getByTestId("resources-activity-filter")).toContainText("Filter · Discovery");
     await expect(main.getByText("taiwan equity")).toBeVisible();
     await expect(main.getByText("get Taiwan gov panel")).toHaveCount(0);
-    await main.getByRole("button", { name: "Review", exact: true }).click();
-    await expect(main.getByRole("heading", { name: "Review queue" })).toBeVisible();
+    await main.getByRole("button", { name: "Needs review", exact: true }).click();
+    await expect(main.getByTestId("resources-activity-review")).toBeVisible();
     await expect(main.getByRole("heading", { name: "Run log" })).toHaveCount(0);
   });
 
@@ -118,14 +163,14 @@ test.describe("v2 Resources tab", () => {
   test("approval review row lives in Activity", async ({ page }) => {
     const main = page.locator("main");
     await page.getByRole("button", { name: "Activity", exact: true }).click();
-    await expect(main.getByRole("heading", { name: "Review queue" })).toBeVisible();
+    await expect(main.getByTestId("resources-activity-review")).toBeVisible();
     await expect(main.getByRole("button", { name: /awaiting approval/ })).toBeVisible();
     await expect(main.getByRole("button", { name: /Approval needed/ })).toBeVisible();
   });
 
   test("activity Jobs filter shows live procurement job status", async ({ page }) => {
     await page.getByRole("button", { name: "Activity", exact: true }).click();
-    await page.getByRole("button", { name: "Jobs", exact: true }).click();
+    await page.getByRole("button", { name: "Runs", exact: true }).click();
     const main = page.locator("main");
     await expect(main.locator(".rd-v2-res-activity-row.job", { hasText: "MOPS financial statements" })).toBeVisible({
       timeout: 15_000,

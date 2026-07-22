@@ -40,20 +40,40 @@ function sessionHasComposerPending(messages, state) {
   return Boolean(last?.composerPending || last?.action === "composer_pending");
 }
 
-export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) {
+export function useAskChat({
+  dataset,
+  railContext,
+  chatSessionId = "",
+  persistSession = true,
+  onCollected,
+  onToast,
+  onChatComplete,
+} = {}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const sessionRef = useRef(loadChatSessionId());
+  const sessionRef = useRef(chatSessionId || loadChatSessionId());
   const warmStartedRef = useRef(false);
   const railRef = useRef(railContext);
   const messageCountRef = useRef(0);
   const restoredRef = useRef(false);
+  const boundSessionRef = useRef(chatSessionId || "");
 
   useEffect(() => {
     railRef.current = railContext;
   }, [railContext]);
+
+  useEffect(() => {
+    const next = String(chatSessionId || "").trim();
+    if (next === boundSessionRef.current) return;
+    boundSessionRef.current = next;
+    sessionRef.current = next || loadChatSessionId();
+    restoredRef.current = false;
+    messageCountRef.current = 0;
+    setMessages([]);
+    setStatus("");
+  }, [chatSessionId]);
 
   useEffect(() => {
     if (warmStartedRef.current) return;
@@ -81,7 +101,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         }
       })
       .catch(() => {});
-  }, [onToast]);
+  }, [onToast, chatSessionId]);
 
   useEffect(() => {
     const sid = sessionRef.current;
@@ -162,6 +182,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           sessionId: sessionRef.current,
           userEmail: loadUserEmail(),
           railContext: railRef.current,
+          persistSession: persistSession && !chatSessionId,
           onDelta: (chunk) => {
             setStatus("");
             setMessages((m) =>
@@ -180,13 +201,22 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           },
         });
 
-        if (out.session_id) sessionRef.current = out.session_id;
+        if (out.session_id) {
+          sessionRef.current = out.session_id;
+          if (persistSession && !chatSessionId) {
+            /* sendChatMessage already persists the global desk session */
+          }
+        }
         const reply = out.reply || out.message || "Done.";
         const { artifacts, pendingJobId, jobStatus } = resolveJobFields(out);
         const composerPending = Boolean(
           artifacts.still_working || out.action === "composer_pending",
         );
         const licenseBlocked = Boolean(artifacts.collect?.blocked || artifacts.blocked);
+        const synthesisProposal =
+          artifacts.synthesis_proposal ||
+          out.synthesis_proposal ||
+          (artifacts.synthesis_thread_id ? true : null);
 
         setMessages((m) => {
           const trimmed = m.filter((x) => !x.streaming);
@@ -210,12 +240,13 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
               licenseDoi: artifacts.doi || artifacts.collect?.resolved?.doi || "",
               fastPath: Boolean(artifacts.fast_path),
               procurementSubmit: Boolean(artifacts.procurement_submit || artifacts.background),
+              synthesisProposal: artifacts.synthesis_proposal || null,
             },
           ];
           messageCountRef.current = next.length;
           return next;
         });
-        setStatus(out.campaign_id ? `Campaign ${String(out.campaign_id).slice(0, 8)}…` : "");
+        setStatus("");
         if (
           ["collect", "acquire", "collect_doi", "submit_collect", "approve_collect", "queue"].includes(
             out.action,
@@ -233,6 +264,11 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         if (licenseBlocked) {
           onToast?.("License approval required before collect");
         }
+        onChatComplete?.({
+          ...out,
+          artifacts,
+          synthesisProposal,
+        });
       } catch (err) {
         setMessages((m) => [
           ...m.filter((x) => !x.streaming),
@@ -243,7 +279,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         setBusy(false);
       }
     },
-    [busy, contextPrefix, input, onCollected, onToast],
+    [busy, chatSessionId, contextPrefix, input, onChatComplete, onCollected, onToast, persistSession],
   );
 
   return {

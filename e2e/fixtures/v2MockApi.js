@@ -153,9 +153,59 @@ export async function mockV2Api(
     chatComplete = null,
     synthesisProfiles = { profiles: [], latest: {}, count: 0 },
     synthesisDetail = { found: false },
+    synthesisThreads = null,
+    synthesisThreadCreate = null,
+    synthesisThreadById = null,
     profileBody = null,
   } = {},
 ) {
+  const threadStore = {
+    threads: Array.isArray(synthesisThreads?.threads)
+      ? synthesisThreads.threads.map((t) => structuredClone(t))
+      : [],
+  };
+
+  const defaultEmptyThread = (payload = {}) => {
+    const id = `thread-${threadStore.threads.length + 1}`;
+    const sessionId = payload.session_id || `syn-sess-${id}`;
+    return {
+      id,
+      created_at: "2026-07-22T00:00:00+00:00",
+      updated_at: "2026-07-22T00:00:00+00:00",
+      title: payload.title || "New synthesis",
+      objective: payload.objective || "New synthesis — research measure pending Composer.",
+      session_id: sessionId,
+      conversation_id: payload.conversation_id || "",
+      materialisation: "not_materialised",
+      state: {
+        title: payload.title || "New synthesis",
+        objective: payload.objective || "New synthesis — research measure pending Composer.",
+        required_grain: payload.required_grain || "",
+        maturity: "exploring",
+        maturityLabel: "Exploring",
+        lastActivity: "Thread created.",
+        materialisation: "not_materialised",
+        nodes: [],
+        edges: [],
+        proposal: null,
+        decisions: [],
+        activity: [{ time: "Now", kind: "create", message: "Synthesis thread created." }],
+        spec: {
+          purpose: payload.objective || "",
+          grain: payload.required_grain || "",
+          coreEvidence: [],
+          validation: [],
+          unavailable: [],
+          construction: [],
+          limitations: [],
+        },
+        plannedColumns: [],
+        chartIdeas: [],
+      },
+      execution_recorded: false,
+    };
+  };
+
   await page.route("**/datasets", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_DATASETS) }),
   );
@@ -301,7 +351,21 @@ export async function mockV2Api(
       body: JSON.stringify(chatReply),
     });
   });
-  await page.route(/\/library\/synthesis\/(?!profiles|run|pair)[^/?#]+$/, (route) => {
+  await page.route(/\/library\/chat\/(?!stream$)[^/?#]+$/, (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const sid = decodeURIComponent(route.request().url().split("/library/chat/")[1]?.split("?")[0] || "");
+    const seeded = chatComplete?.session_messages;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session_id: sid || chatReply.session_id || "test-session",
+        messages: Array.isArray(seeded) ? seeded : [],
+        state: {},
+      }),
+    });
+  });
+  await page.route(/\/library\/synthesis\/(?!profiles|run|pair|threads)[^/?#]+$/, (route) => {
     if (route.request().method() !== "GET") return route.continue();
     return route.fulfill({
       status: 200,
@@ -316,6 +380,131 @@ export async function mockV2Api(
       body: JSON.stringify(synthesisProfiles),
     }),
   );
+  await page.route(/\/library\/synthesis\/threads(\?.*)?$/, async (route) => {
+    const method = route.request().method();
+    if (method === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          threads: threadStore.threads,
+          total: threadStore.threads.length,
+        }),
+      });
+    }
+    if (method === "POST") {
+      const payload = route.request().postDataJSON?.() || {};
+      const created =
+        typeof synthesisThreadCreate === "function"
+          ? synthesisThreadCreate(payload, threadStore)
+          : synthesisThreadCreate
+            ? structuredClone(synthesisThreadCreate)
+            : defaultEmptyThread(payload);
+      if (!threadStore.threads.some((t) => t.id === created.id)) {
+        threadStore.threads.unshift(created);
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(created),
+      });
+    }
+    return route.continue();
+  });
+  await page.route(/\/library\/synthesis\/threads\/[^/?#]+(\/.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const parts = url.pathname.split("/library/synthesis/threads/")[1]?.split("/") || [];
+    const threadId = decodeURIComponent(parts[0] || "");
+    const action = parts[1] || "";
+    const method = route.request().method();
+    let thread =
+      (typeof synthesisThreadById === "function"
+        ? synthesisThreadById(threadId, threadStore)
+        : null) ||
+      threadStore.threads.find((t) => t.id === threadId) ||
+      null;
+
+    if (method === "GET" && !action) {
+      if (!thread) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "not found" }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(thread),
+      });
+    }
+
+    if (method === "POST" && action === "patches") {
+      const payload = route.request().postDataJSON?.() || {};
+      if (!thread) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "not found" }),
+        });
+      }
+      const proposal = thread.state?.proposal;
+      if (
+        !proposal ||
+        payload.proposal_id !== proposal.id ||
+        payload.proposal_hash !== proposal.proposal_hash
+      ) {
+        return route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "proposal_id and proposal_hash required or changed" }),
+        });
+      }
+      const next = structuredClone(thread);
+      if (payload.decision === "accept") {
+        for (const op of proposal.operations || []) {
+          if (op.op === "add_node" && op.node) next.state.nodes.push(op.node);
+          if (op.op === "update_spec") next.state.spec = { ...next.state.spec, ...(op.patch || {}) };
+        }
+        next.state.proposal = null;
+        next.state.maturityLabel = "Accepted construction";
+      } else if (payload.decision === "reject") {
+        next.state.proposal = null;
+      }
+      const idx = threadStore.threads.findIndex((t) => t.id === threadId);
+      if (idx >= 0) threadStore.threads[idx] = next;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(next),
+      });
+    }
+
+    if (method === "POST" && action === "conversation") {
+      const payload = route.request().postDataJSON?.() || {};
+      if (!thread) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "not found" }),
+        });
+      }
+      const next = {
+        ...thread,
+        session_id: payload.session_id || thread.session_id,
+        conversation_id: payload.conversation_id || thread.conversation_id,
+      };
+      const idx = threadStore.threads.findIndex((t) => t.id === threadId);
+      if (idx >= 0) threadStore.threads[idx] = next;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(next),
+      });
+    }
+
+    return route.continue();
+  });
   await page.route("**/yzu/acquisitions*", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ acquisitions: [] }) }),
   );

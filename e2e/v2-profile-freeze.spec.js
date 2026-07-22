@@ -49,7 +49,9 @@ test.describe("Research context freeze showcase", () => {
     await page.goto("/?tab=profile", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     const overlay = page.getByTestId("research-context-overlay");
+    await expect(page.getByTestId("account-dialog-overlay")).toHaveAttribute("data-mode", "research");
     await expect(overlay.getByRole("heading", { name: "Research context" })).toBeVisible({ timeout: 20_000 });
+    await expect(overlay.getByTestId("account-dialog-modes")).toBeVisible();
     await expect(overlay.locator(".rd-v2-profile-name")).toContainText(/Kong/i);
     await expect(overlay.getByRole("button", { name: /Use my email|Bind example/i })).toHaveCount(0);
 
@@ -88,21 +90,29 @@ test.describe("Research context freeze showcase", () => {
     await waitForShell(page);
     const overlay = page.getByTestId("research-context-overlay");
     await expect(overlay.getByTestId("profile-unbound-badge")).toBeVisible({ timeout: 20_000 });
-    await expect(overlay.getByTestId("profile-primary-command")).toHaveText(/Connect faculty email/i);
+    await expect(overlay.getByTestId("profile-email-input")).toBeVisible();
+    await expect(overlay.getByTestId("profile-save-identity")).toHaveText(/Connect faculty email/i);
+    await expect(overlay.getByTestId("profile-primary-command")).toHaveCount(0);
     await expect(overlay.getByTestId("profile-understanding")).toHaveCount(0);
     await expect(overlay.getByRole("button", { name: /Bind example|Use EXAMPLE/i })).toHaveCount(0);
   });
 });
 
-test.describe("Workspace preferences Research context → Workspace → Advanced", () => {
+test.describe("Workspace preferences — Workspace + Advanced only", () => {
   test("sections present; advanced collapsed; no health admin; Detail not Settings", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     const prefs = page.getByTestId("workspace-prefs-overlay");
+    await expect(page.getByTestId("account-dialog-overlay")).toHaveAttribute("data-mode", "preferences");
     await expect(prefs.getByRole("heading", { name: "Workspace preferences" })).toBeVisible({ timeout: 20_000 });
-    await expect(prefs.getByTestId("settings-group-context")).toBeVisible();
+    await expect(prefs.getByTestId("account-dialog-modes")).toBeVisible();
+    await expect(prefs.getByTestId("settings-dialog-columns")).toBeVisible();
     await expect(prefs.getByTestId("settings-group-workspace")).toBeVisible();
+    await expect(prefs.getByTestId("settings-default-tab")).toBeVisible();
+    await expect(prefs.getByTestId("settings-on-select")).toBeVisible();
+    await expect(prefs.getByTestId("settings-group-context")).toHaveCount(0);
+    await expect(prefs.getByTestId("settings-email-input")).toHaveCount(0);
     await expect(prefs.getByTestId("settings-group-access")).toHaveCount(0);
     await expect(prefs.getByTestId("settings-open-health")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Detail|Focus Identity/i })).toHaveCount(0);
@@ -111,5 +121,7 @@ test.describe("Workspace preferences Research context → Workspace → Advanced
     await advanced.locator("summary").click();
     await expect(prefs.getByTestId("settings-reset-local")).toBeVisible();
     await expect(page.getByTestId("settings-detail-rail")).toHaveCount(0);
+    // Preferences live in the modal body — not a right-rail inspector
+    await expect(page.locator(".yzu-inspector [data-testid='settings-group-context']")).toHaveCount(0);
   });
 });

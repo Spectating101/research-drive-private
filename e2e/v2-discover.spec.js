@@ -10,7 +10,7 @@ import {
  * Discover feature E2E.
  * Authority: docs/UI_PRODUCT_AUTHORITY.md (Explore | History).
  * Classify results via docs/DISCOVER_E2E_AUTHORITY_AUDIT.md before product fixes.
- * Assertions that require mode=activity / discover-activity* are LEGACY EXPECTATION.
+ * Pending approvals live on Explore via discover-queue-strip; History is the trail mode.
  */
 
 test.describe("v2 Discover tab", () => {
@@ -37,12 +37,13 @@ test.describe("v2 Discover tab", () => {
     await page.getByRole("button", { name: "TWSE governance" }).click();
     await expect(page.getByTestId("discover-search-input")).toHaveValue("TWSE governance");
     await expect(page.getByTestId("header-ask-only")).toBeVisible();
-    await expect(page.locator('.rd-v2-catalog button.row[data-kind="external"]')).toHaveCount(1, { timeout: 10_000 });
-    await expect(page.locator(".rd-v2-discover-list-panel")).toContainText("TWSE OpenAPI");
-    await expect(page.locator(".rd-v2-discover-search-summary")).toContainText("1 result");
-    await expect(page.locator(".rd-v2-discover-search-summary")).toContainText(/Local suggestions|Demo catalog/);
-    await expect(page.locator(".rd-v2-toolbar.inline")).toBeVisible();
-    await expect(page.getByTestId("discover-result-filters")).toBeVisible();
+    await expect(page.locator(".rd-v2-discover-list-panel .rd-v2-discover-candidate").first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.locator(".rd-v2-discover-list-panel")).toContainText("TWSE");
+    await expect(page.locator(".rd-v2-discover-search-summary")).toContainText(/\d+ result/);
+    await expect(page.getByTestId("discover-toolbar")).toBeVisible();
+    await expect(page.getByTestId("discover-filter-trigger")).toBeVisible();
   });
 
   test("selecting discover row opens acquisition rail with Add to lab", async ({ page }) => {
@@ -50,12 +51,19 @@ test.describe("v2 Discover tab", () => {
     await page.getByTestId("discover-search-input").press("Enter");
     await page.locator('.rd-v2-catalog button.row[data-kind="external"]').first().click();
     await expect(page.locator("aside .rd-v2-rail-sticky .rd-v2-btn.primary", { hasText: "Add to lab" })).toBeVisible();
+    await expect(page.getByTestId("rail-judgment")).toBeVisible();
+    await expect(page.getByTestId("rail-confirmed")).toBeVisible();
     await expect(page.locator(".rd-v2-detail-label", { hasText: "Source" })).toBeVisible();
     await expect(page.locator(".rd-v2-detail-label", { hasText: "Access" })).toBeVisible();
-    await expect(page.locator(".rd-v2-detail-label", { hasText: "Probe" })).toBeVisible();
     await expect(page.getByTestId("discover-destination-select")).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Collection plan");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("MOPS");
+  });
+
+  test("Discover empty Detail is a one-line source prompt", async ({ page }) => {
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail.getByTestId("rail-empty")).toContainText("Select a source to inspect.");
+    await expect(rail.getByTestId("rail-empty")).not.toContainText("Search Discover, then select");
   });
 
   test("search auto-selects the top candidate in Detail without starting Ask", async ({ page }) => {
@@ -157,24 +165,26 @@ test.describe("v2 Discover tab", () => {
     await expect(rail.getByTestId("discover-compare-alt")).toHaveCount(0);
   });
 
-  // MIXED: sticky Detail approve is current; mode=activity / discover-activity is LEGACY.
+  // Sticky Detail approve is current; header pending opens Explore queue (not Activity).
   // docs/DISCOVER_E2E_AUTHORITY_AUDIT.md §7
   test("awaiting approval uses sticky approve in rail footer", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     await page.getByTestId("header-pending-link").click();
-    await expect(page).toHaveURL(/mode=(approvals|activity)/);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await page.locator('.rd-v2-catalog button.row[data-state="awaiting"]').first().click();
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    await expect(page.getByRole("tab", { name: "Explore" })).toHaveAttribute("aria-selected", "true");
+    const queue = page.getByTestId("discover-queue-strip");
+    await expect(queue).toBeVisible();
+    await expect(queue).toContainText("Needs your review");
+    await page.getByTestId("discover-queue-row").first().click();
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByTestId("discover-approve-sticky")).toBeVisible();
     await expect(rail.getByTestId("procurement-decision-card")).toBeVisible();
     await expect(rail.getByTestId("procurement-decision-card").getByRole("button", { name: "Approve collection" })).toHaveCount(0);
   });
 
-  // MIXED: not-Resources is current; Activity panel / mode=activity is LEGACY.
-  // Prefer Explore queue strip (discover-queue-strip) after rewrite.
+  // Not-Resources is current; Explore queue strip replaces Activity panel.
   test("pending approvals open Discover Review queue, not Resources", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
@@ -182,25 +192,32 @@ test.describe("v2 Discover tab", () => {
     await expect(page.getByTestId("discover-empty")).toBeVisible();
     await expect(page.getByRole("button", { name: /Review queue/ })).toBeVisible();
     await page.getByTestId("header-pending-link").click();
-    await expect(page).toHaveURL(/mode=(approvals|activity)/);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await expect(page.getByTestId("discover-activity")).toContainText("Review queue");
-    await expect(page.getByTestId("discover-bulk-approve-safe")).toBeVisible();
+    await expect(page).toHaveURL(/tab=browse/);
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    await expect(page).not.toHaveURL(/tab=resources/);
+    const queue = page.getByTestId("discover-queue-strip");
+    await expect(queue).toBeVisible();
+    await expect(queue).toContainText("Needs your review");
+    await expect(page.getByRole("tab", { name: "Explore" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "History" })).toBeVisible();
+    await page.getByRole("tab", { name: "History" }).click();
+    await expect(page).toHaveURL(/mode=history/);
+    await expect(page.getByTestId("discover-history")).toBeVisible();
     await page.getByRole("tab", { name: "Explore" }).click();
     await expect(page.getByTestId("discover-empty")).toBeVisible();
-    await expect(page).not.toHaveURL(/mode=(approvals|activity)/);
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
   });
 
-  // LEGACY EXPECTATION as written (mode=activity + discover-activity*).
-  // Rewrite to Explore strip / History + Detail. See DISCOVER_E2E_AUTHORITY_AUDIT.md §7.
+  // Legacy mode=activity normalizes to Explore; acquisition queue lives in Discover, not Resources.
   test("Discover Review queue shows acquisition jobs separate from Resources", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=browse&mode=activity", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await expect(page.getByTestId("discover-activity-filters")).toBeVisible();
-    await expect(page.getByTestId("discover-activity")).toContainText("Review queue");
-    await expect(page.getByTestId("discover-activity")).not.toContainText(/GiB|Ask usage|REMOTE TABLES/i);
+    await expect(page.getByRole("tab", { name: "Explore" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("discover-queue-strip")).toBeVisible();
+    await expect(page.getByTestId("discover-queue-strip")).toContainText("Needs your review");
+    await expect(page.getByTestId("discover-queue-strip")).not.toContainText(/GiB|Ask usage|REMOTE TABLES/i);
+    await expect(page.getByRole("heading", { name: "Review queue" })).toHaveCount(0);
   });
 
   test("Add to lab after probe queues collection job on Detail rail", async ({ page }) => {
@@ -249,13 +266,15 @@ test.describe("v2 Discover tab", () => {
     await page.locator('.rd-v2-catalog button.row[data-kind="external"]').first().click();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("MOPS");
 
-    await expect(page.getByTestId("discover-result-filters")).toBeVisible();
-    await page.getByTestId("discover-result-filters").getByRole("button", { name: "External" }).click();
+    await expect(page.getByTestId("discover-filter-trigger")).toBeVisible();
+    await page.getByTestId("discover-filter-trigger").click();
+    await page.getByTestId("discover-filter-panel").getByRole("button", { name: "External", exact: true }).click();
+    await expect(page.getByTestId("discover-filter-count")).toHaveText("1");
 
     await page.getByTestId("discover-search-input").fill("no-such-dataset-xyz");
     await page.getByTestId("discover-search-input").press("Enter");
     await expect(page.locator("aside.rd-v2-rail")).not.toContainText("MOPS");
-    await expect(page.getByTestId("discover-result-filters").getByRole("button", { name: "All" })).toHaveClass(/on/);
+    await expect(page.getByTestId("discover-filter-count")).toHaveCount(0);
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Example open dataset");
   });
 
@@ -267,9 +286,8 @@ test.describe("v2 Discover tab", () => {
     const modal = page.locator(".rd-v2-preview-modal");
     await expect(modal).toBeVisible();
     await expect(modal).toContainText("Publisher");
-    await expect(modal).toContainText("Row preview is available after Add to lab");
+    await expect(modal).toContainText("Bounded sample unavailable; Detail explains the next valid action.");
     await expect(modal.locator(".rd-v2-preview-foot").getByRole("button", { name: "Close" })).toBeVisible();
-  });
   });
 
   test("index-only candidate does not claim probe or connector readiness", async ({ page }) => {
@@ -306,15 +324,138 @@ test.describe("v2 Discover tab", () => {
   });
 
   test.describe("v2 Discover API integration", () => {
-  test("live discover API rows render in list", async ({ page }) => {
-    await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
-    await waitForShell(page);
-    await page.getByTestId("discover-search-input").fill("mops");
+    test("live discover API rows render in list", async ({ page }) => {
+      await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+      await waitForShell(page);
+      await page.getByTestId("discover-search-input").fill("mops");
+      await page.getByTestId("discover-search-input").press("Enter");
+      await expect(page.locator(".rd-v2-discover-search-summary")).toContainText(/Discover API|1 result/);
+      await expect(page.locator(".rd-v2-chip", { hasText: "Offline sample" })).toHaveCount(0);
+      await expect(page.locator(".rd-v2-discover-list-panel")).toContainText("MOPS financial statements");
+    });
+  });
+
+  test("Explore polish: Catalog→Research keeps search/filter boxes; In lab filters suggested", async ({
+    page,
+  }) => {
+    const search = page.getByTestId("discover-search-input");
+    const filter = page.getByTestId("discover-filter-trigger");
+    await expect(page.getByTestId("discover-suggested")).toBeVisible();
+    await expect(page.getByTestId("discover-suggested-card")).toHaveCount(4);
+
+    const snapBox = (box) => ({
+      x: Math.round(box.x),
+      y: Math.round(box.y),
+      width: Math.round(box.width),
+      height: Math.round(box.height),
+    });
+    const beforeSearch = snapBox(await search.boundingBox());
+    const beforeFilter = snapBox(await filter.boundingBox());
+
+    await page.getByTestId("discover-intent-research").click();
+    await expect(search).toHaveAttribute("data-intent", "research");
+    expect(snapBox(await search.boundingBox())).toEqual(beforeSearch);
+    expect(snapBox(await filter.boundingBox())).toEqual(beforeFilter);
+
+    await filter.click();
+    const panel = page.getByTestId("discover-filter-panel");
+    await expect(panel).toBeVisible();
+    await panel.getByRole("button", { name: "In lab", exact: true }).click();
+    await expect(page.getByTestId("discover-filter-chip")).toContainText("In lab");
+    await expect(page.getByTestId("discover-filter-count")).toHaveText("1");
+    await expect(page.getByTestId("discover-suggested-card")).toHaveCount(1);
+    await expect(page.getByTestId("discover-suggested-card")).toContainText("In lab");
+  });
+
+  test("toolbar stays spatially stable across Catalog and Research question", async ({ page }) => {
+    const toolbar = page.getByTestId("discover-toolbar");
+    const search = page.getByTestId("discover-search-input");
+    const filter = page.getByTestId("discover-filter-trigger");
+    const action = page.getByTestId("discover-search-action");
+    await expect(toolbar).toBeVisible();
+    await expect(filter).toBeVisible();
+    await expect(action).toHaveText("Search catalog");
+
+    const before = await toolbar.evaluate((el) => {
+      const searchEl = el.querySelector('[data-testid="discover-search-input"]');
+      const filterEl = el.querySelector('[data-testid="discover-filter-trigger"]');
+      const actionEl = el.querySelector('[data-testid="discover-search-action"]');
+      const intent = el.querySelector('[data-testid="discover-intent-catalog"]');
+      const box = el.getBoundingClientRect();
+      return {
+        height: Math.round(box.height),
+        searchTop: Math.round(searchEl.getBoundingClientRect().top),
+        filterTop: Math.round(filterEl.getBoundingClientRect().top),
+        actionTop: Math.round(actionEl.getBoundingClientRect().top),
+        intentTop: Math.round(intent.getBoundingClientRect().top),
+      };
+    });
+
+    await page.getByTestId("discover-intent-research").click();
+    await expect(search).toHaveAttribute("data-intent", "research");
+    await expect(action).toHaveText("Search by meaning");
+    const after = await toolbar.evaluate((el) => {
+      const searchEl = el.querySelector('[data-testid="discover-search-input"]');
+      const filterEl = el.querySelector('[data-testid="discover-filter-trigger"]');
+      const actionEl = el.querySelector('[data-testid="discover-search-action"]');
+      const intent = el.querySelector('[data-testid="discover-intent-research"]');
+      const box = el.getBoundingClientRect();
+      return {
+        height: Math.round(box.height),
+        searchTop: Math.round(searchEl.getBoundingClientRect().top),
+        filterTop: Math.round(filterEl.getBoundingClientRect().top),
+        actionTop: Math.round(actionEl.getBoundingClientRect().top),
+        intentTop: Math.round(intent.getBoundingClientRect().top),
+      };
+    });
+    expect(after.height).toBe(before.height);
+    expect(after.searchTop).toBe(before.searchTop);
+    expect(after.filterTop).toBe(before.filterTop);
+    expect(after.actionTop).toBe(before.actionTop);
+    expect(after.intentTop).toBe(before.intentTop);
+
+    await page.getByTestId("discover-intent-catalog").click();
+    await expect(search).toHaveAttribute("data-intent", "catalog");
+    await expect(action).toHaveText("Search catalog");
+  });
+
+  test("filter popover applies and clears active access filter", async ({ page }) => {
+    await page.getByTestId("discover-search-input").fill("TWSE");
     await page.getByTestId("discover-search-input").press("Enter");
-    await expect(page.locator(".rd-v2-discover-search-summary")).toContainText(/Discover API|1 result/);
-    await expect(page.locator(".rd-v2-chip", { hasText: "Offline sample" })).toHaveCount(0);
-    await expect(page.locator(".rd-v2-discover-list-panel")).toContainText("MOPS financial statements");
+    await expect(page.locator(".rd-v2-discover-candidate").first()).toBeVisible({ timeout: 10_000 });
+
+    await page.getByTestId("discover-filter-trigger").click();
+    const panel = page.getByTestId("discover-filter-panel");
+    await expect(panel).toBeVisible();
+    await panel.getByRole("button", { name: "In lab", exact: true }).click();
+    await expect(page.getByTestId("discover-filter-count")).toHaveText("1");
+    await expect(page.getByTestId("discover-filter-chip")).toContainText("In lab");
+
+    await page.getByTestId("discover-filter-chip").click();
+    await expect(page.getByTestId("discover-filter-count")).toHaveCount(0);
+    await expect(page.getByTestId("discover-filter-panel")).toBeVisible();
+  });
+
+  test("compact working-from context leaves results as the vertical focus", async ({ page }) => {
+    await page.goto("/?tab=browse&dataset=gdelt_asia_daily_country_panel", {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForShell(page);
+    const context = page.getByTestId("discover-research-context");
+    await expect(context).toBeVisible();
+    await expect(context).toContainText("Working from");
+    await expect(context.locator(".rd-v2-research-evidence")).toHaveCount(0);
+    await expect(page.getByTestId("discover-suggested")).toBeVisible();
+    const heights = await page.evaluate(() => {
+      const ctx = document.querySelector('[data-testid="discover-research-context"]');
+      const list = document.querySelector('[data-testid="discover-suggested"]');
+      return {
+        context: ctx?.getBoundingClientRect().height || 0,
+        list: list?.getBoundingClientRect().height || 0,
+      };
+    });
+    expect(heights.list).toBeGreaterThan(heights.context);
   });
 });

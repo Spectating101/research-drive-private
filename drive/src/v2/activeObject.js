@@ -114,6 +114,30 @@ export function homeAttentionObject(item) {
   };
 }
 
+export function synthesisThreadObject(thread) {
+  if (!thread) return null;
+  const draft = Boolean(thread.localDraft);
+  const evidence = compactText(thread.state?.selectedEvidence);
+  const step = evidence
+    ? `Evidence · ${evidence}`
+    : compactText(thread.state?.selectedStepLabel || thread.state?.selectedStep);
+  const title = draft
+    ? "Local current-session draft"
+    : compactText(thread.title || thread.state?.title, "Synthesis profile");
+  return {
+    kind: "synthesis_thread",
+    id: thread.id || (draft ? "local-draft" : "synthesis-profile"),
+    title,
+    status: draft
+      ? "Local current-session draft · local only"
+      : compactText(thread.state?.maturityLabel || thread.materialisation, "Proposal-ready"),
+    selectedNode: compactText(thread.state?.selectedStep),
+    nodeLabel: step,
+    draft,
+    thread,
+  };
+}
+
 export function pageObject(page) {
   return {
     kind: "page",
@@ -126,5 +150,12 @@ export function activeObjectSelectionHint(object) {
   if (!object) return "";
   if (object.kind === "library_intake") return `${object.title} · ${object.destination}`;
   if (object.kind === "library_folder") return object.title || object.path || "Library folder";
+  if (object.kind === "synthesis_thread") {
+    const step = object.nodeLabel || object.thread?.state?.selectedStepLabel;
+    if (object.draft || object.thread?.localDraft) {
+      return step ? `Local current-session draft · ${step}` : "Local current-session draft · local only";
+    }
+    return step ? `${object.title} · ${step}` : object.title || object.id || "";
+  }
   return object.title || object.id || "";
 }

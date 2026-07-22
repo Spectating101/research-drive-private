@@ -146,19 +146,18 @@ test.describe("v2 Discover loop anchor", () => {
     await expect(summary).toContainText("1");
   });
 
-  test("dataset-driven Discover reveals the research operating loop", async ({ page }) => {
+  test("dataset-driven Discover reveals compact working-from context", async ({ page }) => {
     await page.goto("/?tab=browse&dataset=gdelt_asia_daily_country_panel", {
       waitUntil: "domcontentloaded",
     });
     await waitForShell(page);
 
     const context = page.getByTestId("discover-research-context");
-    await expect(context).toContainText("Research context");
-    await expect(context).toContainText("Find");
-    await expect(context).toContainText("Verify");
-    await expect(context).toContainText("Acquire");
-    await expect(context).toContainText("Synthesize");
-    await expect(context).toContainText("Evidence and coverage");
+    await expect(context).toContainText("Working from");
+    await expect(context).toContainText(/GDELT|panel|Index/i);
+    await expect(context.locator(".rd-v2-discover-context-meta")).toBeVisible();
+    await expect(context.locator(".rd-v2-research-evidence")).toHaveCount(0);
+    await expect(page.getByTestId("discover-suggested")).toBeVisible();
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Why this matters");
@@ -167,7 +166,7 @@ test.describe("v2 Discover loop anchor", () => {
     await expect(rail).toContainText("Next gap");
   });
 
-  test("research context owns its column backgrounds without clipping at desktop widths", async ({ page }) => {
+  test("compact working-from context stays single-line dense at desktop widths", async ({ page }) => {
     for (const width of [1366, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/?tab=browse&dataset=gdelt_asia_daily_country_panel", {
@@ -176,35 +175,21 @@ test.describe("v2 Discover loop anchor", () => {
       await waitForShell(page);
 
       const layout = await page.getByTestId("discover-research-context").evaluate((context) => {
-        const main = context.querySelector(".rd-v2-discover-context-main");
-        const heading = main.querySelector("h2");
-        const contextStyle = getComputedStyle(context);
-        const mainStyle = getComputedStyle(main);
-        const headingRect = heading.getBoundingClientRect();
-        const mainRect = main.getBoundingClientRect();
-        const evidenceValues = [...context.querySelectorAll(".rd-v2-research-evidence dd")];
+        const title = context.querySelector(".rd-v2-discover-context-title");
+        const meta = context.querySelector(".rd-v2-discover-context-meta");
+        const box = context.getBoundingClientRect();
         return {
-          gap: contextStyle.columnGap,
-          paddingTop: contextStyle.paddingTop,
-          paddingBottom: contextStyle.paddingBottom,
-          backgroundImage: contextStyle.backgroundImage,
-          mainBackground: mainStyle.backgroundColor,
-          headingInsideMain: headingRect.right <= mainRect.right + 0.5,
-          headingOverflow: heading.scrollWidth - heading.clientWidth,
-          evidenceValuesUsable: evidenceValues.every(
-            (value) => value.clientWidth >= 50 && value.scrollWidth <= value.clientWidth + 1,
-          ),
+          height: box.height,
+          hasEvidence: Boolean(context.querySelector(".rd-v2-research-evidence")),
+          titleVisible: Boolean(title?.textContent?.trim()),
+          metaVisible: Boolean(meta?.textContent?.trim()),
         };
       });
 
-      expect(layout.gap).toBe("0px");
-      expect(layout.paddingTop).toBe("0px");
-      expect(layout.paddingBottom).toBe("0px");
-      expect(layout.backgroundImage).toBe("none");
-      expect(layout.mainBackground).toBe("rgb(16, 42, 67)");
-      expect(layout.headingInsideMain).toBe(true);
-      expect(layout.headingOverflow).toBeLessThanOrEqual(0);
-      expect(layout.evidenceValuesUsable).toBe(true);
+      expect(layout.hasEvidence).toBe(false);
+      expect(layout.titleVisible).toBe(true);
+      expect(layout.metaVisible).toBe(true);
+      expect(layout.height).toBeLessThan(160);
     }
   });
 });

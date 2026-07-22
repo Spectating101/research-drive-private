@@ -46,6 +46,24 @@ export function buildRailContext({
   } else if (activeObject?.kind === "home_attention") {
     entity = { kind: "home_attention", id: activeObject.id, title: activeObject.title };
     actions = ["open", "ask_about"];
+  } else if (activeObject?.kind === "synthesis_thread") {
+    const thread = activeObject.thread || {};
+    const state = thread.state || {};
+    entity = {
+      kind: "synthesis_thread",
+      id: activeObject.id,
+      title: activeObject.title,
+      status:
+        activeObject.status ||
+        state.maturityLabel ||
+        state.execution?.status ||
+        state.maturity ||
+        undefined,
+      selected_node: activeObject.selectedNode || state.selectedStep || undefined,
+      draft: Boolean(activeObject.draft || thread.localDraft) || undefined,
+      proposal: state.proposal || undefined,
+    };
+    actions = ["ask_about", "propose_state"];
   } else if (dataset?.dataset_id) {
     entity = {
       kind: "dataset",
@@ -69,6 +87,15 @@ export function buildRailContext({
     actions = ["ask_about_overlap", "preview_rows"];
   }
 
+  const synthesisThreadId =
+    activeObject?.kind === "synthesis_thread" && !activeObject.draft && !activeObject.thread?.localDraft
+      ? activeObject.id
+      : undefined;
+  const synthesisSessionId =
+    activeObject?.kind === "synthesis_thread"
+      ? activeObject.thread?.session_id || undefined
+      : undefined;
+
   return {
     tab,
     mode,
@@ -81,5 +108,9 @@ export function buildRailContext({
     vault_path: dataset ? vaultPath(dataset) : undefined,
     compare: compare || undefined,
     actions: actions.length ? actions : undefined,
+    thread_id: synthesisThreadId || undefined,
+    session_id: synthesisSessionId || undefined,
+    conversation_id:
+      (activeObject?.kind === "synthesis_thread" && activeObject.thread?.conversation_id) || undefined,
   };
 }

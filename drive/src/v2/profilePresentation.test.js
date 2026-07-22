@@ -19,7 +19,8 @@ test("unbound profile is not shown as primary EXAMPLE bind", () => {
   assert.equal(profileCentreMode({ unknown: true, email: "" }), "unbound");
   const cmd = profilePrimaryCommand("unbound");
   assert.equal(cmd?.id, "connect-email");
-  assert.equal(cmd?.tab, "settings");
+  assert.equal(cmd?.inline, true);
+  assert.equal(cmd?.tab, undefined);
   assert.equal(assertNoExamplePrimary("unbound", cmd), true);
   assert.equal(
     assertNoExamplePrimary("unbound", { label: "Bind example identity" }),

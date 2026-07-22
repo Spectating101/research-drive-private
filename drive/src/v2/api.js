@@ -12,6 +12,11 @@ import {
 
 export const API = import.meta.env.DEV ? "/api" : "";
 const healthInflight = new Map();
+let deskSessionPromise = null;
+
+function isDeskAuthErrorMessage(msg) {
+  return /desk access token required/i.test(String(msg || ""));
+}
 
 export async function fetchJson(path, init) {
   const { timeoutMs, ...fetchInit } = init || {};
@@ -43,18 +48,26 @@ export async function ensureDeskSession({ force = false } = {}) {
   if (!force && deskSessionBootstrapped()) {
     return { ok: true, bootstrapped: true, reused: true };
   }
-  try {
-    const data = await fetchJson("/library/desk/session", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-    const ok = Boolean(data?.ok || data?.authorized);
-    markDeskSessionBootstrapped(ok);
-    return { ok, bootstrapped: ok, ...data };
-  } catch (error) {
-    markDeskSessionBootstrapped(false);
-    return { ok: false, bootstrapped: false, error: String(error?.message || error) };
+  if (!force && deskSessionPromise) {
+    return deskSessionPromise;
   }
+  deskSessionPromise = (async () => {
+    try {
+      const data = await fetchJson("/library/desk/session", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const ok = Boolean(data?.ok || data?.authorized);
+      markDeskSessionBootstrapped(ok);
+      return { ok, bootstrapped: ok, ...data };
+    } catch (error) {
+      markDeskSessionBootstrapped(false);
+      return { ok: false, bootstrapped: false, error: String(error?.message || error) };
+    } finally {
+      deskSessionPromise = null;
+    }
+  })();
+  return deskSessionPromise;
 }
 
 export async function clearDeskSession() {
@@ -305,16 +318,31 @@ export function approveJob(jobId) {
   });
 }
 
-export function deskWarm({ sessionId, userEmail, background = true } = {}) {
-  return fetchJson("/library/desk/warm", {
-    method: "POST",
-    headers: deskHeaders(),
-    body: JSON.stringify({
-      session_id: sessionId || loadChatSessionId() || undefined,
-      user_email: userEmail || loadUserEmail() || undefined,
-      background,
-    }),
-  });
+export async function deskWarm({ sessionId, userEmail, background = true } = {}) {
+  await ensureDeskSession();
+  try {
+    return await fetchJson("/library/desk/warm", {
+      method: "POST",
+      headers: deskHeaders(),
+      body: JSON.stringify({
+        session_id: sessionId || loadChatSessionId() || undefined,
+        user_email: userEmail || loadUserEmail() || undefined,
+        background,
+      }),
+    });
+  } catch (error) {
+    if (!isDeskAuthErrorMessage(error?.message)) throw error;
+    await ensureDeskSession({ force: true });
+    return fetchJson("/library/desk/warm", {
+      method: "POST",
+      headers: deskHeaders(),
+      body: JSON.stringify({
+        session_id: sessionId || loadChatSessionId() || undefined,
+        user_email: userEmail || loadUserEmail() || undefined,
+        background,
+      }),
+    });
+  }
 }
 
 export function libraryConsolidated(live = false) {
@@ -325,6 +353,74 @@ export function libraryConsolidated(live = false) {
 export function listSynthesisProfiles() {
   /** MCP/Composer equipment — not a faculty UI surface. */
   return fetchJson("/library/synthesis/profiles");
+}
+
+/** Durable Synthesis workspaces. The thread, not a browser-local stage, is authoritative. */
+export function listSynthesisThreads({ limit = 30, sessionId = "" } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (sessionId) params.set("session_id", sessionId);
+  return fetchJson(`/library/synthesis/threads?${params}`);
+}
+
+export function getSynthesisThread(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}`);
+}
+
+export function createSynthesisThread({
+  objective,
+  title = "",
+  requiredGrain = "",
+  sessionId = "",
+  conversationId = "",
+  state = null,
+} = {}) {
+  return fetchJson("/library/synthesis/threads", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      objective,
+      title: title || undefined,
+      required_grain: requiredGrain || undefined,
+      session_id: sessionId || undefined,
+      conversation_id: conversationId || undefined,
+      state: state && typeof state === "object" ? state : undefined,
+    }),
+  });
+}
+
+export function linkSynthesisConversation(threadId, { sessionId, conversationId = "" } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/conversation`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      session_id: sessionId,
+      conversation_id: conversationId || undefined,
+    }),
+  });
+}
+
+export function decideSynthesisProposal(threadId, { decision, proposalId, proposalHash } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/patches`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      decision,
+      proposal_id: proposalId,
+      proposal_hash: proposalHash,
+    }),
+  });
+}
+
+export function requestSynthesisExecution(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/execute`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({}),
+  });
+}
+
+export function synthesisMaterialisation(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/materialisation`);
 }
 
 export function getSynthesisProfile(profileId, { refresh = false } = {}) {
@@ -387,9 +483,9 @@ export function downloadText(filename, text, mime = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
-export async function sendChatMessage(
+async function postChatOnce(
   message,
-  { sessionId, userEmail, railContext, onDelta, onActivity } = {},
+  { sessionId, userEmail, railContext, onDelta, onActivity, persistSession = true } = {},
 ) {
   const body = JSON.stringify({
     message,
@@ -398,11 +494,18 @@ export async function sendChatMessage(
     rail_context: railContext && typeof railContext === "object" ? railContext : undefined,
   });
 
-  const streamRes = await fetch(`${API}/library/chat/stream`, {
-    method: "POST",
-    headers: deskHeaders(),
-    body,
-  });
+  const streamRes = await fetch(
+    `${API}/library/chat/stream`,
+    deskFetchInit({
+      method: "POST",
+      body,
+    }),
+  );
+
+  if (streamRes.status === 401) {
+    const payload = await streamRes.json().catch(() => ({}));
+    throw new Error(payload.message || payload.error || "Desk access token required");
+  }
 
   if (streamRes.ok && (streamRes.headers.get("content-type") || "").includes("ndjson")) {
     const reader = streamRes.body.getReader();
@@ -429,19 +532,49 @@ export async function sendChatMessage(
       }
     }
     if (!result) throw new Error("Chat ended without a response");
-    if (result.session_id) saveChatSessionId(result.session_id);
+    if (persistSession && result.session_id) saveChatSessionId(result.session_id);
     return result;
   }
 
-  const fallback = await fetch(`${API}/library/chat`, {
-    method: "POST",
-    headers: deskHeaders(),
-    body,
-  });
+  const fallback = await fetch(
+    `${API}/library/chat`,
+    deskFetchInit({
+      method: "POST",
+      body,
+    }),
+  );
   const payload = await fallback.json().catch(() => ({}));
   if (!fallback.ok) throw new Error(payload.message || payload.error || "Chat error");
-  if (payload.session_id) saveChatSessionId(payload.session_id);
+  if (persistSession && payload.session_id) saveChatSessionId(payload.session_id);
   return payload;
+}
+
+export async function sendChatMessage(
+  message,
+  { sessionId, userEmail, railContext, onDelta, onActivity, persistSession = true } = {},
+) {
+  await ensureDeskSession();
+  try {
+    return await postChatOnce(message, {
+      sessionId,
+      userEmail,
+      railContext,
+      onDelta,
+      onActivity,
+      persistSession,
+    });
+  } catch (error) {
+    if (!isDeskAuthErrorMessage(error?.message)) throw error;
+    await ensureDeskSession({ force: true });
+    return postChatOnce(message, {
+      sessionId,
+      userEmail,
+      railContext,
+      onDelta,
+      onActivity,
+      persistSession,
+    });
+  }
 }
 
 export function openQueryInNewTab(datasetId, limit = 50) {

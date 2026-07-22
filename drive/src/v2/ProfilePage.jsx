@@ -1,3 +1,7 @@
+import { useEffect, useId, useRef, useState } from "react";
+import { facultyProfile } from "@/v2/api";
+import { loadUserEmail, saveUserEmail } from "@/v2/deskSession";
+import { loadSettings, saveSettings } from "@/v2/settingsStore";
 import {
   buildLab,
   buildMemoryBrief,
@@ -9,7 +13,6 @@ import {
   buildUnboundProfileCentre,
   isProfileBound,
   profileCentreMode,
-  profilePrimaryCommand,
   profileSectionsVisible,
 } from "@/v2/profilePresentation";
 import { PageShell } from "@/v2/ui";
@@ -20,10 +23,189 @@ import {
 } from "@/v2/RailFrame";
 
 /**
+ * Faculty-email binding lives in Research context (identity / context source).
+ * Bound: quiet source line + Change → inline save/clear.
+ * Unbound: email field + Connect/Save in place (never Workspace preferences).
+ */
+function ContextSourceBinding({
+  bound,
+  profile,
+  onProfileRefresh,
+  onToast,
+  onClearContext,
+  editing,
+  onEditingChange,
+  inputRef,
+}) {
+  const inputId = useId();
+  const storedEmail = loadUserEmail() || loadSettings().email || "";
+  const boundEmail = profile?.email || storedEmail;
+  const [emailDraft, setEmailDraft] = useState(() => boundEmail || "");
+  const [saving, setSaving] = useState(false);
+  const [bindStatus, setBindStatus] = useState(null);
+
+  useEffect(() => {
+    setEmailDraft(boundEmail || "");
+  }, [boundEmail]);
+
+  useEffect(() => {
+    if (!boundEmail) {
+      setBindStatus(null);
+      return;
+    }
+    if (profile && !profile.unknown && (profile.name_en || profile.name)) {
+      setBindStatus({ ok: true, name: profile.name_en || profile.name });
+    } else if (profile?.unknown && profile?.email) {
+      setBindStatus({ ok: false, email: profile.email });
+    }
+  }, [profile, boundEmail]);
+
+  const saveEmail = async () => {
+    const email = saveUserEmail(emailDraft);
+    saveSettings({ email });
+    setSaving(true);
+    setBindStatus(null);
+    try {
+      if (!email) {
+        onProfileRefresh?.();
+        setBindStatus(null);
+        onEditingChange?.(false);
+        onToast?.("Research context cleared on this browser");
+        return;
+      }
+      const data = await facultyProfile(email);
+      onProfileRefresh?.();
+      if (data?.found && data.profile) {
+        const name = data.profile.name_en || data.profile.name || email;
+        setBindStatus({ ok: true, name });
+        onEditingChange?.(false);
+        onToast?.(`Context bound to ${name} on this browser`);
+      } else if (data?.found) {
+        setBindStatus({ ok: true, name: email });
+        onEditingChange?.(false);
+        onToast?.(`Context bound for ${email} on this browser`);
+      } else {
+        setBindStatus({ ok: false, email });
+        onToast?.(`No faculty profile resolved for ${email}`);
+      }
+    } catch {
+      onProfileRefresh?.();
+      setBindStatus({ ok: false, email: emailDraft.trim() || boundEmail });
+      onToast?.(`Could not resolve faculty profile for ${emailDraft.trim() || boundEmail}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clearContext = () => {
+    if (onClearContext) {
+      onClearContext();
+    } else {
+      saveUserEmail("");
+      saveSettings({ email: "" });
+      onProfileRefresh?.();
+      onToast?.("Research context cleared on this browser");
+    }
+    setEmailDraft("");
+    setBindStatus(null);
+    onEditingChange?.(false);
+  };
+
+  const showEditor = !bound || editing;
+
+  return (
+    <div className="rd-v2-profile-context-source" data-testid="profile-context-source">
+      {bound && !editing ? (
+        <p className="rd-v2-profile-source-line" data-testid="profile-source-line">
+          <span className="rd-v2-profile-source-label">Source</span>
+          <span className="rd-v2-profile-source-email">{boundEmail || "Faculty email on this browser"}</span>
+          <button
+            type="button"
+            className="rd-v2-linkish"
+            data-testid="profile-context-change"
+            onClick={() => onEditingChange?.(true)}
+          >
+            Change
+          </button>
+        </p>
+      ) : null}
+
+      {showEditor ? (
+        <div className="rd-v2-profile-bind-form" data-testid="profile-bind-form">
+          <label className="rd-v2-settings-label" htmlFor={inputId}>
+            Faculty email
+          </label>
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="email"
+            className="rd-v2-input"
+            placeholder="name@yzu.edu.tw"
+            value={emailDraft}
+            onChange={(e) => setEmailDraft(e.target.value)}
+            autoComplete="email"
+            data-testid="profile-email-input"
+          />
+          <p className="rd-v2-settings-hint" data-testid="profile-email-hint">
+            Browser-local preference for Research context, Discover, and Ask — not a sign-in.
+          </p>
+          <div className="rd-v2-settings-actions">
+            <button
+              type="button"
+              className="rd-v2-btn sm primary"
+              data-testid="profile-save-identity"
+              disabled={saving}
+              onClick={saveEmail}
+            >
+              {saving ? "Saving…" : bound ? "Save context" : "Connect faculty email"}
+            </button>
+            {bound || boundEmail || emailDraft ? (
+              <button
+                type="button"
+                className="rd-v2-btn sm"
+                data-testid="profile-clear-context"
+                disabled={saving || (!boundEmail && !emailDraft)}
+                onClick={clearContext}
+              >
+                Clear context
+              </button>
+            ) : null}
+            {bound && editing ? (
+              <button
+                type="button"
+                className="rd-v2-btn sm"
+                data-testid="profile-context-cancel"
+                disabled={saving}
+                onClick={() => {
+                  setEmailDraft(boundEmail || "");
+                  onEditingChange?.(false);
+                }}
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+          {bindStatus?.ok ? (
+            <p className="rd-v2-settings-bind-ok" data-testid="profile-bind-status">
+              Bound to {bindStatus.name} on this browser.
+            </p>
+          ) : null}
+          {bindStatus && !bindStatus.ok ? (
+            <p className="rd-v2-settings-bind-fail" data-testid="profile-bind-status">
+              No faculty profile for {bindStatus.email}. Email is saved locally.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * Research context — Understanding first (facts · interpretation · sources · gaps),
  * then Memory · source highlights · Lab as supporting evidence — not a CV dump.
- * Unbound: one compact zero-state + connect CTA; no empty section shells.
- * No inline Memory edits — browser-local identity lives in Workspace preferences.
+ * Unbound: one compact zero-state + inline faculty-email connect; no empty section shells.
+ * Browser-local identity / context source is owned here — not Workspace preferences.
  */
 export function ProfilePage({
   profile,
@@ -33,13 +215,17 @@ export function ProfilePage({
   onSuggestSearch,
   onAskAboutContext,
   onAskAboutWork,
+  onProfileRefresh,
+  onToast,
+  onClearContext,
   embedded = false,
 }) {
   const bound = isProfileBound(profile);
   const showSections = profileSectionsVisible(profile);
   const mode = profileCentreMode(profile);
-  const primary = profilePrimaryCommand(mode);
   const unbound = bound ? null : buildUnboundProfileCentre();
+  const [sourceEditing, setSourceEditing] = useState(!bound);
+  const emailInputRef = useRef(null);
   const name = bound
     ? profile?.name_en || profile?.name || "Research context"
     : unbound.title;
@@ -56,6 +242,16 @@ export function ProfilePage({
     ? buildLab(profile)
     : { linked: [], suggested: [], linkedTotal: 0, gapTotal: 0, exploreQuery: "" };
 
+  useEffect(() => {
+    setSourceEditing(!bound);
+  }, [bound, mode]);
+
+  useEffect(() => {
+    if (sourceEditing && emailInputRef.current) {
+      emailInputRef.current.focus();
+    }
+  }, [sourceEditing]);
+
   const runQuery = (q) => {
     const query = String(q || "").trim();
     if (query && onSuggestSearch) {
@@ -69,6 +265,10 @@ export function ProfilePage({
   const exploreGaps = () => {
     const q = lab.exploreQuery || lab.suggested[0]?.query || lab.suggested[0]?.label || "";
     runQuery(q);
+  };
+
+  const beginChangeContext = () => {
+    setSourceEditing(true);
   };
 
   return (
@@ -103,18 +303,16 @@ export function ProfilePage({
           <p className="rd-v2-profile-hint" data-testid="profile-context-status">
             {statusLine}
           </p>
-        </div>
-        <div className="rd-v2-profile-identity-actions">
-          {primary ? (
-            <button
-              type="button"
-              className="rd-v2-btn sm primary"
-              data-testid="profile-primary-command"
-              onClick={() => onGoTab?.(primary.tab || "settings")}
-            >
-              {primary.label}
-            </button>
-          ) : null}
+          <ContextSourceBinding
+            bound={bound}
+            profile={profile}
+            onProfileRefresh={onProfileRefresh}
+            onToast={onToast}
+            onClearContext={onClearContext}
+            editing={sourceEditing}
+            onEditingChange={setSourceEditing}
+            inputRef={emailInputRef}
+          />
         </div>
       </section>
 
@@ -229,24 +427,24 @@ export function ProfilePage({
                   <p>No structural gaps in the fields used for this reading.</p>
                 </div>
               )}
-
-              {understanding.provenance.length ? (
-                <div
-                  className="rd-v2-profile-understanding-block"
-                  data-testid="profile-understanding-provenance"
-                >
-                  <h3>Sources and evidence</h3>
-                  <ul>
-                    {understanding.provenance.map((p) => (
-                      <li key={p.kind}>{p.label}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
             </div>
           </div>
 
-          {understanding.askContext && onAskAboutContext ? (
+          {understanding.provenance.length ? (
+            <details
+              className="rd-v2-profile-understanding-basis"
+              data-testid="profile-understanding-provenance"
+            >
+              <summary>Evidence basis</summary>
+              <ul>
+                {understanding.provenance.map((p) => (
+                  <li key={p.kind}>{p.label}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+
+          {!embedded && understanding.askContext && onAskAboutContext ? (
             <button
               type="button"
               className="rd-v2-btn sm"
@@ -290,7 +488,7 @@ export function ProfilePage({
               type="button"
               className="rd-v2-linkish rd-v2-profile-manage-context"
               data-testid="profile-manage-context"
-              onClick={() => onGoTab?.("settings")}
+              onClick={beginChangeContext}
             >
               Change research context
             </button>

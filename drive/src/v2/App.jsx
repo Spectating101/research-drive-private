@@ -39,9 +39,8 @@ import { HomePage } from "@/v2/HomePage";
 import { InspectorRail } from "@/v2/InspectorRail";
 import { LibraryPage } from "@/v2/LibraryPage";
 import { PreviewModal } from "@/v2/PreviewModal";
-import { ResearchContextOverlay } from "@/v2/ResearchContextOverlay";
+import { AccountDialogOverlay, ACCOUNT_DIALOG_MODES } from "@/v2/AccountDialogOverlay";
 import { ResourcesPage } from "@/v2/ResourcesPage";
-import { WorkspacePreferencesOverlay } from "@/v2/WorkspacePreferencesOverlay";
 import { SynthesisPage } from "@/v2/SynthesisPage";
 import { Toast, useToast } from "@/v2/toast";
 import { V2Sidebar } from "@/v2/V2Sidebar";
@@ -174,16 +173,15 @@ export function V2App() {
   const [profile, setProfile] = useState(null);
   const [selectedProfileWork, setSelectedProfileWork] = useState(null);
   const [settingsNonce, setSettingsNonce] = useState(0);
-  const [researchContextOpen, setResearchContextOpen] = useState(
-    () => readParams().accountOverlay === "research-context",
+  const [accountDialogOpen, setAccountDialogOpen] = useState(
+    () => Boolean(readParams().accountOverlay),
   );
-  const [workspacePrefsOpen, setWorkspacePrefsOpen] = useState(
-    () => readParams().accountOverlay === "workspace-prefs",
+  const [accountDialogMode, setAccountDialogMode] = useState(() =>
+    readParams().accountOverlay === "workspace-prefs"
+      ? ACCOUNT_DIALOG_MODES.preferences
+      : ACCOUNT_DIALOG_MODES.research,
   );
-  const [workspacePrefsMode, setWorkspacePrefsMode] = useState(() =>
-    readParams().accountOverlay === "workspace-prefs" ? "settings" : "workspace",
-  );
-  const [workspacePrefsAdvanced, setWorkspacePrefsAdvanced] = useState(false);
+  const [prefsActiveGroup, setPrefsActiveGroup] = useState("workspace");
   const accountTriggerRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState(() => readParams().q);
   const [loadError, setLoadError] = useState("");
@@ -203,6 +201,7 @@ export function V2App() {
   const [resourceMode, setResourceMode] = useState("spending");
   const [activityFilter, setActivityFilter] = useState(null);
   const [pendingAsk, setPendingAsk] = useState("");
+  const [synthesisRefreshToken, setSynthesisRefreshToken] = useState(0);
   const { toast, show: showToast } = useToast();
 
   useEffect(() => {
@@ -324,21 +323,29 @@ export function V2App() {
     let cancelled = false;
     (async () => {
       await ensureDeskSession().catch(() => {});
-      if (!cancelled) refreshBackend();
+      if (cancelled) return;
+      deskWarm({ userEmail: loadUserEmail(), background: true }).catch(() => {});
+      refreshBackend();
     })();
     return () => {
       cancelled = true;
     };
   }, [refreshBackend]);
 
-  useEffect(() => {
-    deskWarm({ userEmail: loadUserEmail(), background: true }).catch(() => {});
-  }, []);
-
   const askFromPrompt = useCallback((prompt) => {
     if (!prompt) return;
     setPendingAsk(prompt);
     setRailTab("ask");
+  }, []);
+
+  const handleSynthesisSelection = useCallback((object, opts = {}) => {
+    if (!object) return;
+    setActiveObject(object);
+    if (opts.focusDetail) {
+      setRailTab("detail");
+      return;
+    }
+    if (opts.focusAsk) setRailTab("ask");
   }, []);
 
   // Normalize deep links (e.g. tab=browse + folder=dataset → library) into the address bar.
@@ -487,15 +494,14 @@ export function V2App() {
   const goTab = useCallback(
     (id) => {
       if (id === "profile") {
-        setWorkspacePrefsOpen(false);
-        setResearchContextOpen(true);
+        setAccountDialogMode(ACCOUNT_DIALOG_MODES.research);
+        setAccountDialogOpen(true);
         return;
       }
       if (id === "settings") {
-        setResearchContextOpen(false);
-        setWorkspacePrefsMode("settings");
-        setWorkspacePrefsAdvanced(false);
-        setWorkspacePrefsOpen(true);
+        setPrefsActiveGroup("workspace");
+        setAccountDialogMode(ACCOUNT_DIALOG_MODES.preferences);
+        setAccountDialogOpen(true);
         return;
       }
       if (id !== "browse") {
@@ -517,6 +523,7 @@ export function V2App() {
         return;
       }
       setTab(id);
+      if (id === "synthesis") setRailTab("ask");
       syncUrl({ tab: id });
     },
     [syncUrl],
@@ -858,6 +865,21 @@ export function V2App() {
         );
         return;
       }
+      if (tab === "synthesis" && (target?.kind === "synthesis_thread" || activeObject?.kind === "synthesis_thread")) {
+        const thread = (target?.kind === "synthesis_thread" ? target : activeObject)?.thread || {};
+        const local = Boolean(thread.localDraft);
+        const step = thread.state?.selectedStepLabel;
+        const recordedNeed = String(thread.state?.recordedNeed || "").trim();
+        setRailTab("ask");
+        setPendingAsk(
+          local
+            ? recordedNeed
+              ? `Research need for this local synthesis draft: ${recordedNeed}. Inputs and method remain unresolved. Help constrain what measure or dataset to construct, and which Lab holdings should supply the inputs.`
+              : "Discuss this local synthesis draft. What research measure should we construct, and which Lab holdings should supply the inputs?"
+            : `Discuss synthesis "${thread.title || activeObject?.title || "selected construction"}"${step ? ` · focus on ${step}` : ""}. Use only the reported inputs, method, coverage, and output facts.`,
+        );
+        return;
+      }
       if (tab === "resources" && target) {
         setRailTab("ask");
         setPendingAsk(resourceAskPrompt(target));
@@ -1153,7 +1175,15 @@ export function V2App() {
       );
       break;
     case "synthesis":
-      main = <SynthesisPage onAskComposer={askFromPrompt} onToast={showToast} />;
+      main = (
+        <SynthesisPage
+          onAskComposer={askFromPrompt}
+          onToast={showToast}
+          onOpenDataset={openInLibraryFromDiscover}
+          onSynthesisSelection={handleSynthesisSelection}
+          refreshToken={synthesisRefreshToken}
+        />
+      );
       break;
     case "resources":
       main = (
@@ -1208,8 +1238,8 @@ export function V2App() {
     if (triggerEl && typeof triggerEl.focus === "function") {
       accountTriggerRef.current = triggerEl;
     }
-    setWorkspacePrefsOpen(false);
-    setResearchContextOpen(true);
+    setAccountDialogMode(ACCOUNT_DIALOG_MODES.research);
+    setAccountDialogOpen(true);
   }, []);
 
   const openWorkspacePrefs = useCallback((optsOrTrigger = {}, maybeTrigger) => {
@@ -1218,10 +1248,9 @@ export function V2App() {
     const trigger = triggerFromFirst || (maybeTrigger && typeof maybeTrigger.focus === "function" ? maybeTrigger : null);
     if (trigger) accountTriggerRef.current = trigger;
     const opts = triggerFromFirst ? {} : (optsOrTrigger || {});
-    setResearchContextOpen(false);
-    setWorkspacePrefsMode(opts?.mode === "settings" || opts?.advanced ? "settings" : "workspace");
-    setWorkspacePrefsAdvanced(Boolean(opts?.advanced));
-    setWorkspacePrefsOpen(true);
+    setPrefsActiveGroup(opts?.advanced ? "advanced" : "workspace");
+    setAccountDialogMode(ACCOUNT_DIALOG_MODES.preferences);
+    setAccountDialogOpen(true);
   }, []);
 
 
@@ -1293,50 +1322,36 @@ export function V2App() {
         />
       </main>
       
-      <ResearchContextOverlay
-        open={researchContextOpen}
+      <AccountDialogOverlay
+        open={accountDialogOpen}
+        mode={accountDialogMode}
+        onModeChange={setAccountDialogMode}
         profile={profile}
         selectedWorkId={selectedProfileWork?.raw || null}
         onSelectWork={setSelectedProfileWork}
-        onClose={() => setResearchContextOpen(false)}
+        onClose={() => setAccountDialogOpen(false)}
         restoreFocusRef={accountTriggerRef}
         onAskAboutContext={(ctx) => {
-          setResearchContextOpen(false);
+          setAccountDialogOpen(false);
           askAboutSelection(ctx);
         }}
         onSuggestSearch={(q) => {
-          setResearchContextOpen(false);
+          setAccountDialogOpen(false);
           goTab("browse");
           setSearchQuery(q);
         }}
         onGoTab={(t) => {
-          setResearchContextOpen(false);
+          setAccountDialogOpen(false);
           goTab(t);
         }}
-        onChangeContext={() => {
-          setResearchContextOpen(false);
-          openWorkspacePrefs({ mode: "settings", advanced: false });
-        }}
         onAskAboutWork={(work) => {
-          setResearchContextOpen(false);
+          setAccountDialogOpen(false);
           askAboutSelection(work || selectedProfileWork);
-        }}
-      />
-      <WorkspacePreferencesOverlay
-        key={`workspace-prefs-${settingsNonce}`}
-        open={workspacePrefsOpen}
-        profile={profile}
-        mode={workspacePrefsMode}
-        onClose={() => {
-          setWorkspacePrefsOpen(false);
-          setWorkspacePrefsAdvanced(false);
-          setWorkspacePrefsMode("workspace");
         }}
         onProfileRefresh={reloadProfile}
         onToast={showToast}
         onClearContext={clearResearchContext}
-        restoreFocusRef={accountTriggerRef}
-        initialAdvancedOpen={workspacePrefsAdvanced}
+        preferencesActiveGroup={prefsActiveGroup}
       />
 
       <InspectorRail
@@ -1349,6 +1364,7 @@ export function V2App() {
         browseTarget={browseTarget}
         resourceRow={resourceRow}
         resourcesRollup={resourcesRollup}
+        resourceMode={resourceMode}
         activeObject={activeObject}
         onPreview={() => detail && openPreview(detail)}
         onAskAbout={askAboutSelection}
@@ -1402,6 +1418,10 @@ export function V2App() {
                   ? {
                       title: `Library · ${activeObject.title}`,
                     }
+                : tab === "synthesis" && activeObject?.kind === "synthesis_thread"
+                  ? {
+                      title: `Synthesis · ${activeObject.title}`,
+                    }
                 : detail
             }
             mainTab={tab}
@@ -1412,6 +1432,13 @@ export function V2App() {
             onApproveJob={handleApproveJob}
             onToast={showToast}
             railContext={railContext}
+            chatSessionId={
+              tab === "synthesis" && activeObject?.kind === "synthesis_thread"
+                ? activeObject.thread?.session_id || ""
+                : ""
+            }
+            persistSession={tab !== "synthesis"}
+            onSynthesisThreadRefresh={() => setSynthesisRefreshToken((n) => n + 1)}
           />
         }
       />
