@@ -646,6 +646,7 @@ def profile_summary(profile: dict[str, Any]) -> dict[str, Any]:
         "starter_prompts": cold_start_prompts(profile),
         "paper_count_parsed": profile.get("paper_count_parsed", 0),
         "pilot_professor": bool(profile.get("pilot_professor")),
+        "unknown": bool(profile.get("unknown")),
         "default_search_query": default_search_query(profile),
         "procurement_recommendations": procurement_recommendations(profile),
         "recommendation_clusters": recommendation_route_clusters(profile),
