@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Iterator, Any
 
 
 def _now() -> str:
@@ -55,8 +57,23 @@ class CampaignStore:
                 )"""
             )
 
-    def _db(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path, timeout=30)
+    @contextmanager
+    def _db(self) -> Iterator[sqlite3.Connection]:
+        """Open a short-lived connection that always closes.
+
+        Python 3.12+ ``Connection.__exit__`` commits/rollbacks but no longer
+        closes the handle, so ``with sqlite3.connect(...)`` leaks FDs under
+        desk polling (/health, job list, workers).
+        """
+        db = sqlite3.connect(self.path, timeout=30)
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def create(self, goal: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         cid = uuid.uuid4().hex[:12]
