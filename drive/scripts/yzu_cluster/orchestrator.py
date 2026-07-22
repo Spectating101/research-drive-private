@@ -122,11 +122,12 @@ class YzuOrchestrator:
         if job["status"] != "pending_approval":
             raise ValueError(f"job is {job['status']}, not pending_approval")
         plan = job.get("plan") if isinstance(job.get("plan"), Mapping) else {}
-        required = self.runtime.requirements(plan)
-        if required and not self.runtime.eligible_workers(required):
-            raise ValueError(
-                f"no fresh compatible worker available for required capabilities: {required}"
-            )
+        if plan.get("job_type") == "synthesis_execute":
+            required = self.runtime.requirements(plan)
+            if required and not self.runtime.eligible_workers(required):
+                raise ValueError(
+                    f"no fresh compatible worker available for required capabilities: {required}"
+                )
         self.runtime.ensure(job)
         self.runtime.approve(job_id)
         self.store.update(job_id, "queued")
