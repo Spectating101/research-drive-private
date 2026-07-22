@@ -152,19 +152,20 @@ test.describe("v2 parity @ desk-v2-1440", () => {
       ["Home", "Home"],
       ["Library", "Library"],
       ["Discover", "Discover"],
+      ["Synthesis", "Synthesis"],
       ["Resources", "Resources"],
-      ["Profile", "Test Prof"],
-      ["Settings", "Settings"],
     ];
     for (const [nav, heading] of tabs) {
       await v2Nav(page, nav);
-      if (nav === "Profile") {
-        await expect(page.locator(".rd-v2-profile-name", { hasText: heading })).toBeVisible();
-      } else {
-        await expect(page.locator(".rd-v2-page-head h1", { hasText: heading })).toBeVisible();
-      }
+      await expect(page.locator(".rd-v2-page-head h1", { hasText: heading })).toBeVisible();
     }
+    // Profile/Settings moved to account overlays — not primary sidebar destinations.
+    await expect(page.locator("aside.yzu-sidebar nav").getByRole("button", { name: "Profile", exact: true })).toHaveCount(0);
+    await expect(page.locator("aside.yzu-sidebar nav").getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
     await expect(page.locator("aside.yzu-sidebar nav button", { hasText: "Cluster" })).toHaveCount(0);
+    await page.getByTestId("header-account-menu").click();
+    await expect(page.getByTestId("account-menu").getByRole("menuitem", { name: /Research context/i })).toBeVisible();
+    await expect(page.getByTestId("account-menu").getByRole("menuitem", { name: /Workspace/i })).toBeVisible();
   });
 
   test("cluster tab still reachable via URL while deferred", async ({ page }) => {

@@ -737,7 +737,9 @@ export function BrowseRailPanel({
       busyLabel: "Probing…",
       onClick: () => onProbeSource?.(target),
     });
-  } else if (onPreviewExternal) {
+  }
+  // Prefer Preview beside Probe (before Ask) so acquisition preview stays reachable.
+  if (onPreviewExternal) {
     secondary.push({
       key: "preview",
       label: "Preview source",
@@ -749,14 +751,6 @@ export function BrowseRailPanel({
       key: "ask",
       label: "Ask about this →",
       onClick: () => onAskAbout?.(target),
-    });
-  }
-  // Prefer Preview when there is room (probe already claimed a slot).
-  if (secondary.length < 2 && onPreviewExternal && !secondary.some((a) => a.key === "preview")) {
-    secondary.push({
-      key: "preview",
-      label: "Preview source",
-      onClick: () => onPreviewExternal?.(),
     });
   }
 

@@ -133,11 +133,12 @@ export function RailEvidenceDetails({ label = "Technical evidence", defaultOpen 
 }
 
 /**
- * Sticky footer: one primary control, then at most two text secondary actions.
+ * Sticky footer: one primary control, then up to three text secondary actions
+ * (Discover needs Probe + Preview + Ask without dropping acquisition preview).
  * primary / secondary items: { key, label, onClick, disabled, busy, testId, busyLabel }
  */
 export function RailActionFooter({ primary = null, secondary = [] }) {
-  const secondaries = (secondary || []).filter(Boolean).slice(0, 2);
+  const secondaries = (secondary || []).filter(Boolean).slice(0, 3);
   if (!primary && !secondaries.length) return null;
 
   return (

@@ -38,13 +38,17 @@ test.describe("v2 Home attention", () => {
     await queue.locator('[data-kind="approval"]').getByRole("button", { name: /^Open Approval/ }).click();
 
     const rail = page.locator("aside.rd-v2-rail");
-    await expect(page).toHaveURL(/mode=(approvals|activity)/);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await expect(page.getByTestId("discover-activity")).toContainText("Review queue");
+    // Explore queue strip replaces legacy mode=approvals|activity History panel.
+    await expect(page).toHaveURL(/tab=browse/);
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    await expect(page.getByRole("tab", { name: "Explore" })).toHaveAttribute("aria-selected", "true");
+    const review = page.getByTestId("discover-queue-strip");
+    await expect(review).toBeVisible();
+    await expect(review).toContainText("Needs your review");
     await expect(rail.locator(".rd-v2-rail-selection")).toContainText("MOPS financial statements");
     await expect(rail.getByTestId("procurement-decision-card")).toBeVisible();
     await expect(rail).toContainText("job-pending-1");
-    await expect(rail.getByRole("button", { name: "Approve collection" })).toBeVisible();
+    await expect(rail.getByTestId("discover-approve-sticky")).toBeVisible();
   });
 
   test("home continue card routes to Library and Preview", async ({ page }) => {

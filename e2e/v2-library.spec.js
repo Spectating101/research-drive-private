@@ -38,8 +38,9 @@ test.describe("v2 Library directory", () => {
   test("folder readiness agrees between directory and rail", async ({ page }) => {
     await page.locator('.rd-v2-catalog button.row[data-kind="folder"]', { hasText: "Apps & connections" }).click();
     await expect(page.locator(".rd-v2-library-pathbar")).toContainText("1 query-ready");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Query-ready");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Use now — query-ready data available");
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("Query-ready");
+    await expect(rail).toContainText("Branch has query-ready holdings");
   });
 
   test("New menu routes upload intake through the rail", async ({ page }) => {
@@ -88,12 +89,12 @@ test.describe("v2 Library directory", () => {
     await page.locator('.rd-v2-catalog button.row[data-kind="dataset"]').click();
 
     const rail = page.locator("aside.rd-v2-rail");
-    await expect(rail).toContainText("Why this matters");
-    await expect(rail).toContainText("Source confidence");
-    await expect(rail).toContainText("Freshness");
-    await expect(rail).toContainText("Coverage");
+    await expect(rail).toContainText("Query-ready");
+    await expect(rail.getByTestId("rail-confirmed")).toBeVisible();
+    await expect(rail.getByTestId("rail-confirmed")).toContainText("Coverage");
+    await expect(rail.getByTestId("rail-confirmed")).toContainText("Readiness");
     await expect(rail).toContainText("Provenance");
-    await expect(rail).toContainText("Next gap");
+    await expect(rail.getByRole("button", { name: "Preview rows" })).toBeVisible();
   });
 });
 

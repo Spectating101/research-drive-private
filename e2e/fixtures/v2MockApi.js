@@ -257,6 +257,29 @@ export async function mockV2Api(
       body: JSON.stringify(MOCK_WEB_DISCOVER),
     }),
   );
+  // Preferred Explore contract — empty so tests exercise legacy /library/discover mock
+  // bodies instead of leaking live desk proxy results into mock e2e.
+  await page.route("**/library/discover/sources/preview", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, preview: null, rows: [] }),
+    }),
+  );
+  await page.route("**/library/discover/sources*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [], total: 0 }),
+    }),
+  );
+  await page.route("**/library/discover/history*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [], total: 0 }),
+    }),
+  );
   await page.route("**/library/discover?*", (route) =>
     route.fulfill({
       status: 200,
