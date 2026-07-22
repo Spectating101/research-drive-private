@@ -347,7 +347,7 @@ def registry_spec_from_materialized(
         if "*" not in local_path:
             readiness = "instant"
     elif suffix in {".json", ".jsonl"}:
-        backend = "local_json_file"
+        backend = "local_json_glob" if "*" in local_path else "local_json_file"
         if "*" not in local_path and int(files[0].get("bytes") or 0) <= 50_000_000:
             readiness = "instant"
     elif suffix == ".parquet":
