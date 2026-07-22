@@ -149,6 +149,18 @@ class YzuOrchestrator:
             plan["launchable"] = False
             plan["validation_error"] = "job type is not allowed"
             return plan
+        if job_type == "http_manifest":
+            from scripts.research_data_mcp.domain_packs import load_domain_packs
+            from scripts.yzu_cluster.acquisitions import enrich_http_manifest_plan
+
+            plan = enrich_http_manifest_plan(
+                dict(plan),
+                self.executor.procurement,
+                domain_packs=load_domain_packs(self.repo_root),
+            )
+            if not plan.get("items"):
+                plan["launchable"] = False
+                plan["validation_error"] = "http_manifest requires a URL or downloadable items"
         if job_type == "registered_pipeline":
             if plan.get("pipeline_id") not in self.executor.pipelines():
                 plan["launchable"] = False
