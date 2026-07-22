@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import time
 import unittest
 from unittest.mock import patch
 
@@ -33,6 +34,15 @@ class DeskAuthSessionTests(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("Desk access token required", msg)
 
+    def test_expired_cookie_rejected(self):
+        token = "test-desk-token-please-rotate"
+        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+            expired = desk_auth.session_cookie_value(token, expires_at=int(time.time()) - 60)
+            handler = _FakeHandler({"Cookie": f"{desk_auth.DESK_SESSION_COOKIE}={expired}"})
+            ok, msg = desk_auth.authorize(handler, "/library/chat")
+            self.assertFalse(ok)
+            self.assertIn("Desk access token required", msg)
+
     def test_bearer_still_works(self):
         token = "test-desk-token-please-rotate"
         with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
@@ -47,26 +57,10 @@ class DeskAuthSessionTests(unittest.TestCase):
             ok, _msg = desk_auth.authorize(handler, "/library/desk/warm")
             self.assertTrue(ok)
 
-    def test_issue_session_requires_same_origin(self):
+    def test_issue_session_accepts_canonical_8767_origin(self):
         token = "test-desk-token-please-rotate"
         with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
-            bad = _FakeHandler(
-                {
-                    "Host": "100.127.141.44:8765",
-                    "Origin": "https://evil.example",
-                }
-            )
-            ok, msg, cookie = desk_auth.issue_desk_session(bad)
-            self.assertFalse(ok)
-            self.assertIn("same-origin", msg)
-            self.assertIsNone(cookie)
-
-            good = _FakeHandler(
-                {
-                    "Host": "100.127.141.44:8765",
-                    "Origin": "http://100.127.141.44:8765",
-                }
-            )
+            good = _FakeHandler({"Origin": "http://100.127.141.44:8767"})
             ok, msg, cookie = desk_auth.issue_desk_session(good)
             self.assertTrue(ok)
             self.assertEqual(msg, "")
@@ -74,7 +68,43 @@ class DeskAuthSessionTests(unittest.TestCase):
             self.assertIn(desk_auth.DESK_SESSION_COOKIE, cookie or "")
             self.assertIn("HttpOnly", cookie or "")
             self.assertIn("SameSite=Strict", cookie or "")
+            self.assertIn("Max-Age=", cookie or "")
             self.assertNotIn(token, cookie or "")
+
+    def test_issue_session_rejects_cross_origin(self):
+        token = "test-desk-token-please-rotate"
+        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+            bad = _FakeHandler({"Origin": "https://evil.example"})
+            ok, msg, cookie = desk_auth.issue_desk_session(bad)
+            self.assertFalse(ok)
+            self.assertIn("allowed browser origin", msg)
+            self.assertIsNone(cookie)
+
+    def test_issue_session_rejects_missing_origin_and_referer(self):
+        token = "test-desk-token-please-rotate"
+        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+            bare = _FakeHandler({})
+            ok, msg, cookie = desk_auth.issue_desk_session(bare)
+            self.assertFalse(ok)
+            self.assertIn("allowed browser origin", msg)
+            self.assertIsNone(cookie)
+
+    def test_issue_session_allows_bearer_without_origin(self):
+        token = "test-desk-token-please-rotate"
+        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+            proxied = _FakeHandler({"Authorization": f"Bearer {token}"})
+            ok, msg, cookie = desk_auth.issue_desk_session(proxied)
+            self.assertTrue(ok)
+            self.assertEqual(msg, "")
+            self.assertIsNotNone(cookie)
+
+    def test_issue_session_allows_x_desk_token_without_origin(self):
+        token = "test-desk-token-please-rotate"
+        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+            proxied = _FakeHandler({"X-Desk-Token": token})
+            ok, msg, cookie = desk_auth.issue_desk_session(proxied)
+            self.assertTrue(ok)
+            self.assertIsNotNone(cookie)
 
     def test_session_path_does_not_require_prior_auth(self):
         self.assertFalse(desk_auth.path_requires_auth("/library/desk/session"))

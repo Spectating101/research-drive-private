@@ -61,7 +61,7 @@
     "optiplex": {
       "kind": "local_linux",
       "enabled": true,
-      "capabilities": ["controller_ui", "cluster_orchestration"]
+      "capabilities": ["controller_ui", "cluster_orchestration", "python", "pipeline", "archive"]
     },
     "spectator": {
       "kind": "ssh_linux",

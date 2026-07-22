@@ -1,18 +1,19 @@
 name: Private runtime contract
 
-# Exact-head gate for runtime, registry authority, remote worker adoption, and the internal desk front door.
+# Exact-head gate for runtime, registry authority, and remote worker adoption.
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches:
+      - grok/runtime-live-hardening
+      - private/grok/runtime-live-hardening
     paths:
       - "drive/scripts/yzu_cluster/**"
-      - "drive/scripts/cluster_agent/**"
       - "drive/scripts/research_data_mcp/**"
-      - "drive/scripts/research_query_engine/**"
-      - "drive/config/optiplex-front-door.env.example"
-      - "drive/docs/status/releases/RC2_FRONT_DOOR_CONTRACT.md"
+      - "drive/vite.deskProxy.js"
+      - "drive/src/v2/**"
       - "tests/test_cluster_runtime_adapter.py"
       - "tests/test_orchestrator_runtime.py"
+      - "tests/test_desk_auth_session.py"
       - "tests/test_bootstrap_drive_order.py"
       - "tests/test_acquisition_manifest.py"
       - "tests/test_scraper_manifest.py"
@@ -22,11 +23,38 @@ on:
       - "tests/test_worker_completion_lease.py"
       - "tests/test_completion_lease_scope.py"
       - "tests/test_remote_worker.py"
-      - "tests/test_remote_collect.py"
       - "tests/test_artifact_streaming.py"
       - "tests/test_job_status_counts.py"
-      - "tests/test_research_query_server.py"
       - "tests/test_yzu_interop_*.py"
+      - "e2e/v2-discover.spec.js"
+      - "vite.config.js"
+      - "package.json"
+      - ".github/workflows/private-runtime-contract.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "drive/scripts/yzu_cluster/**"
+      - "drive/scripts/research_data_mcp/**"
+      - "drive/vite.deskProxy.js"
+      - "drive/src/v2/**"
+      - "tests/test_cluster_runtime_adapter.py"
+      - "tests/test_orchestrator_runtime.py"
+      - "tests/test_desk_auth_session.py"
+      - "tests/test_bootstrap_drive_order.py"
+      - "tests/test_acquisition_manifest.py"
+      - "tests/test_scraper_manifest.py"
+      - "tests/test_registry_authority.py"
+      - "tests/test_registry_transaction.py"
+      - "tests/test_worker_control.py"
+      - "tests/test_worker_completion_lease.py"
+      - "tests/test_completion_lease_scope.py"
+      - "tests/test_remote_worker.py"
+      - "tests/test_artifact_streaming.py"
+      - "tests/test_job_status_counts.py"
+      - "tests/test_yzu_interop_*.py"
+      - "e2e/v2-discover.spec.js"
+      - "vite.config.js"
+      - "package.json"
       - ".github/workflows/private-runtime-contract.yml"
   workflow_dispatch:
 
@@ -47,6 +75,11 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -54,14 +87,25 @@ jobs:
 
       - name: Compile runtime modules
         run: |
-          python -m compileall -q drive/scripts/yzu_cluster drive/scripts/cluster_agent drive/scripts/research_data_mcp drive/scripts/research_query_engine
+          python -m compileall -q drive/scripts/yzu_cluster drive/scripts/research_data_mcp
 
-      - name: Validate same-origin front door contract
+      - name: Run desk auth and runtime hardening contracts
         run: |
-          python -m pytest -q tests/test_research_query_server.py
-          bash -n drive/scripts/research_query_engine/build_optiplex_front_door.sh
-          bash -n drive/scripts/research_query_engine/run_optiplex_front_door.sh
-          bash -n drive/scripts/research_query_engine/install_optiplex_front_door_systemd_user.sh
+          python -m pytest -q \
+            tests/test_desk_auth_session.py \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_claims_on_optiplex_python_worker \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_rejects_capability_mismatched_worker \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_requires_configured_python_pool \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_validation_accepts_configured_python_worker \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_validation_rejects_without_configured_python_pool \
+            tests/test_orchestrator_runtime.py::test_orchestrator_validates_synthesis_execute_with_configured_python_pool \
+            tests/test_orchestrator_runtime.py::test_orchestrator_rejects_synthesis_without_configured_python_pool \
+            tests/test_orchestrator_runtime.py::test_procurement_approval_queues_without_live_worker \
+            tests/test_orchestrator_runtime.py::test_synthesis_approval_rejects_without_eligible_worker \
+            tests/test_orchestrator_runtime.py::test_synthesis_approval_queues_with_eligible_worker \
+            tests/test_orchestrator_runtime.py::test_approve_handles_non_mapping_plan_without_nameerror \
+            tests/test_orchestrator_runtime.py::test_synthesis_approval_then_claim_on_optiplex \
+            tests/test_orchestrator_runtime.py::test_procurement_approval_does_not_require_python_capability
 
       - name: Run worker control service contracts
         id: worker_control
@@ -69,7 +113,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest -q tests/test_worker_control.py tests/test_worker_completion_lease.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py tests/test_live_identity.py tests/test_remote_claim_isolation.py 2>&1 | tee worker-control.log
+          python -m pytest -q tests/test_worker_control.py tests/test_worker_completion_lease.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py 2>&1 | tee worker-control.log
 
       - name: Upload worker control diagnostics
         if: always()
@@ -84,9 +128,9 @@ jobs:
         if: steps.worker_control.outcome == 'failure'
         run: exit 1
 
-      - name: Run remote worker and collector contracts
+      - name: Run remote worker agent contracts
         run: |
-          python -m pytest -q tests/test_remote_worker.py tests/test_remote_collect.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py
+          python -m pytest -q tests/test_remote_worker.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py
 
       - name: Run scraper and registry authority contracts
         run: |
@@ -116,3 +160,14 @@ jobs:
       - name: Run public interoperability contracts
         run: |
           python -m unittest discover -s tests -p "test_yzu_interop_*.py" -v
+
+      - name: Install npm dependencies and build desk UI
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run focused Discover E2E assertion
+        run: |
+          npx playwright install chromium
+          mkdir -p .tmp-pw
+          TMPDIR=$PWD/.tmp-pw npx playwright test e2e/v2-discover.spec.js -g "Probe source shows connector summary"

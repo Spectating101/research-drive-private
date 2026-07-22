@@ -10,7 +10,7 @@ import pytest
 from scripts.yzu_cluster.orchestrator import YzuOrchestrator
 
 
-def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrchestrator:
+def _orchestrator(tmp_path: Path, *, operations: dict | None = None, agent_allowed: list[str] | None = None) -> YzuOrchestrator:
     (tmp_path / "config").mkdir()
     (tmp_path / "config/yzu_cluster.json").write_text(
         json.dumps(
@@ -21,8 +21,13 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
                     "status_root": "data/status",
                 },
                 "operations": {"disable_local_http_collect": False, **(operations or {})},
-                "agent": {"allowed_job_types": ["http_manifest", "scraper_run"]},
-                "worker_pools": {},
+                "agent": {"allowed_job_types": agent_allowed or ["http_manifest", "scraper_run"]},
+                "worker_pools": {
+                    "optiplex": {
+                        "enabled": True,
+                        "capabilities": ["controller_ui", "cluster_orchestration", "python", "pipeline", "archive"],
+                    }
+                },
                 "storage": {},
             }
         ),
@@ -195,3 +200,53 @@ def test_post_registration_failure_does_not_fail_registered_run(tmp_path: Path) 
     assert completed["lifecycle"]["stage"] == "registered"
     assert completed["runtime"]["status"] == "registered"
     assert any("Post-registration follow-up failed" in row["message"] for row in completed["events"])
+
+
+def _synthesis_plan() -> dict:
+    return {
+        "job_type": "synthesis_execute",
+        "execution_spec": {
+            "input_dataset_id": "google_trends_stablecoin_weekly",
+            "output_dataset_id": "synthesis_orchestrator_out",
+            "group_by": ["week"],
+            "metrics": [{"function": "count", "as": "row_count"}],
+        },
+    }
+
+
+def test_orchestrator_validates_synthesis_execute_with_configured_python_pool(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path, agent_allowed=["synthesis_execute"])
+    validated = orchestrator.validate_plan(_synthesis_plan())
+
+    assert validated.get("launchable") is not False
+    assert not validated.get("validation_error")
+
+
+def test_orchestrator_rejects_synthesis_without_configured_python_pool(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/yzu_cluster.json").write_text(
+        json.dumps(
+            {
+                "controller": {
+                    "hostname": "optiplex-test",
+                    "jobs_root": "data/jobs",
+                    "status_root": "data/status",
+                },
+                "operations": {"disable_local_http_collect": False},
+                "agent": {"allowed_job_types": ["synthesis_execute"]},
+                "worker_pools": {
+                    "optiplex": {
+                        "enabled": True,
+                        "capabilities": ["controller_ui", "cluster_orchestration"],
+                    }
+                },
+                "storage": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    orchestrator = YzuOrchestrator(tmp_path)
+    validated = orchestrator.validate_plan(_synthesis_plan())
+
+    assert validated.get("launchable") is False
+    assert "python" in str(validated.get("validation_error") or "")
