@@ -44,3 +44,29 @@ def test_manual_schedule_run_uses_a_retry_key(tmp_path: Path) -> None:
     assert scheduled["idempotency_key"] == "sched:daily:20833"
     assert manual["idempotency_key"].startswith("sched:daily:manual-")
     assert manual["idempotency_key"] != scheduled["idempotency_key"]
+
+
+def test_schedule_status_can_resolve_the_current_linked_job(tmp_path: Path) -> None:
+    config = {
+        "controller": {"status_root": "status"},
+        "schedules": [{
+            "id": "daily",
+            "enabled": True,
+            "interval_hours": 24,
+            "plan": {"job_type": "collection_queue", "title": "Daily"},
+        }],
+    }
+    scheduler = YzuScheduler(tmp_path, config)
+    state = scheduler._read_state()
+    state["runs"]["daily"] = {
+        "ts_unix": 1_800_000_000,
+        "at": "2027-01-15T00:00:00+00:00",
+        "job_id": "job-1",
+        "status": "queued",
+        "idempotency_key": "sched:daily:20833",
+    }
+    scheduler._write_state(state)
+
+    rows = scheduler.schedules(status_lookup=lambda job_id: "registered" if job_id == "job-1" else None)
+
+    assert rows[0]["last_status"] == "registered"

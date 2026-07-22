@@ -8,7 +8,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .orchestrator import YzuOrchestrator
@@ -53,7 +53,11 @@ class YzuScheduler:
                 return item
         raise KeyError(schedule_id)
 
-    def schedules(self) -> list[dict[str, Any]]:
+    def schedules(
+        self,
+        *,
+        status_lookup: Callable[[str], str | None] | None = None,
+    ) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         state = self._read_state()
         now_ts = time.time()
@@ -62,6 +66,14 @@ class YzuScheduler:
             interval_hours = float(item.get("interval_hours", 24))
             last_ts = float(last.get("ts_unix", 0) or 0)
             next_ts = (last_ts + interval_hours * 3600) if last_ts else now_ts
+            last_status = last.get("status")
+            if status_lookup and last.get("job_id"):
+                try:
+                    resolved_status = status_lookup(str(last["job_id"]))
+                except Exception:  # noqa: BLE001
+                    resolved_status = None
+                if resolved_status:
+                    last_status = resolved_status
             rows.append(
                 {
                     "id": item["id"],
@@ -71,7 +83,7 @@ class YzuScheduler:
                     "job_type": item.get("plan", {}).get("job_type"),
                     "last_run_at": last.get("at"),
                     "last_job_id": last.get("job_id"),
-                    "last_status": last.get("status"),
+                    "last_status": last_status,
                     "last_idempotency_key": last.get("idempotency_key"),
                     "next_run_at": datetime.fromtimestamp(next_ts, timezone.utc).isoformat(),
                     "due": bool(item.get("enabled", True)) and now_ts >= next_ts,

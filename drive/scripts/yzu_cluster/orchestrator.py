@@ -198,7 +198,21 @@ class YzuOrchestrator:
         return list_tasks(self.repo_root, runnable_only=runnable_only)
 
     def schedules(self) -> list[dict[str, Any]]:
-        return self.scheduler.schedules()
+        def current_status(job_id: str) -> str | None:
+            try:
+                job = self.get_job(job_id)
+            except (KeyError, FileNotFoundError):
+                return None
+            lifecycle = job.get("lifecycle") if isinstance(job, dict) else None
+            execution = job.get("execution") if isinstance(job, dict) else None
+            if isinstance(lifecycle, dict) and lifecycle.get("stage"):
+                return str(lifecycle["stage"])
+            if isinstance(execution, dict) and execution.get("stage"):
+                return str(execution["stage"])
+            status = job.get("status") if isinstance(job, dict) else None
+            return str(status) if status else None
+
+        return self.scheduler.schedules(status_lookup=current_status)
 
     def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict:
         return self.scheduler.emit(self, schedule_id, dry_run=dry_run, force=True)
