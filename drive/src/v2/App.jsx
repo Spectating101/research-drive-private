@@ -22,6 +22,7 @@ import {
   submitDiscoverCollect,
   yzuClusterStatus,
 } from "@/v2/api";
+import { discoverCollectShouldEnterBusyState } from "@/v2/discoverAddToLabAction";
 import { AskRail } from "@/v2/AskRail";
 import {
   datasetObject,
@@ -727,57 +728,56 @@ export function V2App() {
           : target.probe_snapshot || browseRow?.probe_snapshot || null;
       const connectorId = probeResult?.connector?.connector_id || probeResult?.connector?.id;
 
-      setBrowseCollect({ key, loading: true, error: "" });
-
-      if (connectorId) {
-        try {
-          const out = await submitDiscoverCollect(connectorId, {
-            limit: 200,
-            autoApprove: false,
-            destination: discoverDestination,
-            candidateKey: target?.candidate_key || "",
-            sourceId: target?.source_id || "",
-            url: discoverCandidateUrl(target) || target?.url || "",
-            provider: target?.provider || target?.source || "",
-            kind: target?.kind || "",
-          });
-          touchRecentDestination(discoverDestination);
-          setDestinationRecentsTick((n) => n + 1);
-          const job = out?.job;
-          if (job?.id) {
-            setBrowseJobBindings((prev) => ({ ...prev, [key]: job.id }));
-            const enriched = {
-              ...target,
-              bound_job_id: job.id,
-              bound_job: job,
-              destination: discoverDestination,
-            };
-            setBrowseRow((prev) => (prev && browseTargetKey(prev) === key ? { ...prev, ...enriched } : enriched));
-            setActiveObject(externalCandidateObject(enriched));
-          }
-          refreshBackend();
-          setBrowseCollect({ key, loading: false, error: "" });
-          showToast(
-            job?.status === "pending_approval"
-              ? "Collection queued — review and approve below"
-              : job?.id
-                ? `Collection job queued (${job.id})`
-                : "Collection job queued",
-          );
-          return;
-        } catch (err) {
-          setBrowseCollect({ key, loading: false, error: err?.message || "Collect failed" });
-          showToast(err?.message || "Collect failed", "error");
-          return;
-        }
+      if (!discoverCollectShouldEnterBusyState(connectorId)) {
+        setBrowseCollect({
+          key,
+          loading: false,
+          error: "Probe source first — no connector ready for collection.",
+        });
+        showToast("Probe source before adding to lab");
+        return;
       }
 
-      setBrowseCollect({
-        key,
-        loading: false,
-        error: "Probe source first — no connector ready for collection.",
-      });
-      showToast("Probe source before adding to lab");
+      setBrowseCollect({ key, loading: true, error: "" });
+
+      try {
+        const out = await submitDiscoverCollect(connectorId, {
+          limit: 200,
+          autoApprove: false,
+          destination: discoverDestination,
+          candidateKey: target?.candidate_key || "",
+          sourceId: target?.source_id || "",
+          url: discoverCandidateUrl(target) || target?.url || "",
+          provider: target?.provider || target?.source || "",
+          kind: target?.kind || "",
+        });
+        touchRecentDestination(discoverDestination);
+        setDestinationRecentsTick((n) => n + 1);
+        const job = out?.job;
+        if (job?.id) {
+          setBrowseJobBindings((prev) => ({ ...prev, [key]: job.id }));
+          const enriched = {
+            ...target,
+            bound_job_id: job.id,
+            bound_job: job,
+            destination: discoverDestination,
+          };
+          setBrowseRow((prev) => (prev && browseTargetKey(prev) === key ? { ...prev, ...enriched } : enriched));
+          setActiveObject(externalCandidateObject(enriched));
+        }
+        refreshBackend();
+        setBrowseCollect({ key, loading: false, error: "" });
+        showToast(
+          job?.status === "pending_approval"
+            ? "Collection queued — review and approve below"
+            : job?.id
+              ? `Collection job queued (${job.id})`
+              : "Collection job queued",
+        );
+      } catch (err) {
+        setBrowseCollect({ key, loading: false, error: err?.message || "Collect failed" });
+        showToast(err?.message || "Collect failed", "error");
+      }
     },
     [labIds, jobs, browseProbe, browseRow, catalog, syncUrl, showToast, refreshBackend, discoverDestination],
   );

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { discoverCandidateState } from "@/v2/browseMeta";
 import { browseTargetKey, discoverCandidateUrl } from "@/v2/discoverActions";
+import { buildDiscoverAddToLabPrimary } from "@/v2/discoverAddToLabAction";
 import { discoverCollectPreflight } from "@/v2/discoverCollectPreflight";
 import {
   PAGE_DETAIL_EMPTY,
@@ -717,14 +718,13 @@ export function BrowseRailPanel({
       onClick: () => onOpenInLibrary?.(target),
     };
   } else if (!(procurementActive && !awaitingApproval) && !awaitingApproval) {
-    primary = {
-      key: "add-lab",
-      label: collectBusy ? "Queuing…" : "Add to lab",
-      disabled: probeLoading || collectBusy || !preflight.canAdd,
-      busy: collectBusy,
-      busyLabel: "Queuing…",
-      onClick: () => onAddToLab?.(target),
-    };
+    primary = buildDiscoverAddToLabPrimary({
+      collectBusy,
+      probeLoading,
+      preflight,
+      onAddToLab,
+      target,
+    });
   }
 
   const secondary = [];

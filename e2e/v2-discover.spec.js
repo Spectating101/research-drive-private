@@ -106,6 +106,7 @@ test.describe("v2 Discover tab", () => {
     await page.locator('.rd-v2-catalog button.row[data-kind="external"]', { hasText: "MOPS" }).click();
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByRole("button", { name: "Add to lab" })).toBeDisabled();
+    await expect(rail.locator(".rd-v2-rail-sticky .rd-v2-btn.primary")).toHaveText("Add to lab");
     await expect(rail).toContainText("Collection plan");
     await expect(rail).toContainText("Probe source first");
     await rail.locator(".rd-v2-rail-sticky").getByRole("button", { name: "Probe source" }).click();

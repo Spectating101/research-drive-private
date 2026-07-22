@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[1] / "drive"
+
+
+def test_live_yzu_cluster_allows_synthesis_execute() -> None:
+    cfg = json.loads((REPO / "config/yzu_cluster.json").read_text(encoding="utf-8"))
+    allowed = cfg.get("agent", {}).get("allowed_job_types", [])
+    assert "synthesis_execute" in allowed
 
 
 @pytest.fixture()

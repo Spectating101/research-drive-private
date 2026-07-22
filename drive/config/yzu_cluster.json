@@ -204,7 +204,8 @@
       "scraper_run",
       "bigquery_query",
       "collection_hydrate",
-      "huggingface_collect"
+      "huggingface_collect",
+      "synthesis_execute"
     ],
     "future_job_types": []
   },
