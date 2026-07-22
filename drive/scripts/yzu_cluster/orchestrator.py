@@ -129,8 +129,8 @@ class YzuOrchestrator:
 
     def cancel(self, job_id: str) -> dict:
         job = self.store.get(job_id)
-        if job["status"] not in {"pending_approval", "queued"}:
-            raise ValueError("only pending or queued jobs can be cancelled")
+        if job["status"] not in {"pending_approval", "queued", "running"}:
+            raise ValueError("only pending, queued, or running jobs can be cancelled")
         self.runtime.ensure(job)
         self.runtime.cancel(job_id)
         self.store.event(job_id, "warning", "Job cancelled by user")

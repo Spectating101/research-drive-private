@@ -287,7 +287,7 @@ class ClusterRuntimeAdapter:
         with self._lock:
             run_id = self._run_id(job_id)
             current = self.store.snapshot(run_id)
-            if current["status"] not in {"pending_approval", "queued", "retrying"}:
+            if current["status"] not in {"pending_approval", "queued", "retrying", "assigned", "running"}:
                 raise ValueError(f"runtime job is {current['status']}, not cancellable")
             return self.store.record(run_id, "blocked", message=message)
 
