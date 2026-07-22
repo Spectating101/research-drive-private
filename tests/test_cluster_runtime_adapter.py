@@ -251,3 +251,195 @@ def test_project_exposes_registered_runtime_shape_at_top_level(tmp_path: Path) -
     assert projected["registration_id"] == "raw_usdt_history"
     assert projected["outputs"] == ["raw_usdt_history"]
     runtime.close()
+
+
+def _synthesis_plan(*, launchable: bool = False) -> dict:
+    return {
+        "job_type": "synthesis_execute",
+        "launchable": launchable,
+        "execution_spec": {
+            "input_dataset_id": "google_trends_stablecoin_weekly",
+            "output_dataset_id": "synthesis_runtime_hardening_out",
+            "group_by": ["week"],
+            "metrics": [{"function": "count", "as": "row_count"}],
+            "transforms": [],
+        },
+    }
+
+
+def _cluster_config(*, optiplex_caps: list[str] | None = None) -> dict:
+    return {
+        "controller": {"hostname": "optiplex"},
+        "runtime": {"controller_heartbeat_seconds": 0},
+        "operations": {"disable_local_http_collect": False},
+        "worker_pools": {
+            "optiplex": {
+                "kind": "local_linux",
+                "enabled": True,
+                "capabilities": optiplex_caps
+                or ["controller_ui", "cluster_orchestration", "python", "pipeline", "archive"],
+            },
+            "windows_lab": {
+                "enabled": True,
+                "capabilities": ["browser", "http"],
+            },
+        },
+    }
+
+
+def test_synthesis_execute_claims_on_optiplex_python_worker(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    legacy = YzuJobStore(database)
+    runtime = ClusterRuntimeAdapter(database, _cluster_config())
+    job = legacy.create(
+        "Synthesis execute",
+        {},
+        _synthesis_plan(),
+        status="queued",
+        job_id="synthesis-live",
+    )
+    runtime.ensure(job)
+
+    claim = runtime.claim_next()
+
+    assert claim is not None
+    assert claim.job_type == "synthesis_execute"
+    assert claim.worker_id == "optiplex"
+    assert "python" in claim.required_capabilities
+    runtime.close()
+
+
+def test_synthesis_execute_rejects_capability_mismatched_worker(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    legacy = YzuJobStore(database)
+    runtime = ClusterRuntimeAdapter(database, _cluster_config())
+    runtime.store.upsert_worker(
+        "browser-only",
+        pool="windows_lab",
+        capabilities=["browser", "http"],
+    )
+    job = legacy.create(
+        "Synthesis execute",
+        {},
+        _synthesis_plan(),
+        status="queued",
+        job_id="synthesis-mismatch",
+    )
+    runtime.ensure(job)
+
+    assert runtime.claim_job(job["id"], worker_id="browser-only") is None
+    assert runtime.snapshot(job["id"])["status"] == "queued"
+    runtime.close()
+
+
+def test_synthesis_execute_requires_configured_python_pool(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    runtime = ClusterRuntimeAdapter(
+        database,
+        _cluster_config(optiplex_caps=["controller_ui", "cluster_orchestration"]),
+    )
+    plan = _synthesis_plan()
+
+    assert runtime.has_configured_worker_for(plan) is False
+    assert "python" not in runtime.configured_worker_capabilities()
+    runtime.close()
+
+
+def _synthesis_orchestrator(tmp_path: Path, *, worker_pools: dict) -> tuple:
+    import json
+
+    from scripts.yzu_cluster.orchestrator import YzuOrchestrator
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/yzu_cluster.json").write_text(
+        json.dumps(
+            {
+                "controller": {
+                    "hostname": "optiplex",
+                    "jobs_root": "data/jobs",
+                    "status_root": "data/status",
+                },
+                "operations": {"disable_local_http_collect": False},
+                "agent": {"allowed_job_types": ["synthesis_execute"]},
+                "worker_pools": worker_pools,
+                "storage": {},
+                "runtime": {"controller_heartbeat_seconds": 0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    orchestrator = YzuOrchestrator(tmp_path)
+    return orchestrator, orchestrator.runtime
+
+
+def test_synthesis_execute_validation_accepts_configured_python_worker(tmp_path: Path) -> None:
+    orchestrator, runtime = _synthesis_orchestrator(
+        tmp_path,
+        worker_pools={
+            "optiplex": {
+                "enabled": True,
+                "capabilities": ["controller_ui", "cluster_orchestration", "python", "pipeline"],
+            }
+        },
+    )
+    validated = orchestrator.validate_plan(_synthesis_plan(launchable=True))
+    assert validated.get("launchable") is True
+    assert "validation_error" not in validated
+    assert runtime.eligible_workers(["python"])
+    runtime.close()
+
+
+def test_synthesis_execute_validation_rejects_without_configured_python_pool(tmp_path: Path) -> None:
+    orchestrator, runtime = _synthesis_orchestrator(
+        tmp_path,
+        worker_pools={
+            "optiplex": {
+                "enabled": True,
+                "capabilities": ["controller_ui", "cluster_orchestration"],
+            }
+        },
+    )
+    validated = orchestrator.validate_plan(_synthesis_plan(launchable=True))
+    assert validated.get("launchable") is False
+    assert "required capabilities" in str(validated.get("validation_error") or "")
+    runtime.close()
+
+
+def test_synthesis_execute_scheduler_rejects_capability_mismatch(tmp_path: Path) -> None:
+    orchestrator, runtime = _synthesis_orchestrator(
+        tmp_path,
+        worker_pools={
+            "optiplex": {
+                "enabled": True,
+                "capabilities": ["controller_ui", "cluster_orchestration", "python"],
+            },
+            "windows_lab": {
+                "enabled": True,
+                "capabilities": ["browser", "http"],
+            },
+        },
+    )
+    legacy = orchestrator.store
+    job = legacy.create(
+        "Synthesis execute",
+        {},
+        _synthesis_plan(),
+        status="queued",
+        job_id="synthesis-live",
+    )
+    runtime.ensure(job)
+
+    runtime.store.upsert_worker(
+        "browser-only",
+        pool="windows_lab",
+        capabilities=["browser"],
+        heartbeat_at="2099-01-01T00:00:00Z",
+    )
+    assert runtime.claim_next(worker_id="browser-only") is None
+    assert runtime.snapshot(job["id"])["status"] == "queued"
+
+    claim = runtime.claim_next(worker_id="optiplex")
+    assert claim is not None
+    assert claim.job_id == "synthesis-live"
+    assert "python" in claim.required_capabilities
+    runtime.close()

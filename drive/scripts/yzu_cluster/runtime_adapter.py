@@ -18,6 +18,7 @@ from typing import Any, Iterable, Mapping
 from ._interop_common import Claim, normalize_capabilities
 from .interop_api import InteropAPI
 from .interop_contract import InteropStore
+from .interop_reliability import RUNNABLE_WORKER_STATES
 
 
 _RUNTIME_TABLES = (
@@ -245,6 +246,63 @@ class ClusterRuntimeAdapter:
         if explicit:
             return _canonical_capabilities(explicit)
         return _canonical_capabilities(_JOB_CAPABILITIES.get(str(plan.get("job_type") or ""), ("controller",)))
+
+    def configured_worker_capabilities(self) -> set[str]:
+        """Capabilities truthfully declared by enabled worker pools in cluster config."""
+        caps: set[str] = set()
+        pools = self.config.get("worker_pools")
+        if not isinstance(pools, Mapping):
+            return caps
+        for pool_cfg in pools.values():
+            if not isinstance(pool_cfg, Mapping) or pool_cfg.get("enabled") is False:
+                continue
+            caps.update(_canonical_capabilities(pool_cfg.get("capabilities") or []))
+        return caps
+
+    def has_configured_worker_for(self, plan: Mapping[str, Any]) -> bool:
+        required = set(self.requirements(plan))
+        if not required:
+            return True
+        return required.issubset(self.configured_worker_capabilities())
+
+    def configured_pool_capabilities(self, pool_name: str) -> list[str]:
+        pools = self.config.get("worker_pools") if isinstance(self.config.get("worker_pools"), Mapping) else {}
+        spec = pools.get(pool_name) if isinstance(pools, Mapping) else None
+        if not isinstance(spec, Mapping):
+            return []
+        if spec.get("enabled") is False or spec.get("exclude_from_cluster_ops"):
+            return []
+        return _canonical_capabilities(spec.get("capabilities") or [])
+
+    def pool_declares_capabilities(self, pool_name: str, required: Iterable[str]) -> bool:
+        required_set = set(_canonical_capabilities(required))
+        if not required_set:
+            return True
+        declared = set(self.configured_pool_capabilities(pool_name))
+        return required_set.issubset(declared)
+
+    def eligible_workers(self, required: Iterable[str], *, at: str | None = None) -> list[dict[str, Any]]:
+        """Fresh runtime workers whose configured pool and live heartbeat satisfy requirements."""
+
+        required_set = set(_canonical_capabilities(required))
+        if not required_set:
+            return []
+        eligible: list[dict[str, Any]] = []
+        for row in self.connection.execute("SELECT worker_id FROM cluster_workers ORDER BY worker_id"):
+            worker_id = str(row[0])
+            try:
+                worker = self.store.worker(worker_id, at=at)
+            except KeyError:
+                continue
+            if worker.get("status") not in RUNNABLE_WORKER_STATES:
+                continue
+            pool = str(worker.get("pool") or "")
+            if not self.pool_declares_capabilities(pool, required_set):
+                continue
+            available = set(_canonical_capabilities(worker.get("capabilities") or []))
+            if required_set.issubset(available):
+                eligible.append(worker)
+        return eligible
 
     def ensure(self, job: Mapping[str, Any]) -> dict[str, Any]:
         plan = job.get("plan") if isinstance(job.get("plan"), Mapping) else {}
