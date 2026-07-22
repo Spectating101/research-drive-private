@@ -588,12 +588,38 @@ class ResearchQueryEngine:
             "survey_replacement_potential": "high_for_observable_attention_or_behavior_low_for_private_motivation",
         }
 
+    def _is_object_values_record_map(self, payload: Any) -> bool:
+        """Return whether a JSON object maps record ids to object records."""
+        if not isinstance(payload, dict) or not payload:
+            return False
+        return all(isinstance(value, dict) for value in payload.values())
+
     def _query_local_json_file(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
         path = self._resolve(ds["local_path"])
         if not path.exists():
             return QueryResult(ds["dataset_id"], [], {"error": f"missing json path: {path}", "params": params})
         payload = json.loads(path.read_text(encoding="utf-8"))
         fields = [x.strip() for x in str(params.get("fields", "")).split(",") if x.strip()]
+
+        limit = min(int(params.get("limit", 100)), 5000)
+
+        # Mapping of record id -> object (SEC company_tickers style): expose values as rows.
+        if self._is_object_values_record_map(payload):
+            rows: list[dict[str, Any]] = list(payload.values())[:limit]
+            if fields:
+                rows = [{k: self._dig(row, k) for k in fields} for row in rows]
+            return QueryResult(
+                ds["dataset_id"],
+                rows,
+                {
+                    "path": str(path),
+                    "returned": len(rows),
+                    "record_shape": "object_values",
+                    "params": params,
+                },
+            )
+
+        # Ordinary document / scalar JSON remains one row.
         if fields:
             row = {k: self._dig(payload, k) for k in fields}
         else:
