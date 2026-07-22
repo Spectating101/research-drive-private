@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import json
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Iterator, Any
 
 
 def now() -> str:
@@ -45,8 +47,23 @@ class YzuJobStore:
                 )"""
             )
 
-    def _db(self):
-        return sqlite3.connect(self.path, timeout=30)
+    @contextmanager
+    def _db(self) -> Iterator[sqlite3.Connection]:
+        """Open a short-lived connection that always closes.
+
+        Python 3.12+ ``Connection.__exit__`` commits/rollbacks but no longer
+        closes the handle, so ``with sqlite3.connect(...)`` leaks FDs under
+        desk polling (/health, job list, workers).
+        """
+        db = sqlite3.connect(self.path, timeout=30)
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def create(
         self,
@@ -67,11 +84,30 @@ class YzuJobStore:
         self.event(job_id, "info", f"Job created ({status})")
         return self.get(job_id)
 
-    def update(self, job_id: str, status: str, result: dict | None = None, error: str = "") -> dict:
+    def update(
+        self,
+        job_id: str,
+        status: str,
+        result: dict | None = None,
+        error: str = "",
+        *,
+        expected_status: str | None = None,
+    ) -> dict:
+        """Update one legacy projection, optionally using optimistic fencing.
+
+        Runtime reconciliation runs in a separate process from the worker-control
+        server. A stale reconciliation must not overwrite a completion payload
+        committed after the reconciliation read the job.
+        """
+        where = "WHERE id=?"
+        params: list[object] = [now(), status, json.dumps(result or {}), error, job_id]
+        if expected_status is not None:
+            where += " AND status=?"
+            params.append(expected_status)
         with self._db() as db:
             db.execute(
-                "UPDATE jobs SET updated_at=?, status=?, result_json=?, error=? WHERE id=?",
-                (now(), status, json.dumps(result or {}), error, job_id),
+                f"UPDATE jobs SET updated_at=?, status=?, result_json=?, error=? {where}",
+                tuple(params),
             )
         return self.get(job_id)
 

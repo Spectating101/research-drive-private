@@ -8,13 +8,15 @@ route and explicitly submits the resulting pending job.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import hashlib
 import json
 import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Iterator, Any
 
 
 def discover_intent_store_path(repo_root: str | Path) -> Path:
@@ -118,8 +120,23 @@ class DiscoverIntentStore:
             db.execute("CREATE INDEX IF NOT EXISTS idx_discover_intents_updated ON discover_intents(updated_at DESC)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_discover_intent_events_intent ON discover_intent_events(intent_id, id)")
 
-    def _db(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path, timeout=30)
+    @contextmanager
+    def _db(self) -> Iterator[sqlite3.Connection]:
+        """Open a short-lived connection that always closes.
+
+        Python 3.12+ ``Connection.__exit__`` commits/rollbacks but no longer
+        closes the handle, so ``with sqlite3.connect(...)`` leaks FDs under
+        desk polling (/health, job list, workers).
+        """
+        db = sqlite3.connect(self.path, timeout=30)
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def create(
         self,
