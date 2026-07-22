@@ -373,6 +373,8 @@ def registry_spec_from_materialized(
         "recommended_use": f"Inspect files under {local_path}",
         "domain": plan.get("domain") or "procured",
     }
+    if plan.get("revision_id"):
+        spec["revision_id"] = str(plan["revision_id"])
     if campaign_id:
         spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True}
     if plan.get("job_type") == "synthesis_execute":

@@ -438,6 +438,7 @@ class ClusterRuntimeAdapter:
             run_id,
             dataset_id=str(evidence["dataset_id"]),
             registry_id=str(evidence["registry_id"]),
+            revision_id=evidence.get("revision_id"),
             manifest_id=str(evidence["manifest_id"]),
             vault_path=str(evidence["vault_path"]),
             archive_verified=True,

@@ -168,6 +168,7 @@ def create_stack(
             "dataset_id": dataset_id,
             # The canonical registry has dataset_id as its durable row identity.
             "registry_id": dataset_id,
+            "revision_id": registry_row.get("revision_id"),
             "manifest_id": manifest_id,
             "vault_path": remote_path,
             "archive_verified": True,
