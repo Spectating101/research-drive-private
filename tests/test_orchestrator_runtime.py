@@ -10,6 +10,7 @@ import pytest
 from scripts.yzu_cluster import executor as executor_module
 from scripts.yzu_cluster.executor import YzuExecutor
 from scripts.yzu_cluster.orchestrator import YzuOrchestrator
+from scripts.yzu_cluster.worker_control import WorkerControlPlane
 
 
 def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrchestrator:
@@ -77,6 +78,55 @@ def test_browser_job_stays_queued_without_a_live_browser_worker(tmp_path: Path) 
 
     assert waiting["status"] == "queued"
     assert waiting["runtime"]["status"] == "queued"
+
+
+def test_controller_yields_http_run_to_fresh_windows_worker(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    control = WorkerControlPlane(orchestrator, token="secret-token")
+    control.join(
+        {
+            "worker_id": "windows-01",
+            "pool": "windows_lab",
+            "capabilities": ["http"],
+            "capacity": {"cpu_cores": 2, "memory_mb": 2048},
+        }
+    )
+    job = orchestrator.submit(
+        "Windows-first HTTP procurement",
+        {"job_type": "http_manifest", "url": "https://example.test/data.csv"},
+        {"idempotency_key": "windows-first-http"},
+        auto_approve=True,
+    )
+
+    assert orchestrator.worker_tick() is None
+    assert orchestrator.runtime.snapshot(job["id"])["status"] == "queued"
+    assert control.claim({"worker_id": "windows-01"}) is not None
+
+
+def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    control = WorkerControlPlane(orchestrator, token="secret-token")
+    control.join(
+        {
+            "worker_id": "windows-01",
+            "pool": "windows_lab",
+            "capabilities": ["http"],
+            "capacity": {"cpu_cores": 2, "memory_mb": 2048},
+        }
+    )
+    orchestrator.executor.execute = lambda _job_id, _plan: {"outputs": ["controller-output"]}  # type: ignore[method-assign]
+    job = orchestrator.submit(
+        "Controller-owned probe",
+        {"job_type": "source_probe", "url": "https://example.test"},
+        {"idempotency_key": "controller-probe-with-windows"},
+        auto_approve=True,
+    )
+    orchestrator.approve(job["id"])
+
+    completed = orchestrator.worker_tick()
+    assert completed is not None
+    assert completed["id"] == job["id"]
+    assert completed["status"] == "completed"
 
 
 def test_runtime_lease_recovery_reconciles_legacy_running_job(tmp_path: Path) -> None:
