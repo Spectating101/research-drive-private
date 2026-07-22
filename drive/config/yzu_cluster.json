@@ -264,6 +264,9 @@
         "title": "Daily public collection queue",
         "job_type": "collection_queue_batch",
         "launchable": true,
+        "only": [
+          "sec_company_tickers"
+        ],
         "timeout_seconds": 14400
       }
     }

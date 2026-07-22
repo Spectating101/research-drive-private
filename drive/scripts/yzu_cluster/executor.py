@@ -49,6 +49,18 @@ ALLOWED_JOB_TYPES = {
 }
 
 
+def collection_queue_runner(repo_root: Path) -> Path:
+    """Resolve the queue entrypoint in both split and legacy checkout layouts."""
+    candidates = (
+        repo_root / "scripts/run_data_collection_queue.py",
+        repo_root / "drive/scripts/run_data_collection_queue.py",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError("collection queue runner is missing from the private checkout")
+
+
 class YzuExecutor:
     def __init__(self, repo_root: Path, cfg: dict[str, Any], jobs_root: Path, event_cb: Callable[[str, str, str], None] | None = None):
         self.repo_root = repo_root
@@ -247,7 +259,9 @@ class YzuExecutor:
     def _collection_queue_batch(self, job_id: str, plan: dict[str, Any]) -> dict[str, Any]:
         from scripts.yzu_cluster.cluster_ops import remote_queue_on_windows
 
-        command = ["python3", "scripts/run_data_collection_queue.py"]
+        runner = collection_queue_runner(self.repo_root)
+        runner_arg = runner.relative_to(self.repo_root).as_posix()
+        command = ["python3", runner_arg]
         only = plan.get("only") or plan.get("task_ids")
         if only:
             if isinstance(only, list):
