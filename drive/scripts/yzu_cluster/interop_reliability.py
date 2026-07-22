@@ -241,6 +241,24 @@ class ReliabilityMixin:
             _same_optional(existing.get("coverage"), coverage),
         ))
 
+    @staticmethod
+    def _is_verified_revision(
+        existing: Mapping[str, Any],
+        *,
+        registry_id: str,
+        revision_id: str | None,
+        manifest_id: str,
+    ) -> bool:
+        """Allow only an explicit verified refresh to replace an asset pointer."""
+
+        return bool(
+            revision_id
+            and str(existing.get("registry_id") or "") == str(registry_id)
+            and str(existing.get("revision_id") or "") != str(revision_id)
+            and str(existing.get("manifest_id") or "") != str(manifest_id)
+            and existing.get("drive_verified") is True
+        )
+
     def register(
         self,
         run_id: str,
@@ -308,7 +326,12 @@ class ReliabilityMixin:
             # the same logical asset. Preserve strict replay fencing for
             # unversioned or same-revision writes, while allowing the new
             # verified snapshot to replace the current asset pointer.
-            new_revision = bool(revision_id) and str(existing.get("revision_id") or "") != str(revision_id)
+            new_revision = self._is_verified_revision(
+                existing,
+                registry_id=registry_id,
+                revision_id=revision_id,
+                manifest_id=manifest_id,
+            )
             if not matches and not new_revision:
                 raise ValueError("dataset_id already exists with conflicting registration proof")
             if matches and run["stage"] == "registered":

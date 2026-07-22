@@ -510,7 +510,14 @@
         "procured_src_f4fd1f8a03cb",
         "sec_company_tickers",
         "twse_openapi_taiwan_market_layer",
-        "procured_src_b9a817c6ac09"
+        "procured_src_b9a817c6ac09",
+        "capability_canary_http_20260722T083003Z",
+        "canary.fullops.10361",
+        "codex_sec_tickers_canary_20260722",
+        "codex_sec_tickers_canary_v2_20260722",
+        "codex_sec_tickers_canary_v3_20260722",
+        "sec_edgar",
+        "sec_company_tickers_mcp_canary_20260722"
       ],
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
     },
@@ -549,7 +556,10 @@
         "ticker_week_country_broadcast_panel",
         "ticker_week_entity_long_panel",
         "ticker_week_entity_market_panel",
-        "ticker_week_entity_residual_panel"
+        "ticker_week_entity_residual_panel",
+        "synthesis_sec_ticker_count_canary_20260722",
+        "synthesis_sec_ticker_count_canary_20260722b",
+        "synthesis_agent_canary_20260722_204056"
       ],
       "professor_label": "Research panels",
       "migrated_at": "2026-06-24T20:08:58.839200+00:00",

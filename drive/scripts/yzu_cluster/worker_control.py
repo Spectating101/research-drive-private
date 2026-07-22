@@ -10,11 +10,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import hmac
+import logging
 import os
 from pathlib import Path
 from typing import Any, Mapping
 
 from ._interop_common import Claim
+
+
+LOGGER = logging.getLogger(__name__)
 
 TOKEN_ENV = "YZU_WORKER_CONTROL_TOKEN"
 MAX_ARTIFACT_ENV = "YZU_WORKER_MAX_ARTIFACT_BYTES"
@@ -407,7 +411,16 @@ class WorkerControlPlane:
             renewal.stop()
         renewal.raise_if_lost()
 
-        runtime_state = self.orchestrator.runtime.complete(claim, result)
+        try:
+            runtime_state = self.orchestrator.runtime.complete(claim, result)
+        except Exception:
+            LOGGER.exception(
+                "worker completion rejected job_id=%s worker_id=%s attempt=%s",
+                job_id,
+                worker_id,
+                attempt,
+            )
+            raise
         self.orchestrator.store.update(job_id, "completed", result=result)
         if self.orchestrator._on_job_post_completed:
             try:
