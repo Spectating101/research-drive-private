@@ -97,7 +97,12 @@ class YzuScheduler:
         plan = dict(item.get("plan") or {})
         plan.setdefault("launchable", True)
         title = plan.get("title") or f"Scheduled {schedule_id}"
-        bucket = _period_bucket(now if force or not last_ts else max(now, last_ts + 1), interval_hours)
+        if force:
+            # A manual run is an explicit retry/one-off and must be able to
+            # recover a failed period without defeating automatic replay safety.
+            bucket = f"manual-{int(now * 1000)}"
+        else:
+            bucket = _period_bucket(now if not last_ts else max(now, last_ts + 1), interval_hours)
         idempotency_key = _sanitize_key(f"sched:{schedule_id}:{bucket}")
         return {
             "schedule_id": schedule_id,
