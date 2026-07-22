@@ -29,7 +29,7 @@
       ],
       "notes": "Day-2: production Windows workers claim only http_manifest; fixture id prefixes are skipped before assignment."
     },
-    "notes": "Controller queues jobs; browser scrapes run on windows_lab only (disable_local_scrape). Run scripts/yzu_cluster/provision_windows_scraper_bundle.sh once per worker.",
+    "notes": "Windows_lab is the primary execution pool for HTTP procurement. Optiplex remains the controller and explicit local fallback when no Windows worker is reachable. General queue/pipeline jobs remain on the controller until the full Windows runtime bundle is installed. Browser scrapes run on windows_lab only (disable_local_scrape). Run scripts/yzu_cluster/provision_windows_scraper_bundle.sh once per worker.",
     "ops_host": {
       "mode": "local",
       "repo_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance",

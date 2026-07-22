@@ -93,7 +93,12 @@ class YzuJobStore:
         *,
         expected_status: str | None = None,
     ) -> dict:
-        """Update one legacy projection with optional optimistic fencing."""
+        """Update one legacy projection, optionally using optimistic fencing.
+
+        Runtime reconciliation runs in a separate process from the worker-control
+        server. A stale reconciliation must not overwrite a completion payload
+        committed after the reconciliation read the job.
+        """
         where = "WHERE id=?"
         params: list[object] = [now(), status, json.dumps(result or {}), error, job_id]
         if expected_status is not None:

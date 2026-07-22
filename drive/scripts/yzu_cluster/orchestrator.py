@@ -412,6 +412,9 @@ class YzuOrchestrator:
                     error=str(runtime.get("error") or ""),
                     expected_status=str(job.get("status") or ""),
                 )
+                # Another process may have committed the terminal transition
+                # after this snapshot was read. In that case the CAS update
+                # affects no row and must not emit a misleading event.
                 if reconciled.get("status") == projected:
                     self.store.event(str(job["id"]), "info", f"Runtime state reconciled: {runtime.get('status')}")
 

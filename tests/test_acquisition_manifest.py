@@ -49,6 +49,7 @@ def test_declared_dataset_identity_wins_over_connector_identity(tmp_path: Path) 
     assert result["output_manifest_id"] == "collection_manifest_collect-tickers"
 
 
+
 def test_single_materialized_file_registers_a_file_path_not_directory(tmp_path: Path) -> None:
     spec = registry_spec_from_materialized(
         tmp_path,
