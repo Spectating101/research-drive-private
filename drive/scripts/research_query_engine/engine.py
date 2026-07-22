@@ -34,6 +34,7 @@ class ResearchQueryEngine:
         self.registry_path = self._resolve(registry_path)
         self.registry = json.loads(self.registry_path.read_text(encoding="utf-8"))
         self.datasets = {d["dataset_id"]: d for d in self.registry.get("datasets", [])}
+        self._reconcile_local_panel_readiness()
 
     def _resolve(self, value: str | Path) -> Path:
         from scripts.research_data_mcp.data_paths import resolve_data_path
@@ -42,6 +43,32 @@ class ResearchQueryEngine:
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
+
+    def _reconcile_local_panel_readiness(self) -> None:
+        """Remove stale query-ready claims when a local panel is not materialized."""
+        for dataset in self.datasets.values():
+            if dataset.get("backend") != "local_parquet_panel":
+                continue
+            if dataset.get("analysis_readiness") != "instant":
+                continue
+            try:
+                self._resolve_panel_path(dataset, {})
+            except (FileNotFoundError, KeyError, TypeError, ValueError):
+                materialization = dict(dataset.get("materialization") or {})
+                resolved_path = materialization.pop("resolved_path", None)
+                if resolved_path:
+                    materialization["expected_path"] = resolved_path
+                materialization.update(
+                    {
+                        "query_ready": False,
+                        "skipped": "local_panel_missing_at_runtime",
+                    }
+                )
+                dataset["materialization"] = materialization
+                dataset["analysis_readiness"] = "metadata_search"
+                dataset["collection_status"] = "metadata_only"
+                dataset["field_coverage"] = "metadata-only"
+                dataset["runtime_readiness_reason"] = "local_panel_missing"
 
     def describe(self, dataset_id: str) -> dict[str, Any]:
         if dataset_id not in self.datasets:
