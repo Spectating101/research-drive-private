@@ -1,0 +1,170 @@
+{
+  "pending_total": 0,
+  "approved": 0,
+  "cancelled": 27,
+  "skipped": 0,
+  "recovered_stale_running": 0,
+  "dry_run": false,
+  "sample": [
+    {
+      "id": "missing-manifest-90ef49202bac452eb57f845afcfd471b",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-e09020d481184761801a5d2a4393df16",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-6021349dbf984651bdccb34e80da2c6d",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-8fffdceabf584c1ea10e676fe6d02d32",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-788635f4740b4e3f95901856c9673470",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-143586a75f424ddf96cebe49ce7ebd7f",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-6018b021de844a2bb2fdddc43f4cf5ae",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-5bdb2cfb49e642d68a0fa269738ad868",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-e2311c73369c430ba1a71c597913c4ad",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-97e10848d88441999f37df0dc58f0891",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-a522103c2aa84fe19bc8e4afb8112f63",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-a3027808e60b4a1aa12c392d95df7caf",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-f3beefd90c764ce2b6ad235660ac5e97",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-212de555f85a42adbb8b8f0e92505e4b",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-04261d6bd8cc459e99d10ecc37f61b6d",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-0546c2bc814f4c93b3a02da64af116a8",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-e37a77182e5548c3bc6aeb1f093717a4",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-5cdc4d7dd7ca426da935e107b288ebcc",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "missing-manifest-e34438b4c3234ff395015c55341cb78d",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    },
+    {
+      "id": "archive-before-promote-1ee853f5ef0c40a195d4bcc73e7289e4",
+      "job_type": "http_manifest",
+      "title": "Collect USDT",
+      "status": "running",
+      "action": "cancel",
+      "reason": "fixture_http_manifest_stuck"
+    }
+  ]
+}
