@@ -29,9 +29,10 @@ export function defaultDeskApiTarget() {
 }
 
 /**
- * Keep Host as the preview origin (changeOrigin: false) so HttpOnly session
- * bootstrap can pass same-origin checks, and inject Bearer from the local
- * token file when the browser request has no desk credentials yet.
+ * Keep Host as the preview origin (changeOrigin: false), and always inject
+ * Bearer from the local token file when the browser omitted credentials.
+ * Desk session bootstrap now requires the desk token (Origin alone is not
+ * enough); this proxy supplies it without exposing the secret to JS.
  */
 export function withLocalDeskAuth(proxyConfig = {}) {
   return {

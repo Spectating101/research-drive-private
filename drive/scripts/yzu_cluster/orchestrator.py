@@ -8,7 +8,7 @@ import re
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from .executor import ALLOWED_JOB_TYPES, YzuExecutor
 from .jobs import YzuJobStore

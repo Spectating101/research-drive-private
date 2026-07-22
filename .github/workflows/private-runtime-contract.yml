@@ -2,6 +2,34 @@ name: Private runtime contract
 
 # Exact-head gate for runtime, registry authority, and remote worker adoption.
 on:
+  push:
+    branches:
+      - grok/runtime-live-hardening
+      - private/grok/runtime-live-hardening
+    paths:
+      - "drive/scripts/yzu_cluster/**"
+      - "drive/scripts/research_data_mcp/**"
+      - "drive/vite.deskProxy.js"
+      - "drive/src/v2/**"
+      - "tests/test_cluster_runtime_adapter.py"
+      - "tests/test_orchestrator_runtime.py"
+      - "tests/test_desk_auth_session.py"
+      - "tests/test_bootstrap_drive_order.py"
+      - "tests/test_acquisition_manifest.py"
+      - "tests/test_scraper_manifest.py"
+      - "tests/test_registry_authority.py"
+      - "tests/test_registry_transaction.py"
+      - "tests/test_worker_control.py"
+      - "tests/test_worker_completion_lease.py"
+      - "tests/test_completion_lease_scope.py"
+      - "tests/test_remote_worker.py"
+      - "tests/test_artifact_streaming.py"
+      - "tests/test_job_status_counts.py"
+      - "tests/test_yzu_interop_*.py"
+      - "e2e/v2-discover.spec.js"
+      - "vite.config.js"
+      - "package.json"
+      - ".github/workflows/private-runtime-contract.yml"
   pull_request:
     branches: [main]
     paths:
@@ -68,8 +96,16 @@ jobs:
             tests/test_cluster_runtime_adapter.py::test_synthesis_execute_claims_on_optiplex_python_worker \
             tests/test_cluster_runtime_adapter.py::test_synthesis_execute_rejects_capability_mismatched_worker \
             tests/test_cluster_runtime_adapter.py::test_synthesis_execute_requires_configured_python_pool \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_validation_accepts_configured_python_worker \
+            tests/test_cluster_runtime_adapter.py::test_synthesis_execute_validation_rejects_without_configured_python_pool \
             tests/test_orchestrator_runtime.py::test_orchestrator_validates_synthesis_execute_with_configured_python_pool \
-            tests/test_orchestrator_runtime.py::test_orchestrator_rejects_synthesis_without_configured_python_pool
+            tests/test_orchestrator_runtime.py::test_orchestrator_rejects_synthesis_without_configured_python_pool \
+            tests/test_orchestrator_runtime.py::test_procurement_approval_queues_without_live_worker \
+            tests/test_orchestrator_runtime.py::test_synthesis_approval_rejects_without_eligible_worker \
+            tests/test_orchestrator_runtime.py::test_synthesis_approval_queues_with_eligible_worker \
+            tests/test_orchestrator_runtime.py::test_approve_handles_non_mapping_plan_without_nameerror \
+            tests/test_orchestrator_runtime.py::test_synthesis_approval_then_claim_on_optiplex \
+            tests/test_orchestrator_runtime.py::test_procurement_approval_does_not_require_python_capability
 
       - name: Run worker control service contracts
         id: worker_control

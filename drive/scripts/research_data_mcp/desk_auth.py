@@ -148,11 +148,8 @@ def _request_has_token_auth(handler: BaseHTTPRequestHandler) -> bool:
     return header.strip() == token
 
 
-def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
-    """Allow session bootstrap only for configured browser origins or token auth."""
-
-    if _request_has_token_auth(handler):
-        return True
+def _origin_or_referer_allowed(handler: BaseHTTPRequestHandler) -> bool:
+    """True when Origin/Referer is present and matches the allow-list."""
 
     origin = str(handler.headers.get("Origin") or "").strip().rstrip("/")
     referer = str(handler.headers.get("Referer") or "").strip()
@@ -162,21 +159,40 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
     allowed = desk_allowed_origins()
     if origin:
         return origin in allowed
-    if referer:
-        parsed = urlparse(referer)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            return False
-        return f"{parsed.scheme}://{parsed.netloc}".lower().rstrip("/") in allowed
-    return False
+    parsed = urlparse(referer)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    return f"{parsed.scheme}://{parsed.netloc}".lower().rstrip("/") in allowed
+
+
+def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
+    """Browser origin gate used by session clear and diagnostics.
+
+    Token auth alone is accepted for trusted local proxies/tooling.
+    """
+
+    if _request_has_token_auth(handler):
+        return True
+    return _origin_or_referer_allowed(handler)
 
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
-    """Return (ok, message, Set-Cookie header value)."""
+    """Issue an HttpOnly desk session only when the desk token is presented.
+
+    Origin allow-listing alone is not authentication: a scripted client can forge
+    ``Origin: http://100.127.141.44:8767``. Local Vite preview remains usable
+    because ``vite.deskProxy.js`` injects ``Authorization: Bearer`` server-side.
+    When a browser Origin/Referer is present, it must still be allow-listed.
+    """
     token = access_token_required()
     if not token:
         return False, "Desk access token is not configured on this host", None
-    if not same_origin_desk_request(handler):
-        return False, "Desk session bootstrap requires an allowed browser origin or desk token", None
+    if not _request_has_token_auth(handler):
+        return False, "Desk session bootstrap requires Authorization: Bearer or X-Desk-Token", None
+    origin = str(handler.headers.get("Origin") or "").strip()
+    referer = str(handler.headers.get("Referer") or "").strip()
+    if (origin or referer) and not _origin_or_referer_allowed(handler):
+        return False, "Desk session bootstrap origin is not allowed", None
     return True, "", _cookie_header_value(token)
 
 
@@ -185,8 +201,13 @@ def clear_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
     if not token:
         # Still clear any stale cookie.
         return True, "", _cookie_header_value("", clear=True)
-    if not same_origin_desk_request(handler):
-        return False, "Desk session clear requires an allowed browser origin or desk token", None
+    # Allow clear via token, allow-listed browser origin, or an already-valid session cookie.
+    if not (
+        _request_has_token_auth(handler)
+        or _origin_or_referer_allowed(handler)
+        or desk_session_cookie_valid(handler, token)
+    ):
+        return False, "Desk session clear requires desk token, allowed origin, or active session cookie", None
     return True, "", _cookie_header_value(token, clear=True)
 
 

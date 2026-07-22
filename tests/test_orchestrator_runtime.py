@@ -250,3 +250,190 @@ def test_orchestrator_rejects_synthesis_without_configured_python_pool(tmp_path:
 
     assert validated.get("launchable") is False
     assert "python" in str(validated.get("validation_error") or "")
+
+
+def test_procurement_approval_queues_without_live_worker(tmp_path: Path) -> None:
+    """Ordinary procurement must approve/queue even when no live worker is present."""
+    orchestrator = _orchestrator(tmp_path, agent_allowed=["http_manifest"])
+    # Drop the auto-registered controller so approval cannot depend on a live worker.
+    with orchestrator.runtime._lock:
+        orchestrator.runtime.connection.execute("DELETE FROM cluster_workers")
+    assert orchestrator.runtime.eligible_workers(["http"]) == []
+
+    pending = orchestrator.submit(
+        "Probe example",
+        {"job_type": "http_manifest", "url": "https://example.test", "launchable": True},
+        {"idempotency_key": "procure-approve-no-worker"},
+        auto_approve=False,
+    )
+    assert pending["status"] == "pending_approval"
+
+    approved = orchestrator.approve(pending["id"])
+
+    assert approved["status"] == "queued"
+    assert approved["runtime"]["status"] == "queued"
+    orchestrator.runtime.close()
+
+
+def test_synthesis_approval_rejects_without_eligible_worker(tmp_path: Path) -> None:
+    """Synthesis approve must fail closed when no fresh Python-capable worker exists."""
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/yzu_cluster.json").write_text(
+        json.dumps(
+            {
+                "controller": {
+                    "hostname": "optiplex-test",
+                    "jobs_root": "data/jobs",
+                    "status_root": "data/status",
+                },
+                "operations": {"disable_local_http_collect": False},
+                "agent": {"allowed_job_types": ["synthesis_execute", "http_manifest"]},
+                "worker_pools": {
+                    "optiplex": {
+                        "enabled": True,
+                        # Pool lacks python — even a controller heartbeat cannot satisfy Synthesis.
+                        "capabilities": ["controller_ui", "cluster_orchestration"],
+                    }
+                },
+                "storage": {},
+                "runtime": {"controller_heartbeat_seconds": 0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    orchestrator = YzuOrchestrator(tmp_path)
+    plan = {
+        **_synthesis_plan(),
+        "launchable": True,
+        # Bypass validate_plan live-worker gate so we exercise approve() itself.
+        "validation_error": None,
+    }
+    # Create a pending Synthesis job directly; submit() would mark it non-launchable first.
+    job = orchestrator.store.create(
+        "Synthesis approve reject",
+        {"idempotency_key": "synthesis-approve-reject"},
+        plan,
+        status="pending_approval",
+        job_id="synthesis-approve-reject",
+    )
+    orchestrator.runtime.ensure(job)
+    assert orchestrator.runtime.eligible_workers(["python"]) == []
+
+    with pytest.raises(ValueError, match="no fresh compatible worker"):
+        orchestrator.approve(job["id"])
+
+    still = orchestrator.store.get(job["id"])
+    assert still["status"] == "pending_approval"
+    orchestrator.runtime.close()
+
+
+def test_synthesis_approval_queues_with_eligible_worker(tmp_path: Path) -> None:
+    """Synthesis approve queues when Optiplex declares and advertises python."""
+    orchestrator = _orchestrator(tmp_path, agent_allowed=["synthesis_execute"])
+    assert orchestrator.runtime.eligible_workers(["python"]), "controller should advertise python"
+
+    pending = orchestrator.submit(
+        "Synthesis approve ok",
+        {**_synthesis_plan(), "launchable": True},
+        {"idempotency_key": "synthesis-approve-ok"},
+        auto_approve=False,
+    )
+    assert pending["status"] == "pending_approval"
+
+    approved = orchestrator.approve(pending["id"])
+
+    assert approved["status"] == "queued"
+    assert approved["runtime"]["status"] == "queued"
+    assert approved["plan"]["job_type"] == "synthesis_execute"
+    orchestrator.runtime.close()
+
+
+def test_approve_rejects_non_pending_job(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    queued = orchestrator.submit(
+        "Already queued",
+        {"job_type": "http_manifest", "url": "https://example.test", "launchable": True},
+        {"idempotency_key": "approve-non-pending"},
+        auto_approve=True,
+    )
+    with pytest.raises(ValueError, match="not pending_approval"):
+        orchestrator.approve(queued["id"])
+    orchestrator.runtime.close()
+
+
+def test_approve_handles_non_mapping_plan_without_nameerror(tmp_path: Path) -> None:
+    """approve() must treat a non-mapping plan as {} (no Mapping NameError)."""
+    orchestrator = _orchestrator(tmp_path)
+    orchestrator.store.create(
+        "Broken plan shape",
+        {},
+        {"job_type": "http_manifest", "url": "https://example.test", "launchable": True},
+        status="pending_approval",
+        job_id="approve-bad-plan-shape",
+    )
+    original_get = orchestrator.store.get
+
+    def _get(job_id: str):
+        row = dict(original_get(job_id))
+        if job_id == "approve-bad-plan-shape":
+            # Only corrupt plan shape; leave status so approve()/get_job() stay coherent.
+            row["plan"] = "not-a-mapping"
+        return row
+
+    orchestrator.store.get = _get  # type: ignore[method-assign]
+    approved = orchestrator.approve("approve-bad-plan-shape")
+    assert approved["status"] == "queued"
+    orchestrator.runtime.close()
+
+
+def test_synthesis_approval_then_claim_on_optiplex(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path, agent_allowed=["synthesis_execute"])
+    pending = orchestrator.submit(
+        "Synthesis claim path",
+        {**_synthesis_plan(), "launchable": True},
+        {"idempotency_key": "synthesis-approve-claim"},
+        auto_approve=False,
+    )
+    approved = orchestrator.approve(pending["id"])
+    assert approved["status"] == "queued"
+    claim = orchestrator.runtime.claim_job(approved["id"])
+    assert claim is not None
+    assert claim.job_type == "synthesis_execute"
+    assert "python" in claim.required_capabilities
+    orchestrator.runtime.close()
+
+
+def test_procurement_approval_does_not_require_python_capability(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config/yzu_cluster.json").write_text(
+        json.dumps(
+            {
+                "controller": {
+                    "hostname": "optiplex-test",
+                    "jobs_root": "data/jobs",
+                    "status_root": "data/status",
+                },
+                "operations": {"disable_local_http_collect": False},
+                "agent": {"allowed_job_types": ["http_manifest"]},
+                "worker_pools": {
+                    "optiplex": {
+                        "enabled": True,
+                        "capabilities": ["controller_ui", "cluster_orchestration", "http"],
+                    }
+                },
+                "storage": {},
+                "runtime": {"controller_heartbeat_seconds": 0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    orchestrator = YzuOrchestrator(tmp_path)
+    pending = orchestrator.submit(
+        "HTTP only pool",
+        {"job_type": "http_manifest", "url": "https://example.test", "launchable": True},
+        {"idempotency_key": "procure-no-python-pool"},
+        auto_approve=False,
+    )
+    approved = orchestrator.approve(pending["id"])
+    assert approved["status"] == "queued"
+    orchestrator.runtime.close()
