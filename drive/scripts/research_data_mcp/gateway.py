@@ -694,7 +694,11 @@ class ResearchDataGateway:
 
             did = parsed.get("dataset_id") or ref.removeprefix("hf:")
             return build_hf_card(did)
-        if parsed.get("kind") == "campaign" or (parsed.get("kind") == "raw" and len(ref) == 12):
+        if parsed.get("kind") == "campaign" or (
+            parsed.get("kind") == "raw"
+            and len(ref) == 12
+            and ref not in getattr(self.engine, "datasets", {})
+        ):
             cid = parsed.get("campaign_id") or ref
             campaign = self.get_campaign(cid)
             return build_card_from_campaign(
@@ -721,6 +725,10 @@ class ResearchDataGateway:
                 "procureability": proc,
                 "status": proc.get("status"),
             }
+        # Bare registry ids arrive as kind=raw (card URL uses {ref} without dataset:).
+        raw = str(parsed.get("raw") or ref).strip()
+        if raw and raw in getattr(self.engine, "datasets", {}):
+            return build_card_from_registry(self.repo_root, self.describe_dataset(raw))
         raise KeyError(ref)
 
     def open_dataset(self, handle: str, *, load: str = "auto", preview_limit: int = 5) -> dict[str, Any]:

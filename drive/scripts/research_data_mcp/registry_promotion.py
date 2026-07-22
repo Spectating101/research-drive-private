@@ -32,8 +32,22 @@ class RegistryPromoter:
 
     def _artifact_exists(self, local_path: str) -> bool:
         if "*" in local_path:
-            return bool(glob(str(self.repo_root / local_path)))
-        return (self.repo_root / local_path).exists()
+            if glob(str(self.repo_root / local_path)):
+                return True
+            # Runtime-bind fallback (front-door / SR → runtime-integration).
+            import os
+            runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
+            if runtime:
+                return bool(glob(str(Path(runtime) / local_path)))
+            return False
+        path = self.repo_root / local_path
+        if path.exists():
+            return True
+        import os
+        runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
+        if runtime:
+            return (Path(runtime) / local_path).exists()
+        return False
 
     def _task_ids_from_job(self, job: dict[str, Any]) -> list[str]:
         plan = job.get("plan") or {}

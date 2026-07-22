@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.research_query_engine.engine import ResearchQueryEngine
+from scripts.yzu_cluster.acquisitions import repo_relpath
 
 
 class SearchService:
@@ -211,7 +212,7 @@ class SearchService:
             else:
                 buckets["other"].append(item)
         return {
-            "registry": str(self.registry_path.relative_to(self.repo_root)),
+            "registry": repo_relpath(self.registry_path, self.repo_root),
             "total_datasets": sum(len(rows) for rows in buckets.values()),
             "buckets": buckets,
             "partitions": self._partition_summary(),

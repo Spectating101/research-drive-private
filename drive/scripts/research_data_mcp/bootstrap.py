@@ -21,6 +21,7 @@ from scripts.research_query_engine.engine import ResearchQueryEngine
 from scripts.yzu_cluster.api import YzuClusterAPI
 from scripts.yzu_cluster.orchestrator import YzuOrchestrator
 from sharpe_kernel.paths import repo_root_from_file
+from scripts.yzu_cluster.acquisitions import repo_relpath
 
 DEFAULT_REGISTRY = "config/research_query_registry.json"
 
@@ -53,8 +54,13 @@ def _valid_materialization_manifest(
     path = path if path.is_absolute() else repo_root / path
     try:
         path = path.resolve()
-        path.relative_to(repo_root.resolve())
-    except ValueError:
+    except OSError:
+        return None
+    # Runtime binds (data_lake/procured → YZU_RUNTIME_DRIVE_ROOT) resolve outside
+    # the checkout; accept any path that repo_relpath can map back.
+    try:
+        repo_relpath(path, repo_root)
+    except Exception:
         return None
     if not path.is_file():
         return None
