@@ -63,3 +63,24 @@ def test_multiple_json_files_register_as_queryable_json_glob(tmp_path: Path) -> 
     assert spec is not None
     assert spec["backend"] == "local_json_glob"
     assert spec["local_path"].endswith("data_lake/procured/json_pair/*")
+
+
+def test_single_parquet_registers_local_root_and_local_file(tmp_path: Path) -> None:
+    """Single parquet must expose local_root/local_file so _resolve_panel_path can query it."""
+    local_path = "data_lake/procured/panel_canary/panel.parquet"
+    spec = registry_spec_from_materialized(
+        tmp_path,
+        {"id": "collect-parquet", "plan": {"title": "Parquet canary", "job_type": "http_manifest"}},
+        {
+            "dataset_id": "panel_canary",
+            "canonical_dir": "data_lake/procured/panel_canary",
+            "files": [{"name": "panel.parquet", "bytes": 4096}],
+        },
+    )
+
+    assert spec is not None
+    assert spec["backend"] == "local_parquet_panel"
+    assert spec["local_path"] == local_path
+    assert spec["local_root"] == "data_lake/procured/panel_canary"
+    assert spec["local_file"] == "panel.parquet"
+    assert spec["analysis_readiness"] == "instant"

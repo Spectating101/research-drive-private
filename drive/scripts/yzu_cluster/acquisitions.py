@@ -373,6 +373,11 @@ def registry_spec_from_materialized(
         "recommended_use": f"Inspect files under {local_path}",
         "domain": plan.get("domain") or "procured",
     }
+    # Query engine _resolve_panel_path requires local_root + local_file for local_parquet_panel.
+    if backend == "local_parquet_panel" and "*" not in local_path:
+        panel_path = Path(local_path)
+        spec["local_root"] = str(panel_path.parent)
+        spec["local_file"] = panel_path.name
     if plan.get("revision_id"):
         spec["revision_id"] = str(plan["revision_id"])
     if campaign_id:
