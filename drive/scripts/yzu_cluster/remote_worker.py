@@ -25,7 +25,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
-from .worker_control import TOKEN_ENV
+# Keep the pull-worker free of the FastAPI control-plane import graph so thin
+# Windows checkouts can run with remote_worker + remote_collect only.
+TOKEN_ENV = "YZU_WORKER_CONTROL_TOKEN"
 
 
 class ControlClient:
@@ -293,7 +295,9 @@ def execute_http_manifest(
         json.dumps({"job_id": job_id, "shard": 0, "items": items}, indent=2),
         encoding="utf-8",
     )
-    script = repo_root / "scripts/cluster_agent/remote_collect.py"
+    from scripts.yzu_cluster.acquisitions import remote_collect_script
+
+    script = remote_collect_script(repo_root)
     if not script.is_file():
         raise FileNotFoundError(f"remote collector not found: {script}")
     command = [

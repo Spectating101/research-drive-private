@@ -149,6 +149,18 @@ class YzuOrchestrator:
             plan["launchable"] = False
             plan["validation_error"] = "job type is not allowed"
             return plan
+        if job_type == "http_manifest":
+            from scripts.research_data_mcp.domain_packs import load_domain_packs
+            from scripts.yzu_cluster.acquisitions import enrich_http_manifest_plan
+
+            plan = enrich_http_manifest_plan(
+                dict(plan),
+                self.executor.procurement,
+                domain_packs=load_domain_packs(self.repo_root),
+            )
+            if not plan.get("items"):
+                plan["launchable"] = False
+                plan["validation_error"] = "http_manifest requires a URL or downloadable items"
         if job_type == "registered_pipeline":
             if plan.get("pipeline_id") not in self.executor.pipelines():
                 plan["launchable"] = False
@@ -198,15 +210,24 @@ class YzuOrchestrator:
         return list_tasks(self.repo_root, runnable_only=runnable_only)
 
     def schedules(self) -> list[dict[str, Any]]:
-        return self.scheduler.schedules()
+        def current_status(job_id: str) -> str | None:
+            try:
+                job = self.get_job(job_id)
+            except (KeyError, FileNotFoundError):
+                return None
+            lifecycle = job.get("lifecycle") if isinstance(job, dict) else None
+            execution = job.get("execution") if isinstance(job, dict) else None
+            if isinstance(lifecycle, dict) and lifecycle.get("stage"):
+                return str(lifecycle["stage"])
+            if isinstance(execution, dict) and execution.get("stage"):
+                return str(execution["stage"])
+            status = job.get("status") if isinstance(job, dict) else None
+            return str(status) if status else None
 
-    def run_schedule(self, schedule_id: str) -> dict:
-        for item in self.cfg.get("schedules", []):
-            if item.get("id") == schedule_id:
-                plan = dict(item.get("plan") or {})
-                plan.setdefault("launchable", True)
-                return self.submit(plan.get("title") or schedule_id, plan, {"schedule_id": schedule_id}, auto_approve=True)
-        raise KeyError(schedule_id)
+        return self.scheduler.schedules(status_lookup=current_status)
+
+    def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict:
+        return self.scheduler.emit(self, schedule_id, dry_run=dry_run, force=True)
 
     def scheduler_tick(self) -> dict[str, Any] | None:
         return self.scheduler.tick(self)
@@ -298,10 +319,42 @@ class YzuOrchestrator:
         self.reconcile_runtime()
         for job in self.store.list(limit=200, status="queued"):
             self.runtime.ensure(job)
-        claim = self.runtime.claim_next(reap_expired=False)
+        # The controller is the disaster-recovery worker for HTTP procurement.
+        # Once a fresh Windows HTTP worker is joined, leave only HTTP runs for
+        # that pool instead of letting an approval-triggered local tick steal
+        # them. Other controller-owned work may still run normally.
+        allowed_job_types = None
+        if self._windows_http_worker_available():
+            allowed_job_types = [
+                str((job.get("plan") or {}).get("job_type") or "legacy_job")
+                for job in self.store.list(limit=200, status="queued")
+                if str((job.get("plan") or {}).get("job_type") or "legacy_job") != "http_manifest"
+            ]
+            if not allowed_job_types:
+                return None
+        claim = self.runtime.claim_next(reap_expired=False, allowed_job_types=allowed_job_types)
         if not claim:
             return None
         return self.execute_job(claim.job_id, claim=claim)
+
+    def _windows_http_worker_available(self) -> bool:
+        """Return whether a fresh Windows worker can own an HTTP run."""
+        try:
+            workers = self.runtime.store.resources_rollup().get("workers") or []
+        except Exception:
+            return False
+        for worker in workers:
+            if str(worker.get("pool") or "") != "windows_lab":
+                continue
+            if str(worker.get("status") or "") not in {"online", "ready", "idle"}:
+                continue
+            freshness = worker.get("freshness") or {}
+            if freshness.get("state") != "fresh":
+                continue
+            capabilities = set(worker.get("capabilities") or [])
+            if "http" in capabilities:
+                return True
+        return False
 
     def run_worker(self, poll_seconds: float = 2.0, once: bool = False) -> None:
         import time
@@ -352,8 +405,15 @@ class YzuOrchestrator:
                 continue
             projected = legacy_status.get(str(runtime.get("status") or ""))
             if projected and job.get("status") != projected:
-                self.store.update(str(job["id"]), projected, result=job.get("result") or {}, error=str(runtime.get("error") or ""))
-                self.store.event(str(job["id"]), "info", f"Runtime state reconciled: {runtime.get('status')}")
+                reconciled = self.store.update(
+                    str(job["id"]),
+                    projected,
+                    result=job.get("result") or {},
+                    error=str(runtime.get("error") or ""),
+                    expected_status=str(job.get("status") or ""),
+                )
+                if reconciled.get("status") == projected:
+                    self.store.event(str(job["id"]), "info", f"Runtime state reconciled: {runtime.get('status')}")
 
     def runtime_health(self) -> dict[str, Any]:
         return self.runtime.health()

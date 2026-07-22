@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -54,11 +55,14 @@ def audit_stack(gateway: Any) -> dict[str, Any]:
         if b not in QUERY_BACKENDS:
             no_query_handler.append(str(row.get("dataset_id") or ""))
 
+    try:
+        instant_smoke_limit = max(1, int(os.getenv("MCP_STACK_AUDIT_INSTANT_LIMIT", "12")))
+    except ValueError:
+        instant_smoke_limit = 12
+    instant_rows = [row for row in datasets if row.get("analysis_readiness") == "instant"]
     instant_ok = 0
     instant_fail: list[dict[str, str]] = []
-    for row in datasets:
-        if row.get("analysis_readiness") != "instant":
-            continue
+    for row in instant_rows[:instant_smoke_limit]:
         did = str(row.get("dataset_id") or "")
         try:
             gateway.query_dataset(did, {"limit": 1})
@@ -101,7 +105,12 @@ def audit_stack(gateway: Any) -> dict[str, Any]:
             "by_readiness": by_readiness,
             "by_backend": by_backend,
             "no_query_handler_count": len(no_query_handler),
-            "instant_query_smoke": {"ok": instant_ok, "failed": instant_fail},
+            "instant_query_smoke": {
+                "ok": instant_ok,
+                "failed": instant_fail,
+                "sampled": min(len(instant_rows), instant_smoke_limit),
+                "skipped": max(0, len(instant_rows) - instant_smoke_limit),
+            },
         },
         "vault": {"partitions": partition_count},
         "queue": {"total": queue_total, "enabled_public": queue_enabled},

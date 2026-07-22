@@ -694,7 +694,11 @@ class ResearchDataGateway:
 
             did = parsed.get("dataset_id") or ref.removeprefix("hf:")
             return build_hf_card(did)
-        if parsed.get("kind") == "campaign" or (parsed.get("kind") == "raw" and len(ref) == 12):
+        if parsed.get("kind") == "campaign" or (
+            parsed.get("kind") == "raw"
+            and len(ref) == 12
+            and ref not in getattr(self.engine, "datasets", {})
+        ):
             cid = parsed.get("campaign_id") or ref
             campaign = self.get_campaign(cid)
             return build_card_from_campaign(
@@ -721,6 +725,10 @@ class ResearchDataGateway:
                 "procureability": proc,
                 "status": proc.get("status"),
             }
+        # Bare registry ids arrive as kind=raw (card URL uses {ref} without dataset:).
+        raw = str(parsed.get("raw") or ref).strip()
+        if raw and raw in getattr(self.engine, "datasets", {}):
+            return build_card_from_registry(self.repo_root, self.describe_dataset(raw))
         raise KeyError(ref)
 
     def open_dataset(self, handle: str, *, load: str = "auto", preview_limit: int = 5) -> dict[str, Any]:
@@ -1051,10 +1059,10 @@ class ResearchDataGateway:
         dataset_id: str,
         *,
         split: str = "train",
-        auto_execute: bool = True,
+        auto_execute: bool = False,
         max_shards: int = 2,
     ) -> dict[str, Any]:
-        """Collect HF dataset to procured cache, promote registry, archive to GDrive."""
+        """Prepare an HF collection job for researcher approval in the desk UI."""
         hf_id = str(dataset_id or "").strip().removeprefix("hf:")
         if not hf_id:
             raise ValueError("dataset_id is required (org/name or hf:org/name)")
@@ -1088,17 +1096,16 @@ class ResearchDataGateway:
             f"Collect HF {hf_id}",
             plan,
             {"hf_dataset_id": hf_id, "search_goal": f"huggingface {hf_id}"},
-            auto_approve=True,
+            auto_approve=False,
         )
         job = submitted.get("job") or {}
-        out: dict[str, Any] = {"plan": plan, "job": job, "hf_dataset_id": hf_id}
-        if auto_execute and job.get("id"):
-            finished = self.orchestrator.execute_job(job["id"])
-            out["job"] = finished
-            promo = (finished.get("result") or {}).get("registry_promotion") or []
-            out["registry_promotion"] = promo
-            if promo:
-                self.reload_registry()
+        out: dict[str, Any] = {
+            "plan": plan,
+            "job": job,
+            "hf_dataset_id": hf_id,
+            "approval_required": True,
+            "auto_executed": False,
+        }
         return out
 
     def _enrich_collect_result(self, out: dict[str, Any], doi: str) -> dict[str, Any]:

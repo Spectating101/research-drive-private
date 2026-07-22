@@ -42,6 +42,7 @@ def main() -> int:
 
     run_sched = sub.add_parser("run-schedule", help="Trigger schedule now")
     run_sched.add_argument("schedule_id")
+    run_sched.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args()
     stack = create_stack()
@@ -84,7 +85,7 @@ def main() -> int:
         print(json.dumps(orch.schedules(), indent=2))
         return 0
     if args.cmd == "run-schedule":
-        print(json.dumps(jobs_svc.run_schedule(args.schedule_id), indent=2))
+        print(json.dumps(jobs_svc.run_schedule(args.schedule_id, dry_run=args.dry_run), indent=2))
         return 0
     return 1
 

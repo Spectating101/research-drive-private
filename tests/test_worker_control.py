@@ -190,6 +190,88 @@ def test_uploaded_artifact_materializes_on_controller(tmp_path: Path) -> None:
         )
 
 
+def test_remote_completion_preserves_registration_proof(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    control = WorkerControlPlane(orchestrator, token="secret-token", max_artifact_bytes=1024 * 1024)
+    job = orchestrator.submit(
+        "Remote registered collection",
+        {
+            "job_type": "http_manifest",
+            "dataset_id": "remote_registered_dataset",
+            "connector_id": "public_source",
+            "url": "https://example.test/registered.json",
+            "validation": {"min_files": 1, "min_total_bytes": 1},
+        },
+        {"idempotency_key": "remote-registered-1"},
+        auto_approve=True,
+    )
+    control.join(
+        {
+            "worker_id": "windows-01",
+            "pool": "windows_lab",
+            "capabilities": ["http"],
+            "capacity": {"cpu_cores": 2, "memory_mb": 2048},
+        }
+    )
+    claim = control.claim({"worker_id": "windows-01"})
+    assert claim is not None
+
+    def core(_job_id: str, _plan: dict, result: dict) -> list[dict]:
+        result["drive_finalize"] = {
+            "ok": True,
+            "archives": [
+                {
+                    "ok": True,
+                    "dataset_id": "remote_registered_dataset",
+                    "remote_path": "gdrive:archive/remote_registered_dataset",
+                }
+            ],
+        }
+        result["registration_evidence"] = {
+            "dataset_id": "remote_registered_dataset",
+            "registry_id": "registry_remote_registered_dataset",
+            "manifest_id": result["materialized"]["manifest_id"],
+            "vault_path": "gdrive:archive/remote_registered_dataset",
+            "archive_verified": True,
+            "registry_readback": True,
+            "readiness": "query_ready",
+        }
+        return [{"dataset_id": "remote_registered_dataset"}]
+
+    orchestrator.set_on_job_completed(core)
+    control.heartbeat(job["id"], {"worker_id": "windows-01", "attempt": 1, "stage": "running"})
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("raw/registered.json", '{"ok": true}\n')
+    content = buffer.getvalue()
+    digest = hashlib.sha256(content).hexdigest()
+    uploaded = control.upload_artifact(
+        job["id"],
+        worker_id="windows-01",
+        attempt=1,
+        name="registered-output.zip",
+        content=content,
+        expected_sha256=digest,
+    )
+
+    completed = control.complete(
+        job["id"],
+        {
+            "worker_id": "windows-01",
+            "attempt": 1,
+            "result": {
+                "artifacts": [{"artifact": uploaded["artifact"], "bytes": uploaded["bytes"]}],
+                "collect_mode": "remote_control",
+            },
+        },
+    )
+
+    assert completed["result"]["materialized"]["dataset_id"] == "remote_registered_dataset"
+    assert completed["result"]["registration_evidence"]["registry_readback"] is True
+    assert completed["runtime"]["status"] == "registered"
+    assert completed["lifecycle"]["stage"] == "registered"
+
+
 def test_remote_failure_requeues_and_fences_old_attempt(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path)
     control = WorkerControlPlane(orchestrator, token="secret-token")

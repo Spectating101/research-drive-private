@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from scripts.yzu_cluster import executor as executor_module
+from scripts.yzu_cluster.executor import YzuExecutor
 from scripts.yzu_cluster.orchestrator import YzuOrchestrator
+from scripts.yzu_cluster.worker_control import WorkerControlPlane
 
 
 def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrchestrator:
@@ -75,6 +78,57 @@ def test_browser_job_stays_queued_without_a_live_browser_worker(tmp_path: Path) 
 
     assert waiting["status"] == "queued"
     assert waiting["runtime"]["status"] == "queued"
+
+
+def test_controller_yields_http_run_to_fresh_windows_worker(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    control = WorkerControlPlane(orchestrator, token="secret-token")
+    control.join(
+        {
+            "worker_id": "windows-01",
+            "pool": "windows_lab",
+            "capabilities": ["http"],
+            "capacity": {"cpu_cores": 2, "memory_mb": 2048},
+        }
+    )
+    job = orchestrator.submit(
+        "Windows-first HTTP procurement",
+        {"job_type": "http_manifest", "url": "https://example.test/data.csv"},
+        {"idempotency_key": "windows-first-http"},
+        auto_approve=True,
+    )
+
+    assert orchestrator.worker_tick() is None
+    assert orchestrator.runtime.snapshot(job["id"])["status"] == "queued"
+    claim = control.claim({"worker_id": "windows-01"})
+    assert claim is not None
+    assert claim["plan"]["items"] == [{"url": "https://example.test/data.csv"}]
+
+
+def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    control = WorkerControlPlane(orchestrator, token="secret-token")
+    control.join(
+        {
+            "worker_id": "windows-01",
+            "pool": "windows_lab",
+            "capabilities": ["http"],
+            "capacity": {"cpu_cores": 2, "memory_mb": 2048},
+        }
+    )
+    orchestrator.executor.execute = lambda _job_id, _plan: {"outputs": ["controller-output"]}  # type: ignore[method-assign]
+    job = orchestrator.submit(
+        "Controller-owned probe",
+        {"job_type": "source_probe", "url": "https://example.test"},
+        {"idempotency_key": "controller-probe-with-windows"},
+        auto_approve=True,
+    )
+    orchestrator.approve(job["id"])
+
+    completed = orchestrator.worker_tick()
+    assert completed is not None
+    assert completed["id"] == job["id"]
+    assert completed["status"] == "completed"
 
 
 def test_runtime_lease_recovery_reconciles_legacy_running_job(tmp_path: Path) -> None:
@@ -195,3 +249,70 @@ def test_post_registration_failure_does_not_fail_registered_run(tmp_path: Path) 
     assert completed["lifecycle"]["stage"] == "registered"
     assert completed["runtime"]["status"] == "registered"
     assert any("Post-registration follow-up failed" in row["message"] for row in completed["events"])
+
+
+def _http_executor(tmp_path: Path) -> YzuExecutor:
+    executor = object.__new__(YzuExecutor)
+    executor.repo_root = tmp_path
+    executor.cfg = {
+        "operations": {
+            "cluster_only": True,
+            "disable_local_http_collect": False,
+            "http_remote_fallback": True,
+        }
+    }
+    executor.agent_cfg = {}
+    executor.jobs_root = tmp_path / "jobs"
+    executor.procurement = object()
+    executor._event = lambda *_args: None
+    return executor
+
+
+def test_http_manifest_does_not_hide_windows_failure_with_local_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    executor = _http_executor(tmp_path)
+    executor._http_manifest_remote = lambda *_args: (_ for _ in ()).throw(RuntimeError("provider rejected request"))  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "scripts.yzu_cluster.windows_lab_readiness.probe_windows_lab",
+        lambda *_args, **_kwargs: {"http_shard_ready": True},
+    )
+    local_calls: list[str] = []
+    monkeypatch.setattr(
+        executor_module,
+        "collect_local_manifest",
+        lambda *_args, **_kwargs: local_calls.append("local") or {"collect_mode": "local"},
+    )
+    monkeypatch.setattr(executor_module, "materialize_job", lambda _root, _job, _plan, result, *, cfg: result)
+
+    with pytest.raises(RuntimeError, match="provider rejected request"):
+        executor._http_manifest(
+            "windows-source-failure",
+            {"job_type": "http_manifest", "url": "https://example.test", "items": [{"url": "https://example.test"}]},
+        )
+
+    assert local_calls == []
+
+
+def test_http_manifest_uses_optiplex_only_when_windows_pool_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    executor = _http_executor(tmp_path)
+    executor._http_manifest_remote = lambda *_args: (_ for _ in ()).throw(RuntimeError("no joined windows_lab workers"))  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "scripts.yzu_cluster.windows_lab_readiness.probe_windows_lab",
+        lambda *_args, **_kwargs: {"http_shard_ready": False},
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "collect_local_manifest",
+        lambda *_args, **_kwargs: {"collect_mode": "local"},
+    )
+    monkeypatch.setattr(executor_module, "materialize_job", lambda _root, _job, _plan, result, *, cfg: result)
+
+    result = executor._http_manifest(
+        "windows-pool-offline",
+        {"job_type": "http_manifest", "url": "https://example.test", "items": [{"url": "https://example.test"}]},
+    )
+
+    assert result["collect_mode"] == "local_fallback"

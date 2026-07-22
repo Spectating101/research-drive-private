@@ -287,7 +287,7 @@ class ReliabilityMixin:
         existing = self.asset(dataset_id) if existing_row is not None else None
         snapshots = list(source_snapshots)
         if existing is not None:
-            if not self._registration_matches(
+            matches = self._registration_matches(
                 existing,
                 registry_id=registry_id,
                 revision_id=revision_id,
@@ -303,9 +303,15 @@ class ReliabilityMixin:
                 entities=entities,
                 grain=grain,
                 coverage=coverage,
-            ):
+            )
+            # A scheduled refresh is a new, explicitly identified revision of
+            # the same logical asset. Preserve strict replay fencing for
+            # unversioned or same-revision writes, while allowing the new
+            # verified snapshot to replace the current asset pointer.
+            new_revision = bool(revision_id) and str(existing.get("revision_id") or "") != str(revision_id)
+            if not matches and not new_revision:
                 raise ValueError("dataset_id already exists with conflicting registration proof")
-            if run["stage"] == "registered":
+            if matches and run["stage"] == "registered":
                 return existing
 
         if run["stage"] not in {"completed", "registering", "registered"}:

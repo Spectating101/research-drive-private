@@ -322,7 +322,8 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             return
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length) or b"{}")
-        result = handle_post(path, payload, self.stack)
+        query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+        result = handle_post(path, payload, self.stack, query=query)
         body = result.get("body")
         if isinstance(body, dict) and body.get("_stream"):
             self._send_ndjson_stream(body["events"], status=result["status"])

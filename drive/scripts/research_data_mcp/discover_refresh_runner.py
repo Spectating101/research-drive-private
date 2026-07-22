@@ -144,6 +144,7 @@ def _tick_discover_refresh_locked(
 
         plan["discover_subscription_id"] = sid
         plan["refresh_cadence"] = sub.get("cadence") or ""
+        plan["revision_id"] = f"refresh:{sid}:{now.strftime('%Y%m%dT%H%M%SZ')}"
         request = {
             "source": "discover_refresh",
             "discover_subscription_id": sid,

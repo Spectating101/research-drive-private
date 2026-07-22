@@ -34,6 +34,7 @@ class ResearchQueryEngine:
         self.registry_path = self._resolve(registry_path)
         self.registry = json.loads(self.registry_path.read_text(encoding="utf-8"))
         self.datasets = {d["dataset_id"]: d for d in self.registry.get("datasets", [])}
+        self._reconcile_local_panel_readiness()
 
     def _resolve(self, value: str | Path) -> Path:
         from scripts.research_data_mcp.data_paths import resolve_data_path
@@ -42,6 +43,32 @@ class ResearchQueryEngine:
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
+
+    def _reconcile_local_panel_readiness(self) -> None:
+        """Remove stale query-ready claims when a local panel is not materialized."""
+        for dataset in self.datasets.values():
+            if dataset.get("backend") != "local_parquet_panel":
+                continue
+            if dataset.get("analysis_readiness") != "instant":
+                continue
+            try:
+                self._resolve_panel_path(dataset, {})
+            except (FileNotFoundError, KeyError, TypeError, ValueError):
+                materialization = dict(dataset.get("materialization") or {})
+                resolved_path = materialization.pop("resolved_path", None)
+                if resolved_path:
+                    materialization["expected_path"] = resolved_path
+                materialization.update(
+                    {
+                        "query_ready": False,
+                        "skipped": "local_panel_missing_at_runtime",
+                    }
+                )
+                dataset["materialization"] = materialization
+                dataset["analysis_readiness"] = "metadata_search"
+                dataset["collection_status"] = "metadata_only"
+                dataset["field_coverage"] = "metadata-only"
+                dataset["runtime_readiness_reason"] = "local_panel_missing"
 
     def describe(self, dataset_id: str) -> dict[str, Any]:
         if dataset_id not in self.datasets:
@@ -92,7 +119,7 @@ class ResearchQueryEngine:
             return self._query_local_json_file(ds, params)
         if backend == "local_json_glob":
             return self._query_local_json_glob(ds, params)
-        if backend == "local_csv_file":
+        if backend in {"local_csv_file", "local_csv_glob"}:
             return self._query_local_csv_file(ds, params)
         if backend == "local_file":
             return self._query_local_file_tree(ds, params)
@@ -588,12 +615,38 @@ class ResearchQueryEngine:
             "survey_replacement_potential": "high_for_observable_attention_or_behavior_low_for_private_motivation",
         }
 
+    def _is_object_values_record_map(self, payload: Any) -> bool:
+        """Return whether a JSON object maps record ids to object records."""
+        if not isinstance(payload, dict) or not payload:
+            return False
+        return all(isinstance(value, dict) for value in payload.values())
+
     def _query_local_json_file(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
         path = self._resolve(ds["local_path"])
         if not path.exists():
             return QueryResult(ds["dataset_id"], [], {"error": f"missing json path: {path}", "params": params})
         payload = json.loads(path.read_text(encoding="utf-8"))
         fields = [x.strip() for x in str(params.get("fields", "")).split(",") if x.strip()]
+
+        limit = min(int(params.get("limit", 100)), 5000)
+
+        # Mapping of record id -> object (SEC company_tickers style): expose values as rows.
+        if self._is_object_values_record_map(payload):
+            rows: list[dict[str, Any]] = list(payload.values())[:limit]
+            if fields:
+                rows = [{k: self._dig(row, k) for k in fields} for row in rows]
+            return QueryResult(
+                ds["dataset_id"],
+                rows,
+                {
+                    "path": str(path),
+                    "returned": len(rows),
+                    "record_shape": "object_values",
+                    "params": params,
+                },
+            )
+
+        # Ordinary document / scalar JSON remains one row.
         if fields:
             row = {k: self._dig(payload, k) for k in fields}
         else:

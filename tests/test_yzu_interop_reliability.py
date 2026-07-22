@@ -130,6 +130,40 @@ class ReliabilityPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "conflicting registration proof"):
             store.register(run["run_id"], **{**proof, "manifest_id": "manifest-other"})
 
+    def test_registered_asset_accepts_a_new_explicit_refresh_revision(self) -> None:
+        store = InteropStore()
+        self.addCleanup(store.close)
+        store.upsert_worker("optiplex", capabilities=["python", "archive"])
+
+        first = store.submit(
+            job_id="refresh-one",
+            job_type="http_manifest",
+            required_capabilities=["python", "archive"],
+            outputs=["sec_edgar"],
+        )
+        store.claim("optiplex")
+        store.record(first["run_id"], "completed", worker_id="optiplex", outputs=["sec_edgar"], manifest_id="m1", archive_verified=True)
+        store.register(
+            first["run_id"], dataset_id="sec_edgar", registry_id="sec_edgar", revision_id="refresh-1",
+            manifest_id="m1", vault_path="gdrive:sec/1", archive_verified=True,
+        )
+
+        second = store.submit(
+            job_id="refresh-two",
+            job_type="http_manifest",
+            required_capabilities=["python", "archive"],
+            outputs=["sec_edgar"],
+        )
+        store.claim("optiplex")
+        store.record(second["run_id"], "completed", worker_id="optiplex", outputs=["sec_edgar"], manifest_id="m2", archive_verified=True)
+        asset = store.register(
+            second["run_id"], dataset_id="sec_edgar", registry_id="sec_edgar", revision_id="refresh-2",
+            manifest_id="m2", vault_path="gdrive:sec/2", archive_verified=True,
+        )
+
+        self.assertEqual(asset["revision_id"], "refresh-2")
+        self.assertEqual(asset["manifest_id"], "m2")
+
 
 if __name__ == "__main__":
     unittest.main()

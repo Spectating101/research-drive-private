@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .orchestrator import YzuOrchestrator
@@ -15,6 +16,17 @@ if TYPE_CHECKING:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _period_bucket(ts: float, interval_hours: float) -> str:
+    """Stable idempotency window for a schedule interval."""
+    interval_s = max(float(interval_hours), 1.0 / 60.0) * 3600.0
+    bucket = int(ts // interval_s)
+    return f"{bucket}"
+
+
+def _sanitize_key(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._:-]+", "-", value).strip("-")[:180]
 
 
 class YzuScheduler:
@@ -35,43 +47,144 @@ class YzuScheduler:
     def _write_state(self, state: dict[str, Any]) -> None:
         self.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
-    def schedules(self) -> list[dict[str, Any]]:
+    def _item(self, schedule_id: str) -> dict[str, Any]:
+        for item in self.cfg.get("schedules", []):
+            if item.get("id") == schedule_id:
+                return item
+        raise KeyError(schedule_id)
+
+    def schedules(
+        self,
+        *,
+        status_lookup: Callable[[str], str | None] | None = None,
+    ) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         state = self._read_state()
+        now_ts = time.time()
         for item in self.cfg.get("schedules", []):
             last = (state.get("runs") or {}).get(item["id"], {})
+            interval_hours = float(item.get("interval_hours", 24))
+            last_ts = float(last.get("ts_unix", 0) or 0)
+            next_ts = (last_ts + interval_hours * 3600) if last_ts else now_ts
+            last_status = last.get("status")
+            if status_lookup and last.get("job_id"):
+                try:
+                    resolved_status = status_lookup(str(last["job_id"]))
+                except Exception:  # noqa: BLE001
+                    resolved_status = None
+                if resolved_status:
+                    last_status = resolved_status
             rows.append(
                 {
                     "id": item["id"],
                     "enabled": bool(item.get("enabled", True)),
-                    "interval_hours": float(item.get("interval_hours", 24)),
+                    "interval_hours": interval_hours,
                     "title": item.get("plan", {}).get("title", item["id"]),
                     "job_type": item.get("plan", {}).get("job_type"),
                     "last_run_at": last.get("at"),
                     "last_job_id": last.get("job_id"),
-                    "last_status": last.get("status"),
+                    "last_status": last_status,
+                    "last_idempotency_key": last.get("idempotency_key"),
+                    "next_run_at": datetime.fromtimestamp(next_ts, timezone.utc).isoformat(),
+                    "due": bool(item.get("enabled", True)) and now_ts >= next_ts,
                 }
             )
         return rows
 
-    def tick(self, orchestrator: YzuOrchestrator) -> dict[str, Any] | None:
+    def build_emission(
+        self,
+        schedule_id: str,
+        *,
+        now_ts: float | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Build the durable emit contract without mutating state or submitting."""
+        item = self._item(schedule_id)
+        now = time.time() if now_ts is None else float(now_ts)
+        interval_hours = float(item.get("interval_hours", 24))
+        state = self._read_state()
+        last = (state.get("runs") or {}).get(schedule_id, {})
+        last_ts = float(last.get("ts_unix", 0) or 0)
+        due = force or (bool(item.get("enabled", True)) and (now - last_ts >= interval_hours * 3600))
+        plan = dict(item.get("plan") or {})
+        plan.setdefault("launchable", True)
+        title = plan.get("title") or f"Scheduled {schedule_id}"
+        if force:
+            # A manual run is an explicit retry/one-off and must be able to
+            # recover a failed period without defeating automatic replay safety.
+            bucket = f"manual-{int(now * 1000)}"
+        else:
+            bucket = _period_bucket(now if not last_ts else max(now, last_ts + 1), interval_hours)
+        idempotency_key = _sanitize_key(f"sched:{schedule_id}:{bucket}")
+        return {
+            "schedule_id": schedule_id,
+            "enabled": bool(item.get("enabled", True)),
+            "due": due,
+            "interval_hours": interval_hours,
+            "title": title,
+            "job_type": plan.get("job_type"),
+            "plan": plan,
+            "request": {
+                "schedule_id": schedule_id,
+                "idempotency_key": idempotency_key,
+                "source": "yzu_scheduler",
+            },
+            "idempotency_key": idempotency_key,
+            "auto_approve": bool(item.get("auto_approve", True)),
+            "last_run_at": last.get("at"),
+            "last_job_id": last.get("job_id"),
+            "last_status": last.get("status"),
+            "ownership": {
+                "controller": (self.cfg.get("controller") or {}).get("hostname") or "optiplex",
+                "emitter": "yzu_scheduler",
+            },
+        }
+
+    def emit(
+        self,
+        orchestrator: YzuOrchestrator,
+        schedule_id: str,
+        *,
+        dry_run: bool = False,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Emit one schedule once. Replay with the same period key is idempotent."""
+        emission = self.build_emission(schedule_id, force=force)
+        if dry_run:
+            return {**emission, "dry_run": True, "submitted": False}
+        if not emission["due"] and not force:
+            return {**emission, "submitted": False, "skipped_reason": "not_due"}
+        job = orchestrator.submit(
+            emission["title"],
+            dict(emission["plan"]),
+            dict(emission["request"]),
+            auto_approve=bool(emission["auto_approve"]),
+        )
         state = self._read_state()
         runs = state.setdefault("runs", {})
-        now_ts = time.time()
+        runs[schedule_id] = {
+            "ts_unix": time.time(),
+            "at": _now(),
+            "job_id": job["id"],
+            "status": job["status"],
+            "idempotency_key": emission["idempotency_key"],
+        }
+        self._write_state(state)
+        return {
+            **emission,
+            "dry_run": False,
+            "submitted": True,
+            "job": job,
+            "replay_safe": True,
+        }
+
+    def tick(self, orchestrator: YzuOrchestrator, *, dry_run: bool = False) -> dict[str, Any] | None:
         for item in self.cfg.get("schedules", []):
             if not item.get("enabled", True):
                 continue
             sid = item["id"]
-            interval_s = float(item.get("interval_hours", 24)) * 3600
-            last = runs.get(sid, {})
-            last_ts = float(last.get("ts_unix", 0))
-            if now_ts - last_ts < interval_s:
+            emission = self.build_emission(sid)
+            if not emission["due"]:
                 continue
-            plan = dict(item.get("plan") or {})
-            plan.setdefault("launchable", True)
-            title = plan.get("title") or f"Scheduled {sid}"
-            job = orchestrator.submit(title, plan, {"schedule_id": sid}, auto_approve=bool(item.get("auto_approve", True)))
-            runs[sid] = {"ts_unix": now_ts, "at": _now(), "job_id": job["id"], "status": job["status"]}
-            self._write_state(state)
-            return {"schedule_id": sid, "job": job}
+            return self.emit(orchestrator, sid, dry_run=dry_run, force=False)
         return None
