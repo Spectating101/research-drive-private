@@ -92,7 +92,7 @@ class ResearchQueryEngine:
             return self._query_local_json_file(ds, params)
         if backend == "local_json_glob":
             return self._query_local_json_glob(ds, params)
-        if backend == "local_csv_file":
+        if backend in {"local_csv_file", "local_csv_glob"}:
             return self._query_local_csv_file(ds, params)
         if backend == "local_file":
             return self._query_local_file_tree(ds, params)

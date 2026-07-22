@@ -215,12 +215,7 @@ class YzuOrchestrator:
         return self.scheduler.schedules()
 
     def run_schedule(self, schedule_id: str) -> dict:
-        for item in self.cfg.get("schedules", []):
-            if item.get("id") == schedule_id:
-                plan = dict(item.get("plan") or {})
-                plan.setdefault("launchable", True)
-                return self.submit(plan.get("title") or schedule_id, plan, {"schedule_id": schedule_id}, auto_approve=True)
-        raise KeyError(schedule_id)
+        return self.scheduler.emit(self, schedule_id, force=True)
 
     def scheduler_tick(self) -> dict[str, Any] | None:
         return self.scheduler.tick(self)

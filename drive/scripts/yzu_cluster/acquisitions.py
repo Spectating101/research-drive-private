@@ -294,8 +294,12 @@ def registry_spec_from_materialized(
     readiness = "metadata_search"
     if suffix in {".csv", ".tsv"}:
         backend = "local_csv_glob" if "*" in local_path else "local_csv_file"
+        if "*" not in local_path:
+            readiness = "instant"
     elif suffix in {".json", ".jsonl"}:
         backend = "local_json_file"
+        if "*" not in local_path and int(files[0].get("bytes") or 0) <= 50_000_000:
+            readiness = "instant"
     elif suffix == ".parquet":
         backend = "local_parquet_panel"
         readiness = "instant"

@@ -59,6 +59,22 @@ class SearchService:
         params = params or {}
         self._reload_if_unknown(dataset_id)
         ds = self.engine.datasets.get(dataset_id)
+        if ds and self._requires_explicit_hydration(ds, params):
+            return {
+                "dataset_id": dataset_id,
+                "meta": {
+                    "error": "not_query_ready",
+                    "queryable": False,
+                    "analysis_readiness": str(ds.get("analysis_readiness") or "registered"),
+                    "required_action": "hydrate",
+                    "source_of_truth": ds.get("source_of_truth"),
+                    "canonical_remote": ds.get("canonical_remote") or (ds.get("lineage") or {}).get("canonical_remote"),
+                    "message": "This registered asset has metadata only on the desk. Hydrate it before querying rows.",
+                    "hydrate_requested": str(params.get("hydrate") or "").strip().lower() in {"1", "true", "yes"},
+                    "params": params,
+                },
+                "rows": [],
+            }
         if ds:
             from scripts.research_data_mcp.registry_hydrate import ensure_registry_local_bytes
 
@@ -76,6 +92,15 @@ class SearchService:
                 raise KeyError(
                     f"unknown dataset_id: {dataset_id}. Known: {', '.join(known[:12])}{'...' if len(known) > 12 else ''}"
                 ) from exc
+
+    @staticmethod
+    def _requires_explicit_hydration(ds: dict[str, Any], params: dict[str, Any]) -> bool:
+        """Keep raw registered trees from triggering an unbounded GDrive read."""
+        backend = str(ds.get("backend") or "").strip()
+        readiness = str(ds.get("analysis_readiness") or "").strip().lower()
+        if backend != "local_file" or readiness in {"instant", "query_ready"}:
+            return False
+        return True
 
     def plan_sources(self, q: str, limit: int = 25) -> dict[str, Any]:
         if not q.strip():
