@@ -1833,8 +1833,8 @@ class ResearchDataGateway:
     def list_yzu_jobs(self, limit: int = 30, status: str = "") -> dict[str, Any]:
         return self.jobs.list(limit, status)
 
-    def run_schedule(self, schedule_id: str) -> dict[str, Any]:
-        return self.jobs.run_schedule(schedule_id)
+    def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict[str, Any]:
+        return self.jobs.run_schedule(schedule_id, dry_run=dry_run)
 
     def wait_for_job(self, job_id: str, **kwargs: Any) -> dict[str, Any]:
         import time

@@ -1117,7 +1117,9 @@ def _handlers() -> dict[str, Handler]:
         return {"schedules": stack.orchestrator.schedules()}
 
     def yzu_run_schedule(stack, query, payload, params):
-        return stack.jobs.run_schedule(params["id"])
+        raw = payload.get("dry_run", query.get("dry_run", False)) if isinstance(payload, dict) else query.get("dry_run", False)
+        dry_run = raw is True or str(raw).strip().lower() in {"1", "true", "yes"}
+        return stack.jobs.run_schedule(params["id"], dry_run=dry_run)
 
     def extension_tool_catalog(stack, query, payload, params):
         return stack.tools.tool_catalog()

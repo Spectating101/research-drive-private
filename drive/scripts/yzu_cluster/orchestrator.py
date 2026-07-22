@@ -214,8 +214,8 @@ class YzuOrchestrator:
     def schedules(self) -> list[dict[str, Any]]:
         return self.scheduler.schedules()
 
-    def run_schedule(self, schedule_id: str) -> dict:
-        return self.scheduler.emit(self, schedule_id, force=True)
+    def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict:
+        return self.scheduler.emit(self, schedule_id, dry_run=dry_run, force=True)
 
     def scheduler_tick(self) -> dict[str, Any] | None:
         return self.scheduler.tick(self)

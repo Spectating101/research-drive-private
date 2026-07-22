@@ -51,8 +51,8 @@ class JobService:
         payload = {"jobs": self.orchestrator.list_jobs(min(max(limit, 1), 200), status=status)}
         return enrich_jobs_payload(payload) or payload
 
-    def run_schedule(self, schedule_id: str) -> dict[str, Any]:
-        return self.orchestrator.run_schedule(schedule_id)
+    def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict[str, Any]:
+        return self.orchestrator.run_schedule(schedule_id, dry_run=dry_run)
 
     def tick(self) -> dict[str, Any] | None:
         # Cadence first — must not wait behind a long-running job execution.
