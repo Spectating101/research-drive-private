@@ -336,8 +336,9 @@ def registry_spec_from_materialized(
     files = materialized.get("files") or []
     if not files:
         return None
-    local_path = str(canonical)
-    if len(files) > 1:
+    if len(files) == 1:
+        local_path = str(Path(canonical) / str(files[0].get("name") or "artifact"))
+    else:
         local_path = f"{canonical}/*"
     suffix = Path(files[0]["name"]).suffix.lower()
     readiness = "metadata_search"

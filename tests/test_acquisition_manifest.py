@@ -4,7 +4,7 @@ import json
 import zipfile
 from pathlib import Path
 
-from scripts.yzu_cluster.acquisitions import materialize_job
+from scripts.yzu_cluster.acquisitions import materialize_job, registry_spec_from_materialized
 
 
 def test_materialized_collection_emits_manifest_for_declared_dataset(tmp_path: Path) -> None:
@@ -27,3 +27,20 @@ def test_materialized_collection_emits_manifest_for_declared_dataset(tmp_path: P
     assert manifest["manifest_id"] == materialized["manifest_id"]
     assert manifest["output"]["dataset_id"] == "raw_usdt_history"
     assert manifest["validation"]["ok"] is True
+
+
+def test_single_materialized_file_registers_a_file_path_not_directory(tmp_path: Path) -> None:
+    spec = registry_spec_from_materialized(
+        tmp_path,
+        {"id": "collect-json", "plan": {"title": "JSON canary", "job_type": "http_manifest"}},
+        {
+            "dataset_id": "json_canary",
+            "canonical_dir": "data_lake/procured/json_canary",
+            "files": [{"name": "payload.json", "bytes": 128}],
+        },
+    )
+
+    assert spec is not None
+    assert spec["backend"] == "local_json_file"
+    assert spec["local_path"].endswith("data_lake/procured/json_canary/payload.json")
+    assert spec["analysis_readiness"] == "instant"
