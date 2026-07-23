@@ -1,0 +1,200 @@
+[
+  {
+    "entity_id": "paypal-usd",
+    "canonical_name": "Paypal Usd",
+    "ticker": "PYUSD",
+    "coingecko_id": "paypal-usd",
+    "primary_ethereum_address": "0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+    "all_ethereum_addresses": "0x6c3ea9036406852006290770bedfcaba0e23a0e8",
+    "community_entity_id": "community_twitter_paypal",
+    "twitter_handle": "PayPal",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "poundtoken",
+    "canonical_name": "Poundtoken",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x86b4dbe5d203e634a12364c0e428fa242a3fba98",
+    "all_ethereum_addresses": "0x86b4dbe5d203e634a12364c0e428fa242a3fba98",
+    "community_entity_id": "community_twitter_poundtoken",
+    "twitter_handle": "Poundtoken",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "ratio-stable-coin",
+    "canonical_name": "Ratio Stable Coin",
+    "ticker": "COIN",
+    "coingecko_id": "",
+    "primary_ethereum_address": "",
+    "all_ethereum_addresses": "",
+    "community_entity_id": "community_twitter_ratiofinance",
+    "twitter_handle": "ratiofinance",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "ripple-usd",
+    "canonical_name": "Ripple Usd",
+    "ticker": "RLUSD",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x8292bb45bf1ee4d140127049757c2e0ff06317ed",
+    "all_ethereum_addresses": "0x8292bb45bf1ee4d140127049757c2e0ff06317ed",
+    "community_entity_id": "community_twitter_ripple",
+    "twitter_handle": "Ripple",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "rupiahtoken",
+    "canonical_name": "Rupiah Token",
+    "ticker": "IDRT",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x998ffe1e43facffb941dc337dd0468d52ba5b48a",
+    "all_ethereum_addresses": "0x998ffe1e43facffb941dc337dd0468d52ba5b48a;0x554cd6bdd03214b10aafa3e0d4d42de0c5d2937b;0xcefbea899cfccdc653b171d063481b622086be3f;0x66207e39bb77e6b99aab56795c7c340c08520d83",
+    "community_entity_id": "community_twitter_rupiahtokenidrt",
+    "twitter_handle": "RupiahTokenIDRT",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "seur",
+    "canonical_name": "Seur",
+    "ticker": "SEUR",
+    "coingecko_id": "seur",
+    "primary_ethereum_address": "0xd71ecff9342a5ced620049e616c5035f1db98620",
+    "all_ethereum_addresses": "0xd71ecff9342a5ced620049e616c5035f1db98620",
+    "community_entity_id": "community_twitter_synthetix_io",
+    "twitter_handle": "synthetix_io",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "sperax-usd",
+    "canonical_name": "Sperax Usd",
+    "ticker": "SPER",
+    "coingecko_id": "sperax-usd",
+    "primary_ethereum_address": "0xd74f5255d557944cf7dd0e45ff521520002d5748",
+    "all_ethereum_addresses": "0xd74f5255d557944cf7dd0e45ff521520002d5748",
+    "community_entity_id": "community_twitter_speraxusd",
+    "twitter_handle": "SperaxUSD",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "spiceusd",
+    "canonical_name": "Spiceusd",
+    "ticker": "USDS",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xab05b04743e0aeaf9d2ca81e5d3b8385e4bf961e",
+    "all_ethereum_addresses": "0xab05b04743e0aeaf9d2ca81e5d3b8385e4bf961e;0x2f1b1662a895c6ba01a99dcaf56778e7d77e5609;0xde7d1ce109236b12809c45b23d22f30dba0ef424;0x45fdb1b92a649fb6a64ef1511d3ba5bf60044838",
+    "community_entity_id": "community_twitter_spicetradeai",
+    "twitter_handle": "spicetradeai",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "stasis",
+    "canonical_name": "STASIS EURO",
+    "ticker": "EURS",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xdb25f211ab05b1c97d595516f45794528a807ad8",
+    "all_ethereum_addresses": "0xdb25f211ab05b1c97d595516f45794528a807ad8",
+    "community_entity_id": "community_twitter_stasisnet",
+    "twitter_handle": "stasisnet",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "straitsx-indonesia-rupiah",
+    "canonical_name": "Straitsx Indonesia Rupiah",
+    "ticker": "XIDR",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x2c826035c1c36986117a0e949bd6ad4bab54afe2",
+    "all_ethereum_addresses": "0x2c826035c1c36986117a0e949bd6ad4bab54afe2;0xebf2096e01455108badcbaf86ce30b6e5a72aa52",
+    "community_entity_id": "community_twitter_straitsx",
+    "twitter_handle": "straitsx",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "susd",
+    "canonical_name": "Susd",
+    "ticker": "SUSD",
+    "coingecko_id": "nusd",
+    "primary_ethereum_address": "0x0e1694483ebb3b74d3054e383840c6cf011e518e",
+    "all_ethereum_addresses": "0x0e1694483ebb3b74d3054e383840c6cf011e518e;0x8c6f28f2f1a3c87f0f938b96d27520d9751ec8d9;0x57ab1ec28d129707052df4df418d58a2d46d5f51",
+    "community_entity_id": "community_twitter_synthetix_io",
+    "twitter_handle": "synthetix_io",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "terrausd",
+    "canonical_name": "Terrausd",
+    "ticker": "UST",
+    "coingecko_id": "terrausd-wormhole",
+    "primary_ethereum_address": "0x846e4d51d7e2043c1a87e0ab7490b93fb940357b",
+    "all_ethereum_addresses": "0x846e4d51d7e2043c1a87e0ab7490b93fb940357b;0x224e64ec1bdce3870a6a6c777edd450454068fec;0xb599c3590f42f8f995ecfa0f85d2980b76862fc1;0x692597b009d13c4049a947cab2239b7d6517875f;0x23396cf899ca06c4472205fc903bdb4de249d6fc;0xa47c8bf37f92abed4a126bda807a7b7498661acd",
+    "community_entity_id": "community_twitter_terra_money",
+    "twitter_handle": "terra_money",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "tether",
+    "canonical_name": "Tether",
+    "ticker": "USDT",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "all_ethereum_addresses": "0xdac17f958d2ee523a2206206994597c13d831ec7;0x94b008aa00579c1307b0ef2c499ad98a8ce58e58;0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9;0x3c2b8be99c50593081eaa2a724f0b8285f5aba8f;0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7;0xc2132d05d31c914a87c6611c10748aeb04b58e8f;0x66e428c3f67a68878562e79a0234c1f83c208770;0x4ecaba5870353805a9f068101a40e0f32ed605c6;0x049d68029688eabf473097a2fc38ef61633a3c7a;0x55d398326f99059ff775485246999027b3197955;0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+    "community_entity_id": "community_twitter_tether",
+    "twitter_handle": "tether",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "tether-cnht",
+    "canonical_name": "Tether Cnht",
+    "ticker": "CNHT",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef",
+    "all_ethereum_addresses": "0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef",
+    "community_entity_id": "community_twitter_tether_to",
+    "twitter_handle": "Tether_to",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "tether-mxnt",
+    "canonical_name": "Tether Mxnt",
+    "ticker": "MXNT",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xed03ed872159e199065401b6d0d487d78d9464aa",
+    "all_ethereum_addresses": "0xed03ed872159e199065401b6d0d487d78d9464aa",
+    "community_entity_id": "community_twitter_tether_to",
+    "twitter_handle": "Tether_to",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "token-force-usd",
+    "canonical_name": "Token Force Usd",
+    "ticker": "TOKE",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x641441c631e2f909700d2f41fd87f0aa6a6b4edb",
+    "all_ethereum_addresses": "0x641441c631e2f909700d2f41fd87f0aa6a6b4edb;0xcf66eb3d546f0415b368d98a95eaf56ded7aa752;0xb5102cee1528ce2c760893034a4603663495fd72;0x0a5e677a6a24b2f1a2bf4f3bffc443231d2fdec8",
+    "community_entity_id": "community_twitter_dforcenet",
+    "twitter_handle": "dForcenet",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "tor",
+    "canonical_name": "TOR",
+    "ticker": "TOR",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x74e23df9110aa9ea0b6ff2faee01e740ca1c642e",
+    "all_ethereum_addresses": "0x74e23df9110aa9ea0b6ff2faee01e740ca1c642e;0x6b37374fe7980ae33fc87b0d66a490ec6903e87a;0x790772d8f4115b608340a7ab25258fca8da1ca2e;0x1d6cbdc6b29c6afbae65444a1f65ba9252b8ca83",
+    "community_entity_id": "community_twitter_hector_network",
+    "twitter_handle": "hector_network",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "trueaud",
+    "canonical_name": "Trueaud",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x00006100f7090010005f1bd7ae6122c3c2cf0090",
+    "all_ethereum_addresses": "0x00006100f7090010005f1bd7ae6122c3c2cf0090",
+    "community_entity_id": "community_twitter_trusttoken",
+    "twitter_handle": "TrustToken",
+    "shared_community_account_flag": "1"
+  }
+]
