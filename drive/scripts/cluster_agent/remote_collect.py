@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+try:
+    from .network_policy import validate_public_http_url
+except ImportError:  # pragma: no cover - direct script execution
+    from network_policy import validate_public_http_url
 
 CHUNK_SIZE = 1024 * 1024
 DEFAULT_MAX_ITEM_BYTES = 512 * 1024 * 1024
@@ -91,14 +96,20 @@ class ItemResult:
     status: int | None = None
     error: str = ""
     local_path: str = ""
+    final_url: str = ""
+    resolved_addresses: tuple[str, ...] = ()
 
 
-def _validate_url(url: str) -> None:
-    parsed = urlsplit(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise ValueError("item URL must use http or https")
-    if parsed.username or parsed.password:
-        raise ValueError("credentials must not be embedded in item URLs")
+def _validate_url(url: str) -> dict[str, Any]:
+    return validate_public_http_url(url)
+
+
+class PublicOnlyRedirectHandler(HTTPRedirectHandler):
+    """Reject a redirect before urllib follows it into an internal network."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        _validate_url(str(newurl or ""))
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def _download_item(
@@ -136,6 +147,7 @@ def _download_item(
     destination = output_dir / name
     temporary = destination.with_suffix(destination.suffix + ".part")
     last_error = ""
+    opener = build_opener(PublicOnlyRedirectHandler())
 
     for attempt in range(1, retries + 2):
         temporary.unlink(missing_ok=True)
@@ -143,13 +155,16 @@ def _download_item(
         digest = hashlib.sha256()
         total = 0
         try:
+            # Re-resolve immediately before every attempt. Redirect targets are
+            # independently checked by PublicOnlyRedirectHandler before follow.
+            _validate_url(url)
             request = Request(url, headers=headers, method="GET")
-            with urlopen(request, timeout=timeout) as response:
+            with opener.open(request, timeout=timeout) as response:
                 status = int(getattr(response, "status", response.getcode()))
                 if status < 200 or status >= 300:
                     raise RuntimeError(f"HTTP {status}")
                 final_url = str(response.geturl() or url)
-                _validate_url(final_url)
+                final_evidence = _validate_url(final_url)
                 length_header = response.headers.get("Content-Length")
                 if length_header:
                     declared = int(length_header)
@@ -184,6 +199,8 @@ def _download_item(
                     content_type=str(response.headers.get("Content-Type") or ""),
                     status=status,
                     local_path=str(destination),
+                    final_url=final_url,
+                    resolved_addresses=tuple(final_evidence.get("resolved_addresses") or ()),
                 )
         except HTTPError as exc:
             last_error = f"HTTP {exc.code}"
