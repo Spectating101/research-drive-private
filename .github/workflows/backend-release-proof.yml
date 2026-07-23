@@ -88,9 +88,23 @@ jobs:
             tests/test_acquisition_manifest.py \
             2>&1 | tee artifacts/backend-release-tests.log
 
-      - name: Enforce single repository authority
+      - name: Verify hosted checkout authority
+        shell: bash
         run: |
-          bash drive/scripts/ops/repo_authority_check.sh | tee artifacts/repo-authority.log
+          set -euo pipefail
+          {
+            origin="$(git remote get-url origin)"
+            case "$origin" in
+              *research-drive-private*) ;;
+              *) echo "FAIL unexpected origin: $origin"; exit 1 ;;
+            esac
+            test -f drive/docs/REPO_AUTHORITY.md
+            test -f drive/docs/SOL_REMOTE_HANDOFF.md
+            test -f drive/scripts/research_data_mcp/execution_policy.py
+            test -f drive/scripts/yzu_cluster/acquisitions.py
+            echo "OK hosted authority repository=$origin"
+            echo "NOTE multi-checkout FD/SR/RI parity is proven only by the live Optiplex artifact"
+          } | tee artifacts/repo-authority.log
 
       - name: Build strict authority inventory
         run: |
