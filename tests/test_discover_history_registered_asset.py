@@ -34,7 +34,9 @@ def test_verified_registration_receipt_enters_history_without_discover_link() ->
     assert row["kind"] == "registered_asset"
     assert row["dataset_id"] == "research_acquisition_20260720"
     assert row["manifest_id"] == "collection_manifest_research-acquisition-20260720a"
-    assert row["status"] == "registered"
+    assert row["status"] == "registered_not_queryable"
+    assert row["readiness"] == "registered"
+    assert row["query_ready"] is False
     assert row["archive_verified"] is True
     assert row["registry_readback"] is True
     assert out["filters_applied"]["excludes_raw_global_jobs"] is True
