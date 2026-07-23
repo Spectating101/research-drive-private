@@ -4,15 +4,15 @@ This repository is the production control-plane authority for Research Drive. It
 
 ## Current authority
 
-- Canonical deployment candidate: PR #1
-- Candidate branch: `terra/runtime-integration`
-- Tested runtime head: `439f302a1394e9dfa9c04c2880d3c8a6a352c0db`
-- Target branch: `main`
-- Pre-runtime rollback branch: `archive/pre-runtime-main-2026-07-20`
-- Current `main` is the pre-runtime baseline and is not the production-candidate tip.
-- The branch name is historical; no additional Terra implementation lane is implied.
+**See [REPO_AUTHORITY.md](./REPO_AUTHORITY.md) for the dual-remote consolidation rules.**
 
-Until PR #1 is merged or explicitly replaced, all production runtime work belongs on this candidate branch and must preserve its tested contracts.
+- Canonical backend GitHub repo: `Spectating101/research-drive-private`
+- Live Optiplex deploy checkout: `research-drive-private-front-door` on **`main`**
+- FE / Sol product remote: `Spectating101/yzu-cluster` (UI only for overlapping desk work — do not dual-push backend)
+- Runtime bytes bind: `Sharpe-Renaissance-runtime-integration` via `YZU_RUNTIME_DRIVE_ROOT` (not a second code authority)
+- Pre-runtime rollback branch (historical): `archive/pre-runtime-main-2026-07-20`
+
+Production desk backend work lands on **`main`** (or short-lived runtime branches merged into `main`). Preserve the runtime contracts below.
 
 ## Relationship to the public repository
 
