@@ -25,20 +25,25 @@ jobs:
       - name: Install collector dependencies
         run: python -m pip install --upgrade requests pandas
 
-      - name: Collect Arctic Shift monthly subscriber histories
+      - name: Collect broad monthly candidate histories
         env:
-          REDDIT_SUBSCRIBER_OUT: ${{ github.workspace }}/reddit-subscriber-output
+          REDDIT_SUBSCRIBER_OUT: ${{ github.workspace }}/reddit-subscriber-output/broad_candidates
         run: python drive/scripts/research_data_mcp/reddit_subscriber_recovery/collect_reddit_subscribers.py
+
+      - name: Collect reviewed daily histories and derive month-end panel
+        env:
+          REDDIT_DAILY_OUT: ${{ github.workspace }}/reddit-subscriber-output/reviewed_daily
+        run: python drive/scripts/research_data_mcp/reddit_subscriber_recovery/collect_reddit_daily.py
 
       - name: Archive collection output
         run: |
           cd reddit-subscriber-output
-          zip -r ../stablecoin-reddit-subscriber-history.zip .
+          zip -r ../stablecoin-reddit-subscriber-history-reviewed.zip .
 
       - name: Upload subscriber-history artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stablecoin-reddit-subscriber-history
-          path: stablecoin-reddit-subscriber-history.zip
+          name: stablecoin-reddit-subscriber-history-reviewed
+          path: stablecoin-reddit-subscriber-history-reviewed.zip
           if-no-files-found: error
           retention-days: 7
