@@ -79,6 +79,19 @@ class DeskAuthSessionTests(unittest.TestCase):
     def test_session_path_does_not_require_prior_auth(self):
         self.assertFalse(desk_auth.path_requires_auth("/library/desk/session"))
 
+    def test_bootstrap_without_origin_or_referer_rejected(self):
+        token = "test-desk-token-please-rotate"
+        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+            bare = _FakeHandler({"Host": "100.127.141.44:8765"})
+            ok, msg, cookie = desk_auth.issue_desk_session(bare)
+            self.assertFalse(ok)
+            self.assertIn("same-origin", msg)
+            self.assertIsNone(cookie)
+
+    def test_mutating_library_posts_require_auth(self):
+        self.assertTrue(desk_auth.path_requires_auth("/library/craft/collect-plan", "POST"))
+        self.assertTrue(desk_auth.path_requires_auth("/library/advise", "POST"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,26 +1,30 @@
 {
-  "title": "Invariant hardening chase (post-Friday gates)",
-  "recorded_at": "2026-07-23T13:32:35.454654+00:00",
+  "title": "Desk hardening \u2014 chase to floor",
+  "recorded_at": "2026-07-23T13:49:57.316812+00:00",
   "parent_sha": "f6a363dbcc33546e4dda11975f83d211e67b90f0",
   "unit_tests": {
-    "suites": [
-      "drive/tests/test_craft_collect.py",
-      "drive/tests/test_network_policy.py",
-      "drive/tests/test_faculty_profile_regressions.py",
-      "drive/tests/test_hardening_gates.py",
-      "tests/test_acquisition_manifest.py"
-    ],
-    "passed": 36,
-    "failed": 0
+    "passed": 56,
+    "skipped_sha_during_prepush": 1
   },
   "invariants_landed": [
-    "YzuOrchestrator.submit always runs enforce_execution_submit (path-independent)",
+    "DataCite + HuggingFace promote: query_ready only after smoke ok (no extension-only instant)",
+    "GET authorize for sensitive library paths",
     "HTTP collect uses open_pinned_public_url (DNS pin + Host/SNI)",
+    "Playwright route fulfills via DNS-pinned Node HTTP (connect-time pin)",
     "Windows packaging ships network_policy.py sibling with remote_collect.py",
+    "YzuOrchestrator.submit always runs enforce_execution_submit (path-independent)",
+    "approve_collect explicitly approves after pending submit",
+    "archive_after_job stamps _ops_internal",
+    "desk auth: constant-time token compare; session bootstrap requires Origin/Referer",
+    "faculty may auto-approve source_probe only",
+    "fail-closed auth on all mutating /library and /yzu POSTs",
     "generic_url_scrape.mjs installNetworkGuard aborts private/metadata hosts",
-    "prove_query_smoke uses ephemeral registry stub; rejects empty arrays + error envelopes",
+    "in-process desk write rate limit (429)",
     "local_json_file empty [] returns 0 rows (no fake value wrapper)",
-    "DataCite + HuggingFace promote: query_ready only after smoke ok (no extension-only instant)"
+    "magic never auto-executes http_manifest/scraper/datacite collects",
+    "prove_desk_hardening.sh end-to-end gate",
+    "prove_query_smoke uses ephemeral registry stub; rejects empty arrays + error envelopes",
+    "source_probe + generic_url_scrape URL public validation at orchestrator"
   ],
   "live_dns_pin_smoke": {
     "url": "https://api.github.com/zen",
@@ -29,12 +33,11 @@
     "ok": true
   },
   "still_open": [
-    "exact-SHA CI gate",
-    "browser subresource DNS pin (guard is hostname-only today)",
-    "multi-tenant SLOs / unattended public platform",
-    "full AI pipeline compiler"
+    "multi-tenant identity / per-faculty authN (single shared desk token today)",
+    "full AI pipeline compiler (product, not a security gate)",
+    "public internet unattended SLOs (desk is Tailscale-internal)"
   ],
-  "backend_sha": "9beac5a754d87ca3c3737c179e2d473500cce019",
+  "backend_sha": "5095d9485ee08b210ba72d3646371941ab33ffcc",
   "live_hostile_after_restart": [
     {
       "name": "faculty_pipeline",
@@ -62,5 +65,13 @@
   "services_restarted": [
     "research-drive-front-door.service",
     "yzu-cluster-worker.service"
-  ]
+  ],
+  "prove_desk_hardening": {
+    "ok": true,
+    "unit_passed": 56,
+    "sha_ok": true,
+    "live_unauth_401": true,
+    "live_cgnat_400": true,
+    "live_auto_approve_pending": true
+  }
 }

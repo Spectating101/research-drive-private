@@ -18,7 +18,17 @@ def access_token_required() -> str | None:
     return (os.getenv("YZU_DESK_ACCESS_TOKEN") or os.getenv("DESK_ACCESS_TOKEN") or "").strip() or None
 
 
-def path_requires_auth(path: str) -> bool:
+def path_requires_auth(path: str, method: str = "GET") -> bool:
+    method_u = (method or "GET").upper()
+    if path == "/library/desk/session":
+        return False
+    if path in {"/healthz", "/api/health", "/"}:
+        return False
+    # Fail-closed: every mutating desk/cluster route needs the desk token.
+    if method_u in {"POST", "PUT", "PATCH", "DELETE"} and (
+        path.startswith("/library/") or path.startswith("/yzu/")
+    ):
+        return True
     if path in {
         "/library/chat",
         "/library/chat/stream",
@@ -114,9 +124,17 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return False
         return f"{parsed.scheme}://{parsed.netloc}".lower() in allowed
-    # Same-origin navigations sometimes omit Origin; require an explicit browser UA
-    # and no obvious cross-site tooling marker.
-    return True
+    # No Origin/Referer → refuse bootstrap (blocks curl/script session minting).
+    return False
+
+
+def _token_matches(provided: str, expected: str) -> bool:
+    a = provided.encode("utf-8")
+    b = expected.encode("utf-8")
+    if len(a) != len(b):
+        hmac.compare_digest(b, b)  # constant work
+        return False
+    return hmac.compare_digest(a, b)
 
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
@@ -139,15 +157,18 @@ def clear_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
     return True, "", _cookie_header_value(token, clear=True)
 
 
-def authorize(handler: BaseHTTPRequestHandler, path: str) -> tuple[bool, str]:
+def authorize(handler: BaseHTTPRequestHandler, path: str, method: str = "GET") -> tuple[bool, str]:
     token = access_token_required()
-    if not token or not path_requires_auth(path):
+    if not token or not path_requires_auth(path, method=method):
         return True, ""
     auth = str(handler.headers.get("Authorization") or "")
     header = str(handler.headers.get("X-Desk-Token") or "")
-    if auth.startswith("Bearer ") and auth[7:].strip() == token:
-        return True, ""
-    if header.strip() == token:
+    provided = ""
+    if auth.startswith("Bearer "):
+        provided = auth[7:].strip()
+    elif header.strip():
+        provided = header.strip()
+    if provided and _token_matches(provided, token):
         return True, ""
     if desk_session_cookie_valid(handler, token):
         return True, ""

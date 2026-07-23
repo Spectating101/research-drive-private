@@ -24,6 +24,8 @@ def _resolver(*addresses: str):
         "http://localhost/admin",
         "http://127.0.0.1/admin",
         "http://10.0.0.8/private",
+        "http://100.64.0.1/tailscale",
+        "http://100.127.141.44/desk",
         "http://169.254.169.254/latest/meta-data/",
         "http://[::1]/admin",
         "http://metadata.google.internal/computeMetadata/v1/",

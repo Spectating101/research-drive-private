@@ -338,15 +338,10 @@ class MagicProcurement:
                             "campaign_id": campaign["id"] if campaign else "",
                             "magic": True,
                         },
-                        auto_approve=True,
+                        auto_approve=False,
                     )
                     job = submitted.get("job")
-                    if job and (
-                        force_execute
-                        or should_auto_execute(dplan, self.config)
-                        or context.get("chat_session")
-                    ):
-                        job = self._execute_job(job["id"])
+                    # Acquires stay pending_approval until researcher approve / approve_collect.
                     if job:
                         collect_jobs.append(job)
                         analysis = {
@@ -418,7 +413,7 @@ class MagicProcurement:
                     )
 
                 if force_execute or research_cfg.get("auto_collect") or (
-                    context.get("chat_session") and research_cfg.get("auto_collect_chat", True)
+                    context.get("chat_session") and research_cfg.get("auto_collect_chat", False)
                 ):
                     for rec in recommendations:
                         if str(rec.get("feasibility") or "") == "direct":
@@ -430,7 +425,7 @@ class MagicProcurement:
                             collect_plan.get("title", "Collect"),
                             collect_plan,
                             {"message": message, "campaign_id": campaign["id"] if campaign else "", "magic": True},
-                            auto_approve=force_execute or bool(context.get("chat_session")),
+                            auto_approve=False,
                         )
                         if submitted.get("job"):
                             collect_jobs.append(submitted["job"])
@@ -439,7 +434,7 @@ class MagicProcurement:
 
                 agent_cfg = self.config.get("agent") or {}
                 chat_scrape = context.get("chat_session") and (
-                    agent_cfg.get("auto_scrape_after_acquire", True) or research_cfg.get("auto_scrape_chat", True)
+                    agent_cfg.get("auto_scrape_after_acquire", False) or research_cfg.get("auto_scrape_chat", False)
                 )
                 if chat_scrape and not collect_jobs:
                     seen_urls: set[str] = set()
@@ -461,7 +456,7 @@ class MagicProcurement:
                             cp.get("title", "Spectator scrape"),
                             cp,
                             {"message": message, "campaign_id": campaign["id"] if campaign else "", "magic": True},
-                            auto_approve=True,
+                            auto_approve=False,
                         )
                         job = submitted.get("job")
                         if job:
@@ -549,7 +544,8 @@ class MagicProcurement:
             plan = self.gateway.orchestrator.validate_plan(plan)
             plan_ms = int((time.time() - t1) * 1000)
             trusted = is_trusted_plan(plan, self.config, queue_tasks=queue_tasks)
-            auto_approve = trusted or bool(context.get("auto_approve"))
+            # Client/chat auto_approve bits are advisory only — execution_policy is authoritative.
+            auto_approve = bool(trusted)
             if plan.get("launchable"):
                 submitted = self.gateway.jobs.submit(
                     plan.get("title", "Magic procurement"),
@@ -564,7 +560,8 @@ class MagicProcurement:
                     (force_execute or should_auto_execute(plan, self.config))
                     and should_sync_wait(plan, self.config, queue_tasks=queue_tasks)
                 )
-                if job and auto_approve and wait:
+                # Only sync-wait when actually queued (never poll a pending acquire forever).
+                if job and job.get("status") in {"queued", "running"} and wait:
                     executed = True
                     job = self._execute_job(job["id"])
                 phase = "collecting" if job else phase
@@ -706,13 +703,16 @@ class MagicProcurement:
                 plan.setdefault("local_collect", prefer_local_collect(cfg))
         if not plan:
             raise ValueError("recommendation has no collect_plan")
+        # Human approve path: submit as pending, then approve explicitly (never rely on auto_approve).
         submitted = self.gateway.jobs.submit(
             plan.get("title", "Campaign collect"),
             plan,
-            {"campaign_id": campaign_id, "magic": True},
-            auto_approve=True,
+            {"campaign_id": campaign_id, "magic": True, "source": "approve_collect"},
+            auto_approve=False,
         )
         job = submitted.get("job")
+        if job and job.get("status") == "pending_approval":
+            job = self.gateway.jobs.approve(str(job["id"]))
         if job:
             job = self._execute_job(job["id"])
         self.campaigns.update(campaign_id, phase="collecting", payload={"last_collect_job": job})

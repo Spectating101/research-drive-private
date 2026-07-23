@@ -105,7 +105,12 @@ def queue_auto_archives(
         submitted = jobs.submit(
             f"Archive {dataset_id} to GDrive",
             archive_plan,
-            {"parent_job_id": job_id, "campaign_id": campaign_id, "dataset_id": dataset_id},
+            {
+                "parent_job_id": job_id,
+                "campaign_id": campaign_id,
+                "dataset_id": dataset_id,
+                "_ops_internal": True,
+            },
             auto_approve=True,
         )
         queued.append({"local_path": rel, "dataset_id": dataset_id, "remote_suffix": suffix, "archive_job": submitted})
@@ -143,6 +148,6 @@ def queue_archive_materialized(
     return jobs.submit(
         f"Archive procured {dataset_id} to GDrive",
         archive_plan,
-        {"parent_job_id": job_id, "campaign_id": campaign_id},
+        {"parent_job_id": job_id, "campaign_id": campaign_id, "_ops_internal": True},
         auto_approve=True,
     )
