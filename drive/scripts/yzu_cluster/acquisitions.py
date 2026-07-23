@@ -476,14 +476,100 @@ def registry_spec_from_materialized(
     return spec
 
 
+_COLLECTION_WRAPPER_KEYS = ("results", "data", "items", "records", "features", "peggedAssets")
+_ERROR_TEXT_HINTS = (
+    "rate limit",
+    "too many requests",
+    "unauthorized",
+    "forbidden",
+    "access denied",
+    "invalid api key",
+    "authentication required",
+    "service unavailable",
+)
+
+
+def _json_preflight(repo_root: Path, spec: dict[str, Any]) -> dict[str, Any] | None:
+    """Reject empty or error-envelope JSON before queryability is promoted.
+
+    The query engine intentionally represents ordinary JSON documents as one row.
+    That is useful for inspection, but it must not turn API error responses or empty
+    collection wrappers into a query-ready research asset.
+    """
+    if str(spec.get("backend") or "") != "local_json_file":
+        return None
+    from scripts.research_data_mcp.data_paths import resolve_data_path
+
+    path = resolve_data_path(repo_root, str(spec.get("local_path") or ""))
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if payload in (None, [], {}):
+        return {"error": "empty_payload", "detail": "top-level JSON payload is empty"}
+    if not isinstance(payload, dict):
+        return None
+
+    for key in _COLLECTION_WRAPPER_KEYS:
+        if key in payload and isinstance(payload.get(key), list) and not payload.get(key):
+            return {"error": "empty_collection", "detail": f"top-level collection {key!r} has zero records"}
+
+    status = payload.get("status")
+    code = payload.get("code") or payload.get("status_code") or payload.get("statusCode")
+    success = payload.get("success")
+    message = " ".join(
+        str(payload.get(key) or "")
+        for key in ("error", "errors", "message", "detail", "error_message", "errorMessage")
+    ).strip()
+    status_text = str(status or "").strip().lower()
+    nested_status = status if isinstance(status, dict) else {}
+    nested_code = nested_status.get("error_code") or nested_status.get("code")
+    nested_message = str(nested_status.get("error_message") or nested_status.get("message") or "").strip()
+
+    numeric_codes: list[int] = []
+    for value in (code, nested_code):
+        try:
+            numeric_codes.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    error_key_present = any(key in payload for key in ("error", "errors", "error_message", "errorMessage"))
+    message_text = f"{message} {nested_message}".strip().lower()
+    error_hint = any(hint in message_text for hint in _ERROR_TEXT_HINTS)
+    if (
+        success is False
+        or status_text in {"error", "failed", "failure", "forbidden", "unauthorized"}
+        or any(value >= 400 or value < 0 for value in numeric_codes)
+        or error_key_present
+        or error_hint
+    ):
+        return {
+            "error": "api_error_envelope",
+            "detail": (message or nested_message or status_text or "API error response")[:300],
+        }
+    return None
+
+
 def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) -> dict[str, Any]:
     """Bounded parser/query smoke against a registry spec (no registry upsert required)."""
     from scripts.research_query_engine.engine import ResearchQueryEngine, QueryResult
 
     dataset_id = str(spec.get("dataset_id") or "").strip()
-    if not dataset_id:
-        return {"ok": False, "error": "missing dataset_id", "rows": 0}
+    revision_id = spec.get("revision_id")
     backend = str(spec.get("backend") or "")
+    base = {
+        "revision_id": revision_id,
+        "dataset_id": dataset_id,
+        "backend": backend,
+    }
+    if not dataset_id:
+        return {**base, "ok": False, "error": "missing dataset_id", "rows": 0}
+    if backend == "local_file":
+        return {**base, "ok": False, "error": "metadata_only_backend", "rows": 0}
+    preflight = _json_preflight(Path(repo_root), spec)
+    if preflight:
+        return {**base, "ok": False, "rows": 0, **preflight}
     try:
         engine = ResearchQueryEngine(repo_root=repo_root)
         params = {"limit": limit}
@@ -496,25 +582,21 @@ def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) 
             result = engine._query_local_csv_file(ds, params)
         elif backend == "local_parquet_panel":
             result = engine._query_local_parquet_panel(ds, params)
-        elif backend == "local_file":
-            result = engine._query_local_file_tree(ds, params)
         else:
-            return {"ok": False, "error": f"unsupported smoke backend {backend}", "rows": 0}
+            return {**base, "ok": False, "error": f"unsupported smoke backend {backend}", "rows": 0}
         rows = list(getattr(result, "rows", None) or [])
         if isinstance(result, QueryResult) and not rows and hasattr(result, "data"):
             rows = list(result.data or [])
         n = len(rows)
         ok = n > 0
         return {
+            **base,
             "ok": ok,
             "rows": n,
             "error": None if ok else "zero_rows",
-            "revision_id": spec.get("revision_id"),
-            "dataset_id": dataset_id,
-            "backend": backend,
         }
     except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": str(exc)[:400], "rows": 0, "dataset_id": dataset_id, "backend": backend}
+        return {**base, "ok": False, "error": str(exc)[:400], "rows": 0}
 
 
 def enrich_http_manifest_plan(plan: dict[str, Any], procurement: Any, *, domain_packs: list[dict[str, Any]] | None = None) -> dict[str, Any]:
