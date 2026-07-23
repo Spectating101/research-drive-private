@@ -37,7 +37,7 @@ def test_live_identity_from_registered_job(tmp_path: Path) -> None:
         {
             "job_type": "http_manifest",
             "dataset_id": "identity_dataset",
-            "url": "https://example.test/data.csv",
+            "url": "https://8.8.8.8/data.csv",
             "outputs": ["identity_dataset"],
         },
         {"idempotency_key": "identity-job-1"},
