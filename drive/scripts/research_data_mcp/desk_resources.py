@@ -399,6 +399,34 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
     activity_events = read_recent(limit=40, repo_root=repo_root)
     bq_drivers = top_bq_drivers(limit=5, repo_root=repo_root)
 
+    # Honest collector counts: inventory joined ≠ heartbeat online/idle.
+    worker_online = worker_idle = worker_stale = worker_unseen = 0
+    worker_joined = int(wl.get("joined") or 0) if wl.get("joined") is not None else None
+    try:
+        honesty = gateway.yzu.workers(live=False)
+        for node in honesty.get("windows_lab") or []:
+            st = str(node.get("status") or "").strip().lower()
+            if st == "online":
+                worker_online += 1
+            elif st == "idle":
+                worker_idle += 1
+            elif st == "stale":
+                worker_stale += 1
+            elif st in {"joined_unseen", "joined"}:
+                worker_unseen += 1
+        if worker_joined is None:
+            worker_joined = worker_online + worker_idle + worker_stale + worker_unseen
+    except Exception:
+        pass
+    worker_available = worker_online + worker_idle
+    worker_busy = runtime_desk.get("worker_pools", {}).get("busy")
+    if worker_busy is None:
+        worker_busy = pools.get("busy") if pools.get("busy") is not None else 0
+    worker_total = runtime_desk.get("worker_pools", {}).get(
+        "total",
+        pools.get("total") if pools.get("total") is not None else wl.get("total"),
+    )
+
     return {
         "status": "ok",
         "generated_at": _utc_now(),
@@ -411,8 +439,14 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
             "mcp_tools": mcp.get("total"),
             "query_engine": {"port": 8765, "up": health.get("status") in {"ok", "demo"}},
             "workers": {
-                "busy": runtime_desk.get("worker_pools", {}).get("busy", pools.get("busy") if pools.get("busy") is not None else wl.get("joined")),
-                "total": runtime_desk.get("worker_pools", {}).get("total", pools.get("total") if pools.get("total") is not None else wl.get("total")),
+                "busy": worker_busy,
+                "total": worker_total,
+                "online": worker_online,
+                "idle": worker_idle,
+                "stale": worker_stale,
+                "joined": worker_joined,
+                "available": worker_available,
+                "joined_unseen": worker_unseen,
             },
             "vault": {
                 "used_tb": vault_used,
@@ -510,9 +544,13 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
         "compute": {
             "controller": cluster.get("controller") or desk.get("brain"),
             "windows_lab": {
-                "busy": pools.get("busy"),
-                "joined": wl.get("joined"),
-                "total": pools.get("total") or wl.get("total"),
+                "busy": worker_busy,
+                "joined": worker_joined if worker_joined is not None else wl.get("joined"),
+                "total": worker_total,
+                "online": worker_online,
+                "idle": worker_idle,
+                "stale": worker_stale,
+                "available": worker_available,
                 "max_parallel": _cluster_max_parallel(repo_root),
             },
             "queue": {
