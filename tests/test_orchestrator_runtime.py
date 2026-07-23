@@ -102,7 +102,10 @@ def test_controller_yields_http_run_to_fresh_windows_worker(tmp_path: Path) -> N
     assert orchestrator.runtime.snapshot(job["id"])["status"] == "queued"
     claim = control.claim({"worker_id": "windows-01"})
     assert claim is not None
-    assert claim["plan"]["items"] == [{"url": "https://8.8.8.8/data.csv"}]
+    item = claim["plan"]["items"][0]
+    assert item["url"] == "https://8.8.8.8/data.csv"
+    assert item["network_evidence"]["resolved_addresses"] == ["8.8.8.8"]
+    assert item["network_evidence"]["host"] == "8.8.8.8"
 
 
 def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_path: Path) -> None:
