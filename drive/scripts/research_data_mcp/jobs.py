@@ -31,9 +31,19 @@ class JobService:
         from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
 
         request = dict(request or {})
-        # Fail-loud before queue: faculty = primitives only; ops via ops_privileged.
-        scope = "ops" if (plan or {}).get("ops_privileged") or request.get("ops_privileged") else "faculty"
-        plan = enforce_submit_doctrine(plan if isinstance(plan, dict) else None, scope=scope)
+        plan = dict(plan) if isinstance(plan, dict) else {}
+        # Privilege escalation must never come from client/model payloads.
+        # Only internal callers may set request["_ops_internal"]=True (e.g. archive).
+        internal_ops = bool(request.pop("_ops_internal", False))
+        plan.pop("ops_privileged", None)
+        request.pop("ops_privileged", None)
+        if internal_ops:
+            plan["ops_privileged"] = True
+        scope = "ops" if plan.get("ops_privileged") else "faculty"
+        plan = enforce_submit_doctrine(plan, scope=scope)
+        # Faculty/Composer acquisition never silent-executes via auto_approve flag.
+        if scope == "faculty":
+            auto_approve = False
         validated = self.validate(plan)
         if not validated.get("launchable", True):
             return {
@@ -86,7 +96,6 @@ class JobService:
             "local_path": local_path,
             "launchable": True,
             "verify": verify,
-            "ops_privileged": True,
         }
         if remote_suffix:
             plan["remote_suffix"] = remote_suffix

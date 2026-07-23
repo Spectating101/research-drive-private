@@ -245,6 +245,7 @@ def craft_collect_plan(
             agent_initiated=True,
         )
         rationale.append("Chose generic Playwright catalog scrape.")
+        rationale.append("EXPERIMENTAL: browser scrape is not egress-isolated for Friday release.")
     else:
         plan = build_generic_scrape_plan(
             url_s,
@@ -254,6 +255,7 @@ def craft_collect_plan(
             agent_initiated=True,
         )
         rationale.append("Chose generic Playwright page scrape (SPA/HTML target).")
+        rationale.append("EXPERIMENTAL: browser scrape is not egress-isolated for Friday release.")
 
     # Stamp custom-pipeline identity — never a product module name.
     plan["dataset_id"] = did
@@ -267,19 +269,26 @@ def craft_collect_plan(
     plan["collect_note"] = (
         "AI-crafted generic collect — target is a URL/API shape, not a desk product module."
     )
+    if str(plan.get("job_type") or "") == "scraper_run":
+        plan["experimental"] = True
+        plan["production_capability"] = False
+        plan["release_label"] = (
+            "experimental — Chromium network surface not egress-isolated; prefer http_manifest"
+        )
     plan = validate_generic_plan(plan)
 
     return {
         "ok": True,
         "doctrine": (
             "Desk capability = identify + craft custom pipeline. "
-            "Vendor names (Skynet, OpenSea, …) are targets, not modules."
+            "Vendor names (Skynet, OpenSea, …) are targets, not modules. "
+            "Default path: craft → pending approve → immutable revision → query smoke."
         ),
         "rationale": rationale,
         "plan": plan,
         "submit_hint": {
             "tool": "yzu_submit_job",
-            "note": "Submit plan as plan_json; researcher must approve in desk UI unless policy auto-approves.",
+            "note": "Submit plan as plan_json; researcher must approve in desk UI (never auto_approve from Composer).",
         },
     }
 

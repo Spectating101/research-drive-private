@@ -868,22 +868,29 @@ class ResearchToolHandlers:
             },
             "start_here": "research_platform_consolidated",
             "playbook": (
-                "1. research_platform_consolidated — desk snapshot (instant vs pending, entitlement gaps)\n"
-                "2. research_discover_search / research_discover_source_search — Discover Explore catalog (source_id)\n   research_unified_search — vault + DataCite + HuggingFace\n"
-                "3. research_describe_dataset + research_query_dataset when access_tier is query_instant (auto-hydrates GDrive)\n"
-                "4. If miss: datacite_collect_doi or huggingface_collect_dataset → vault + registry flywheel\n"
-                "5. Else: research_web_discover → procurement_probe_public_source → yzu_submit_job"
+                "1. research_platform_consolidated — desk snapshot\n"
+                "2. research_unified_search / research_discover_search — held evidence first\n"
+                "3. research_describe_dataset + research_query_dataset when query-ready\n"
+                "4. If missing a public source: research_craft_collect_plan(need, url) → "
+                "show plan limitations → yzu_submit_job(plan) pending researcher approval → "
+                "archive/register → query smoke\n"
+                "5. Specialized helpers (datacite_collect_doi / huggingface_collect_dataset) "
+                "are optimized primitives under the same lifecycle — not the default product model\n"
+                "6. Browser scraper_run is experimental (site adapters / Chromium network surface); "
+                "prefer http_manifest for APIs and files"
             ),
             "prefer": [
-                "research_platform_consolidated() at session start or before licensed-data collects",
-                "research_discover_search(query) or research_discover_source_search(query) for Discover Explore sources (source_id/access_mode)",
-                "research_unified_search(query) for vault / HF / DataCite holdings",
-                "research_query_dataset when access_tier is query_instant (hydrates from GDrive if needed)",
-                "huggingface_collect_dataset(org/name) after HF search hit — same flywheel as datacite_collect_doi",
-                "datacite_collect_doi(doi) for DOI procured datasets",
-                "research_web_discover after index_miss",
-                "procurement_probe_public_source → yzu_submit_job(plan)",
+                "research_platform_consolidated() at session start",
+                "research_unified_search / research_discover_search for holdings",
+                "research_query_dataset when access_tier is query_instant",
+                "research_craft_collect_plan(research_need, url) for any missing public source",
+                "yzu_submit_job(crafted plan) — never auto_approve; researcher confirms in desk UI",
+                "datacite_collect_doi / huggingface_collect_dataset only when the holding is already a DOI/HF id",
             ],
+            "acquisition_doctrine": (
+                "identify source → craft generic plan (http_manifest|source_probe|scraper_run) → "
+                "pending approval → execute → immutable revision → register → query smoke"
+            ),
             "legacy_note": MCP_TOOL_LEGACY_NOTE,
             "composer_external": COMPOSER_EXTERNAL_TOOLS_NOTE,
         }

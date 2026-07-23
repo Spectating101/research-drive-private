@@ -131,6 +131,9 @@
     "generic_url_scrape": {
       "script": "yzu_cluster/scrapers/generic_url_scrape.mjs",
       "workdir": "sharpe_repo",
+      "experimental": true,
+      "production_capability": false,
+      "release_label": "experimental — Chromium network surface not egress-isolated; prefer http_manifest for APIs/files",
       "args": [
         "--mode",
         "page"

@@ -1,0 +1,165 @@
+{
+  "backend_sha_at_start": "18e3f48c6559f1760c66559106fe6e19c8d7f9ab",
+  "dirty_note": "working tree may include unpushed Grok lane fixes at prove time",
+  "hostile": [
+    {
+      "name": "faculty_registered_pipeline",
+      "http": 400,
+      "status": null,
+      "job_id": null,
+      "message": "Faculty/desk submit allows only ['http_manifest', 'scraper_run', 'source_probe']; got 'registered_pipeline'. Ops/system jobs require ops_privileged=true."
+    },
+    {
+      "name": "faculty_ops_privileged_smuggle",
+      "http": 400,
+      "status": null,
+      "job_id": null,
+      "message": "Faculty/desk submit allows only ['http_manifest', 'scraper_run', 'source_probe']; got 'registered_pipeline'. Ops/system jobs require ops_privileged=true."
+    },
+    {
+      "name": "faculty_named_vendor",
+      "http": 400,
+      "status": null,
+      "job_id": null,
+      "message": "Refusing named vendor product id in script_key='skynet_stablecoin_harvest'. Use research_craft_collect_plan for a generic custom pipeline."
+    },
+    {
+      "name": "faculty_auto_approve_http",
+      "http": 200,
+      "status": "queued",
+      "job_id": "4f4a0badce0b",
+      "message": "",
+      "note": "HTTP auto_approve flag still honored by orchestrator when True; Composer MCP blocks it"
+    }
+  ],
+  "revisions": {
+    "dataset_id": "rev_live_1784812524",
+    "jobs": [
+      {
+        "label": "rev1",
+        "url": "https://api.coingecko.com/api/v3/ping",
+        "job_id": "5afeb6f2f87b",
+        "submit_http": 200,
+        "status": "completed",
+        "error": "",
+        "dataset_id": "rev_live_1784812524",
+        "revision_id": "rev_5afeb6f2f87b",
+        "canonical_dir": "data_lake/procured/rev_live_1784812524/revisions/rev_5afeb6f2f87b",
+        "readiness": "query_ready",
+        "manifest_id": "collection_manifest_5afeb6f2f87b"
+      },
+      {
+        "label": "rev2",
+        "url": "https://api.openalex.org/works?search=bitcoin&per-page=2",
+        "job_id": "7f7e4cbb878b",
+        "submit_http": 200,
+        "status": "completed",
+        "error": "",
+        "dataset_id": null,
+        "revision_id": null,
+        "canonical_dir": null,
+        "readiness": null,
+        "manifest_id": null
+      }
+    ],
+    "filesystem": {
+      "procured": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance-runtime-integration/drive/data_lake/procured/rev_live_1784812524",
+      "exists": true,
+      "current": {
+        "dataset_id": "rev_live_1784812524",
+        "revision_id": "rev_7f7e4cbb878b",
+        "job_id": "7f7e4cbb878b",
+        "canonical_dir": "data_lake/procured/rev_live_1784812524/revisions/rev_7f7e4cbb878b",
+        "updated_at": "2026-07-23T13:15:56.690960+00:00",
+        "file_count": 1,
+        "content_sha256": [
+          "6f217157ea5f4347e667e90197b417f3a42cded9220f4e27b0a6caec0dda6009"
+        ]
+      },
+      "revision_dirs": [],
+      "hashes": {},
+      "query_error": null,
+      "query_rows": 2
+    },
+    "ok": false
+  },
+  "playbook": "craft-first in tool_catalog / procurement_constants",
+  "browser": {
+    "production_claim": false,
+    "label": "experimental",
+    "reason": "Chromium network surface not egress-isolated for Friday"
+  },
+  "failures": [
+    "revision_live_incomplete"
+  ],
+  "service": {
+    "yzu_status": 200
+  },
+  "written_at": "2026-07-23T13:22:09Z",
+  "revisions_v2": {
+    "dataset_id": "rev_live2_1784812800",
+    "jobs": [
+      {
+        "job_id": "042816e2f8af",
+        "revision_id": "rev_042816e2f8af",
+        "status": "completed",
+        "readiness": "query_ready"
+      },
+      {
+        "job_id": "3ed2c6a94aa0",
+        "revision_id": "rev_3ed2c6a94aa0",
+        "status": "completed",
+        "readiness": "filesystem_current"
+      }
+    ],
+    "filesystem": {
+      "procured": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance-runtime-integration/drive/data_lake/procured/rev_live2_1784812800",
+      "current": {
+        "dataset_id": "rev_live2_1784812800",
+        "revision_id": "rev_3ed2c6a94aa0",
+        "job_id": "3ed2c6a94aa0",
+        "canonical_dir": "data_lake/procured/rev_live2_1784812800/revisions/rev_3ed2c6a94aa0",
+        "updated_at": "2026-07-23T13:21:45.394313+00:00",
+        "file_count": 1,
+        "content_sha256": [
+          "34799edc6961c1c84ae67fb7077af3a80c250ba8debb126e699462cb0ddf2076"
+        ]
+      },
+      "revision_dirs": [
+        "rev_042816e2f8af",
+        "rev_3ed2c6a94aa0"
+      ],
+      "hashes": {
+        "rev_042816e2f8af/ping": "a0be9bb9c87cd8c7",
+        "rev_042816e2f8af/manifest.json": "4a7a62392515654c",
+        "rev_3ed2c6a94aa0/works": "34799edc6961c1c8",
+        "rev_3ed2c6a94aa0/manifest.json": "2f2b0c3661c0085f"
+      },
+      "query_rows": 1,
+      "note": "job2 library/jobs result payload empty after complete; filesystem+CURRENT+query are authoritative"
+    },
+    "ok": true,
+    "rev1_retrievable": true,
+    "rev2_is_current": true
+  },
+  "hostile_auto_approve_faculty": {
+    "forced_pending": true,
+    "job_id": "97b4a04b9bc9"
+  },
+  "compact_fix": "drive_first.compact_ephemeral_path skips procured revisions",
+  "backend_authority": "Spectating101/research-drive-private",
+  "ops_privileged_smuggle": "blocked (stripped client ops_privileged; faculty allowlist)",
+  "friday_gates": {
+    "live_two_revision": true,
+    "no_faculty_privilege_bypass": true,
+    "faculty_auto_approve_forced_pending": true,
+    "browser_labeled_experimental": true,
+    "craft_default_playbook": true
+  },
+  "accepted_limitations": [
+    "DNS TOCTOU / IP pinning not done",
+    "Browser egress isolation not done \u2014 labeled experimental",
+    "Full pipeline compiler not in scope",
+    "Sol owns exact-SHA CI + DataCite readiness loophole + hardening test strength"
+  ]
+}

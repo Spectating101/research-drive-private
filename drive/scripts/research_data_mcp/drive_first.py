@@ -140,6 +140,31 @@ def compact_ephemeral_path(repo_root: Path, local_rel: str) -> dict[str, Any]:
     path = (repo_root / local_rel).resolve()
     if not path.exists():
         return {"removed": False, "reason": "missing", "path": local_rel}
+    # Immutable scientific evidence: never destroy procured revision trees or CURRENT pointers.
+    parts = {p.lower() for p in path.parts}
+    if "revisions" in parts:
+        return {
+            "removed": False,
+            "skipped": True,
+            "reason": "immutable_revision_retained",
+            "path": local_rel,
+        }
+    if path.name == "CURRENT.json" or (path.is_dir() and (path / "CURRENT.json").exists()):
+        return {
+            "removed": False,
+            "skipped": True,
+            "reason": "procured_dataset_root_retained",
+            "path": local_rel,
+        }
+    # If this is a leaf under a dataset root that has CURRENT.json, retain it.
+    for parent in path.parents:
+        if (parent / "CURRENT.json").exists() and "procured" in {p.lower() for p in parent.parts}:
+            return {
+                "removed": False,
+                "skipped": True,
+                "reason": "immutable_revision_retained",
+                "path": local_rel,
+            }
     try:
         if path.is_dir():
             shutil.rmtree(path)

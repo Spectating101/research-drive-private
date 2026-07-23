@@ -1177,6 +1177,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.jobs.submit(
             str(payload.get("title") or "Archive to GDrive"),
             plan,
+            {"_ops_internal": True},
             auto_approve=bool(payload.get("auto_approve", False)),
         )
 

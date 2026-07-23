@@ -134,13 +134,15 @@ ACQUISITION_LADDER: tuple[str, ...] = (
 # into registry — route through probe → plan_collect when acquiring for the lab.
 COMPOSER_EXTERNAL_TOOLS_NOTE = (
     "Composer Playwright / webfetch / web search are valid for probe and debug. "
-    "For vault-backed procurement: research_craft_collect_plan (generic http_manifest/"
-    "scraper_run/source_probe only) → yzu_submit_job so flywheel + registry promotion run. "
-    "Never submit named vendor pipelines (skynet_*, opensea_*, …) — craft a custom plan for the URL."
+    "Default missing-source path: research_craft_collect_plan → yzu_submit_job (pending) → "
+    "researcher approve → immutable revision → query smoke. "
+    "Prefer http_manifest for APIs/files; scraper_run is experimental for Friday release. "
+    "Never submit named vendor pipelines (skynet_*, opensea_*, …)."
 )
 
 MCP_TOOL_LEGACY_NOTE = (
-    "Prefer research_craft_collect_plan then yzu_submit_job. "
+    "Prefer research_craft_collect_plan then yzu_submit_job (never auto_approve). "
+    "DataCite/HF collects are specialized primitives under the same approval lifecycle. "
     "Desk chat: POST /library/chat (Cursor Composer + MCP). "
     "/agent/* and /yzu/* HTTP routes are legacy aliases."
 )
