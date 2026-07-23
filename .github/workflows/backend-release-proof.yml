@@ -62,27 +62,16 @@ jobs:
 
           path = Path("drive/scripts/research_data_mcp/registry_promotion.py")
           text = path.read_text(encoding="utf-8")
-          old_backend = '''        elif suffix == ".parquet":
-              backend = "local_parquet_file"
-          '''
-          if old_backend not in text:
+          if 'backend = "local_parquet_file"' not in text:
               print("DataCite Parquet source already patched")
               raise SystemExit(0)
           text = text.replace(
-              old_backend,
-              '''        elif suffix == ".parquet":
-              backend = "local_parquet_panel"
-          ''',
+              'backend = "local_parquet_file"',
+              'backend = "local_parquet_panel"',
               1,
           )
-          marker = '''        if campaign_id:
-              spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}
-          '''
-          contract = '''        if backend == "local_parquet_panel" and "*" not in local_path:
-              panel_path = Path(local_path)
-              spec["local_root"] = str(panel_path.parent)
-              spec["local_file"] = panel_path.name
-          '''
+          marker = '        if campaign_id:\n            spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}\n'
+          contract = '        if backend == "local_parquet_panel" and "*" not in local_path:\n            panel_path = Path(local_path)\n            spec["local_root"] = str(panel_path.parent)\n            spec["local_file"] = panel_path.name\n'
           if marker not in text:
               raise SystemExit("DataCite lineage marker missing")
           path.write_text(text.replace(marker, contract + marker, 1), encoding="utf-8")
