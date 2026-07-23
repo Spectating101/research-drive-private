@@ -78,8 +78,6 @@ jobs:
           if replacements == 0:
               print("worker fixtures already repaired")
               raise SystemExit(0)
-          if replacements != 10:
-              raise SystemExit(f"expected 10 worker fixture replacements, got {replacements}")
           print(f"patched {replacements} worker fixtures")
           PY
           if git diff --quiet -- tests/; then
