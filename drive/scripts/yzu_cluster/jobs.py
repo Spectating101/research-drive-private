@@ -17,6 +17,22 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+
+def _failure_bucket(title: str, error: str) -> str:
+    blob = f"{title} {error}".lower()
+    if any(x in blob for x in ("canary", "smoke", "probe-controller", "windows claim procure")):
+        return "ops_canary"
+    if "discover refresh twse" in blob or "twse_official" in blob:
+        return "discover_spam"
+    if "no artifact zip" in blob:
+        return "collect_no_artifact"
+    if "importerror" in blob or "modulenotfound" in blob:
+        return "code_bug"
+    if "no downloadable items" in blob:
+        return "bad_manifest"
+    return "other"
+
+
 class YzuJobStore:
     ACTIVE = {"pending_approval", "queued", "running"}
 
@@ -82,6 +98,15 @@ class YzuJobStore:
                 (job_id, stamp, stamp, status, title, json.dumps(request), json.dumps(plan), "{}", ""),
             )
         self.event(job_id, "info", f"Job created ({status})")
+        return self.get(job_id)
+
+    def set_plan(self, job_id: str, plan: dict) -> dict:
+        """Replace the stored plan (used after approve-time revalidation)."""
+        with self._db() as db:
+            db.execute(
+                "UPDATE jobs SET updated_at=?, plan_json=? WHERE id=?",
+                (now(), json.dumps(plan or {}), job_id),
+            )
         return self.get(job_id)
 
     def update(
@@ -201,6 +226,16 @@ class YzuJobStore:
                     (cutoff,),
                 ).fetchone()[0]
             )
+            failed_rows = db.execute(
+                "SELECT title, COALESCE(error, '') FROM jobs WHERE status='failed' AND updated_at >= ?",
+                (cutoff,),
+            ).fetchall()
+            buckets: dict[str, int] = {}
+            for title, error in failed_rows:
+                bucket = _failure_bucket(str(title or ""), str(error or ""))
+                buckets[bucket] = buckets.get(bucket, 0) + 1
+            ops_noise = int(buckets.get("ops_canary", 0) + buckets.get("discover_spam", 0))
+            failed_actionable = max(0, failed_recent - ops_noise)
             pending_oldest = db.execute(
                 "SELECT MIN(created_at) FROM jobs WHERE status='pending_approval'"
             ).fetchone()[0]
@@ -224,6 +259,9 @@ class YzuJobStore:
             "running": base["running"],
             "failed_recent_days": days,
             "failed_recent": failed_recent,
+            "failed_actionable": failed_actionable,
+            "failed_ops_noise": ops_noise,
+            "failed_buckets": buckets,
             "cancelled_recent": cancelled_recent,
             "pending_oldest_age_days": oldest_age_days,
         }
@@ -233,11 +271,14 @@ class YzuJobStore:
             "lifetime": dict(base),
             "actionable": actionable,
             "failed_recent": failed_recent,
+            "failed_actionable": failed_actionable,
+            "failed_ops_noise": ops_noise,
+            "failed_buckets": buckets,
             "cancelled_recent": cancelled_recent,
             "recent_days": days,
             "semantics": (
                 "pending_approval/queued/running are live; "
-                "failed/cancelled are lifetime totals — use failed_recent/"
-                "cancelled_recent for actionable debt"
+                "failed/cancelled are lifetime totals — use failed_actionable "
+                "(excludes canary/discover spam) for desk debt"
             ),
         }

@@ -90,8 +90,11 @@ class YzuOrchestrator:
         return [self.project_job(job) for job in self.store.list(limit=limit, status=status)]
 
     def submit(self, title: str, plan: dict[str, Any], request: dict | None = None, *, auto_approve: bool = False) -> dict:
-        plan = self.validate_plan(plan)
+        from scripts.research_data_mcp.execution_policy import enforce_execution_submit
+
         request = dict(request or {})
+        plan, auto_approve = enforce_execution_submit(plan, request, auto_approve=auto_approve)
+        plan = self.validate_plan(plan)
         status = "queued" if auto_approve and plan.get("launchable", True) else "pending_approval"
         idempotency_key = self._idempotency_job_id(request, plan)
         if idempotency_key:

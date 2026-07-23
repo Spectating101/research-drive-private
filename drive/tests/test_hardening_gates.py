@@ -78,14 +78,56 @@ def test_query_smoke_requires_nonzero_rows(tmp_path: Path):
     repo = tmp_path
     path = repo / "panel.json"
     path.write_text(json.dumps([{"id": 1}, {"id": 2}]), encoding="utf-8")
-    spec = {
-        "dataset_id": "smoke_ok",
-        "backend": "local_json_file",
-        "local_path": str(path),
-    }
-    # ResearchQueryEngine resolves relative to repo_root — use relative path
-    rel = path  # absolute works if engine accepts
-    smoke = prove_query_smoke(repo, {**spec, "local_path": str(path)})
-    # May fail if engine expects repo-relative; accept either ok or clear error shape
-    assert "ok" in smoke
-    assert "rows" in smoke
+    smoke = prove_query_smoke(
+        repo,
+        {"dataset_id": "smoke_ok", "backend": "local_json_file", "local_path": str(path)},
+    )
+    assert smoke["ok"] is True
+    assert smoke["rows"] == 2
+
+
+def test_query_smoke_rejects_empty_and_error_envelope(tmp_path: Path):
+    repo = tmp_path
+    empty = repo / "empty.json"
+    empty.write_text("[]", encoding="utf-8")
+    smoke_empty = prove_query_smoke(
+        repo,
+        {"dataset_id": "smoke_empty", "backend": "local_json_file", "local_path": str(empty)},
+    )
+    assert smoke_empty["ok"] is False
+    assert smoke_empty["rows"] == 0
+
+    err = repo / "err.json"
+    err.write_text(json.dumps({"error": "rate limit exceeded", "status": 429}), encoding="utf-8")
+    smoke_err = prove_query_smoke(
+        repo,
+        {"dataset_id": "smoke_err", "backend": "local_json_file", "local_path": str(err)},
+    )
+    assert smoke_err["ok"] is False
+    assert smoke_err.get("envelope") or smoke_err.get("error")
+
+
+def test_execution_policy_strips_client_ops_and_blocks_auto_approve():
+    from scripts.research_data_mcp.execution_policy import enforce_execution_submit
+
+    plan, auto = enforce_execution_submit(
+        {
+            "job_type": "http_manifest",
+            "url": "https://example.com/a.json",
+            "items": [{"url": "https://example.com/a.json"}],
+            "ops_privileged": True,
+            "launchable": True,
+        },
+        {"ops_privileged": True},
+        auto_approve=True,
+    )
+    assert plan.get("ops_privileged") is not True
+    assert auto is False
+    assert plan["execution_policy"]["scope"] == "faculty"
+
+    with pytest.raises(ValueError):
+        enforce_execution_submit(
+            {"job_type": "registered_pipeline", "pipeline_id": "collection_queue", "ops_privileged": True},
+            {},
+            auto_approve=True,
+        )

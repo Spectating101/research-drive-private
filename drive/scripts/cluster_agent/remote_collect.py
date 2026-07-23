@@ -29,9 +29,9 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 try:
-    from .network_policy import validate_public_http_url
+    from .network_policy import open_pinned_public_url, validate_public_http_url
 except ImportError:  # pragma: no cover - direct script execution
-    from network_policy import validate_public_http_url
+    from network_policy import open_pinned_public_url, validate_public_http_url
 
 CHUNK_SIZE = 1024 * 1024
 DEFAULT_MAX_ITEM_BYTES = 512 * 1024 * 1024
@@ -147,61 +147,76 @@ def _download_item(
     destination = output_dir / name
     temporary = destination.with_suffix(destination.suffix + ".part")
     last_error = ""
-    opener = build_opener(PublicOnlyRedirectHandler())
 
     for attempt in range(1, retries + 2):
         temporary.unlink(missing_ok=True)
         limiter.wait()
         digest = hashlib.sha256()
         total = 0
+        current_url = url
         try:
-            # Re-resolve immediately before every attempt. Redirect targets are
-            # independently checked by PublicOnlyRedirectHandler before follow.
-            _validate_url(url)
-            request = Request(url, headers=headers, method="GET")
-            with opener.open(request, timeout=timeout) as response:
-                status = int(getattr(response, "status", response.getcode()))
-                if status < 200 or status >= 300:
-                    raise RuntimeError(f"HTTP {status}")
-                final_url = str(response.geturl() or url)
-                final_evidence = _validate_url(final_url)
-                length_header = response.headers.get("Content-Length")
-                if length_header:
-                    declared = int(length_header)
-                    if declared > max_bytes:
-                        raise ValueError(f"response exceeds {max_bytes} byte limit")
-                with temporary.open("wb") as handle:
-                    while True:
-                        chunk = response.read(CHUNK_SIZE)
-                        if not chunk:
-                            break
-                        total += len(chunk)
-                        if total > max_bytes:
+            # Manual redirect loop with pin+validate on every hop (no DNS rebind window).
+            for _hop in range(8):
+                evidence = _validate_url(current_url)
+                with open_pinned_public_url(current_url, headers=headers, timeout=timeout) as response:
+                    status = int(response.status)
+                    if status in {301, 302, 303, 307, 308}:
+                        location = str(response.headers.get("Location") or "").strip()
+                        if not location:
+                            raise RuntimeError(f"HTTP {status} without Location")
+                        from urllib.parse import urljoin
+
+                        next_url = urljoin(current_url, location)
+                        _validate_url(next_url)
+                        current_url = next_url
+                        continue
+                    if status < 200 or status >= 300:
+                        raise RuntimeError(f"HTTP {status}")
+                    final_url = current_url
+                    final_evidence = evidence
+                    pinned = getattr(response, "evidence", {}) or {}
+                    length_header = response.headers.get("Content-Length")
+                    if length_header:
+                        declared = int(length_header)
+                        if declared > max_bytes:
                             raise ValueError(f"response exceeds {max_bytes} byte limit")
-                        digest.update(chunk)
-                        handle.write(chunk)
-                    handle.flush()
-                    os.fsync(handle.fileno())
-                if total < 1:
-                    raise ValueError("response body is empty")
-                actual_sha256 = digest.hexdigest()
-                if expected_sha256 and actual_sha256 != expected_sha256:
-                    raise ValueError("response sha256 does not match manifest proof")
-                os.replace(temporary, destination)
-                return ItemResult(
-                    index=index,
-                    url=url,
-                    name=name,
-                    ok=True,
-                    attempts=attempt,
-                    bytes=total,
-                    sha256=actual_sha256,
-                    content_type=str(response.headers.get("Content-Type") or ""),
-                    status=status,
-                    local_path=str(destination),
-                    final_url=final_url,
-                    resolved_addresses=tuple(final_evidence.get("resolved_addresses") or ()),
-                )
+                    with temporary.open("wb") as handle:
+                        while True:
+                            chunk = response.read(CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            total += len(chunk)
+                            if total > max_bytes:
+                                raise ValueError(f"response exceeds {max_bytes} byte limit")
+                            digest.update(chunk)
+                            handle.write(chunk)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    if total < 1:
+                        raise ValueError("response body is empty")
+                    actual_sha256 = digest.hexdigest()
+                    if expected_sha256 and actual_sha256 != expected_sha256:
+                        raise ValueError("response sha256 does not match manifest proof")
+                    os.replace(temporary, destination)
+                    return ItemResult(
+                        index=index,
+                        url=url,
+                        name=name,
+                        ok=True,
+                        attempts=attempt,
+                        bytes=total,
+                        sha256=actual_sha256,
+                        content_type=str(response.headers.get("Content-Type") or ""),
+                        status=status,
+                        local_path=str(destination),
+                        final_url=final_url,
+                        resolved_addresses=tuple(
+                            pinned.get("resolved_addresses")
+                            or final_evidence.get("resolved_addresses")
+                            or ()
+                        ),
+                    )
+            raise RuntimeError("too many redirects")
         except HTTPError as exc:
             last_error = f"HTTP {exc.code}"
         except (URLError, TimeoutError, OSError, RuntimeError, ValueError) as exc:

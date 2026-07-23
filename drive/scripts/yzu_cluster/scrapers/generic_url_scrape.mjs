@@ -11,6 +11,58 @@ import { createHash } from "node:crypto";
 
 const FILE_EXT_RE = /\.(csv|tsv|json|jsonl|zip|gz|parquet|xlsx?|xml|pdf|txt|ndjson)(\?|$)/i;
 
+function isBlockedHostname(hostname) {
+  const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!h) return true;
+  if (
+    h === "localhost" ||
+    h === "localhost.localdomain" ||
+    h === "metadata" ||
+    h === "metadata.google.internal" ||
+    h === "instance-data" ||
+    h.endsWith(".localhost") ||
+    h.endsWith(".local") ||
+    h.endsWith(".internal") ||
+    h.endsWith(".lan") ||
+    h.endsWith(".home")
+  ) {
+    return true;
+  }
+  if (h === "::1" || h === "0:0:0:0:0:0:0:1") return true;
+  // IPv4 private / loopback / link-local / metadata
+  if (/^(127\.|10\.|0\.|169\.254\.|192\.168\.|192\.0\.0\.|192\.0\.2\.|198\.18\.|198\.19\.|198\.51\.100\.|203\.0\.113\.)/.test(h)) {
+    return true;
+  }
+  // 172.16.0.0 – 172.31.255.255
+  const m = h.match(/^172\.(\d+)\./);
+  if (m) {
+    const second = Number(m[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
+}
+
+function isBlockedUrl(raw) {
+  try {
+    const u = new URL(String(raw || ""));
+    if (!["http:", "https:"].includes(u.protocol)) return true;
+    return isBlockedHostname(u.hostname);
+  } catch {
+    return true;
+  }
+}
+
+async function installNetworkGuard(pageOrContext) {
+  await pageOrContext.route("**/*", async (route) => {
+    const target = route.request().url();
+    if (isBlockedUrl(target)) {
+      return route.abort("blockedbyclient");
+    }
+    return route.continue();
+  });
+}
+
+
 function parseArgs(argv) {
   const out = {
     url: "",
@@ -38,6 +90,9 @@ function parseArgs(argv) {
   }
   if (!out.url.startsWith("http")) {
     throw new Error("--url https://... is required");
+  }
+  if (isBlockedUrl(out.url)) {
+    throw new Error(`blocked non-public url: ${out.url}`);
   }
   return out;
 }
@@ -69,6 +124,9 @@ async function loadPlaywright() {
 }
 
 async function fetchFallback(url, timeoutMs) {
+  if (isBlockedUrl(url)) {
+    throw new Error(`blocked non-public url: ${url}`);
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -77,6 +135,10 @@ async function fetchFallback(url, timeoutMs) {
       headers: { "User-Agent": "YZU-GenericScraper/1.0 (+research procurement)" },
       redirect: "follow",
     });
+    // fetch follows redirects; reject final URL if private.
+    if (response.url && isBlockedUrl(response.url)) {
+      throw new Error(`blocked non-public redirect target: ${response.url}`);
+    }
     const text = await response.text();
     const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
     const links = [];
@@ -123,16 +185,23 @@ async function playwrightExtract(url, mode, timeoutMs) {
   const context = await browser.newContext({
     userAgent: "YZU-GenericScraper/1.0 (+research procurement)",
   });
+  await installNetworkGuard(context);
   const page = await context.newPage();
   page.setDefaultNavigationTimeout(timeoutMs);
   page.setDefaultTimeout(timeoutMs);
   try {
+    if (isBlockedUrl(url)) {
+      throw new Error(`blocked non-public url: ${url}`);
+    }
     let response;
     try {
       response = await page.goto(url, { waitUntil: "networkidle", timeout: timeoutMs });
     } catch {
       response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
       await page.waitForTimeout(2000);
+    }
+    if (page.url() && isBlockedUrl(page.url())) {
+      throw new Error(`blocked non-public navigation target: ${page.url()}`);
     }
     const title = normalizeText(await page.title());
     const metaDescription = normalizeText(
@@ -216,8 +285,11 @@ function resolvePlaywrightLaunch(url) {
   }
   const launchOpts = {
     headless,
-    args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+    args: ["--disable-blink-features=AutomationControlled"],
   };
+  if (["1", "true", "yes"].includes(String(process.env.PLAYWRIGHT_NO_SANDBOX || "").toLowerCase())) {
+    launchOpts.args.push("--no-sandbox");
+  }
   const channel = process.env.PLAYWRIGHT_CHANNEL || (etherscan ? "chrome" : "");
   if (channel) launchOpts.channel = channel;
   return launchOpts;
@@ -282,6 +354,10 @@ async function playwrightCatalog(startUrl, config, timeoutMs) {
     throw new Error("catalog mode requires Playwright");
   }
   const { browser, context, persistent } = await launchCatalogBrowser(chromium, startUrl);
+  await installNetworkGuard(context);
+  if (isBlockedUrl(startUrl)) {
+    throw new Error(`blocked non-public url: ${startUrl}`);
+  }
   const page = context.pages()[0] || (await context.newPage());
   page.setDefaultNavigationTimeout(timeoutMs);
   page.setDefaultTimeout(timeoutMs);
@@ -781,6 +857,10 @@ async function playwrightSingleToken(tokenUrl, outDir, timeoutMs) {
   const tokensDir = path.join(outDir, "tokens");
   await fs.mkdir(tokensDir, { recursive: true });
   const { browser, context, persistent } = await launchCatalogBrowser(chromium, tokenUrl);
+  await installNetworkGuard(context);
+  if (isBlockedUrl(tokenUrl)) {
+    throw new Error(`blocked non-public url: ${tokenUrl}`);
+  }
   const page = context.pages()[0] || (await context.newPage());
   page.setDefaultNavigationTimeout(timeoutMs);
   page.setDefaultTimeout(timeoutMs);

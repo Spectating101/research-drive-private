@@ -476,6 +476,42 @@ def registry_spec_from_materialized(
     return spec
 
 
+def _looks_like_error_envelope(rows: list[Any]) -> str | None:
+    """Detect common API error / non-data envelopes that are syntactically valid JSON."""
+    if not rows:
+        return "zero_rows"
+    if len(rows) == 1 and isinstance(rows[0], dict):
+        row = {str(k).lower(): v for k, v in rows[0].items()}
+        keys = set(row)
+        err_keys = {"error", "errors", "message", "detail", "status", "code"}
+        data_keys = {
+            "id",
+            "ids",
+            "results",
+            "data",
+            "items",
+            "records",
+            "features",
+            "rows",
+            "peggedassets",
+            "date",
+            "timestamp",
+            "value",
+            "values",
+        }
+        blob = " ".join(str(v).lower() for v in row.values() if isinstance(v, (str, int, float)))
+        if any(tok in blob for tok in ("rate limit", "too many requests", "unauthorized", "forbidden", "not found")):
+            if not (keys & data_keys - err_keys):
+                return "api_error_envelope"
+        if keys <= err_keys or (keys & {"error", "errors"} and not (keys & data_keys)):
+            return "api_error_envelope"
+        # Single documentation/status object with no tabular grain.
+        if keys <= {"status", "ok", "documentation", "docs", "message", "version", "gecko_says"} and "gecko_says" not in keys:
+            if "documentation" in keys or (keys == {"status", "ok"} or keys == {"status"}):
+                return "non_tabular_status_document"
+    return None
+
+
 def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) -> dict[str, Any]:
     """Bounded parser/query smoke against a registry spec (no registry upsert required)."""
     from scripts.research_query_engine.engine import ResearchQueryEngine, QueryResult
@@ -485,8 +521,16 @@ def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) 
         return {"ok": False, "error": "missing dataset_id", "rows": 0}
     backend = str(spec.get("backend") or "")
     try:
-        engine = ResearchQueryEngine(repo_root=repo_root)
-        params = {"limit": limit}
+        # Smoke must not require a full desk registry — use an ephemeral stub.
+        registry_path = repo_root / "config" / "research_query_registry.json"
+        if not registry_path.is_file():
+            registry_path.parent.mkdir(parents=True, exist_ok=True)
+            registry_path.write_text(
+                json.dumps({"version": 1, "datasets": [], "updated_at": _now()}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        engine = ResearchQueryEngine(registry_path=registry_path, repo_root=repo_root)
+        params = {"limit": max(limit, 5)}
         ds = dict(spec)
         if backend == "local_json_file":
             result = engine._query_local_json_file(ds, params)
@@ -504,14 +548,22 @@ def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) 
         if isinstance(result, QueryResult) and not rows and hasattr(result, "data"):
             rows = list(result.data or [])
         n = len(rows)
-        ok = n > 0
+        envelope = _looks_like_error_envelope(rows)
+        # CoinGecko ping {"gecko_says": "..."} is a legitimate 1-row API health land.
+        if envelope == "non_tabular_status_document" and any(
+            isinstance(r, dict) and ("gecko_says" in r or "gecko_says" in {str(k).lower() for k in r})
+            for r in rows
+        ):
+            envelope = None
+        ok = n > 0 and envelope is None
         return {
             "ok": ok,
             "rows": n,
-            "error": None if ok else "zero_rows",
+            "error": None if ok else (envelope or "zero_rows"),
             "revision_id": spec.get("revision_id"),
             "dataset_id": dataset_id,
             "backend": backend,
+            "envelope": envelope,
         }
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": str(exc)[:400], "rows": 0, "dataset_id": dataset_id, "backend": backend}

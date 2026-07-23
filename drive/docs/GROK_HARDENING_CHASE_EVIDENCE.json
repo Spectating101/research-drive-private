@@ -1,0 +1,37 @@
+{
+  "title": "Invariant hardening chase (post-Friday gates)",
+  "recorded_at": "2026-07-23T13:30:00+00:00",
+  "parent_sha": "f6a363dbcc33546e4dda11975f83d211e67b90f0",
+  "unit_tests": {
+    "suites": [
+      "drive/tests/test_craft_collect.py",
+      "drive/tests/test_network_policy.py",
+      "drive/tests/test_faculty_profile_regressions.py",
+      "drive/tests/test_hardening_gates.py",
+      "tests/test_acquisition_manifest.py"
+    ],
+    "passed": 36,
+    "failed": 0
+  },
+  "invariants_landed": [
+    "YzuOrchestrator.submit always runs enforce_execution_submit (path-independent)",
+    "HTTP collect uses open_pinned_public_url (DNS pin + Host/SNI)",
+    "Windows packaging ships network_policy.py sibling with remote_collect.py",
+    "generic_url_scrape.mjs installNetworkGuard aborts private/metadata hosts",
+    "prove_query_smoke uses ephemeral registry stub; rejects empty arrays + error envelopes",
+    "local_json_file empty [] returns 0 rows (no fake value wrapper)",
+    "DataCite + HuggingFace promote: query_ready only after smoke ok (no extension-only instant)"
+  ],
+  "live_dns_pin_smoke": {
+    "url": "https://api.github.com/zen",
+    "http_status": 200,
+    "pinned_address": "20.27.177.116",
+    "ok": true
+  },
+  "still_open": [
+    "exact-SHA CI gate",
+    "browser subresource DNS pin (guard is hostname-only today)",
+    "multi-tenant SLOs / unattended public platform",
+    "full AI pipeline compiler"
+  ]
+}

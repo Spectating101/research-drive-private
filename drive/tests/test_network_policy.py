@@ -88,3 +88,12 @@ def test_manifest_rejects_private_target_without_attempting_download(tmp_path: P
     assert report["items"][0]["attempts"] == 0
     assert "not public" in report["items"][0]["error"]
     assert not artifact.exists()
+
+
+def test_pick_pinned_address_prefers_ipv4():
+    from scripts.cluster_agent.network_policy import pick_pinned_address
+
+    pinned = pick_pinned_address(
+        {"resolved_addresses": ["2606:4700:4700::1111", "8.8.8.8"]}
+    )
+    assert pinned == "8.8.8.8"

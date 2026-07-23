@@ -694,6 +694,17 @@ class ResearchQueryEngine:
                     rows,
                     {"path": str(path), "returned": len(rows), "record_shape": "json_array", "params": params},
                 )
+            # Empty / non-object arrays are zero queryable rows — do not wrap as {"value": []}.
+            return QueryResult(
+                ds["dataset_id"],
+                [],
+                {
+                    "path": str(path),
+                    "returned": 0,
+                    "record_shape": "json_array_empty",
+                    "params": params,
+                },
+            )
 
         # Ordinary document / scalar JSON remains one row.
         if fields:
