@@ -128,6 +128,8 @@ class YzuScheduler:
                 "schedule_id": schedule_id,
                 "idempotency_key": idempotency_key,
                 "source": "yzu_scheduler",
+                # Trusted controller path — never client-supplied ops_privileged.
+                "_ops_internal": True,
             },
             "idempotency_key": idempotency_key,
             "auto_approve": bool(item.get("auto_approve", True)),
