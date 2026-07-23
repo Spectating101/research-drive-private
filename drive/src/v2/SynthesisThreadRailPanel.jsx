@@ -11,6 +11,14 @@ function text(value, fallback = "Not reported") {
   return String(value || "").trim() || fallback;
 }
 
+function compactObjective(value) {
+  const full = text(value, "A durable research-construction thread.").replace(/\s+/g, " ");
+  const limit = 300;
+  if (full.length <= limit) return full;
+  const boundary = full.lastIndexOf(" ", limit - 1);
+  return `${full.slice(0, boundary > 0 ? boundary : limit).trim()}…`;
+}
+
 function stateSummary(thread) {
   const state = thread?.state || {};
   const execution = state.execution || {};
@@ -69,7 +77,7 @@ export function SynthesisThreadRailPanel({ thread, onAskAbout, onOpenInLibrary }
     <RailFrame>
       <RailEntityHeader
         title={thread?.title || state.title || "Synthesis thread"}
-        description={thread?.objective || state.objective || "A durable research-construction thread."}
+        description={compactObjective(thread?.objective || state.objective)}
       />
       <RailDecisionSummary {...summary} />
       <RailFieldGrid>

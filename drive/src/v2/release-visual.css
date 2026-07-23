@@ -502,8 +502,10 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
-  overflow: hidden; /* desktop: no page scroll — freeze rule */
-  max-height: calc(100vh - 88px);
+  /* Content-rich resume points can be taller than the first viewport. Let
+     the page scroll rather than shrinking the top band beneath its children. */
+  overflow: visible;
+  max-height: none;
 }
 
 .rd-v2-home-topband {
@@ -512,6 +514,41 @@
   gap: 16px;
   align-items: stretch;
   min-height: 0;
+  flex: 0 0 auto;
+}
+
+/* Resources needs one quiet content inset before its capacity meters and
+   source ledger. Without it, the headings touch the outer workspace edge. */
+.rd-v2-res-wire-band {
+  margin: 0;
+  padding: 18px 20px 22px;
+}
+
+.rd-v2-res-wire-band + .rd-v2-res-wire-band {
+  border-top: 1px solid var(--rd-release-line);
+}
+
+.rd-v2-res-wire-title {
+  margin-bottom: 14px;
+}
+
+.rd-v2-res-source-ledger {
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.rd-v2-res-source-family h3 {
+  margin: 2px 2px 8px;
+}
+
+/* Profile sections already sit in a flex column. Remove their additional
+   bottom margin so Memory and Works do not create a double-size gap. */
+.rd-v2-profile-page .rd-v2-body-scroll {
+  gap: 12px;
+}
+
+.rd-v2-profile-section {
+  margin-bottom: 0;
 }
 
 .rd-v2-home-pickup {
@@ -934,14 +971,34 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  height: 100%;
+  min-height: 0;
 }
 .rd-v2-sidebar-wire .rd-v2-sidebar-nav {
   flex: 0 0 auto;
+  /* Soft gap under primary destinations before Active research — not flush, not large. */
+  padding-bottom: 6px;
+  margin-bottom: 2px;
 }
 .rd-v2-sidebar-context,
 .rd-v2-sidebar-recent {
-  padding: 14px 12px 10px;
+  /* Nudge context/recent up after Profile/Settings left the primary stack. */
+  padding: 10px 12px 8px;
   border-top: 1px solid #e8ecf3;
+  flex: 0 0 auto;
+}
+.rd-v2-sidebar-recent {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.rd-v2-sidebar-foot-nav {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 8px 12px 10px;
+  border-top: 1px solid #e8ecf3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .rd-v2-sidebar-kicker {
   margin: 0 0 6px;
