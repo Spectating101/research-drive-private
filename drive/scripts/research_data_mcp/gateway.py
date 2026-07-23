@@ -1484,7 +1484,7 @@ class ResearchDataGateway:
         limit: int = 10,
         force_subscription_id: str = "",
         force: bool = False,
-        auto_approve_safe: bool = True,
+        auto_approve_safe: bool = False,
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_refresh_runner import tick_discover_refresh
 
@@ -1690,7 +1690,7 @@ class ResearchDataGateway:
         thread_id: str,
         *,
         evidence_ids: list[str] | None = None,
-        auto_approve_safe: bool = True,
+        auto_approve_safe: bool = False,
         limit: int = 8,
     ) -> dict:
         """Submit Discover collect jobs for resolvable missing-evidence intents.

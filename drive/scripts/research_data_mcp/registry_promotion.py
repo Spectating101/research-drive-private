@@ -246,6 +246,8 @@ class RegistryPromoter:
         if job.get("status") != "completed":
             return []
         self.reload_map()
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+
         promoted = []
         for task_id in self._task_ids_from_job(job):
             spec = self._spec_for_task(task_id, job, campaign_id)
@@ -254,6 +256,14 @@ class RegistryPromoter:
             local_path = spec.get("local_path") or spec.get("local_root")
             if local_path and not self._artifact_exists(local_path):
                 continue
+            smoke = prove_query_smoke(self.repo_root, spec, limit=3)
+            spec["query_smoke"] = smoke
+            if smoke.get("ok"):
+                spec["analysis_readiness"] = "query_ready"
+                spec["source_access_mode"] = spec.get("source_access_mode") or "materialized_query_ready"
+            else:
+                # Honest: archived/registered bytes exist, but not proven queryable yet.
+                spec["analysis_readiness"] = "registered"
             entry = self._upsert_dataset(spec, task_id=task_id, job_id=job.get("id", ""), campaign_id=campaign_id)
             promoted.append(entry)
         return promoted

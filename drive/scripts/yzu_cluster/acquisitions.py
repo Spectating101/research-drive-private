@@ -236,14 +236,28 @@ def materialize_job(
 
     staged_files = _dedupe_files(staged_files)
     validation = validate_staging(staging, staged_files, plan)
-    canonical = canonical_dir(repo_root, plan, job_id, cfg)
+    dataset_root = canonical_dir(repo_root, plan, job_id, cfg)
+    revision_id = str(plan.get("revision_id") or f"rev_{job_id}").strip()
+    plan["revision_id"] = revision_id
+    # Immutable revision tree; CURRENT pointer selects the live query path.
+    canonical = dataset_root / "revisions" / revision_id
     promoted_files: list[dict[str, Any]] = []
     if validation.get("ok") and staged_files:
         canonical.mkdir(parents=True, exist_ok=True)
         for row in staged_files:
             src = Path(row["path"])
             dst = canonical / src.name
-            shutil.copy2(src, dst)
+            # Never overwrite an existing revision file with different bytes.
+            if dst.exists():
+                existing = _sha256_file(dst)
+                incoming = str(row.get("sha256") or _sha256_file(src))
+                if existing != incoming:
+                    raise RuntimeError(
+                        f"immutable revision collision: {dst} already stores {existing[:12]}… "
+                        f"but incoming is {incoming[:12]}…"
+                    )
+            else:
+                shutil.copy2(src, dst)
             promoted_files.append(
                 {
                     "name": dst.name,
@@ -252,17 +266,34 @@ def materialize_job(
                     "sha256": _sha256_file(dst),
                 }
             )
+        current_ptr = {
+            "dataset_id": dataset_id_for_plan(plan, job_id),
+            "revision_id": revision_id,
+            "job_id": job_id,
+            "canonical_dir": repo_relpath(canonical, repo_root),
+            "updated_at": _now(),
+            "file_count": len(promoted_files),
+            "content_sha256": sorted(f.get("sha256") or "" for f in promoted_files),
+        }
+        dataset_root.mkdir(parents=True, exist_ok=True)
+        (dataset_root / "CURRENT.json").write_text(
+            json.dumps(current_ptr, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
 
     meta = {
         "job_id": job_id,
         "materialized_at": _now(),
+        "revision_id": revision_id,
         "plan": {
             "job_type": plan.get("job_type"),
             "connector_id": plan.get("connector_id"),
             "url": plan.get("url"),
             "title": plan.get("title"),
+            "revision_id": revision_id,
         },
         "staging_dir": repo_relpath(staging, repo_root),
+        "dataset_root": repo_relpath(dataset_root, repo_root) if dataset_root.exists() else "",
         "canonical_dir": repo_relpath(canonical, repo_root) if canonical.exists() else "",
         "dataset_id": dataset_id_for_plan(plan, job_id),
         "files": promoted_files or staged_files,
@@ -387,21 +418,23 @@ def registry_spec_from_materialized(
     else:
         local_path = f"{canonical}/*"
     suffix = _suffix_for_materialized_file(Path(repo_root), str(canonical), files[0], plan)
-    readiness = "metadata_search"
+    # Do not claim instant/query_ready from extension sniff alone — smoke upgrades later.
+    readiness = "registered"
     if suffix in {".csv", ".tsv"}:
         backend = "local_csv_glob" if "*" in local_path else "local_csv_file"
-        if "*" not in local_path:
-            readiness = "instant"
     elif suffix in {".json", ".jsonl", ".geojson", ".ndjson"}:
         backend = "local_json_glob" if "*" in local_path else "local_json_file"
-        if "*" not in local_path and int(files[0].get("bytes") or 0) <= 50_000_000:
-            readiness = "instant"
     elif suffix == ".parquet":
         backend = "local_parquet_panel"
-        readiness = "instant"
     else:
         backend = "local_json_glob" if "*" in local_path else "local_file"
     title = str(plan.get("title") or dataset_id)
+    revision_id = str(
+        plan.get("revision_id")
+        or materialized.get("revision_id")
+        or (job.get("plan") or {}).get("revision_id")
+        or ""
+    ).strip()
     spec: dict[str, Any] = {
         "dataset_id": dataset_id,
         "name": title[:240],
@@ -424,10 +457,8 @@ def registry_spec_from_materialized(
         panel_path = Path(local_path)
         spec["local_root"] = str(panel_path.parent)
         spec["local_file"] = panel_path.name
-    if readiness == "instant" and not spec.get("source_access_mode"):
-        spec["source_access_mode"] = "materialized_instant"
-    if plan.get("revision_id"):
-        spec["revision_id"] = str(plan["revision_id"])
+    if revision_id:
+        spec["revision_id"] = revision_id
     if campaign_id:
         spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True}
     if plan.get("job_type") == "synthesis_execute":
@@ -443,6 +474,47 @@ def registry_spec_from_materialized(
         lineage["derived_via"] = "synthesis_execute"
         spec["lineage"] = lineage
     return spec
+
+
+def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) -> dict[str, Any]:
+    """Bounded parser/query smoke against a registry spec (no registry upsert required)."""
+    from scripts.research_query_engine.engine import ResearchQueryEngine, QueryResult
+
+    dataset_id = str(spec.get("dataset_id") or "").strip()
+    if not dataset_id:
+        return {"ok": False, "error": "missing dataset_id", "rows": 0}
+    backend = str(spec.get("backend") or "")
+    try:
+        engine = ResearchQueryEngine(repo_root=repo_root)
+        params = {"limit": limit}
+        ds = dict(spec)
+        if backend == "local_json_file":
+            result = engine._query_local_json_file(ds, params)
+        elif backend == "local_json_glob":
+            result = engine._query_local_json_glob(ds, params)
+        elif backend in {"local_csv_file", "local_csv_glob"}:
+            result = engine._query_local_csv_file(ds, params)
+        elif backend == "local_parquet_panel":
+            result = engine._query_local_parquet_panel(ds, params)
+        elif backend == "local_file":
+            result = engine._query_local_file_tree(ds, params)
+        else:
+            return {"ok": False, "error": f"unsupported smoke backend {backend}", "rows": 0}
+        rows = list(getattr(result, "rows", None) or [])
+        if isinstance(result, QueryResult) and not rows and hasattr(result, "data"):
+            rows = list(result.data or [])
+        n = len(rows)
+        ok = n > 0
+        return {
+            "ok": ok,
+            "rows": n,
+            "error": None if ok else "zero_rows",
+            "revision_id": spec.get("revision_id"),
+            "dataset_id": dataset_id,
+            "backend": backend,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": str(exc)[:400], "rows": 0, "dataset_id": dataset_id, "backend": backend}
 
 
 def enrich_http_manifest_plan(plan: dict[str, Any], procurement: Any, *, domain_packs: list[dict[str, Any]] | None = None) -> dict[str, Any]:

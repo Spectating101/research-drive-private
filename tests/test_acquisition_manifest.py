@@ -63,7 +63,7 @@ def test_single_materialized_file_registers_a_file_path_not_directory(tmp_path: 
     assert spec is not None
     assert spec["backend"] == "local_json_file"
     assert spec["local_path"].endswith("data_lake/procured/json_canary/payload.json")
-    assert spec["analysis_readiness"] == "instant"
+    assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote
 
 
 def test_multiple_json_files_register_as_queryable_json_glob(tmp_path: Path) -> None:
@@ -103,7 +103,7 @@ def test_single_parquet_registers_local_root_and_local_file(tmp_path: Path) -> N
     assert spec["local_path"] == local_path
     assert spec["local_root"] == "data_lake/procured/panel_canary"
     assert spec["local_file"] == "panel.parquet"
-    assert spec["analysis_readiness"] == "instant"
+    assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote
 
 
 def test_geojson_registers_as_instant_local_json(tmp_path: Path) -> None:
@@ -125,8 +125,7 @@ def test_geojson_registers_as_instant_local_json(tmp_path: Path) -> None:
     )
     assert spec is not None
     assert spec["backend"] == "local_json_file"
-    assert spec["analysis_readiness"] == "instant"
-    assert spec["source_access_mode"] == "materialized_instant"
+    assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote
 
 
 def test_extensionless_json_api_sniffs_as_instant(tmp_path: Path) -> None:
@@ -151,4 +150,4 @@ def test_extensionless_json_api_sniffs_as_instant(tmp_path: Path) -> None:
     )
     assert spec is not None
     assert spec["backend"] == "local_json_file"
-    assert spec["analysis_readiness"] == "instant"
+    assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote

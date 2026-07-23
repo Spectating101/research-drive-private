@@ -90,11 +90,31 @@ def validate_generic_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
     return out
 
 
-def enforce_submit_doctrine(plan: dict[str, Any] | None) -> dict[str, Any]:
-    """Hard gate for HTTP/MCP job submit — refuse named vendor product pipelines.
+# Ops/system job types (never faculty/Composer acquisition surface).
+OPS_JOB_TYPES = frozenset(
+    {
+        "archive_upload",
+        "collection_hydrate",
+        "bigquery_query",
+        "synthesis_execute",
+        "harvest_shard",
+        "registered_pipeline",
+        "collection_queue_task",
+        "collection_queue_batch",
+    }
+)
 
-    Non-collect jobs (archive_upload, hydrate, synthesis, …) pass through unless an
-    executable slot carries a forbidden product id.
+
+def enforce_submit_doctrine(
+    plan: dict[str, Any] | None,
+    *,
+    scope: str = "faculty",
+) -> dict[str, Any]:
+    """Positive capability boundary for job submit.
+
+    * ``faculty`` (default): only ``http_manifest`` / ``scraper_run`` / ``source_probe``.
+    * ``ops``: broader ops job types, still refuses named vendor product ids.
+      Mark plan with ``ops_privileged=True`` (or pass ``scope='ops'``).
     """
     if not isinstance(plan, dict):
         raise ValueError("plan must be an object")
@@ -106,8 +126,21 @@ def enforce_submit_doctrine(plan: dict[str, Any] | None) -> dict[str, Any]:
                 "Use research_craft_collect_plan for a generic custom pipeline."
             )
     job_type = str(plan.get("job_type") or "").strip()
+    ops = scope == "ops" or bool(plan.get("ops_privileged"))
+    if not ops:
+        if job_type not in GENERIC_JOB_TYPES:
+            raise ValueError(
+                f"Faculty/desk submit allows only {sorted(GENERIC_JOB_TYPES)}; got {job_type!r}. "
+                "Ops/system jobs require ops_privileged=true."
+            )
+        return validate_generic_plan(plan)
     if job_type in GENERIC_JOB_TYPES or plan.get("crafted") or plan.get("pipeline") == "custom":
         return validate_generic_plan(plan)
+    if job_type and job_type not in OPS_JOB_TYPES:
+        raise ValueError(
+            f"Ops submit rejects unknown job_type={job_type!r}; "
+            f"allowed ops types={sorted(OPS_JOB_TYPES)}"
+        )
     return plan
 
 

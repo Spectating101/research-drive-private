@@ -284,7 +284,7 @@ def _handlers() -> dict[str, Handler]:
     def health(stack, query, payload, params):
         # Soft cadence nudge — safe no-op when nothing is due / tick busy.
         try:
-            stack.gateway.discover_refresh_tick(limit=3, auto_approve_safe=True)
+            stack.gateway.discover_refresh_tick(limit=3, auto_approve_safe=False)
         except Exception:  # noqa: BLE001
             pass
         return stack.gateway.desk_health(live=_live_flag(query))
@@ -709,7 +709,7 @@ def _handlers() -> dict[str, Handler]:
             limit=int(body.get("limit") or query.get("limit") or 10),
             force_subscription_id=str(body.get("subscription_id") or ""),
             force=bool(body.get("force")),
-            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+            auto_approve_safe=body.get("auto_approve_safe", False) not in {False, "0", "false", "no"},
         )
         _activity(
             stack,
@@ -725,7 +725,7 @@ def _handlers() -> dict[str, Handler]:
             limit=1,
             force_subscription_id=params["subscription_id"],
             force=True,
-            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+            auto_approve_safe=body.get("auto_approve_safe", False) not in {False, "0", "false", "no"},
         )
         _activity(stack, "refresh_run", params["subscription_id"], meta={"fired": len(out.get("fired") or [])})
         return out
@@ -886,7 +886,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.synthesis_thread_collect_missing(
             params["thread_id"],
             evidence_ids=list(body.get("evidence_ids") or []),
-            auto_approve_safe=bool(body.get("auto_approve_safe", True)),
+            auto_approve_safe=bool(body.get("auto_approve_safe", False)),
             limit=int(body.get("limit") or 8),
         )
 
@@ -1177,7 +1177,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.jobs.submit(
             str(payload.get("title") or "Archive to GDrive"),
             plan,
-            auto_approve=bool(payload.get("auto_approve", True)),
+            auto_approve=bool(payload.get("auto_approve", False)),
         )
 
     def yzu_status(stack, query, payload, params):

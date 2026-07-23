@@ -62,14 +62,34 @@ def test_enforce_submit_rejects_vendor_before_queue():
         )
 
 
-def test_enforce_submit_allows_archive_upload():
+def test_enforce_submit_allows_archive_upload_only_with_ops_flag():
     from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
+    import pytest
 
+    with pytest.raises(ValueError, match="Faculty/desk"):
+        enforce_submit_doctrine(
+            {"job_type": "archive_upload", "local_path": "/tmp/x", "launchable": True}
+        )
     plan = enforce_submit_doctrine(
-        {"job_type": "archive_upload", "local_path": "/tmp/x", "launchable": True}
+        {
+            "job_type": "archive_upload",
+            "local_path": "/tmp/x",
+            "launchable": True,
+            "ops_privileged": True,
+        }
     )
     assert plan["job_type"] == "archive_upload"
     assert plan.get("crafted") is not True
+
+
+def test_faculty_rejects_registered_pipeline_even_without_vendor_name():
+    from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
+    import pytest
+
+    with pytest.raises(ValueError, match="Faculty/desk"):
+        enforce_submit_doctrine(
+            {"job_type": "registered_pipeline", "pipeline_id": "collection_queue", "launchable": True}
+        )
 
 
 def test_forbidden_product_ids():

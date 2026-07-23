@@ -30,8 +30,10 @@ class JobService:
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
 
-        # Fail-loud before queue: named vendor product pipelines are not desk collect.
-        plan = enforce_submit_doctrine(plan if isinstance(plan, dict) else None)
+        request = dict(request or {})
+        # Fail-loud before queue: faculty = primitives only; ops via ops_privileged.
+        scope = "ops" if (plan or {}).get("ops_privileged") or request.get("ops_privileged") else "faculty"
+        plan = enforce_submit_doctrine(plan if isinstance(plan, dict) else None, scope=scope)
         validated = self.validate(plan)
         if not validated.get("launchable", True):
             return {
@@ -39,7 +41,7 @@ class JobService:
                 "plan": validated,
                 "error": validated.get("validation_error", "plan not launchable"),
             }
-        job = self.orchestrator.submit(title, validated, request or {}, auto_approve=auto_approve)
+        job = self.orchestrator.submit(title, validated, request, auto_approve=auto_approve)
         return {"job": enrich_job_identity(job), "plan": validated}
 
     def approve(self, job_id: str) -> dict[str, Any]:
@@ -63,7 +65,7 @@ class JobService:
         gateway = getattr(self, "gateway", None) or getattr(self.campaign_runner, "gateway", None)
         if gateway is not None and hasattr(gateway, "discover_refresh_tick"):
             try:
-                gateway.discover_refresh_tick(limit=5, auto_approve_safe=True)
+                gateway.discover_refresh_tick(limit=5, auto_approve_safe=False)
             except Exception:  # noqa: BLE001
                 pass
         job = self.orchestrator.worker_tick()
@@ -84,6 +86,7 @@ class JobService:
             "local_path": local_path,
             "launchable": True,
             "verify": verify,
+            "ops_privileged": True,
         }
         if remote_suffix:
             plan["remote_suffix"] = remote_suffix

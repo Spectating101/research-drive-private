@@ -180,6 +180,18 @@ class YzuExecutor:
         pipeline = self.pipelines().get(pipeline_id)
         if not pipeline:
             raise ValueError(f"pipeline is not registered: {pipeline_id}")
+        if pipeline.get("enabled") is False or pipeline.get("legacy_quarantine"):
+            raise ValueError(
+                f"pipeline {pipeline_id!r} is disabled/quarantined; "
+                "craft a generic http_manifest/scraper_run/source_probe instead"
+            )
+        from scripts.research_data_mcp.craft_collect import is_forbidden_product_id
+
+        if is_forbidden_product_id(str(pipeline_id)):
+            raise ValueError(
+                f"pipeline {pipeline_id!r} is a named vendor product lane; "
+                "use research_craft_collect_plan"
+            )
         command = [str(part) for part in pipeline["command"]]
         pool = str(pipeline.get("pool", "optiplex"))
         if pool == "windows_lab":

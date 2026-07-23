@@ -35,16 +35,11 @@ def should_auto_approve_plan(
     if job_type in NEVER_AUTO_APPROVE:
         if job_type == "registered_pipeline" and is_trusted_plan(plan, magic_cfg, queue_tasks=queue_tasks):
             return True
-        if job_type == "scraper_run" and plan.get("agent_initiated"):
-            auto = (magic_cfg.get("auto_approve") or {}).get("agent_spectator_scrape", True)
-            url = str(plan.get("url") or "")
-            script_key = str(plan.get("script_key") or "generic_url_scrape")
-            if auto and url.startswith("http") and script_key in {"", "generic_url_scrape"}:
-                return True
+        # Agent-initiated scrapes no longer auto-approve — researcher must confirm.
         return False
 
     governance = load_governance(repo_root)
-    if not governance.get("auto_approve_chat_collect", True):
+    if not governance.get("auto_approve_chat_collect", False):
         return False
 
     if is_trusted_plan(plan, magic_cfg, queue_tasks=queue_tasks):
@@ -52,8 +47,9 @@ def should_auto_approve_plan(
 
     if job_type == "http_manifest":
         if is_datacite_collect_plan(plan):
-            return True
-        if governance.get("auto_approve_public_http_manifest", True) and (
+            # DataCite collect still lands as pending unless magic explicitly allows.
+            return bool((magic_cfg.get("research") or {}).get("auto_collect_datacite"))
+        if governance.get("auto_approve_public_http_manifest", False) and (
             plan.get("public_direct_url") or plan.get("local_collect")
         ):
             collect_class = str(plan.get("collect_class") or "")

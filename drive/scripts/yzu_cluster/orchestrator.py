@@ -182,6 +182,21 @@ class YzuOrchestrator:
             if plan.get("pipeline_id") not in self.executor.pipelines():
                 plan["launchable"] = False
                 plan["validation_error"] = "pipeline is not registered"
+            else:
+                pipe = self.executor.pipelines().get(str(plan.get("pipeline_id") or "")) or {}
+                if pipe.get("enabled") is False or pipe.get("legacy_quarantine"):
+                    plan["launchable"] = False
+                    plan["validation_error"] = (
+                        f"pipeline {plan.get('pipeline_id')!r} is disabled/quarantined"
+                    )
+                else:
+                    from scripts.research_data_mcp.craft_collect import is_forbidden_product_id
+
+                    if is_forbidden_product_id(str(plan.get("pipeline_id") or "")):
+                        plan["launchable"] = False
+                        plan["validation_error"] = (
+                            f"pipeline {plan.get('pipeline_id')!r} is a named vendor product lane"
+                        )
         elif job_type == "collection_queue_task":
             if not plan.get("task_id"):
                 plan["launchable"] = False
