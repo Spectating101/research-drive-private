@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "description": "Drive registry datasets that feed alpha research. Live cycle reads local panels via kernel; MCP/API used for inventory and supply asks only.",
+  "query_engine_url_env": "RQE_URL",
+  "default_query_engine_url": "http://127.0.0.1:8765",
+  "datasets": [
+    {
+      "dataset_id": "cross_asset_fused_primary_panel",
+      "priority": "P0",
+      "role": "overlay_vol_dispersion",
+      "max_age_days": 21,
+      "join_keys": ["country_iso3", "week_end"]
+    },
+    {
+      "dataset_id": "asia_country_week_news_market_primary",
+      "priority": "P0",
+      "role": "country_week_news_market",
+      "max_age_days": 21,
+      "join_keys": ["country_iso3", "week_end"]
+    },
+    {
+      "dataset_id": "ticker_week_entity_market_panel",
+      "priority": "P1",
+      "role": "ticker_week_features",
+      "max_age_days": 21,
+      "join_keys": ["yahoo_symbol", "week_end"]
+    },
+    {
+      "dataset_id": "daily_ticker_entity_shock_panel",
+      "priority": "P1",
+      "role": "ticker_day_shock_features",
+      "max_age_days": 14,
+      "join_keys": ["yahoo_symbol", "date"]
+    },
+    {
+      "dataset_id": "refinitiv_estimate_revision_panel",
+      "priority": "P2",
+      "role": "estimate_revision_features",
+      "max_age_days": 30,
+      "join_keys": ["ric", "date"]
+    },
+    {
+      "dataset_id": "refinitiv_us_risk_overlay",
+      "priority": "P2",
+      "role": "us_risk_features",
+      "max_age_days": 14,
+      "join_keys": ["ric", "date"]
+    },
+    {
+      "dataset_id": "public_macro_ff_factors_daily",
+      "priority": "P2",
+      "role": "factor_attribution",
+      "max_age_days": 14,
+      "join_keys": ["date"]
+    },
+    {
+      "dataset_id": "public_equity_us_sp500_yfinance_daily",
+      "priority": "P3",
+      "role": "universe_expand",
+      "max_age_days": 7,
+      "join_keys": ["date", "yahoo_symbol"]
+    },
+    {
+      "dataset_id": "pit_index_revision_momentum",
+      "priority": "P3",
+      "role": "revision_momentum_candidate",
+      "max_age_days": 45,
+      "join_keys": ["ric", "as_of_month"]
+    },
+    {
+      "dataset_id": "stablecoin_trust_engagement_weekly",
+      "priority": "P4",
+      "role": "crypto_structure_sleeve_research",
+      "max_age_days": 21,
+      "join_keys": ["entity_id", "week"]
+    }
+  ],
+  "mcp_supply_hints": [
+    "research_list_datasets / research_describe_dataset",
+    "research_query_dataset(<dataset_id>, params_json)",
+    "research_discover_search → procurement_probe_public_source → yzu_submit_job on miss"
+  ]
+}

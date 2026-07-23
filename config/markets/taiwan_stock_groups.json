@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "groups": {
+    "semiconductors": {
+      "tickers": ["2330.TW", "2454.TW", "2303.TW", "2379.TW", "3034.TW", "3711.TW", "2408.TW"]
+    },
+    "electronics_ems": {
+      "tickers": ["2317.TW", "2382.TW", "2357.TW", "3231.TW", "2324.TW"]
+    },
+    "financials": {
+      "tickers": ["2881.TW", "2882.TW", "2891.TW", "2886.TW", "2884.TW", "2885.TW"]
+    },
+    "shipping": {
+      "tickers": ["2603.TW", "2609.TW", "2615.TW"]
+    }
+  },
+  "liquid_core": ["2330.TW", "2317.TW", "2454.TW", "2308.TW", "2412.TW", "2881.TW", "2882.TW", "2303.TW"],
+  "benchmark_etf": "0050.TW"
+}

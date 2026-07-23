@@ -1,4 +1,4 @@
-import { loadUserEmail } from "@/v2/deskSession";
+import { loadUserEmail, saveUserEmail } from "./deskSession.js";
 
 const KEY = "rd_v2_settings";
 
@@ -22,4 +22,12 @@ export function saveSettings(patch) {
   const next = { ...loadSettings(), ...patch };
   localStorage.setItem(KEY, JSON.stringify(next));
   return next;
+}
+
+export function resetLocalPreferences() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
+  saveUserEmail("");
+  return { ...DEFAULTS, email: "" };
 }

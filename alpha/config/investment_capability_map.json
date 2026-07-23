@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "scope": "stock_trading_and_investment_research",
+  "updated_at": "2026-06-27",
+  "principle": "Track what this repo can do, what external stock-investment projects teach, and which gaps block a capability from becoming production-grade.",
+  "capabilities": [
+    {
+      "id": "experiment_lifecycle_registry",
+      "area": "Research lifecycle",
+      "target_state": "Every strategy/config/run has a manifest with dataset, features, model, portfolio, risk, report, metrics, artifact hashes, and status.",
+      "external_projects": ["microsoft/qlib", "microsoft/RD-Agent"],
+      "stealable_pattern": "Standardize experiment objects: dataset -> feature -> model -> portfolio -> backtest -> risk -> report.",
+      "local_artifacts": [
+        "src/research/investment_cockpit.py",
+        "src/research/manifest_gates.py",
+        "scripts/investment_cockpit.py",
+        "scripts/manifest_gates.py",
+        "backtests/outputs/**/summary.json",
+        "backtests/outputs/investment_cockpit/candidates/registry.csv",
+        "reports/manifest_gates/latest.md"
+      ],
+      "current_read": "Partial: manifests, registry, and manifest gates exist, but not every runner emits the standard manifest yet.",
+      "next_actions": [
+        "Wrap major runners so each writes an investment_cockpit candidate manifest.",
+        "Promote registry.csv as the canonical strategy inventory."
+      ]
+    },
+    {
+      "id": "data_connector_surface",
+      "area": "Data and connectors",
+      "target_state": "Stable internal APIs expose price, fundamentals, macro, news labels, entity metadata, and paper/live scorecards.",
+      "external_projects": ["OpenBB-finance/OpenBB", "microsoft/qlib"],
+      "stealable_pattern": "Connector-first data access with stable schemas instead of scattered CSV reads.",
+      "local_artifacts": [
+        "src/research/stock_investment_data.py",
+        "src/data_sources/*.py",
+        "src/data_sources/live_router.py",
+        "scripts/stock_investment_data_status.py",
+        "scripts/build_market_panels.py",
+        "scripts/build_ticker_research_panels.py",
+        "data_lake/daily_alpha_panel.csv",
+        "config/research_query_registry.json"
+      ],
+      "current_read": "Partial: stock_investment_data facade exists; major investment modules still need to be migrated onto it.",
+      "next_actions": [
+        "Wire stock strategy modules through stock_investment_data instead of direct CSV reads.",
+        "Attach schema checks to every panel consumed by alpha modules."
+      ]
+    },
+    {
+      "id": "stock_universe_management",
+      "area": "Universe management",
+      "target_state": "Universes are versioned, source-attributed, survivorship-aware where possible, and tied to each run manifest.",
+      "external_projects": ["microsoft/qlib", "OpenBB-finance/OpenBB"],
+      "stealable_pattern": "Treat universe membership as data with timestamps, source provenance, and validation.",
+      "local_artifacts": [
+        "scripts/fetch_equity_universe_wikipedia.py",
+        "scripts/fetch_accessible_market_universes.py",
+        "scripts/fetch_asia_sourced_universes.py",
+        "src/research/stock_investment_data.py",
+        "config/stock_universe_registry.json",
+        "config/spy_beater_universe_expanded.json",
+        "backtests/outputs/global_drilldown/*.json"
+      ],
+      "current_read": "Partial: universe hashing and registry exist; every stock strategy manifest still needs universe_id/universe_hash.",
+      "next_actions": [
+        "Backfill universe_id and universe_hash into all existing stock strategy manifests.",
+        "Separate research/radar universes from tradable execution universes."
+      ]
+    },
+    {
+      "id": "factor_validation_tearsheets",
+      "area": "Alpha validation",
+      "target_state": "Every stock ranking gets rank IC, bucket returns, turnover, exposure, leakage, cost, and benchmark diagnostics.",
+      "external_projects": ["quantopian/alphalens", "hudson-and-thames/mlfinlab", "microsoft/qlib"],
+      "stealable_pattern": "Judge ranking quality before portfolio performance; expose IC, turnover, bucket spreads, and exposure drift.",
+      "local_artifacts": [
+        "src/research/investment_cockpit.py",
+        "src/research/purged_kfold.py",
+        "src/research/transaction_costs.py",
+        "scripts/equity_academic_runner.py",
+        "scripts/best_practice_equity_runner.py",
+        "backtests/outputs/**/factor_tearsheet/summary.json",
+        "backtests/outputs/equity_best_practice_*"
+      ],
+      "current_read": "Partial: validation primitives, strict manifest gates, and best-practice selector tear-sheet emission exist; broader stock selector coverage still needs rollout.",
+      "next_actions": [
+        "Make factor-tearsheet mandatory for stock selector artifacts.",
+        "Fail promotion if rank IC, turnover, or exposure drift is unacceptable."
+      ]
+    },
+    {
+      "id": "automated_alpha_idea_queue",
+      "area": "Alpha ideation",
+      "target_state": "Ideas from agents or humans enter a queue, become candidate factors, then pass through leakage, robustness, and portfolio tests.",
+      "external_projects": ["microsoft/RD-Agent", "QuantaAlpha/QuantaAlpha", "UFund-Me/Qbot"],
+      "stealable_pattern": "Use AI to propose features and experiments, not to bypass validation.",
+      "local_artifacts": [
+        "config/alpha_idea_queue.csv",
+        "src/research/alpha_idea_queue.py",
+        "src/research/alpha_idea_jobs.py",
+        "scripts/alpha_idea_queue.py",
+        "backtests/outputs/investment_cockpit/idea_jobs/jobs.json",
+        "scripts/quant_ai/*.py",
+        "scripts/forecasting_workbench.py",
+        "scripts/hybrid_experiment.py",
+        "docs/research_handoffs/sharpe_signal_module_catalog_20260520.csv"
+      ],
+      "current_read": "Partial: canonical alpha idea queue and factor-tearsheet job generator exist; accepted ideas still need broader automatic feature materialization.",
+      "next_actions": [
+        "Add a generator that turns accepted ideas into reproducible factor-tearsheet jobs."
+      ]
+    },
+    {
+      "id": "llm_equity_research_layer",
+      "area": "LLM research",
+      "target_state": "Agents write thesis, bear case, evidence, contradiction checks, and invalidation triggers; deterministic code owns weights.",
+      "external_projects": ["AI4Finance-Foundation/FinRobot", "TauricResearch/TradingAgents", "virattt/ai-hedge-fund", "HKUDS/Vibe-Trading"],
+      "stealable_pattern": "Multi-role analyst debate is useful as a research note and veto layer, not a capital allocator.",
+      "local_artifacts": [
+        "config/thesis_register.csv",
+        "src/research/investment_cockpit.py",
+        "src/research/thesis_report.py",
+        "src/research/thesis_gates.py",
+        "scripts/thesis_report.py",
+        "scripts/thesis_gates.py",
+        "reports/thesis_gates/latest.md",
+        "scripts/quant_ai/*.py",
+        "scripts/idn_analyst_agent.py",
+        "scripts/idn_signal_discovery_agent.py"
+      ],
+      "current_read": "Partial: thesis register, thesis report, and thesis gates exist; strategy modules still need to attach thesis_id where relevant.",
+      "next_actions": [
+        "Require thesis_id on discretionary radar/paper_candidate manifests.",
+        "Connect thesis gate output to promotion reports."
+      ]
+    },
+    {
+      "id": "portfolio_construction_layer",
+      "area": "Portfolio construction",
+      "target_state": "Rankings are converted to constrained weights with caps, exposure limits, turnover penalties, cash sleeves, and benchmark awareness.",
+      "external_projects": ["PyPortfolio/PyPortfolioOpt", "cvxgrp/cvxportfolio", "skfolio/skfolio"],
+      "stealable_pattern": "Separate alpha ranking from portfolio sizing and risk constraints.",
+      "local_artifacts": [
+        "src/research/investment_cockpit.py",
+        "src/research/portfolio_estimator.py",
+        "scripts/portfolio_walkforward.py",
+        "scripts/best_practice_equity_runner.py"
+      ],
+      "current_read": "Partial: constrained and benchmark-aware active caps exist; turnover-aware and tracking-risk sizing remain basic.",
+      "next_actions": [
+        "Add tracking-risk and turnover-aware sizing.",
+        "Record all constraints in strategy manifests."
+      ]
+    },
+    {
+      "id": "execution_accounting_discipline",
+      "area": "Execution and accounting",
+      "target_state": "Signals, intents, orders, fills, positions, cash, fees, reconciliation, and kill switches are separate artifacts.",
+      "external_projects": ["QuantConnect/Lean", "Lumiwealth/lumibot", "nautechsystems/nautilus_trader"],
+      "stealable_pattern": "Execution is an accounting system, not just a signal file.",
+      "local_artifacts": [
+        "scripts/live_trade_from_signal.py",
+        "scripts/alpha_paper_tracker.py",
+        "scripts/idn_paper_tracker.py",
+        "scripts/investment_cockpit.py",
+        "src/research/accounting_bundle.py",
+        "src/research/execution_safety.py",
+        "src/research/accounting_reconciliation.py",
+        "src/research/investment_enforcement.py",
+        "scripts/accounting_bundle.py",
+        "scripts/accounting_reconcile.py",
+        "scripts/investment_enforcement_cycle.py",
+        "config/execution_safety.json",
+        "reports/accounting_bundle/latest.md",
+        "reports/accounting_reconciliation/latest.md",
+        "reports/investment_enforcement/latest.md",
+        "backtests/outputs/alpha_paper/ledger.csv"
+      ],
+      "current_read": "Partial: canonical accounting bundle, ledgers, safety config, live-executor safety gate, reconciliation report, and enforcement cycle exist; more strategy runners need to emit full order/fill/position artifacts.",
+      "next_actions": [
+        "Unify target weights, orders, fills, positions, cash, and scorecards under one accounting schema for every strategy.",
+        "Make execution_safety checks mandatory for live-adjacent workflows."
+      ]
+    },
+    {
+      "id": "promotion_gate_and_status_tiers",
+      "area": "Governance",
+      "target_state": "Every strategy has status research_only, radar, paper_candidate, deployable_sleeve, or blocked with objective gates.",
+      "external_projects": ["microsoft/qlib", "QuantConnect/Lean"],
+      "stealable_pattern": "Promotion is lifecycle governance: reproducibility, holdout, robustness, costs, benchmark, and live evidence.",
+      "local_artifacts": [
+        "docs/investment_research_engine_roadmap.md",
+        "scripts/promote_signal.py",
+        "scripts/alpha_live_cycle.py",
+        "scripts/investment_research_engine_audit.py",
+        "reports/investment_research_engine/latest.md"
+      ],
+      "current_read": "Strong: doctrine and checks exist; needs wider integration with every candidate run.",
+      "next_actions": [
+        "Make candidate registry status the source of truth.",
+        "Require promotion-gate evidence links before status escalation."
+      ]
+    },
+    {
+      "id": "monitoring_and_operator_cockpit",
+      "area": "Monitoring",
+      "target_state": "One command shows data freshness, active signals, scorecards, capability status, and next operator actions.",
+      "external_projects": ["OpenBB-finance/OpenBB", "NoFxAiOS/nofx"],
+      "stealable_pattern": "A useful investment OS is a compact operator surface: current book, evidence, gates, logs, health.",
+      "local_artifacts": [
+        "scripts/platform_status.py",
+        "scripts/run_research_spine.sh",
+        "scripts/investment_capability_audit.py",
+        "scripts/stock_investment_data_status.py",
+        "scripts/manifest_gates.py",
+        "scripts/investment_enforcement_cycle.py",
+        "scripts/investment_operator_dashboard.py",
+        "scripts/investment_repo_inventory.py",
+        "src/research/operator_dashboard.py",
+        "src/research/repo_inventory.py",
+        "reports/investment_capabilities/latest.md",
+        "reports/investment_research_engine/latest.md",
+        "reports/manifest_gates/latest.md",
+        "reports/investment_enforcement/latest.md",
+        "reports/investment_operator/latest.md",
+        "reports/repo_inventory/latest.md"
+      ],
+      "current_read": "Partial: platform status, data status, capability audits, manifest gates, enforcement summaries, operator dashboard report, and non-destructive repo inventory exist; richer UI integration remains future work.",
+      "next_actions": [
+        "Add lightweight HTML or MCP-facing operator view on top of reports/investment_operator/latest.json."
+      ]
+    },
+    {
+      "id": "agent_tool_registry",
+      "area": "Agent tooling",
+      "target_state": "Agents call audited tools for scorecards, rankings, thesis records, data freshness, and capability status.",
+      "external_projects": ["HKUDS/Vibe-Trading", "OpenBB-finance/OpenBB", "AI4Finance-Foundation/FinRobot"],
+      "stealable_pattern": "Agents should use controlled tools with typed outputs; they should not roam across raw files ad hoc.",
+      "local_artifacts": [
+        "scripts/research_query_engine/*.py",
+        "config/research_query_registry.json",
+        "src/research/platform_bridge.py",
+        "scripts/investment_agent_tools.py",
+        "reports/investment_operator/latest.json",
+        "reports/accounting_bundle/latest.json",
+        "reports/repo_inventory/latest.json",
+        "scripts/quant_ai/*.py"
+      ],
+      "current_read": "Partial: controlled stock-investment read tools and query-engine registry entries expose capability, operator, accounting, registry, thesis, idea, decision, data, and repo-inventory reports; MCP server exposure remains future work.",
+      "next_actions": [
+        "Expose investment_agent_tools through the query engine or MCP layer.",
+        "Require tool outputs to include artifact paths and timestamps."
+      ]
+    },
+    {
+      "id": "benchmark_and_live_evaluation_harness",
+      "area": "Evaluation",
+      "target_state": "Frozen decisions are scored later versus benchmark, transaction costs, drawdown, and thesis invalidation events.",
+      "external_projects": ["ulab-uiuc/live-trade-bench", "felis33/INVESTOR-BENCH", "StockBench"],
+      "stealable_pattern": "Evaluate decisions forward in time; avoid rewarding retrospective narration.",
+      "local_artifacts": [
+        "src/research/deflated_sharpe.py",
+        "src/research/bootstrap.py",
+        "src/research/factor_attribution.py",
+        "src/research/frozen_decisions.py",
+        "src/research/investment_enforcement.py",
+        "scripts/frozen_decision_tracker.py",
+        "scripts/investment_enforcement_cycle.py",
+        "systemd/investment-enforcement.service",
+        "systemd/investment-enforcement.timer",
+        "backtests/outputs/investment_cockpit/frozen_decisions.csv",
+        "reports/investment_enforcement/latest.md",
+        "scripts/random_window_eval.py",
+        "scripts/investment_research_engine_audit.py",
+        "tests/test_research_factor_attribution.py"
+      ],
+      "current_read": "Partial: frozen decision tracker, enforcement cycle, and user-systemd timer can freeze/evaluate from candidate registry; strategy modules still need richer demotion rules.",
+      "next_actions": [
+        "Run frozen decision evaluation on a schedule after each platform cycle.",
+        "Feed frozen decision results into promotion/demotion reports."
+      ]
+    },
+    {
+      "id": "costs_attribution_and_failure_analysis",
+      "area": "Diagnostics",
+      "target_state": "Every strategy can explain returns by holding, factor, sector/country, costs, turnover, and failure mode.",
+      "external_projects": ["quantopian/alphalens", "hudson-and-thames/mlfinlab", "QuantConnect/Lean"],
+      "stealable_pattern": "Debug the strategy as a system: attribution, costs, turnover, regime, and failure notes.",
+      "local_artifacts": [
+        "src/research/attribution.py",
+        "src/research/factor_attribution.py",
+        "src/research/transaction_costs.py",
+        "scripts/alpha_daily_scorecard.py",
+        "tests/test_research_attribution.py",
+        "tests/test_research_transaction_costs.py"
+      ],
+      "current_read": "Strong: attribution and cost primitives exist; failure-note capture is still manual.",
+      "next_actions": [
+        "Attach failure_mode and root_cause fields to candidate manifests.",
+        "Make attribution summaries part of monthly strategy reports."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "panel": "Sharpe-Renaissance/data_lake/yfinance_leveraged_crypto_10y.csv",
+  "benchmark": "SPY",
+  "train_days": 756,
+  "refit_every": 21,
+  "label_horizon": 21,
+  "hard_crash_days": 5,
+  "hard_crash_ret": -0.07,
+  "hard_vol_lookback": 20,
+  "hard_vol_max": 0.28,
+  "prob_risk_on": 0.55,
+  "risk_on_config": "Sharpe-Renaissance/config/spy_beater_best_leveraged_crypto.json",
+  "risk_off_config": "Sharpe-Renaissance/config/spy_beater_best_leveraged_crypto_regime.json",
+  "crash_config": "Sharpe-Renaissance/config/spy_beater_best_leveraged_crypto_regime.json",
+  "put_hedge": {
+    "enabled": false,
+    "maturity_days": 21,
+    "otm": 0.05,
+    "notional_frac": 0.3,
+    "iv_mult": 1.25,
+    "opt_rate": 0.0,
+    "opt_steps": 200
+  }
+}
+

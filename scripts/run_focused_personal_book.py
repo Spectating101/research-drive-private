@@ -1,0 +1,1 @@
+../alpha/scripts/run_focused_personal_book.py

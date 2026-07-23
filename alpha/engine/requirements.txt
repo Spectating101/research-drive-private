@@ -1,0 +1,33 @@
+# Core dependencies
+fastapi>=0.104.1
+uvicorn>=0.24.0
+motor>=3.3.1
+redis>=5.0.1
+pydantic>=2.4.2
+
+# ML and Processing
+langchain>=0.0.330
+openai>=1.2.3
+faiss-cpu>=1.7.4
+numpy>=1.24.0
+tiktoken>=0.5.1
+
+# Document Processing
+python-multipart>=0.0.6
+pypdf>=3.17.1
+python-magic>=0.4.27
+
+# Async Support
+aiohttp>=3.9.1
+asyncio>=3.4.3
+
+# Utilities
+python-dotenv>=1.0.0
+loguru>=0.7.2
+tenacity>=8.2.3
+
+# Testing
+pytest>=7.4.3
+pytest-asyncio>=0.21.1
+httpx>=0.25.1aiohttp>=3.8.0
+networkx>=2.0

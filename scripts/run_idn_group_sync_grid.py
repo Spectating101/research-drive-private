@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_group_sync_grid.py

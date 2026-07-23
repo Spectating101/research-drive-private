@@ -1,0 +1,1 @@
+../alpha/scripts/run_crypto_satellite_book.py

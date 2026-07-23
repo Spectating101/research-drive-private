@@ -1,0 +1,95 @@
+{
+  "version": "1",
+  "description": "Single wiring config \u2014 all sleeves read from here.",
+  "policy": {
+    "updated_at": "2026-07-18",
+    "global_alpha": "Promotion gate blocks failing walk-forward candidates. On block, export beta_core fallback (not rejected prior weights). Control profile defensive_live caps crypto at 35% when alpha is live. Drive fuel inventory: scripts/run_alpha_research_cycle.py.",
+    "idn_sleeve": "Weekly position sheet only \u2014 operator brief/LLM/rules paper tracking disabled until OOS validation passes. Retail entries capped per name; GDELT entity filter prefers validated banks + mention context."
+  },
+  "registry_path": "config/research_query_registry.json",
+  "outputs_dir": "backtests/outputs/platform",
+  "global_alpha": {
+    "enabled": true,
+    "skip_fetch": false,
+    "auto_params": true,
+    "control_profile": "defensive_live",
+    "relevance_overlay": true,
+    "relevance_floor_gross": 0.55,
+    "relevance_lookback_weeks": 52,
+    "news_risk_overlay": false,
+    "crypto_reg_overlay": false,
+    "promotion_gate": "block",
+    "signal_out": "backtests/outputs/signals/alpha_live_signal.json",
+    "ledger": "backtests/outputs/alpha_paper/ledger.csv",
+    "on_block_fallback": "beta_core"
+  },
+  "market_relevance_validation": {
+    "enabled": true,
+    "refresh_if_older_days": 7,
+    "out": "backtests/outputs/platform/market_relevance_validation/latest.json"
+  },
+  "idn_sleeve": {
+    "enabled": true,
+    "refresh_sheet_if_older_days": 6,
+    "operator_brief": false,
+    "operator_aggressive": false,
+    "operator_llm": "skip",
+    "operator_llm_mode": "agent",
+    "operator_llm_model": "",
+    "operator_brief_out": "backtests/outputs/idn_operator/latest.md",
+    "operator_portfolio": "backtests/outputs/idn_operator/latest_portfolio.json",
+    "operator_rules_portfolio": "backtests/outputs/idn_operator/latest_rules_portfolio.json",
+    "operator_llm_portfolio": "backtests/outputs/idn_operator/latest_llm_portfolio.json",
+    "operator_ledger": "backtests/outputs/idn_operator/paper/ledger.csv",
+    "operator_rules_ledger": "backtests/outputs/idn_operator/paper/rules_ledger.csv",
+    "operator_llm_ledger": "backtests/outputs/idn_operator/paper/llm_ledger.csv",
+    "portfolio": "backtests/outputs/idn_weekly_position_sheet/latest_portfolio.json",
+    "ledger": "backtests/outputs/idn_weekly_position_sheet/paper/ledger.csv",
+    "moves": "backtests/outputs/idn_weekly_position_sheet/paper/recent_moves.json",
+    "initial_equity": 10000,
+    "max_single_name_weight": 0.25,
+    "gdelt_retail_filter": "prefer",
+    "gdelt_lookback_days": 5,
+    "gdelt_min_mention_rows": 1,
+    "bandar_confirm": "prefer",
+    "max_tilt_symbols": 12,
+    "signal_universe": "tradable",
+    "discover_universe_from_data": true,
+    "tilt_selection_mode": "pattern_profile",
+    "min_pattern_oos_lift": 1.15,
+    "refresh_winner_patterns_days": 7
+  },
+  "idn_empirical_research": {
+    "enabled": true,
+    "refresh_social_days": 1,
+    "refresh_validation_days": 7,
+    "full_validation": true,
+    "validation_out": "backtests/outputs/platform/idn_sentiment_validation/latest.json",
+    "out": "backtests/outputs/platform/idn_empirical_research/latest.md",
+    "operator_rules_ledger": "backtests/outputs/idn_operator/paper/rules_ledger.csv",
+    "operator_llm_ledger": "backtests/outputs/idn_operator/paper/llm_ledger.csv",
+    "operator_rules_portfolio": "backtests/outputs/idn_operator/latest_rules_portfolio.json",
+    "operator_llm_portfolio": "backtests/outputs/idn_operator/latest_llm_portfolio.json",
+    "analyst_backtest_out": "backtests/outputs/platform/idn_analyst_backtest/latest.json",
+    "refresh_analyst_backtest_days": 7,
+    "signal_discovery_out": "backtests/outputs/platform/idn_signal_discovery/latest.json",
+    "refresh_signal_discovery_days": 7
+  },
+  "news_strategies": {
+    "enabled": true,
+    "refresh_if_older_days": 7,
+    "panel_dataset_id": "cross_asset_fused_primary_panel",
+    "out_grid": "backtests/outputs/news_strategy_grid"
+  },
+  "research_audit": {
+    "enabled": true,
+    "refresh_if_older_days": 7,
+    "out_dir": "reports/investment_research_engine"
+  },
+  "alpha_fuel": {
+    "enabled": true,
+    "manifest": "alpha/config/alpha_fuel_manifest.json",
+    "out_dir": "backtests/outputs/platform/alpha_fuel",
+    "refresh_if_older_days": 1
+  }
+}

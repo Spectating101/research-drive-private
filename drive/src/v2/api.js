@@ -1,6 +1,14 @@
 /** Research Drive v2 — HTTP client (dev proxies /api → :8765 via vite.config.js). */
 
-import { deskHeaders, loadChatSessionId, loadUserEmail, saveChatSessionId } from "@/v2/deskSession";
+import {
+  deskFetchInit,
+  deskHeaders,
+  deskSessionBootstrapped,
+  loadChatSessionId,
+  loadUserEmail,
+  markDeskSessionBootstrapped,
+  saveChatSessionId,
+} from "@/v2/deskSession";
 
 export const API = import.meta.env.DEV ? "/api" : "";
 const healthInflight = new Map();
@@ -15,7 +23,7 @@ export async function fetchJson(path, init) {
   }
   let r;
   try {
-    r = await fetch(`${API}${path}`, fetchInit);
+    r = await fetch(`${API}${path}`, deskFetchInit(fetchInit));
   } catch (err) {
     if (err?.name === "AbortError") throw new Error(`Request timed out: ${path}`);
     throw err;
@@ -28,6 +36,42 @@ export async function fetchJson(path, init) {
     throw new Error(msg);
   }
   return data;
+}
+
+/** Same-origin HttpOnly desk session — no DevTools token injection required. */
+export async function ensureDeskSession({ force = false } = {}) {
+  if (!force && deskSessionBootstrapped()) {
+    return { ok: true, bootstrapped: true, reused: true };
+  }
+  try {
+    const data = await fetchJson("/library/desk/session", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const ok = Boolean(data?.ok || data?.authorized);
+    markDeskSessionBootstrapped(ok);
+    return { ok, bootstrapped: ok, ...data };
+  } catch (error) {
+    markDeskSessionBootstrapped(false);
+    return { ok: false, bootstrapped: false, error: String(error?.message || error) };
+  }
+}
+
+export async function clearDeskSession() {
+  markDeskSessionBootstrapped(false);
+  try {
+    return await fetchJson("/library/desk/session", {
+      method: "POST",
+      body: JSON.stringify({ action: "clear" }),
+    });
+  } catch {
+    try {
+      const r = await fetch(`${API}/library/desk/session`, deskFetchInit({ method: "DELETE" }));
+      return r.json().catch(() => ({ ok: r.ok }));
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    }
+  }
 }
 
 export function listDatasets() {

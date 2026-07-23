@@ -77,6 +77,7 @@ drive/data_lake/
 drive/logs/
 drive/.playwright-mcp/
 drive/docs/status/generated/
+docs/status/generated/
 drive/config/*.local.json
 
 # OS/editor noise
@@ -84,3 +85,6 @@ drive/config/*.local.json
 Thumbs.db
 .vscode/
 .idea/
+
+# Alpha engine local secrets
+alpha/engine/src/config/api_config.json

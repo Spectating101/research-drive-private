@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BrowseRailPanel,
   ClusterRailPanel,
@@ -10,11 +10,35 @@ import {
   PageRailPanel,
   ResourcesRailPanel,
 } from "@/v2/RailPanels";
-import { ProfileDetailPanel } from "@/v2/ProfilePage";
 import { activeObjectSelectionHint } from "@/v2/activeObject";
 import { displayName } from "@/v2/datasetMeta";
 
-function railSelectionHint(mainTab, dataset, browseTarget, resourceRow, clusterContext) {
+/** Matches mobile sheet breakpoint in v2.css — collapsed class is mobile-only. */
+const MOBILE_RAIL_MQ = "(max-width: 720px)";
+
+function useMobileRailViewport() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(MOBILE_RAIL_MQ).matches : false,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_RAIL_MQ);
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return isMobile;
+}
+
+function railSelectionHint(
+  mainTab,
+  dataset,
+  browseTarget,
+  resourceRow,
+  clusterContext,
+) {
   if (mainTab === "browse" && browseTarget) {
     return browseTarget.title || browseTarget.dataset_id || "Discover result";
   }
@@ -29,12 +53,6 @@ function railSelectionHint(mainTab, dataset, browseTarget, resourceRow, clusterC
   }
   if (mainTab === "resources") {
     return "Resources";
-  }
-  if (mainTab === "profile") {
-    return "Profile";
-  }
-  if (mainTab === "settings") {
-    return "Desk setup";
   }
   if (mainTab === "cluster" && clusterContext?.a && clusterContext?.b) {
     return `${displayName(clusterContext.a)} × ${displayName(clusterContext.b)}`;
@@ -150,10 +168,6 @@ export function InspectorRail({
     );
   } else if (mainTab === "synthesis") {
     detailPanel = <PageRailPanel page="synthesis" onAskAbout={onAskAbout} />;
-  } else if (mainTab === "profile") {
-    detailPanel = <ProfileDetailPanel profile={profile} />;
-  } else if (mainTab === "settings") {
-    detailPanel = <PageRailPanel page="settings" onAskAbout={onAskAbout} />;
   } else if (
     mainTab === "library" &&
     (activeObject?.kind === "library_folder" || activeObject?.kind === "library_intake")
@@ -198,14 +212,23 @@ export function InspectorRail({
   const allowActiveHint = activeHintBelongsToTab(mainTab, activeObject);
   const selectionHint =
     (allowActiveHint ? activeObjectSelectionHint(activeObject) : "") ||
-    railSelectionHint(mainTab, dataset, browseTarget, resourceRow, clusterContext);
+    railSelectionHint(
+      mainTab,
+      dataset,
+      browseTarget,
+      resourceRow,
+      clusterContext,
+    );
 
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
+  const isMobileRail = useMobileRailViewport();
+  const railCollapsed = isMobileRail && !mobileRailOpen;
 
   return (
     <aside
-      className={`yzu-inspector rd-v2-rail${mobileRailOpen ? "" : " rd-v2-rail-collapsed"}`}
+      className={`yzu-inspector rd-v2-rail${railCollapsed ? " rd-v2-rail-collapsed" : ""}`}
       aria-label="Inspector"
+      data-rail-collapsed={railCollapsed ? "true" : "false"}
     >
       <div className="yzu-inspector-stack rd-v2-rail-stack">
         <div className="rd-v2-rail-chrome">
@@ -241,18 +264,10 @@ export function InspectorRail({
             {selectionHint}
           </p>
         </div>
-        <div
-          className={`rd-v2-rail-pane${railTab === "detail" ? " rd-v2-rail-pane-on" : ""}`}
-          aria-hidden={railTab !== "detail"}
-          data-testid="rail-pane-detail"
-        >
-          {detailPanel}
+        <div className="rd-v2-rail-body" hidden={railTab !== "detail"}>
+          {detailPanel || <EmptyRailPanel />}
         </div>
-        <div
-          className={`rd-v2-rail-pane rd-v2-ask-rail${railTab === "ask" ? " rd-v2-rail-pane-on" : ""}`}
-          aria-hidden={railTab !== "ask"}
-          data-testid="rail-pane-ask"
-        >
+        <div className="rd-v2-rail-body" hidden={railTab !== "ask"}>
           {askPanel}
         </div>
       </div>

@@ -154,7 +154,7 @@ test.describe("v2 parity @ desk-v2-1440", () => {
       ["Discover", "Discover"],
       ["Resources", "Resources"],
       ["Profile", "Test Prof"],
-      ["Settings", "Desk setup"],
+      ["Settings", "Settings"],
     ];
     for (const [nav, heading] of tabs) {
       await v2Nav(page, nav);

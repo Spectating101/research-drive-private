@@ -1,0 +1,1 @@
+../drive/scripts/run_coingecko_daily_failover.ps1

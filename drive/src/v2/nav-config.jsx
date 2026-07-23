@@ -58,17 +58,26 @@ export const CLUSTER_NAV_DEFERRED = true;
 
 export const V2_CLUSTER_TAB = { id: "cluster", label: "Cluster", Icon: ClusterIcon };
 
+/** Primary workspace destinations — Profile/Settings live in the account cluster. */
 export const V2_SIDEBAR_TABS = [
   { id: "home",      label: "Home",      Icon: HomeIcon },
   { id: "library",   label: "Library",   Icon: LibraryIcon },
   { id: "browse",    label: "Discover",  Icon: BrowseIcon },
   { id: "synthesis", label: "Synthesis", Icon: SynthesisIcon },
   { id: "resources", label: "Resources", Icon: ResourcesIcon },
-  { id: "profile",   label: "Profile",   Icon: ProfileIcon },
-  { id: "settings",  label: "Settings",  Icon: SettingsIcon },
 ];
 
-/** All routable tabs (includes deferred). */
+export const V2_WORKSPACE_TABS = V2_SIDEBAR_TABS;
+
+/** Account overlays / legacy deep links — not primary nav. */
+export const V2_ACCOUNT_TABS = [
+  { id: "profile",  label: "Profile",  Icon: ProfileIcon },
+  { id: "settings", label: "Settings", Icon: SettingsIcon },
+];
+
+/** All routable tabs (includes deferred + account deep links). */
 export const V2_TABS = CLUSTER_NAV_DEFERRED
-  ? V2_SIDEBAR_TABS
-  : [...V2_SIDEBAR_TABS.slice(0, 2), V2_CLUSTER_TAB, ...V2_SIDEBAR_TABS.slice(2)];
+  ? [...V2_SIDEBAR_TABS, ...V2_ACCOUNT_TABS]
+  : [...V2_SIDEBAR_TABS.slice(0, 2), V2_CLUSTER_TAB, ...V2_SIDEBAR_TABS.slice(2), ...V2_ACCOUNT_TABS];
+
+export { ProfileIcon, SettingsIcon };
