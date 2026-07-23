@@ -38,7 +38,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   backend-release-proof:
@@ -49,66 +49,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-
-      - name: One-shot finish invariant migration
-        if: github.event_name == 'pull_request' && github.head_ref == 'agent/release-proof-hardening-v2'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          changed = []
-
-          runtime = Path("drive/scripts/yzu_cluster/runtime_adapter.py")
-          text = runtime.read_text(encoding="utf-8")
-          updated = text.replace(
-              'if not operations.get("disable_local_scrape"):',
-              'if operations.get("disable_local_scrape") is False:',
-              1,
-          )
-          updated = updated.replace(
-              '# When local scrape is allowed, controller must advertise browser so\n        # scraper_run jobs are claimable without a fresh Windows lab worker.',
-              '# Browser capability is opt-in. A minimal/default controller must not\n        # claim scraper work merely because the setting is absent.',
-              1,
-          )
-          if updated != text:
-              runtime.write_text(updated, encoding="utf-8")
-              changed.append(str(runtime))
-
-          orchestrator_test = Path("tests/test_orchestrator_runtime.py")
-          text = orchestrator_test.read_text(encoding="utf-8")
-          updated = text.replace(
-              '"allowed_job_types": ["http_manifest", "scraper_run"]',
-              '"allowed_job_types": ["http_manifest", "scraper_run", "source_probe"]',
-              1,
-          )
-          updated = updated.replace(
-              '    orchestrator.approve(job["id"])\n\n    completed = orchestrator.worker_tick()',
-              '    completed = orchestrator.worker_tick()',
-              1,
-          )
-          if updated != text:
-              orchestrator_test.write_text(updated, encoding="utf-8")
-              changed.append(str(orchestrator_test))
-
-          if not changed:
-              print("remaining invariant migration already applied")
-              raise SystemExit(0)
-          print("patched:")
-          for path in changed:
-              print(f"- {path}")
-          PY
-          if git diff --quiet; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add drive/scripts/yzu_cluster/runtime_adapter.py tests/test_orchestrator_runtime.py
-          git commit -m "fix(runtime): make browser opt-in and align controller fixtures"
-          git push origin HEAD:${GITHUB_HEAD_REF}
 
       - uses: actions/setup-python@v5
         with:
