@@ -1,0 +1,14 @@
+subreddit,community_label,mapping_scope,review_confidence,entity_ids,community_entity_ids,semantic_reason
+binance,Binance,issuer_ecosystem,medium_high,binance-usd,community_twitter_binance,Official Binance ecosystem subreddit; usable for issuer-level BUSD community only
+celo,Celo,ecosystem,high,celo-dollar|celo-euro,community_twitter_celoorg,Celo ecosystem subreddit covering cUSD and cEUR project community
+FantomFoundation,Fantom Foundation,ecosystem,high,fantom-usd,community_twitter_fantomfdn,Official Fantom foundation/project subreddit
+Gemini,Gemini,issuer_ecosystem,medium_high,gemini-dollar,community_twitter_gemini,Gemini exchange and issuer subreddit; not GUSD-specific
+MakerDAO,MakerDAO,project_ecosystem,high,usds,community_twitter_skyecosystem,Maker stablecoin ecosystem subreddit; history predates USDS and represents project community
+originprotocol,Origin Protocol,project,high,origin-dollar,community_twitter_originprotocol,Origin Protocol project subreddit covering OUSD community
+Ripple,Ripple,issuer_ecosystem,medium_high,ripple-usd,community_twitter_ripple,Ripple issuer/ecosystem subreddit; history predates RLUSD
+synthetix_io,Synthetix,project,high,susd|seur,community_twitter_synthetix_io,Synthetix protocol subreddit covering sUSD and sEUR project community
+terraluna,Terra,ecosystem,high,terrausd,community_twitter_terra_money,Main Terra ecosystem subreddit covering UST project community
+Tether,Tether,issuer_product,high,tether|euro-tether|tether-cnht|tether-mxnt,community_twitter_tether|community_twitter_tether_to,Tether-focused subreddit; shared across Tether stablecoins
+Tronix,TRON,ecosystem,medium_high,usdd,community_twitter_usddio,TRON ecosystem subreddit; usable for issuer/ecosystem-level USDD community
+USDC,USD Coin,product_issuer,high,usd-coin|euro-coin,community_twitter_circle,USDC-focused subreddit; EURC shares Circle issuer but is not subreddit-specific
+Wavesplatform,Waves,ecosystem,medium_high,neutrino-usd,community_twitter_neutrino_proto,Waves ecosystem subreddit covering Neutrino USD project context
