@@ -476,8 +476,21 @@ def registry_spec_from_materialized(
     return spec
 
 
+_COLLECTION_WRAPPER_KEYS = ("results", "data", "items", "records", "features", "peggedAssets")
+_ERROR_TEXT_HINTS = (
+    "rate limit",
+    "too many requests",
+    "unauthorized",
+    "forbidden",
+    "access denied",
+    "invalid api key",
+    "authentication required",
+    "service unavailable",
+)
+
+
 def _looks_like_error_envelope(rows: list[Any]) -> str | None:
-    """Detect common API error / non-data envelopes that are syntactically valid JSON."""
+    """Detect common API error/non-data documents after parser execution."""
     if not rows:
         return "zero_rows"
     if len(rows) == 1 and isinstance(rows[0], dict):
@@ -485,19 +498,8 @@ def _looks_like_error_envelope(rows: list[Any]) -> str | None:
         keys = set(row)
         err_keys = {"error", "errors", "message", "detail", "status", "code"}
         data_keys = {
-            "id",
-            "ids",
-            "results",
-            "data",
-            "items",
-            "records",
-            "features",
-            "rows",
-            "peggedassets",
-            "date",
-            "timestamp",
-            "value",
-            "values",
+            "id", "ids", "results", "data", "items", "records", "features",
+            "rows", "peggedassets", "date", "timestamp", "value", "values",
         }
         blob = " ".join(str(v).lower() for v in row.values() if isinstance(v, (str, int, float)))
         if any(tok in blob for tok in ("rate limit", "too many requests", "unauthorized", "forbidden", "not found")):
@@ -505,10 +507,65 @@ def _looks_like_error_envelope(rows: list[Any]) -> str | None:
                 return "api_error_envelope"
         if keys <= err_keys or (keys & {"error", "errors"} and not (keys & data_keys)):
             return "api_error_envelope"
-        # Single documentation/status object with no tabular grain.
         if keys <= {"status", "ok", "documentation", "docs", "message", "version", "gecko_says"} and "gecko_says" not in keys:
-            if "documentation" in keys or (keys == {"status", "ok"} or keys == {"status"}):
+            if "documentation" in keys or keys in ({"status", "ok"}, {"status"}):
                 return "non_tabular_status_document"
+    return None
+
+
+def _json_preflight(repo_root: Path, spec: dict[str, Any]) -> dict[str, Any] | None:
+    """Reject empty/error top-level JSON before a document can masquerade as one row."""
+    if str(spec.get("backend") or "") != "local_json_file":
+        return None
+    from scripts.research_data_mcp.data_paths import resolve_data_path
+
+    path = resolve_data_path(repo_root, str(spec.get("local_path") or ""))
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if payload in (None, [], {}):
+        return {"error": "empty_payload", "detail": "top-level JSON payload is empty"}
+    if not isinstance(payload, dict):
+        return None
+
+    for key in _COLLECTION_WRAPPER_KEYS:
+        if key in payload and isinstance(payload.get(key), list) and not payload.get(key):
+            return {"error": "empty_collection", "detail": f"top-level collection {key!r} has zero records"}
+
+    status = payload.get("status")
+    code = payload.get("code") or payload.get("status_code") or payload.get("statusCode")
+    success = payload.get("success")
+    message = " ".join(
+        str(payload.get(key) or "")
+        for key in ("error", "errors", "message", "detail", "error_message", "errorMessage")
+    ).strip()
+    status_text = str(status or "").strip().lower()
+    nested_status = status if isinstance(status, dict) else {}
+    nested_code = nested_status.get("error_code") or nested_status.get("code")
+    nested_message = str(nested_status.get("error_message") or nested_status.get("message") or "").strip()
+    numeric_codes: list[int] = []
+    for value in (code, nested_code):
+        try:
+            numeric_codes.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    error_key_present = any(key in payload for key in ("error", "errors", "error_message", "errorMessage"))
+    message_text = f"{message} {nested_message}".strip().lower()
+    error_hint = any(hint in message_text for hint in _ERROR_TEXT_HINTS)
+    if (
+        success is False
+        or status_text in {"error", "failed", "failure", "forbidden", "unauthorized"}
+        or any(value >= 400 or value < 0 for value in numeric_codes)
+        or error_key_present
+        or error_hint
+    ):
+        return {
+            "error": "api_error_envelope",
+            "detail": (message or nested_message or status_text or "API error response")[:300],
+        }
     return None
 
 
@@ -517,12 +574,18 @@ def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) 
     from scripts.research_query_engine.engine import ResearchQueryEngine, QueryResult
 
     dataset_id = str(spec.get("dataset_id") or "").strip()
-    if not dataset_id:
-        return {"ok": False, "error": "missing dataset_id", "rows": 0}
+    revision_id = spec.get("revision_id")
     backend = str(spec.get("backend") or "")
+    base = {"revision_id": revision_id, "dataset_id": dataset_id, "backend": backend}
+    if not dataset_id:
+        return {**base, "ok": False, "error": "missing dataset_id", "rows": 0, "envelope": None}
+    if backend == "local_file":
+        return {**base, "ok": False, "error": "metadata_only_backend", "rows": 0, "envelope": "metadata_only_backend"}
+    preflight = _json_preflight(Path(repo_root), spec)
+    if preflight:
+        return {**base, "ok": False, "rows": 0, "envelope": preflight["error"], **preflight}
     try:
-        # Smoke must not require a full desk registry — use an ephemeral stub.
-        registry_path = repo_root / "config" / "research_query_registry.json"
+        registry_path = Path(repo_root) / "config" / "research_query_registry.json"
         if not registry_path.is_file():
             registry_path.parent.mkdir(parents=True, exist_ok=True)
             registry_path.write_text(
@@ -540,33 +603,28 @@ def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) 
             result = engine._query_local_csv_file(ds, params)
         elif backend == "local_parquet_panel":
             result = engine._query_local_parquet_panel(ds, params)
-        elif backend == "local_file":
-            result = engine._query_local_file_tree(ds, params)
         else:
-            return {"ok": False, "error": f"unsupported smoke backend {backend}", "rows": 0}
+            return {**base, "ok": False, "error": f"unsupported smoke backend {backend}", "rows": 0, "envelope": None}
         rows = list(getattr(result, "rows", None) or [])
         if isinstance(result, QueryResult) and not rows and hasattr(result, "data"):
             rows = list(result.data or [])
-        n = len(rows)
         envelope = _looks_like_error_envelope(rows)
-        # CoinGecko ping {"gecko_says": "..."} is a legitimate 1-row API health land.
         if envelope == "non_tabular_status_document" and any(
-            isinstance(r, dict) and ("gecko_says" in r or "gecko_says" in {str(k).lower() for k in r})
-            for r in rows
+            isinstance(row, dict) and "gecko_says" in {str(key).lower() for key in row}
+            for row in rows
         ):
             envelope = None
+        n = len(rows)
         ok = n > 0 and envelope is None
         return {
+            **base,
             "ok": ok,
             "rows": n,
             "error": None if ok else (envelope or "zero_rows"),
-            "revision_id": spec.get("revision_id"),
-            "dataset_id": dataset_id,
-            "backend": backend,
             "envelope": envelope,
         }
     except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": str(exc)[:400], "rows": 0, "dataset_id": dataset_id, "backend": backend}
+        return {**base, "ok": False, "error": str(exc)[:400], "rows": 0, "envelope": None}
 
 
 def enrich_http_manifest_plan(plan: dict[str, Any], procurement: Any, *, domain_packs: list[dict[str, Any]] | None = None) -> dict[str, Any]:
