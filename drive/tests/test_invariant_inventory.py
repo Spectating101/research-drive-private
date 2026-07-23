@@ -64,9 +64,9 @@ def test_desk_auth_fail_closed_posts() -> None:
     assert path_requires_auth("/healthz", "GET") is False
 
 
-def test_scheduler_stamps_ops_internal() -> None:
+def test_scheduler_uses_unforgeable_ops_capability() -> None:
     src = _read("drive/scripts/yzu_cluster/scheduler.py")
-    assert '"_ops_internal": True' in src or "'_ops_internal': True" in src
+    assert "internal_ops_request" in src
 
 
 def test_executor_packages_network_policy_sibling() -> None:

@@ -74,7 +74,9 @@ def main() -> int:
             plan = json.loads(sys.stdin.read() or "{}")
         request = {"source": "yzu_cli"}
         if args.ops:
-            request["_ops_internal"] = True
+            from scripts.research_data_mcp.execution_policy import internal_ops_request
+
+            request = internal_ops_request(request)
         job = jobs_svc.submit(args.title, plan, request, auto_approve=args.approve)["job"]
         if args.approve and job["status"] == "pending_approval":
             job = jobs_svc.approve(job["id"])

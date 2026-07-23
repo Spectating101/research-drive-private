@@ -72,9 +72,12 @@ class YzuOrchestrator:
         return job_id
 
     def _same_submission(self, job: dict[str, Any], *, title: str, request: dict[str, Any], plan: dict[str, Any]) -> bool:
+        from scripts.research_data_mcp.execution_policy import sanitize_execution_request
+
         return (
             job.get("title") == title
-            and self._canonical(job.get("request") or {}) == self._canonical(request)
+            and self._canonical(sanitize_execution_request(job.get("request") or {}))
+            == self._canonical(sanitize_execution_request(request))
             and self._canonical(job.get("plan") or {}) == self._canonical(plan)
         )
 
@@ -90,10 +93,11 @@ class YzuOrchestrator:
         return [self.project_job(job) for job in self.store.list(limit=limit, status=status)]
 
     def submit(self, title: str, plan: dict[str, Any], request: dict | None = None, *, auto_approve: bool = False) -> dict:
-        from scripts.research_data_mcp.execution_policy import enforce_execution_submit
+        from scripts.research_data_mcp.execution_policy import enforce_execution_submit, sanitize_execution_request
 
         request = dict(request or {})
         plan, auto_approve = enforce_execution_submit(plan, request, auto_approve=auto_approve)
+        request = sanitize_execution_request(request)
         plan = self.validate_plan(plan)
         status = "queued" if auto_approve and plan.get("launchable", True) else "pending_approval"
         idempotency_key = self._idempotency_job_id(request, plan)

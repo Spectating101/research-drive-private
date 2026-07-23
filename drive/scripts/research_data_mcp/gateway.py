@@ -1844,14 +1844,18 @@ class ResearchDataGateway:
             "partition_id": "derived.research-panels",
             "launchable": True,
         }
+        from scripts.research_data_mcp.execution_policy import internal_synthesis_execution_request
+
         submitted = self.jobs.submit(
             plan["title"],
             plan,
-            {
-                "thread_id": thread_id,
-                "objective": thread.get("objective") or "",
-                "search_goal": thread.get("objective") or "",
-            },
+            internal_synthesis_execution_request(
+                {
+                    "thread_id": thread_id,
+                    "objective": thread.get("objective") or "",
+                    "search_goal": thread.get("objective") or "",
+                }
+            ),
             auto_approve=False,
         )
         job = submitted.get("job")
@@ -1972,8 +1976,15 @@ class ResearchDataGateway:
         raise TimeoutError(f"job {job_id} did not finish within {timeout}s")
 
     def archive_to_gdrive(self, local_path: str, **kwargs: Any) -> dict[str, Any]:
+        from scripts.research_data_mcp.execution_policy import internal_ops_request
+
         plan = self.jobs.archive_plan(local_path, remote_suffix=kwargs.get("remote_suffix", ""), verify=kwargs.get("verify", True))
-        return self.jobs.submit(kwargs.get("title", "Archive to GDrive"), plan, auto_approve=kwargs.get("auto_approve", True))
+        return self.jobs.submit(
+            kwargs.get("title", "Archive to GDrive"),
+            plan,
+            internal_ops_request({"source": "gateway_archive"}),
+            auto_approve=kwargs.get("auto_approve", True),
+        )
 
     # legacy aliases
     list_jobs = list_yzu_jobs

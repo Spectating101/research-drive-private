@@ -16,6 +16,37 @@ from scripts.research_data_mcp.craft_collect import (
     is_forbidden_product_id,
 )
 
+_INTERNAL_OPS_CAPABILITY = object()
+_INTERNAL_SYNTHESIS_CAPABILITY = object()
+_INTERNAL_CAPABILITY_KEYS = frozenset(
+    {"_ops_internal", "_execution_internal_capability", "_synthesis_execution_capability"}
+)
+
+
+def internal_ops_request(request: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Mark a request created by trusted local scheduler/controller code."""
+    out = dict(request or {})
+    out["_ops_internal"] = True
+    out["_execution_internal_capability"] = _INTERNAL_OPS_CAPABILITY
+    return out
+
+
+def internal_synthesis_execution_request(request: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Mark the bounded gateway path without granting auto-approval.
+
+    This protects HTTP/MCP client payloads. In-process Python modules share the
+    same trusted control-plane boundary and are intentionally not treated as a
+    sandbox.
+    """
+    out = dict(request or {})
+    out["_synthesis_execution_capability"] = _INTERNAL_SYNTHESIS_CAPABILITY
+    return out
+
+
+def sanitize_execution_request(request: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Remove non-serializable privilege capabilities before job persistence."""
+    return {key: value for key, value in dict(request or {}).items() if key not in _INTERNAL_CAPABILITY_KEYS}
+
 
 def enforce_execution_submit(
     plan: dict[str, Any] | None,
@@ -26,16 +57,26 @@ def enforce_execution_submit(
     """Return ``(sanitized_plan, auto_approve)`` or raise ``ValueError``."""
     request = dict(request or {})
     plan = dict(plan) if isinstance(plan, dict) else {}
-    internal_ops = bool(request.pop("_ops_internal", False))
+    internal_ops = request.pop("_execution_internal_capability", None) is _INTERNAL_OPS_CAPABILITY
+    synthesis_execution = request.pop("_synthesis_execution_capability", None) is _INTERNAL_SYNTHESIS_CAPABILITY
+    request.pop("_ops_internal", None)
     # Never trust client/model privilege bits.
     plan.pop("ops_privileged", None)
     request.pop("ops_privileged", None)
     if internal_ops:
         plan["ops_privileged"] = True
-    scope = "ops" if plan.get("ops_privileged") else "faculty"
-    plan = enforce_submit_doctrine(plan, scope=scope)
-
     job_type = str(plan.get("job_type") or "").strip()
+    if job_type == "synthesis_execute" and not synthesis_execution:
+        raise ValueError("execution policy: synthesis_execute requires the dedicated synthesis capability")
+    if synthesis_execution:
+        if job_type != "synthesis_execute":
+            raise ValueError("execution policy: synthesis capability only permits synthesis_execute")
+        plan = enforce_submit_doctrine(plan, scope="ops")
+        scope = "synthesis"
+        auto_approve = False
+    else:
+        scope = "ops" if plan.get("ops_privileged") else "faculty"
+        plan = enforce_submit_doctrine(plan, scope=scope)
     if scope == "faculty":
         # Probes may auto-run (cheap, no land); acquires never silent-auto.
         if job_type != "source_probe":

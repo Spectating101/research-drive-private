@@ -124,12 +124,13 @@ class YzuScheduler:
             "title": title,
             "job_type": plan.get("job_type"),
             "plan": plan,
+            # Public/dry-run emissions must stay JSON-serializable. The private
+            # execution capability is added only in emit(), immediately before
+            # the controller submits the job.
             "request": {
                 "schedule_id": schedule_id,
                 "idempotency_key": idempotency_key,
                 "source": "yzu_scheduler",
-                # Trusted controller path — never client-supplied ops_privileged.
-                "_ops_internal": True,
             },
             "idempotency_key": idempotency_key,
             "auto_approve": bool(item.get("auto_approve", True)),
@@ -156,10 +157,12 @@ class YzuScheduler:
             return {**emission, "dry_run": True, "submitted": False}
         if not emission["due"] and not force:
             return {**emission, "submitted": False, "skipped_reason": "not_due"}
+        from scripts.research_data_mcp.execution_policy import internal_ops_request
+
         job = orchestrator.submit(
             emission["title"],
             dict(emission["plan"]),
-            dict(emission["request"]),
+            internal_ops_request(emission["request"]),
             auto_approve=bool(emission["auto_approve"]),
         )
         state = self._read_state()

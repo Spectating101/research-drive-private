@@ -1169,6 +1169,8 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.approve_safe_pending_jobs(limit=limit)
 
     def library_archive(stack, query, payload, params):
+        from scripts.research_data_mcp.execution_policy import internal_ops_request
+
         plan = stack.jobs.archive_plan(
             str(payload.get("local_path", "")),
             remote_suffix=str(payload.get("remote_suffix") or ""),
@@ -1177,7 +1179,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.jobs.submit(
             str(payload.get("title") or "Archive to GDrive"),
             plan,
-            {"_ops_internal": True},
+            internal_ops_request(),
             auto_approve=bool(payload.get("auto_approve", False)),
         )
 

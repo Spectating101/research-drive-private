@@ -156,8 +156,79 @@ def test_magic_never_auto_executes_collects():
     assert is_trusted_plan({"job_type": "source_probe", "launchable": True}, cfg) is True
 
 
-def test_ops_internal_allows_auto_approve_for_generic_http():
+def test_execution_policy_rejects_client_ops_internal_smuggling():
     from scripts.research_data_mcp.execution_policy import enforce_execution_submit
+
+    with pytest.raises(ValueError, match="submit allows only"):
+        enforce_execution_submit(
+            {"job_type": "registered_pipeline", "pipeline_id": "collection_queue", "launchable": True},
+            {"_ops_internal": True},
+            auto_approve=True,
+        )
+
+
+def test_execution_policy_allows_only_internal_synthesis_execution_pending_approval():
+    from scripts.research_data_mcp.execution_policy import (
+        enforce_execution_submit,
+        internal_synthesis_execution_request,
+    )
+
+    plan, auto = enforce_execution_submit(
+        {
+            "job_type": "synthesis_execute",
+            "thread_id": "thread-1",
+            "accepted_spec_hash": "sha256:accepted",
+            "execution_spec": {"input_dataset_id": "input", "output_dataset_id": "output"},
+            "launchable": True,
+        },
+        internal_synthesis_execution_request({"thread_id": "thread-1"}),
+        auto_approve=True,
+    )
+
+    assert auto is False
+    assert plan["execution_policy"]["scope"] == "synthesis"
+    assert plan["execution_policy"]["auto_approve_allowed"] is False
+
+
+def test_execution_policy_rejects_direct_synthesis_execution():
+    from scripts.research_data_mcp.execution_policy import enforce_execution_submit
+
+    with pytest.raises(ValueError, match="dedicated synthesis capability"):
+        enforce_execution_submit(
+            {
+                "job_type": "synthesis_execute",
+                "thread_id": "thread-1",
+                "accepted_spec_hash": "sha256:accepted",
+                "execution_spec": {"input_dataset_id": "input", "output_dataset_id": "output"},
+                "launchable": True,
+            },
+            {},
+            auto_approve=False,
+        )
+
+
+def test_execution_policy_rejects_ops_capability_for_synthesis_execution():
+    from scripts.research_data_mcp.execution_policy import (
+        enforce_execution_submit,
+        internal_ops_request,
+    )
+
+    with pytest.raises(ValueError, match="dedicated synthesis capability"):
+        enforce_execution_submit(
+            {
+                "job_type": "synthesis_execute",
+                "thread_id": "thread-1",
+                "accepted_spec_hash": "sha256:accepted",
+                "execution_spec": {"input_dataset_id": "input", "output_dataset_id": "output"},
+                "launchable": True,
+            },
+            internal_ops_request(),
+            auto_approve=True,
+        )
+
+
+def test_ops_internal_allows_auto_approve_for_generic_http():
+    from scripts.research_data_mcp.execution_policy import enforce_execution_submit, internal_ops_request
 
     plan, auto = enforce_execution_submit(
         {
@@ -166,7 +237,7 @@ def test_ops_internal_allows_auto_approve_for_generic_http():
             "items": [{"url": "https://example.com/a.json"}],
             "launchable": True,
         },
-        {"_ops_internal": True},
+        internal_ops_request(),
         auto_approve=True,
     )
     assert plan.get("ops_privileged") is True
@@ -198,5 +269,25 @@ def test_scheduler_request_carries_ops_internal():
     }
     sched = YzuScheduler(Path("/tmp"), cfg)
     emission = sched.build_emission("demo_http", force=True)
-    assert emission["request"].get("_ops_internal") is True
+    assert "_ops_internal" not in emission["request"]
+    json.dumps(emission)
     assert emission["auto_approve"] is True
+
+
+def test_orchestrator_idempotency_ignores_legacy_ops_marker():
+    from scripts.yzu_cluster.orchestrator import YzuOrchestrator
+
+    orchestrator = YzuOrchestrator.__new__(YzuOrchestrator)
+    plan = {"job_type": "http_manifest", "url": "https://example.com/data.json"}
+    legacy_job = {
+        "title": "Scheduled fetch",
+        "request": {"schedule_id": "daily", "idempotency_key": "sched:daily:2026-07-23", "_ops_internal": True},
+        "plan": plan,
+    }
+
+    assert orchestrator._same_submission(
+        legacy_job,
+        title="Scheduled fetch",
+        request={"schedule_id": "daily", "idempotency_key": "sched:daily:2026-07-23"},
+        plan=plan,
+    )
