@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { resolveCapacityMark } from "@/v2/capacityMarks";
 import { GuidedState, Skeleton } from "@/v2/InteractionFeedback";
+import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
 import { PageShell } from "@/v2/ui";
 import {
   buildPickUp,
   buildRecentTrail,
   buildRecommendedEvidence,
   buildResourceHeadroom,
+  projectRollupFromHealth,
 } from "@/v2/homeIteration10";
 
 /**
@@ -25,6 +28,16 @@ function HeadroomBar({ pct, warn }) {
     <div className={`rd-v2-home-headroom-bar${warn ? " warn" : ""}`} aria-hidden>
       <span style={{ width: `${width}%` }} />
     </div>
+  );
+}
+
+function HomeHeadroomMark({ markId }) {
+  const mark = resolveCapacityMark(markId);
+  if (!mark) return null;
+  return (
+    <span className="rd-v2-home-headroom-mark" aria-hidden>
+      <img src={mark.src} alt="" title={mark.title || mark.alt} width={16} height={16} />
+    </span>
   );
 }
 
@@ -96,14 +109,27 @@ export function HomePage({
   onSuggestSearch,
 }) {
   const loading = health == null && datasets.length === 0;
-  const headroomLoading = resourcesRollup === undefined;
+  // Mirror Resources cache-first: never block Home headroom on a cold /desk/resources round-trip.
+  const [cachedRollup, setCachedRollup] = useState(() => readResourcesRollupCache());
+  useEffect(() => {
+    if (resourcesRollup && typeof resourcesRollup === "object") {
+      writeResourcesRollupCache(resourcesRollup);
+      setCachedRollup(resourcesRollup);
+    }
+  }, [resourcesRollup]);
+  const headroomRollup = useMemo(() => {
+    if (resourcesRollup && typeof resourcesRollup === "object") return resourcesRollup;
+    if (cachedRollup) return cachedRollup;
+    return projectRollupFromHealth(health);
+  }, [resourcesRollup, cachedRollup, health]);
+  const headroomLoading = headroomRollup == null && resourcesRollup === undefined && health == null;
   const pickUp = useMemo(
     () => buildPickUp({ datasets, jobs, health, acquisitions, profile }),
     [datasets, jobs, health, acquisitions, profile],
   );
   const headroom = useMemo(
-    () => buildResourceHeadroom(resourcesRollup),
-    [resourcesRollup],
+    () => buildResourceHeadroom(headroomRollup),
+    [headroomRollup],
   );
   const recommended = useMemo(
     () => buildRecommendedEvidence(profile, { limit: 2 }),
@@ -198,6 +224,7 @@ export function HomePage({
                 <li key={slot.id} className={slot.warn ? "warn" : undefined}>
                   <div className="rd-v2-home-headroom-row">
                     <strong>
+                      {slot.markId ? <HomeHeadroomMark markId={slot.markId} /> : null}
                       {slot.name}
                     </strong>
                     <span>{slot.metric}</span>

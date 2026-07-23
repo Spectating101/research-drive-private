@@ -549,23 +549,26 @@ export function buildResourcesPanels({
   queryUp = true,
 }) {
   const ctx = { health, ops, jobs, catalogSummary, cluster, queryUp };
-  if (rollupLoading) {
-    return {
-      hero: null,
-      ai: [],
-      metered: [],
-      usage: [],
-      motion: [],
-      compute: [],
-      providers: [],
-      layers: [],
-      connect: { source_count: 0, layer_count: 0 },
-      issuesCount: 0,
-      issuesFromRollup: [],
-      offline: false,
-    };
-  }
+  const providers = buildProviderRows({ health, ops, catalogSummary });
+  const layers = buildLayerRows({ health, queryUp });
   if (!rollup) {
+    if (rollupLoading) {
+      return {
+        hero: null,
+        ai: [],
+        metered: [],
+        usage: [],
+        motion: [],
+        compute: [],
+        providers,
+        layers,
+        connect: { source_count: providers.length, layer_count: layers.length },
+        issuesCount: 0,
+        issuesFromRollup: [],
+        offline: false,
+        syncing: true,
+      };
+    }
     return buildFallbackPanels(ctx);
   }
 
@@ -574,9 +577,6 @@ export function buildResourcesPanels({
   const usage = buildUsageRowsFromRollup(rollup);
   const motion = buildMotionRowsFromRollup(rollup, jobs);
   const compute = buildComputeRowsFromRollup(rollup);
-  const providers = buildProviderRows({ health, ops, catalogSummary });
-  const layers = buildLayerRows({ health, queryUp });
-
   const issuesFromRollup = rollup?.issues || [];
   const issuesCount = rollup?.issues_count ?? issuesFromRollup.length;
 
@@ -596,6 +596,7 @@ export function buildResourcesPanels({
     issuesCount,
     issuesFromRollup,
     offline: false,
+    syncing: Boolean(rollupLoading),
   };
 }
 

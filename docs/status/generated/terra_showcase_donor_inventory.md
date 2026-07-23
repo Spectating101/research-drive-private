@@ -166,6 +166,10 @@ a08bc13 merge(private): reconcile unbound Profile honesty with account overlays
 | Home briefing / pending judgment | `homeBriefing.js` wired into `homeIteration10.buildPickUp` |
 | Collectors toolbar honesty | `workersToolbarStat.js` wired into `ResourcesPage` |
 | Hide-Synthesis switch parked | `releaseVisibility.js` with `SYNTHESIS_NAV_DEFERRED=false`; nav-config wired |
+| Discover Detail rail always visible | `App.jsx` `hideRail=false` (Terra c15d891 shell contract) |
+| History identity + holding truth | `discoverAdapters.js` + `enrichHistoryEventsFromJobs` in App; History Detail uses `historyHoldingTruth` |
+| Receipt-only never Query ready | `historyLifecycleLabel.js` consults holding truth |
+| Web hit candidate keys | `discoverActions.webHitsToRows` |
 
 ## Still parked
 

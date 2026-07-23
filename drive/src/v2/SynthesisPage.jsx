@@ -8,6 +8,7 @@ import {
   listSynthesisThreads,
   requestSynthesisExecution,
 } from "@/v2/api";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 
 function text(value, fallback = "") {
   return String(value || "").trim() || fallback;
@@ -339,9 +340,19 @@ function NewThread({ objective, setObjective, busy, onCreate, onAsk }) {
       <small>New research construction</small>
       <h2>What reusable research asset do you need?</h2>
       <p>Start with the research object. Ask can reason with the thread, but no method, execution, or Library asset is created until separately reviewed.</p>
-      <textarea rows={7} value={objective} onChange={(event) => setObjective(event.target.value)} placeholder="Describe the research object, coverage, grain, and constraints…" />
+      <textarea
+        rows={7}
+        value={objective}
+        onChange={(event) => setObjective(event.target.value)}
+        placeholder="Describe the research object, coverage, grain, and constraints…"
+        onKeyDown={(event) => {
+          handleEnterToSubmit(event, () => {
+            if (!busy && objective.trim()) onCreate();
+          });
+        }}
+      />
       <footer>
-        <span>A new durable thread is created before the conversation continues.</span>
+        <span>Enter to create · ⇧↵ newline · A new durable thread is created before the conversation continues.</span>
         <button type="button" className="rd-v2-btn primary" disabled={busy || !objective.trim()} onClick={onCreate}>Create thread &amp; discuss</button>
         <button type="button" className="rd-v2-btn" disabled={!objective.trim()} onClick={() => onAsk(objective)}>Ask first</button>
       </footer>
@@ -617,7 +628,7 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
   const showExecution = Boolean(selected && (mode === "execution" || mode === "registered" || mode === "failed" || selected.state?.execution_spec));
 
   return (
-    <PageShell className="rd-v2-synthesis-page" title="Synthesis" lead="Construct reusable research assets from registered evidence, with decisions and execution state kept durable.">
+    <PageShell className="rd-v2-synthesis-page" title="Synthesis (Not finished)" lead="Construct reusable research assets from registered evidence, with decisions and execution state kept durable.">
       <div className="s04-shell" data-testid="synthesis-studio">
         <ThreadList
           threads={threads}

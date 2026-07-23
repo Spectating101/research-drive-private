@@ -1,4 +1,5 @@
 import { DISCOVER_SUGGESTIONS } from "@/v2/deskSeed";
+import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
 
 /**
  * Discover Explore empty / starter — DISCOVER_FULL_SCALE_FREEZE.
@@ -31,11 +32,13 @@ export function DiscoverEmptyState({ onSuggest, onCraftUrl }) {
             rows={1}
             placeholder="Describe the evidence need — keyword, gap, or research question…"
             aria-label="Evidence need"
+            onKeyDown={handleEnterToRequestSubmit}
           />
           <button type="submit" className="rd-v2-btn sm primary" aria-label="Search evidence need">
             Search
           </button>
         </form>
+        <p className="rd-v2-ask-send-hint rd-v2-discover-enter-hint">Enter to search · ⇧↵ newline</p>
       </header>
 
       <ol className="rd-v2-discover-method-cue" aria-label="How Discover works">

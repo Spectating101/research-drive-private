@@ -9,6 +9,7 @@ import {
   descriptiveLine,
   discoverCandidateState,
   exceptionalRowPill,
+  humanizeDiscoverDescription,
   orderDiscoverResults,
   taxonomyMatchesFilter,
   taxonomyStageCounts,
@@ -24,6 +25,7 @@ import { assessLocalSufficiency } from "@/v2/discoverSufficiency";
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverEmptyState } from "@/v2/DiscoverEmptyState";
+import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
 const FILTERS = [
@@ -67,6 +69,51 @@ function hostLabel(value) {
   }
 }
 
+function meaningfulQueryTerms(query) {
+  return interpretEvidenceNeed(query).tokens
+    .map((token) => String(token || "").toLowerCase())
+    .filter((token) => token.length >= 3);
+}
+
+function candidateSearchText(row) {
+  return [
+    row?.title,
+    row?.name,
+    row?.source,
+    row?.publisher,
+    row?.description,
+    row?.recommended_use,
+    ...(Array.isArray(row?.capabilities) ? row.capabilities : []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function hasSpecificSourceRoute(rows, query) {
+  const terms = meaningfulQueryTerms(query);
+  if (!terms.length) return true;
+  return (rows || []).some((row) => {
+    const text = candidateSearchText(row);
+    return terms.some((term) => text.includes(term));
+  });
+}
+
+function rankExternalCatalogueRows(rows, query) {
+  const terms = meaningfulQueryTerms(query);
+  return [...(rows || [])].sort((left, right) => {
+    const score = (row) => {
+      const title = String(row?.title || "").toLowerCase();
+      const text = candidateSearchText(row);
+      return terms.reduce(
+        (total, term) => total + (title.includes(term) ? 8 : 0) + (text.includes(term) ? 2 : 0),
+        0,
+      );
+    };
+    return score(right) - score(left);
+  });
+}
+
 function DiscoverModeTabs({ mode = "explore", pendingCount = 0, onChange }) {
   const tabs = [
     { id: "explore", label: "Explore" },
@@ -102,7 +149,7 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
   const hasExplicitDescription = Boolean(
     String(row?.description || row?.recommended_use || row?.subtitle || "").trim(),
   );
-  const evidenceLine = hasExplicitDescription ? descriptiveLine(row) : "";
+  const evidenceLine = hasExplicitDescription ? humanizeDiscoverDescription(descriptiveLine(row)) : "";
   const coverage = coverageLine(row);
   const showCoverage = coverage && coverage !== "Coverage not described";
 
@@ -187,6 +234,8 @@ export function BrowsePage({
   selectedId,
   onSelectRow,
   searchQuery,
+  preferLiveSources = false,
+  onLiveSourcesConsumed,
   jobs = [],
   usingSeed = false,
   probeSnapshots = {},
@@ -207,6 +256,7 @@ export function BrowsePage({
   const [demoFallback, setDemoFallback] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
   const [indexMiss, setIndexMiss] = useState(false);
+  const [externalSearchQuery, setExternalSearchQuery] = useState("");
 
   const pendingRows = useMemo(
     () => pendingApprovalJobs(jobs).map((job) => jobToCandidateRow(job)).filter(Boolean),
@@ -226,6 +276,7 @@ export function BrowsePage({
   useEffect(() => {
     let cancelled = false;
     const q = (searchQuery || "").trim();
+    const externalSearchActive = Boolean(q && externalSearchQuery === q);
     const email = loadUserEmail();
     const immediateDemo = discoverDemoSearch(q);
     setLoading(true);
@@ -265,10 +316,53 @@ export function BrowsePage({
           setDemoFallback(false);
           return;
         }
-        // Prefer Explore sources contract; fall back to legacy discover/search path.
+        if (externalSearchActive) {
+          const web = await webDiscover(q, 8);
+          const webRows = rankExternalCatalogueRows(webHitsToRows(web), q);
+          if (webRows.length) {
+            apply({ sections: [{ id: "external_catalogues", rows: webRows }] }, "external_catalogues");
+            setIndexMiss(Boolean(web.index_miss));
+            return;
+          }
+          setIndexMiss(true);
+          setRows([]);
+          return;
+        }
+        // Prefer Explore sources contract (semantic hybrid), escalate to live adapters
+        // when the local catalogue is thin or Search-wider requested. Fall back to legacy path.
         try {
-          const sources = await discoverSources(q, { limit: 12 });
-          const sourceRows = sourcesResponseToRows(sources);
+          const wantLive = Boolean(preferLiveSources);
+          let sources = await discoverSources(q, {
+            limit: 12,
+            semantic: true,
+            live: wantLive,
+          });
+          let sourceRows = sourcesResponseToRows(sources);
+          if (!wantLive && sourceRows.length && sourceRows.length < 3) {
+            try {
+              const liveSources = await discoverSources(q, {
+                limit: 12,
+                semantic: true,
+                live: true,
+              });
+              const liveRows = sourcesResponseToRows(liveSources);
+              if (liveRows.length > sourceRows.length) {
+                sources = liveSources;
+                sourceRows = liveRows;
+              }
+            } catch {
+              /* live adapters optional — keep local/semantic hits */
+            }
+          }
+          if (!sourceRows.length && !wantLive) {
+            try {
+              sources = await discoverSources(q, { limit: 12, semantic: true, live: true });
+              sourceRows = sourcesResponseToRows(sources);
+            } catch {
+              /* continue to legacy path */
+            }
+          }
+          if (wantLive) onLiveSourcesConsumed?.(false);
           if (sourceRows.length) {
             apply({ results: sourceRows }, sources.demo ? "demo" : "sources");
             if (sources.demo) setDemoFallback(true);
@@ -276,6 +370,7 @@ export function BrowsePage({
             return;
           }
         } catch {
+          if (preferLiveSources) onLiveSourcesConsumed?.(false);
           /* sources endpoint optional — continue */
         }
         const discover = await discoverSearch(q, 12, email);
@@ -356,7 +451,7 @@ export function BrowsePage({
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, discoverMode, labIds]);
+  }, [searchQuery, discoverMode, labIds, preferLiveSources, onLiveSourcesConsumed, externalSearchQuery]);
 
   const merged = useMemo(() => {
     const seen = new Set();
@@ -439,6 +534,13 @@ export function BrowsePage({
   const demoMode = demoFallback || (usingSeed && source === "demo");
   const scopeSummary = resultScopeSummary(stageCounts);
   const activeFilter = FILTERS.find((item) => item.id === stateFilter) || FILTERS[0];
+  const externalSearchActive = Boolean(q && externalSearchQuery === q);
+  const sourceRouteGap =
+    !loading &&
+    !externalSearchActive &&
+    source === "sources" &&
+    merged.length > 0 &&
+    !hasSpecificSourceRoute(merged, q);
 
   const modeTabs = (
     <DiscoverModeTabs
@@ -446,6 +548,32 @@ export function BrowsePage({
       pendingCount={pendingRows.length}
       onChange={onDiscoverModeChange}
     />
+  );
+
+  const filterMenu = (
+    <details className="rd-v2-discover-filter-menu" data-testid="discover-filter-menu">
+      <summary>
+        <span>Filters</span>
+        {stateFilter !== "all" ? <strong>{activeFilter.label}</strong> : null}
+      </summary>
+      <div className="rd-v2-discover-filter-popover" role="group" aria-label="Filter Discover results">
+        {FILTERS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={stateFilter === item.id ? "on" : ""}
+            aria-pressed={stateFilter === item.id}
+            onClick={(event) => {
+              setStateFilter(item.id);
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+          >
+            <span>{item.label}</span>
+            <b>{filterCounts[item.id] || 0}</b>
+          </button>
+        ))}
+      </div>
+    </details>
   );
 
   if (showHistory) {
@@ -503,16 +631,19 @@ export function BrowsePage({
                     rows={1}
                     placeholder="Describe the evidence need — keyword, gap, or research question…"
                     aria-label="Evidence need"
+                    onKeyDown={handleEnterToRequestSubmit}
                   />
                   <button type="submit" className="rd-v2-btn sm primary" aria-label="Search evidence need">
                     Search
                   </button>
                 </form>
+                <p className="rd-v2-ask-send-hint rd-v2-discover-enter-hint">Enter to search · ⇧↵ newline</p>
               </header>
 
-              {interpretation.chips.length ? (
-                <div className="rd-v2-discover-interpreting" data-testid="discover-interpreting">
-                  <span className="rd-v2-eyebrow">Interpreting</span>
+              <div className="rd-v2-discover-query-tools">
+                {interpretation.chips.length ? (
+                  <div className="rd-v2-discover-interpreting" data-testid="discover-interpreting">
+                    <span className="rd-v2-eyebrow">Research brief</span>
                   <div className="rd-v2-discover-interpreting-chips" role="list" aria-label="Interpreted evidence need">
                     {interpretation.chips.map((chip) => (
                       <span key={chip} role="listitem" className="rd-v2-discover-chip">
@@ -539,32 +670,10 @@ export function BrowsePage({
                       </p>
                     </div>
                   </details>
-                </div>
-              ) : null}
-
-              <details className="rd-v2-discover-filter-menu" data-testid="discover-filter-menu">
-                <summary>
-                  <span>Filters</span>
-                  {stateFilter !== "all" ? <strong>{activeFilter.label}</strong> : null}
-                </summary>
-                <div className="rd-v2-discover-filter-popover" role="group" aria-label="Filter Discover results">
-                  {FILTERS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={stateFilter === item.id ? "on" : ""}
-                      aria-pressed={stateFilter === item.id}
-                      onClick={(event) => {
-                        setStateFilter(item.id);
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                      }}
-                    >
-                      <span>{item.label}</span>
-                      <b>{filterCounts[item.id] || 0}</b>
-                    </button>
-                  ))}
-                </div>
-              </details>
+                  </div>
+                ) : null}
+                {filterMenu}
+              </div>
             </section>
 
             {loading && filtered.length ? (
@@ -594,6 +703,19 @@ export function BrowsePage({
               </div>
             ) : null}
 
+            {sourceRouteGap ? (
+              <section className="rd-v2-discover-route-gap" aria-label="No specific source route match">
+                <div>
+                  <span className="rd-v2-eyebrow">No direct route match</span>
+                  <strong>No current lab source route specifically matches “{q}”.</strong>
+                  <p>The routes below are available to the lab, but they are not evidence results for this question.</p>
+                </div>
+                <button type="button" className="rd-v2-btn sm" onClick={() => setExternalSearchQuery(q)}>
+                  Search external catalogues
+                </button>
+              </section>
+            ) : null}
+
             {!loading && !error && filtered.length === 0 ? (
               <div className="rd-v2-discover-miss">
                 <p className="rd-v2-empty-inline">
@@ -611,7 +733,7 @@ export function BrowsePage({
             {ranked.bestFit ? (
               <section className="rd-v2-discover-best-fit" aria-label="Best fit" data-testid="discover-best-fit">
                 <div className="rd-v2-home-section-head">
-                  <h3>Best fit</h3>
+                  <h3>{externalSearchActive ? "External catalogue matches" : sourceRouteGap ? "Available lab routes" : "Best fit"}</h3>
                   {scopeSummary ? <span className="muted">{scopeSummary}</span> : null}
                 </div>
                 <DiscoverCandidateList

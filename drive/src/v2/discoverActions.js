@@ -38,13 +38,27 @@ export function buildAddToLabDisplayText(target, probeResult, jobId = "") {
 
 export function webHitsToRows(data) {
   const fromSections = (data.sections || []).flatMap((s) => s.rows || []);
-  if (fromSections.length) return fromSections;
-  return (data.results || []).map((hit) => ({
-    kind: "web_hit",
-    title: hit.title || hit.url || "Web source",
-    url: hit.url,
-    source: hit.source || "web",
-    description: hit.snippet || hit.content || "",
-    publisher: hit.source || "web",
-  }));
+  if (fromSections.length) {
+    return fromSections.map((hit) => {
+      const url = hit.url || "";
+      return {
+        ...hit,
+        kind: hit.kind || "web_hit",
+        candidate_key: hit.candidate_key || (url ? `url:${url}` : ""),
+        url,
+      };
+    });
+  }
+  return (data.results || []).map((hit) => {
+    const url = hit.url || "";
+    return {
+      kind: "web_hit",
+      title: hit.title || hit.url || "Web source",
+      url,
+      source: hit.source || "web",
+      description: hit.snippet || hit.content || "",
+      publisher: hit.source || "web",
+      candidate_key: hit.candidate_key || (url ? `url:${url}` : ""),
+    };
+  });
 }

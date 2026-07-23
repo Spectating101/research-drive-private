@@ -542,9 +542,24 @@
 }
 
 /* Profile sections already sit in a flex column. Remove their additional
-   bottom margin so Memory and Works do not create a double-size gap. */
+   bottom margin so Memory and Works do not create a double-size gap.
+   Identity also carried margin-bottom from v2.css, which stacked with the
+   column gap into a large void before Memory — zero that margin, trim the
+   identity card's bottom pad, and keep a modest column gap so Memory/Works
+   internal rhythm stays readable. */
 .rd-v2-profile-page .rd-v2-body-scroll {
   gap: 12px;
+}
+
+.rd-v2-profile-page .rd-v2-profile-identity {
+  margin-bottom: 0;
+  padding-bottom: 14px;
+}
+
+/* Tighter join after identity only — do not compress Memory ↔ Works. */
+.rd-v2-profile-page .rd-v2-profile-identity + .rd-v2-profile-section,
+.rd-v2-profile-page .rd-v2-profile-identity + .rd-v2-profile-loading {
+  margin-top: -4px;
 }
 
 .rd-v2-profile-section {
@@ -664,6 +679,24 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+.rd-v2-home-headroom-mark {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #f5f7fb;
+}
+.rd-v2-home-headroom-mark img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  display: block;
 }
 
 .rd-v2-home-headroom-bar {
@@ -927,15 +960,18 @@
 }
 
 /* —— CLI wireframe shell —— */
-.rd-v2-header-wire {
+/* brand | active research (grows) | meta | avatar — no leftover empty centre track */
+.rd-v2-header.rd-v2-header-wire {
   gap: 10px;
+  grid-template-columns: var(--rd-sidebar) minmax(0, 1fr) auto auto;
 }
 .rd-v2-header-context {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
-  max-width: 280px;
+  width: 100%;
+  max-width: none;
 }
 .rd-v2-header-research {
   border: 0;
@@ -943,14 +979,18 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: 180px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   padding: 4px 0;
   cursor: pointer;
   color: #1c2434;
   font-size: 0.78rem;
   font-weight: 650;
+  text-align: left;
 }
 .rd-v2-header-research span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -958,8 +998,10 @@
 .rd-v2-header-research em {
   font-style: normal;
   color: #7a8498;
+  flex: 0 0 auto;
 }
 .rd-v2-header-page {
+  flex: 0 0 auto;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   font-weight: 700;
@@ -1451,6 +1493,9 @@
   padding: 0 14px;
   align-self: stretch;
 }
+.rd-v2-discover-enter-hint {
+  margin: 6px 0 0;
+}
 .rd-v2-discover-refine {
   margin-top: 4px;
 }
@@ -1529,7 +1574,30 @@
   box-shadow: inset 3px 0 0 #1a56a8;
 }
 .rd-v2-res-capacity-meter.warn { border-color: #f0c36a; }
-.rd-v2-res-capacity-meter-name { font-size: 0.78rem; color: #5b6578; }
+.rd-v2-res-capacity-meter-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #5b6578;
+}
+.rd-v2-res-capacity-mark {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f5f7fb;
+}
+.rd-v2-res-capacity-mark img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: block;
+}
 .rd-v2-res-capacity-meter strong { font-size: 1.05rem; color: #1c2434; }
 .rd-v2-res-capacity-meter-bar {
   display: block;
@@ -1585,8 +1653,49 @@
   border-color: #c5d4ea;
   box-shadow: inset 3px 0 0 #1a56a8;
 }
-.rd-v2-res-source-row strong { font-size: 0.9rem; }
-.rd-v2-res-source-row span { color: #5b6578; font-size: 0.82rem; }
+.rd-v2-res-source-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.rd-v2-res-source-mark {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #f5f7fb;
+  overflow: hidden;
+}
+.rd-v2-res-source-mark.is-wide {
+  width: 40px;
+  height: 20px;
+  background: transparent;
+}
+.rd-v2-res-source-mark.is-generic {
+  background: #f0f2f6;
+}
+.rd-v2-res-source-mark img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+}
+.rd-v2-res-source-mark.is-wide img {
+  width: 38px;
+  height: 18px;
+}
+.rd-v2-res-source-row strong {
+  font-size: 0.9rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rd-v2-res-source-row > span { color: #5b6578; font-size: 0.82rem; }
 .rd-v2-res-source-row em {
   font-style: normal;
   font-size: 0.72rem;
@@ -1733,10 +1842,194 @@
 .rd-v2-eval-rail .rd-v2-eval-sufficiency-compare-row {
   border-top-color: var(--rd-border);
 }
+
+/* Resources is one continuous workspace: section padding supplies its rhythm;
+   an extra outer margin leaves an empty band before the source ledger. */
+.rd-v2-res-wire-band {
+  margin: 0;
+  padding: 18px 20px 20px;
+}
+
+.rd-v2-res-wire-band + .rd-v2-res-wire-band {
+  border-top: 1px solid var(--rd-release-line);
+}
+
+.rd-v2-res-wire-title {
+  margin: 0 0 12px;
+}
+
+.rd-v2-res-source-ledger {
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.rd-v2-res-source-family h3 {
+  margin: 0 2px 6px;
+}
+
+.rd-v2-res-source-row {
+  margin-bottom: 5px;
+}
+
+/* Usage has one shared left edge: heading, filters, period totals, and run log.
+   The previous nested margins made each layer drift inward by a different amount. */
+.rd-v2-res-usage-hierarchy {
+  margin: 0 0 10px;
+}
+
+.rd-v2-res-filterbar {
+  padding: 0 0 8px;
+}
+
+.rd-v2-res-status-strip-activity {
+  margin: 0;
+}
+
+.rd-v2-res-log {
+  margin: 8px 20px 20px;
+}
+
+.rd-v2-res-log-title {
+  padding: 2px 0 6px;
+}
+
+/* Method is a compact explanatory workspace, not a flush list against the shell. */
+.rd-v2-res-method-wire {
+  max-width: none;
+  padding: 18px 20px 24px;
+}
+
+.rd-v2-res-method-map {
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.rd-v2-res-method-map li {
+  padding: 10px 12px;
+}
+
+.rd-v2-res-method-progress {
+  padding: 12px;
+}
+
+/* Counts are supporting data, not part of the filter label's word shape. */
+.rd-v2-history-filters .rd-v2-chip b {
+  display: inline-block;
+  margin-left: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* History is a ledger, not a stack of floating panels. Keep its transitions
+   deliberate so the lifecycle list and collapsed system traffic do not read as
+   overlapping layers. */
+.rd-v2-discover-history {
+  gap: 12px;
+}
+
+.rd-v2-history-intro {
+  padding-bottom: 14px;
+}
+
+.rd-v2-history-territories {
+  gap: 16px;
+}
+
+.rd-v2-history-system-fold {
+  margin-top: 0;
+}
+
+.rd-v2-history-intro p.rd-v2-history-noise-note {
+  margin-top: 8px;
+  color: #728096;
+  font-size: 11.5px;
+}
+
+.rd-v2-history-system-fold > summary {
+  min-height: 46px;
+  padding: 8px 12px;
+}
+
+/* Discover search is an evidence brief followed by a ranked shortlist.
+   Keep the one optional control compact instead of letting it become a second
+   full-width toolbar between the brief and the results. */
+.rd-v2-discover-query-tools {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.rd-v2-discover-query-tools .rd-v2-discover-interpreting {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-v2-discover-query-tools .rd-v2-discover-filter-menu {
+  flex: 0 0 auto;
+  justify-self: auto;
+}
+
+.rd-v2-discover-query-tools .rd-v2-discover-filter-menu > summary {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.rd-v2-discover-query-tools .rd-v2-discover-filter-popover {
+  right: 0;
+}
+
+.rd-v2-discover-candidate-main {
+  gap: 4px;
+}
+
+.rd-v2-discover-evidence {
+  color: #58677c;
+  font-size: 0.82rem;
+}
+
+.rd-v2-discover-route-gap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 2px 0 4px;
+  padding: 12px 14px;
+  border-left: 3px solid #d99837;
+  background: #fffaf1;
+}
+
+.rd-v2-discover-route-gap div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.rd-v2-discover-route-gap strong {
+  color: #263247;
+  font-size: 0.9rem;
+}
+
+.rd-v2-discover-route-gap p {
+  margin: 0;
+  color: #68758a;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+  .rd-v2-discover-route-gap {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 900px) {
   .rd-v2-res-capacity-pair-grid,
   .rd-v2-res-source-ledger-head,
   .rd-v2-res-source-row { grid-template-columns: 1fr; }
+  .rd-v2-res-source-identity { width: 100%; }
+  .rd-v2-res-source-row strong { white-space: normal; }
 }
 
 @media (max-width: 1100px) {

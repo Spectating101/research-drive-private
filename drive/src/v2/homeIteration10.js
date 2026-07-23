@@ -124,9 +124,72 @@ function headroomPct(used, cap) {
   return Math.round((u / c) * 100);
 }
 
+/**
+ * Project a thin rollup from /health so Home headroom can paint before
+ * GET /library/desk/resources finishes (Terra cache-first pattern).
+ */
+export function projectRollupFromHealth(health) {
+  if (!health || typeof health !== "object") return null;
+  const desk = health.desk || {};
+  const tiers = desk.storage_tiers || {};
+  const canonical = tiers.canonical || desk.archive || {};
+  const cache = tiers.cache || desk.bulk_storage || {};
+  const hasVault = canonical.label || canonical.quota_tb != null || canonical.used_tb != null;
+  const hasCache =
+    cache.label || cache.mounted != null || cache.used_gb != null || cache.total_gb != null;
+  if (!hasVault && !hasCache && desk.composer_configured == null) return null;
+  return {
+    usage: {
+      vault: hasVault
+        ? {
+            label: canonical.label || "Google Drive vault",
+            used_tb: canonical.used_tb,
+            cap_tb: canonical.quota_tb ?? canonical.pool_tb,
+            pct: canonical.pct,
+            observed: canonical.used_tb != null,
+          }
+        : undefined,
+      cache: hasCache
+        ? {
+            label: cache.label || "Transcend bulk cache",
+            mounted: cache.mounted,
+            used_gb: cache.used_gb ?? cache.used_gib,
+            total_gb: cache.total_gb ?? cache.total_gib,
+            pct: cache.pct ?? cache.used_pct,
+          }
+        : undefined,
+    },
+    hero: {
+      composer: {
+        configured: Boolean(desk.composer_configured),
+        model: desk.composer_model || "default",
+      },
+      vault:
+        canonical.used_tb != null || canonical.quota_tb != null
+          ? {
+              used_tb: canonical.used_tb,
+              cap_tb: canonical.quota_tb ?? canonical.pool_tb,
+              pct: canonical.pct,
+            }
+          : undefined,
+    },
+    ai: {
+      composer_configured: Boolean(desk.composer_configured),
+      composer_model: desk.composer_model || "default",
+    },
+  };
+}
+
+/**
+ * Home Resource headroom — aligned with Resources Capacity showcase.
+ * Prefer vault + bulk cache + one live service (Cursor Ask / BigQuery).
+ * NVMe / collectors stay on Resources Desk, not the Home teaser.
+ */
 export function buildResourceHeadroom(rollup) {
   const usage = rollup?.usage || {};
   const hero = rollup?.hero || {};
+  const ai = rollup?.ai || {};
+  const metered = rollup?.metered || {};
   const slots = [];
 
   const vault = usage.vault || hero.vault || {};
@@ -149,7 +212,8 @@ export function buildResourceHeadroom(rollup) {
       : null;
     slots.push({
       id: "vault",
-      name: vault.label || "GDrive vault",
+      markId: "vault",
+      name: vault.label || "Google Drive vault",
       pinned: true,
       metric: observed
         ? used === 0 && capOk
@@ -165,49 +229,69 @@ export function buildResourceHeadroom(rollup) {
     });
   }
 
-  const hot = usage.hot || {};
   const cache = usage.cache || {};
-  if (hot.used_pct != null || hot.free_gb != null) {
-    const pct = Number(hot.used_pct);
-    const free =
-      hot.free_gb != null && Number.isFinite(Number(hot.free_gb))
-        ? Math.round(Number(hot.free_gb) * 10) / 10
-        : null;
-    slots.push({
-      id: "hot",
-      name: hot.label || "Working disk",
-      pinned: false,
-      metric:
-        free != null && Number.isFinite(pct)
-          ? `${free} GB free · ${Math.round(pct)}% used`
-          : free != null
-            ? `${free} GB free`
-            : Number.isFinite(pct)
-              ? `${Math.round(pct)}% used`
-              : "Capacity",
-      pct: Number.isFinite(pct) ? Math.round(pct) : null,
-      headroom:
-        Number.isFinite(pct) && pct >= 85 ? "Check →" : formatHeadroom(pct),
-      warn: hot.headroom_ok === false || (Number.isFinite(pct) && pct >= 85),
-      action: Number.isFinite(pct) && pct >= 85 ? "check" : "resources",
-    });
-  } else if (cache.used_gb != null || cache.total_gb != null) {
+  if (cache.used_gb != null || cache.total_gb != null || cache.mounted) {
     const pct = cache.pct != null ? Number(cache.pct) : headroomPct(cache.used_gb, cache.total_gb);
     slots.push({
       id: "cache",
-      name: cache.label || "USB bulk cache",
+      markId: "cache",
+      name: cache.label || "Transcend bulk cache",
       pinned: false,
-      metric: cache.total_gb
-        ? `${cache.used_gb ?? "?"}/${cache.total_gb} GB`
-        : "mounted",
+      metric:
+        cache.used_gb != null || cache.total_gb != null
+          ? `${cache.used_gb ?? "?"}/${cache.total_gb ?? "?"} GB`
+          : cache.mounted
+            ? "Mounted"
+            : "Capacity",
       pct: Number.isFinite(pct) ? Math.round(pct) : null,
-      headroom: formatHeadroom(pct),
+      headroom: Number.isFinite(pct) ? formatHeadroom(pct) : cache.mounted ? "Ready" : "—",
       warn: pct != null && pct >= 85,
       action: "resources",
     });
   }
 
-  return slots.slice(0, 2);
+  // Third teaser: Cursor Ask when Composer is live, else BigQuery quota.
+  const composer = hero.composer || {};
+  const composerOk = Boolean(composer.configured ?? ai.composer_configured);
+  const turnsToday = Number(ai.composer_turns_today ?? 0);
+  const bq = metered.bigquery || {};
+  if (composerOk) {
+    slots.push({
+      id: "cursor",
+      markId: "cursor",
+      name: "Cursor Ask",
+      pinned: false,
+      metric: turnsToday > 0 ? `${turnsToday} turns today` : "Composer ready",
+      pct: null,
+      headroom: `API key live · ${composer.model || ai.composer_model || "default"}`,
+      warn: false,
+      action: "resources",
+    });
+  } else if (bq.configured) {
+    const bqCap =
+      bq.default_max_gib != null
+        ? Number(bq.default_max_gib)
+        : bq.default_max_bytes_billed != null
+          ? Number(bq.default_max_bytes_billed) / 1024 ** 3
+          : null;
+    const bqToday = Number(bq.gib_billed_today ?? 0);
+    const pct = Number.isFinite(bqCap) && bqCap > 0 ? headroomPct(bqToday, bqCap) : null;
+    slots.push({
+      id: "bigquery",
+      markId: "bigquery",
+      name: "BigQuery",
+      pinned: false,
+      metric: [bq.project || "ADC ok", Number.isFinite(bqCap) ? `${bqCap} GiB / query` : null]
+        .filter(Boolean)
+        .join(" · "),
+      pct: Number.isFinite(pct) ? Math.round(pct) : null,
+      headroom: Number.isFinite(bqToday) ? `${bqToday} GiB billed today` : "Configured",
+      warn: false,
+      action: "resources",
+    });
+  }
+
+  return slots.slice(0, 3);
 }
 
 export function buildRecommendedEvidence(profile, { limit = 2 } = {}) {

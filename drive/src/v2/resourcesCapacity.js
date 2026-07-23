@@ -1,7 +1,9 @@
 /**
- * Resources · Sources capacity band — RESOURCES_FULL_SCALE_FREEZE §2.2
- * Three paired rows: Storage | Access | Execution (max 6 meters).
+ * Resources · Capacity & access band
+ * Storage (vault/cache) · Services (Cursor Ask / BigQuery) · Desk (query engine / Tavily)
  */
+
+import { identifyProviderMarkId } from "./providerMarkIds.js";
 
 function pctOf(used, cap) {
   const u = Number(used);
@@ -10,7 +12,15 @@ function pctOf(used, cap) {
   return Math.round((u / c) * 100);
 }
 
-function meter({ id, name, metric, pct, available, warn = false, action = null }) {
+function fmtGiB(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  if (v >= 100) return `${Math.round(v)} GiB`;
+  if (v >= 10) return `${v.toFixed(1)} GiB`;
+  return `${v.toFixed(2)} GiB`;
+}
+
+function meter({ id, name, metric, pct, available, warn = false, action = null, markId = null }) {
   return {
     id,
     name,
@@ -19,18 +29,24 @@ function meter({ id, name, metric, pct, available, warn = false, action = null }
     available: available || null,
     warn: Boolean(warn),
     action,
+    markId: markId || id,
   };
 }
 
+/**
+ * Showcase-relevant capacity: vault + cache, Cursor Ask usage, BigQuery quota,
+ * query engine, and Tavily keys. Drops NVMe / collectors / host parallel meters
+ * (still available elsewhere in rollup if needed).
+ */
 export function buildCapacityAccessPairs(rollup) {
   const usage = rollup?.usage || {};
   const hero = rollup?.hero || {};
+  const ai = rollup?.ai || {};
+  const metered = rollup?.metered || {};
   const vault = usage.vault || hero.vault || {};
   const cache = usage.cache || {};
-  const hot = usage.hot || {};
-  const workers = hero.workers || {};
-  const connect = rollup?.connect || {};
-  const compute = rollup?.compute || {};
+  const composer = hero.composer || {};
+  const bq = metered.bigquery || {};
 
   const vaultPctRaw =
     vault.pct != null ? Number(vault.pct) : pctOf(vault.used_tb, vault.cap_tb);
@@ -48,35 +64,24 @@ export function buildCapacityAccessPairs(rollup) {
   const vaultPct = vaultObserved && Number.isFinite(vaultPctRaw) ? vaultPctRaw : null;
   const cachePct =
     cache.pct != null ? Number(cache.pct) : pctOf(cache.used_gb, cache.total_gb);
-  const hotPct = hot.used_pct != null ? Number(hot.used_pct) : null;
 
-  const availableWorkers = (() => {
-    if (workers.available != null) return Number(workers.available);
-    if (workers.online != null || workers.idle != null) {
-      return Number(workers.online || 0) + Number(workers.idle || 0);
-    }
-    return null;
-  })();
-  const identitiesReady = Number(
-    availableWorkers ?? connect.identities_ready ?? connect.ready ?? workers.ready ?? 0,
-  );
-  const identitiesTotal = Number(
-    workers.total ?? connect.identities_total ?? connect.total ?? 0,
-  );
-  const wl = compute.windows_lab || {};
-  const hostsJoined = Number(
-    workers.joined ?? wl.joined ?? connect.hosts_joined ?? connect.joined ?? compute.hosts_joined ?? 0,
-  );
-  const hostsTotal = Number(
-    workers.total ?? wl.total ?? connect.hosts_total ?? connect.total_hosts ?? compute.hosts_total ?? 0,
-  );
-  const parallelActive = Number(workers.busy ?? compute.parallel_active ?? 0);
-  const parallelMax = Number(workers.total ?? wl.max_parallel ?? compute.parallel_max ?? 0);
+  const turnsToday = Number(ai.composer_turns_today ?? 0);
+  const composerOk = Boolean(composer.configured ?? ai.composer_configured);
+  const bqCapGiB =
+    bq.default_max_gib != null
+      ? Number(bq.default_max_gib)
+      : bq.default_max_bytes_billed != null
+        ? Number(bq.default_max_bytes_billed) / (1024 ** 3)
+        : null;
+  const bqToday = Number(bq.gib_billed_today ?? 0);
+  const bqPct =
+    Number.isFinite(bqCapGiB) && bqCapGiB > 0 ? pctOf(bqToday, bqCapGiB) : null;
 
   const storage = [
     meter({
       id: "vault",
-      name: vault.label || "GDrive vault",
+      markId: "vault",
+      name: vault.label || "Google Drive vault",
       metric: vaultObserved
         ? vaultUsed === 0 && Number.isFinite(vaultCap)
           ? `Empty · ${vaultCap} TB capacity`
@@ -94,6 +99,7 @@ export function buildCapacityAccessPairs(rollup) {
     }),
     meter({
       id: "cache",
+      markId: "cache",
       name: cache.label || "USB bulk cache",
       metric:
         cache.used_gb != null || cache.total_gb != null
@@ -111,63 +117,108 @@ export function buildCapacityAccessPairs(rollup) {
     }),
   ];
 
-  const access = [
+  const services = [
     meter({
-      id: "hot",
-      name: hot.label || "Working disk",
-      metric:
-        hotPct != null && hot.free_gb != null
-          ? `${Math.round(Number(hot.free_gb) * 10) / 10} GB free · ${Math.round(hotPct)}% used`
-          : hot.free_gb != null
-            ? `${Math.round(Number(hot.free_gb) * 10) / 10} GB free`
-            : hotPct != null
-              ? `${Math.round(hotPct)}% used`
-              : "Capacity pending",
-      pct: hotPct,
-      available: hotPct != null ? `${Math.max(0, 100 - Math.round(hotPct))}% headroom` : null,
-      warn: hot.headroom_ok === false || (hotPct != null && hotPct >= 85),
+      id: "cursor",
+      markId: "cursor",
+      name: "Cursor Ask",
+      metric: composerOk
+        ? turnsToday > 0
+          ? `${turnsToday} turns today`
+          : "Composer ready"
+        : "Not configured",
+      pct: null,
+      available: composerOk
+        ? `API key live · ${composer.model || ai.composer_model || "default"}`
+        : "Set CURSOR_API_KEY for Ask",
+      warn: !composerOk,
+      action: composerOk ? null : "NEED",
     }),
     meter({
-      id: "identities",
-      name: "Collectors",
-      metric:
-        identitiesTotal > 0
-          ? `${identitiesReady} / ${identitiesTotal} available`
-          : workers.total != null
-            ? `${workers.busy ?? 0} / ${workers.total} busy`
-            : "Not reported",
-      pct: identitiesTotal > 0 ? pctOf(identitiesReady, identitiesTotal) : null,
-      available:
-        workers.online != null || workers.idle != null
-          ? `online ${workers.online ?? 0} · idle ${workers.idle ?? 0}`
-          : null,
+      id: "bigquery",
+      markId: "bigquery",
+      name: "BigQuery",
+      metric: bq.configured
+        ? [
+            bq.project || "ADC ok",
+            Number.isFinite(bqCapGiB) ? `${fmtGiB(bqCapGiB)} / query` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "Not configured",
+      pct: bqPct,
+      available: bq.configured
+        ? `${fmtGiB(bqToday) || "0 GiB"} billed today`
+        : "ADC / project missing",
+      warn: !bq.configured,
+      action: bq.configured ? null : "NEED",
     }),
   ];
 
-  const execution = [
+  // Desk = lab machines + Ask toolkit — not a raw :8765 port readout.
+  const workers = hero.workers || {};
+  const availableWorkers = (() => {
+    if (workers.available != null) return Number(workers.available);
+    if (workers.online != null || workers.idle != null) {
+      return Number(workers.online || 0) + Number(workers.idle || 0);
+    }
+    return null;
+  })();
+  const identitiesReady = Number(availableWorkers ?? workers.ready ?? 0);
+  const identitiesTotal = Number(workers.total ?? 0);
+  const hostsJoined = Number(workers.joined ?? 0);
+  const mcp = ai.mcp_tools || {};
+  const mcpTotal = Number(mcp.total ?? hero.mcp_tools ?? 0);
+  const mcpCore = Number(mcp.core ?? 0);
+  const mcpAcquire = Number(mcp.acquire ?? 0);
+
+  const desk = [
     meter({
-      id: "hosts",
-      name: "Connected hosts",
+      id: "fleet",
+      markId: "fleet",
+      name: "Lab fleet",
       metric:
-        hostsTotal > 0
-          ? `${hostsJoined} / ${hostsTotal} joined`
-          : availableWorkers != null
-            ? `${availableWorkers} available`
-            : "Cluster pending",
-      pct: hostsTotal > 0 ? pctOf(hostsJoined, hostsTotal) : null,
+        identitiesTotal > 0
+          ? `${identitiesReady} / ${identitiesTotal} collectors`
+          : "Fleet pending",
+      pct: identitiesTotal > 0 ? pctOf(identitiesReady, identitiesTotal) : null,
+      available:
+        hostsJoined > 0 || workers.idle != null
+          ? [
+              hostsJoined > 0 ? `${hostsJoined} hosts joined` : null,
+              workers.idle != null ? `${workers.idle ?? 0} idle` : null,
+              workers.busy != null ? `${workers.busy ?? 0} busy` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : "Windows lab pool",
     }),
     meter({
-      id: "parallel",
-      name: "Parallel capacity",
-      metric: parallelMax > 0 ? `${parallelActive} / ${parallelMax} active` : "Not reported",
-      pct: parallelMax > 0 ? pctOf(parallelActive, parallelMax) : null,
+      id: "mcp",
+      markId: "mcp",
+      name: "Ask tools",
+      metric: mcpTotal > 0 ? `${mcpTotal} MCP tools` : composerOk ? "Composer ready" : "Not reported",
+      pct: null,
+      available:
+        mcpTotal > 0
+          ? [
+              mcpCore > 0 ? `${mcpCore} core` : null,
+              mcpAcquire > 0 ? `${mcpAcquire} acquire` : null,
+              "procure · search · ops",
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : composerOk
+            ? "Cursor Composer + desk MCP"
+            : "Wire desk MCP for Ask",
+      warn: mcpTotal <= 0 && !composerOk,
     }),
   ];
 
   return [
     { id: "storage", title: "Storage", meters: storage },
-    { id: "access", title: "Access", meters: access },
-    { id: "execution", title: "Execution", meters: execution },
+    { id: "services", title: "Services", meters: services },
+    { id: "desk", title: "Desk", meters: desk },
   ];
 }
 
@@ -200,8 +251,15 @@ export function groupSourceCapabilities(panels = []) {
       families[family].rows.push({
         id: row.key || row.id || label,
         name: label,
-        access: row.detail || row.sublabel || row.access || row.route || "Access not described",
+        access:
+          row.metric ||
+          row.route ||
+          row.access ||
+          row.sublabel ||
+          row.detail ||
+          "Access not described",
         authority: sourceAuthorityLabel(row),
+        markId: identifyProviderMarkId(row),
         row,
       });
     }

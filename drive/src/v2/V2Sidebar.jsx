@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
-import { V2_SIDEBAR_TABS } from "@/v2/nav-config.jsx";
+import { V2_SIDEBAR_FOOT_TABS, V2_SIDEBAR_PRIMARY_TABS } from "@/v2/nav-config.jsx";
 
 /**
  * Left nav — UI_PRODUCT_AUTHORITY + page freezes shell:
- * RESEARCH DRIVE nav · ACTIVE RESEARCH · RECENT
+ * RESEARCH DRIVE nav · ACTIVE RESEARCH · RECENT · Profile/Settings (foot)
  */
 export function V2Sidebar({
   tab,
@@ -23,22 +23,26 @@ export function V2Sidebar({
     activeButtonRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [tab]);
 
+  function renderNavButton({ id, label, Icon }) {
+    return (
+      <button
+        key={id}
+        type="button"
+        ref={tab === id ? activeButtonRef : null}
+        className={tab === id ? "active" : ""}
+        onClick={() => onTabChange(id)}
+        title={label}
+      >
+        {Icon ? <Icon /> : null}
+        <span className="rd-nav-label">{label}</span>
+      </button>
+    );
+  }
+
   return (
     <aside className="yzu-sidebar rd-v2-sidebar-wire" aria-label="Research Drive navigation">
       <nav className="rd-v2-sidebar-nav" aria-label="Faculty destinations">
-        {V2_SIDEBAR_TABS.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            ref={tab === id ? activeButtonRef : null}
-            className={tab === id ? "active" : ""}
-            onClick={() => onTabChange(id)}
-            title={label}
-          >
-            {Icon ? <Icon /> : null}
-            <span className="rd-nav-label">{label}</span>
-          </button>
-        ))}
+        {V2_SIDEBAR_PRIMARY_TABS.map(renderNavButton)}
       </nav>
 
       <div className="rd-v2-sidebar-context" aria-label="Active research">
@@ -71,6 +75,10 @@ export function V2Sidebar({
           <p className="rd-v2-sidebar-hint">Recent assets appear as you work.</p>
         )}
       </div>
+
+      <nav className="rd-v2-sidebar-foot-nav" aria-label="Account">
+        {V2_SIDEBAR_FOOT_TABS.map(renderNavButton)}
+      </nav>
     </aside>
   );
 }

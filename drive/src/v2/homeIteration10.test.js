@@ -5,6 +5,7 @@ import {
   buildRecommendedEvidence,
   buildResourceHeadroom,
   buildRecentTrail,
+  projectRollupFromHealth,
 } from "./homeIteration10.js";
 
 test("pick up prefers recent library asset as primary", () => {
@@ -38,15 +39,46 @@ test("folder location never stringifies objects as [object Object]", () => {
   assert.doesNotMatch(primary.location, /object Object/i);
 });
 
-test("resource headroom rounds float percentages", () => {
-  const slots = buildResourceHeadroom({
-    usage: {
-      vault: { used_tb: 0, cap_tb: 3, pct: 0, label: "GDrive vault" },
-      hot: { used_pct: 83.40000000000001, free_gb: 50.9123, label: "NVMe desk" },
+test("health projection lets Home paint headroom before desk/resources", () => {
+  const projected = projectRollupFromHealth({
+    desk: {
+      composer_configured: true,
+      composer_model: "default",
+      storage_tiers: {
+        canonical: { label: "Google Drive vault", quota_tb: 3, used_tb: 0.75, pct: 25 },
+        cache: { label: "Transcend bulk cache", used_gb: 100, total_gb: 200, pct: 50, mounted: true },
+      },
     },
   });
-  assert.match(slots[1].headroom, /^17% headroom$/);
-  assert.match(slots[1].metric, /50\.9 GB free/);
+  const slots = buildResourceHeadroom(projected);
+  assert.equal(slots[0].id, "vault");
+  assert.equal(slots[1].id, "cache");
+  assert.equal(slots[2].id, "cursor");
+});
+
+test("resource headroom prefers cache + Cursor Ask over NVMe", () => {
+  const slots = buildResourceHeadroom({
+    usage: {
+      vault: { used_tb: 0.754, cap_tb: 3, pct: 25, label: "Google Drive vault" },
+      hot: { used_pct: 83.40000000000001, free_gb: 50.9123, label: "NVMe desk" },
+      cache: {
+        label: "Transcend bulk cache",
+        used_gb: 1136.13,
+        total_gb: 1863.01,
+        pct: 61,
+        mounted: true,
+      },
+    },
+    hero: { composer: { configured: true, model: "default" } },
+    ai: { composer_configured: true, composer_turns_today: 50 },
+  });
+  assert.equal(slots.length, 3);
+  assert.equal(slots[0].id, "vault");
+  assert.equal(slots[1].id, "cache");
+  assert.equal(slots[2].id, "cursor");
+  assert.match(slots[1].headroom, /^39% headroom$/);
+  assert.match(slots[2].metric, /50 turns/);
+  assert.ok(!slots.some((s) => s.id === "hot"));
 });
 
 test("pending approval becomes secondary decision, not a separate Attention page", () => {
@@ -61,17 +93,20 @@ test("pending approval becomes secondary decision, not a separate Attention page
   assert.match(secondary.title, /MOPS/);
 });
 
-test("resource headroom caps at two authoritative slots", () => {
+test("resource headroom caps at three showcase slots", () => {
   const slots = buildResourceHeadroom({
     usage: {
       vault: { used_tb: 2.1, cap_tb: 5, pct: 42, label: "GDrive vault" },
       hot: { used_pct: 90, free_gb: 51, label: "Working disk", headroom_ok: false },
       cache: { used_gb: 1.8, total_gb: 2, pct: 90 },
     },
+    metered: { bigquery: { configured: true, project: "demo", default_max_gib: 10, gib_billed_today: 1 } },
   });
-  assert.equal(slots.length, 2);
+  assert.equal(slots.length, 3);
   assert.equal(slots[0].pinned, true);
+  assert.equal(slots[1].id, "cache");
   assert.equal(slots[1].warn, true);
+  assert.equal(slots[2].id, "bigquery");
 });
 
 test("recommended evidence uses profile procurement recommendations", () => {

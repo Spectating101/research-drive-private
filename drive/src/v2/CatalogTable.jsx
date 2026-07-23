@@ -124,7 +124,7 @@ export function CatalogTable({
                     <span className="rd-v2-ct-icon"><FolderIcon /></span>
                     <span className="rd-v2-ct-title">{folderRowTitle(item)}</span>
                     <span className="rd-v2-ct-sub muted">
-                      {Object.keys(item.children || {}).length} items
+                      {Object.keys(item.children || {}).length} folders
                     </span>
                   </td>
                 </tr>

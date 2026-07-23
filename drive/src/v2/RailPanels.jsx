@@ -13,6 +13,7 @@ import {
   RailStickyFooter,
 } from "@/v2/RailFrame";
 import { DetailPanel } from "@/v2/DetailPanel";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 
 function fmtGiB(gib) {
   if (gib == null) return "—";
@@ -231,7 +232,13 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
               value={target}
               onChange={(event) => setTarget(event.target.value)}
               placeholder="https://doi.org/10.1234/example&#10;https://data.example.org/dataset"
+              onKeyDown={(event) => {
+                handleEnterToSubmit(event, () => {
+                  if (target.trim()) onSubmitUrl?.(target.trim(), object);
+                });
+              }}
             />
+            <p className="rd-v2-ask-send-hint">Enter to send · ⇧↵ newline</p>
           </div>
         </div>
         <RailStickyFooter>

@@ -113,11 +113,16 @@ export function webDiscover(query = "", limit = 8, tavilyLive = true) {
 }
 
 /** Explore source catalogue — preferred Discover search contract when backend supports it. */
-export function discoverSources(query = "", { limit = 12, live = false, prefer = "" } = {}) {
+export function discoverSources(
+  query = "",
+  { limit = 12, live = false, prefer = "", semantic = false } = {},
+) {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   if (live) params.set("live", "1");
+  if (semantic) params.set("semantic", "1");
   if (prefer) params.set("prefer", prefer);
-  return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: 10000 });
+  // Live adapters (DataCite / HF / …) need more patience than local catalog.
+  return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: live ? 45000 : 12000 });
 }
 
 /** Durable Discover history (intents / subscriptions / collection runs). */

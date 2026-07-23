@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { GuidedState, ProgressSteps } from "@/v2/InteractionFeedback";
 import { useAskChat } from "@/v2/useAskChat";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 
 export function AskRail({
   dataset,
@@ -301,14 +302,13 @@ export function AskRail({
           data-testid="ask-composer"
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              send();
-            }
+            handleEnterToSubmit(e, () => {
+              if (!busy && input.trim()) send();
+            });
           }}
         />
         <div className="rd-v2-ask-send-row">
-          <span className="rd-v2-ask-send-hint">⌘↵ to send</span>
+          <span className="rd-v2-ask-send-hint">Enter to send · ⇧↵ newline</span>
           <button
             type="button"
             className="rd-v2-btn sm primary"

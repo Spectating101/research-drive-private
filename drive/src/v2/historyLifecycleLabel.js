@@ -3,11 +3,12 @@
  * Authority: DISCOVER_FULL_SCALE_FREEZE + Phase 1 cancelled ≠ Collecting / Route investigating.
  */
 
-import { historyLifecycleBucket } from "./discoverAdapters.js";
+import { historyHoldingTruth, historyLifecycleBucket } from "./discoverAdapters.js";
 
 export function historyLifecycleLabel(event) {
   const status = String(event?.status || event?.meta?.status || "").toLowerCase();
   const action = String(event?.kind || event?.action || "").toLowerCase();
+  const truth = historyHoldingTruth(event);
   let kind = historyLifecycleBucket(event);
   if (kind === "all") {
     if (action === "intent") kind = "needs_approval";
@@ -23,10 +24,11 @@ export function historyLifecycleLabel(event) {
     return "Failed — needs recovery";
   }
   if (kind === "ready" || status === "registered" || action === "registered_asset") {
-    if (/query[_ -]?ready/.test(status)) return "Query ready";
-    if (status === "registered" || action === "registered_asset") return "Registered";
+    // Never promote receipt_only / non-query holdings to Query ready from status text alone.
+    if (truth.queryReady) return "Query ready";
+    if (truth.receiptOnly || truth.registered) return "Registered";
     if (status === "archived") return "Archived";
-    if (/completed|ready|done|succeeded/.test(status)) return "Completed";
+    if (truth.completed || /completed|ready|done|succeeded/.test(status)) return "Completed";
     return "Completed";
   }
   return "Route investigating";

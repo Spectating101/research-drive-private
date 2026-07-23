@@ -3,6 +3,7 @@
  */
 
 import { classifyDiscoverResult } from "./discoverTaxonomy.js";
+import { humanizeDiscoverDescription } from "./browseMeta.js";
 import {
   boundProbeResult,
   classifyProbeEvidence,
@@ -213,7 +214,7 @@ export function buildDiscoverEvaluation(row, labIds, probeState) {
     ? classifyProbeEvidence(row, probe)
     : { verified: [], inferred: [], model: [], technical: [] };
   const decision = decisionCopy(taxonomy);
-  const usefulFor = usefulForLine(row);
+  const usefulFor = humanizeDiscoverDescription(usefulForLine(row));
   const coverage = coverageParts(row);
   const verified = primaryVerifiedFacts(classified);
   const unknowns = deriveUnknowns(row, taxonomy, classified, hasProbe);

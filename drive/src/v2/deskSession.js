@@ -140,3 +140,11 @@ export function saveChatSessionId(id) {
   if (!id) return;
   localStorage.setItem(SESSION_KEY, id);
 }
+
+export function clearChatSessionId() {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}

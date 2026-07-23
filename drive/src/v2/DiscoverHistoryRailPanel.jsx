@@ -1,4 +1,5 @@
 import { EmptyRailState } from "@/v2/EmptyRailState";
+import { historyHoldingTruth } from "@/v2/discoverAdapters";
 import { RailDecisionSummary, RailEntityHeader, RailField, RailFieldGrid, RailFrame, RailStickyFooter } from "@/v2/RailFrame";
 import { historyLifecycleExplanation } from "@/v2/historyLifecycleLabel";
 
@@ -40,14 +41,26 @@ export function DiscoverHistoryRailPanel({ event, job, onAskAbout, onReviewReque
   }
 
   const state = historyState(event);
+  const truth = historyHoldingTruth(event);
   const meta = event.meta || {};
   const title = event.target || event.title || event.id || "Discover request";
-  const datasetId = meta.dataset_id || event.dataset_id || "";
-  const source = datasetId || meta.source_id || meta.candidate_key || meta.intent_id || "Durable Discover record";
-  const requestId = datasetId || meta.intent_id || meta.job_id || meta.subscription_id || event.id || "";
-  const canReview = state.label === "Approval required" && Boolean(job?.id || meta.job_id);
-  const registered = state.label === "Registered" || state.label === "Query ready";
+  const datasetId = truth.datasetId || meta.dataset_id || event.dataset_id || "";
+  const source =
+    datasetId ||
+    truth.sourceId ||
+    truth.candidateKey ||
+    meta.source_id ||
+    meta.candidate_key ||
+    meta.intent_id ||
+    "Durable Discover record";
+  const requestId =
+    datasetId || meta.intent_id || truth.jobId || meta.job_id || meta.subscription_id || event.id || "";
+  const canReview = state.label === "Approval required" && Boolean(job?.id || meta.job_id || truth.jobId);
+  const registered = state.label === "Registered" || state.label === "Query ready" || truth.registered;
   const libraryHref = datasetId ? `?tab=library&dataset=${encodeURIComponent(datasetId)}` : "";
+  const risk = truth.receiptOnly
+    ? "Receipt-only holding — do not treat as query-ready until catalog reconciliation completes."
+    : state.risk;
 
   return (
     <RailFrame>
@@ -57,13 +70,17 @@ export function DiscoverHistoryRailPanel({ event, job, onAskAbout, onReviewReque
         pills={<span className={`rd-v2-pill${state.label === "Recovery required" ? " fail" : state.label === "Approval required" ? " warn" : ""}`}>{state.label}</span>}
         description={source}
       />
-      <RailDecisionSummary status={state.label} primary={state.explanation} risk={state.risk} next={state.next} />
+      <RailDecisionSummary status={state.label} primary={state.explanation} risk={risk} next={state.next} />
       <div className="rd-v2-rail-scroll">
         <RailFieldGrid>
           <RailField label="Latest durable update" value={updatedAt(event)} />
+          <RailField label="Holding truth" value={truth.label} />
           <RailField label="Recorded event" value={text(event.kind || event.action || "discover")} />
           {meta.summary || event.summary ? <RailField label="Evidence" value={meta.summary || event.summary} /> : null}
           {datasetId ? <RailField label="Dataset" value={datasetId} mono /> : null}
+          {truth.candidateKey ? <RailField label="Candidate" value={truth.candidateKey} mono /> : null}
+          {truth.sourceId ? <RailField label="Source" value={truth.sourceId} mono /> : null}
+          {truth.connectorId ? <RailField label="Connector" value={truth.connectorId} mono /> : null}
           {meta.registry_id || event.registry_id ? <RailField label="Registry" value={meta.registry_id || event.registry_id} mono /> : null}
           {meta.manifest_id || event.manifest_id ? <RailField label="Manifest" value={meta.manifest_id || event.manifest_id} mono /> : null}
           {meta.job_id || event.job_id ? <RailField label="Job" value={meta.job_id || event.job_id} mono /> : null}

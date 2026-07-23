@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buildAccountSummaryRows,
   buildActionRows,
   buildActivityRows,
   spendingPeriodLabel,
 } from "@/v2/resourcesSpending";
+import { resolveCapacityMark } from "@/v2/capacityMarks";
 import { buildCapacityAccessPairs, groupSourceCapabilities } from "@/v2/resourcesCapacity";
+import { resolveProviderMark } from "@/v2/providerMarks";
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
+import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
 import {
   formatWorkersToolbarStat,
   workersToolbarFieldsFromRollup,
@@ -165,6 +168,7 @@ function CapacityAccessGrid({ rollup, selectedKey, onSelect }) {
             {pair.meters.map((meter) => {
               const key = `capacity-${meter.id}`;
               const pct = meter.pct;
+              const mark = resolveCapacityMark(meter.markId || meter.id);
               return (
                 <button
                   key={meter.id}
@@ -182,7 +186,14 @@ function CapacityAccessGrid({ rollup, selectedKey, onSelect }) {
                     })
                   }
                 >
-                  <span className="rd-v2-res-capacity-meter-name">{meter.name}</span>
+                  <span className="rd-v2-res-capacity-meter-name">
+                    {mark ? (
+                      <span className="rd-v2-res-capacity-mark" aria-hidden>
+                        <img src={mark.src} alt="" title={mark.title || mark.alt} width={18} height={18} />
+                      </span>
+                    ) : null}
+                    {meter.name}
+                  </span>
                   <strong>{meter.metric}</strong>
                   {pct != null ? (
                     <span className="rd-v2-res-capacity-meter-bar" aria-hidden>
@@ -223,18 +234,34 @@ function SourceCapabilityLedger({ panels, selectedKey, onSelect }) {
       {families.map((family) => (
         <section key={family.id} className="rd-v2-res-source-family" aria-label={family.title}>
           <h3>{family.title}</h3>
-          {family.rows.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              className={`rd-v2-res-source-row${selectedKey === row.id || selectedKey === row.row?.key ? " on" : ""}`}
-              onClick={() => onSelect?.(row.row || row)}
-            >
-              <strong>{row.name}</strong>
-              <span>{row.access}</span>
-              <em data-authority={row.authority}>{row.authority}</em>
-            </button>
-          ))}
+          {family.rows.map((row) => {
+            const mark = resolveProviderMark(row.row || row);
+            return (
+              <button
+                key={row.id}
+                type="button"
+                className={`rd-v2-res-source-row${selectedKey === row.id || selectedKey === row.row?.key ? " on" : ""}`}
+                onClick={() => onSelect?.(row.row || row)}
+              >
+                <span className="rd-v2-res-source-identity">
+                  <span
+                    className={`rd-v2-res-source-mark${mark.wide ? " is-wide" : ""}${mark.generic ? " is-generic" : ""}`}
+                  >
+                    <img
+                      src={mark.src}
+                      alt={mark.alt || ""}
+                      title={mark.title || mark.alt || row.name}
+                      width={20}
+                      height={20}
+                    />
+                  </span>
+                  <strong>{row.name}</strong>
+                </span>
+                <span>{row.access}</span>
+                <em data-authority={row.authority}>{row.authority}</em>
+              </button>
+            );
+          })}
         </section>
       ))}
     </div>
@@ -811,20 +838,33 @@ export function ResourcesPage({
   onSelectRow,
 }) {
   const [activityKind, setActivityKind] = useState("all");
-  const isInitialLoading = rollupLoading && rollup === undefined;
-  const viewRollup = isInitialLoading ? null : rollup || PLACEHOLDER_ROLLUP;
+  const [cachedRollup, setCachedRollup] = useState(() => readResourcesRollupCache());
+
+  useEffect(() => {
+    if (rollup && typeof rollup === "object") {
+      writeResourcesRollupCache(rollup);
+      setCachedRollup(rollup);
+    }
+  }, [rollup]);
+
+  // Sources have a stable local capability manifest. Live telemetry hydrates it
+  // without blocking the workspace or fabricating unknown capacity.
+  const syncing = Boolean(rollupLoading) || rollup === undefined;
+  const lastKnownRollup = rollup ?? cachedRollup ?? null;
+  const viewRollup =
+    rollup != null ? rollup : rollup === undefined ? cachedRollup || {} : PLACEHOLDER_ROLLUP;
   const panels = useMemo(
     () =>
       buildResourcesPanels({
-        rollup,
-        rollupLoading,
+        rollup: lastKnownRollup,
+        rollupLoading: syncing && !lastKnownRollup,
         health,
         ops,
         jobs,
         catalogSummary,
         cluster,
       }),
-    [rollup, rollupLoading, health, ops, jobs, catalogSummary, cluster],
+    [lastKnownRollup, syncing, health, ops, jobs, catalogSummary, cluster],
   );
   const effectiveActivityFilter = useMemo(() => {
     if (activityFilter) return activityFilter;
@@ -893,7 +933,11 @@ export function ResourcesPage({
               Updated {freshness}
             </span>
           ) : null}
-          {rollupLoading ? <span className="rd-v2-toolbar-meta">Syncing…</span> : null}
+          {syncing ? (
+            <span className="rd-v2-toolbar-meta" role="status" data-testid="resources-syncing">
+              Syncing…
+            </span>
+          ) : null}
           <Chip onClick={() => onRefresh?.()} aria-label="Refresh resources">
             Refresh
           </Chip>
@@ -907,36 +951,30 @@ export function ResourcesPage({
       ) : null}
 
       {mode === "sources" || mode === "spending" ? (
-        isInitialLoading ? (
-          <p className="rd-v2-res-loading" role="status">
-            Loading resources…
-          </p>
-        ) : (
-          <>
-            <section className="rd-v2-res-wire-band" aria-label="Sources overview">
-              <h2 className="rd-v2-res-wire-title">Capacity &amp; access</h2>
-              <CapacityAccessGrid
-                rollup={viewRollup}
-                selectedKey={selectedKey}
-                onSelect={onSelectRow}
-              />
-            </section>
-            <section className="rd-v2-res-wire-band" aria-label="Source capabilities">
-              <h2 className="rd-v2-res-wire-title">Source capabilities</h2>
-              <SourceCapabilityLedger
-                panels={panels}
-                selectedKey={selectedKey}
-                onSelect={onSelectRow}
-              />
-              <ResearchCapability
-                cluster={health?.cluster || cluster}
-                panels={panels}
-                rollup={viewRollup}
-                catalogSummary={catalogSummary}
-              />
-            </section>
-          </>
-        )
+        <>
+          <section className="rd-v2-res-wire-band" aria-label="Sources overview">
+            <h2 className="rd-v2-res-wire-title">Capacity &amp; access</h2>
+            <CapacityAccessGrid
+              rollup={viewRollup}
+              selectedKey={selectedKey}
+              onSelect={onSelectRow}
+            />
+          </section>
+          <section className="rd-v2-res-wire-band" aria-label="Source capabilities">
+            <h2 className="rd-v2-res-wire-title">Source capabilities</h2>
+            <SourceCapabilityLedger
+              panels={panels}
+              selectedKey={selectedKey}
+              onSelect={onSelectRow}
+            />
+            <ResearchCapability
+              cluster={health?.cluster || cluster}
+              panels={panels}
+              rollup={viewRollup}
+              catalogSummary={catalogSummary}
+            />
+          </section>
+        </>
       ) : mode === "method" ? (
         <section className="rd-v2-res-method-wire" data-testid="resources-method" aria-label="Evidence movement method">
           <h2 className="rd-v2-res-wire-title">Evidence movement</h2>

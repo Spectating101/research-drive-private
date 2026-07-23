@@ -65,19 +65,26 @@ export const V2_CLUSTER_TAB = { id: "cluster", label: "Cluster", Icon: ClusterIc
 /** Synthesis tab — parked behind SYNTHESIS_NAV_DEFERRED (default false for showcase). */
 export const V2_SYNTHESIS_TAB = { id: "synthesis", label: "Synthesis", Icon: SynthesisIcon };
 
-export const V2_SIDEBAR_TABS = [
+/** Primary destinations — stay in the upper nav stack. */
+export const V2_SIDEBAR_PRIMARY_TABS = [
   { id: "home",      label: "Home",      Icon: HomeIcon },
   { id: "library",   label: "Library",   Icon: LibraryIcon },
   { id: "browse",    label: "Discover",  Icon: BrowseIcon },
   ...(SYNTHESIS_NAV_DEFERRED ? [] : [V2_SYNTHESIS_TAB]),
   { id: "resources", label: "Resources", Icon: ResourcesIcon },
+];
+
+/** Account destinations — pinned to the bottom of the sidebar (still full pages). */
+export const V2_SIDEBAR_FOOT_TABS = [
   { id: "profile",   label: "Profile",   Icon: ProfileIcon },
   { id: "settings",  label: "Settings",  Icon: SettingsIcon },
 ];
+
+export const V2_SIDEBAR_TABS = [...V2_SIDEBAR_PRIMARY_TABS, ...V2_SIDEBAR_FOOT_TABS];
 
 export { SYNTHESIS_NAV_DEFERRED };
 
 /** All routable tabs (includes deferred). */
 export const V2_TABS = CLUSTER_NAV_DEFERRED
   ? V2_SIDEBAR_TABS
-  : [...V2_SIDEBAR_TABS.slice(0, 2), V2_CLUSTER_TAB, ...V2_SIDEBAR_TABS.slice(2)];
+  : [...V2_SIDEBAR_PRIMARY_TABS.slice(0, 2), V2_CLUSTER_TAB, ...V2_SIDEBAR_PRIMARY_TABS.slice(2), ...V2_SIDEBAR_FOOT_TABS];

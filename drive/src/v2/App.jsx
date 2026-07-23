@@ -35,7 +35,8 @@ import {
 import { BrowsePage } from "@/v2/BrowsePage";
 import { ClusterPage } from "@/v2/ClusterPage";
 import { computeDatasetOverlap } from "@/v2/clusterOverlap";
-import { loadUserEmail } from "@/v2/deskSession";
+import { loadUserEmail, saveUserEmail } from "@/v2/deskSession";
+import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
 import { normalizeReleaseTab } from "@/v2/releaseVisibility";
 import { HomePage } from "@/v2/HomePage";
 import { InspectorRail } from "@/v2/InspectorRail";
@@ -56,6 +57,7 @@ import { recentDatasets, touchRecent } from "@/v2/recent";
 import { displayName, isQueryReadyReadiness } from "@/v2/datasetMeta";
 import { buildLab, PILOT_PREVIEW_EMAIL } from "@/v2/profileViewModel";
 import { mergeHealth, resolveCatalog } from "@/v2/deskSeed";
+import { projectRollupFromHealth } from "@/v2/homeIteration10";
 import { buildDeskIntegrationChips } from "@/v2/deskIntegration";
 import { loadSettings } from "@/v2/settingsStore";
 import { CLUSTER_NAV_DEFERRED } from "@/v2/nav-config.jsx";
@@ -65,7 +67,11 @@ import {
   discoverCandidateUrl,
 } from "@/v2/discoverActions";
 import { candidateKey } from "@/v2/candidateKey";
-import { durableHistoryToEvents, mergeHistoryEvents } from "@/v2/discoverAdapters";
+import {
+  durableHistoryToEvents,
+  enrichHistoryEventsFromJobs,
+  mergeHistoryEvents,
+} from "@/v2/discoverAdapters";
 import { discoverModeFromLegacy, discoverModeToUrlState } from "@/v2/discoverMode";
 import { jobToDiscoverHistoryEvent, pendingApprovalJobs } from "@/v2/procurementJobs";
 import { discoverCandidateState } from "@/v2/browseMeta";
@@ -177,6 +183,8 @@ export function V2App() {
   const [discoverSearchQuery, setDiscoverSearchQuery] = useState(() => readParams().q);
   const [discoverMode, setDiscoverMode] = useState(() => readParams().discoverMode || "explore");
   const [discoverFocusAwaiting, setDiscoverFocusAwaiting] = useState(() => Boolean(readParams().discoverFocusAwaiting));
+  /** One-shot: Explore should hit live source adapters (Search wider / Ask handoff). */
+  const [discoverPreferLive, setDiscoverPreferLive] = useState(false);
   const [historyEvents, setHistoryEvents] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -185,12 +193,14 @@ export function V2App() {
   const [acquisitions, setAcquisitions] = useState([]);
   const [partitions, setPartitions] = useState([]);
   const [shelves, setShelves] = useState([]);
+  const [libraryGuide, setLibraryGuide] = useState(null);
   const [ops, setOps] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [overview, setOverview] = useState(null);
   const [catalogSummary, setCatalogSummary] = useState(null);
   const [cluster, setCluster] = useState(null);
-  const [resourcesRollup, setResourcesRollup] = useState(undefined);
+  // Cache-first (same as Resources page) so Home headroom is not blocked on /desk/resources.
+  const [resourcesRollup, setResourcesRollup] = useState(() => readResourcesRollupCache() ?? undefined);
   const [resourcesRefreshedAt, setResourcesRefreshedAt] = useState(null);
   const [resourceMode, setResourceMode] = useState("sources");
   const [activityFilter, setActivityFilter] = useState(null);
@@ -198,16 +208,48 @@ export function V2App() {
   const { toast, show: showToast, dismissIf: dismissToastIf } = useToast();
 
   const reloadProfile = useCallback(() => {
-    const email = loadUserEmail();
+    // Showcase soft-default: keep Kong bound when the browser has no faculty email yet
+    // (or after a desk outage wiped the visible identity).
+    let email = loadUserEmail();
+    if (!email) email = saveUserEmail(PILOT_PREVIEW_EMAIL);
     facultyProfile(email)
       .then((data) => {
         if (!data?.found || !data.profile || data.profile.unknown) {
+          // Fall back to pilot bind rather than leaving the desk looking empty.
+          if (email !== PILOT_PREVIEW_EMAIL) {
+            saveUserEmail(PILOT_PREVIEW_EMAIL);
+            facultyProfile(PILOT_PREVIEW_EMAIL)
+              .then((pilot) => {
+                if (pilot?.found && pilot.profile && !pilot.profile.unknown) {
+                  setProfile(pilot.profile);
+                } else {
+                  setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true });
+                }
+              })
+              .catch(() => setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true }));
+            return;
+          }
           setProfile({ email, unknown: true });
           return;
         }
         setProfile(data.profile);
       })
-      .catch(() => setProfile({ email, unknown: true }));
+      .catch(() => {
+        if (email !== PILOT_PREVIEW_EMAIL) {
+          saveUserEmail(PILOT_PREVIEW_EMAIL);
+          facultyProfile(PILOT_PREVIEW_EMAIL)
+            .then((pilot) => {
+              if (pilot?.found && pilot.profile && !pilot.profile.unknown) {
+                setProfile(pilot.profile);
+              } else {
+                setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true });
+              }
+            })
+            .catch(() => setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true }));
+          return;
+        }
+        setProfile({ email, unknown: true });
+      });
   }, []);
 
   useEffect(() => {
@@ -263,14 +305,27 @@ export function V2App() {
       });
     deskHealth(false)
       .then((h) => {
-        setHealth(mergeHealth(h));
+        const merged = mergeHealth(h);
+        setHealth(merged);
         setDeskRefreshedAt(Date.now());
+        // Paint Home headroom from /health immediately; full /desk/resources hydrates after.
+        setResourcesRollup((cur) => {
+          if (cur && typeof cur === "object" && cur.status === "ok") return cur;
+          if (cur && cur.usage?.vault?.used_tb != null) return cur;
+          return projectRollupFromHealth(merged) || cur;
+        });
       })
       .catch(() =>
         deskHealth(false)
           .then((h) => {
-            setHealth(mergeHealth(h));
+            const merged = mergeHealth(h);
+            setHealth(merged);
             setDeskRefreshedAt(Date.now());
+            setResourcesRollup((cur) => {
+              if (cur && typeof cur === "object" && cur.status === "ok") return cur;
+              if (cur && cur.usage?.vault?.used_tb != null) return cur;
+              return projectRollupFromHealth(merged) || cur;
+            });
           })
           .catch(() => setHealth(mergeHealth(null))),
       );
@@ -288,10 +343,12 @@ export function V2App() {
       .then((payload) => {
         setPartitions(Array.isArray(payload?.partitions) ? payload.partitions : []);
         setShelves(Array.isArray(payload?.shelves) ? payload.shelves : []);
+        setLibraryGuide(payload?.guide && typeof payload.guide === "object" ? payload.guide : null);
       })
       .catch(() => {
         setPartitions([]);
         setShelves([]);
+        setLibraryGuide(null);
       });
     libraryOps()
       .then(setOps)
@@ -320,6 +377,7 @@ export function V2App() {
       .catch(() => setCluster(null));
     deskResources(false)
       .then((payload) => {
+        writeResourcesRollupCache(payload);
         setResourcesRollup(payload);
         setResourcesRefreshedAt(Date.now());
       })
@@ -427,8 +485,9 @@ export function V2App() {
   const browseTarget = browseRow;
   const browseSelectedId = browseRow ? candidateKey(browseRow) : "";
   const historyItems = useMemo(() => {
+    const enriched = enrichHistoryEventsFromJobs(historyEvents, jobs);
     const durableJobIds = new Set(
-      historyEvents
+      enriched
         .map((event) => event?.meta?.job_id || event?.job_id)
         .filter(Boolean),
     );
@@ -436,7 +495,7 @@ export function V2App() {
       .filter((job) => job?.id && !durableJobIds.has(job.id))
       .map(jobToDiscoverHistoryEvent)
       .filter(Boolean);
-    return mergeHistoryEvents(historyEvents, jobEvents);
+    return mergeHistoryEvents(enriched, jobEvents);
   }, [historyEvents, jobs]);
   const selectedHistoryEvent = useMemo(
     () => historyItems.find((event) => event?.id === selectedHistoryId) || null,
@@ -652,6 +711,8 @@ export function V2App() {
     (query) => {
       const q = String(query || discoverSearchQuery || "").trim();
       if (!q) return;
+      // Force Explore to re-query with live adapters, and brief Ask in parallel.
+      setDiscoverPreferLive(true);
       setDiscoverSearchQuery(q);
       goTab("browse");
       syncUrl({ tab: "browse", q });
@@ -1124,14 +1185,63 @@ export function V2App() {
     [goTab, setDiscoverModeSafe],
   );
 
+  const libraryNavHaystack = useMemo(() => {
+    const byDataset = new Map();
+    const shelfById = new Map((shelves || []).map((s) => [String(s.id || ""), s]));
+    for (const lane of partitions || []) {
+      const sid = String(lane.shelf_id || "");
+      const shelf = shelfById.get(sid);
+      const nav = [
+        shelf?.label,
+        shelf?.blurb,
+        lane.professor_label,
+        lane.subtitle,
+        lane.name,
+        lane.professor_blurb,
+        lane.scope,
+        lane.partition_id,
+        lane.detail?.partition_id,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const ids = lane.detail?.registry_dataset_ids || lane.registry_dataset_ids || [];
+      for (const id of ids) {
+        const key = String(id || "");
+        if (!key) continue;
+        byDataset.set(key, `${byDataset.get(key) || ""} ${nav}`);
+      }
+    }
+    return byDataset;
+  }, [partitions, shelves]);
+
   const filteredDatasets = useMemo(() => {
     const q = librarySearchQuery.trim().toLowerCase();
     if (!q) return catalog;
+    const shelfHitIds = new Set();
+    const laneByPid = new Map(
+      (partitions || []).map((lane) => [
+        String(lane.partition_id || lane.detail?.partition_id || ""),
+        lane,
+      ]),
+    );
+    for (const shelf of shelves || []) {
+      const blob = `${shelf.label || ""} ${shelf.blurb || ""} ${shelf.id || ""}`.toLowerCase();
+      if (!blob.includes(q)) continue;
+      for (const pid of shelf.partition_ids || []) {
+        const lane = laneByPid.get(String(pid));
+        for (const id of lane?.detail?.registry_dataset_ids || lane?.registry_dataset_ids || []) {
+          if (id) shelfHitIds.add(String(id));
+        }
+      }
+    }
     return catalog.filter((d) => {
-      const text = `${d.dataset_id} ${d.name} ${d.display_name || ""} ${d.grain} ${d.description || ""} ${d.one_line || ""}`.toLowerCase();
+      const did = String(d.dataset_id || "");
+      if (shelfHitIds.has(did)) return true;
+      const nav = libraryNavHaystack.get(did) || "";
+      const text = `${did} ${d.name} ${d.display_name || ""} ${d.grain} ${d.description || ""} ${d.one_line || ""} ${d.partition_id || ""} ${nav}`.toLowerCase();
       return text.includes(q);
     });
-  }, [catalog, librarySearchQuery]);
+  }, [catalog, libraryNavHaystack, librarySearchQuery, partitions, shelves]);
 
   const headerDsCount = catalog.length || Number(health?.datasets) || 0;
   const headerConnected = catalog.filter((d) => isQueryReadyReadiness(d.analysis_readiness)).length;
@@ -1169,6 +1279,7 @@ export function V2App() {
           datasets={filteredDatasets}
           partitions={partitions}
           shelves={shelves}
+          guide={libraryGuide}
           cluster={health?.cluster}
           folderId={folderId}
           onFolderChange={changeLibraryFolder}
@@ -1204,6 +1315,8 @@ export function V2App() {
           selectedId={browseSelectedId}
           searchQuery={discoverSearchQuery}
           onSearchChange={setDiscoverSearchQuery}
+          preferLiveSources={discoverPreferLive}
+          onLiveSourcesConsumed={setDiscoverPreferLive}
           jobs={jobs}
           usingSeed={usingSeed}
           probeSnapshots={probeSnapshots}

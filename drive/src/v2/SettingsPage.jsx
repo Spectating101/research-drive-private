@@ -12,6 +12,7 @@ import { loadSettings, saveSettings } from "@/v2/settingsStore";
 import { PILOT_PREVIEW_EMAIL } from "@/v2/profileViewModel";
 import { PageShell, StatementRow, StatementSection } from "@/v2/ui";
 import { V2_TABS } from "@/v2/nav-config.jsx";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 
 function deskAccessStatus(health) {
   const desk = health?.desk || {};
@@ -205,6 +206,7 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
               value={emailDraft}
               onChange={(e) => setEmailDraft(e.target.value)}
               aria-describedby="rd-settings-email-hint"
+              onKeyDown={(e) => handleEnterToSubmit(e, () => saveEmail())}
             />
             <button type="button" className="rd-v2-btn sm primary" onClick={saveEmail}>
               Save identity
@@ -250,6 +252,11 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
               autoComplete="off"
               onChange={(e) => setTokenDraft(e.target.value)}
               aria-describedby="rd-settings-access-hint"
+              onKeyDown={(e) => {
+                handleEnterToSubmit(e, () => {
+                  if (!busy && tokenDraft.trim()) saveToken();
+                });
+              }}
             />
             <button type="button" className="rd-v2-btn sm" disabled={busy || !tokenDraft.trim()} onClick={saveToken}>
               Save fallback

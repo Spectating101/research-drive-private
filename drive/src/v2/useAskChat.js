@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deskWarm, sendChatMessage } from "@/v2/api";
 import { normalizeActivityStep } from "@/v2/deskIntegration";
-import { loadChatSessionId, loadUserEmail } from "@/v2/deskSession";
+import { clearChatSessionId, loadChatSessionId, loadUserEmail, saveChatSessionId } from "@/v2/deskSession";
 import { classifyAskIntent, shapeAskReplyForIntent } from "@/v2/askIntent";
 
 function normalizeOutgoingMessage(value, fallback = "") {
@@ -113,10 +113,24 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           },
         });
 
-        if (out.session_id) sessionRef.current = out.session_id;
+        if (out.session_id) {
+          sessionRef.current = out.session_id;
+          saveChatSessionId(out.session_id);
+        }
         const reply = out.reply || out.message || "Done.";
         const artifacts = out.artifacts || {};
         const statePatch = artifacts.state_patch || out.state_patch || {};
+        // Stuck Composer resume targets poison the browser session — start fresh next send.
+        const composerBroken =
+          out.action === "composer_error" ||
+          artifacts.action === "composer_error" ||
+          /could not complete that turn|composer session expired|internal:\s*internal error/i.test(
+            String(reply || ""),
+          );
+        if (composerBroken) {
+          sessionRef.current = "";
+          clearChatSessionId();
+        }
         const pendingJobId =
           artifacts.job?.id || statePatch.pending_job_id || out.pending_job_id || null;
         const jobStatus = artifacts.job?.status || statePatch.job_status;
@@ -185,11 +199,16 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           onToast?.("Job pending approval — use Approve below");
         }
       } catch (err) {
+        const msg = err.message || String(err);
+        if (/composer|internal:\s*internal error|could not complete/i.test(msg)) {
+          sessionRef.current = "";
+          clearChatSessionId();
+        }
         setMessages((m) => [
           ...m.filter((x) => !x.streaming),
-          { role: "error", text: err.message || String(err) },
+          { role: "error", text: msg },
         ]);
-        setStatus(err.message || "Chat failed");
+        setStatus(msg || "Chat failed");
       } finally {
         busyRef.current = false;
         setBusy(false);

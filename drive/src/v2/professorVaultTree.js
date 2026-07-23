@@ -196,24 +196,33 @@ export function buildProfessorVaultTree(datasets = [], partitions = [], shelves 
     }
     if (!folder) continue;
 
+    const shelfName = shelfNodes.get(String(folder.path?.[0] || ""))?.name || "";
     folder.children[did] = {
       kind: "dataset",
       id: did,
       name: datasetTitle(row),
       row: { ...row, name: datasetTitle(row) },
       path: [...(folder.path || []), did],
+      browsePath: [shelfName, folder.name].filter(Boolean),
+      pathLabel: [shelfName, folder.name].filter(Boolean).join(" › "),
     };
     placed += 1;
   }
 
-  // Drop empty shelves (except keep at least one if everything empty — show empty Lab).
+  // Keep shelf → partition taxonomy even when no local datasets matched yet.
+  // Only drop the synthetic "Other holdings" catch-all when it is empty.
   for (const [sid, shelf] of [...shelfNodes.entries()]) {
-    const parts = Object.values(shelf.children || {}).filter((c) => c.kind === "folder");
-    for (const part of parts) {
+    for (const part of Object.values(shelf.children || {}).filter((c) => c.kind === "folder")) {
+      if (part.partition_id !== "unfiled") continue;
       const files = Object.values(part.children || {}).filter((c) => c.kind === "dataset");
       if (!files.length) delete shelf.children[part.id];
     }
-    if (!Object.keys(shelf.children || {}).length) delete root.children[sid];
+    if (
+      sid === "project_downloads" &&
+      !Object.keys(shelf.children || {}).length
+    ) {
+      delete root.children[sid];
+    }
   }
 
   return {
