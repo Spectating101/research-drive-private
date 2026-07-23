@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 import json
+import re
+import sys
+import types
 from pathlib import Path
 
 import pandas as pd
+
+# The live monorepo supplies this helper from the broader runtime tree. The
+# private backend authority intentionally does not vendor that collector module,
+# so the focused registry test supplies only its pure identity helpers.
+hf_helpers = types.ModuleType("scripts.hf_collect_dataset")
+hf_helpers.hf_slug = lambda value: re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+hf_helpers.registry_dataset_id = lambda value: f"hf_{hf_helpers.hf_slug(value)}"
+sys.modules.setdefault("scripts.hf_collect_dataset", hf_helpers)
 
 from scripts.research_data_mcp.registry_promotion import RegistryPromoter
 
