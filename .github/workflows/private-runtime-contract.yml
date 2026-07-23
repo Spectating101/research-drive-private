@@ -31,19 +31,29 @@ jobs:
         run: python drive/scripts/research_data_mcp/reddit_subscriber_recovery/collect_reddit_subscribers.py
 
       - name: Collect reviewed daily histories and derive month-end panel
+        id: reviewed_daily
+        continue-on-error: true
         env:
           REDDIT_DAILY_OUT: ${{ github.workspace }}/reddit-subscriber-output/reviewed_daily
-        run: python drive/scripts/research_data_mcp/reddit_subscriber_recovery/collect_reddit_daily.py
+        run: |
+          set -o pipefail
+          python drive/scripts/research_data_mcp/reddit_subscriber_recovery/collect_reddit_daily.py 2>&1 | tee reddit-subscriber-output/reviewed_daily.log
 
-      - name: Archive collection output
+      - name: Archive collection output and diagnostics
+        if: always()
         run: |
           cd reddit-subscriber-output
-          zip -r ../stablecoin-reddit-subscriber-history-reviewed.zip .
+          zip -r ../stablecoin-reddit-subscriber-history-reviewed.zip . ../reddit-subscriber-output/reviewed_daily.log
 
       - name: Upload subscriber-history artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stablecoin-reddit-subscriber-history-reviewed
           path: stablecoin-reddit-subscriber-history-reviewed.zip
           if-no-files-found: error
           retention-days: 7
+
+      - name: Enforce reviewed daily result
+        if: steps.reviewed_daily.outcome == 'failure'
+        run: exit 1
