@@ -1,6 +1,6 @@
 {
   "title": "Desk hardening \u2014 chase to floor",
-  "recorded_at": "2026-07-23T13:48:32.420074+00:00",
+  "recorded_at": "2026-07-23T13:49:57.316812+00:00",
   "parent_sha": "f6a363dbcc33546e4dda11975f83d211e67b90f0",
   "unit_tests": {
     "passed": 56,
@@ -37,7 +37,7 @@
     "full AI pipeline compiler (product, not a security gate)",
     "public internet unattended SLOs (desk is Tailscale-internal)"
   ],
-  "backend_sha": "9beac5a754d87ca3c3737c179e2d473500cce019",
+  "backend_sha": "5095d9485ee08b210ba72d3646371941ab33ffcc",
   "live_hostile_after_restart": [
     {
       "name": "faculty_pipeline",
@@ -65,5 +65,13 @@
   "services_restarted": [
     "research-drive-front-door.service",
     "yzu-cluster-worker.service"
-  ]
+  ],
+  "prove_desk_hardening": {
+    "ok": true,
+    "unit_passed": 56,
+    "sha_ok": true,
+    "live_unauth_401": true,
+    "live_cgnat_400": true,
+    "live_auto_approve_pending": true
+  }
 }
