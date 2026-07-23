@@ -51,6 +51,8 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/stop", "handler": "library_discover_subscription_stop"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/run", "handler": "library_discover_subscription_run"},
     {"method": "GET", "path": "/library/discover/history", "handler": "library_discover_history"},
+    # Alias — some clients hit /library/history; same discover landings payload.
+    {"method": "GET", "path": "/library/history", "handler": "library_discover_history"},
     {"method": "GET", "path": "/library/overview", "handler": "library_overview"},
     {"method": "GET", "path": "/library/partitions", "handler": "library_partitions"},
     {"method": "GET", "path": "/library/browse", "handler": "library_browse"},

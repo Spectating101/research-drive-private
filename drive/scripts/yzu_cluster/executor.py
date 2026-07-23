@@ -613,7 +613,13 @@ class YzuExecutor:
         remote_script = f"{prefix}_collect.py"
         remote_manifest = f"{prefix}.json"
         remote_artifact = f"{prefix}.zip"
+        remote_policy = "network_policy.py"
+        policy_src = self.remote_worker.with_name("network_policy.py")
+        if not policy_src.is_file():
+            raise FileNotFoundError(f"network policy module missing next to collector: {policy_src}")
         subprocess.run(["scp", *common, str(self.remote_worker), f"{target}:{remote_script}"], check=True, timeout=60)
+        # Sibling import: remote_collect falls back to `from network_policy import …`
+        subprocess.run(["scp", *common, str(policy_src), f"{target}:{remote_policy}"], check=True, timeout=60)
         subprocess.run(["scp", *common, str(manifest), f"{target}:{remote_manifest}"], check=True, timeout=60)
         remote_python = (
             self.agent_cfg.get("remote_python")
@@ -638,7 +644,10 @@ class YzuExecutor:
         subprocess.run(["scp", *common, f"{target}:{remote_artifact}", str(artifact)], check=True, timeout=300)
         if not artifact.exists() or artifact.stat().st_size < 32:
             raise RuntimeError(f"{worker['hostname']} shard {shard} artifact missing or too small ({artifact.stat().st_size if artifact.exists() else 0} bytes)")
-        cleanup = f"powershell -NoProfile -Command \"Remove-Item -Force -ErrorAction SilentlyContinue '{remote_script}','{remote_manifest}','{remote_artifact}'\""
+        cleanup = (
+            f"powershell -NoProfile -Command \"Remove-Item -Force -ErrorAction SilentlyContinue "
+            f"'{remote_script}','{remote_policy}','{remote_manifest}','{remote_artifact}'\""
+        )
         subprocess.run(["ssh", "-n", "-i", key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", target, cleanup], check=False, timeout=30)
         return {
             "shard": shard,

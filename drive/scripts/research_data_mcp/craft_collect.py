@@ -69,7 +69,7 @@ def validate_generic_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
             f"collect_plan.job_type must be one of {sorted(GENERIC_JOB_TYPES)}; got {job_type!r}"
         )
     # Only refuse named product ids in executable slots — not destination/dataset landing names.
-    for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type"):
+    for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type", "task_id"):
         raw = str(plan.get(key) or "").strip()
         if raw and is_forbidden_product_id(raw):
             raise ValueError(
@@ -88,6 +88,27 @@ def validate_generic_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
     out.setdefault("launchable", True)
     out.setdefault("requires_approval", True)
     return out
+
+
+def enforce_submit_doctrine(plan: dict[str, Any] | None) -> dict[str, Any]:
+    """Hard gate for HTTP/MCP job submit — refuse named vendor product pipelines.
+
+    Non-collect jobs (archive_upload, hydrate, synthesis, …) pass through unless an
+    executable slot carries a forbidden product id.
+    """
+    if not isinstance(plan, dict):
+        raise ValueError("plan must be an object")
+    for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type", "task_id"):
+        raw = str(plan.get(key) or "").strip()
+        if raw and is_forbidden_product_id(raw):
+            raise ValueError(
+                f"Refusing named vendor product id in {key}={raw!r}. "
+                "Use research_craft_collect_plan for a generic custom pipeline."
+            )
+    job_type = str(plan.get("job_type") or "").strip()
+    if job_type in GENERIC_JOB_TYPES or plan.get("crafted") or plan.get("pipeline") == "custom":
+        return validate_generic_plan(plan)
+    return plan
 
 
 def _slug(text: str, *, limit: int = 48) -> str:

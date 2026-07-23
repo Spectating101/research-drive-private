@@ -28,6 +28,10 @@ class JobService:
         *,
         auto_approve: bool = False,
     ) -> dict[str, Any]:
+        from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
+
+        # Fail-loud before queue: named vendor product pipelines are not desk collect.
+        plan = enforce_submit_doctrine(plan if isinstance(plan, dict) else None)
         validated = self.validate(plan)
         if not validated.get("launchable", True):
             return {

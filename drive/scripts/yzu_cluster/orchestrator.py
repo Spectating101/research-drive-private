@@ -121,6 +121,12 @@ class YzuOrchestrator:
         job = self.store.get(job_id)
         if job["status"] != "pending_approval":
             raise ValueError(f"job is {job['status']}, not pending_approval")
+        plan = self.validate_plan(dict(job.get("plan") or {}))
+        if plan.get("launchable") is False:
+            detail = str(plan.get("validation_error") or "plan is not launchable").strip()
+            raise ValueError(f"cannot approve non-launchable plan: {detail}")
+        self.store.set_plan(job_id, plan)
+        job = self.store.get(job_id)
         self.runtime.ensure(job)
         self.runtime.approve(job_id)
         self.store.update(job_id, "queued")
@@ -152,6 +158,7 @@ class YzuOrchestrator:
         if job_type == "http_manifest":
             from scripts.research_data_mcp.domain_packs import load_domain_packs
             from scripts.yzu_cluster.acquisitions import enrich_http_manifest_plan
+            from scripts.cluster_agent.network_policy import validate_public_http_url
 
             plan = enrich_http_manifest_plan(
                 dict(plan),
@@ -161,6 +168,16 @@ class YzuOrchestrator:
             if not plan.get("items"):
                 plan["launchable"] = False
                 plan["validation_error"] = "http_manifest requires a URL or downloadable items"
+            else:
+                # Fail closed on Optiplex before queue/Windows dispatch (SSRF gate).
+                for idx, item in enumerate(plan.get("items") or []):
+                    if not isinstance(item, dict):
+                        continue
+                    url = str(item.get("url") or "").strip()
+                    if not url:
+                        continue
+                    evidence = validate_public_http_url(url)
+                    item["network_evidence"] = evidence
         if job_type == "registered_pipeline":
             if plan.get("pipeline_id") not in self.executor.pipelines():
                 plan["launchable"] = False
@@ -399,6 +416,13 @@ class YzuOrchestrator:
             "failed": "failed",
         }
         for job in self.store.list(limit=500):
+            # Ops-noise quarantine is intentional desk hygiene — do not resurrect
+            # cancelled canary/spam failures from stale runtime snapshots.
+            if (
+                str(job.get("status") or "") == "cancelled"
+                and "quarantined_ops_noise" in str(job.get("error") or "")
+            ):
+                continue
             try:
                 runtime = runtime_adapter.snapshot(str(job["id"]))
             except KeyError:
