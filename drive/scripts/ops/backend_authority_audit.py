@@ -169,13 +169,16 @@ def _hard_guarantees() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     magic = _load_json(DRIVE / "config/procurement_magic.json")
     for dotted in AUTO_FALSE_PATHS:
         value = _dotted_get(magic, dotted)
+        # Retired keys are equivalent to disabled only because all current call
+        # sites default these controls to False. Record the distinction.
         _gate(
             passed,
             failed,
-            value is False,
-            "auto_collection_default_false",
+            value in {False, None},
+            "auto_collection_disabled_or_removed",
             path=".".join(dotted),
             observed=value,
+            state="removed" if value is None else "disabled",
         )
 
     policy_path = DRIVE / "scripts/research_data_mcp/execution_policy.py"
