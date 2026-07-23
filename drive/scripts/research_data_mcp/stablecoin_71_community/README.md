@@ -1,0 +1,1 @@
+Temporary research collector for the 71-stablecoin universe. All 71 rows are retained. Resolution prioritizes exact contract matches, then documented overrides, then existing IDs, exact names, and unique symbols. Historical CoinGecko community fields are probed before monthly extraction. This branch is not intended for merge.
