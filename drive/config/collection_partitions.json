@@ -49,7 +49,8 @@
       "replaces_legacy_name": "news_shock_taxonomy",
       "professor_label": "Asia news events (GDELT)",
       "migrated_at": "2026-06-24T20:07:02.523018+00:00",
-      "status": "migrated"
+      "status": "migrated",
+      "professor_visible": true
     },
     {
       "id": "news.gdelt-expanded",
@@ -71,7 +72,8 @@
       ],
       "professor_label": "Expanded global news (GDELT)",
       "status": "active",
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "professor_visible": true
     },
     {
       "id": "catalog.datacite-harvest",
@@ -168,13 +170,14 @@
         "skynet_stablecoin_harvest",
         "test_sec"
       ],
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "professor_visible": true
     },
     {
       "id": "markets.crypto-landscape",
       "domain": "markets",
       "path": "markets/crypto-landscape",
-      "title": "Crypto protocol & token landscape snapshots",
+      "title": "Crypto landscape snapshots (ops vault slot)",
       "description": "Periodic snapshots of protocols, tokens, and DeFi landscape metrics. Use for taxonomy, regime, and cross-protocol comparison studies.",
       "legacy_drive_path": "collection/markets/crypto-landscape",
       "target_drive_path": "collection/markets/crypto-landscape",
@@ -189,21 +192,22 @@
       "replaces_legacy_name": "crypto_landscape / crypto_pipeline",
       "migrated_at": "2026-06-24T19:40:53.578964+00:00",
       "status": "migrated",
-      "professor_label": "Crypto landscape runs"
+      "professor_label": "Crypto landscape (ops slot)",
+      "professor_visible": false
     },
     {
       "id": "markets.crypto-coingecko",
       "domain": "markets",
       "path": "markets/crypto-coingecko",
-      "title": "CoinGecko daily price archive (local cache)",
-      "description": "Off-chain daily market history from CoinGecko \u2014 join to on-chain token panels for taxonomy and return studies. Mirrored to Drive when scheduled.",
+      "title": "Crypto market history holdings (ops vault slot)",
+      "description": "Optional vault slot for crypto market history landed by custom procure. Not a CoinGecko product module.",
       "legacy_drive_path": null,
       "target_drive_path": "collection/markets/crypto-coingecko",
       "legacy_local_path": "data_lake/coingecko_archive",
       "tier": "cache",
-      "status": "synced",
+      "status": "ops_holding_slot",
       "subfolders": [],
-      "professor_label": "CoinGecko prices (local)",
+      "professor_label": "Crypto market history (held bytes only)",
       "drive_last_synced_at": "2026-06-25T05:55:46.866935+00:00",
       "drive_mirror": true,
       "registry_dataset_ids": [
@@ -236,19 +240,20 @@
         "scrape_fa4cf4c0473d"
       ],
       "last_procurement_wired_at": "2026-06-25T08:08:00.261377+00:00",
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "professor_visible": false
     },
     {
       "id": "markets.ethereum-usdt",
       "domain": "markets",
       "path": "markets/ethereum-usdt",
-      "title": "Ethereum USDT on-chain flows (professor package)",
-      "description": "Tether (USDT) transfer panels on Ethereum: daily/monthly CSV packages and optional raw Parquet. Primary source for stablecoin flow and FinTech grant work.",
+      "title": "On-chain stablecoin flow holdings (ops vault slot)",
+      "description": "Optional vault slot for on-chain transfer panels landed by custom procure / BigQuery jobs. Not a USDT product module \u2014 craft a collect or dry-run for the concrete target.",
       "legacy_drive_path": null,
       "target_drive_path": "collection/markets/ethereum-usdt",
       "legacy_local_path": "data/usdt_catalogue",
       "tier": "hot",
-      "professor_visible": true,
+      "professor_visible": false,
       "registry_dataset_ids": [
         "ethereum_usdt_rpc_pilot",
         "ethereum_usdt_transfers",
@@ -260,8 +265,9 @@
         "bigquery_history",
         "raw_transfers"
       ],
-      "professor_label": "USDT on-chain (BigQuery)",
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
+      "professor_label": "On-chain flows (held bytes only)",
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "status": "ops_holding_slot"
     },
     {
       "id": "markets.equities-asia",
@@ -281,26 +287,28 @@
       "replaces_legacy_name": "market_data / markets",
       "migrated_at": "2026-06-24T19:59:54.274571+00:00",
       "status": "migrated",
-      "professor_label": "Asia stock panels"
+      "professor_label": "Asia stock panels",
+      "professor_visible": true
     },
     {
       "id": "markets.nft-opensea",
       "domain": "markets",
       "path": "markets/nft-opensea",
-      "title": "OpenSea NFT collection metadata",
-      "description": "Collection-level NFT metadata and graph exports for rarity, network, and return studies (SSRN-style NFT asset pricing).",
+      "title": "NFT marketplace metadata (ops vault slot)",
+      "description": "Optional Drive/local slot for NFT marketplace metadata if the custom procure pipeline lands one. Not a desk product category; OpenSea is only an example source name.",
       "legacy_drive_path": null,
       "target_drive_path": "collection/markets/nft-opensea",
       "legacy_local_path": "data_lake/opensea",
       "tier": "cache",
-      "status": "synced",
-      "professor_label": "NFT metadata (OpenSea)",
+      "status": "example_slot",
+      "professor_label": "NFT metadata (ops slot)",
       "drive_last_synced_at": "2026-06-25T06:03:37.738446+00:00",
       "drive_mirror": true,
       "registry_dataset_ids": [
         "opensea_nft_metadata_layer"
       ],
-      "last_registry_wired_at": "2026-06-25T07:56:25+00:00"
+      "last_registry_wired_at": "2026-06-25T07:56:25+00:00",
+      "professor_visible": false
     },
     {
       "id": "official.exchange-disclosures",
@@ -321,7 +329,8 @@
       ],
       "migrated_at": "2026-06-24T20:00:35.041307+00:00",
       "status": "migrated",
-      "professor_label": "TWSE official market data"
+      "professor_label": "TWSE official market data",
+      "professor_visible": true
     },
     {
       "id": "official.mops-disclosures",
@@ -338,7 +347,8 @@
       ],
       "status": "procurement_wired",
       "professor_label": "MOPS / governance procured",
-      "last_registry_wired_at": "2026-06-25T07:56:25+00:00"
+      "last_registry_wired_at": "2026-06-25T07:56:25+00:00",
+      "professor_visible": true
     },
     {
       "id": "official.macro-asia",
@@ -361,7 +371,8 @@
       "registry_dataset_ids": [
         "public_macro_ff_factors_daily"
       ],
-      "last_registry_wired_at": "2026-07-07T09:25:32+00:00"
+      "last_registry_wired_at": "2026-07-07T09:25:32+00:00",
+      "professor_visible": true
     },
     {
       "id": "reference.entity-mapping-asia",
@@ -379,7 +390,8 @@
       ],
       "migrated_at": "2026-06-24T16:21:46.150726+00:00",
       "status": "migrated",
-      "professor_label": "Asia entity mapping"
+      "professor_label": "Asia entity mapping",
+      "professor_visible": true
     },
     {
       "id": "reference.sec-edgar",
@@ -400,7 +412,8 @@
       "status": "migrated",
       "registry_dataset_ids": [
         "procured_src_ace4a0fb8e9e"
-      ]
+      ],
+      "professor_visible": true
     },
     {
       "id": "reference.refinitiv-backfill",
@@ -437,7 +450,8 @@
         "refinitiv_fundamental_annual_panel",
         "refinitiv_entity_market_spine"
       ],
-      "notes": "Do not schedule bulk re-harvest. See docs/status/generated/REFINITIV_2026_07_06_COMPLETE_RELEASE.md"
+      "notes": "Do not schedule bulk re-harvest. See docs/status/generated/REFINITIV_2026_07_06_COMPLETE_RELEASE.md",
+      "professor_visible": true
     },
     {
       "id": "social.reddit",
@@ -456,7 +470,8 @@
       "replaces_legacy_name": "social_reddit / sentiment",
       "professor_label": "Reddit sentiment",
       "migrated_at": "2026-06-24T20:10:48.071533+00:00",
-      "status": "migrated"
+      "status": "migrated",
+      "professor_visible": true
     },
     {
       "id": "acquired.procured",
@@ -510,9 +525,27 @@
         "procured_src_f4fd1f8a03cb",
         "sec_company_tickers",
         "twse_openapi_taiwan_market_layer",
-        "procured_src_b9a817c6ac09"
+        "procured_src_b9a817c6ac09",
+        "desk_custom_pipeline_sec_tickers_20260723",
+        "craft_flex_sec_tickers_1784803178",
+        "craft_flex_sec_tickers_exch_1784803178",
+        "craft_flex_wb_countries_1784803178",
+        "craft_flex_wb_indicators_1784803178",
+        "craft_flex_usgs_quakes_1784803179",
+        "craft_flex_usgs_week_1784803179",
+        "craft_flex_nominatim_1784803179",
+        "craft_earthquake_usgs_gov_aefa1c755c",
+        "craft_flex_http_openalex_1784803696",
+        "craft_flex_http_coingecko_ping_1784803696",
+        "craft_flex_http_llama_stable_1784803696",
+        "craft_flex_http_usgs2_1784803696",
+        "craft_ready_openalex_1784804533",
+        "craft_ready_usgs_1784804533",
+        "craft_ready_llama_1784804533",
+        "scrape_63016bd11794"
       ],
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "professor_visible": true
     },
     {
       "id": "derived.research-panels",
@@ -554,7 +587,8 @@
       "professor_label": "Research panels",
       "migrated_at": "2026-06-24T20:08:58.839200+00:00",
       "status": "migrated",
-      "last_registry_wired_at": "2026-07-07T16:12:34+00:00"
+      "last_registry_wired_at": "2026-07-07T16:12:34+00:00",
+      "professor_visible": true
     },
     {
       "id": "derived.research-models",
@@ -572,7 +606,8 @@
       ],
       "migrated_at": "2026-06-24T20:02:58.522202+00:00",
       "status": "migrated",
-      "professor_label": "Model trial outputs"
+      "professor_label": "Model trial outputs",
+      "professor_visible": true
     },
     {
       "id": "ops.pipeline-manifests",
@@ -590,7 +625,8 @@
       ],
       "migrated_at": "2026-06-24T19:59:01.588598+00:00",
       "status": "migrated",
-      "professor_label": "Ops manifests"
+      "professor_label": "Ops manifests",
+      "professor_visible": false
     },
     {
       "id": "ops.spectator-archives",
@@ -605,7 +641,8 @@
       "status": "synced",
       "professor_label": "Scrape archives (local)",
       "drive_last_synced_at": "2026-06-25T15:24:59.387465+00:00",
-      "drive_mirror": true
+      "drive_mirror": true,
+      "professor_visible": false
     },
     {
       "id": "ops.collection-queue",
@@ -633,7 +670,8 @@
         "investment_repo_inventory_latest",
         "investment_thesis_gates_latest"
       ],
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00"
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "professor_visible": false
     },
     {
       "id": "ops.cluster-jobs",
@@ -646,7 +684,8 @@
       "legacy_local_path": "data_lake/yzu_cluster",
       "tier": "ops",
       "status": "local_only",
-      "professor_label": "Cluster jobs (local)"
+      "professor_label": "Cluster jobs (local)",
+      "professor_visible": false
     },
     {
       "id": "reference.crsp-moveit",
@@ -672,7 +711,8 @@
         "crsp_us_stock_daily_ciz",
         "public_equity_us_sp500_yfinance_daily"
       ],
-      "last_registry_wired_at": "2026-07-07T09:25:32+00:00"
+      "last_registry_wired_at": "2026-07-07T09:25:32+00:00",
+      "professor_visible": true
     },
     {
       "id": "reference.compustat-capitaliq",
@@ -692,7 +732,8 @@
       ],
       "registry_dataset_ids": [
         "compustat_na_fundamentals_annual"
-      ]
+      ],
+      "professor_visible": true
     }
   ]
 }

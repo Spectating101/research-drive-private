@@ -161,7 +161,11 @@ def create_stack(
         if not registry_row or remote_path != str(archive.get("remote_path") or ""):
             return None
         readiness = str(registry_row.get("analysis_readiness") or "registered")
-        if readiness not in {"registered", "query_ready"}:
+        # Instant / query_ready local cards are desk-usable; do not collapse them to
+        # a mere "registered" receipt that History will treat as not queryable.
+        if readiness in {"instant", "query_ready"}:
+            readiness = "query_ready"
+        elif readiness not in {"registered", "query_ready"}:
             readiness = "registered"
         execution_spec = result.get("execution_spec") if isinstance(result.get("execution_spec"), dict) else {}
         return {

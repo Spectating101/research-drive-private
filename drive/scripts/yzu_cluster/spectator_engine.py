@@ -12,6 +12,7 @@ from typing import Any
 
 from scripts.yzu_cluster.pools import scp_pull, scp_pull_recursive, spectator_targets, ssh_run, windows_target, windows_workers
 from scripts.yzu_cluster.cluster_ops import disable_local_scrape
+from scripts.yzu_cluster.acquisitions import repo_relpath
 
 
 @dataclass
@@ -34,9 +35,7 @@ class SpectatorEngine:
         self.engine_cfg = dict(cfg.get("spectator_engine") or {})
         self.allowlist = cfg.get("spectator_scripts") or {}
         self.pools = cfg.get("worker_pools") or {}
-        self.dispatch_script = self.repo_root / str(
-            self.engine_cfg.get("dispatch_script") or "scripts/yzu_cluster/workers/scraper_dispatch.sh"
-        )
+        self.dispatch_script = self._resolve_dispatch_script()
         self.local_staging = self.repo_root / str(self.engine_cfg.get("local_staging") or "data_lake/spectator_engine")
         self.molina_repo = self._resolve_molina_repo()
 
@@ -46,6 +45,19 @@ class SpectatorEngine:
         if not path.is_absolute():
             path = (self.repo_root / path).resolve()
         return path
+
+    def _resolve_dispatch_script(self) -> Path:
+        raw = str(self.engine_cfg.get("dispatch_script") or "scripts/yzu_cluster/workers/scraper_dispatch.sh").strip()
+        candidates = (
+            self.repo_root / raw,
+            self.repo_root / "drive" / raw,
+            self.repo_root / "drive/scripts/yzu_cluster/workers/scraper_dispatch.sh",
+            self.repo_root / "scripts/yzu_cluster/workers/scraper_dispatch.sh",
+        )
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+        return candidates[0]
 
     def resolve(self, plan: dict[str, Any]) -> ResolvedScript:
         script_key = str(plan.get("script_key") or "")
@@ -120,7 +132,7 @@ class SpectatorEngine:
                 plan["pull_paths"] = [
                     {
                         "remote": win_out.replace("\\", "/"),
-                        "local": str(local_base.relative_to(self.repo_root)),
+                        "local": repo_relpath(local_base, self.repo_root),
                         "recursive": True,
                     }
                 ]
@@ -128,7 +140,7 @@ class SpectatorEngine:
                 plan["pull_paths"] = [
                     {
                         "remote": win_out.replace("\\", "/"),
-                        "local": str(local_out.relative_to(self.repo_root)),
+                        "local": repo_relpath(local_out, self.repo_root),
                     }
                 ]
         elif kind == "ssh_linux":
@@ -144,7 +156,7 @@ class SpectatorEngine:
                 plan["pull_paths"] = [
                     {
                         "remote": remote_out,
-                        "local": str(local_base.relative_to(self.repo_root)),
+                        "local": repo_relpath(local_base, self.repo_root),
                         "recursive": True,
                     }
                 ]
@@ -152,7 +164,7 @@ class SpectatorEngine:
                 plan["pull_paths"] = [
                     {
                         "remote": remote_out,
-                        "local": str(local_out.relative_to(self.repo_root)),
+                        "local": repo_relpath(local_out, self.repo_root),
                     }
                 ]
         else:
@@ -259,10 +271,10 @@ class SpectatorEngine:
                     manifest = scrape_dir / "manifest.json"
                     scrape_out = scrape_dir / "extract.json"
                     if manifest.exists():
-                        result["extract_path"] = str(manifest.relative_to(self.repo_root))
-                        result["catalog_dir"] = str(scrape_dir.relative_to(self.repo_root))
+                        result["extract_path"] = repo_relpath(manifest, self.repo_root)
+                        result["catalog_dir"] = repo_relpath(scrape_dir, self.repo_root)
                     elif scrape_out.exists():
-                        result["extract_path"] = str(scrape_out.relative_to(self.repo_root))
+                        result["extract_path"] = repo_relpath(scrape_out, self.repo_root)
                     result["url"] = plan.get("url")
                 return result
             except Exception as exc:
@@ -321,8 +333,8 @@ class SpectatorEngine:
             "target": "local",
             "script": resolved.script,
             "args": resolved.args,
-            "log": str(log_path.relative_to(self.repo_root)),
-            "staging": str(self.local_staging.relative_to(self.repo_root)),
+            "log": repo_relpath(log_path, self.repo_root),
+            "staging": repo_relpath(self.local_staging, self.repo_root),
         }
 
     def _remote_dispatch_cmd(self, resolved: ResolvedScript, *, sr_repo: str, molina_repo: str, staging: str) -> str:
@@ -340,10 +352,10 @@ class SpectatorEngine:
             local = self.repo_root / item["local"]
             if item.get("recursive"):
                 scp_pull_recursive(target, remote, local, key=key, timeout=600)
-                pulled.append(str(local.relative_to(self.repo_root)))
+                pulled.append(repo_relpath(local, self.repo_root))
             else:
                 scp_pull(target, remote, local, key=key, timeout=300)
-                pulled.append(str(local.relative_to(self.repo_root)))
+                pulled.append(repo_relpath(local, self.repo_root))
         return pulled
 
     def _run_ssh_linux(
@@ -376,7 +388,7 @@ class SpectatorEngine:
                     "target": target,
                     "script": resolved.script,
                     "args": resolved.args,
-                    "log": str(log_path.relative_to(self.repo_root)),
+                    "log": repo_relpath(log_path, self.repo_root),
                     "pulled": pulled,
                 }
             last_error = (run.stderr or run.stdout or f"exit {run.returncode}").strip()
@@ -429,7 +441,7 @@ class SpectatorEngine:
                     "target": target,
                     "script": resolved.script,
                     "args": resolved.args,
-                    "log": str(log_path.relative_to(self.repo_root)),
+                    "log": repo_relpath(log_path, self.repo_root),
                     "pulled": pulled,
                 }
             last_error = (run.stderr or run.stdout or f"exit {run.returncode}").strip()

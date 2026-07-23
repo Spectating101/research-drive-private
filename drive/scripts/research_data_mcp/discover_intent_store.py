@@ -56,8 +56,18 @@ def _route(route: dict[str, Any]) -> dict[str, Any]:
         "limitation": str(route.get("limitation") or "").strip()[:1200],
         "destination": str(route.get("destination") or "").strip()[:400],
         "refresh": str(route.get("refresh") or "").strip()[:400],
+        "url": str(route.get("url") or route.get("source_url") or "").strip()[:800],
+        "pipeline": str(route.get("pipeline") or "").strip()[:80],
     }
-    return {key: value for key, value in out.items() if value}
+    # Executable generic plan stub (AI-crafted). Validated when present.
+    raw_plan = route.get("collect_plan")
+    if raw_plan is not None:
+        from scripts.research_data_mcp.craft_collect import validate_generic_plan
+
+        out["collect_plan"] = validate_generic_plan(raw_plan if isinstance(raw_plan, dict) else None)
+        out["crafted"] = True
+        out.setdefault("pipeline", "custom")
+    return {key: value for key, value in out.items() if value not in ("", [], None)}
 
 
 def validate_proposal(proposal: dict[str, Any] | None) -> dict[str, Any] | None:

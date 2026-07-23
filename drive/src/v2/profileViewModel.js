@@ -223,7 +223,7 @@ export function buildDeskRead(profile, { previewing = false } = {}) {
   const stack = profile.lab_fintech_stack || [];
   const hasFintechStack = stack.some((s) => {
     const blob = `${s?.label || ""} ${s?.id || ""}`.toLowerCase();
-    return /crypto|nft|opensea|coingecko|skynet|token|fintech|usdt|ethereum/.test(blob);
+    return /crypto|nft|token|fintech|ethereum|stablecoin|on-?chain/.test(blob);
   });
   if (hasFintechStack) strengths.push("FinTech through-line");
 
@@ -242,7 +242,7 @@ export function buildDeskRead(profile, { previewing = false } = {}) {
   const lab = buildLab(profile);
   const deskParts = [];
   if (lab.linked.length) {
-    const fintechLinked = lab.linked.some((r) => /crypto|nft|opensea|coingecko|skynet|token|usdt|ethereum/i.test(r.label));
+    const fintechLinked = lab.linked.some((r) => /crypto|nft|token|fintech|ethereum|stablecoin|on-?chain/i.test(r.label));
     deskParts.push(fintechLinked ? "FinTech panels linked." : `${lab.linked.length} holdings linked.`);
   }
   const openBits = [];

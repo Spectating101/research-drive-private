@@ -37,6 +37,8 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/discover/intents/{intent_id}/review", "handler": "library_discover_intent_review"},
     {"method": "POST", "path": "/library/discover/intents/{intent_id}/route", "handler": "library_discover_intent_route"},
     {"method": "POST", "path": "/library/discover/intents/{intent_id}/submit", "handler": "library_discover_intent_submit"},
+    {"method": "POST", "path": "/library/craft/collect-plan", "handler": "library_craft_collect_plan"},
+    {"method": "POST", "path": "/library/craft/discover-proposal", "handler": "library_craft_discover_proposal"},
     {"method": "GET", "path": "/library/discover/sources", "handler": "library_discover_sources"},
     {"method": "POST", "path": "/library/discover/sources/preview", "handler": "library_discover_source_preview"},
     {"method": "GET", "path": "/library/discover/sources/preview", "handler": "library_discover_source_preview"},
@@ -108,6 +110,10 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/extensions/tools", "handler": "extension_tool_catalog"},
     {"method": "GET", "path": "/library/extensions/datacite/search", "handler": "extension_datacite_search"},
     {"method": "GET", "path": "/library/extensions/datacite/doi/{doi}", "handler": "extension_datacite_get"},
+    {"method": "GET", "path": "/library/doi/{doi}", "handler": "extension_datacite_get"},
+    {"method": "GET", "path": "/library/doi", "handler": "library_doi_help"},
+    {"method": "GET", "path": "/library/upload", "handler": "library_upload_help"},
+    {"method": "POST", "path": "/library/upload", "handler": "library_upload"},
     {"method": "GET", "path": "/library/extensions/huggingface/search", "handler": "extension_hf_search"},
     {"method": "GET", "path": "/library/extensions/bigquery/status", "handler": "extension_bigquery_status"},
     {"method": "POST", "path": "/library/extensions/bigquery/dry-run", "handler": "extension_bigquery_dry_run"},
@@ -229,16 +235,28 @@ def _compact_probe_response(out: dict[str, Any]) -> dict[str, Any]:
 
 
 def _match(path: str, pattern: str) -> dict[str, str] | None:
-    p_parts = path.strip("/").split("/")
-    pat_parts = pattern.strip("/").split("/")
-    if len(p_parts) != len(pat_parts):
+    p_parts = [part for part in path.strip("/").split("/") if part != ""]
+    pat_parts = [part for part in pattern.strip("/").split("/") if part != ""]
+    if not pat_parts:
+        return {} if not p_parts else None
+    # Trailing {param} may consume remaining path segments (DOI values contain '/').
+    last = pat_parts[-1]
+    greedy = last.startswith("{") and last.endswith("}")
+    if greedy:
+        if len(p_parts) < len(pat_parts):
+            return None
+    elif len(p_parts) != len(pat_parts):
         return None
     params: dict[str, str] = {}
-    for segment, pat in zip(p_parts, pat_parts):
+    for idx, pat in enumerate(pat_parts[:-1] if greedy else pat_parts):
+        segment = p_parts[idx]
         if pat.startswith("{") and pat.endswith("}"):
             params[pat[1:-1]] = segment
         elif segment != pat:
             return None
+    if greedy:
+        name = last[1:-1]
+        params[name] = "/".join(p_parts[len(pat_parts) - 1 :])
     return params
 
 
@@ -275,7 +293,7 @@ def _handlers() -> dict[str, Handler]:
             q=q,
             readiness=str(query.get("readiness") or "").strip(),
             access_shape=str(query.get("access_shape") or query.get("access_mode") or "").strip(),
-            limit=_query_int(query, "limit", 50),
+            limit=_query_int(query, "limit", 200),
         )
 
     def dataset_describe(stack, query, payload, params):
@@ -520,9 +538,13 @@ def _handlers() -> dict[str, Handler]:
         return out
 
     def library_discover_intents_list(stack, query, payload, params):
-        return stack.gateway.discover_intent_list(
+        out = stack.gateway.discover_intent_list(
             limit=_query_int(query, "limit", 30), session_id=str(query.get("session_id") or "")
         )
+        intents = out.get("intents") if isinstance(out, dict) else None
+        if isinstance(intents, list) and not intents:
+            return _mark_latent_empty(out, kind="discover_intents")
+        return out
 
     def library_discover_intents_create(stack, query, payload, params):
         candidate = payload.get("candidate")
@@ -566,6 +588,27 @@ def _handlers() -> dict[str, Handler]:
             meta={"intent_id": params["intent_id"], "job_id": job.get("id") if isinstance(job, dict) else None},
         )
         return out
+
+    def library_craft_collect_plan(stack, query, payload, params):
+        from scripts.research_data_mcp.craft_collect import craft_collect_plan
+
+        return craft_collect_plan(
+            research_need=str(payload.get("research_need") or payload.get("need") or ""),
+            url=str(payload.get("url") or ""),
+            title=str(payload.get("title") or ""),
+            mode=str(payload.get("mode") or ""),
+            dataset_id=str(payload.get("dataset_id") or ""),
+            scrape_mode=str(payload.get("scrape_mode") or "page"),
+        )
+
+    def library_craft_discover_proposal(stack, query, payload, params):
+        return stack.tools.research_craft_discover_proposal(
+            research_need=str(payload.get("research_need") or payload.get("need") or ""),
+            url=str(payload.get("url") or ""),
+            title=str(payload.get("title") or ""),
+            mode=str(payload.get("mode") or ""),
+            intent_id=str(payload.get("intent_id") or ""),
+        )
 
     def library_discover_sources(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "")
@@ -691,6 +734,7 @@ def _handlers() -> dict[str, Handler]:
             kind=str(query.get("kind") or query.get("filter") or ""),
             session_id=str(query.get("session_id") or ""),
             include_jobs=query.get("include_jobs", "1") not in {"0", "false", "no"},
+            include_ops=str(query.get("include_ops") or "").lower() in {"1", "true", "yes"},
         )
 
     def library_datacite_enrich(stack, query, payload, params):
@@ -711,7 +755,23 @@ def _handlers() -> dict[str, Handler]:
         )
 
     def library_credential_profiles(stack, query, payload, params):
-        return stack.gateway.list_credential_profiles()
+        out = stack.gateway.list_credential_profiles()
+        profiles = out.get("profiles") if isinstance(out, dict) else None
+        if isinstance(profiles, list) and not profiles:
+            marked = _mark_latent_empty(out, kind="credentials_profiles")
+            if isinstance(marked.get("product_status"), dict):
+                marked["product_status"]["note"] = (
+                    "No credential profiles loaded. Seed from "
+                    "config/procurement_credentials.example.json or set env tokens."
+                )
+            return marked
+        if isinstance(out, dict) and isinstance(profiles, list):
+            out = dict(out)
+            out["configured_count"] = sum(1 for p in profiles if p.get("configured"))
+            out["required_missing"] = [
+                p.get("id") for p in profiles if p.get("required") and not p.get("configured")
+            ]
+        return out
 
     def library_overview(stack, query, payload, params):
         return stack.gateway.library_overview()
@@ -772,6 +832,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.synthesis_thread_list(
             limit=_query_int(query, "limit", 30),
             session_id=str(query.get("session_id") or ""),
+            include_ops=str(query.get("include_ops") or "").lower() in {"1", "true", "yes"},
         )
 
     def library_synthesis_threads_create(stack, query, payload, params):
@@ -894,6 +955,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.faculty_profile(
             email=str(query.get("email") or ""),
             slug=str(query.get("slug") or ""),
+            default=str(query.get("default") or "").lower() in {"1", "true", "yes"},
         )
 
     def library_desk_brief(stack, query, payload, params):
@@ -913,7 +975,11 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.procurement_chat_session(params["session_id"])
 
     def library_campaigns(stack, query, payload, params):
-        return stack.gateway.list_campaigns(limit=int(query.get("limit", 30)), status=query.get("status", ""))
+        out = stack.gateway.list_campaigns(limit=int(query.get("limit", 30)), status=query.get("status", ""))
+        campaigns = out.get("campaigns") if isinstance(out, dict) else None
+        if isinstance(campaigns, list) and not campaigns:
+            return _mark_latent_empty(out, kind="campaigns")
+        return out
 
     def library_campaign_get(stack, query, payload, params):
         return stack.gateway.get_campaign(params["id"])
@@ -1001,7 +1067,11 @@ def _handlers() -> dict[str, Handler]:
         )
 
     def library_pins_list(stack, query, payload, params):
-        return stack.gateway.list_dataset_pins(limit=int(query.get("limit", 50)))
+        out = stack.gateway.list_dataset_pins(limit=int(query.get("limit", 50)))
+        pins = out.get("pins") if isinstance(out, dict) else None
+        if isinstance(pins, list) and not pins:
+            return _mark_latent_empty(out, kind="pins")
+        return out
 
     def library_pins_create(stack, query, payload, params):
         handle = str(payload.get("handle") or "")
@@ -1061,10 +1131,17 @@ def _handlers() -> dict[str, Handler]:
     def library_live_identity(stack, query, payload, params):
         from scripts.yzu_cluster.worker_control import build_live_identity
 
+        dataset_id = str(query.get("dataset_id") or "").strip()
+        job_id = str(query.get("job_id") or "").strip()
+        if not dataset_id and not job_id:
+            raise ValueError(
+                "live-identity requires ?dataset_id=… or ?job_id=… "
+                "(bare GET is not a faculty list endpoint)"
+            )
         return build_live_identity(
             stack.orchestrator,
-            dataset_id=query.get("dataset_id"),
-            job_id=query.get("job_id"),
+            dataset_id=dataset_id or None,
+            job_id=job_id or None,
         )
 
     def job_approve(stack, query, payload, params):
@@ -1134,6 +1211,65 @@ def _handlers() -> dict[str, Handler]:
     def extension_tool_catalog(stack, query, payload, params):
         return stack.tools.tool_catalog()
 
+    def library_doi_help(stack, query, payload, params):
+        doi = str(query.get("doi") or "").strip()
+        if doi:
+            return extension_datacite_get(stack, query, {"doi": doi}, {"doi": doi})
+        return {
+            "product_status": {
+                "state": "routed",
+                "kind": "doi",
+                "note": "Resolve a DOI via GET /library/doi/{doi} or POST /library/datacite/resolve",
+            },
+            "examples": [
+                "/library/doi/10.5281/zenodo.58938",
+                "POST /library/datacite/resolve {\"doi\":\"10.5281/zenodo.58938\"}",
+                "POST /library/datacite/collect after resolve",
+            ],
+        }
+
+    def library_upload_help(stack, query, payload, params):
+        return {
+            "product_status": {
+                "state": "routed",
+                "kind": "upload",
+                "note": (
+                    "Browser multipart upload is not a separate desk store. "
+                    "Use DOI/URL collect (http_manifest) or archive_upload jobs."
+                ),
+            },
+            "next_actions": [
+                {"method": "POST", "path": "/library/datacite/resolve", "body": {"doi": "10.xxxx/xxxxx"}},
+                {"method": "POST", "path": "/library/datacite/collect", "body": {"doi": "10.xxxx/xxxxx"}},
+                {"method": "POST", "path": "/library/upload", "body": {"doi": "10.xxxx/xxxxx"}},
+                {"method": "POST", "path": "/library/upload", "body": {"url": "https://.../file.csv"}},
+                {"method": "POST", "path": "/library/jobs", "body": {"job_type": "archive_upload"}},
+            ],
+        }
+
+    def library_upload(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        doi = str(body.get("doi") or query.get("doi") or "").strip()
+        url = str(body.get("url") or query.get("url") or "").strip()
+        if doi:
+            # Prefer the governed DataCite collect path when a DOI is supplied.
+            return stack.gateway.collect_datacite_doi(
+                doi,
+                file_index=int(body.get("file_index") or 0),
+                campaign_id=str(body.get("campaign_id") or "") or None,
+                auto_execute=bool(body.get("auto_execute", False)),
+                max_file_bytes=int(body.get("max_file_bytes") or 50_000_000),
+                license_approved=bool(body.get("license_approved", False)),
+            )
+        if url:
+            from scripts.research_data_mcp.scrape_plan import build_http_manifest_plan_for_url
+
+            title = str(body.get("title") or url)[:120]
+            plan = build_http_manifest_plan_for_url(url, title=title)
+            job = stack.gateway.submit_job(title, plan, auto_approve=bool(body.get("auto_approve", False)))
+            return {"ok": True, "via": "http_manifest", "plan": plan, "job": job}
+        return library_upload_help(stack, query, payload, params)
+
     def extension_datacite_search(stack, query, payload, params):
         return stack.tools.datacite_search(
             query=query.get("q", query.get("query", "")),
@@ -1181,6 +1317,8 @@ def _handlers() -> dict[str, Handler]:
         "library_discover_intent_review": library_discover_intent_review,
         "library_discover_intent_route": library_discover_intent_route,
         "library_discover_intent_submit": library_discover_intent_submit,
+        "library_craft_collect_plan": library_craft_collect_plan,
+        "library_craft_discover_proposal": library_craft_discover_proposal,
         "library_discover_sources": library_discover_sources,
         "library_discover_source_preview": library_discover_source_preview,
         "library_discover_subscriptions_list": library_discover_subscriptions_list,
@@ -1197,6 +1335,7 @@ def _handlers() -> dict[str, Handler]:
         "library_credential_profiles": library_credential_profiles,
         "library_overview": library_overview,
         "library_partitions": library_partitions,
+        "library_browse": library_browse,
         "library_ops": library_ops,
         "library_advise": library_advise,
         "library_procure_chat": library_procure_chat,
@@ -1252,6 +1391,9 @@ def _handlers() -> dict[str, Handler]:
         "extension_tool_catalog": extension_tool_catalog,
         "extension_datacite_search": extension_datacite_search,
         "extension_datacite_get": extension_datacite_get,
+        "library_doi_help": library_doi_help,
+        "library_upload_help": library_upload_help,
+        "library_upload": library_upload,
         "extension_hf_search": extension_hf_search,
         "extension_bigquery_status": extension_bigquery_status,
         "extension_bigquery_dry_run": extension_bigquery_dry_run,
@@ -1282,20 +1424,48 @@ def handle_post(
     return _dispatch("POST", path, query or {}, payload, stack)
 
 
-_LEGACY_ROUTE_PREFIXES = ("/yzu/",)
+# Only these /yzu/* paths are legacy. status/workers/acquisitions/components stay current.
+_LEGACY_YZU_PATHS = {
+    "/yzu/activity",
+    "/yzu/queue/tasks",
+    "/yzu/schedules",
+}
 
 
 def _attach_deprecation(path: str, body: Any) -> Any:
-    if not any(path.startswith(prefix) for prefix in _LEGACY_ROUTE_PREFIXES):
-        return body
-    if not isinstance(body, dict):
+    """Mark truly retired cluster routes — do not brand live workers/status as deprecated."""
+    legacy = path in _LEGACY_YZU_PATHS or path.startswith("/yzu/schedules/")
+    if not legacy or not isinstance(body, dict):
         return body
     out = dict(body)
     out["_deprecated"] = {
-        "message": "Legacy route — prefer /library/* equivalents where available.",
+        "message": (
+            "Legacy cluster route — prefer /library/jobs, /library/desk/resources, "
+            "and /yzu/workers|/yzu/status for live operations."
+        ),
         "path": path,
+        "prefer": ["/library/jobs", "/yzu/workers", "/yzu/status", "/library/desk/resources"],
         "docs": "docs/PROCUREMENT_PIPELINE.md",
     }
+    return out
+
+
+def _mark_latent_empty(body: Any, *, kind: str) -> Any:
+    """Label empty product stores so clients do not treat them as failures."""
+    if not isinstance(body, dict):
+        return body
+    out = dict(body)
+    out.setdefault(
+        "product_status",
+        {
+            "state": "latent_empty",
+            "kind": kind,
+            "note": (
+                "Endpoint is live; no faculty objects are stored yet. "
+                "This is unused capacity, not an API failure."
+            ),
+        },
+    )
     return out
 
 

@@ -90,6 +90,183 @@ def _curated_connect_counts(repo_root: Path) -> tuple[int, int]:
         return 9, 9
 
 
+
+def _curated_connect_payload(repo_root: Path, *, gateway: Any | None = None) -> dict[str, Any]:
+    """Honest Connect panel: curated desk sources + execution mode, not bare counts."""
+    path = repo_root / "config/desk_sources.json"
+    layers: list[dict[str, Any]] = []
+    sources: list[dict[str, Any]] = []
+    if path.is_file():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+        for layer in data.get("layers") or []:
+            if isinstance(layer, dict):
+                layers.append(
+                    {
+                        "id": layer.get("id"),
+                        "label": layer.get("label") or layer.get("id"),
+                    }
+                )
+        # Live capability probes we can assert cheaply.
+        bq_ok = False
+        hf_ok = False
+        try:
+            if gateway is not None:
+                from scripts.research_data_mcp import bigquery_client
+
+                bq_ok = bigquery_client.status().get("credentials") == "available"
+                profiles = gateway.list_credential_profiles().get("profiles") or []
+                hf_ok = any(p.get("id") == "huggingface" and p.get("configured") for p in profiles)
+        except Exception:
+            pass
+
+        LIVE_QUERYABLE = {
+            "gdelt": "local_query",
+            "sec_edgar": "local_query",
+            "datacite": "api_live",
+            "bigquery": "api_live" if bq_ok else "needs_credentials",
+            "huggingface": "api_live" if hf_ok else "needs_credentials",
+            "yfinance": "queue",
+        }
+        LICENSED = {"lseg_edp", "wrds", "crsp_moveit", "capital_iq"}
+        AI_ASSISTED = {"web_generic", "open_research", "reddit"}
+
+        # Licensed-seat evidence from access scope + Refinitiv probe artifacts.
+        seat_status: dict[str, dict[str, Any]] = {}
+        try:
+            access_path = None
+            for rel in (
+                "docs/status/generated/databank_access_scope.json",
+                "drive/docs/status/generated/databank_access_scope.json",
+                "config/databank_access_scope.json",
+                "drive/config/databank_access_scope.json",
+            ):
+                cand = repo_root / rel
+                if cand.is_file():
+                    access_path = cand
+                    break
+            if access_path is not None:
+                access_doc = json.loads(access_path.read_text(encoding="utf-8"))
+                for row in access_doc.get("sources") or []:
+                    sid = str(row.get("source_id") or row.get("id") or "")
+                    if "wrds" in sid:
+                        seat_status["wrds"] = {
+                            "state": "seat_unavailable",
+                            "note": str(row.get("notes") or "WRDS credentials do not authenticate on this desk"),
+                        }
+                    if "capital" in sid or "compustat" in sid:
+                        seat_status["capital_iq"] = {
+                            "state": "manual_export",
+                            "note": str(row.get("notes") or "Manual / scripted export path"),
+                        }
+            probe_path = None
+            for rel in (
+                "docs/status/generated/refinitiv_entitlement_probe.json",
+                "drive/docs/status/generated/refinitiv_entitlement_probe.json",
+            ):
+                cand = repo_root / rel
+                if cand.is_file():
+                    probe_path = cand
+                    break
+            if probe_path is not None:
+                probe = json.loads(probe_path.read_text(encoding="utf-8"))
+                summary = probe.get("summary") or probe.get("entitlement_summary") or {}
+                if summary.get("all_ok") is True or int(summary.get("tiers_ok") or 0) > 0:
+                    seat_status["lseg_edp"] = {
+                        "state": "entitled",
+                        "note": f"Refinitiv probe tiers_ok={summary.get('tiers_ok')}/{summary.get('tiers_total')}",
+                        "probe": summary,
+                    }
+                else:
+                    seat_status["lseg_edp"] = {
+                        "state": "seat_unverified",
+                        "note": "Refinitiv entitlement probe present but not all_ok",
+                        "probe": summary,
+                    }
+            # CRSP MOVEit follows licensed path when configured in desk sources.
+            seat_status.setdefault(
+                "crsp_moveit",
+                {"state": "licensed_path", "note": "MOVEit institutional transfer path"},
+            )
+        except Exception:
+            pass
+
+        for src in data.get("sources") or []:
+            if not isinstance(src, dict):
+                continue
+            if src.get("show_on_resources") is False:
+                continue
+            sid = str(src.get("id") or "")
+            collect = src.get("collect_via") or []
+            if isinstance(collect, str):
+                collect = [collect]
+            seat = seat_status.get(sid)
+            if sid in LICENSED:
+                state = str((seat or {}).get("state") or "licensed_seat")
+                mode = {
+                    "entitled": "licensed_entitled",
+                    "seat_unavailable": "licensed_unavailable",
+                    "manual_export": "licensed_manual",
+                    "licensed_path": "licensed_seat",
+                    "seat_unverified": "licensed_seat",
+                }.get(state, "licensed_seat")
+            elif sid in AI_ASSISTED:
+                mode = "ai_assisted"
+            elif sid in LIVE_QUERYABLE:
+                mode = LIVE_QUERYABLE[sid]
+            elif "pipeline" in collect or "queue" in collect or "http_manifest" in collect:
+                mode = "automated_collect"
+            else:
+                mode = "configured"
+            row_out = {
+                "id": sid,
+                "label": src.get("label") or sid,
+                "collect_via": collect,
+                "routes": src.get("routes"),
+                "layers": src.get("layers") or [],
+                "execution_mode": mode,
+                "show_on_resources": bool(src.get("show_on_resources", True)),
+            }
+            if seat:
+                row_out["entitlement"] = seat
+            elif mode == "needs_credentials":
+                row_out["entitlement"] = {
+                    "state": "credentials_missing",
+                    "note": "Route exists but desk credentials are not configured.",
+                }
+            sources.append(row_out)
+    # Always include show_on_resources=false? No — resources panel is professor-facing.
+    # But count all curated sources for honesty.
+    total_configured = 0
+    if path.is_file():
+        try:
+            total_configured = len(json.loads(path.read_text(encoding="utf-8")).get("sources") or [])
+        except Exception:
+            total_configured = len(sources)
+    return {
+        "source_count": len(sources) or 9,
+        "layer_count": len(layers) or 9,
+        "configured_source_count": total_configured or len(sources),
+        "layers": layers,
+        "sources": sources,
+        "semantics": {
+            "local_query": "Bytes on desk — queryable now",
+            "api_live": "Live API with credentials",
+            "needs_credentials": "Configured route; credentials missing",
+            "licensed_seat": "Institutional seat / entitlement required",
+            "licensed_entitled": "Institutional seat verified by entitlement probe",
+            "licensed_unavailable": "Seat documented but credentials do not authenticate",
+            "licensed_manual": "Licensed source via manual/scripted export",
+            "automated_collect": "Queue/pipeline/http_manifest collect",
+            "ai_assisted": "Discover/Ask/probe path — not a silent instant connector",
+            "configured": "Route declared in desk_sources",
+        },
+    }
+
+
+
 def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
     """Single rollup for Resources UI — consumption first, not catalog inventory."""
     repo_root: Path = gateway.repo_root
@@ -184,10 +361,24 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
     if jobs.get("pending_approval", 0) > 0:
         _issue("jobs-pending", f"{jobs['pending_approval']} job(s) pending approval", "motion")
     # Lifetime failed/cancelled totals are historical — only flag recent failures.
-    failed_recent = int(jobs.get("failed_recent") or (jobs.get("actionable") or {}).get("failed_recent") or 0)
-    if failed_recent > 0:
-        days = int(jobs.get("recent_days") or (jobs.get("actionable") or {}).get("failed_recent_days") or 7)
-        _issue("jobs-failed-recent", f"{failed_recent} failed job(s) in last {days}d", "motion")
+    actionable = jobs.get("actionable") if isinstance(jobs.get("actionable"), dict) else {}
+    failed_recent = int(jobs.get("failed_recent") or actionable.get("failed_recent") or 0)
+    failed_actionable = int(jobs.get("failed_actionable") or actionable.get("failed_actionable") or failed_recent)
+    failed_ops_noise = int(jobs.get("failed_ops_noise") or actionable.get("failed_ops_noise") or 0)
+    days = int(jobs.get("recent_days") or actionable.get("failed_recent_days") or 7)
+    if failed_actionable > 0:
+        _issue(
+            "jobs-failed-recent",
+            f"{failed_actionable} actionable failed job(s) in last {days}d"
+            + (f" ({failed_ops_noise} ops/canary quarantined)" if failed_ops_noise else ""),
+            "motion",
+        )
+    elif failed_ops_noise > 0:
+        _issue(
+            "jobs-ops-noise",
+            f"{failed_ops_noise} ops/canary failed job(s) in last {days}d (non-blocking)",
+            "motion",
+        )
     if not composer_ok and not legacy_ok:
         _issue("composer", "Ask engine offline", "ai")
     if not bq_ok:
@@ -342,10 +533,7 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
         # their legacy compatibility fields while new consumers can render
         # freshness, reservations, usage, and lifecycle facts directly.
         "runtime": runtime,
-        "connect": {
-            "source_count": source_count,
-            "layer_count": layer_count,
-        },
+        "connect": _curated_connect_payload(repo_root, gateway=gateway),
         "issues": issues,
         "issues_count": len(issues),
         "spending": {

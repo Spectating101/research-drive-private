@@ -49,7 +49,7 @@ export function buildProviderRows({ health, ops, catalogSummary } = {}) {
     if (src.id === "bigquery") {
       warn = !desk.legacy_llm_configured && !desk.composer_configured;
     }
-    if (src.id === "coingecko") ok = true;
+    // Never force vendor providers "ok" — readiness comes from live desk/ops only.
 
     const queueNote =
       catalogSummary?.queue_tasks != null

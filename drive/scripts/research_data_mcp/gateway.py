@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -157,21 +158,59 @@ class ResearchDataGateway:
             rail_context=rail_context,
         )
 
-    def faculty_profile(self, *, email: str = "", slug: str = "") -> dict[str, Any]:
+    def faculty_profile(self, *, email: str = "", slug: str = "", default: bool = False) -> dict[str, Any]:
+        import os
+
         from scripts.research_data_mcp.faculty_profile import (
             is_valid_yzu_email,
+            load_registry,
             normalize_email,
             profile_summary,
             resolve_profile,
         )
 
         email_n = normalize_email(email)
+        slug_n = str(slug or "").strip()
+        registry = load_registry()
+        faculty = registry.get("faculty") or []
+        registry_count = len(faculty)
+
+        if not email_n and not slug_n:
+            env_default = (os.environ.get("DESK_DEFAULT_FACULTY_EMAIL") or "").strip()
+            if default or env_default:
+                target = env_default
+                if not target:
+                    pilot = next((row for row in faculty if row.get("pilot_professor")), None)
+                    target = str((pilot or {}).get("email") or "")
+                if target:
+                    row = resolve_profile(email=target)
+                    if row:
+                        out = {"found": True, "profile": profile_summary(row, repo_root=self.repo_root), "defaulted": True}
+                        out["registry_count"] = registry_count
+                        return out
+            return {
+                "found": False,
+                "email": "",
+                "slug": "",
+                "registry_count": registry_count,
+                "hint": "Pass ?email=...@yzu.edu.tw or ?slug=...; use ?default=1 for pilot professor",
+                "product_status": {
+                    "state": "needs_identity" if registry_count else "registry_missing",
+                    "kind": "faculty_profile",
+                    "note": (
+                        f"Faculty registry loaded ({registry_count} rows)."
+                        if registry_count
+                        else "Faculty registry file missing from front-door config/."
+                    ),
+                },
+            }
+
         if email_n and not is_valid_yzu_email(email_n):
-            return {"found": False, "email": email_n, "slug": slug, "error": "invalid_yzu_email"}
+            return {"found": False, "email": email_n, "slug": slug, "error": "invalid_yzu_email", "registry_count": registry_count}
         row = resolve_profile(email=email, slug=slug)
         if not row:
-            return {"found": False, "email": email, "slug": slug}
-        return {"found": True, "profile": profile_summary(row)}
+            return {"found": False, "email": email, "slug": slug, "registry_count": registry_count}
+        return {"found": True, "profile": profile_summary(row, repo_root=self.repo_root), "registry_count": registry_count}
 
     def desk_vault_brief(self, *, email: str = "") -> dict[str, Any]:
         from scripts.research_data_mcp.desk_vault_brief import build_vault_brief
@@ -180,7 +219,7 @@ class ResearchDataGateway:
         profile: dict[str, Any] | None = None
         row = resolve_profile(email=email) if email else None
         if row:
-            profile = profile_summary(row)
+            profile = profile_summary(row, repo_root=self.repo_root)
         brief = build_vault_brief(self.repo_root, profile)
         return {"brief": brief, "words": len(brief.split()), "faculty": bool(profile)}
 
@@ -1274,9 +1313,45 @@ class ResearchDataGateway:
         route = next((row for row in state.get("routes") or [] if row.get("id") == selected_id), None)
         if not route:
             raise ValueError("select a reviewed acquisition route before collection")
+
+        # Prefer AI-crafted generic collect_plan on the route (custom pipeline).
+        crafted = route.get("collect_plan") if isinstance(route.get("collect_plan"), dict) else None
+        if crafted:
+            from scripts.research_data_mcp.craft_collect import validate_generic_plan
+
+            plan = dict(validate_generic_plan(crafted))
+            plan.update(
+                {
+                    "discover_intent_id": intent_id,
+                    "candidate_key": route.get("candidate_key")
+                    or (state.get("candidate") or {}).get("candidate_key")
+                    or "",
+                    "destination": route.get("destination") or plan.get("destination") or "",
+                    "refresh_strategy": route.get("refresh") or "",
+                }
+            )
+            submitted = self.jobs.submit(
+                plan.get("title") or intent.get("title") or "Discover crafted collect",
+                plan,
+                {
+                    "source": "discover_intent",
+                    "discover_intent_id": intent_id,
+                    "research_need": intent.get("research_need") or "",
+                    "route_id": selected_id,
+                    "crafted": True,
+                    "pipeline": "custom",
+                },
+                auto_approve=False,
+            )
+            job = submitted.get("job") or {}
+            linked = store.link_job(intent_id, job)
+            return {"intent": self._discover_intent_with_job(linked), "job": job, "crafted": True}
+
         connector_id = str(route.get("connector_id") or "")
         if not connector_id:
-            raise ValueError("selected route cannot be collected until it has a verified connector")
+            raise ValueError(
+                "selected route needs either an AI-crafted collect_plan or a verified connector_id"
+            )
         from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
 
         plan = dict(
@@ -1428,6 +1503,7 @@ class ResearchDataGateway:
         kind: str = "",
         session_id: str = "",
         include_jobs: bool = True,
+        include_ops: bool = False,
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_history import build_discover_history
 
@@ -1436,7 +1512,9 @@ class ResearchDataGateway:
         subscriptions = self._discover_refresh_store().list(limit=min(limit, 100))
         jobs: list[dict[str, Any]] = []
         if include_jobs:
-            jobs = list((self.jobs.list(limit=min(limit * 2, 100)).get("jobs") or []))
+            # Wider window so ops canaries can be filtered without emptying History.
+            fetch = min(limit * 4, 200) if not include_ops else min(limit * 2, 100)
+            jobs = list((self.jobs.list(limit=fetch).get("jobs") or []))
         return build_discover_history(
             intents=intents,
             subscriptions=subscriptions,
@@ -1444,6 +1522,7 @@ class ResearchDataGateway:
             limit=limit,
             kind=kind,
             session_id=session_id,
+            include_ops=include_ops,
         )
 
     def synthesis_thread_create(
@@ -1465,9 +1544,39 @@ class ResearchDataGateway:
             state=state,
         )
 
-    def synthesis_thread_list(self, *, limit: int = 30, session_id: str = "") -> dict:
-        rows = self._synthesis_thread_store().list(limit=limit, session_id=session_id)
-        return {"threads": rows, "total": len(rows)}
+    def synthesis_thread_list(
+        self,
+        *,
+        limit: int = 30,
+        session_id: str = "",
+        include_ops: bool = False,
+    ) -> dict:
+        # Fetch a wider window so canary/smoke noise can be filtered without emptying the desk.
+        fetch_limit = max(int(limit or 30), 30) if include_ops else min(200, max(int(limit or 30) * 4, 60))
+        rows = self._synthesis_thread_store().list(limit=fetch_limit, session_id=session_id)
+        ops_re = re.compile(r"\b(canary|smoke|probe|test)\b", re.I)
+
+        def _is_ops(row: dict) -> bool:
+            title = str(row.get("title") or "")
+            objective = str(row.get("objective") or "")
+            return bool(ops_re.search(title) or ops_re.search(objective))
+
+        hidden = 0
+        if not include_ops:
+            kept = []
+            for row in rows:
+                if _is_ops(row):
+                    hidden += 1
+                    continue
+                kept.append(row)
+            rows = kept
+        rows = rows[: max(1, min(int(limit or 30), 200))]
+        return {
+            "threads": rows,
+            "total": len(rows),
+            "ops_threads_hidden": hidden,
+            "include_ops": bool(include_ops),
+        }
 
     def synthesis_thread_get(self, thread_id: str) -> dict:
         return self._synthesis_thread_store().get(thread_id)
@@ -1876,7 +1985,33 @@ class ResearchDataGateway:
         return self.procurement.probe(url, name)
 
     def list_connectors(self, limit: int = 50) -> dict[str, Any]:
-        return {"connectors": self.procurement.store.list(min(max(limit, 1), 200))}
+        bound = min(max(int(limit or 50), 1), 200)
+        probe = self.procurement.store.list(bound)
+        from scripts.research_data_mcp.source_map import load_desk_connectors
+
+        desk = []
+        for cid, src in load_desk_connectors(Path(self.repo_root)).items():
+            desk.append(
+                {
+                    "id": cid,
+                    "status": "desk_source",
+                    "kind": "desk_source",
+                    "name": src.get("label") or cid,
+                    "source_url": src.get("endpoint") or "",
+                    "collect_via": src.get("collect_via") or [],
+                }
+            )
+        return {
+            "desk_sources": desk[:bound],
+            "connectors": [
+                {**row, "kind": row.get("kind") or "probe_candidate"}
+                for row in probe
+            ],
+            "summary": {
+                "desk_sources": len(desk),
+                "probe_candidates": len(probe),
+            },
+        }
 
     def approve_connector(self, connector_id: str) -> dict[str, Any]:
         return self.procurement.store.approve(connector_id)

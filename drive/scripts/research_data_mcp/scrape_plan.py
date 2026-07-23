@@ -73,6 +73,23 @@ def is_public_host(url: str) -> bool:
     return any(host == suffix or host.endswith(f".{suffix}") or host.endswith(suffix) for suffix in _PUBLIC_HOST_SUFFIXES)
 
 
+def _looks_like_json_api(url: str) -> bool:
+    """Heuristic: host/path/query that usually answer with JSON over plain GET."""
+    parsed = urlparse(url.strip())
+    host = (parsed.netloc or "").lower()
+    path = (parsed.path or "").lower()
+    query = (parsed.query or "").lower()
+    if host.startswith("api.") or host.startswith("api-") or ".api." in host:
+        return True
+    if "/api/" in path or path.startswith("/api") or "/v1/" in path or "/v2/" in path or "/v3/" in path:
+        return True
+    if any(tok in query for tok in ("format=json", "output=json", "per-page=", "per_page=", "includeprices")):
+        return True
+    if path.endswith(".geojson") or path.endswith("/json"):
+        return True
+    return False
+
+
 def classify_url(url: str) -> str:
     """Return ``direct_http`` when a plain GET should work; else ``browser``."""
     url = url.strip()
@@ -87,7 +104,9 @@ def classify_url(url: str) -> str:
         return "direct_http"
     if path.endswith("/json") or "format=json" in query or "output=json" in query:
         return "direct_http"
-    if is_public_host(url) and any(ext in path for ext in (".json", ".csv", ".xml", ".zip", ".pdf")):
+    if _looks_like_json_api(url):
+        return "direct_http"
+    if is_public_host(url) and any(ext in path for ext in (".json", ".csv", ".xml", ".zip", ".pdf", ".geojson")):
         return "direct_http"
     return "browser"
 
@@ -99,7 +118,9 @@ def suggest_filename(url: str) -> str:
         name = name.split("?", 1)[0]
     if not name or name in {".", ".."}:
         digest = hashlib.sha1(url.encode()).hexdigest()[:10]
-        return f"download_{digest}.bin"
+        return f"download_{digest}.json" if _looks_like_json_api(url) else f"download_{digest}.bin"
+    if "." not in name and _looks_like_json_api(url):
+        name = f"{name}.json"
     return name[:180]
 
 

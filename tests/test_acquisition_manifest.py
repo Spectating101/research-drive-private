@@ -49,7 +49,6 @@ def test_declared_dataset_identity_wins_over_connector_identity(tmp_path: Path) 
     assert result["output_manifest_id"] == "collection_manifest_collect-tickers"
 
 
-
 def test_single_materialized_file_registers_a_file_path_not_directory(tmp_path: Path) -> None:
     spec = registry_spec_from_materialized(
         tmp_path,
@@ -104,4 +103,52 @@ def test_single_parquet_registers_local_root_and_local_file(tmp_path: Path) -> N
     assert spec["local_path"] == local_path
     assert spec["local_root"] == "data_lake/procured/panel_canary"
     assert spec["local_file"] == "panel.parquet"
+    assert spec["analysis_readiness"] == "instant"
+
+
+def test_geojson_registers_as_instant_local_json(tmp_path: Path) -> None:
+    spec = registry_spec_from_materialized(
+        tmp_path,
+        {
+            "id": "collect-geo",
+            "plan": {
+                "title": "USGS day",
+                "job_type": "http_manifest",
+                "url": "https://earthquake.usgs.gov/x.geojson",
+            },
+        },
+        {
+            "dataset_id": "geo_canary",
+            "canonical_dir": "data_lake/procured/geo_canary",
+            "files": [{"name": "all_day.geojson", "bytes": 4096}],
+        },
+    )
+    assert spec is not None
+    assert spec["backend"] == "local_json_file"
+    assert spec["analysis_readiness"] == "instant"
+    assert spec["source_access_mode"] == "materialized_instant"
+
+
+def test_extensionless_json_api_sniffs_as_instant(tmp_path: Path) -> None:
+    canonical = tmp_path / "data_lake/procured/openalex_canary"
+    canonical.mkdir(parents=True)
+    (canonical / "works").write_text('{"results":[{"id":"W1"}]}\n', encoding="utf-8")
+    spec = registry_spec_from_materialized(
+        tmp_path,
+        {
+            "id": "collect-openalex",
+            "plan": {
+                "title": "OpenAlex",
+                "job_type": "http_manifest",
+                "url": "https://api.openalex.org/works?search=stablecoin",
+            },
+        },
+        {
+            "dataset_id": "openalex_canary",
+            "canonical_dir": "data_lake/procured/openalex_canary",
+            "files": [{"name": "works", "bytes": 32}],
+        },
+    )
+    assert spec is not None
+    assert spec["backend"] == "local_json_file"
     assert spec["analysis_readiness"] == "instant"

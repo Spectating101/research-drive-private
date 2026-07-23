@@ -80,7 +80,7 @@ _JOB_CAPABILITIES = {
     "registered_pipeline": ("pipeline", "python"),
     "scraper_run": ("browser",),
     "source_probe": ("http",),
-    "synthesis_execute": ("python",),
+    "synthesis_execute": ("orchestration", "python"),
 }
 
 
@@ -201,6 +201,10 @@ class ClusterRuntimeAdapter:
         operations = self.config.get("operations") or {}
         if not operations.get("disable_local_http_collect"):
             capabilities.append("http")
+        # When local scrape is allowed, controller must advertise browser so
+        # scraper_run jobs are claimable without a fresh Windows lab worker.
+        if not operations.get("disable_local_scrape"):
+            capabilities.append("browser")
         return {
             "pool": "optiplex",
             "capabilities": _canonical_capabilities(capabilities),

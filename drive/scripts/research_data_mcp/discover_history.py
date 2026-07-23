@@ -140,11 +140,30 @@ def _registered_asset_item(job: dict[str, Any], *, intent_id: str = "", subscrip
     if receipt is None:
         return None
     identity = receipt.get("registration_receipt") or {}
+    reconciliation = receipt.get("catalog_reconciliation") if isinstance(receipt.get("catalog_reconciliation"), dict) else {}
+    readiness = str(receipt.get("analysis_readiness") or "registered")
+    query_allowed = bool(reconciliation.get("query_allowed")) or readiness in {"query_ready", "instant"}
+    # Registration receipt ≠ desk-usable holding. Say so out loud.
+    if query_allowed:
+        status = "query_ready"
+        summary = "Archive verified · registry verified · query-ready on desk"
+        progress_phase = "query_ready"
+        progress_label = "Ready to query"
+        holding_status = "held"
+    else:
+        status = "registered_not_queryable"
+        summary = (
+            "Archived and registered — not query-ready on this desk yet "
+            "(catalog reconciliation / query adapter still required)"
+        )
+        progress_phase = "registered_pending_query"
+        progress_label = "Registered · not queryable yet"
+        holding_status = "archived"
     return {
         "kind": "registered_asset",
         "id": receipt.get("dataset_id"),
         "title": receipt.get("name") or receipt.get("dataset_id") or "Registered asset",
-        "status": receipt.get("analysis_readiness") or "registered",
+        "status": status,
         "updated_at": receipt.get("updated_at") or receipt.get("created_at"),
         "created_at": receipt.get("created_at"),
         "intent_id": intent_id,
@@ -153,19 +172,22 @@ def _registered_asset_item(job: dict[str, Any], *, intent_id: str = "", subscrip
         "registry_id": receipt.get("registry_id"),
         "manifest_id": receipt.get("manifest_id"),
         "job_id": receipt.get("job_id"),
-        "readiness": receipt.get("analysis_readiness"),
+        "readiness": readiness,
+        "holding_status": holding_status,
+        "usable": query_allowed,
+        "query_ready": query_allowed,
         "archive_verified": True,
         "registry_readback": True,
         "vault_path": receipt.get("vault_path"),
-        "summary": "Archive verified · registry read-back verified · Registered",
+        "summary": summary,
         "progress": {
-            "phase": "registered",
-            "label": "Registered in Library",
+            "phase": progress_phase,
+            "label": progress_label,
             "last_job_id": receipt.get("job_id"),
-            "last_run_status": "registered",
+            "last_run_status": status,
         },
         "registration_receipt": identity,
-        "catalog_reconciliation": receipt.get("catalog_reconciliation"),
+        "catalog_reconciliation": reconciliation,
     }
 
 
@@ -178,6 +200,28 @@ def _job_history_item(job: dict[str, Any], *, intent_id: str = "", subscription_
     return None
 
 
+_OPS_NOISE_MARKERS = (
+    "canary",
+    "smoke",
+    "probe",
+    "windows http prove",
+    "landing prove",
+    "day-2 deploy",
+    "day2_deploy",
+    "mcp_canary",
+    "host acceptance",
+    "host_acceptance",
+)
+
+
+def _is_ops_noise_history_item(item: dict[str, Any]) -> bool:
+    blob = " ".join(
+        str(item.get(k) or "")
+        for k in ("id", "title", "dataset_id", "summary", "job_id")
+    ).lower()
+    return any(marker in blob for marker in _OPS_NOISE_MARKERS)
+
+
 def build_discover_history(
     *,
     intents: list[dict[str, Any]] | None = None,
@@ -186,6 +230,7 @@ def build_discover_history(
     limit: int = 50,
     kind: str = "",
     session_id: str = "",
+    include_ops: bool = False,
 ) -> dict[str, Any]:
     """Collapse intents, subscriptions and durable outcomes into researcher History."""
     limit = max(1, min(int(limit or 50), 200))
@@ -221,6 +266,9 @@ def build_discover_history(
         if outcome is not None:
             items.append(outcome)
 
+    if not include_ops:
+        items = [i for i in items if not _is_ops_noise_history_item(i)]
+
     if kind_filter:
         if kind_filter in {"intent", "intents"}:
             items = [i for i in items if i.get("kind") == "intent"]
@@ -228,8 +276,15 @@ def build_discover_history(
             items = [i for i in items if i.get("kind") == "subscription"]
         elif kind_filter in {"run", "runs", "collection_run", "job", "jobs"}:
             items = [i for i in items if i.get("kind") == "collection_run"]
-        elif kind_filter in {"registered", "registered_asset", "asset", "assets", "ready"}:
+        elif kind_filter in {"registered", "registered_asset", "asset", "assets"}:
             items = [i for i in items if i.get("kind") == "registered_asset"]
+        elif kind_filter in {"ready", "query_ready", "usable"}:
+            # "ready" must mean usable on desk — not merely archived/registered.
+            items = [
+                i
+                for i in items
+                if i.get("kind") == "registered_asset" and bool(i.get("query_ready") or i.get("usable"))
+            ]
 
     items.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
     clipped = items[:limit]
@@ -240,7 +295,9 @@ def build_discover_history(
             "kind": kind_filter or None,
             "session_id": session_id or None,
             "limit": limit,
+            "include_ops": bool(include_ops),
             "excludes_raw_global_jobs": True,
             "includes_verified_registration_receipts": True,
+            "ready_means_queryable": True,
         },
     }

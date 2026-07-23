@@ -79,20 +79,21 @@ class SearchService:
         tokens = [token for token in re.split(r"\W+", query) if len(token) > 2]
         return bool(tokens and any(token in text for token in tokens))
 
-    def list_datasets(self, q: str = "", readiness: str = "", access_shape: str = "", limit: int = 50) -> dict[str, Any]:
+    def list_datasets(self, q: str = "", readiness: str = "", access_shape: str = "", limit: int = 200) -> dict[str, Any]:
         self._maybe_reload_registry()
-        bounded_limit = max(1, min(int(limit or 50), 500))
+        bounded_limit = max(1, min(int(limit or 200), 500))
+        all_registry = list(self.engine.list_datasets())
         if q.strip() or readiness or access_shape:
             registry_rows = self.engine.search_datasets(
                 q=q,
                 readiness=readiness,
                 access_mode=access_shape,
-                limit=bounded_limit,
+                limit=max(bounded_limit, 500),
             )
         else:
-            registry_rows = self.engine.list_datasets()[:bounded_limit]
+            registry_rows = all_registry
 
-        registry_ids = {str(row.get("dataset_id") or "") for row in self.engine.list_datasets()}
+        registry_ids = {str(row.get("dataset_id") or "") for row in all_registry}
         recovery_rows = [
             row
             for row in self._receipt_rows()
@@ -100,14 +101,20 @@ class SearchService:
             and self._receipt_matches(row, q=q, readiness=readiness, access_shape=access_shape)
         ]
         # Recent verified registered assets lead the list so a newly registered
-        # object cannot disappear behind an older 50-row registry window.
-        rows = (recovery_rows + registry_rows)[:bounded_limit]
+        # object cannot disappear behind an older registry window.
+        combined = recovery_rows + registry_rows
+        total_matching = len(combined)
+        rows = combined[:bounded_limit]
         return {
             "returned": len(rows),
+            "total": total_matching,
+            "truncated": total_matching > len(rows),
+            "limit": bounded_limit,
             "datasets": rows,
             "authority_summary": {
                 "registry_rows": sum(1 for row in rows if row.get("backend") != "registered_asset_receipt"),
                 "receipt_recovery_rows": sum(1 for row in rows if row.get("backend") == "registered_asset_receipt"),
+                "registry_total": len(all_registry),
                 "receipt_recovery_semantics": (
                     "Only archive-verified, registry-read-back registration receipts are recovered; "
                     "receipt-only rows remain non-queryable until catalog reconciliation."

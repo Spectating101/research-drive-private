@@ -188,6 +188,52 @@ class ResearchToolHandlers:
         """Persist candidate acquisition routes for explicit researcher review; never collect."""
         return self.gateway.discover_intent_set_proposal(intent_id, proposal)
 
+    def research_craft_collect_plan(
+        self,
+        research_need: str,
+        url: str = "",
+        title: str = "",
+        mode: str = "",
+        dataset_id: str = "",
+        scrape_mode: str = "page",
+    ) -> dict[str, Any]:
+        """Craft a *generic* custom collect plan for a concrete URL/need.
+
+        Emits only http_manifest / scraper_run / source_probe — never named vendor
+        product pipelines (Skynet/OpenSea/…). Then submit via yzu_submit_job.
+        """
+        from scripts.research_data_mcp.craft_collect import craft_collect_plan
+
+        return craft_collect_plan(
+            research_need=research_need,
+            url=url,
+            title=title,
+            mode=mode,
+            dataset_id=dataset_id,
+            scrape_mode=scrape_mode or "page",
+        )
+
+    def research_craft_discover_proposal(
+        self,
+        research_need: str,
+        url: str = "",
+        title: str = "",
+        mode: str = "",
+        intent_id: str = "",
+    ) -> dict[str, Any]:
+        """Build (and optionally persist) a Discover proposal with executable collect_plan stubs."""
+        from scripts.research_data_mcp.craft_collect import build_crafted_proposal
+
+        proposal = build_crafted_proposal(
+            research_need=research_need, url=url, title=title, mode=mode
+        )
+        out: dict[str, Any] = {"ok": True, "proposal": proposal}
+        if str(intent_id or "").strip():
+            out["intent"] = self.gateway.discover_intent_set_proposal(
+                str(intent_id).strip(), proposal
+            )
+        return out
+
     def research_discover_source_search(
         self,
         query: str = "",
@@ -454,6 +500,23 @@ class ResearchToolHandlers:
         plan = self.gateway.parse_params_json(plan_json)
         if auto_approve:
             raise PermissionError("Collection/schedule execution approval requires researcher confirmation in the desk UI")
+        from scripts.research_data_mcp.craft_collect import (
+            GENERIC_JOB_TYPES,
+            is_forbidden_product_id,
+            validate_generic_plan,
+        )
+
+        job_type = str(plan.get("job_type") or "").strip()
+        # When submitting a collect-shaped plan, enforce generic craft doctrine.
+        if job_type in GENERIC_JOB_TYPES or plan.get("crafted") or plan.get("pipeline") == "custom":
+            plan = validate_generic_plan(plan)
+        else:
+            for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type"):
+                if is_forbidden_product_id(str(plan.get(key) or "")):
+                    raise ValueError(
+                        f"Refusing named vendor product id in {key}={plan.get(key)!r}. "
+                        "Use research_craft_collect_plan for a generic custom pipeline."
+                    )
         return self.gateway.submit_yzu_job(plan, title=title, auto_approve=False)
 
     def yzu_approve_job(self, job_id: str) -> dict[str, Any]:

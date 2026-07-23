@@ -339,11 +339,11 @@ class ResearchQueryEngine:
             "awareness": ["search interest", "public attention", "news mentions", "wikipedia pageviews", "social media"],
             "byd": ["BYD electric vehicle", "EV sales", "China auto market", "consumer sentiment electric vehicle"],
             "crypto": ["cryptocurrency", "bitcoin", "ethereum", "blockchain", "financial news sentiment"],
-            "ethereum": ["ethereum", "blockchain", "usdt", "stablecoin", "etherscan", "blockscout", "ethereum rpc"],
-            "stablecoin": ["stablecoin", "usdt", "tether", "ethereum", "blockchain", "exchange reserves"],
-            "usdt": ["usdt", "tether", "stablecoin", "ethereum", "erc20 transfer"],
+            "ethereum": ["ethereum", "blockchain", "stablecoin", "on-chain", "token transfer"],
+            "stablecoin": ["stablecoin", "peg", "on-chain", "blockchain"],
+            "usdt": ["stablecoin", "on-chain", "token transfer", "erc20"],
             "regulation": ["regulation", "enforcement", "sec", "policy", "regulatory event"],
-            "nft": ["NFT", "opensea", "marketplace volume", "digital asset"],
+            "nft": ["NFT", "marketplace metadata", "digital asset", "non-fungible"],
             "market": ["financial market", "price", "volatility", "economic", "trading"],
             "labor": ["job posting", "employment", "labor market", "platform work"],
             "baby": ["infant growth", "child development", "NHANES", "diaper", "consumer panel", "pediatric survey"],
@@ -646,11 +646,60 @@ class ResearchQueryEngine:
                 },
             )
 
+        # GeoJSON FeatureCollection → property rows (geometry kept under _geometry).
+        if (
+            isinstance(payload, dict)
+            and str(payload.get("type") or "") == "FeatureCollection"
+            and isinstance(payload.get("features"), list)
+        ):
+            rows = []
+            for feat in payload["features"][:limit]:
+                if not isinstance(feat, dict):
+                    continue
+                props = dict(feat.get("properties") or {})
+                if not isinstance(props, dict):
+                    props = {"properties": props}
+                props["_geometry"] = feat.get("geometry")
+                props["_id"] = feat.get("id")
+                rows.append(props)
+            if fields:
+                rows = [{k: self._dig(row, k) for k in fields} for row in rows]
+            return QueryResult(
+                ds["dataset_id"],
+                rows,
+                {"path": str(path), "returned": len(rows), "record_shape": "geojson_features", "params": params},
+            )
+
+        # Common list wrappers (OpenAlex / DefiLlama / many public APIs).
+        if isinstance(payload, dict):
+            for key in ("results", "data", "items", "records", "features", "peggedAssets"):
+                values = payload.get(key)
+                if isinstance(values, list) and values and isinstance(values[0], dict):
+                    rows = list(values[:limit])
+                    if fields:
+                        rows = [{k: self._dig(row, k) for k in fields} for row in rows]
+                    return QueryResult(
+                        ds["dataset_id"],
+                        rows,
+                        {"path": str(path), "returned": len(rows), "record_shape": f"list:{key}", "params": params},
+                    )
+
+        if isinstance(payload, list):
+            rows = [row for row in payload[:limit] if isinstance(row, dict)]
+            if rows:
+                if fields:
+                    rows = [{k: self._dig(row, k) for k in fields} for row in rows]
+                return QueryResult(
+                    ds["dataset_id"],
+                    rows,
+                    {"path": str(path), "returned": len(rows), "record_shape": "json_array", "params": params},
+                )
+
         # Ordinary document / scalar JSON remains one row.
         if fields:
             row = {k: self._dig(payload, k) for k in fields}
         else:
-            row = payload
+            row = payload if isinstance(payload, dict) else {"value": payload}
         return QueryResult(ds["dataset_id"], [row], {"path": str(path), "returned": 1, "params": params})
 
     def _query_local_csv_file(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:

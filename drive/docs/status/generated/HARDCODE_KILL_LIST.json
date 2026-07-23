@@ -1,0 +1,124 @@
+{
+  "generated_at": "2026-07-23T10:00:00+00:00",
+  "doctrine": "Desk capability = AI identify + custom procure pipeline. Vendor names are example targets or held bytes \u2014 never product modules.",
+  "critical": [
+    {
+      "id": "partition_lanes_as_capabilities",
+      "paths": [
+        "scripts/yzu_cluster/partition_lanes.py",
+        "gateway.py",
+        "api.py",
+        "search.py"
+      ],
+      "risk": "Every professor_visible Drive folder sold as acquisition lane / capability",
+      "action": "Only surface held bytes or acquired.procured; never empty vendor slots"
+    },
+    {
+      "id": "procurement_magic_branded_auto_approve",
+      "paths": [
+        "config/procurement_magic.json"
+      ],
+      "risk": "Auto-approves skynet_stablecoin_harvest + ethereum_usdt_rpc_pilot as magic product buttons",
+      "action": "Remove branded pipeline_ids from auto_approve"
+    },
+    {
+      "id": "faculty_keyword_route_intelligence",
+      "paths": [
+        "scripts/research_data_mcp/faculty_profile.py"
+      ],
+      "risk": "DOMAIN_* + _infer_source_route map opensea/nft/skynet/coingecko \u2192 fixed routes",
+      "action": "Default procure; stop injecting lab_fintech_stack into recommendations"
+    },
+    {
+      "id": "faculty_scraper_dataset_rules",
+      "paths": [
+        "scripts/research_data_mcp/yzu_cm_faculty_scraper.py"
+      ],
+      "risk": "DATASET_RULES regenerates CoinGecko-branded recommended datasets",
+      "action": "Generic public crypto panel language only"
+    },
+    {
+      "id": "fe_coingecko_forced_ok",
+      "paths": [
+        "src/v2/deskSourcesManifest.js",
+        "ResourcesPage.jsx",
+        "RailPanels.jsx"
+      ],
+      "risk": "UI forces CoinGecko ok + Crypto market data product chip",
+      "action": "Remove forced ok; no vendor product chip unless live probe says so"
+    },
+    {
+      "id": "source_map_skynet_on_ethereum",
+      "paths": [
+        "config/databank_source_map.json"
+      ],
+      "risk": "skynet_stablecoin_harvest listed under ethereum_onchain materialized_instant",
+      "action": "Detach Skynet from ethereum_onchain"
+    },
+    {
+      "id": "opensea_registry_fiction",
+      "paths": [
+        "config/research_query_registry.json"
+      ],
+      "risk": "opensea_nft_metadata_layer card with 0 files still looks like a product",
+      "action": "ops_only / catalog_reference; exclude from default discover"
+    },
+    {
+      "id": "synthesis_vendor_profiles",
+      "paths": [
+        "config/synthesis_profiles.json",
+        "synthesis_harness.py"
+      ],
+      "risk": "Fixed Skynet+Etherscan product synthesis path",
+      "action": "Keep as optional recipe only; never capability scoreboard"
+    },
+    {
+      "id": "engine_nft_opensea_expand",
+      "paths": [
+        "scripts/research_query_engine/engine.py"
+      ],
+      "risk": "nft query expands to OpenSea as if that is the plan",
+      "action": "Generic marketplace/metadata terms only"
+    },
+    {
+      "id": "discover_onchain_vendor_hints",
+      "paths": [
+        "scripts/research_data_mcp/discover_source_search.py"
+      ],
+      "risk": "opensea/coingecko boost on-chain affinity ranking",
+      "action": "Drop vendor tokens from capability affinity"
+    }
+  ],
+  "high": [
+    "config/yzu_cm_faculty_registry.json lab_fintech_stack + example_procure_targets",
+    "config/collection_partitions.json vendor ids (nft-opensea, crypto-coingecko) as taxonomy",
+    "config/collection_semantic.json static partition Q&A",
+    "config/desk_sources.json coingecko as first-class source",
+    "config/yzu_cluster.json procurement_triggered vendor pipelines",
+    "config/procurement_registry_map.json skynet pipeline map",
+    "scripts/research_data_mcp/sourcing_capability_harness.py SCENARIOS",
+    "src/v2/profileViewModel.js vendor regex lab blocks"
+  ],
+  "ok_infrastructure": [
+    "Auth tokens, sqlite job store paths, worker caps",
+    "Registry rows for holdings that actually have bytes (honest readiness)",
+    "acquired.procured as generic land zone",
+    "Fail-loud readiness probes (sync_materialized_registry)"
+  ],
+  "updated_at": "2026-07-23T10:20:00+00:00",
+  "status": "stripped_runtime_product_lanes",
+  "kept_ok": [
+    "Registry rows + query backends for held bytes (query machinery, not product menus)",
+    "Generic craft_collect_plan / http_manifest / scraper_run / flywheel promote",
+    "Ops harnesses may still name vendors as smoke targets \u2014 not professor product"
+  ],
+  "stripped": [
+    "faculty lab_fintech_stack / bigquery_interests / example_procure_targets / vendor starters",
+    "USDT/CoinGecko/OpenSea/Skynet keyword routing and ranking boosts",
+    "professor_visible vendor partitions (coingecko, ethereum-usdt, landscape, nft-opensea)",
+    "source_map vendor product status",
+    "magic auto-approve branded pipelines",
+    "FE coingecko forced ok + profileViewModel vendor regex",
+    "synthesis auto-suggest skynet_etherscan"
+  ]
+}
