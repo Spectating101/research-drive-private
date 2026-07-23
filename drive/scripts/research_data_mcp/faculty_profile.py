@@ -20,17 +20,17 @@ TOKEN_RE = re.compile(r"[a-z][a-z0-9_]{2,}")
 
 # Registry rows / local datasets to down-rank when the professor profile is unrelated.
 DOMAIN_DEMOTE_WHEN_ABSENT: dict[str, tuple[str, ...]] = {
-    "social_media": ("coingecko", "gdelt", "fair", "climate"),
+    "social_media": ("gdelt", "fair", "climate"),
     "marketing_consumer": ("gdelt", "fair", "climate", "patent"),
-    "org_behavior": ("coingecko", "gdelt", "crypto", "bitcoin", "opensea"),
-    "psychology_survey": ("coingecko", "gdelt", "crypto", "equities"),
-    "patents": ("coingecko", "gdelt", "consumer", "brand"),
-    "accounting": ("gdelt", "opensea", "nft"),
+    "org_behavior": ("gdelt", "crypto", "bitcoin"),
+    "psychology_survey": ("gdelt", "crypto", "equities"),
+    "patents": ("gdelt", "consumer", "brand"),
+    "accounting": ("gdelt", "nft"),
     "green_marketing": ("gdelt", "crypto", "bitcoin"),
 }
 
 DOMAIN_BOOST_TOKENS: dict[str, tuple[str, ...]] = {
-    "fintech": ("fintech", "crypto", "bitcoin", "ethereum", "coingecko", "blockchain", "defi", "usdt", "stablecoin", "bigquery"),
+    "fintech": ("fintech", "crypto", "bitcoin", "ethereum", "blockchain", "defi", "stablecoin", "bigquery"),
     "equities": ("equity", "stock", "return", "twse", "crsp", "factor"),
     "econometrics": ("panel", "time series", "econometric", "regression"),
     "machine_learning": ("machine learning", "ml", "neural", "prediction"),
@@ -43,14 +43,14 @@ DOMAIN_BOOST_TOKENS: dict[str, tuple[str, ...]] = {
     "accounting": ("accounting", "audit", "earnings", "financial statement", "esg"),
     "international_business": ("fdi", "international", "trade", "diversification"),
     "taiwan_market": ("taiwan", "twse", "mops"),
-    "nft": ("nft", "non-fungible", "opensea", "cryptopunk", "rarity", "blockchain"),
-    "on_chain": ("on-chain", "onchain", "ethereum", "token transfer", "erc20", "usdt", "stablecoin"),
+    "nft": ("nft", "non-fungible", "marketplace", "rarity", "blockchain"),
+    "on_chain": ("on-chain", "onchain", "ethereum", "token transfer", "erc20", "stablecoin"),
 }
 
 GENERIC_COLD_START = [
-    "Find replication datasets for my research area",
+    "Identify a public dataset for my research and land it via custom procure",
     "Search DataCite for recent panels in my field",
-    "source this for me — data not in our library yet",
+    "Craft a collect plan for a public URL I provide",
 ]
 
 # Lane B only — vault inventory is not a procurement recommendation.
@@ -152,38 +152,65 @@ def cold_start_prompts(profile: dict[str, Any] | None, *, limit: int = 5) -> lis
 
 
 def _rec_score(rec: dict[str, Any]) -> float:
-    try:
-        return float(rec.get("score") or 0)
-    except (TypeError, ValueError):
-        return 0.0
+    """Prefer explicit score; fall back to priority so procure rows don't sink to 0."""
+    for key in ("score", "priority"):
+        raw = rec.get(key)
+        if raw is None or raw == "":
+            continue
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
 
 
 def _infer_source_route(rec: dict[str, Any], profile: dict[str, Any]) -> str:
+    """Honor explicit routes only — do not keyword-map vendors into fake product lanes."""
     explicit = str(rec.get("source_route") or rec.get("route") or "").strip().lower()
+    if explicit in {"vault", "registry"}:
+        # Vault/registry only when the rec is actually a held reference — else procure.
+        return "procure" if str(rec.get("holding_status") or "") in {"missing", "unwired", "catalog"} else explicit
     if explicit:
         return explicit
     family = str(rec.get("family") or "")
-    prompt = str(rec.get("prompt") or "").lower()
-    preferred = {str(s).lower() for s in (profile.get("preferred_sources") or [])}
-    if family in {"lab_fintech_stack", "lab_stack"}:
-        return "vault"
-    if any(t in prompt for t in ("opensea", "nft", "coingecko", "skynet", "crypto landscape")):
-        return "vault"
-    if "datacite" in prompt or family in {"replication", "governance", "datacite_scope", "nft"}:
+    if family in {"custom_pipeline", "procure", "nft", "crypto"}:
+        return "procure"
+    if family in {"datacite_scope", "replication", "governance"}:
         return "datacite"
-    if any(t in prompt for t in ("twse", "mops", "taiwan")):
-        return "twse_openapi"
-    if any(t in prompt for t in ("usdt", "stablecoin", "ethereum", "on-chain", "onchain", "bigquery")):
-        return "bigquery"
-    if family in {"ml_fintech_alt", "fintech"} and "bigquery" in preferred:
-        return "bigquery"
-    if "datacite" in preferred:
+    preferred = {str(s).lower() for s in (profile.get("preferred_sources") or [])}
+    if "datacite" in preferred and family not in {"taiwan_equity_panel"}:
         return "datacite"
     return "procure"
 
 
-def lab_fintech_stack_recommendations(profile: dict[str, Any]) -> list[dict[str, Any]]:
-    """Lab-built FinTech pipelines (vault/registry) tied to grants or papers."""
+def lab_fintech_stack_recommendations(
+    profile: dict[str, Any],
+    *,
+    repo_root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Held reference pieces only — never injected as procurement product lanes.
+
+    Prefer ``reference_holdings`` on the public profile. This helper remains for
+    ops/debug; ``procurement_recommendations`` no longer prepends these rows.
+    """
+    root = Path(repo_root).resolve() if repo_root else None
+    registry_by_id: dict[str, dict[str, Any]] = {}
+    if root is not None:
+        for candidate in (
+            root / "config/research_query_registry.json",
+            root / "drive/config/research_query_registry.json",
+        ):
+            if not candidate.is_file():
+                continue
+            try:
+                doc = json.loads(candidate.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            for row in doc.get("datasets") or []:
+                if isinstance(row, dict) and row.get("dataset_id"):
+                    registry_by_id[str(row["dataset_id"])] = row
+            break
+
     out: list[dict[str, Any]] = []
     for item in profile.get("lab_fintech_stack") or []:
         if not isinstance(item, dict):
@@ -198,18 +225,59 @@ def lab_fintech_stack_recommendations(profile: dict[str, Any]) -> list[dict[str,
         except (TypeError, ValueError):
             priority = 4.5
         prompt = str(item.get("prompt") or "").strip() or (
-            f"Extend or analyze {label} for token taxonomy and on/off-chain risk research"
+            f"Query held reference panel {label} if local bytes exist; else craft a custom collect"
         )
+        route = str(item.get("route") or "vault")
+        held = True
+        holding_status = "held"
+        if dataset_id and root is not None:
+            from scripts.research_data_mcp.registry_access import (
+                _LOCAL_SAMPLE_BACKENDS,
+                local_data_ready,
+            )
+
+            row = registry_by_id.get(str(dataset_id)) or {"dataset_id": dataset_id}
+            backend = str(row.get("backend") or "")
+            readiness = str(row.get("analysis_readiness") or "")
+            if backend in _LOCAL_SAMPLE_BACKENDS:
+                held = local_data_ready(row, root)
+                holding_status = "held" if held else "missing"
+                if not held:
+                    route = "procure"
+                    priority = min(priority, 3.2)
+            elif readiness in {"dry_run_before_execution", "minutes_rate_limited", "procurement_planning"}:
+                holding_status = "guarded"
+                held = True
+            elif readiness in {"metadata_search", "catalog_only"}:
+                holding_status = "catalog"
+                held = False
+                route = "procure"
+                priority = min(priority, 3.2)
+            else:
+                holding_status = "connected"
+                held = True
+        elif not dataset_id and route == "vault":
+            route = "procure"
+            priority = min(priority, 3.5)
+            holding_status = "unwired"
+            held = False
+
+        # Only emit held/connected references here — missing ones are craft targets, not menu items.
+        if holding_status in {"missing", "unwired", "catalog"} or route in {"acquire", "procure"}:
+            continue
+
         out.append(
             {
-                "family": "lab_fintech_stack",
+                "family": "reference_holding",
                 "dataset": label,
                 "prompt": prompt,
                 "dataset_id": dataset_id,
                 "partition_id": item.get("partition_id"),
                 "vault_path": item.get("vault_path"),
                 "score": priority,
-                "source_route": str(item.get("route") or "vault"),
+                "source_route": route,
+                "holding_status": holding_status,
+                "role": "reference_holding",
                 "paper_link": item.get("paper_link"),
                 "grant_track": item.get("grant_track"),
             }
@@ -217,9 +285,15 @@ def lab_fintech_stack_recommendations(profile: dict[str, Any]) -> list[dict[str,
     return out
 
 
-def procurement_recommendations(profile: dict[str, Any], *, limit: int = 12) -> list[dict[str, Any]]:
-    """Lane B procurement intents — vault stack + search/source when not in lab."""
-    out: list[dict[str, Any]] = list(lab_fintech_stack_recommendations(profile))
+def procurement_recommendations(
+    profile: dict[str, Any],
+    *,
+    limit: int = 12,
+    repo_root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Procurement intents — identify + custom procure. No lab-stack product menu."""
+    del repo_root  # held references live on profile.reference_holdings, not in this list
+    out: list[dict[str, Any]] = []
     for rec in profile.get("recommended_datasets") or []:
         if not isinstance(rec, dict):
             continue
@@ -230,24 +304,36 @@ def procurement_recommendations(profile: dict[str, Any], *, limit: int = 12) -> 
         prompt = str(rec.get("prompt") or "").strip()
         if not prompt:
             continue
-        out.append(
-            {
-                "family": rec.get("family"),
-                "dataset": rec.get("dataset"),
-                "prompt": prompt,
-                "dataset_id": rec.get("dataset_id"),
-                "score": _rec_score(rec),
-                "source_route": _infer_source_route(rec, profile),
-            }
-        )
+        route = _infer_source_route(rec, profile)
+        row = {
+            "family": rec.get("family") or "custom_pipeline",
+            "dataset": rec.get("dataset"),
+            "prompt": prompt,
+            "dataset_id": rec.get("dataset_id"),
+            "score": _rec_score(rec),
+            "source_route": route,
+        }
+        pipeline = str(rec.get("pipeline") or "").strip()
+        if not pipeline and route in {"procure", "acquire"}:
+            pipeline = "custom"
+        if pipeline:
+            row["pipeline"] = pipeline
+        if rec.get("holding_status"):
+            row["holding_status"] = rec.get("holding_status")
+        out.append(row)
     out.sort(key=lambda row: row["score"], reverse=True)
     return out[:limit]
 
 
-def recommendation_route_clusters(profile: dict[str, Any], *, limit: int = 12) -> dict[str, list[dict[str, Any]]]:
+def recommendation_route_clusters(
+    profile: dict[str, Any],
+    *,
+    limit: int = 12,
+    repo_root: Path | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     """Group procurement recommendations by source_route for Discover UI."""
     clusters: dict[str, list[dict[str, Any]]] = {}
-    for rec in procurement_recommendations(profile, limit=limit):
+    for rec in procurement_recommendations(profile, limit=limit, repo_root=repo_root):
         route = str(rec.get("source_route") or "procure")
         clusters.setdefault(route, []).append(rec)
     return clusters
@@ -366,17 +452,18 @@ def default_search_query(profile: dict[str, Any] | None) -> str:
 
 
 def bigquery_route_hints(profile: dict[str, Any] | None, query: str = "") -> list[dict[str, str]]:
+    """Hints only from explicit profile.bigquery_interests — never invent USDT/vendor cards."""
     if not profile:
         return []
-    tags = _profile_tags(profile)
     preferred = {str(s).lower() for s in (profile.get("preferred_sources") or [])}
-    if "bigquery" not in preferred and "fintech" not in tags and not profile.get("bigquery_interests"):
+    interests = profile.get("bigquery_interests") or []
+    if "bigquery" not in preferred and not interests:
         return []
-    combined = f"{query} {' '.join(profile_research_phrases(profile))}".lower()
     q_only = (query or "").lower().strip()
+    combined = f"{query} {' '.join(profile_research_phrases(profile))}".lower()
     hints: list[dict[str, str]] = []
     seen: set[str] = set()
-    for interest in profile.get("bigquery_interests") or []:
+    for interest in interests:
         if not isinstance(interest, dict):
             continue
         rid = str(interest.get("registry_id") or "").strip()
@@ -385,7 +472,6 @@ def bigquery_route_hints(profile: dict[str, Any] | None, query: str = "") -> lis
         triggers = [str(t).lower() for t in (interest.get("trigger_keywords") or []) if t]
         if not triggers:
             continue
-        # User query wins: do not route BQ on profile keywords alone when the ask is unrelated.
         if q_only:
             if not any(t in q_only for t in triggers):
                 continue
@@ -398,16 +484,6 @@ def bigquery_route_hints(profile: dict[str, Any] | None, query: str = "") -> lis
                 "label": str(interest.get("label") or rid),
                 "note": str(interest.get("note") or "BigQuery — dry-run before export"),
                 "grant_track": interest.get("grant_track"),
-            }
-        )
-    if not hints and q_only and any(
-        t in q_only for t in ("usdt", "stablecoin", "ethereum", "on-chain", "onchain", "token transfer", "taxonomy")
-    ):
-        hints.append(
-            {
-                "registry_id": "ethereum_usdt_transfers",
-                "label": "Ethereum USDT on-chain transfers",
-                "note": "BigQuery public crypto dataset — dry-run before export",
             }
         )
     return hints
@@ -453,9 +529,7 @@ def expand_datacite_queries(query: str, profile: dict[str, Any] | None = None) -
         extra.append(f"{q} taiwan equity stock".strip())
     if "machine_learning" in tags and "machine learning" not in q.lower():
         extra.append(f"{q} machine learning asset pricing".strip())
-    if "fintech" in tags and not {"crypto", "stablecoin", "usdt"} & qtok:
-        extra.append(f"{q} fintech stablecoin".strip())
-
+    # Do not append vendor/stablecoin seeds from fintech tags — craft/identify handles that.
     merged = list(dict.fromkeys([*base, *extra, q]))
     return [item for item in merged if item.strip()][:8]
 
@@ -474,7 +548,6 @@ def agent_research_context(profile: dict[str, Any] | None) -> str:
         papers = f"{ssrn[0].get('title', '')[:90]}; {papers}".strip("; ")
     grant = primary_research_track(profile)
     routes = ", ".join(sorted({str(r.get("source_route") or "") for r in procurement_recommendations(profile, limit=8)}))
-    lab = [str(x.get("label") or "") for x in (profile.get("lab_fintech_stack") or [])[:4] if isinstance(x, dict)]
     bits = [f"Researcher: {label}."]
     if specialties:
         bits.append(f"Specialties: {specialties}.")
@@ -484,13 +557,15 @@ def agent_research_context(profile: dict[str, Any] | None) -> str:
         bits.append(f"Recent work: {papers}.")
     if grant and grant.get("title"):
         bits.append(f"Active direction: {str(grant['title'])[:120]}.")
-    if lab:
-        bits.append(f"Lab FinTech stack: {', '.join(lab)}.")
     if methods:
         bits.append(f"Methods: {methods}.")
     if routes:
         bits.append(f"When sourcing missing data, prefer routes: {routes}.")
-    bits.append("Vault inventory is separate — use search/procure tools for data not yet in the lab.")
+    bits.append(
+        "Acquisition doctrine: research_craft_collect_plan → yzu_submit_job "
+        "(generic http_manifest/scraper_run/source_probe only; no named vendor downloaders)."
+    )
+    bits.append("Vault inventory is separate — use search/craft tools for data not yet in the lab.")
     return " ".join(bits)
 
 
@@ -542,7 +617,7 @@ def profile_score_adjustment(row: dict[str, Any], query: str, profile: dict[str,
         delta += 0.25
     if "twse_openapi" in preferred and "twse" in blob:
         delta += 0.5
-    if "bigquery" in preferred and ("bigquery" in blob or "ethereum_usdt" in blob or "usdt" in blob):
+    if "bigquery" in preferred and "bigquery" in blob:
         delta += 0.45
 
     for phrase in profile_research_phrases(profile, limit=10):
@@ -555,17 +630,7 @@ def profile_score_adjustment(row: dict[str, Any], query: str, profile: dict[str,
         if len(parts) >= 2 and all(part in blob for part in parts):
             delta += 0.22
 
-    stack_ids = set()
-    for item in profile.get("lab_fintech_stack") or []:
-        if not isinstance(item, dict):
-            continue
-        for rid in item.get("registry_dataset_ids") or []:
-            stack_ids.add(str(rid).lower())
-        if item.get("registry_dataset_id"):
-            stack_ids.add(str(item["registry_dataset_id"]).lower())
-    row_id = str(row.get("dataset_id") or row.get("id") or "").lower()
-    if row_id and row_id in stack_ids:
-        delta += 0.75
+    # No lab_fintech_stack / vendor-id ranking boosts — craft + registry search only.
     for rid in profile.get("registry_dataset_ids") or []:
         if row_id and row_id == str(rid).lower():
             delta += 0.5
@@ -630,7 +695,7 @@ def _public_preferred_sources(profile: dict[str, Any]) -> list[str]:
     return out
 
 
-def profile_summary(profile: dict[str, Any]) -> dict[str, Any]:
+def profile_summary(profile: dict[str, Any], *, repo_root: Path | None = None) -> dict[str, Any]:
     return {
         "slug": profile.get("slug"),
         "name_en": profile.get("name_en"),
@@ -646,15 +711,31 @@ def profile_summary(profile: dict[str, Any]) -> dict[str, Any]:
         "starter_prompts": cold_start_prompts(profile),
         "paper_count_parsed": profile.get("paper_count_parsed", 0),
         "pilot_professor": bool(profile.get("pilot_professor")),
+        "unknown": bool(profile.get("unknown")),
         "default_search_query": default_search_query(profile),
-        "procurement_recommendations": procurement_recommendations(profile),
-        "recommendation_clusters": recommendation_route_clusters(profile),
+        "procurement_recommendations": procurement_recommendations(profile, repo_root=repo_root),
+        "recommendation_clusters": recommendation_route_clusters(profile, repo_root=repo_root),
         "bigquery_hints": bigquery_route_hints(profile),
         "research_tracks": profile.get("research_tracks") or [],
+        # Held reference pieces only — not branded product modules (OpenSea/Skynet/etc.).
+        "reference_holdings": [
+            {
+                **{k: item.get(k) for k in ("id", "label", "partition_id", "route", "registry_dataset_ids")},
+                "role": "reference_holding",
+            }
+            for item in (profile.get("lab_fintech_stack") or [])
+            if isinstance(item, dict)
+        ],
+        # Back-compat alias for older FE; same objects as reference_holdings.
         "lab_fintech_stack": [
             {k: item.get(k) for k in ("id", "label", "partition_id", "route", "registry_dataset_ids")}
             for item in (profile.get("lab_fintech_stack") or [])
             if isinstance(item, dict)
+        ],
+        "example_procure_targets": [
+            {k: row.get(k) for k in ("label", "why", "example_dataset_id", "example_partition_id")}
+            for row in (profile.get("example_procure_targets") or [])
+            if isinstance(row, dict)
         ],
         "datacite_scopes": [
             {k: scope.get(k) for k in ("id", "seed_queries", "note")}
@@ -669,8 +750,9 @@ def profile_summary(profile: dict[str, Any]) -> dict[str, Any]:
 def llm_gap_hint(profile: dict[str, Any] | None, query: str) -> str:
     """Short system hint when catalog can't deliver immediately — tools + YZU jobs."""
     base = (
-        "If no registry hit is ready, use acquisition tools (probe URL, yzu_submit_job, cluster scrape, "
-        "DataCite collect) rather than only describing APIs. Confirm before large collects."
+        "If no registry hit is ready: research_craft_collect_plan for a concrete URL "
+        "(generic http_manifest/scraper_run/source_probe only), then yzu_submit_job. "
+        "Never run named vendor pipelines — craft a custom plan for the target."
     )
     if not profile:
         return base
@@ -682,7 +764,7 @@ def llm_gap_hint(profile: dict[str, Any] | None, query: str) -> str:
     if "datacite" in sources:
         bits.append("Prefer DataCite resolve/collect when DOIs match.")
     if "bigquery" in sources:
-        bits.append("For on-chain FinTech (USDT/Ethereum), route via BigQuery dry-run before large exports.")
+        bits.append("BigQuery seat available — dry-run before large exports; craft the concrete query, do not assume a USDT module.")
     hints = bigquery_route_hints(profile, query)
     if hints:
         bits.append(f"BigQuery registry candidates: {', '.join(h['registry_id'] for h in hints)}.")

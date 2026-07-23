@@ -80,7 +80,7 @@ _JOB_CAPABILITIES = {
     "registered_pipeline": ("pipeline", "python"),
     "scraper_run": ("browser",),
     "source_probe": ("http",),
-    "synthesis_execute": ("python",),
+    "synthesis_execute": ("orchestration", "python"),
 }
 
 
@@ -201,6 +201,10 @@ class ClusterRuntimeAdapter:
         operations = self.config.get("operations") or {}
         if not operations.get("disable_local_http_collect"):
             capabilities.append("http")
+        # When local scrape is allowed, controller must advertise browser so
+        # scraper_run jobs are claimable without a fresh Windows lab worker.
+        if not operations.get("disable_local_scrape"):
+            capabilities.append("browser")
         return {
             "pool": "optiplex",
             "capabilities": _canonical_capabilities(capabilities),
@@ -287,7 +291,7 @@ class ClusterRuntimeAdapter:
         with self._lock:
             run_id = self._run_id(job_id)
             current = self.store.snapshot(run_id)
-            if current["status"] not in {"pending_approval", "queued", "retrying"}:
+            if current["status"] not in {"pending_approval", "queued", "retrying", "assigned", "running"}:
                 raise ValueError(f"runtime job is {current['status']}, not cancellable")
             return self.store.record(run_id, "blocked", message=message)
 
@@ -301,6 +305,8 @@ class ClusterRuntimeAdapter:
         *,
         lease_seconds: int | None = None,
         reap_expired: bool = True,
+        allowed_job_types: Iterable[str] | None = None,
+        deny_job_id_prefixes: Iterable[str] | None = None,
     ) -> Claim | None:
         worker_id = worker_id or self.controller_id
         if worker_id == self.controller_id:
@@ -308,7 +314,12 @@ class ClusterRuntimeAdapter:
         if reap_expired:
             self.reap_expired()
         with self._lock:
-            return self.store.claim(worker_id, lease_seconds=lease_seconds or self.lease_seconds)
+            return self.store.claim(
+                worker_id,
+                lease_seconds=lease_seconds or self.lease_seconds,
+                allowed_job_types=allowed_job_types,
+                deny_job_id_prefixes=deny_job_id_prefixes,
+            )
 
     def claim_job(
         self,
@@ -431,6 +442,7 @@ class ClusterRuntimeAdapter:
             run_id,
             dataset_id=str(evidence["dataset_id"]),
             registry_id=str(evidence["registry_id"]),
+            revision_id=evidence.get("revision_id"),
             manifest_id=str(evidence["manifest_id"]),
             vault_path=str(evidence["vault_path"]),
             archive_verified=True,

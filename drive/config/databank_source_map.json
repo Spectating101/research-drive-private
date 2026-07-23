@@ -463,12 +463,12 @@
     },
     {
       "id": "coingecko",
-      "label": "CoinGecko",
+      "label": "Public crypto market API (example / craft target)",
       "desk_connector_id": "coingecko",
       "provider": "CoinGecko",
-      "access_mode": "live_connector",
+      "access_mode": "catalog_reference",
       "license": "api_key",
-      "status": "active",
+      "status": "example_reference",
       "partition_ids": [
         "markets.crypto-coingecko"
       ],
@@ -484,16 +484,18 @@
         "partition_ids": [
           "markets.crypto-coingecko"
         ]
-      }
+      },
+      "professor_visible": false,
+      "notes": "Not a CoinGecko product module. Use research_craft_collect_plan for concrete URLs/APIs."
     },
     {
       "id": "ethereum_onchain",
-      "label": "Ethereum / USDT on-chain",
+      "label": "BigQuery on-chain (seat / craft target)",
       "desk_connector_id": "bigquery",
       "provider": "Ethereum RPC + BigQuery public",
-      "access_mode": "materialized_instant",
+      "access_mode": "live_connector",
       "license": "public",
-      "status": "active",
+      "status": "example_reference",
       "local_roots": [
         "data/usdt_catalogue"
       ],
@@ -511,12 +513,15 @@
         "dataset_ids": [
           "spk_v1_sepolia_runtime",
           "spk_v1_payment_ledger",
-          "skynet_stablecoin_harvest"
+          "ethereum_usdt_transfers",
+          "ethereum_usdt_rpc_pilot"
         ],
         "partition_ids": [
           "markets.ethereum-usdt"
         ]
-      }
+      },
+      "professor_visible": false,
+      "notes": "BigQuery is a seat. Do not treat USDT as a desk module — craft dry-run/export for the concrete need."
     },
     {
       "id": "web_scrape_catalog",
@@ -641,12 +646,14 @@
     },
     {
       "id": "nft_opensea",
-      "label": "OpenSea NFT metadata",
+      "label": "NFT marketplace metadata (example reference)",
       "desk_connector_id": "web_generic",
-      "provider": "OpenSea",
-      "access_mode": "materialized_instant",
+      "provider": "example_public_web",
+      "access_mode": "catalog_reference",
       "license": "public_scrape",
-      "status": "active",
+      "status": "example_reference",
+      "professor_visible": false,
+      "notes": "OpenSea is an example source name only. Desk capability is identify + custom procure, not an OpenSea connector.",
       "partition_ids": [
         "markets.nft-opensea"
       ],

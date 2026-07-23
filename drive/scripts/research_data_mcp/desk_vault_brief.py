@@ -52,11 +52,6 @@ def build_vault_brief(repo_root: Path, faculty_profile: dict[str, Any] | None = 
             for token in title.split():
                 if len(token) > 4 and token in blob:
                     score += 3
-        for item in profile.get("lab_fintech_stack") or []:
-            prompt = str(item.get("prompt") or item.get("title") or "").lower()
-            for token in prompt.split():
-                if len(token) > 4 and token in blob:
-                    score += 2
         return score
 
     ranked = sorted(
@@ -67,6 +62,7 @@ def build_vault_brief(repo_root: Path, faculty_profile: dict[str, Any] | None = 
 
     lines = [
         "Desk vault brief (already loaded for this chat — trust this for inventory questions).",
+        "Doctrine: identify need → research_craft_collect_plan (generic) → yzu_submit_job → flywheel. Never named vendor downloaders.",
         (
             f"On disk: {vault.get('registry_on_disk', '?')} registered datasets, "
             f"{vault.get('partitions_with_local_data', '?')} collection partitions with local bytes."

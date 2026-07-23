@@ -59,6 +59,8 @@ MCP_TOOL_CORE: tuple[str, ...] = (
 )
 
 MCP_TOOL_ACQUIRE: tuple[str, ...] = (
+    "research_craft_collect_plan",
+    "research_craft_discover_proposal",
     "research_procure_resume_campaign",
     "research_procure_campaign_artifacts",
     "research_procure_approve_collect",
@@ -132,12 +134,13 @@ ACQUISITION_LADDER: tuple[str, ...] = (
 # into registry — route through probe → plan_collect when acquiring for the lab.
 COMPOSER_EXTERNAL_TOOLS_NOTE = (
     "Composer Playwright / webfetch / web search are valid for probe and debug. "
-    "For vault-backed procurement, prefer research_web_discover then procurement_probe "
-    "then yzu_submit_job so flywheel + registry promotion run."
+    "For vault-backed procurement: research_craft_collect_plan (generic http_manifest/"
+    "scraper_run/source_probe only) → yzu_submit_job so flywheel + registry promotion run. "
+    "Never submit named vendor pipelines (skynet_*, opensea_*, …) — craft a custom plan for the URL."
 )
 
 MCP_TOOL_LEGACY_NOTE = (
-    "Use atomic tools like yzu_submit_job, procurement_probe_public_source, and research_list_datasets. "
+    "Prefer research_craft_collect_plan then yzu_submit_job. "
     "Desk chat: POST /library/chat (Cursor Composer + MCP). "
     "/agent/* and /yzu/* HTTP routes are legacy aliases."
 )

@@ -44,6 +44,8 @@ _TOOL_ACTIVITY_LABELS: dict[str, str] = {
     "research_synthesis_submit_execution": "Submitting synthesis for approval…",
     "research_collection_hydrate": "Pulling files from Drive…",
     "yzu_submit_job": "Submitting collection job…",
+    "research_craft_collect_plan": "Crafting custom collect plan…",
+    "research_craft_discover_proposal": "Building Discover craft proposal…",
     "datacite_collect_doi": "Collecting dataset…",
     "research_quant_brief": "Building quant summary…",
     "procurement_probe_public_source": "Probing source…",
@@ -126,7 +128,18 @@ def _load_magic_chat(repo_root: Path | None = None) -> dict[str, Any]:
 
 
 def cursor_composer_available() -> bool:
-    return bool(os.getenv("CURSOR_API_KEY", "").strip())
+    """True only when Composer can actually run — key present *and* cursor_sdk importable.
+
+    Health used to report composer_configured from the key alone, which masked
+    ModuleNotFoundError on Ask when the front door ran on system Python.
+    """
+    if not os.getenv("CURSOR_API_KEY", "").strip():
+        return False
+    try:
+        import cursor_sdk  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def desk_brain_mode(repo_root: Path | None = None) -> str:
@@ -176,11 +189,17 @@ def _mcp_stdio_config(repo_root: Path, *, vault_primed: bool = False) -> dict[st
 def _faculty_starter_prompts(state: dict[str, Any]) -> list[str]:
     row = state.get("faculty_profile_row") or {}
     out: list[str] = []
-    for item in (row.get("lab_fintech_stack") or [])[:4]:
-        p = str(item.get("prompt") or "").strip()
+    for item in row.get("starter_prompts") or []:
+        p = str(item or "").strip()
         if p:
-            out.append(p[:120])
-    return out[:5]
+            out.append(p[:160])
+    if out:
+        return out[:5]
+    return [
+        "Identify a public dataset for my research and land it via custom procure",
+        "Craft a collect plan for a public URL I provide",
+        "Search DataCite for recent panels in my field",
+    ]
 
 
 def _desk_setting_sources() -> list[str]:

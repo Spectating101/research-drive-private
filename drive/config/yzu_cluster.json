@@ -8,17 +8,28 @@
     "jobs_root": "data_lake/yzu_cluster/jobs",
     "status_root": "data_lake/yzu_cluster/status"
   },
-    "operations": {
+  "operations": {
     "cluster_only": true,
     "disable_local_harvest": true,
-    "disable_local_scrape": true,
+    "disable_local_scrape": false,
     "disable_local_http_collect": false,
     "http_remote_fallback": true,
     "remote_queue_on_windows": false,
     "prefer_local_queue": true,
     "queue_local_fallback": true,
     "procurement_routes_via_cluster": true,
-    "notes": "Controller queues jobs; browser scrapes run on windows_lab only (disable_local_scrape). Run scripts/yzu_cluster/provision_windows_scraper_bundle.sh once per worker.",
+    "remote_worker": {
+      "allowed_job_types": [
+        "http_manifest"
+      ],
+      "deny_job_id_prefixes": [
+        "probe-no-promotion-",
+        "missing-manifest-",
+        "archive-before-promote-"
+      ],
+      "notes": "Day-2: production Windows workers claim only http_manifest; fixture id prefixes are skipped before assignment."
+    },
+    "notes": "Windows_lab remains primary for HTTP/scrape when fresh. Optiplex is controller and local fallback for http_manifest and scraper_run when Windows workers are stale (disable_local_scrape=false). Prefer craft http_manifest for JSON APIs.",
     "ops_host": {
       "mode": "local",
       "repo_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance",
@@ -45,14 +56,28 @@
       "kind": "ssh_windows",
       "inventory": "/home/phyrexian/cluster-lab-logs/windows-cluster-inventory.csv",
       "ssh_key": "/home/phyrexian/.ssh/id_rsa",
-      "remote_python": "py",
+      "remote_python": "py -3",
       "max_parallel": 6,
-      "capabilities": ["http_collect", "datacite_harvest", "gdelt_fetch", "scraper_host", "puppeteer_scrape", "sqlite_upsert", "job_boards"]
+      "capabilities": [
+        "http_collect",
+        "datacite_harvest",
+        "gdelt_fetch",
+        "scraper_host",
+        "puppeteer_scrape",
+        "sqlite_upsert",
+        "job_boards"
+      ]
     },
     "optiplex": {
       "kind": "local_linux",
       "enabled": true,
-      "capabilities": ["controller_ui", "cluster_orchestration"]
+      "capabilities": [
+        "controller_ui",
+        "cluster_orchestration",
+        "http_collect",
+        "scraper_host",
+        "puppeteer_scrape"
+      ]
     },
     "spectator": {
       "kind": "ssh_linux",
@@ -66,17 +91,27 @@
       "molina_repo": "/home/spectator/Downloads/llm_automation/project_portfolio/Molina-Optiplex",
       "sharpe_repo": "/home/spectator/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance",
       "staging": "/home/spectator/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/spectator_engine",
-      "capabilities": ["puppeteer_scrape", "sqlite_upsert", "job_boards"],
+      "capabilities": [
+        "puppeteer_scrape",
+        "sqlite_upsert",
+        "job_boards"
+      ],
       "exclude_from_cluster_ops": true,
-      "notes": "Personal machine — not used by procurement routing (windows_lab only)."
+      "notes": "Personal machine \u2014 not used by procurement routing (windows_lab only)."
     }
   },
   "spectator_engine": {
-    "molina_repo": "..",
+    "molina_repo": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex",
     "local_staging": "data_lake/spectator_engine",
     "dispatch_script": "scripts/yzu_cluster/workers/scraper_dispatch.sh",
-    "pool_order": ["windows_lab"],
-    "pool_order_default": ["windows_lab"],
+    "pool_order": [
+      "optiplex",
+      "windows_lab"
+    ],
+    "pool_order_default": [
+      "optiplex",
+      "windows_lab"
+    ],
     "probe_timeout_seconds": 15,
     "default_timeout_seconds": 3600,
     "pools": {
@@ -96,17 +131,32 @@
     "generic_url_scrape": {
       "script": "yzu_cluster/scrapers/generic_url_scrape.mjs",
       "workdir": "sharpe_repo",
-      "args": ["--mode", "page"]
+      "args": [
+        "--mode",
+        "page"
+      ]
     },
     "cake_board": {
       "script": "spectator_scrape_cake.mjs",
       "workdir": "molina_repo",
-      "args": ["--keyword", "", "--pages", "1-3", "--perPage", "50"]
+      "args": [
+        "--keyword",
+        "",
+        "--pages",
+        "1-3",
+        "--perPage",
+        "50"
+      ]
     },
     "yourator_board": {
       "script": "spectator_scrape_yourator.mjs",
       "workdir": "molina_repo",
-      "args": ["--keyword", "", "--pages", "1-5"]
+      "args": [
+        "--keyword",
+        "",
+        "--pages",
+        "1-5"
+      ]
     },
     "tw_boards_refresh": {
       "script": "ops/run_tw_boards_refresh_local.sh",
@@ -119,62 +169,94 @@
     "datacite_watchdog": {
       "label": "DataCite cluster watchdog",
       "pool": "optiplex",
-      "command": ["bash", "scripts/data_catalog/datacite_cluster_watchdog.sh"]
+      "command": [
+        "bash",
+        "scripts/data_catalog/datacite_cluster_watchdog.sh"
+      ]
     },
     "datacite_drive_pipeline": {
-      "label": "DataCite Windows pull → GDrive",
+      "label": "DataCite Windows pull \u2192 GDrive",
       "pool": "optiplex",
-      "command": ["bash", "scripts/data_catalog/pull_datacite_cluster_shards_oneshot.sh"]
+      "command": [
+        "bash",
+        "scripts/data_catalog/pull_datacite_cluster_shards_oneshot.sh"
+      ]
     },
     "gdelt_fleet": {
       "label": "GDELT GKG partition fleet",
       "pool": "windows_lab",
       "enabled": true,
       "procurement_triggered": true,
-      "command": ["bash", "scripts/run_news_shock_gkg_queue_fleet.sh"]
+      "command": [
+        "bash",
+        "scripts/run_news_shock_gkg_queue_fleet.sh"
+      ]
     },
     "coingecko_daily": {
       "label": "CoinGecko daily refresh",
       "pool": "windows_lab",
       "enabled": true,
       "procurement_triggered": true,
-      "command": ["bash", "scripts/run_coingecko_network_coordinator.sh"]
+      "command": [
+        "bash",
+        "scripts/run_coingecko_network_coordinator.sh"
+      ]
     },
     "collection_queue": {
       "label": "Public data collection queue",
       "pool": "windows_lab",
       "enabled": true,
       "procurement_triggered": true,
-      "command": ["python3", "scripts/run_data_collection_queue.py"]
+      "command": [
+        "python3",
+        "scripts/run_data_collection_queue.py"
+      ]
     },
     "ethereum_usdt_rpc_pilot": {
       "label": "Ethereum USDT ERC-20 transfer RPC pilot (Etherscan-style sample)",
       "pool": "optiplex",
       "enabled": true,
       "procurement_triggered": true,
-      "command": [".venv/bin/python", "scripts/usdt_catalogue/rpc_usdt_transfer_pilot.py"]
+      "command": [
+        ".venv/bin/python",
+        "scripts/usdt_catalogue/rpc_usdt_transfer_pilot.py"
+      ]
     },
     "skynet_stablecoin_harvest": {
       "label": "CertiK Skynet stablecoin leaderboard security scores harvest",
       "pool": "optiplex",
       "enabled": true,
       "procurement_triggered": true,
-      "command": [".venv/bin/python", "stablecoin_skynet/collect_skynet_stablecoins.py", "harvest", "--limit", "25"]
+      "command": [
+        ".venv/bin/python",
+        "stablecoin_skynet/collect_skynet_stablecoins.py",
+        "harvest",
+        "--limit",
+        "25"
+      ]
     },
     "refinitiv_derived_panels": {
       "label": "Refinitiv derived panel rebuild (frozen release)",
       "pool": "optiplex",
       "enabled": false,
       "procurement_triggered": false,
-      "notes": "Manual only — do not bulk re-harvest. Rebuilds research_panels/refinitiv from frozen raw.",
-      "command": [".venv-refinitiv/bin/python", "scripts/refinitiv_build_derived_panels.py", "--run-id", "2026-07-06-complete"]
+      "notes": "Manual only \u2014 do not bulk re-harvest. Rebuilds research_panels/refinitiv from frozen raw.",
+      "command": [
+        ".venv-refinitiv/bin/python",
+        "scripts/refinitiv_build_derived_panels.py",
+        "--run-id",
+        "2026-07-06-complete"
+      ]
     },
     "refinitiv_registry_promote": {
       "label": "Refinitiv registry refresh (15 datasets)",
       "pool": "optiplex",
       "enabled": false,
       "procurement_triggered": false,
-      "command": [".venv-refinitiv/bin/python", "scripts/refinitiv_promote_registry.py"]
+      "command": [
+        ".venv-refinitiv/bin/python",
+        "scripts/refinitiv_promote_registry.py"
+      ]
     }
   },
   "schedules": [
@@ -187,6 +269,9 @@
         "title": "Daily public collection queue",
         "job_type": "collection_queue_batch",
         "launchable": true,
+        "only": [
+          "sec_company_tickers"
+        ],
         "timeout_seconds": 14400
       }
     }
@@ -204,7 +289,8 @@
       "scraper_run",
       "bigquery_query",
       "collection_hydrate",
-      "huggingface_collect"
+      "huggingface_collect",
+      "synthesis_execute"
     ],
     "future_job_types": []
   },

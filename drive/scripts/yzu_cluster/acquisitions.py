@@ -17,6 +17,53 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def remote_collect_script(repo_root: Path) -> Path:
+    """Resolve remote_collect.py for both monorepo roots and drive/ roots.
+
+    Desk processes use a monorepo root (kernel/ + drive/ siblings), so the
+    collector lives at drive/scripts/cluster_agent/. Worker-control and some
+    CLIs pass --repo-root .../drive, where scripts/cluster_agent/ is correct.
+    """
+    candidates = (
+        repo_root / "drive/scripts/cluster_agent/remote_collect.py",
+        repo_root / "scripts/cluster_agent/remote_collect.py",
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[0]
+
+
+def repo_relpath(path: Path, repo_root: Path) -> str:
+    """Return a path relative to repo_root, tolerating runtime bind symlinks.
+
+    Front-door checkouts symlink data_lake/procured and data_lake/yzu_cluster into
+    YZU_RUNTIME_DRIVE_ROOT. Path.resolve() jumps outside the checkout, so a naive
+    relative_to(repo_root) raises during materialize/promote.
+    """
+    path = Path(path)
+    repo_root = Path(repo_root)
+    try:
+        return str(path.relative_to(repo_root))
+    except ValueError:
+        pass
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(repo_root.resolve()))
+    except ValueError:
+        pass
+    for logical in ("data_lake/procured", "data_lake/yzu_cluster", "data_lake"):
+        bind = repo_root / logical
+        if not (bind.exists() or bind.is_symlink()):
+            continue
+        try:
+            rel = resolved.relative_to(bind.resolve())
+            return str(Path(logical) / rel)
+        except ValueError:
+            continue
+    return str(resolved)
+
+
 def acquisitions_root(repo_root: Path, cfg: dict[str, Any] | None = None) -> Path:
     cfg = cfg or {}
     storage = cfg.get("storage") or {}
@@ -36,7 +83,9 @@ def procured_root(repo_root: Path, cfg: dict[str, Any] | None = None) -> Path:
 
 
 def dataset_id_for_plan(plan: dict[str, Any], job_id: str) -> str:
-    cid = str(plan.get("connector_id") or plan.get("dataset_id") or "").strip()
+    # A declared output identity is authoritative.  The connector identifies
+    # where the data came from, not which durable asset this run creates.
+    cid = str(plan.get("dataset_id") or plan.get("connector_id") or "").strip()
     if cid.startswith("src_"):
         return f"procured_{cid}"
     if cid:
@@ -100,7 +149,9 @@ def collect_local_manifest(
     manifest = job_dir / f"local_{job_id}.json"
     artifact = job_dir / f"local_{job_id}.zip"
     manifest.write_text(json.dumps({"job_id": job_id, "shard": 0, "items": items}, indent=2), encoding="utf-8")
-    script = repo_root / "scripts/cluster_agent/remote_collect.py"
+    script = remote_collect_script(repo_root)
+    if not script.is_file():
+        raise FileNotFoundError(f"remote collector not found (tried drive/ and scripts/): {script}")
     python = repo_root / ".venv/bin/python"
     if not python.exists():
         python = Path("python3")
@@ -130,13 +181,13 @@ def collect_local_manifest(
             {
                 "shard": 0,
                 "worker": "local",
-                "artifact": str(artifact.relative_to(repo_root)),
+                "artifact": repo_relpath(artifact, repo_root),
                 "bytes": artifact.stat().st_size,
                 "worker_exit": proc.returncode,
                 "collect_report": proc.stdout.strip()[-500:],
             }
         ],
-        "output_dir": str(job_dir.relative_to(repo_root)),
+        "output_dir": repo_relpath(job_dir, repo_root),
         "collect_mode": "local",
     }
 
@@ -196,7 +247,7 @@ def materialize_job(
             promoted_files.append(
                 {
                     "name": dst.name,
-                    "path": str(dst.relative_to(repo_root)),
+                    "path": repo_relpath(dst, repo_root),
                     "bytes": dst.stat().st_size,
                     "sha256": _sha256_file(dst),
                 }
@@ -211,8 +262,8 @@ def materialize_job(
             "url": plan.get("url"),
             "title": plan.get("title"),
         },
-        "staging_dir": str(staging.relative_to(repo_root)),
-        "canonical_dir": str(canonical.relative_to(repo_root)) if canonical.exists() else "",
+        "staging_dir": repo_relpath(staging, repo_root),
+        "canonical_dir": repo_relpath(canonical, repo_root) if canonical.exists() else "",
         "dataset_id": dataset_id_for_plan(plan, job_id),
         "files": promoted_files or staged_files,
         "validation": validation,
@@ -232,7 +283,7 @@ def materialize_job(
         manifest_path = canonical / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         meta["manifest_id"] = manifest_id
-        meta["manifest_path"] = str(manifest_path.relative_to(repo_root))
+        meta["manifest_path"] = repo_relpath(manifest_path, repo_root)
     (staging / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     out = dict(result)
@@ -272,6 +323,50 @@ def validate_staging(staging: Path, files: list[dict[str, Any]], plan: dict[str,
     }
 
 
+def _suffix_for_materialized_file(
+    repo_root: Path,
+    canonical: str,
+    file_row: dict[str, Any],
+    plan: dict[str, Any],
+) -> str:
+    """Resolve a queryable suffix for craft lands (geojson / extensionless JSON APIs)."""
+    name = str(file_row.get("name") or "artifact")
+    suffix = Path(name).suffix.lower()
+    if suffix:
+        return suffix
+    ct = str(file_row.get("content_type") or file_row.get("content-type") or file_row.get("mime") or "").lower()
+    if "geojson" in ct or "geo+json" in ct:
+        return ".geojson"
+    if "json" in ct:
+        return ".json"
+    if "csv" in ct:
+        return ".csv"
+    path = Path(repo_root) / str(canonical) / name
+    if path.is_file():
+        try:
+            head = path.read_bytes()[:256].lstrip()
+            if head.startswith((b"{", b"[")):
+                return ".json"
+        except OSError:
+            pass
+    # Compacted archives: use plan URL heuristics when bytes are gone locally.
+    url = str(plan.get("url") or "")
+    if url:
+        try:
+            from scripts.research_data_mcp.scrape_plan import _looks_like_json_api, classify_url
+
+            if classify_url(url) == "direct_http" or _looks_like_json_api(url):
+                lower = url.lower()
+                if ".geojson" in lower:
+                    return ".geojson"
+                if ".csv" in lower:
+                    return ".csv"
+                return ".json"
+        except Exception:
+            pass
+    return ""
+
+
 def registry_spec_from_materialized(
     repo_root: Path,
     job: dict[str, Any],
@@ -287,15 +382,20 @@ def registry_spec_from_materialized(
     files = materialized.get("files") or []
     if not files:
         return None
-    local_path = str(canonical)
-    if len(files) > 1:
+    if len(files) == 1:
+        local_path = str(Path(canonical) / str(files[0].get("name") or "artifact"))
+    else:
         local_path = f"{canonical}/*"
-    suffix = Path(files[0]["name"]).suffix.lower()
+    suffix = _suffix_for_materialized_file(Path(repo_root), str(canonical), files[0], plan)
     readiness = "metadata_search"
     if suffix in {".csv", ".tsv"}:
         backend = "local_csv_glob" if "*" in local_path else "local_csv_file"
-    elif suffix in {".json", ".jsonl"}:
-        backend = "local_json_file"
+        if "*" not in local_path:
+            readiness = "instant"
+    elif suffix in {".json", ".jsonl", ".geojson", ".ndjson"}:
+        backend = "local_json_glob" if "*" in local_path else "local_json_file"
+        if "*" not in local_path and int(files[0].get("bytes") or 0) <= 50_000_000:
+            readiness = "instant"
     elif suffix == ".parquet":
         backend = "local_parquet_panel"
         readiness = "instant"
@@ -319,6 +419,15 @@ def registry_spec_from_materialized(
         "recommended_use": f"Inspect files under {local_path}",
         "domain": plan.get("domain") or "procured",
     }
+    # Query engine _resolve_panel_path requires local_root + local_file for local_parquet_panel.
+    if backend == "local_parquet_panel" and "*" not in local_path:
+        panel_path = Path(local_path)
+        spec["local_root"] = str(panel_path.parent)
+        spec["local_file"] = panel_path.name
+    if readiness == "instant" and not spec.get("source_access_mode"):
+        spec["source_access_mode"] = "materialized_instant"
+    if plan.get("revision_id"):
+        spec["revision_id"] = str(plan["revision_id"])
     if campaign_id:
         spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True}
     if plan.get("job_type") == "synthesis_execute":

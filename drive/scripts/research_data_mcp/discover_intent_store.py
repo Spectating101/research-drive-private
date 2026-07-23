@@ -8,13 +8,15 @@ route and explicitly submits the resulting pending job.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import hashlib
 import json
 import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Iterator, Any
 
 
 def discover_intent_store_path(repo_root: str | Path) -> Path:
@@ -54,8 +56,18 @@ def _route(route: dict[str, Any]) -> dict[str, Any]:
         "limitation": str(route.get("limitation") or "").strip()[:1200],
         "destination": str(route.get("destination") or "").strip()[:400],
         "refresh": str(route.get("refresh") or "").strip()[:400],
+        "url": str(route.get("url") or route.get("source_url") or "").strip()[:800],
+        "pipeline": str(route.get("pipeline") or "").strip()[:80],
     }
-    return {key: value for key, value in out.items() if value}
+    # Executable generic plan stub (AI-crafted). Validated when present.
+    raw_plan = route.get("collect_plan")
+    if raw_plan is not None:
+        from scripts.research_data_mcp.craft_collect import validate_generic_plan
+
+        out["collect_plan"] = validate_generic_plan(raw_plan if isinstance(raw_plan, dict) else None)
+        out["crafted"] = True
+        out.setdefault("pipeline", "custom")
+    return {key: value for key, value in out.items() if value not in ("", [], None)}
 
 
 def validate_proposal(proposal: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -118,8 +130,23 @@ class DiscoverIntentStore:
             db.execute("CREATE INDEX IF NOT EXISTS idx_discover_intents_updated ON discover_intents(updated_at DESC)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_discover_intent_events_intent ON discover_intent_events(intent_id, id)")
 
-    def _db(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path, timeout=30)
+    @contextmanager
+    def _db(self) -> Iterator[sqlite3.Connection]:
+        """Open a short-lived connection that always closes.
+
+        Python 3.12+ ``Connection.__exit__`` commits/rollbacks but no longer
+        closes the handle, so ``with sqlite3.connect(...)`` leaks FDs under
+        desk polling (/health, job list, workers).
+        """
+        db = sqlite3.connect(self.path, timeout=30)
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def create(
         self,

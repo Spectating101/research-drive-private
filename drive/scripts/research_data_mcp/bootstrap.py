@@ -21,6 +21,7 @@ from scripts.research_query_engine.engine import ResearchQueryEngine
 from scripts.yzu_cluster.api import YzuClusterAPI
 from scripts.yzu_cluster.orchestrator import YzuOrchestrator
 from sharpe_kernel.paths import repo_root_from_file
+from scripts.yzu_cluster.acquisitions import repo_relpath
 
 DEFAULT_REGISTRY = "config/research_query_registry.json"
 
@@ -53,8 +54,13 @@ def _valid_materialization_manifest(
     path = path if path.is_absolute() else repo_root / path
     try:
         path = path.resolve()
-        path.relative_to(repo_root.resolve())
-    except ValueError:
+    except OSError:
+        return None
+    # Runtime binds (data_lake/procured → YZU_RUNTIME_DRIVE_ROOT) resolve outside
+    # the checkout; accept any path that repo_relpath can map back.
+    try:
+        repo_relpath(path, repo_root)
+    except Exception:
         return None
     if not path.is_file():
         return None
@@ -155,13 +161,18 @@ def create_stack(
         if not registry_row or remote_path != str(archive.get("remote_path") or ""):
             return None
         readiness = str(registry_row.get("analysis_readiness") or "registered")
-        if readiness not in {"registered", "query_ready"}:
+        # Instant / query_ready local cards are desk-usable; do not collapse them to
+        # a mere "registered" receipt that History will treat as not queryable.
+        if readiness in {"instant", "query_ready"}:
+            readiness = "query_ready"
+        elif readiness not in {"registered", "query_ready"}:
             readiness = "registered"
         execution_spec = result.get("execution_spec") if isinstance(result.get("execution_spec"), dict) else {}
         return {
             "dataset_id": dataset_id,
             # The canonical registry has dataset_id as its durable row identity.
             "registry_id": dataset_id,
+            "revision_id": registry_row.get("revision_id"),
             "manifest_id": manifest_id,
             "vault_path": remote_path,
             "archive_verified": True,

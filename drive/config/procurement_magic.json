@@ -12,10 +12,7 @@
       "twse_openapi_taiwan_market_layer",
       "mops_governance_panel"
     ],
-    "pipeline_ids": [
-      "ethereum_usdt_rpc_pilot",
-      "skynet_stablecoin_harvest"
-    ],
+    "pipeline_ids": [],
     "queue_task_max_runtime_minutes": 10,
     "agent_spectator_scrape": true
   },
