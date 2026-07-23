@@ -38,7 +38,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   backend-release-proof:
@@ -49,38 +49,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-
-      - name: One-shot network-evidence assertion migration
-        if: github.event_name == 'pull_request' && github.head_ref == 'agent/release-proof-hardening-v2'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("tests/test_orchestrator_runtime.py")
-          text = path.read_text(encoding="utf-8")
-          old = '    assert claim["plan"]["items"] == [{"url": "https://8.8.8.8/data.csv"}]\n'
-          new = '''    item = claim["plan"]["items"][0]
-              assert item["url"] == "https://8.8.8.8/data.csv"
-              assert item["network_evidence"]["resolved_addresses"] == ["8.8.8.8"]
-              assert item["network_evidence"]["host"] == "8.8.8.8"
-          '''
-          if old not in text:
-              print("network-evidence assertion already migrated")
-              raise SystemExit(0)
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
-          PY
-          if git diff --quiet -- tests/test_orchestrator_runtime.py; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/test_orchestrator_runtime.py
-          git commit -m "test(runtime): require claimed HTTP network evidence"
-          git push origin HEAD:${GITHUB_HEAD_REF}
 
       - uses: actions/setup-python@v5
         with:
