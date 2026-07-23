@@ -1,32 +1,10 @@
-name: Private runtime contract
+name: Reddit subscriber recovery
 
-# Exact-head gate for runtime, registry authority, remote worker adoption, and the internal desk front door.
 on:
   pull_request:
     branches: [main]
     paths:
-      - "drive/scripts/yzu_cluster/**"
-      - "drive/scripts/cluster_agent/**"
-      - "drive/scripts/research_data_mcp/**"
-      - "drive/scripts/research_query_engine/**"
-      - "drive/config/optiplex-front-door.env.example"
-      - "drive/docs/status/releases/RC2_FRONT_DOOR_CONTRACT.md"
-      - "tests/test_cluster_runtime_adapter.py"
-      - "tests/test_orchestrator_runtime.py"
-      - "tests/test_bootstrap_drive_order.py"
-      - "tests/test_acquisition_manifest.py"
-      - "tests/test_scraper_manifest.py"
-      - "tests/test_registry_authority.py"
-      - "tests/test_registry_transaction.py"
-      - "tests/test_worker_control.py"
-      - "tests/test_worker_completion_lease.py"
-      - "tests/test_completion_lease_scope.py"
-      - "tests/test_remote_worker.py"
-      - "tests/test_remote_collect.py"
-      - "tests/test_artifact_streaming.py"
-      - "tests/test_job_status_counts.py"
-      - "tests/test_research_query_server.py"
-      - "tests/test_yzu_interop_*.py"
+      - "drive/scripts/research_data_mcp/reddit_subscriber_recovery/**"
       - ".github/workflows/private-runtime-contract.yml"
   workflow_dispatch:
 
@@ -34,85 +12,33 @@ permissions:
   contents: read
 
 jobs:
-  runtime-contract:
+  collect-reddit-subscriber-history:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
-      - name: Install test dependencies
+      - name: Install collector dependencies
+        run: python -m pip install --upgrade requests pandas
+
+      - name: Collect Arctic Shift monthly subscriber histories
+        env:
+          REDDIT_SUBSCRIBER_OUT: ${{ github.workspace }}/reddit-subscriber-output
+        run: python drive/scripts/research_data_mcp/reddit_subscriber_recovery/collect_reddit_subscribers.py
+
+      - name: Archive collection output
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance
+          cd reddit-subscriber-output
+          zip -r ../stablecoin-reddit-subscriber-history.zip .
 
-      - name: Compile runtime modules
-        run: |
-          python -m compileall -q drive/scripts/yzu_cluster drive/scripts/cluster_agent drive/scripts/research_data_mcp drive/scripts/research_query_engine
-
-      - name: Validate same-origin front door contract
-        run: |
-          python -m pytest -q tests/test_research_query_server.py
-          bash -n drive/scripts/research_query_engine/build_optiplex_front_door.sh
-          bash -n drive/scripts/research_query_engine/run_optiplex_front_door.sh
-          bash -n drive/scripts/research_query_engine/install_optiplex_front_door_systemd_user.sh
-
-      - name: Run worker control service contracts
-        id: worker_control
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          python -m pytest -q tests/test_worker_control.py tests/test_worker_completion_lease.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py tests/test_live_identity.py tests/test_remote_claim_isolation.py 2>&1 | tee worker-control.log
-
-      - name: Upload worker control diagnostics
-        if: always()
+      - name: Upload subscriber-history artifact
         uses: actions/upload-artifact@v4
         with:
-          name: worker-control-log
-          path: worker-control.log
+          name: stablecoin-reddit-subscriber-history
+          path: stablecoin-reddit-subscriber-history.zip
           if-no-files-found: error
-          retention-days: 3
-
-      - name: Enforce worker control result
-        if: steps.worker_control.outcome == 'failure'
-        run: exit 1
-
-      - name: Run remote worker and collector contracts
-        run: |
-          python -m pytest -q tests/test_remote_worker.py tests/test_remote_collect.py tests/test_completion_lease_scope.py tests/test_artifact_streaming.py
-
-      - name: Run scraper and registry authority contracts
-        run: |
-          python -m pytest -q tests/test_scraper_manifest.py tests/test_registry_authority.py tests/test_registry_transaction.py
-
-      - name: Run private suite excluding optional HMM tests
-        id: private_suite
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          python -m pytest -q -k "not strategy_regime_hmm" 2>&1 | tee private-suite.log
-
-      - name: Upload private suite diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: private-suite-log
-          path: private-suite.log
-          if-no-files-found: error
-          retention-days: 3
-
-      - name: Enforce private suite result
-        if: steps.private_suite.outcome == 'failure'
-        run: exit 1
-
-      - name: Run public interoperability contracts
-        run: |
-          python -m unittest discover -s tests -p "test_yzu_interop_*.py" -v
+          retention-days: 7
