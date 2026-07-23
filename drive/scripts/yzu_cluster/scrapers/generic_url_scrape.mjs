@@ -10,6 +10,8 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
+import http from "node:http";
+import https from "node:https";
 
 const FILE_EXT_RE = /\.(csv|tsv|json|jsonl|zip|gz|parquet|xlsx?|xml|pdf|txt|ndjson)(\?|$)/i;
 
@@ -106,13 +108,141 @@ async function isBlockedUrlAsync(raw) {
   }
 }
 
+async function pickPublicPinnedAddress(hostname) {
+  const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (net.isIP(h)) {
+    if (isBlockedHostname(h)) throw new Error(`blocked address: ${h}`);
+    return h;
+  }
+  const rows = await dns.lookup(h, { all: true, verbatim: true });
+  const addrs = rows.map((r) => r.address).filter(Boolean);
+  if (!addrs.length) throw new Error(`no addresses for ${h}`);
+  const blocked = addrs.filter((a) => (net.isIP(a) === 4 ? isBlockedIpv4(a) : isBlockedIpv6(a)));
+  if (blocked.length) {
+    throw new Error(`non-public address(es): ${blocked.join(",")}`);
+  }
+  const v4 = addrs.find((a) => net.isIP(a) === 4);
+  return v4 || addrs[0];
+}
+
+function pinnedRequestOnce(url, { method = "GET", headers = {}, body = null, timeoutMs = 30000 } = {}) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const u = new URL(url);
+      if (!["http:", "https:"].includes(u.protocol)) {
+        reject(new Error(`unsupported scheme ${u.protocol}`));
+        return;
+      }
+      if (await isBlockedUrlAsync(url)) {
+        reject(new Error(`blocked non-public url: ${url}`));
+        return;
+      }
+      const pinned = await pickPublicPinnedAddress(u.hostname);
+      const lib = u.protocol === "https:" ? https : http;
+      const port = Number(u.port || (u.protocol === "https:" ? 443 : 80));
+      const hdrs = { ...headers, Host: u.hostname };
+      delete hdrs["host"];
+      const req = lib.request(
+        {
+          host: pinned,
+          servername: u.hostname,
+          port,
+          path: `${u.pathname || "/"}${u.search || ""}`,
+          method,
+          headers: hdrs,
+          timeout: timeoutMs,
+        },
+        (res) => {
+          const chunks = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode || 0,
+              headers: res.headers || {},
+              body: Buffer.concat(chunks),
+              url,
+              pinned,
+            });
+          });
+        },
+      );
+      req.on("timeout", () => {
+        req.destroy(new Error("pinned request timeout"));
+      });
+      req.on("error", reject);
+      if (body) req.write(body);
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function pinnedFetchRaw(url, opts = {}) {
+  let current = url;
+  for (let hop = 0; hop < 8; hop += 1) {
+    const res = await pinnedRequestOnce(current, opts);
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const location = res.headers.location || res.headers.Location;
+      if (!location) throw new Error(`HTTP ${res.status} without Location`);
+      current = new URL(String(location), current).href;
+      if (await isBlockedUrlAsync(current)) {
+        throw new Error(`blocked redirect target: ${current}`);
+      }
+      continue;
+    }
+    return { ...res, finalUrl: current };
+  }
+  throw new Error("too many redirects");
+}
+
 async function installNetworkGuard(pageOrContext) {
+  const pinFulfill = !["0", "false", "no"].includes(
+    String(process.env.PLAYWRIGHT_PINNED_FULFILL || "1").toLowerCase(),
+  );
   await pageOrContext.route("**/*", async (route) => {
-    const target = route.request().url();
+    const request = route.request();
+    const target = request.url();
+    if (!/^https?:/i.test(target)) {
+      return route.continue();
+    }
     if (await isBlockedUrlAsync(target)) {
       return route.abort("blockedbyclient");
     }
-    return route.continue();
+    if (!pinFulfill) {
+      return route.continue();
+    }
+    try {
+      const method = request.method();
+      if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        return route.abort("blockedbyclient");
+      }
+      const headers = { ...request.headers() };
+      delete headers["host"];
+      delete headers["content-length"];
+      const postData = request.postDataBuffer ? request.postDataBuffer() : request.postData();
+      const result = await pinnedFetchRaw(target, {
+        method,
+        headers,
+        body: postData || null,
+        timeoutMs: Number(process.env.PLAYWRIGHT_TIMEOUT_MS || 45000),
+      });
+      const outHeaders = {};
+      for (const [k, v] of Object.entries(result.headers || {})) {
+        if (v == null) continue;
+        if (["content-encoding", "transfer-encoding", "content-length"].includes(String(k).toLowerCase())) {
+          continue;
+        }
+        outHeaders[k] = Array.isArray(v) ? v.join("\n") : String(v);
+      }
+      return route.fulfill({
+        status: result.status,
+        headers: outHeaders,
+        body: result.body,
+      });
+    } catch {
+      return route.abort("failed");
+    }
   });
 }
 

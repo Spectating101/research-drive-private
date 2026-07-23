@@ -181,6 +181,19 @@ class YzuOrchestrator:
                         continue
                     evidence = validate_public_http_url(url)
                     item["network_evidence"] = evidence
+        elif job_type == "source_probe":
+            from scripts.cluster_agent.network_policy import validate_public_http_url
+
+            probe_url = str(plan.get("url") or "").strip()
+            if not probe_url.startswith("http"):
+                plan["launchable"] = False
+                plan["validation_error"] = "source_probe requires a public http(s) url"
+            else:
+                try:
+                    plan["network_evidence"] = validate_public_http_url(probe_url)
+                except ValueError as exc:
+                    plan["launchable"] = False
+                    plan["validation_error"] = str(exc)
         if job_type == "registered_pipeline":
             if plan.get("pipeline_id") not in self.executor.pipelines():
                 plan["launchable"] = False
@@ -224,6 +237,15 @@ class YzuOrchestrator:
                 if not str(plan.get("url") or "").startswith("http"):
                     plan["launchable"] = False
                     plan["validation_error"] = "url is required for generic_url_scrape"
+                else:
+                    from scripts.cluster_agent.network_policy import validate_public_http_url
+
+                    try:
+                        evidence = validate_public_http_url(str(plan.get("url") or ""))
+                        plan["network_evidence"] = evidence
+                    except ValueError as exc:
+                        plan["launchable"] = False
+                        plan["validation_error"] = str(exc)
         elif job_type == "bigquery_query":
             if not plan.get("sql") and not plan.get("sql_file"):
                 plan["launchable"] = False

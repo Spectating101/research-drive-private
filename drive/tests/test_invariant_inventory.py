@@ -42,6 +42,26 @@ def test_scraper_has_dns_aware_network_guard() -> None:
     assert "dns.lookup" in src
     assert "100 && b >= 64 && b <= 127" in src  # CGNAT / Tailscale
     assert 'redirect: "manual"' in src
+    assert "pinnedFetchRaw" in src or "pickPublicPinnedAddress" in src
+    assert "PLAYWRIGHT_PINNED_FULFILL" in src
+    assert "route.fulfill" in src
+
+
+def test_magic_collect_defaults_fail_closed() -> None:
+    src = _read("drive/scripts/research_data_mcp/magic_procure.py")
+    assert 'auto_collect_chat", False)' in src or "auto_collect_chat\", False)" in src
+    assert 'auto_scrape_after_acquire", False)' in src or "auto_scrape_after_acquire\", False)" in src
+    assert "approve_collect" in src
+    assert 'auto_approve=False' in src
+
+
+def test_desk_auth_fail_closed_posts() -> None:
+    from scripts.research_data_mcp.desk_auth import path_requires_auth
+
+    assert path_requires_auth("/library/craft/collect-plan", "POST") is True
+    assert path_requires_auth("/library/advise", "POST") is True
+    assert path_requires_auth("/library/desk/session", "POST") is False
+    assert path_requires_auth("/healthz", "GET") is False
 
 
 def test_scheduler_stamps_ops_internal() -> None:

@@ -132,6 +132,29 @@ def test_execution_policy_strips_client_ops_and_blocks_auto_approve():
             auto_approve=True,
         )
 
+    probe, probe_auto = enforce_execution_submit(
+        {"job_type": "source_probe", "url": "https://example.com", "launchable": True},
+        {},
+        auto_approve=True,
+    )
+    assert probe_auto is True
+    assert probe["execution_policy"]["scope"] == "faculty"
+
+
+def test_magic_never_auto_executes_collects():
+    from scripts.research_data_mcp.magic_config import is_trusted_plan, should_auto_execute
+
+    cfg = {
+        "auto_approve": {"job_types": ["source_probe"], "pipeline_ids": []},
+        "execute": {"auto_execute_job_types": ["source_probe", "http_manifest"]},
+    }
+    assert should_auto_execute({"job_type": "http_manifest", "datacite_doi": "10.1/x"}, cfg) is False
+    assert should_auto_execute({"job_type": "http_manifest", "launchable": True}, cfg) is False
+    assert should_auto_execute({"job_type": "scraper_run", "launchable": True}, cfg) is False
+    assert is_trusted_plan({"job_type": "http_manifest", "launchable": True, "datacite_doi": "10.1/x"}, cfg) is False
+    assert should_auto_execute({"job_type": "source_probe", "launchable": True}, cfg) is True
+    assert is_trusted_plan({"job_type": "source_probe", "launchable": True}, cfg) is True
+
 
 def test_ops_internal_allows_auto_approve_for_generic_http():
     from scripts.research_data_mcp.execution_policy import enforce_execution_submit

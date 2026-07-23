@@ -38,8 +38,11 @@ def is_datacite_collect_plan(plan: dict[str, Any]) -> bool:
 def is_trusted_plan(plan: dict[str, Any], config: dict[str, Any], *, queue_tasks: list[dict[str, Any]] | None = None) -> bool:
     if not plan or not plan.get("launchable"):
         return False
+    # Collects always require explicit researcher approve — never "trusted" auto.
     if is_datacite_collect_plan(plan):
-        return True
+        return False
+    if str(plan.get("job_type") or "") in {"http_manifest", "scraper_run"}:
+        return False
     policy = config.get("auto_approve") or {}
     job_type = str(plan.get("job_type") or "")
     if job_type in set(policy.get("job_types") or []):
@@ -65,8 +68,11 @@ def is_trusted_plan(plan: dict[str, Any], config: dict[str, Any], *, queue_tasks
 
 
 def should_auto_execute(plan: dict[str, Any], config: dict[str, Any]) -> bool:
+    # Never auto-execute acquisition jobs — approve_collect / human approve only.
     if is_datacite_collect_plan(plan):
-        return True
+        return False
+    if str(plan.get("job_type") or "") in {"http_manifest", "scraper_run"}:
+        return False
     job_type = str(plan.get("job_type") or "")
     allowed = set((config.get("execute") or {}).get("auto_execute_job_types") or [])
     if job_type not in allowed:

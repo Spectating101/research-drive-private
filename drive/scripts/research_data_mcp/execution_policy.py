@@ -37,7 +37,9 @@ def enforce_execution_submit(
 
     job_type = str(plan.get("job_type") or "").strip()
     if scope == "faculty":
-        auto_approve = False
+        # Probes may auto-run (cheap, no land); acquires never silent-auto.
+        if job_type != "source_probe":
+            auto_approve = False
         if job_type not in GENERIC_JOB_TYPES:
             raise ValueError(
                 f"execution policy: faculty may only submit {sorted(GENERIC_JOB_TYPES)}; got {job_type!r}"

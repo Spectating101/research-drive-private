@@ -251,6 +251,10 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         path = normalize_api_path(parsed.path)
         if self._serve_static(path):
             return
+        ok, msg = authorize(self, path, method="GET")
+        if not ok:
+            self._send_json({"error": "Unauthorized", "message": msg}, status=401)
+            return
         qs = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
         result = handle_get(path, qs, self.stack)
         body = result.get("body")
@@ -316,9 +320,23 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             clear = bool(isinstance(payload, dict) and payload.get("action") == "clear")
             self._handle_desk_session(clear=clear)
             return
-        ok, msg = authorize(self, path)
+        ok, msg = authorize(self, path, method="POST")
         if not ok:
             self._send_json({"error": "Unauthorized", "message": msg}, status=401)
+            return
+        from scripts.research_data_mcp import desk_rate_limit
+
+        allowed, remaining, retry_after = desk_rate_limit.allow(desk_rate_limit.client_key(self))
+        if not allowed:
+            self._send_json(
+                {
+                    "error": "rate_limited",
+                    "message": f"Too many desk writes; retry after {retry_after}s",
+                    "retry_after_seconds": retry_after,
+                    "remaining": remaining,
+                },
+                status=429,
+            )
             return
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length) or b"{}")
