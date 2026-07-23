@@ -1,0 +1,189 @@
+[
+  {
+    "entity_id": "truecad",
+    "canonical_name": "Truecad",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x00000100f2a2bd000715001920eb70d229700085",
+    "all_ethereum_addresses": "0x00000100f2a2bd000715001920eb70d229700085",
+    "community_entity_id": "community_twitter_trusttoken",
+    "twitter_handle": "TrustToken",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "truegbp",
+    "canonical_name": "Truegbp",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x00000000441378008ea67f4284a57932b1c000a5",
+    "all_ethereum_addresses": "0x00000000441378008ea67f4284a57932b1c000a5",
+    "community_entity_id": "community_twitter_trusttoken",
+    "twitter_handle": "TrustToken",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "united-stables",
+    "canonical_name": "United Stables",
+    "ticker": "",
+    "coingecko_id": "united-stables",
+    "primary_ethereum_address": "0xce24439f2d9c6a2289f741120fe202248b666666",
+    "all_ethereum_addresses": "0xce24439f2d9c6a2289f741120fe202248b666666",
+    "community_entity_id": "community_twitter_utechstables",
+    "twitter_handle": "UTechStables",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "usd-coin",
+    "canonical_name": "Usd Coin",
+    "ticker": "USDC",
+    "coingecko_id": "bridged-usd-coin-scroll",
+    "primary_ethereum_address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "all_ethereum_addresses": "0xc21223249ca28397b4b6541dffaecc539bff0c59;0x3c499c542cef5e3811e1192ce70d8cc03d5c3359;0xddafbb505ad214d7b80b1f830fccc89b60fb7a83;0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e;0x04068da6c83afcfa0e13ba15a6696662335d5b75;0x985458e523db3d53125813ed68c274899e9dfab4;0x0b2c639c533813f4aa9d7837caf62653d097ff85;0x3355df6d4c9c3035724fd0e3914de96a5a83aaf4;0xaf88d065e77c8cc2239327c5edb3a432268e5831;0x833589fcd6edb6e08f4c7c32d4f71b54bda02913;0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d;0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "community_entity_id": "community_twitter_circle",
+    "twitter_handle": "circle",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "usdd",
+    "canonical_name": "USDD (Decentralized USD)",
+    "ticker": "USDD",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x4f8e5de400de08b164e7421b3ee387f461becd1a",
+    "all_ethereum_addresses": "0x0c10bf8fcb7bf5412187a595ab97a3609160b5c6;0x4f8e5de400de08b164e7421b3ee387f461becd1a;0x45e51bc23d592eb2dba86da3985299f7895d66ba;0xd17479997f34dd9156deef8f95a52d81d265be9c",
+    "community_entity_id": "community_twitter_usddio",
+    "twitter_handle": "usddio",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "usde",
+    "canonical_name": "Usde",
+    "ticker": "USDE",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+    "all_ethereum_addresses": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34;0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+    "community_entity_id": "community_twitter_ethena_labs",
+    "twitter_handle": "ethena_labs",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "usdh",
+    "canonical_name": "Usdh",
+    "ticker": "USDH",
+    "coingecko_id": "usdh-2",
+    "primary_ethereum_address": "",
+    "all_ethereum_addresses": "",
+    "community_entity_id": "community_twitter_hubbleprotocol",
+    "twitter_handle": "hubbleprotocol",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "usdk",
+    "canonical_name": "USDK",
+    "ticker": "USDK",
+    "coingecko_id": "usdkg",
+    "primary_ethereum_address": "0x1c48f86ae57291f7686349f12601910bd8d470bb",
+    "all_ethereum_addresses": "0x1c48f86ae57291f7686349f12601910bd8d470bb",
+    "community_entity_id": "community_twitter_oklink",
+    "twitter_handle": "oklink",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "usds",
+    "canonical_name": "Usds",
+    "ticker": "USDS",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+    "all_ethereum_addresses": "0x6491c05a82219b8d1479057361ff1654749b876b;0x820c137fa70c8691f0e44dc420a5e53c168921dc;0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+    "community_entity_id": "community_twitter_skyecosystem",
+    "twitter_handle": "SkyEcosystem",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "usdtb",
+    "canonical_name": "Usdtb",
+    "ticker": "USDTB",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+    "all_ethereum_addresses": "0xc139190f447e929f090edeb554d95abb8b18ac1c",
+    "community_entity_id": "community_twitter_ethena_labs",
+    "twitter_handle": "ethena_labs",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "usdtez",
+    "canonical_name": "Usdtez",
+    "ticker": "USDTEZ",
+    "coingecko_id": "usdtez",
+    "primary_ethereum_address": "",
+    "all_ethereum_addresses": "",
+    "community_entity_id": "community_twitter_usdtz",
+    "twitter_handle": "usdtz",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "usual-usd",
+    "canonical_name": "Usual Usd",
+    "ticker": "USD0",
+    "coingecko_id": "usual-usd",
+    "primary_ethereum_address": "0x73a15fed60bf67631dc6cd7bc5b6e8da8190acf5",
+    "all_ethereum_addresses": "0x73a15fed60bf67631dc6cd7bc5b6e8da8190acf5",
+    "community_entity_id": "community_twitter_usualmoney",
+    "twitter_handle": "usualmoney",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "vai",
+    "canonical_name": "Vai",
+    "ticker": "VAI",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x4bd17003473389a42daf6a0a729f6fdb328bbbd7",
+    "all_ethereum_addresses": "0x4bd17003473389a42daf6a0a729f6fdb328bbbd7",
+    "community_entity_id": "community_twitter_venusprotocol",
+    "twitter_handle": "VenusProtocol",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "world-liberty-financial-usd",
+    "canonical_name": "World Liberty Financial Usd",
+    "ticker": "USD1",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d",
+    "all_ethereum_addresses": "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d",
+    "community_entity_id": "community_twitter_worldlibertyfi",
+    "twitter_handle": "worldlibertyfi",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "xsgd",
+    "canonical_name": "Xsgd",
+    "ticker": "XSGD",
+    "coingecko_id": "xsgd",
+    "primary_ethereum_address": "0xdc3326e71d45186f113a2f448984ca0e8d201995",
+    "all_ethereum_addresses": "0xdc3326e71d45186f113a2f448984ca0e8d201995;0xf81ac2e1a0373dde1bce01e2fe694a9b7e3bfcb9;0xc08e7e23c235073c6807c2efe7021304cb7c2815",
+    "community_entity_id": "community_twitter_straitsx",
+    "twitter_handle": "straitsx",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "yusd-stablecoin",
+    "canonical_name": "Yusd Stablecoin",
+    "ticker": "",
+    "coingecko_id": "yusd-stablecoin",
+    "primary_ethereum_address": "0x111111111111ed1d73f860f57b2798b683f2d325",
+    "all_ethereum_addresses": "0x111111111111ed1d73f860f57b2798b683f2d325",
+    "community_entity_id": "community_twitter_yetifinance",
+    "twitter_handle": "YetiFinance",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "zusd",
+    "canonical_name": "Zusd",
+    "ticker": "ZUSD",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x6e4cc0ab2b4d2edafa6723cfa1582229f1dd1be1",
+    "all_ethereum_addresses": "0x6e4cc0ab2b4d2edafa6723cfa1582229f1dd1be1;0xc56c2b7e71b54d38aab6d52e94a04cbfa8f604fa",
+    "community_entity_id": "community_twitter_gmotrust",
+    "twitter_handle": "GMOTrust",
+    "shared_community_account_flag": "1"
+  }
+]
