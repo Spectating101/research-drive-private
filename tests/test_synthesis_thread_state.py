@@ -308,7 +308,18 @@ def test_synthesis_approval_boundaries(stack):
     job = stack.orchestrator.store.create(
         "Synthesis approval boundary",
         {},
-        {"job_type": "synthesis_execute", "launchable": True, "title": "Synthesis boundary"},
+        {
+    "job_type": "synthesis_execute",
+    "launchable": True,
+    "title": "Synthesis boundary",
+    "execution_spec": {
+        "input_dataset_id": "google_trends_stablecoin_weekly",
+        "output_dataset_id": "synthesis_boundary_output",
+        "group_by": [],
+        "metrics": [{"function": "count", "as": "row_count"}],
+        "transforms": [],
+    },
+},
         status="pending_approval",
     )
     with pytest.raises(PermissionError, match="researcher confirmation"):

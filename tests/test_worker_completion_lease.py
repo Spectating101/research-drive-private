@@ -36,8 +36,8 @@ def test_remote_completion_renews_lease_during_controller_finalization(tmp_path:
     control = WorkerControlPlane(orchestrator, token="secret-token")
     job = orchestrator.submit(
         "Remote finalization",
-        {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["remote-output"]},
-        {"idempotency_key": "remote-finalization"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8", "outputs": ["remote-output"]},
+        {"_ops_internal": True, "idempotency_key": "remote-finalization"},
         auto_approve=True,
     )
     control.join(

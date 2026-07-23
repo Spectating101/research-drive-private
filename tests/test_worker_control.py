@@ -54,11 +54,11 @@ def test_remote_worker_join_claim_heartbeat_usage_and_complete(tmp_path: Path) -
         "Remote HTTP collection",
         {
             "job_type": "http_manifest",
-            "url": "https://example.test/data.csv",
+            "url": "https://8.8.8.8/data.csv",
             "outputs": ["remote-dataset"],
             "resource_requirements": {"cpu_cores": 1, "memory_mb": 256},
         },
-        {"idempotency_key": "remote-http-1"},
+        {"_ops_internal": True, "idempotency_key": "remote-http-1"},
         auto_approve=True,
     )
 
@@ -128,10 +128,10 @@ def test_uploaded_artifact_materializes_on_controller(tmp_path: Path) -> None:
         {
             "job_type": "http_manifest",
             "dataset_id": "remote_uploaded_dataset",
-            "url": "https://example.test/upload.csv",
+            "url": "https://8.8.8.8/upload.csv",
             "validation": {"min_files": 1, "min_total_bytes": 1},
         },
-        {"idempotency_key": "remote-upload-1"},
+        {"_ops_internal": True, "idempotency_key": "remote-upload-1"},
         auto_approve=True,
     )
     control.join(
@@ -199,10 +199,10 @@ def test_remote_completion_preserves_registration_proof(tmp_path: Path) -> None:
             "job_type": "http_manifest",
             "dataset_id": "remote_registered_dataset",
             "connector_id": "public_source",
-            "url": "https://example.test/registered.json",
+            "url": "https://8.8.8.8/registered.json",
             "validation": {"min_files": 1, "min_total_bytes": 1},
         },
-        {"idempotency_key": "remote-registered-1"},
+        {"_ops_internal": True, "idempotency_key": "remote-registered-1"},
         auto_approve=True,
     )
     control.join(
@@ -277,8 +277,8 @@ def test_remote_failure_requeues_and_fences_old_attempt(tmp_path: Path) -> None:
     control = WorkerControlPlane(orchestrator, token="secret-token")
     job = orchestrator.submit(
         "Retry remote collection",
-        {"job_type": "http_manifest", "url": "https://example.test/retry.csv", "max_attempts": 2},
-        {"idempotency_key": "remote-retry-1"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8/retry.csv", "max_attempts": 2},
+        {"_ops_internal": True, "idempotency_key": "remote-retry-1"},
         auto_approve=True,
     )
     control.join(
