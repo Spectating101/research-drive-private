@@ -78,7 +78,7 @@ def main():
     monthly["previous_month"]=monthly.groupby("subreddit").month.shift()
     monthly["previous_month_end_subscribers"]=monthly.groupby("subreddit").month_end_subscribers.shift()
     def mdiff(r):
-        if pd.isna(r.previous_month):return pd.NA
+        if pd.isna(r.previous_month):return None
         a,b=pd.Period(r.previous_month,freq="M"),pd.Period(r.month,freq="M")
         return (b.year-a.year)*12+b.month-a.month
     monthly["months_since_previous_observation"]=monthly.apply(mdiff,axis=1).astype("Int64")
