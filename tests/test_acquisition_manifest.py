@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Post-merge verification trigger; no behavioral change.
+
 import json
 import zipfile
 from pathlib import Path
