@@ -1,0 +1,58 @@
+name: Apply branch source patch
+
+on:
+  push:
+    branches: [agent/release-proof-hardening-v2]
+    paths: [.github/workflows/branch-source-patch.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-datacite-parquet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/release-proof-hardening-v2
+          fetch-depth: 0
+
+      - name: Patch DataCite Parquet readiness contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("drive/scripts/research_data_mcp/registry_promotion.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_backend = '''        elif suffix == ".parquet":
+              backend = "local_parquet_file"
+          '''
+          new_backend = '''        elif suffix == ".parquet":
+              backend = "local_parquet_panel"
+          '''
+          if old_backend not in text:
+              raise SystemExit("expected DataCite parquet backend snippet not found")
+          text = text.replace(old_backend, new_backend, 1)
+
+          marker = '''        if campaign_id:
+              spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}
+          '''
+          panel_contract = '''        if backend == "local_parquet_panel" and "*" not in local_path:
+              panel_path = Path(local_path)
+              spec["local_root"] = str(panel_path.parent)
+              spec["local_file"] = panel_path.name
+          '''
+          if marker not in text:
+              raise SystemExit("expected DataCite lineage marker not found")
+          text = text.replace(marker, panel_contract + marker, 1)
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit source patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add drive/scripts/research_data_mcp/registry_promotion.py
+          git commit -m "fix(registry): support DataCite Parquet query smoke"
+          git push origin HEAD:agent/release-proof-hardening-v2
