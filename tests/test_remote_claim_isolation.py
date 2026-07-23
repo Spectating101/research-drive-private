@@ -53,19 +53,19 @@ def test_remote_claim_skips_unsupported_and_fixture_jobs(tmp_path: Path) -> None
     orchestrator.submit(
         "Fixture synthesis",
         {"job_type": "source_probe", "url": "https://8.8.8.8/probe.json", "launchable": True},
-        {"idempotency_key": "fixture-source-probe-1"},
+        {"_ops_internal": True, "idempotency_key": "fixture-source-probe-1"},
         auto_approve=True,
     )
     orchestrator.submit(
         "Fixture probe",
         {"job_type": "http_manifest", "url": "https://8.8.8.8/a.csv", "launchable": True},
-        {"idempotency_key": "probe-no-promotion-deadbeef"},
+        {"_ops_internal": True, "idempotency_key": "probe-no-promotion-deadbeef"},
         auto_approve=True,
     )
     wanted = orchestrator.submit(
         "Production collect",
         {"job_type": "http_manifest", "url": "https://8.8.8.8/b.csv", "launchable": True},
-        {"idempotency_key": "prod-http-1"},
+        {"_ops_internal": True, "idempotency_key": "prod-http-1"},
         auto_approve=True,
     )
 

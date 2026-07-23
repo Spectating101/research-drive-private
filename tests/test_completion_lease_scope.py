@@ -45,7 +45,7 @@ def test_local_completion_renews_lease_through_authoritative_finalization(tmp_pa
             "items": [{"url": "https://8.8.8.8/data.csv"}],
             "outputs": ["local-output"],
         },
-        {"idempotency_key": "local-finalization"},
+        {"_ops_internal": True, "idempotency_key": "local-finalization"},
         auto_approve=True,
     )
 

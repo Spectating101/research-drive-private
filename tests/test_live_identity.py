@@ -40,7 +40,7 @@ def test_live_identity_from_registered_job(tmp_path: Path) -> None:
             "url": "https://8.8.8.8/data.csv",
             "outputs": ["identity_dataset"],
         },
-        {"idempotency_key": "identity-job-1"},
+        {"_ops_internal": True, "idempotency_key": "identity-job-1"},
         auto_approve=True,
     )
     control.join(
