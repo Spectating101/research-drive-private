@@ -275,7 +275,7 @@ class RegistryPromoter:
         doi: str,
         campaign_id: str = "",
     ) -> list[dict[str, Any]]:
-        """Promote completed DataCite http_manifest jobs; fallback to procured file path."""
+        """Promote completed DataCite jobs only after the same bounded query smoke."""
         if job.get("status") != "completed":
             return []
         promoted = self.promote_job(job, campaign_id=campaign_id)
@@ -296,16 +296,13 @@ class RegistryPromoter:
         local_path = file_path
         backend = "local_file"
         access_shape = "local_file"
-        readiness = "metadata_search"
         suffix = Path(fname).suffix.lower()
         if suffix == ".csv":
             backend = "local_csv_file"
-            readiness = "instant"
         elif suffix in {".json", ".jsonl"}:
             backend = "local_json_file"
         elif suffix == ".parquet":
-            backend = "local_parquet_file"
-            readiness = "instant"
+            backend = "local_parquet_panel"
 
         if not self._artifact_exists(file_path):
             glob_path = f"{dest}/*"
@@ -322,7 +319,7 @@ class RegistryPromoter:
             "name": str(plan.get("title") or doi)[:240],
             "backend": backend,
             "access_shape": access_shape,
-            "analysis_readiness": readiness,
+            "analysis_readiness": "registered",
             "grain": "procured_snapshot",
             "local_path": local_path,
             "description": f"Procured DataCite dataset `{doi}` ({fname}).",
@@ -331,8 +328,20 @@ class RegistryPromoter:
             "domain": "datacite",
             "doi": doi,
         }
+        if backend == "local_parquet_panel" and "*" not in local_path:
+            panel_path = Path(local_path)
+            spec["local_root"] = str(panel_path.parent)
+            spec["local_file"] = panel_path.name
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}
+
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+
+        smoke = prove_query_smoke(self.repo_root, spec, limit=3)
+        spec["query_smoke"] = smoke
+        if smoke.get("ok"):
+            spec["analysis_readiness"] = "query_ready"
+            spec["source_access_mode"] = "materialized_query_ready"
         entry = self._upsert_dataset(
             spec,
             task_id=dataset_id,
@@ -378,21 +387,18 @@ class RegistryPromoter:
         if primary and self._artifact_exists(primary):
             backend = "local_parquet_panel"
             access_shape = "local_derived_tables"
-            readiness = "instant"
             local_root = str(Path(primary).parent)
             local_file = Path(primary).name
             local_path = primary
         elif parquet_paths:
             backend = "local_parquet_panel"
             access_shape = "local_derived_tables"
-            readiness = "instant"
             local_path = parquet_paths[0]
             local_root = str(Path(local_path).parent)
             local_file = Path(local_path).name
         else:
             backend = "local_json_glob"
             access_shape = "local_file_tree"
-            readiness = "metadata_search"
             local_path = f"{canonical_dir}/*"
             local_root = ""
             local_file = ""
@@ -402,16 +408,16 @@ class RegistryPromoter:
             "name": str(manifest.get("title") or did)[:240],
             "backend": backend,
             "access_shape": access_shape,
-            "analysis_readiness": readiness,
+            "analysis_readiness": "registered",
             "grain": "hf_snapshot",
-            "description": f"Procured Hugging Face dataset `{dad}`.",
+            "description": f"Procured Hugging Face dataset `{did}`.",
             "capabilities": ["limit", "export_json", "filter_date_range"],
             "recommended_use": f"Query cached HF data; handle hf:{did}",
             "domain": "huggingface",
             "partition_id": "acquired.procured",
             "source_id": "huggingface",
             "source_system": "Hugging Face",
-            "source_access_mode": "materialized_instant" if readiness == "instant" else "materialized_bulk",
+            "source_access_mode": "materialized_registered",
             "hf_dataset_id": did,
             "handle": f"hf:{did}",
         }
@@ -424,6 +430,13 @@ class RegistryPromoter:
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": False, "hf_dataset_id": did}
 
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+
+        smoke = prove_query_smoke(self.repo_root, spec, limit=3)
+        spec["query_smoke"] = smoke
+        if smoke.get("ok"):
+            spec["analysis_readiness"] = "query_ready"
+            spec["source_access_mode"] = "materialized_query_ready"
         entry = self._upsert_dataset(
             spec,
             task_id=dataset_id,
