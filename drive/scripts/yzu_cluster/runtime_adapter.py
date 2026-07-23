@@ -201,9 +201,9 @@ class ClusterRuntimeAdapter:
         operations = self.config.get("operations") or {}
         if not operations.get("disable_local_http_collect"):
             capabilities.append("http")
-        # When local scrape is allowed, controller must advertise browser so
-        # scraper_run jobs are claimable without a fresh Windows lab worker.
-        if not operations.get("disable_local_scrape"):
+        # Browser capability is opt-in. A minimal/default controller must not
+        # claim scraper work merely because the setting is absent.
+        if operations.get("disable_local_scrape") is False:
             capabilities.append("browser")
         return {
             "pool": "optiplex",

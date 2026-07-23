@@ -24,7 +24,7 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
                     "status_root": "data/status",
                 },
                 "operations": {"disable_local_http_collect": False, **(operations or {})},
-                "agent": {"allowed_job_types": ["http_manifest", "scraper_run"]},
+                "agent": {"allowed_job_types": ["http_manifest", "scraper_run", "source_probe"]},
                 "worker_pools": {},
                 "storage": {},
             }
@@ -123,8 +123,6 @@ def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_p
         {"_ops_internal": True, "idempotency_key": "controller-probe-with-windows"},
         auto_approve=True,
     )
-    orchestrator.approve(job["id"])
-
     completed = orchestrator.worker_tick()
     assert completed is not None
     assert completed["id"] == job["id"]
