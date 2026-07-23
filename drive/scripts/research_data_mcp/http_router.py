@@ -241,9 +241,11 @@ def _match(path: str, pattern: str) -> dict[str, str] | None:
     pat_parts = [part for part in pattern.strip("/").split("/") if part != ""]
     if not pat_parts:
         return {} if not p_parts else None
-    # Trailing {param} may consume remaining path segments (DOI values contain '/').
+    # Only DOI values may consume remaining path segments. Treating every
+    # trailing parameter as greedy lets generic resource routes swallow
+    # nested actions such as /threads/{id}/discover-handoff.
     last = pat_parts[-1]
-    greedy = last.startswith("{") and last.endswith("}")
+    greedy = last == "{doi}"
     if greedy:
         if len(p_parts) < len(pat_parts):
             return None
