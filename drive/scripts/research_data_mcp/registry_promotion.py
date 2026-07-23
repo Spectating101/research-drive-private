@@ -303,7 +303,7 @@ class RegistryPromoter:
         elif suffix in {".json", ".jsonl"}:
             backend = "local_json_file"
         elif suffix == ".parquet":
-            backend = "local_parquet_file"
+            backend = "local_parquet_panel"
 
         if not self._artifact_exists(file_path):
             glob_path = f"{dest}/*"
@@ -329,6 +329,10 @@ class RegistryPromoter:
             "domain": "datacite",
             "doi": doi,
         }
+        if backend == "local_parquet_panel" and "*" not in local_path:
+            panel_path = Path(local_path)
+            spec["local_root"] = str(panel_path.parent)
+            spec["local_file"] = panel_path.name
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}
         from scripts.yzu_cluster.acquisitions import prove_query_smoke
