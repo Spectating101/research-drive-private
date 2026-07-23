@@ -53,7 +53,7 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
-      - name: One-shot final invariant migration
+      - name: One-shot finish invariant migration
         if: github.event_name == 'pull_request' && github.head_ref == 'agent/release-proof-hardening-v2'
         shell: bash
         run: |
@@ -64,79 +64,38 @@ jobs:
 
           runtime = Path("drive/scripts/yzu_cluster/runtime_adapter.py")
           text = runtime.read_text(encoding="utf-8")
-          old = '''        # When local scrape is allowed, controller must advertise browser so
-          # scraper_run jobs are claimable without a fresh Windows lab worker.
-          if not operations.get("disable_local_scrape"):
-              capabilities.append("browser")
-          '''
-          new = '''        # Browser capability is opt-in. A minimal/default controller must not
-          # claim scraper work merely because the setting is absent.
-          if operations.get("disable_local_scrape") is False:
-              capabilities.append("browser")
-          '''
-          if old in text:
-              runtime.write_text(text.replace(old, new, 1), encoding="utf-8")
+          updated = text.replace(
+              'if not operations.get("disable_local_scrape"):',
+              'if operations.get("disable_local_scrape") is False:',
+              1,
+          )
+          updated = updated.replace(
+              '# When local scrape is allowed, controller must advertise browser so\n        # scraper_run jobs are claimable without a fresh Windows lab worker.',
+              '# Browser capability is opt-in. A minimal/default controller must not\n        # claim scraper work merely because the setting is absent.',
+              1,
+          )
+          if updated != text:
+              runtime.write_text(updated, encoding="utf-8")
               changed.append(str(runtime))
-
-          router = Path("drive/scripts/research_data_mcp/http_router.py")
-          text = router.read_text(encoding="utf-8")
-          old = '''    # Trailing {param} may consume remaining path segments (DOI values contain '/').
-              last = pat_parts[-1]
-              greedy = last.startswith("{") and last.endswith("}")
-          '''
-          new = '''    # Only DOI values may consume remaining path segments. Treating every
-              # trailing parameter as greedy lets generic resource routes swallow
-              # nested actions such as /threads/{id}/discover-handoff.
-              last = pat_parts[-1]
-              greedy = last == "{doi}"
-          '''
-          if old in text:
-              router.write_text(text.replace(old, new, 1), encoding="utf-8")
-              changed.append(str(router))
 
           orchestrator_test = Path("tests/test_orchestrator_runtime.py")
           text = orchestrator_test.read_text(encoding="utf-8")
           updated = text.replace(
-              '"allowed_job_types": ["http_manifest", "scraper_run"],',
-              '"allowed_job_types": ["http_manifest", "scraper_run", "source_probe"],',
-          )
-          updated = updated.replace("https://example.test", "https://8.8.8.8")
-          updated = updated.replace(
-              '{"idempotency_key": ',
-              '{"_ops_internal": True, "idempotency_key": ',
+              '"allowed_job_types": ["http_manifest", "scraper_run"]',
+              '"allowed_job_types": ["http_manifest", "scraper_run", "source_probe"]',
+              1,
           )
           updated = updated.replace(
-              '    orchestrator.approve(job["id"])\n    orchestrator.runtime.join_worker(',
-              '    orchestrator.runtime.join_worker(',
+              '    orchestrator.approve(job["id"])\n\n    completed = orchestrator.worker_tick()',
+              '    completed = orchestrator.worker_tick()',
               1,
           )
           if updated != text:
               orchestrator_test.write_text(updated, encoding="utf-8")
               changed.append(str(orchestrator_test))
 
-          synthesis_test = Path("tests/test_synthesis_thread_state.py")
-          text = synthesis_test.read_text(encoding="utf-8")
-          old = '''        {"job_type": "synthesis_execute", "launchable": True, "title": "Synthesis boundary"},
-          '''
-          new = '''        {
-              "job_type": "synthesis_execute",
-              "launchable": True,
-              "title": "Synthesis boundary",
-              "execution_spec": {
-                  "input_dataset_id": "google_trends_stablecoin_weekly",
-                  "output_dataset_id": "synthesis_boundary_output",
-                  "group_by": [],
-                  "metrics": [{"function": "count", "as": "row_count"}],
-                  "transforms": [],
-              },
-          },
-          '''
-          if old in text:
-              synthesis_test.write_text(text.replace(old, new, 1), encoding="utf-8")
-              changed.append(str(synthesis_test))
-
           if not changed:
-              print("final invariant migration already applied")
+              print("remaining invariant migration already applied")
               raise SystemExit(0)
           print("patched:")
           for path in changed:
@@ -147,12 +106,8 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            drive/scripts/yzu_cluster/runtime_adapter.py \
-            drive/scripts/research_data_mcp/http_router.py \
-            tests/test_orchestrator_runtime.py \
-            tests/test_synthesis_thread_state.py
-          git commit -m "fix(runtime): align browser, routing, and approval contracts"
+          git add drive/scripts/yzu_cluster/runtime_adapter.py tests/test_orchestrator_runtime.py
+          git commit -m "fix(runtime): make browser opt-in and align controller fixtures"
           git push origin HEAD:${GITHUB_HEAD_REF}
 
       - uses: actions/setup-python@v5
