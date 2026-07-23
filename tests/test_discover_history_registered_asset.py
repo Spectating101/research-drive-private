@@ -5,19 +5,19 @@ from scripts.research_data_mcp.discover_history import build_discover_history
 
 def _job(*, verified: bool = True) -> dict:
     return {
-        "id": "day2-deploy-smoke-20260720a",
-        "title": "Day-2 deploy smoke",
+        "id": "research-acquisition-20260720a",
+        "title": "Research acquisition",
         "status": "completed",
         "created_at": "2026-07-20T08:00:00+00:00",
         "updated_at": "2026-07-20T08:05:00+00:00",
-        "request": {"source": "host_acceptance"},
+        "request": {"source": "research_import"},
         "plan": {"job_type": "http_manifest"},
         "result": {
             "registration_evidence": {
-                "dataset_id": "day2_deploy_smoke_20260720",
-                "registry_id": "day2_deploy_smoke_20260720",
-                "manifest_id": "collection_manifest_day2-deploy-smoke-20260720a",
-                "vault_path": "gdrive:Research-Drive/day2_deploy_smoke_20260720",
+                "dataset_id": "research_acquisition_20260720",
+                "registry_id": "research_acquisition_20260720",
+                "manifest_id": "collection_manifest_research-acquisition-20260720a",
+                "vault_path": "gdrive:Research-Drive/research_acquisition_20260720",
                 "archive_verified": verified,
                 "registry_readback": verified,
                 "readiness": "registered",
@@ -32,8 +32,8 @@ def test_verified_registration_receipt_enters_history_without_discover_link() ->
     assert out["total"] == 1
     row = out["items"][0]
     assert row["kind"] == "registered_asset"
-    assert row["dataset_id"] == "day2_deploy_smoke_20260720"
-    assert row["manifest_id"] == "collection_manifest_day2-deploy-smoke-20260720a"
+    assert row["dataset_id"] == "research_acquisition_20260720"
+    assert row["manifest_id"] == "collection_manifest_research-acquisition-20260720a"
     assert row["status"] == "registered"
     assert row["archive_verified"] is True
     assert row["registry_readback"] is True
