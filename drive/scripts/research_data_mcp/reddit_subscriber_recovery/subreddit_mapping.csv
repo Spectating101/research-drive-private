@@ -1,0 +1,42 @@
+entity_id,canonical_name,community_entity_id,subreddit,mapping_level,mapping_confidence,mapping_basis,alternate_subreddits,pre_audit_analysis_eligible
+alchemix-usd,Alchemix Usd,community_twitter_alchemixfi,Alchemix,project,medium,project-name match; requires subreddit metadata review,,0
+angle-protocol,Angle Protocol,community_twitter_angleprotocol,AngleProtocol,project,medium,project-name match; requires subreddit metadata review,,0
+binance-usd,Binance Usd,community_twitter_binance,binance,issuer/ecosystem,high,BUSD issuer ecosystem community,,1
+celo-dollar,Celo Dollar,community_twitter_celoorg,celo,ecosystem,high,Celo ecosystem community,,1
+celo-euro,Celo Euro,community_twitter_celoorg,celo,ecosystem,high,Celo ecosystem community,,1
+coin98-dollar,Coin98 Dollar,community_twitter_coin98dollar,Coin98,ecosystem,medium,Coin98 ecosystem community,,0
+euro-coin,Euro Coin,community_twitter_circle,USDC,issuer/product,medium,Circle stablecoin community candidate,Circle,0
+fantom-usd,Fantom Usd,community_twitter_fantomfdn,FantomFoundation,ecosystem,high,Fantom ecosystem community,Fantom,1
+fei-usd,Fei Usd,community_twitter_feiprotocol,feiprotocol,project,high,Fei Protocol community,,1
+fraxfinance,Frax,community_twitter_fraxfinance,FraxFinance,project,high,Frax project community,Frax,1
+gemini-dollar,Gemini Dollar,community_twitter_gemini,Gemini,issuer/ecosystem,high,Gemini issuer community,,1
+inverse-finance-dola-stablecoin,Inverse Finance Dola Stablecoin,community_twitter_inversefinance,InverseFinance,project,high,Inverse Finance project community,,1
+liquity-usd,Liquity Usd,community_twitter_liquityprotocol,Liquity,project,high,Liquity project community,,1
+mai,Mai,community_twitter_0xlaozi,QiDao,project,medium,MAI/QiDao project community,,0
+mstable,mStable,community_twitter_mstable,mStable,project,high,mStable project community,,1
+neutrino-usd,Neutrino Usd,community_twitter_neutrino_proto,Wavesplatform,ecosystem,medium,Neutrino/Waves ecosystem community,Waves,0
+origin-dollar,Origin Dollar,community_twitter_originprotocol,originprotocol,project,high,Origin Protocol project community,,1
+paypal-usd,Paypal Usd,community_twitter_paypal,paypal,issuer/ecosystem,low,broad corporate subreddit; not analysis-eligible without review,,0
+ripple-usd,Ripple Usd,community_twitter_ripple,Ripple,issuer/ecosystem,high,Ripple issuer/ecosystem community,XRP,1
+seur,Seur,community_twitter_synthetix_io,synthetix_io,project,high,Synthetix project community,Synthetix,1
+susd,Susd,community_twitter_synthetix_io,synthetix_io,project,high,Synthetix project community,Synthetix,1
+sperax-usd,Sperax Usd,community_twitter_speraxusd,Sperax,project,medium,Sperax project community,,0
+stasis,STASIS EURO,community_twitter_stasisnet,STASIS,project,medium,STASIS project-name match; requires metadata review,,0
+terrausd,Terrausd,community_twitter_terra_money,terraluna,ecosystem,high,Terra ecosystem community,Terra_Luna_crypto,1
+tether,Tether,community_twitter_tether,Tether,issuer,high,Tether issuer/product community,,1
+tether-cnht,Tether Cnht,community_twitter_tether_to,Tether,issuer,high,Tether issuer community,,1
+tether-mxnt,Tether Mxnt,community_twitter_tether_to,Tether,issuer,high,Tether issuer community,,1
+euro-tether,Euro Tether,community_twitter_tether_to,Tether,issuer,high,Tether issuer community,,1
+trueaud,Trueaud,community_twitter_trusttoken,TrustToken,issuer,medium,TrustToken/TrueFi issuer community,TrueFi,0
+truecad,Truecad,community_twitter_trusttoken,TrustToken,issuer,medium,TrustToken/TrueFi issuer community,TrueFi,0
+truegbp,Truegbp,community_twitter_trusttoken,TrustToken,issuer,medium,TrustToken/TrueFi issuer community,TrueFi,0
+usd-coin,Usd Coin,community_twitter_circle,USDC,issuer/product,medium,Circle stablecoin community candidate,Circle,0
+usdd,USDD (Decentralized USD),community_twitter_usddio,Tronix,ecosystem,medium,USDD/TRON ecosystem community,Tron,0
+usde,Usde,community_twitter_ethena_labs,ethena_labs,project,high,Ethena project community,Ethena,1
+usdtb,Usdtb,community_twitter_ethena_labs,ethena_labs,project,high,Ethena project community,Ethena,1
+usdh,Usdh,community_twitter_hubbleprotocol,HubbleProtocol,project,medium,Hubble Protocol project community,,0
+usds,Usds,community_twitter_skyecosystem,MakerDAO,project/ecosystem,high,Sky/Maker stablecoin ecosystem community,Maker,1
+usual-usd,Usual Usd,community_twitter_usualmoney,usualmoney,project,medium,Usual project community,,0
+vai,Vai,community_twitter_venusprotocol,VenusProtocol,project,high,Venus Protocol project community,Venus,1
+world-liberty-financial-usd,World Liberty Financial Usd,community_twitter_worldlibertyfi,WorldLibertyFinancial,project,medium,project-name match; requires metadata review,,0
+yusd-stablecoin,Yusd Stablecoin,community_twitter_yetifinance,YetiFinance,project,high,Yeti Finance project community,,1
