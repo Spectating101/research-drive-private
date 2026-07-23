@@ -1,6 +1,6 @@
 {
   "title": "Invariant hardening chase (post-Friday gates)",
-  "recorded_at": "2026-07-23T13:30:00+00:00",
+  "recorded_at": "2026-07-23T13:32:35.454654+00:00",
   "parent_sha": "f6a363dbcc33546e4dda11975f83d211e67b90f0",
   "unit_tests": {
     "suites": [
@@ -33,5 +33,34 @@
     "browser subresource DNS pin (guard is hostname-only today)",
     "multi-tenant SLOs / unattended public platform",
     "full AI pipeline compiler"
+  ],
+  "backend_sha": "9beac5a754d87ca3c3737c179e2d473500cce019",
+  "live_hostile_after_restart": [
+    {
+      "name": "faculty_pipeline",
+      "http": 400,
+      "ok": true
+    },
+    {
+      "name": "ops_smuggle",
+      "http": 400,
+      "ok": true
+    },
+    {
+      "name": "named_vendor",
+      "http": 400,
+      "ok": true
+    },
+    {
+      "name": "auto_approve_force",
+      "http": 200,
+      "status": "pending_approval",
+      "job_id": "82dc430ec777",
+      "ok": true
+    }
+  ],
+  "services_restarted": [
+    "research-drive-front-door.service",
+    "yzu-cluster-worker.service"
   ]
 }
