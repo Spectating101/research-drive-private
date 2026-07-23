@@ -1,0 +1,200 @@
+[
+  {
+    "entity_id": "alchemix-usd",
+    "canonical_name": "Alchemix Usd",
+    "ticker": "ALUSD",
+    "coingecko_id": "alchemix-usd",
+    "primary_ethereum_address": "0xbc6da0fe9ad5f3b0d58160288917aa56653660e9",
+    "all_ethereum_addresses": "0xbc6da0fe9ad5f3b0d58160288917aa56653660e9",
+    "community_entity_id": "community_twitter_alchemixfi",
+    "twitter_handle": "AlchemixFi",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "angle-protocol",
+    "canonical_name": "Angle Protocol",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xe0b52e49357fd4daf2c15e02058dce6bc0057db4",
+    "all_ethereum_addresses": "0xe0b52e49357fd4daf2c15e02058dce6bc0057db4;0x1a7e4e63778b4f12a199c062f3efdd288afcbce8",
+    "community_entity_id": "community_twitter_angleprotocol",
+    "twitter_handle": "AngleProtocol",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "baconcoin-token",
+    "canonical_name": "Baconcoin Token",
+    "ticker": "TOKEN",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xb8919522331c59f5c16bdfaa6a121a6e03a91f62",
+    "all_ethereum_addresses": "0xb8919522331c59f5c16bdfaa6a121a6e03a91f62",
+    "community_entity_id": "community_twitter_homecoinfinance",
+    "twitter_handle": "homecoinfinance",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "binance-idr",
+    "canonical_name": "Binance Idr",
+    "ticker": "BIDR",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x9a2f5556e9a637e8fbce886d8e3cf8b316a1d8a2",
+    "all_ethereum_addresses": "0x9a2f5556e9a637e8fbce886d8e3cf8b316a1d8a2",
+    "community_entity_id": "community_twitter_tokocrypto",
+    "twitter_handle": "TokoCrypto",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "binance-usd",
+    "canonical_name": "Binance Usd",
+    "ticker": "BUSD",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x9c9e5fd8bbc25984b178fdce6117defa39d2db39",
+    "all_ethereum_addresses": "0x9c9e5fd8bbc25984b178fdce6117defa39d2db39;0x2039bb4116b4efc145ec4f0e2ea75012d6c0f181;0x7d43aabc515c356145049227cee54b608342c0ad;0xe176ebe47d621b984a73036b9da5d834411ef734;0x4fabb145d64652a948d72533023f6e7a623c7c53;0xe9e7cea3dedca5984780bafc599bd69add087d56",
+    "community_entity_id": "community_twitter_binance",
+    "twitter_handle": "binance",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "cad-coin",
+    "canonical_name": "Cad Coin",
+    "ticker": "COIN",
+    "coingecko_id": "cad-coin",
+    "primary_ethereum_address": "0xcadc0acd4b445166f12d2c07eac6e2544fbe2eef",
+    "all_ethereum_addresses": "0xcadc0acd4b445166f12d2c07eac6e2544fbe2eef;0x043eb4b75d0805c43d7c834902e335621983cf03",
+    "community_entity_id": "community_twitter_paytrie",
+    "twitter_handle": "paytrie",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "celo-dollar",
+    "canonical_name": "Celo Dollar",
+    "ticker": "CUSD",
+    "coingecko_id": "moola-celo-dollars",
+    "primary_ethereum_address": "",
+    "all_ethereum_addresses": "",
+    "community_entity_id": "community_twitter_celoorg",
+    "twitter_handle": "celoorg",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "celo-euro",
+    "canonical_name": "Celo Euro",
+    "ticker": "CEUR",
+    "coingecko_id": "",
+    "primary_ethereum_address": "",
+    "all_ethereum_addresses": "",
+    "community_entity_id": "community_twitter_celoorg",
+    "twitter_handle": "CeloOrg",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "coin98-dollar",
+    "canonical_name": "Coin98 Dollar",
+    "ticker": "DOLLAR",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xfa4ba88cf97e282c505bea095297786c16070129",
+    "all_ethereum_addresses": "0xfa4ba88cf97e282c505bea095297786c16070129;0xc285b7e09a4584d027e5bc36571785b515898246",
+    "community_entity_id": "community_twitter_coin98dollar",
+    "twitter_handle": "Coin98Dollar",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "cryptofranc",
+    "canonical_name": "Cryptofranc",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xb4272071ecadd69d933adcd19ca99fe80664fc08",
+    "all_ethereum_addresses": "0xb4272071ecadd69d933adcd19ca99fe80664fc08",
+    "community_entity_id": "community_twitter_swisstokens",
+    "twitter_handle": "swisstokens",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "czodiac-stabletoken",
+    "canonical_name": "Czodiac Stabletoken",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xe68b79e51bf826534ff37aa9cee71a3842ee9c70",
+    "all_ethereum_addresses": "0xe68b79e51bf826534ff37aa9cee71a3842ee9c70",
+    "community_entity_id": "community_twitter_zodiacs_c",
+    "twitter_handle": "zodiacs_c",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "dam-finance",
+    "canonical_name": "Dam Finance",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x2fda8c6783aa36bed645bad28a4cdc8769dcd252",
+    "all_ethereum_addresses": "0x2fda8c6783aa36bed645bad28a4cdc8769dcd252",
+    "community_entity_id": "community_twitter_dam_finance",
+    "twitter_handle": "DAM_Finance",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "defi-franc",
+    "canonical_name": "DeFi Franc",
+    "ticker": "MON",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x1ea48b9965bb5086f3b468e50ed93888a661fc17",
+    "all_ethereum_addresses": "0x1ea48b9965bb5086f3b468e50ed93888a661fc17",
+    "community_entity_id": "community_twitter_monetadao",
+    "twitter_handle": "monetadao",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "digitaldollar",
+    "canonical_name": "Digitaldollar",
+    "ticker": "",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xf0b5ceefc89684889e5f7e0a7775bd100fcd3709",
+    "all_ethereum_addresses": "0xf0b5ceefc89684889e5f7e0a7775bd100fcd3709",
+    "community_entity_id": "community_twitter_fluid_fi",
+    "twitter_handle": "fluid_fi",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "euro-coin",
+    "canonical_name": "Euro Coin",
+    "ticker": "EURC",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c",
+    "all_ethereum_addresses": "0xc891eb4cbdeff6e073e859e987815ed1505c2acd;0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42;0x1abaea1f7c830bd89acc67ec4af516284b1bc33c",
+    "community_entity_id": "community_twitter_circle",
+    "twitter_handle": "circle",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "euro-tether",
+    "canonical_name": "Euro Tether",
+    "ticker": "EURT",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xc581b735a1688071a1746c968e0798d642ede491",
+    "all_ethereum_addresses": "0xc581b735a1688071a1746c968e0798d642ede491",
+    "community_entity_id": "community_twitter_tether_to",
+    "twitter_handle": "Tether_to",
+    "shared_community_account_flag": "1"
+  },
+  {
+    "entity_id": "euroe-stablecoin",
+    "canonical_name": "Euroe Stablecoin",
+    "ticker": "EUROE",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xcf985aba4647a432e60efceeb8054bbd64244305",
+    "all_ethereum_addresses": "0xcf985aba4647a432e60efceeb8054bbd64244305;0x820802fa8a99901f52e39acd21177b0be6ee2974",
+    "community_entity_id": "community_twitter_euroemoney",
+    "twitter_handle": "EUROemoney",
+    "shared_community_account_flag": "0"
+  },
+  {
+    "entity_id": "fantom-usd",
+    "canonical_name": "Fantom Usd",
+    "ticker": "FANT",
+    "coingecko_id": "",
+    "primary_ethereum_address": "0xad84341756bf337f5a0164515b1f6f993d194e1f",
+    "all_ethereum_addresses": "0xad84341756bf337f5a0164515b1f6f993d194e1f",
+    "community_entity_id": "community_twitter_fantomfdn",
+    "twitter_handle": "FantomFDN",
+    "shared_community_account_flag": "0"
+  }
+]
