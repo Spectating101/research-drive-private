@@ -14,7 +14,7 @@ permissions:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -23,23 +23,23 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pandas requests
+        run: python -m pip install --upgrade requests
 
-      - name: Collect 71-stablecoin community coverage
+      - name: Probe corrected historical community snapshots
         env:
           COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
-          STABLECOIN_71_OUT: ${{ github.workspace }}/stablecoin-71-output
-        run: python drive/scripts/research_data_mcp/stablecoin_71_community/collect.py
+          STABLECOIN_71_FAST_OUT: ${{ github.workspace }}/stablecoin-71-fast-output
+        run: python drive/scripts/research_data_mcp/stablecoin_71_community/probe_history_fast.py
 
       - name: Archive output
         if: always()
-        run: zip -r stablecoin-71-community-dataset.zip stablecoin-71-output
+        run: zip -r stablecoin-71-history-probe.zip stablecoin-71-fast-output
 
       - name: Upload dataset artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stablecoin-71-community-dataset
-          path: stablecoin-71-community-dataset.zip
+          name: stablecoin-71-history-probe
+          path: stablecoin-71-history-probe.zip
           if-no-files-found: error
           retention-days: 7
