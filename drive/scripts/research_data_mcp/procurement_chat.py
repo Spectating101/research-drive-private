@@ -374,6 +374,14 @@ class ProcurementChatOrchestrator:
 
         suggestions = turn.suggested_prompts
         next_steps = self._build_next_steps(state, action_result, suggestions)
+        # Prefer explicit equipment next_actions when present (structured discover replies).
+        next_actions = list(action_result.get("next_actions") or []) or next_steps
+        valid_routes = list(action_result.get("valid_routes") or [])
+        candidates = list(
+            action_result.get("candidates")
+            or state.get("candidates")
+            or []
+        )
 
         title = session.get("title") or ""
         if not title:
@@ -383,7 +391,14 @@ class ProcurementChatOrchestrator:
             sid,
             "assistant",
             reply,
-            artifacts={**action_result, "suggestions": suggestions, "next_steps": next_steps},
+            artifacts={
+                **action_result,
+                "suggestions": suggestions,
+                "next_steps": next_steps,
+                "next_actions": next_actions,
+                "valid_routes": valid_routes,
+                "candidates": candidates,
+            },
         )
         self.sessions.update_state(sid, state, title=title)
 
@@ -410,7 +425,7 @@ class ProcurementChatOrchestrator:
                 "session_id": sid,
                 "reply": reply,
                 "action": action,
-                "candidates": state.get("candidates") or [],
+                "candidates": candidates,
                 "selected_index": state.get("selected_index"),
                 "campaign_id": state.get("campaign_id"),
                 "last_handle": state.get("last_handle"),
@@ -418,6 +433,8 @@ class ProcurementChatOrchestrator:
                 "compare_table": action_result.get("compare_table"),
                 "suggested_prompts": suggestions,
                 "next_steps": next_steps,
+                "next_actions": next_actions,
+                "valid_routes": valid_routes,
                 "faculty_profile": state.get("faculty_profile"),
                 "artifacts": action_result,
                 "job": job_obj or action_result.get("job"),

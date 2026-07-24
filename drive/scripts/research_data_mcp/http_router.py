@@ -355,7 +355,11 @@ def _handlers() -> dict[str, Handler]:
         if not q:
             return {"query": q, "sections": [], "total": 0, "index_miss": True}
         from scripts.research_data_mcp.candidate_key import stamp_rows
-        from scripts.research_data_mcp.web_search import discover_sources
+        from scripts.research_data_mcp.web_search import (
+            discover_sources,
+            min_web_relevance,
+            rank_web_results_by_relevance,
+        )
 
         tavily_live = query.get("tavily", "1") not in {"0", "false", "no"}
         limit = int(query.get("limit", 8))
@@ -365,8 +369,14 @@ def _handlers() -> dict[str, Handler]:
             max_results=min(max(limit, 1), 12),
             tavily_live=tavily_live,
         )
+        ranked = rank_web_results_by_relevance(
+            list(raw.get("results") or []),
+            q,
+            min_relevance=min_web_relevance(q),
+            limit=min(max(limit, 1), 12),
+        )
         rows = []
-        for hit in raw.get("results") or []:
+        for hit in ranked:
             url = str(hit.get("url") or "").strip()
             if not url:
                 continue
@@ -378,6 +388,7 @@ def _handlers() -> dict[str, Handler]:
                     "source": hit.get("source") or "web",
                     "description": hit.get("snippet") or hit.get("content") or "",
                     "publisher": hit.get("source") or "web",
+                    "query_relevance": hit.get("query_relevance"),
                 }
             )
         rows = stamp_rows(rows)
@@ -388,7 +399,9 @@ def _handlers() -> dict[str, Handler]:
             "sections": [{"id": "web_discover", "label": "Open web", "rows": rows}] if rows else [],
             "total": len(rows),
             "index_miss": True,
+            "relevance_miss": not rows,
             "sources_tried": raw.get("sources_tried") or [],
+            "relevance": raw.get("relevance") or {"rule": "distinctive_token_overlap"},
         }
 
     def library_discover_probe(stack, query, payload, params):

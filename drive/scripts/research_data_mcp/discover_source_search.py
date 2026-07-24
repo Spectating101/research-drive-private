@@ -89,6 +89,198 @@ def _expand_blob_tokens(text: str) -> set[str]:
     return expanded
 
 
+# Meaningful geography / country codes retained as query terms (not generic filler).
+_SOURCE_GEO_CODES = frozenset(
+    {
+        "us",
+        "usa",
+        "uk",
+        "eu",
+        "cn",
+        "jp",
+        "tw",
+        "kr",
+        "au",
+        "ca",
+        "nz",
+        "de",
+        "fr",
+        "ie",
+        "sg",
+        "hk",
+        "id",
+        "vn",
+        "ph",
+        "my",
+        "th",
+    }
+)
+_SOURCE_GEO_ALIASES: dict[str, frozenset[str]] = {
+    "us": frozenset({"us", "usa", "america", "american", "americans"}),
+    "usa": frozenset({"us", "usa", "america", "american", "americans"}),
+    "uk": frozenset({"uk", "britain", "british", "england", "english"}),
+    "eu": frozenset({"eu", "europe", "european"}),
+    "ie": frozenset({"ie", "ireland", "irish"}),
+}
+_SOURCE_GEO_NAME_TOKENS = frozenset(
+    a for aliases in _SOURCE_GEO_ALIASES.values() for a in aliases
+) | frozenset(
+    {
+        "america",
+        "american",
+        "britain",
+        "british",
+        "europe",
+        "european",
+        "ireland",
+        "irish",
+        "china",
+        "japan",
+        "taiwan",
+        "korea",
+        "australia",
+        "canada",
+    }
+)
+
+# Generic tokens that alone must not make a source look relevant (e.g. bare "data").
+_SOURCE_GENERIC_TOKENS = frozenset(
+    {
+        "dataset",
+        "datasets",
+        "data",
+        "panel",
+        "research",
+        "study",
+        "metadata",
+        "graph",
+        "source",
+        "sources",
+        "catalog",
+        "catalogue",
+        "public",
+        "open",
+        "api",
+        "feed",
+        "feeds",
+        "file",
+        "files",
+        "bulk",
+        "instant",
+        "live",
+        "global",
+        "world",
+        "daily",
+        "monthly",
+        "annual",
+        "year",
+        "time",
+        "series",
+        "history",
+        "historical",
+        "index",
+    }
+)
+
+
+def _distinctive_query_tokens(query: str) -> set[str]:
+    """Query tokens that can establish credible source relevance."""
+    return {
+        t
+        for t in _expand_blob_tokens(query)
+        if t not in _SOURCE_GENERIC_TOKENS and (len(t) > 2 or t in _SOURCE_GEO_CODES)
+    }
+
+
+def _source_query_aspects(query: str) -> dict[str, set[str]]:
+    distinctive = _distinctive_query_tokens(query)
+    geography: set[str] = set()
+    topic: set[str] = set()
+    for tok in distinctive:
+        if tok in _SOURCE_GEO_CODES or tok in _SOURCE_GEO_NAME_TOKENS:
+            geography |= set(_SOURCE_GEO_ALIASES.get(tok, {tok}))
+            geography.add(tok)
+        else:
+            topic.add(tok)
+    return {"geography": geography, "topic": topic}
+
+
+def source_query_relevance(row: dict[str, Any], query: str) -> float:
+    """Distinctive aspect/token overlap between query and source metadata (deterministic)."""
+    aspects = _source_query_aspects(query)
+    geography = aspects.get("geography") or set()
+    topic = aspects.get("topic") or set()
+    if not geography and not topic:
+        return 0.0
+    blob = _expand_blob_tokens(_blob(row))
+    score = 0.0
+    if geography:
+        if geography & blob:
+            score += 1.0
+        else:
+            return 0.0
+    topic_hits = float(sum(1.0 for t in topic if t in blob))
+    if topic and topic_hits <= 0:
+        return 0.0
+    score += topic_hits
+    return float(score)
+
+
+def min_source_relevance(query: str) -> float:
+    """Minimum distinctive overlap before a source may be presented as relevant."""
+    aspects = _source_query_aspects(query)
+    n = int(bool(aspects.get("geography"))) + int(bool(aspects.get("topic")))
+    if n >= 2:
+        return 2.0
+    if n >= 1:
+        return 1.0
+    return 1.0
+
+
+def apply_source_relevance_gate(
+    rows: list[dict[str, Any]],
+    query: str,
+    *,
+    limit: int | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Annotate + filter weak generic matches; never invent readiness or access."""
+    q = str(query or "").strip()
+    threshold = min_source_relevance(q)
+    distinctive = sorted(_distinctive_query_tokens(q))
+    annotated: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        out = dict(row)
+        rel = source_query_relevance(out, q)
+        out["query_relevance"] = round(rel, 2)
+        annotated.append(out)
+
+    annotated.sort(
+        key=lambda r: (
+            -float(r.get("query_relevance") or 0),
+            -float((r.get("rank_signals") or {}).get("hybrid_score") or r.get("score") or 0),
+            str(r.get("label") or r.get("source_id") or ""),
+        )
+    )
+    if not distinctive:
+        kept: list[dict[str, Any]] = []
+    else:
+        kept = [r for r in annotated if float(r.get("query_relevance") or 0) >= threshold]
+
+    if limit is not None:
+        kept = kept[: max(1, int(limit))] if kept else []
+
+    meta = {
+        "relevance_gate": "distinctive_token_overlap",
+        "distinctive_tokens": distinctive,
+        "min_query_relevance": threshold,
+        "candidates_before_gate": len(annotated),
+        "candidates_after_gate": len(kept),
+    }
+    return kept, meta
+
+
 def _detect_query_domains(query: str) -> set[str]:
     """Transparent domain tags from natural-language Explore queries."""
     q = str(query or "").strip().lower()
@@ -841,7 +1033,9 @@ def semantic_search_discover_sources(
     # Dedupe to source-level capability winners (no connector spam).
     deduped = _dedupe_best_per_capability(scored, keep_connectors=False)
     deduped.sort(key=lambda item: (-item[0], str(item[1].get("label") or "")))
-    results = [with_candidate_key(dict(row)) or row for _, row in deduped[:limit]]
+    # Pull a wider pool before the relevance gate so weak embedding heads can be dropped.
+    pre_gate = [with_candidate_key(dict(row)) or row for _, row in deduped[: max(limit * 3, limit)]]
+    results, gate_meta = apply_source_relevance_gate(pre_gate, q, limit=limit)
     results = stamp_rows(results)
     for row in results:
         row["match_mode"] = mode
@@ -849,6 +1043,7 @@ def semantic_search_discover_sources(
             row["kind"] = "source"
             row["result_type"] = "source"
 
+    relevance_miss = bool(q) and not results
     return {
         "query": q,
         "result_kind": "source",
@@ -858,10 +1053,14 @@ def semantic_search_discover_sources(
             "formula": "0.30*base_norm + 0.15*lexical_norm + 0.55*affinity_norm + 0.12*affinity_raw - 0.18*domain_irrelevant",
             "domains": sorted(_detect_query_domains(q)),
             "base_mode": base_mode,
+            **gate_meta,
         },
         "embedding_model": model_name,
         "results": results,
         "total": len(results),
+        "index_miss": relevance_miss,
+        "relevance_miss": relevance_miss,
+        "weak_match": relevance_miss,
         "sources_tried": ["databank_source_map", "desk_sources", "access_scope", "known_adapters"],
         "remote_search": {
             "attempted": False,
@@ -1054,7 +1253,7 @@ def search_discover_sources(
             existing = {str(r.get("candidate_key") or "") for r in out["results"]}
             merged = list(out["results"])
             remaining = max(0, lim - len(merged))
-            diversified = _diversify_live_hits(live_hits, limit=remaining or lim)
+            diversified = _diversify_live_hits(live_hits, limit=max(remaining, lim))
             for row in diversified:
                 key = str(row.get("candidate_key") or "")
                 if key and key in existing:
@@ -1062,10 +1261,16 @@ def search_discover_sources(
                 merged.append(with_candidate_key(row) or row)
                 if key:
                     existing.add(key)
-                if len(merged) >= lim:
-                    break
-            out["results"] = stamp_rows(merged[:lim])
+            gated, gate_meta = apply_source_relevance_gate(merged, query, limit=lim)
+            out["results"] = stamp_rows(gated)
             out["total"] = len(out["results"])
+            relevance_miss = bool(str(query or "").strip()) and not out["results"]
+            out["index_miss"] = relevance_miss
+            out["relevance_miss"] = relevance_miss
+            out["weak_match"] = relevance_miss
+            ranking = dict(out.get("ranking") or {})
+            ranking.update(gate_meta)
+            out["ranking"] = ranking
             out["remote_search"] = {
                 "attempted": True,
                 "adapters": live_reports,
@@ -1166,7 +1371,7 @@ def search_discover_sources(
 
     deduped = _dedupe_best_per_capability(scored, keep_connectors=keep_connectors)
     deduped.sort(key=lambda item: (-item[0], str(item[1].get("label") or "")))
-    results = [with_candidate_key(row) or row for _, row in deduped[:limit]]
+    results = [with_candidate_key(row) or row for _, row in deduped[: max(limit * 3, limit)]]
 
     remote_search: dict[str, Any] = {
         "attempted": False,
@@ -1188,9 +1393,7 @@ def search_discover_sources(
             },
         }
         existing = {str(r.get("candidate_key") or "") for r in results}
-        remaining = max(0, limit - len(results))
-        # When catalog is empty, diversify across the full limit; otherwise fill remainder fairly.
-        diversified = _diversify_live_hits(live_hits, limit=remaining if remaining > 0 else limit)
+        diversified = _diversify_live_hits(live_hits, limit=max(limit, 1))
         for row in diversified:
             key = str(row.get("candidate_key") or "")
             if key and key in existing:
@@ -1198,10 +1401,14 @@ def search_discover_sources(
             results.append(with_candidate_key(row) or row)
             if key:
                 existing.add(key)
-            if len(results) >= limit:
-                break
 
-    results = stamp_rows(results[:limit])
+    gate_meta: dict[str, Any] = {}
+    if q:
+        results, gate_meta = apply_source_relevance_gate(results, q, limit=limit)
+    else:
+        results = results[:limit]
+
+    results = stamp_rows(results)
 
     # Guard: never return registry dataset default kind.
     for row in results:
@@ -1209,12 +1416,17 @@ def search_discover_sources(
             row["kind"] = "source"
             row["result_type"] = "source"
 
+    relevance_miss = bool(q) and not results
     return {
         "query": q,
         "result_kind": "source",
         "search_mode": "catalog",
         "results": results,
         "total": len(results),
+        "index_miss": relevance_miss,
+        "relevance_miss": relevance_miss,
+        "weak_match": relevance_miss,
+        "ranking": {"rule": "catalog_lexical", **gate_meta} if gate_meta else {"rule": "catalog_lexical"},
         "sources_tried": sources_tried,
         "remote_search": remote_search,
         "excludes": {

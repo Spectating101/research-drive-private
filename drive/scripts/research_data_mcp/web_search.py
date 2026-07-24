@@ -17,6 +17,263 @@ from typing import Any, Callable
 
 _ACADEMIC_PORTAL_RE = re.compile(r"\b(zenodo|figshare|dryad|osf|github|kaggle|huggingface)\b", re.I)
 _DATASET_NOISE_RE = re.compile(r"\b(dataset|datasets|data|open|download|portal)\b", re.I)
+_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_\-]{1,}", re.I)
+# Meaningful geography / country codes retained as query terms (not generic filler).
+_GEO_CODES = frozenset(
+    {
+        "us",
+        "usa",
+        "uk",
+        "eu",
+        "cn",
+        "jp",
+        "tw",
+        "kr",
+        "au",
+        "ca",
+        "nz",
+        "de",
+        "fr",
+        "ie",
+        "in",
+        "br",
+        "mx",
+        "sg",
+        "hk",
+        "id",
+        "vn",
+        "ph",
+        "my",
+        "th",
+    }
+)
+_GEO_ALIASES: dict[str, frozenset[str]] = {
+    "us": frozenset({"us", "usa", "america", "american", "americans"}),
+    "usa": frozenset({"us", "usa", "america", "american", "americans"}),
+    "uk": frozenset({"uk", "britain", "british", "england", "english"}),
+    "eu": frozenset({"eu", "europe", "european"}),
+    "cn": frozenset({"cn", "china", "chinese"}),
+    "jp": frozenset({"jp", "japan", "japanese"}),
+    "tw": frozenset({"tw", "taiwan", "taiwanese"}),
+    "kr": frozenset({"kr", "korea", "korean"}),
+    "au": frozenset({"au", "australia", "australian"}),
+    "ca": frozenset({"ca", "canada", "canadian"}),
+    "ie": frozenset({"ie", "ireland", "irish"}),
+    "in": frozenset({"in", "india", "indian"}),
+    "br": frozenset({"br", "brazil", "brazilian"}),
+    "mx": frozenset({"mx", "mexico", "mexican"}),
+    "sg": frozenset({"sg", "singapore"}),
+    "hk": frozenset({"hk", "hongkong"}),
+    "id": frozenset({"id", "indonesia", "indonesian"}),
+    "vn": frozenset({"vn", "vietnam", "vietnamese"}),
+    "ph": frozenset({"ph", "philippines", "filipino"}),
+    "my": frozenset({"my", "malaysia", "malaysian"}),
+    "th": frozenset({"th", "thailand", "thai"}),
+    "nz": frozenset({"nz", "zealand"}),
+    "de": frozenset({"de", "germany", "german"}),
+    "fr": frozenset({"fr", "france", "french"}),
+}
+_GEO_NAME_TOKENS = frozenset(a for aliases in _GEO_ALIASES.values() for a in aliases) | frozenset(
+    {
+        "america",
+        "american",
+        "britain",
+        "british",
+        "europe",
+        "european",
+        "china",
+        "chinese",
+        "japan",
+        "japanese",
+        "taiwan",
+        "korea",
+        "australia",
+        "canada",
+        "ireland",
+        "irish",
+        "india",
+        "brazil",
+        "mexico",
+        "singapore",
+        "indonesia",
+        "vietnam",
+        "philippines",
+        "malaysia",
+        "thailand",
+        "germany",
+        "france",
+    }
+)
+_WEB_GENERIC_TOKENS = frozenset(
+    {
+        "dataset",
+        "datasets",
+        "data",
+        "panel",
+        "research",
+        "study",
+        "metadata",
+        "graph",
+        "source",
+        "sources",
+        "catalog",
+        "catalogue",
+        "public",
+        "open",
+        "download",
+        "portal",
+        "global",
+        "world",
+        "doi",
+        "http",
+        "https",
+        "www",
+        "org",
+        "com",
+        "html",
+    }
+)
+
+
+def _web_tokens(text: str) -> set[str]:
+    """Tokenize text; keep short country codes that are meaningful geography terms."""
+    out: set[str] = set()
+    for t in _TOKEN_RE.findall(text or ""):
+        tl = t.lower()
+        if len(tl) > 2 or tl in _GEO_CODES:
+            out.add(tl)
+    return out
+
+
+def _web_distinctive_tokens(query: str) -> set[str]:
+    return {
+        t
+        for t in _web_tokens(query)
+        if t not in _WEB_GENERIC_TOKENS and (len(t) > 2 or t in _GEO_CODES)
+    }
+
+
+def web_query_aspects(query: str) -> dict[str, set[str]]:
+    """Split distinctive query terms into geography vs topic aspects."""
+    distinctive = _web_distinctive_tokens(query)
+    geography: set[str] = set()
+    topic: set[str] = set()
+    for tok in distinctive:
+        if tok in _GEO_CODES or tok in _GEO_NAME_TOKENS:
+            geography |= set(_GEO_ALIASES.get(tok, {tok}))
+            geography.add(tok)
+        else:
+            topic.add(tok)
+    return {"geography": geography, "topic": topic}
+
+
+def min_web_relevance(query: str) -> float:
+    """Require enough distinct aspects that geo+topic queries need both."""
+    aspects = web_query_aspects(query)
+    n = int(bool(aspects.get("geography"))) + int(bool(aspects.get("topic")))
+    if n >= 2:
+        return 2.0
+    if n == 1:
+        return 1.0
+    return 0.0
+
+
+def _hit_blob(hit: dict[str, Any]) -> str:
+    return " ".join(
+        [
+            str(hit.get("title") or ""),
+            str(hit.get("snippet") or hit.get("description") or hit.get("content") or ""),
+            str(hit.get("url") or ""),
+            str(hit.get("source") or ""),
+        ]
+    ).lower()
+
+
+def _token_matches_blob(tok: str, blob: str, blob_tokens: set[str]) -> bool:
+    """Match distinctive tokens; short geo codes use whole-token match only."""
+    if len(tok) <= 3 or tok in _GEO_CODES:
+        aliases = _GEO_ALIASES.get(tok, {tok})
+        return bool(aliases & blob_tokens) or tok in blob_tokens
+    if tok in blob_tokens or tok in blob:
+        return True
+    if len(tok) >= 4 and any(
+        tok.startswith(w) or w.startswith(tok) for w in blob_tokens if len(w) >= 4
+    ):
+        return True
+    return False
+
+
+def _aspect_covered(aspect_tokens: set[str], blob: str, blob_tokens: set[str]) -> bool:
+    return any(_token_matches_blob(tok, blob, blob_tokens) for tok in aspect_tokens)
+
+
+def web_hit_relevance(hit: dict[str, Any], query: str) -> float:
+    """Deterministic title/snippet/url overlap on distinctive query aspects/tokens."""
+    aspects = web_query_aspects(query)
+    geography = aspects.get("geography") or set()
+    topic = aspects.get("topic") or set()
+    if not geography and not topic:
+        return 0.0
+    blob = _hit_blob(hit)
+    blob_tokens = _web_tokens(blob)
+    # Also expand hyphen/underscore parts for alias matching.
+    for tok in list(blob_tokens):
+        for part in re.split(r"[_\-]+", tok):
+            if len(part) > 1:
+                blob_tokens.add(part.lower())
+
+    score = 0.0
+    # Geography is one aspect (any alias match counts once).
+    if geography:
+        if _aspect_covered(geography, blob, blob_tokens):
+            score += 1.0
+        else:
+            # Missing required geography aspect — reject (do not admit non-US for "US …").
+            return 0.0
+    # Topic tokens each contribute; require at least one when present.
+    topic_hits = 0.0
+    for tok in topic:
+        if _token_matches_blob(tok, blob, blob_tokens):
+            topic_hits += 1.0
+            continue
+        if len(tok) >= 4 and any(
+            tok.startswith(w) or w.startswith(tok) for w in blob_tokens if len(w) >= 4
+        ):
+            topic_hits += 0.75
+    if topic and topic_hits <= 0:
+        return 0.0
+    score += topic_hits
+    return float(score)
+
+
+def rank_web_results_by_relevance(
+    results: list[dict[str, Any]],
+    query: str,
+    *,
+    min_relevance: float | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Rerank external catalogue/web hits and drop weak relevance before presentation."""
+    threshold = float(min_web_relevance(query) if min_relevance is None else min_relevance)
+    scored: list[dict[str, Any]] = []
+    for hit in results or []:
+        if not isinstance(hit, dict):
+            continue
+        row = dict(hit)
+        rel = web_hit_relevance(row, query)
+        row["query_relevance"] = round(rel, 2)
+        scored.append(row)
+    scored.sort(
+        key=lambda r: (
+            -float(r.get("query_relevance") or 0),
+            str(r.get("title") or ""),
+            str(r.get("url") or ""),
+        )
+    )
+    kept = [r for r in scored if float(r.get("query_relevance") or 0) >= threshold]
+    if limit is not None:
+        kept = kept[: max(0, int(limit))]
+    return kept
 
 
 def _datacite_query(query: str) -> str:
@@ -219,9 +476,14 @@ def discover_sources(
     merged: list[dict[str, Any]] = []
     seen: set[str] = set()
     sources_tried: list[str] = []
+    # Bound the candidate pool, but do not stop after the first provider fills max_results.
+    pool_limit = max(int(max_results) * 3, int(max_results), 12)
+    per_provider = max(2, min(int(max_results), 4))
 
     def _merge(hits: list[dict[str, Any]]) -> None:
         for hit in hits:
+            if len(merged) >= pool_limit:
+                return
             url = hit.get("url") or ""
             if not url or url in seen:
                 continue
@@ -229,37 +491,64 @@ def discover_sources(
             merged.append(hit)
 
     providers: list[tuple[str, Callable[[str], list[dict[str, Any]]]]] = [
-        ("datacite", lambda q: _search_datacite(q, max_results)),
-        ("zenodo_api", lambda q: _search_zenodo_api(q, max_results)),
-        ("openalex", lambda q: _search_openalex_api(q, max_results)),
-        ("tavily", lambda q: _search_tavily(repo_root, q, max_results, live=tavily_live)),
-        ("duckduckgo_html", _search_duckduckgo_html),
-        ("duckduckgo_instant", _search_duckduckgo_instant),
+        ("datacite", lambda q: _search_datacite(q, per_provider)),
+        ("zenodo_api", lambda q: _search_zenodo_api(q, per_provider)),
+        ("openalex", lambda q: _search_openalex_api(q, per_provider)),
+        ("tavily", lambda q: _search_tavily(repo_root, q, per_provider, live=tavily_live)),
+        ("duckduckgo_html", lambda q: _search_duckduckgo_html(q, per_provider)),
+        ("duckduckgo_instant", lambda q: _search_duckduckgo_instant(q, per_provider)),
     ]
 
     for q in queries:
         for source, fn in providers:
+            if len(merged) >= pool_limit:
+                break
             key = f"{source}"
             if key not in sources_tried:
                 sources_tried.append(key)
             try:
                 _merge(fn(q))
             except Exception:
+                # Preserve per-provider failure isolation / timeouts inside providers.
                 pass
-            if len(merged) >= max_results:
-                break
-        if len(merged) >= max_results:
+        if len(merged) >= pool_limit:
             break
 
     if not merged:
         fallback_q = _datacite_query(query)
         if fallback_q and fallback_q != query.strip():
             try:
-                _merge(_search_datacite(fallback_q, max_results))
+                _merge(_search_datacite(fallback_q, per_provider))
             except Exception:
                 pass
 
-    return {"query": query, "queries_tried": queries, "results": merged[:max_results], "sources_tried": sources_tried}
+    # Collect a bounded multi-provider pool, then deterministically rerank/filter.
+    pool = merged[:pool_limit]
+    threshold = min_web_relevance(query)
+    ranked = rank_web_results_by_relevance(
+        pool,
+        query,
+        min_relevance=threshold,
+        limit=max_results,
+    )
+    # Preserve browse-like behavior only when the query has no distinctive aspects.
+    results = ranked if threshold > 0 else pool[:max_results]
+    return {
+        "query": query,
+        "queries_tried": queries,
+        "results": results,
+        "sources_tried": sources_tried,
+        "relevance": {
+            "rule": "distinctive_aspect_overlap",
+            "min_query_relevance": threshold,
+            "candidates_before_gate": len(pool),
+            "candidates_after_gate": len(results),
+            "aspects": {
+                "geography": sorted(web_query_aspects(query).get("geography") or []),
+                "topic": sorted(web_query_aspects(query).get("topic") or []),
+            },
+        },
+    }
 
 
 def discover_with_catalog(

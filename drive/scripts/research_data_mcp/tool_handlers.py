@@ -651,6 +651,12 @@ class ResearchToolHandlers:
         Prefer this (or research_discover_source_search) when faculty mean Discover sources.
         Use research_unified_search for vault / HF / DataCite holdings.
         """
+        from scripts.research_data_mcp.desk_direct_turns import (
+            discover_search_candidates,
+            discover_search_next_actions,
+            discover_search_routes,
+        )
+
         lim = min(max(int(limit), 1), 100)
         catalog = self.gateway.discover_source_search(
             query,
@@ -684,16 +690,28 @@ class ResearchToolHandlers:
                         "rows": rows,
                     }
                 )
+        candidates = discover_search_candidates(source_rows)
+        valid_routes = discover_search_routes(query, source_rows)
+        next_actions = discover_search_next_actions(query, source_rows)
+        index_miss = bool(catalog.get("index_miss")) if "index_miss" in catalog else (
+            not source_rows and lab_total == 0
+        )
+        relevance_miss = bool(catalog.get("relevance_miss")) if "relevance_miss" in catalog else index_miss
         return {
             "query": query,
             "result_kind": "discover_sources",
             "search_mode": catalog.get("search_mode") or ("live" if live else "catalog"),
             "sections": sections,
             "results": source_rows,
+            "candidates": candidates,
+            "valid_routes": valid_routes,
+            "next_actions": next_actions,
             "catalog_total": len(source_rows),
             "lab_total": lab_total,
             "total": len(source_rows) + lab_total,
-            "index_miss": not source_rows and lab_total == 0,
+            "index_miss": index_miss,
+            "relevance_miss": relevance_miss,
+            "weak_match": relevance_miss,
         }
 
     def research_faculty_profile(self, email: str = "", slug: str = "") -> dict[str, Any]:

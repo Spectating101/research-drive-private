@@ -330,6 +330,15 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                             cand.setdefault("trust_tier", "acquisition_route" if cand.get("collect_via") != "none" else "metadata_only")
                             cleaned_cands.append(cand)
                         state_patch["candidates"] = cleaned_cands
+                        action_result["candidates"] = cleaned_cands
+                    if payload.get("valid_routes"):
+                        action_result["valid_routes"] = list(payload.get("valid_routes") or [])
+                    if payload.get("next_actions"):
+                        action_result["next_actions"] = list(payload.get("next_actions") or [])
+                    if payload.get("relevance_miss") is not None:
+                        action_result["relevance_miss"] = bool(payload.get("relevance_miss"))
+                    if payload.get("index_miss") is not None:
+                        action_result["index_miss"] = bool(payload.get("index_miss"))
                 if name == "research_query_dataset" and not preview:
                     set_action("query")
                     rows = payload.get("rows") or payload.get("data") or []

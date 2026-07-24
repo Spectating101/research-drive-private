@@ -169,9 +169,10 @@ def _discover_search_reply(query: str, out: dict[str, Any]) -> str:
                 break
     mode = out.get("search_mode") or "catalog"
     if not rows:
+        miss = "relevance miss" if out.get("relevance_miss") else "no catalog hits"
         return (
-            f"No Discover catalog sources for **{query}** (mode={mode}). "
-            "Try live search, or search the vault for lab holdings."
+            f"No Discover catalog sources for **{query}** (mode={mode}; {miss}). "
+            "Try web discover, live search, or search the vault for lab holdings."
         )
     lines = [f"Discover catalog · **{len(rows)}** source(s) for **{query}** (mode={mode}):"]
     for i, row in enumerate(rows[:6], 1):
@@ -180,6 +181,108 @@ def _discover_search_reply(query: str, out: dict[str, Any]) -> str:
         access = row.get("access_mode") or "—"
         lines.append(f"{i}. `{sid}` — {title} · access=`{access}`")
     return "\n".join(lines)
+
+
+def _collect_via_is_empty(via: Any) -> bool:
+    """True when collect_via does not name an acquisition route (scalar or list)."""
+    if via is None or via == "" or via == "none":
+        return True
+    if isinstance(via, (list, tuple, set)):
+        return not any(str(x).strip() and str(x).strip().lower() != "none" for x in via)
+    return False
+
+
+def discover_search_candidates(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cleaned: list[dict[str, Any]] = []
+    for i, row in enumerate(rows[:8], 1):
+        if not isinstance(row, dict):
+            continue
+        cand = dict(row)
+        cand.setdefault("index", i)
+        cand.setdefault("title", cand.get("label") or cand.get("source_id") or cand.get("name") or "Source")
+        if "collect_via" not in cand or cand.get("collect_via") is None:
+            cand["collect_via"] = "none"
+        cand.setdefault(
+            "trust_tier",
+            "metadata_only" if _collect_via_is_empty(cand.get("collect_via")) else "acquisition_route",
+        )
+        cleaned.append(cand)
+    return cleaned
+
+
+def discover_search_routes(query: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Explicit valid HTTP routes for search-only discovery — never implies collection ran."""
+    q = str(query or "").strip()
+    routes: list[dict[str, Any]] = [
+        {
+            "id": "discover_sources",
+            "method": "GET",
+            "path": "/library/discover/sources",
+            "query": {"q": q, "limit": 12},
+            "label": "Search Discover catalog",
+        },
+        {
+            "id": "discover_web",
+            "method": "GET",
+            "path": "/library/discover/web",
+            "query": {"q": q, "limit": 8},
+            "label": "Search open web / external catalogues",
+        },
+        {
+            "id": "create_intent",
+            "method": "POST",
+            "path": "/library/discover/intents",
+            "body": {"research_need": q},
+            "label": "Record a Discover intent (no collection)",
+        },
+    ]
+    top = rows[0] if rows else None
+    if isinstance(top, dict) and (top.get("source_id") or top.get("connector_id")):
+        routes.insert(
+            1,
+            {
+                "id": "source_preview",
+                "method": "POST",
+                "path": "/library/discover/sources/preview",
+                "body": {
+                    "source_id": top.get("source_id") or "",
+                    "connector_id": top.get("connector_id") or "",
+                },
+                "label": "Preview top source metadata",
+            },
+        )
+    return routes
+
+
+def discover_search_next_actions(query: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from urllib.parse import quote
+
+    q = str(query or "").strip()
+    actions: list[dict[str, Any]] = []
+    if rows:
+        sid = rows[0].get("source_id") or rows[0].get("connector_id") or q
+        actions.append(
+            {
+                "kind": "chat",
+                "label": f"Preview source {sid}",
+                "prompt": f"Preview source {sid}",
+            }
+        )
+    actions.append(
+        {
+            "kind": "route",
+            "label": "Open web discover",
+            "path": f"/library/discover/web?q={quote(q, safe='')}",
+        }
+    )
+    actions.append(
+        {
+            "kind": "chat",
+            "label": f"Create a Discover intent for {q}",
+            "prompt": f"Create a Discover intent for {q}",
+        }
+    )
+    return actions[:4]
 
 
 def try_direct_discover_search_turn(
@@ -195,16 +298,23 @@ def try_direct_discover_search_turn(
     out = gateway.discover_source_search(query, limit=12, live=live)
     # Shape like research_discover_search for FE/artifacts
     rows = list(out.get("results") or [])
+    candidates = discover_search_candidates(rows)
+    valid_routes = discover_search_routes(query, rows)
+    next_actions = discover_search_next_actions(query, rows)
     shaped = {
         "query": query,
         "result_kind": "discover_sources",
         "search_mode": out.get("search_mode") or ("live" if live else "catalog"),
         "sections": [{"id": "discover_sources", "label": "Discover catalog", "rows": rows}] if rows else [],
         "results": rows,
+        "candidates": candidates,
         "catalog_total": len(rows),
         "lab_total": 0,
         "total": len(rows),
-        "index_miss": not rows,
+        "index_miss": bool(out.get("index_miss")) if "index_miss" in out else not rows,
+        "relevance_miss": bool(out.get("relevance_miss")) if "relevance_miss" in out else not rows,
+        "valid_routes": valid_routes,
+        "next_actions": next_actions,
     }
     return AgentTurn(
         plan={"action": "discover_search", "fast_path": True, "query": query},
@@ -216,8 +326,14 @@ def try_direct_discover_search_turn(
             "search": shaped,
             "discover": shaped,
             "results": rows,
+            "candidates": candidates,
+            "valid_routes": valid_routes,
+            "next_actions": next_actions,
             "total": len(rows),
             "search_mode": shaped["search_mode"],
+            "index_miss": shaped["index_miss"],
+            "relevance_miss": shaped["relevance_miss"],
+            "state_patch": {"candidates": candidates},
         },
         reply=_discover_search_reply(query, shaped),
         suggested_prompts=[
