@@ -423,11 +423,13 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     """Compact UI envelope for Composer — matches RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT."""
     if not isinstance(ctx, dict) or not ctx:
         return ""
+    from scripts.research_data_mcp.desk_asset_grounding import format_asset_grounding_block
+
     entity = ctx.get("entity") if isinstance(ctx.get("entity"), dict) else {}
     lines = ["[UI rail context]"]
     for key in (
         "tab", "mode", "thread_id", "session_id", "conversation_id", "dataset_id",
-        "folder_id", "search_query", "readiness", "vault_path",
+        "folder_id", "search_query", "readiness", "analysis_readiness", "vault_path",
     ):
         val = ctx.get(key)
         if val:
@@ -436,13 +438,15 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
         lines.append(
             f"- entity: {entity.get('kind')} · {entity.get('title') or entity.get('id') or ''}"[:280]
         )
-    actions = ctx.get("actions")
+    actions = ctx.get("valid_next_actions") or ctx.get("actions")
     if isinstance(actions, list) and actions:
         lines.append(f"- actions: {', '.join(str(a) for a in actions[:8])}")
     compare = ctx.get("compare")
     if isinstance(compare, dict) and compare.get("left") and compare.get("right"):
         lines.append(f"- compare: {compare.get('left')} × {compare.get('right')}")
-    return "\n".join(lines) + "\n\n"
+    rail_block = "\n".join(lines) + "\n\n"
+    grounding = format_asset_grounding_block(ctx)
+    return rail_block + grounding
 
 
 def run_cursor_composer_turn(
@@ -525,9 +529,20 @@ def run_cursor_composer_turn(
                 **_desk_agent_runtime_kwargs(repo_root),
             )
             resume_id = agent_id if model_idx == 0 else ""
+            agent = None
             if resume_id:
-                agent = Agent.resume(resume_id, agent_opts)
-            else:
+                try:
+                    agent = Agent.resume(resume_id, agent_opts)
+                except Exception:
+                    # Dead/corrupt Composer agents poison the desk session — drop and recreate.
+                    state.pop("cursor_agent_id", None)
+                    agent_id = ""
+                    had_agent = False
+                    _emit_event(
+                        event_sink,
+                        {"type": "activity", "text": "Composer session expired — starting a fresh one…"},
+                    )
+            if agent is None:
                 agent = Agent.create(agent_opts)
                 state["cursor_agent_id"] = agent.agent_id
                 agent_id = agent.agent_id
@@ -597,20 +612,38 @@ def run_cursor_composer_turn(
         if prime and state.get("cursor_agent_id"):
             state["desk_primed"] = True
 
+        from scripts.research_data_mcp.desk_asset_grounding import (
+            grounding_from_rail,
+            sanitize_grounded_reply,
+            sanitize_suggested_prompts,
+            suggested_prompts_for_asset,
+        )
+
+        grounding = grounding_from_rail(state.get("rail_context") or {})
+        readiness = grounding.get("canonical_readiness")
+        did = str(grounding.get("dataset_id") or "")
+        reply = sanitize_grounded_reply(reply, readiness, dataset_id=did)
+        suggestions = _faculty_starter_prompts(state)
+        if grounding.get("registered_or_ready"):
+            suggestions = suggested_prompts_for_asset(did, readiness) + suggestions
+        suggestions = sanitize_suggested_prompts(suggestions, readiness)
         return AgentTurn(
             plan={"action": "composer", "brain": "cursor_composer"},
             action_result=action_result,
             reply=reply,
-            suggested_prompts=_faculty_starter_prompts(state),
+            suggested_prompts=suggestions[:5],
             tool_name="cursor_composer",
         )
     except Exception as exc:
+        # Do not keep a broken resume target — next Ask must be allowed to recreate.
+        state.pop("cursor_agent_id", None)
         return AgentTurn(
             plan={"action": "composer_error"},
-            action_result={"action": "composer_error", "error": str(exc)[:400]},
+            action_result={"action": "composer_error", "error": str(exc)[:400], "recoverable": True},
             reply=(
                 "Composer could not complete that turn (connection or tool error). "
-                f"Detail: {str(exc)[:200]}"
+                f"Detail: {str(exc)[:200]}\n\n"
+                "The desk cleared the stuck Composer session — send again to continue."
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="cursor_composer",

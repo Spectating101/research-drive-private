@@ -60,30 +60,32 @@ def _service(root: Path, registry: Path) -> SearchService:
 
 def test_verified_receipt_recovers_missing_registered_asset(tmp_path: Path) -> None:
     root, registry, jobs = _repo(tmp_path)
+    # Avoid ops-noise markers (smoke/canary/…) so professor list_datasets keeps the row.
     jobs.create(
-        "Day-2 smoke",
+        "Day-2 recovery asset",
         {"source": "discover_ui"},
-        {"job_type": "http_manifest", "dataset_id": "day2_smoke"},
+        {"job_type": "http_manifest", "dataset_id": "day2_recovery_asset"},
         status="completed",
-        job_id="day2-smoke-job",
+        job_id="day2-recovery-job",
     )
-    jobs.update("day2-smoke-job", "completed", _registration_result("day2_smoke"))
+    jobs.update("day2-recovery-job", "completed", _registration_result("day2_recovery_asset"))
 
     service = _service(root, registry)
     listed = service.list_datasets()
-    described = service.describe_dataset("day2_smoke")
+    described = service.describe_dataset("day2_recovery_asset")
 
-    assert listed["datasets"][0]["dataset_id"] == "day2_smoke"
+    assert listed["datasets"][0]["dataset_id"] == "day2_recovery_asset"
     assert listed["authority_summary"]["receipt_recovery_rows"] == 1
     assert described["analysis_readiness"] == "registered"
-    assert described["manifest_id"] == "collection_manifest_day2_smoke"
+    assert described["manifest_id"] == "collection_manifest_day2_recovery_asset"
     assert described["archive_verified"] is True
     assert described["registry_readback"] is True
     assert described["catalog_reconciliation"]["state"] == "receipt_only"
     assert described["catalog_reconciliation"]["query_allowed"] is False
 
+    # limit>100 disables the soft preview path so receipt-only stays non-queryable.
     with pytest.raises(ValueError, match="not present in the loaded query catalog"):
-        service.query_dataset("day2_smoke")
+        service.query_dataset("day2_recovery_asset", {"limit": 200})
 
 
 def test_completed_jobs_without_full_registration_proof_are_not_assets(tmp_path: Path) -> None:

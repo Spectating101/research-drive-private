@@ -86,7 +86,7 @@ DATASET_RULES: list[tuple[str, set[str], list[str]]] = [
         [
             "Bitcoin daily returns and volatility panel",
             "Economic policy uncertainty vs crypto returns dataset",
-            "CoinGecko historical crypto market cap panel",
+            "Public crypto market history panel (identify + custom procure)",
         ],
     ),
     (

@@ -67,7 +67,6 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/synthesis/profiles", "handler": "library_synthesis_profiles"},
     {"method": "GET", "path": "/library/synthesis/threads", "handler": "library_synthesis_threads_list"},
     {"method": "POST", "path": "/library/synthesis/threads", "handler": "library_synthesis_threads_create"},
-    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}", "handler": "library_synthesis_thread_get"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/patches", "handler": "library_synthesis_thread_patch"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/proposal", "handler": "library_synthesis_thread_set_proposal"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/conversation", "handler": "library_synthesis_thread_link_conversation"},
@@ -75,6 +74,8 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/collect-missing", "handler": "library_synthesis_thread_collect_missing"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
+    # Keep the greedy thread-id catch-all after nested thread actions.
+    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}", "handler": "library_synthesis_thread_get"},
     {"method": "GET", "path": "/library/synthesis/{id}", "handler": "library_synthesis_get"},
     {"method": "POST", "path": "/library/synthesis/run", "handler": "library_synthesis_run"},
     {"method": "POST", "path": "/library/synthesis/pair", "handler": "library_synthesis_pair"},
@@ -291,11 +292,13 @@ def _handlers() -> dict[str, Handler]:
 
     def datasets(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "").strip()
+        include_ops = str(query.get("include_ops") or "").strip().lower() in {"1", "true", "yes"}
         return stack.gateway.list_datasets(
             q=q,
             readiness=str(query.get("readiness") or "").strip(),
             access_shape=str(query.get("access_shape") or query.get("access_mode") or "").strip(),
             limit=_query_int(query, "limit", 200),
+            include_ops=include_ops,
         )
 
     def dataset_describe(stack, query, payload, params):
@@ -781,13 +784,45 @@ def _handlers() -> dict[str, Handler]:
     def library_partitions(stack, query, payload, params):
         from datetime import datetime, timezone
 
+        from scripts.yzu_cluster.partition_lanes import professor_shelves
+
         overview = stack.gateway.library_overview()
         parts = overview.get("partitions") or {}
+        lanes = parts.get("lanes") or []
+        shelves = professor_shelves(stack.gateway.repo_root)
+        # Attach surfaced lane counts so the Library can render shelf-first nav.
+        by_shelf: dict[str, list] = {}
+        for lane in lanes:
+            sid = str(lane.get("shelf_id") or "ungrouped")
+            by_shelf.setdefault(sid, []).append(lane.get("partition_id"))
+        shelf_rows = []
+        for shelf in shelves:
+            sid = str(shelf.get("id") or "")
+            present = by_shelf.get(sid) or []
+            shelf_rows.append(
+                {
+                    **shelf,
+                    "surfaced_partition_ids": present,
+                    "surfaced_count": len(present),
+                }
+            )
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "partitions": parts.get("lanes") or [],
+            "nav_mode": "professor_shelves",
+            "shelves": shelf_rows,
+            "partitions": lanes,
             "total": parts.get("total", 0),
             "complete": parts.get("complete", 0),
+            "guide": {
+                "how_to_read": "Open a shelf first, then a folder inside it. dataset_id stays stable for queries.",
+                "start_here": [
+                    "news_events",
+                    "asia_stocks",
+                    "us_markets",
+                    "crypto_onchain",
+                    "analysis_ready",
+                ],
+            },
         }
 
     def library_browse(stack, query, payload, params):

@@ -43,7 +43,6 @@ _ONCHAIN_QUERY_TERMS = frozenset(
         "eth",
         "stablecoin",
         "stablecoins",
-        "usdt",
         "usdc",
         "defi",
         "web3",
@@ -65,10 +64,7 @@ _ONCHAIN_SOURCE_HINTS = frozenset(
         "on-chain",
         "crypto",
         "stablecoin",
-        "usdt",
         "blockchain",
-        "coingecko",
-        "opensea",
         "nft",
     }
 )

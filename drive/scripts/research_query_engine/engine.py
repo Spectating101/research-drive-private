@@ -398,6 +398,22 @@ class ResearchQueryEngine:
 
     def _query_usdt_bigquery_catalogue(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
         action = str(params.get("action", "status")).lower().strip()
+        # Desk Preview calls /query/{id}?limit=N with no action/preview flag. That must NOT
+        # surface the BigQuery capability card — professors expect transfer sample rows.
+        try:
+            limit_hint = int(params.get("limit") or 0)
+        except (TypeError, ValueError):
+            limit_hint = 0
+        want_preview = str(params.get("preview") or "").strip().lower() in {"1", "true", "yes"} or (
+            0 < limit_hint <= 100 and action in {"", "status", "health"}
+        )
+        if want_preview and action in {"", "status", "health"}:
+            sample = self._usdt_local_sample(ds, params)
+            if sample.rows:
+                meta = dict(sample.meta or {})
+                meta["preview"] = True
+                meta["mode"] = "local_rpc_sample"
+                return QueryResult(sample.dataset_id, sample.rows, meta)
         if action in {"status", "health"}:
             return self._usdt_status(ds, params)
         if action == "sql":
@@ -761,6 +777,75 @@ class ResearchQueryEngine:
                 break
         return QueryResult(ds["dataset_id"], rows, {"root": str(root), "returned": len(rows), "params": params})
 
+    def _sample_tabular_glob(
+        self, paths: list[Path], *, limit: int
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Read real table rows from CSV/TSV/JSONL/Parquet matches (UI Preview path)."""
+        tabular_suffixes = {".csv", ".tsv", ".jsonl", ".ndjson", ".parquet"}
+        candidates = [p for p in paths if p.is_file() and p.suffix.lower() in tabular_suffixes]
+        if not candidates:
+            return [], {"mode": "no_tabular_matches"}
+
+        def _rank(path: Path) -> tuple[int, str]:
+            name = path.name.lower()
+            score = 0
+            if "transfer" in name:
+                score += 100
+            if "usdt" in name:
+                score += 40
+            if name.startswith("bq_"):
+                score -= 20
+            if path.suffix.lower() == ".csv":
+                score += 10
+            return (-score, name)
+
+        candidates.sort(key=_rank)
+        rows: list[dict[str, Any]] = []
+        source_path = ""
+        for path in candidates:
+            try:
+                rel = str(path.relative_to(self.repo_root))
+            except ValueError:
+                # Symlinked vault files often resolve outside repo_root — keep short name.
+                rel = path.name
+            suffix = path.suffix.lower()
+            try:
+                if suffix in {".csv", ".tsv"}:
+                    delim = "\t" if suffix == ".tsv" else ","
+                    with path.open(encoding="utf-8", errors="replace", newline="") as fh:
+                        reader = csv.DictReader(fh, delimiter=delim)
+                        for i, row in enumerate(reader):
+                            rows.append(dict(row))
+                            if len(rows) >= limit:
+                                break
+                elif suffix in {".jsonl", ".ndjson"}:
+                    with path.open(encoding="utf-8", errors="replace") as fh:
+                        for line in fh:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            payload = json.loads(line)
+                            if isinstance(payload, dict):
+                                rows.append(payload)
+                            if len(rows) >= limit:
+                                break
+                elif suffix == ".parquet":
+                    import pandas as pd
+
+                    df = pd.read_parquet(path)
+                    rows.extend(df.head(limit).to_dict(orient="records"))
+            except Exception as exc:
+                return [], {"mode": "tabular_sample_error", "source_path": rel, "error": str(exc)[:200]}
+            source_path = rel
+            if rows:
+                break
+        return rows, {
+            "mode": "tabular_sample",
+            "source_path": source_path,
+            "matched_tabular": len(candidates),
+            "returned": len(rows),
+        }
+
     def _query_local_json_glob(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
         pattern = str(ds.get("local_path") or ds.get("local_glob") or "").strip()
         if not pattern:
@@ -770,22 +855,48 @@ class ResearchQueryEngine:
         file_name = str(params.get("file") or params.get("filename") or "").strip()
         limit = int(params.get("limit", 50))
         include_payload = str(params.get("include_payload", "false")).lower() in {"1", "true", "yes"}
+        try:
+            limit_hint = int(params.get("limit") or 0)
+        except (TypeError, ValueError):
+            limit_hint = 0
+        want_preview = str(params.get("preview") or "").strip().lower() in {"1", "true", "yes"} or (
+            0 < limit_hint <= 100
+        )
         metadata_only = str(params.get("metadata_only", "")).lower()
         if not metadata_only:
-            metadata_only = "true" if ds.get("analysis_readiness") == "metadata_search" and not include_payload else "false"
+            # Preview must show table rows, not a file inventory listing.
+            if want_preview:
+                metadata_only = "false"
+            else:
+                metadata_only = (
+                    "true"
+                    if ds.get("analysis_readiness") == "metadata_search" and not include_payload
+                    else "false"
+                )
         metadata_only = metadata_only in {"1", "true", "yes"}
 
-        rows: list[dict[str, Any]] = []
+        filtered = []
         for path in matches:
             stem = path.stem.upper()
             if ticker and ticker not in stem and ticker not in path.name.upper():
                 continue
             if file_name and file_name not in path.name:
                 continue
+            filtered.append(path)
+
+        if want_preview and not include_payload:
+            sample_rows, sample_meta = self._sample_tabular_glob(filtered, limit=min(limit, 100))
+            if sample_rows:
+                meta = {"pattern": pattern, "matched": len(matches), "params": params, "preview": True}
+                meta.update(sample_meta)
+                return QueryResult(ds["dataset_id"], sample_rows, meta)
+
+        rows: list[dict[str, Any]] = []
+        for path in filtered:
             try:
                 rel = str(path.relative_to(self.repo_root))
             except ValueError:
-                rel = str(path)
+                rel = path.name
             row: dict[str, Any] = {"path": rel, "file": path.name, "bytes": path.stat().st_size}
             if path.suffix.lower() == ".json":
                 if metadata_only:

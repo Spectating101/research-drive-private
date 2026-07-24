@@ -177,7 +177,14 @@ class ResearchDataGateway:
 
         if not email_n and not slug_n:
             env_default = (os.environ.get("DESK_DEFAULT_FACULTY_EMAIL") or "").strip()
-            if default or env_default:
+            # Soft-default pilot so Home / right-rail / Resources are populated without an
+            # explicit browser bind. Opt out with DESK_AUTO_DEFAULT_FACULTY=0.
+            auto_default = (os.environ.get("DESK_AUTO_DEFAULT_FACULTY") or "1").strip().lower() not in {
+                "0",
+                "false",
+                "no",
+            }
+            if default or env_default or auto_default:
                 target = env_default
                 if not target:
                     pilot = next((row for row in faculty if row.get("pilot_professor")), None)
@@ -185,7 +192,12 @@ class ResearchDataGateway:
                 if target:
                     row = resolve_profile(email=target)
                     if row:
-                        out = {"found": True, "profile": profile_summary(row, repo_root=self.repo_root), "defaulted": True}
+                        out = {
+                            "found": True,
+                            "profile": profile_summary(row, repo_root=self.repo_root),
+                            "defaulted": True,
+                            "bound_via": "pilot_default",
+                        }
                         out["registry_count"] = registry_count
                         return out
             return {
@@ -217,6 +229,11 @@ class ResearchDataGateway:
         from scripts.research_data_mcp.faculty_profile import profile_summary, resolve_profile
 
         profile: dict[str, Any] | None = None
+        if not email:
+            # Match faculty_profile soft-default so Ask brief includes pilot context.
+            fallback = self.faculty_profile(default=True)
+            if fallback.get("found") and isinstance(fallback.get("profile"), dict):
+                email = str(fallback["profile"].get("email") or "")
         row = resolve_profile(email=email) if email else None
         if row:
             profile = profile_summary(row, repo_root=self.repo_root)

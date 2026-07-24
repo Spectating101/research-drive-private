@@ -39,6 +39,7 @@ CONFIG_LINKS=(
   storage_tiers.json
   synthesis_profiles.json
   yzu_cluster.json
+  yzu_cm_faculty_registry.json
 )
 
 mkdir -p "${repo_root}/config"

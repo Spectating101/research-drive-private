@@ -109,16 +109,30 @@ def desk_session_cookie_valid(handler: BaseHTTPRequestHandler, token: str) -> bo
     return hmac.compare_digest(got, session_cookie_value(token))
 
 
+def _public_desk_origins() -> set[str]:
+    """Optional extra browser origins (comma-separated) that may mint desk sessions."""
+    raw = (os.getenv("DESK_PUBLIC_ORIGINS") or "").strip()
+    if not raw:
+        # Default public review / previous front door.
+        raw = "https://previous.easycamp.tech"
+    out: set[str] = set()
+    for part in raw.split(","):
+        item = part.strip().rstrip("/")
+        if item:
+            out.add(item.lower())
+    return out
+
+
 def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
     """Allow session bootstrap only for same-origin browser calls to this desk."""
     host = str(handler.headers.get("Host") or "").strip().lower()
-    if not host:
-        return False
     origin = str(handler.headers.get("Origin") or "").strip()
     referer = str(handler.headers.get("Referer") or "").strip()
-    allowed = {f"http://{host}", f"https://{host}"}
+    allowed = _public_desk_origins()
+    if host:
+        allowed |= {f"http://{host}", f"https://{host}"}
     if origin:
-        return origin.rstrip("/") in allowed
+        return origin.rstrip("/").lower() in allowed
     if referer:
         parsed = urlparse(referer)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:

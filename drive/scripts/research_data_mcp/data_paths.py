@@ -10,21 +10,29 @@ from typing import Any
 
 MARKER = ".sharpe_research_bulk"
 
-# Checked in order; first mounted wins unless RESEARCH_BULK_ROOT is set.
+# Checked in order; first *marked* mount wins unless RESEARCH_BULK_ROOT is set.
+# Prefer Transcend1 over leftover /media/.../Transcend stubs (empty NVMe dirs after remount).
 DEFAULT_BULK_CANDIDATES = (
     "/mnt/research-data/sharpe-renaissance",
+    "/media/phyrexian/Transcend1/sharpe-renaissance",
     "/media/phyrexian/Transcend/sharpe-renaissance",
 )
 
 
 def bulk_storage_root() -> Path | None:
-    """Root of external bulk store, or None if unplugged / unset."""
+    """Root of external bulk store, or None if unplugged / unset.
+
+    Prefer a directory with MARKER so empty remount stubs (data_lake present, no bytes)
+    cannot shadow the real USB.
+    """
     env = (os.environ.get("RESEARCH_BULK_ROOT") or "").strip()
     candidates: list[str] = []
     if env:
         candidates.append(env)
     candidates.extend(DEFAULT_BULK_CANDIDATES)
     seen: set[str] = set()
+    marked: Path | None = None
+    lake_only: Path | None = None
     for raw in candidates:
         if not raw or raw in seen:
             continue
@@ -32,9 +40,14 @@ def bulk_storage_root() -> Path | None:
         root = Path(raw).expanduser()
         if not root.is_dir():
             continue
-        if (root / MARKER).is_file() or (root / "data_lake").is_dir():
-            return root.resolve()
-    return None
+        resolved = root.resolve()
+        if (resolved / MARKER).is_file():
+            if marked is None:
+                marked = resolved
+            continue
+        if lake_only is None and (resolved / "data_lake").is_dir():
+            lake_only = resolved
+    return marked or lake_only
 
 
 def bulk_data_lake_root() -> Path | None:

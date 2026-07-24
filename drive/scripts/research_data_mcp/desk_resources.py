@@ -14,6 +14,40 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _windows_lab_worker_rollup(nodes: list[dict[str, Any]] | None) -> dict[str, int]:
+    """Roll up Windows workers for Resources hero/compute.
+
+    Inventory membership (joined) is tracked separately by the caller. Available
+    counts only claimable labels: ``online`` / ``idle`` with non-stale freshness.
+    Runtime-stale agents are exposed as ``stale``, never as idle/available.
+    """
+    online = idle = stale = unseen = 0
+    for node in nodes or []:
+        if not isinstance(node, dict):
+            continue
+        freshness = node.get("freshness") if isinstance(node.get("freshness"), dict) else {}
+        fresh_state = str(freshness.get("state") or "").strip().lower()
+        st = str(node.get("status") or "").strip().lower()
+        if fresh_state == "stale" or st == "stale":
+            stale += 1
+        elif st == "online":
+            online += 1
+        elif st == "idle":
+            idle += 1
+        elif st in {"joined_unseen", "joined"}:
+            unseen += 1
+        elif fresh_state == "fresh":
+            # Fresh heartbeat with an unexpected honesty label is still schedulable.
+            online += 1
+    return {
+        "online": online,
+        "idle": idle,
+        "stale": stale,
+        "joined_unseen": unseen,
+        "available": online + idle,
+    }
+
+
 def _gb(n: int | float | None) -> float | None:
     if n is None:
         return None
@@ -267,6 +301,55 @@ def _curated_connect_payload(repo_root: Path, *, gateway: Any | None = None) -> 
 
 
 
+def _vault_used_tb_cached(*, live: bool = False) -> float | None:
+    """Best-effort GDrive used_tb from rclone about (cached; never blocks the desk long)."""
+    import json
+    import shutil
+    import subprocess
+    import time
+
+    cache_path = Path.home() / ".cache/research-drive/gdrive_about.json"
+    now = time.time()
+    if cache_path.is_file() and not live:
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if now - float(cached.get("ts") or 0) < 3600 and cached.get("used_tb") is not None:
+                return float(cached["used_tb"])
+        except Exception:
+            pass
+    if not shutil.which("rclone"):
+        return None
+    try:
+        proc = subprocess.run(
+            ["rclone", "about", "gdrive:", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=8 if live else 3,
+            check=False,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0 or not (proc.stdout or "").strip():
+        # Fall back to stale cache on probe failure.
+        if cache_path.is_file():
+            try:
+                return float(json.loads(cache_path.read_text(encoding="utf-8")).get("used_tb"))
+            except Exception:
+                return None
+        return None
+    try:
+        about = json.loads(proc.stdout)
+        used = about.get("used")
+        if used is None:
+            return None
+        used_tb = round(float(used) / (1024**4), 3)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps({"ts": now, "used_tb": used_tb, "raw": about}), encoding="utf-8")
+        return used_tb
+    except Exception:
+        return None
+
+
 def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
     """Single rollup for Resources UI — consumption first, not catalog inventory."""
     repo_root: Path = gateway.repo_root
@@ -319,6 +402,8 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
     dh = ops.get("datacite_harvest") or {}
 
     vault_used = canonical.get("used_tb")
+    if vault_used is None:
+        vault_used = _vault_used_tb_cached(live=live)
     vault_cap = canonical.get("quota_tb") or canonical.get("pool_tb")
     vault_pct = None
     if vault_used is not None and vault_cap:
@@ -326,6 +411,12 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
             vault_pct = round(float(vault_used) / float(vault_cap) * 100)
         except (TypeError, ValueError, ZeroDivisionError):
             vault_pct = None
+
+    faculty_payload: dict[str, Any] = {}
+    try:
+        faculty_payload = gateway.faculty_profile(default=True)
+    except Exception:
+        faculty_payload = {"found": False}
 
     mcp = desk.get("mcp_tools") or {}
     composer_model = desk.get("composer_model") or "composer-2.5"
@@ -399,26 +490,43 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
     activity_events = read_recent(limit=40, repo_root=repo_root)
     bq_drivers = top_bq_drivers(limit=5, repo_root=repo_root)
 
-    # Honest collector counts: inventory joined ≠ heartbeat online/idle.
+    # Inventory joined ≠ claimable capacity. Prefer inventory joined; available
+    # follows runtime freshness via yzu.workers effective status + rollup.
     worker_online = worker_idle = worker_stale = worker_unseen = 0
+    worker_available = 0
     worker_joined = int(wl.get("joined") or 0) if wl.get("joined") is not None else None
     try:
         honesty = gateway.yzu.workers(live=False)
-        for node in honesty.get("windows_lab") or []:
-            st = str(node.get("status") or "").strip().lower()
-            if st == "online":
-                worker_online += 1
-            elif st == "idle":
-                worker_idle += 1
-            elif st == "stale":
-                worker_stale += 1
-            elif st in {"joined_unseen", "joined"}:
-                worker_unseen += 1
+        rollup = _windows_lab_worker_rollup(honesty.get("windows_lab") or [])
+        worker_online = rollup["online"]
+        worker_idle = rollup["idle"]
+        worker_stale = rollup["stale"]
+        worker_unseen = rollup["joined_unseen"]
+        worker_available = rollup["available"]
         if worker_joined is None:
             worker_joined = worker_online + worker_idle + worker_stale + worker_unseen
+        # Adjacent truth: if every runtime-indexed Windows agent is stale,
+        # never advertise spare capacity even when honesty soft-labels idle
+        # without attaching freshness.
+        runtime_wl = [
+            w
+            for w in runtime_workers
+            if isinstance(w, dict)
+            and str(w.get("pool") or "windows_lab") == "windows_lab"
+        ]
+        if runtime_wl and all(
+            (
+                str((w.get("freshness") or {}).get("state") or "").lower() == "stale"
+                or str(w.get("status") or "").lower() == "stale"
+            )
+            for w in runtime_wl
+        ):
+            worker_stale = max(worker_stale, len(runtime_wl))
+            worker_online = 0
+            worker_idle = 0
+            worker_available = 0
     except Exception:
         pass
-    worker_available = worker_online + worker_idle
     worker_busy = runtime_desk.get("worker_pools", {}).get("busy")
     if worker_busy is None:
         worker_busy = pools.get("busy") if pools.get("busy") is not None else 0
@@ -572,6 +680,12 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
         # freshness, reservations, usage, and lifecycle facts directly.
         "runtime": runtime,
         "connect": _curated_connect_payload(repo_root, gateway=gateway),
+        "faculty": {
+            "found": bool(faculty_payload.get("found")),
+            "defaulted": bool(faculty_payload.get("defaulted")),
+            "registry_count": faculty_payload.get("registry_count"),
+            "profile": faculty_payload.get("profile") if faculty_payload.get("found") else None,
+        },
         "issues": issues,
         "issues_count": len(issues),
         "spending": {

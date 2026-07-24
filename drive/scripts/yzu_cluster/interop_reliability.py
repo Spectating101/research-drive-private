@@ -151,21 +151,11 @@ class ReliabilityMixin:
         if worker["status"] not in RUNNABLE_WORKER_STATES:
             return None
         available = set(normalize_capabilities(worker["capabilities"]))
-        allowed_types = {str(item).strip() for item in (allowed_job_types or ()) if str(item).strip()}
-        deny_prefixes = tuple(str(item) for item in (deny_job_id_prefixes or ()) if str(item))
+        allowed_types_set = set(allowed_job_types) if allowed_job_types is not None else None
+        deny_prefixes_tuple = tuple(deny_job_id_prefixes) if deny_job_id_prefixes is not None else None
         expiry = (
             (parse_time(at) or datetime.now(timezone.utc)) + timedelta(seconds=lease_seconds)
         ).isoformat().replace("+00:00", "Z")
-
-        def _claimable(row: Any) -> bool:
-            if allowed_types and str(row["job_type"] or "") not in allowed_types:
-                return False
-            job_key = str(row["job_id"] or "")
-            if any(job_key.startswith(prefix) for prefix in deny_prefixes):
-                return False
-            return set(loads(row["required_capabilities"], [])).issubset(available) and self._resource_fit(
-                row["run_id"], worker_id
-            )
 
         with self.transaction():
             query = """SELECT runs.*,COALESCE(run_resources.priority,50) scheduling_priority
@@ -177,7 +167,13 @@ class ReliabilityMixin:
                 params = (job_id,)
             query += " ORDER BY scheduling_priority DESC,runs.created_at,runs.run_id"
             rows = self.db.execute(query, params).fetchall()
-            selected = next((row for row in rows if _claimable(row)), None)
+            selected = next((
+                row for row in rows
+                if set(loads(row["required_capabilities"], [])).issubset(available)
+                and (allowed_types_set is None or row["job_type"] in allowed_types_set)
+                and (deny_prefixes_tuple is None or not str(row["job_id"]).startswith(deny_prefixes_tuple))
+                and self._resource_fit(row["run_id"], worker_id)
+            ), None)
             if selected is None:
                 return None
             attempt = int(selected["attempt"]) + 1
@@ -287,7 +283,7 @@ class ReliabilityMixin:
         existing = self.asset(dataset_id) if existing_row is not None else None
         snapshots = list(source_snapshots)
         if existing is not None:
-            matches = self._registration_matches(
+            if not self._registration_matches(
                 existing,
                 registry_id=registry_id,
                 revision_id=revision_id,
@@ -303,15 +299,9 @@ class ReliabilityMixin:
                 entities=entities,
                 grain=grain,
                 coverage=coverage,
-            )
-            # A scheduled refresh is a new, explicitly identified revision of
-            # the same logical asset. Preserve strict replay fencing for
-            # unversioned or same-revision writes, while allowing the new
-            # verified snapshot to replace the current asset pointer.
-            new_revision = bool(revision_id) and str(existing.get("revision_id") or "") != str(revision_id)
-            if not matches and not new_revision:
+            ):
                 raise ValueError("dataset_id already exists with conflicting registration proof")
-            if matches and run["stage"] == "registered":
+            if run["stage"] == "registered":
                 return existing
 
         if run["stage"] not in {"completed", "registering", "registered"}:
