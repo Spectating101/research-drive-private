@@ -118,6 +118,27 @@ def test_bootstrap_does_not_submit_or_auto_approve_jobs() -> None:
     assert "does not submit" in docs.lower() or "does not create jobs" in docs.lower()
 
 
+def test_runner_launches_python_directly_with_stdio_redirect_no_cmd_shell() -> None:
+    """Regression: cmd.exe /c wrappers can exit=1 with no stdout/stderr files."""
+    text = _read(RUNNER)
+    assert "Start-Process" in text
+    assert re.search(
+        r"-FilePath\s+\$(?:PythonExe|pythonLaunch)\b",
+        text,
+    ), "must Start-Process Python directly (not cmd.exe)"
+    assert "RedirectStandardOutput" in text
+    assert "RedirectStandardError" in text
+    assert re.search(r"-ArgumentList\b", text)
+    assert "cmd.exe" not in text
+    # Token stays in process env only — never on the launched argument list.
+    assert "YZU_WORKER_CONTROL_TOKEN" not in re.search(
+        r"\$workerArgs\s*=\s*@\((.*?)\)",
+        text,
+        re.DOTALL,
+    ).group(1)
+    assert "supervise_launch_error" in text
+
+
 def test_gitignore_protects_local_token_file() -> None:
     text = _read(GITIGNORE)
     assert ".yzu-worker-token" in text

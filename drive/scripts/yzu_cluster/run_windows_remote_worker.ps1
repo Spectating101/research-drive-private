@@ -114,28 +114,54 @@ $workerArgs = @(
     "--heartbeat-seconds", "$HeartbeatSeconds"
 )
 
+# Resolve launcher path for actionable errors (never log secrets).
+$pythonLaunch = $PythonExe
+try {
+    $resolvedPython = Get-Command -Name $PythonExe -ErrorAction Stop
+    if ($resolvedPython.Source) {
+        $pythonLaunch = $resolvedPython.Source
+    }
+} catch {
+    Write-Info "python executable not resolved yet name=$PythonExe (will retry in supervise loop)"
+}
+
+# Quote ArgumentList elements so paths with spaces survive ProcessStartInfo.
+$argumentList = ($workerArgs | ForEach-Object {
+    $s = [string]$_
+    if ($s -match '[\s"]') { '"' + ($s -replace '"', '\"') + '"' } else { $s }
+}) -join " "
+
 Write-Info "starting supervised remote_worker worker_id=$WorkerId pool=$Pool controller=$ControllerUrl"
-Write-Info "script=$WorkerScript spool=$spoolPath"
-Add-Content -LiteralPath $SupervisorLog -Value "$(Get-Date -Format o) supervise_start worker_id=$WorkerId"
+Write-Info "script=$WorkerScript spool=$spoolPath python=$pythonLaunch"
+Add-Content -LiteralPath $SupervisorLog -Value "$(Get-Date -Format o) supervise_start worker_id=$WorkerId python=$pythonLaunch"
 
 while ($true) {
     $code = 1
     try {
-        $argLine = ($workerArgs | ForEach-Object {
-            if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
-        }) -join " "
-        # Append-only logs; token is in process env only (never on the command line).
-        $cmd = "`"$PythonExe`" $argLine >> `"$StdoutLog`" 2>> `"$StderrLog`""
-        $proc = Start-Process -FilePath "cmd.exe" `
-            -ArgumentList @("/c", $cmd) `
+        # Direct Python process — token stays in this process environment only
+        # (inherited by child). Never place the secret on ArgumentList or in logs.
+        # RedirectStandard* creates the log files even when the child fails fast.
+        $proc = Start-Process -FilePath $pythonLaunch `
+            -ArgumentList $argumentList `
             -WorkingDirectory $RepoRoot `
+            -RedirectStandardOutput $StdoutLog `
+            -RedirectStandardError $StderrLog `
             -NoNewWindow `
             -PassThru `
             -Wait
-        $code = $proc.ExitCode
+        if ($null -eq $proc) {
+            throw "Start-Process returned no process object for python=$pythonLaunch"
+        }
+        $code = [int]$proc.ExitCode
     } catch {
         $code = 1
-        Add-Content -LiteralPath $SupervisorLog -Value "$(Get-Date -Format o) supervise_launch_error=$($_.Exception.Message)"
+        $err = [string]$_.Exception.Message
+        if ($tokenInfo.Token -and $err.Contains($tokenInfo.Token)) {
+            $err = $err.Replace($tokenInfo.Token, "<redacted>")
+        }
+        $launchLine = "$(Get-Date -Format o) supervise_launch_error=$err python=$pythonLaunch script=$WorkerScript stdout_log=$StdoutLog stderr_log=$StderrLog"
+        Add-Content -LiteralPath $SupervisorLog -Value $launchLine
+        Write-Info "supervise_launch_error=$err python=$pythonLaunch"
     }
     $line = "$(Get-Date -Format o) supervisor_restart exit=$code delay=${RestartDelaySeconds}s"
     Add-Content -LiteralPath $SupervisorLog -Value $line
