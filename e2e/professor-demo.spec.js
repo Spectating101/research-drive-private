@@ -103,8 +103,8 @@ test.describe("professor demo @ live-desk", () => {
     await expect(cont).toBeVisible();
     await expect(cont).toContainText(/Pick up|Continue working/);
     await expect(cont.getByRole("button", { name: "Continue" })).toBeVisible();
-    await expect(page.locator(".rd-v2-home-attention")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent research assets" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Pick up" })).toBeVisible();
+    await expect(page.locator("main.yzu-main")).toContainText(/Recommended evidence|Resource headroom|Recent trail/);
 
     const holdings = datasetCount;
     const attentionCount = await page.locator(".rd-v2-home-attention article").count();
