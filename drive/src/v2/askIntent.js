@@ -42,6 +42,17 @@ export function filterSuggestedPromptsForIntent(intent, prompts = []) {
 /**
  * Shape an assistant reply for the active user intent.
  */
+function filterNextStepsForIntent(intent, steps = []) {
+  const list = Array.isArray(steps) ? steps : [];
+  if (intent !== "status") return list;
+  return list.filter((step) => {
+    const label = typeof step === "string"
+      ? step
+      : `${step?.label || ""} ${step?.prompt || ""}`;
+    return !PROCURE_PROMPT_RE.test(label) && !TECHNICAL_TOOL_RE.test(label);
+  });
+}
+
 export function shapeAskReplyForIntent(intent, reply = {}) {
   if (intent !== "status") return reply;
   const action = isProcureAction(reply.action) ? null : reply.action;
@@ -53,6 +64,7 @@ export function shapeAskReplyForIntent(intent, reply = {}) {
     pendingJobId: null,
     jobStatus: null,
     suggestedPrompts: filterSuggestedPromptsForIntent(intent, reply.suggestedPrompts),
+    nextSteps: filterNextStepsForIntent(intent, reply.nextSteps),
     // Status answers should not dump Composer phase chrome after completion.
     activityLog: [],
     activity: "",

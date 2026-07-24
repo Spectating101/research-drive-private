@@ -135,18 +135,22 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           artifacts.job?.id || statePatch.pending_job_id || out.pending_job_id || null;
         const jobStatus = artifacts.job?.status || statePatch.job_status;
         const toolName = artifacts.tool_name || out.tool_name || null;
+        const nextSteps = Array.isArray(out.next_steps)
+          ? out.next_steps
+          : Array.isArray(artifacts.next_steps)
+            ? artifacts.next_steps
+            : [];
         const shaped = shapeAskReplyForIntent(intent, {
           action: out.action,
           toolName,
           candidates: out.candidates || artifacts.candidates || [],
           suggestedPrompts: out.suggested_prompts || artifacts.suggestions || [],
+          nextSteps,
           pendingJobId,
           jobStatus,
         });
 
         setMessages((m) => {
-          const streaming = m.find((x) => x.streaming);
-          const activityLog = intent === "status" ? [] : streaming?.activityLog || [];
           const trimmed = m.filter((x) => !x.streaming);
           return [
             ...trimmed,
@@ -156,9 +160,11 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
               intent,
               action: shaped.action,
               toolName: shaped.toolName,
-              activityLog,
+              // Completed turns should not keep "Planning…" chrome in the card.
+              activityLog: [],
               candidates: shaped.candidates || [],
               suggestedPrompts: shaped.suggestedPrompts || [],
+              nextSteps: shaped.nextSteps || nextSteps || [],
               pendingJobId: shaped.pendingJobId,
               jobStatus: shaped.jobStatus,
             },

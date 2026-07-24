@@ -4,6 +4,7 @@ import { GuidedState, ProgressSteps } from "@/v2/InteractionFeedback";
 import { useAskChat } from "@/v2/useAskChat";
 import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 import { formatAskText } from "@/v2/askText.jsx";
+import { AskAgentCard } from "@/v2/AskAgentCard.jsx";
 import { displayName } from "@/v2/datasetMeta";
 
 export function AskRail({
@@ -207,89 +208,35 @@ export function AskRail({
               </p>
             ) : null}
             {messages.map((m, i) => {
-              if (m.streaming && !m.text) return null;
+              if (m.streaming && !m.text) {
+                return (
+                  <AskAgentCard
+                    key={`assistant-stream-${i}`}
+                    message={m}
+                    busy={busy}
+                  />
+                );
+              }
               const approval = m.pendingJobId ? approvalState[m.pendingJobId]?.status : "";
+              if (m.role === "assistant") {
+                return (
+                  <AskAgentCard
+                    key={`assistant-${i}`}
+                    message={m}
+                    busy={busy}
+                    approval={approval}
+                    onSend={send}
+                    onApprove={requestApproval}
+                  />
+                );
+              }
               return (
                 <div
                   key={`${m.role}-${i}`}
-                  className={`rd-v2-ask-bubble${m.role === "assistant" ? " agent" : ""}${m.role === "error" ? " error" : ""}`}
+                  className={`rd-v2-ask-bubble${m.role === "error" ? " error" : ""}`}
                 >
-                  {m.role === "user" ? (
-                    <>
-                      <span className="rd-v2-ask-bubble-role">You</span>
-                      <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
-                    </>
-                  ) : m.role === "error" ? (
-                    <>
-                      <span className="rd-v2-ask-bubble-role">Error</span>
-                      <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="rd-v2-ask-bubble-role">Agent</span>
-                      {!m.streaming && m.intent !== "status" && m.activityLog?.length ? (
-                        <ol className="rd-v2-ask-phases" data-testid="ask-tool-phases" aria-label="Agent tool activity">
-                          {m.activityLog
-                            .filter((step) => !/describe[_ ]?dataset/i.test(`${step.phase || ""} ${step.text || ""}`))
-                            .map((step, si) => (
-                            <li key={`${step.phase}-${si}`} data-phase={step.phase}>
-                              <span className="rd-v2-ask-phase-label">
-                                {/^(planning|working)$/i.test(String(step.phase || ""))
-                                  ? "Working"
-                                  : step.phase}
-                              </span>
-                              <span className="rd-v2-ask-phase-text">{step.text}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      ) : !m.streaming && m.intent !== "status" && m.activity ? (
-                        <p className="muted small">{m.activity}</p>
-                      ) : null}
-                      <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
-                      {(() => {
-                        if (m.intent === "status") return null;
-                        const meta = [m.toolName, m.action]
-                          .filter(Boolean)
-                          .filter((part) => !/describe[_ ]?dataset|planning|working/i.test(String(part)));
-                        if (!meta.length) return null;
-                        return (
-                          <p className="rd-v2-ask-action-meta muted small">{meta.join(" · ")}</p>
-                        );
-                      })()}
-                      {m.intent !== "status" && m.pendingJobId && m.jobStatus === "pending_approval" ? (
-                        <div className="rd-v2-ask-actions">
-                          <button
-                            type="button"
-                            className="rd-v2-btn sm primary"
-                            disabled={busy || approval === "working"}
-                            aria-busy={approval === "working"}
-                            onClick={() => requestApproval(m.pendingJobId)}
-                          >
-                            {approval === "working" ? (
-                              <><LoaderCircle className="rd-v2-inline-spinner" aria-hidden="true" /> Approving…</>
-                            ) : (
-                              "Approve job"
-                            )}
-                          </button>
-                        </div>
-                      ) : null}
-                      {m.suggestedPrompts?.length ? (
-                        <div className="rd-v2-chips-row rd-v2-ask-chips">
-                          {m.suggestedPrompts.slice(0, 3).map((p) => (
-                            <button
-                              key={p}
-                              type="button"
-                              className="rd-v2-chip clickable"
-                              disabled={busy}
-                              onClick={() => send(p)}
-                            >
-                              {String(p).slice(0, 40)}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                  <span className="rd-v2-ask-bubble-role">{m.role === "error" ? "Error" : "You"}</span>
+                  <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
                 </div>
               );
             })}
