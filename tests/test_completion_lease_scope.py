@@ -34,7 +34,9 @@ def _write_runtime_config(root: Path) -> None:
     )
 
 
-def test_local_completion_renews_lease_through_authoritative_finalization(tmp_path: Path) -> None:
+def test_local_completion_renews_lease_through_authoritative_finalization(
+    tmp_path: Path, public_fixture_network_policy
+) -> None:
     _write_runtime_config(tmp_path)
     orchestrator = YzuOrchestrator(tmp_path)
     orchestrator.executor.execute = lambda _job_id, _plan: {"outputs": ["local-output"]}
@@ -45,7 +47,7 @@ def test_local_completion_renews_lease_through_authoritative_finalization(tmp_pa
             "items": [{"url": "https://example.test/data.csv"}],
             "outputs": ["local-output"],
         },
-        {"idempotency_key": "local-finalization"},
+        {"idempotency_key": "local-finalization", "_ops_internal": True},
         auto_approve=True,
     )
 

@@ -35,6 +35,7 @@ done
 }
 [[ -f "${build_identity}" ]] || {
   echo "front-door build identity missing: ${build_identity}" >&2
+  echo "regenerate with: YZU_PUBLIC_REPO=${public_root} bash drive/scripts/research_query_engine/build_optiplex_front_door.sh --identity-only" >&2
   exit 1
 }
 

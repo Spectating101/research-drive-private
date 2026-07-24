@@ -143,10 +143,38 @@ class ReliabilityPolicyTests(unittest.TestCase):
         )
         store.claim("optiplex")
         store.record(first["run_id"], "completed", worker_id="optiplex", outputs=["sec_edgar"], manifest_id="m1", archive_verified=True)
-        store.register(
+        first_asset = store.register(
             first["run_id"], dataset_id="sec_edgar", registry_id="sec_edgar", revision_id="refresh-1",
             manifest_id="m1", vault_path="gdrive:sec/1", archive_verified=True,
         )
+        self.assertEqual(first_asset["revision_id"], "refresh-1")
+
+        # Conflicting unversioned proof must still fail closed.
+        unversioned = store.submit(
+            job_id="refresh-conflict",
+            job_type="http_manifest",
+            required_capabilities=["python", "archive"],
+            outputs=["sec_edgar"],
+        )
+        store.claim("optiplex")
+        store.record(
+            unversioned["run_id"],
+            "completed",
+            worker_id="optiplex",
+            outputs=["sec_edgar"],
+            manifest_id="m-conflict",
+            archive_verified=True,
+        )
+        with self.assertRaisesRegex(ValueError, "conflicting registration proof"):
+            store.register(
+                unversioned["run_id"],
+                dataset_id="sec_edgar",
+                registry_id="sec_edgar",
+                revision_id=None,
+                manifest_id="m-conflict",
+                vault_path="gdrive:sec/conflict",
+                archive_verified=True,
+            )
 
         second = store.submit(
             job_id="refresh-two",
@@ -163,6 +191,19 @@ class ReliabilityPolicyTests(unittest.TestCase):
 
         self.assertEqual(asset["revision_id"], "refresh-2")
         self.assertEqual(asset["manifest_id"], "m2")
+        # Current pointer advances, but prior registration history remains intact.
+        first_events = store.db.execute(
+            "SELECT COUNT(*) FROM events WHERE run_id=? AND event_type='registered'",
+            (first["run_id"],),
+        ).fetchone()[0]
+        second_events = store.db.execute(
+            "SELECT COUNT(*) FROM events WHERE run_id=? AND event_type='registered'",
+            (second["run_id"],),
+        ).fetchone()[0]
+        self.assertEqual(first_events, 1)
+        self.assertEqual(second_events, 1)
+        self.assertEqual(store.snapshot(first["run_id"])["status"], "registered")
+        self.assertEqual(store.snapshot(second["run_id"])["status"], "registered")
 
 
 if __name__ == "__main__":

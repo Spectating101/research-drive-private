@@ -151,13 +151,18 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         status: int = 200,
         *,
         extra_headers: list[tuple[str, str]] | None = None,
+        close_connection: bool = False,
     ) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self._send_cors_headers()
         self.send_header("X-Content-Type-Options", "nosniff")
-        for key, value in extra_headers or []:
+        headers = list(extra_headers or [])
+        if close_connection:
+            headers.append(("Connection", "close"))
+            self.close_connection = True
+        for key, value in headers:
             self.send_header(key, value)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -165,6 +170,17 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except BrokenPipeError:
             pass
+
+    def _read_request_body(self) -> bytes:
+        """Consume the declared request body so keep-alive framing stays intact."""
+        raw_length = str(self.headers.get("Content-Length") or "0").strip() or "0"
+        try:
+            length = int(raw_length)
+        except ValueError:
+            length = 0
+        if length <= 0:
+            return b""
+        return self.rfile.read(length)
 
     def _handle_desk_session(self, *, clear: bool = False) -> None:
         if clear:
@@ -310,9 +326,10 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = normalize_api_path(parsed.path)
+        # Always drain the body before any early reject so an unauthorized POST
+        # cannot leave bytes that poison the next request on a keep-alive socket.
+        raw = self._read_request_body()
         if path == "/library/desk/session":
-            length = int(self.headers.get("Content-Length", "0"))
-            raw = self.rfile.read(length) if length else b"{}"
             try:
                 payload = json.loads(raw or b"{}")
             except Exception:
@@ -322,7 +339,11 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             return
         ok, msg = authorize(self, path, method="POST")
         if not ok:
-            self._send_json({"error": "Unauthorized", "message": msg}, status=401)
+            self._send_json(
+                {"error": "Unauthorized", "message": msg},
+                status=401,
+                close_connection=True,
+            )
             return
         from scripts.research_data_mcp import desk_rate_limit
 
@@ -336,10 +357,18 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
                     "remaining": remaining,
                 },
                 status=429,
+                close_connection=True,
             )
             return
-        length = int(self.headers.get("Content-Length", "0"))
-        payload = json.loads(self.rfile.read(length) or b"{}")
+        try:
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            self._send_json(
+                {"error": "BadRequest", "message": "request body must be JSON"},
+                status=400,
+                close_connection=True,
+            )
+            return
         query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         result = handle_post(path, payload, self.stack, query=query)
         body = result.get("body")
