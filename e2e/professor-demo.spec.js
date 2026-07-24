@@ -18,6 +18,7 @@ const API = process.env.YZU_API_URL || "http://127.0.0.1:8765";
 const FACULTY_EMAIL = process.env.DESK_TEST_EMAIL || "drkong@saturn.yzu.edu.tw";
 const SEARCH_QUERY = process.env.DEMO_SEARCH_QUERY || "TWSE";
 const KNOWN_DATASET = process.env.DEMO_KNOWN_DATASET || "gdelt_asia_daily_country_panel";
+const KNOWN_DATASET_FOLDER = process.env.DEMO_KNOWN_DATASET_FOLDER || "news_events/news.gdelt-asia";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_JSON = path.join(ROOT, "docs/status/generated/professor_demo_report.json");
@@ -117,14 +118,14 @@ test.describe("professor demo @ live-desk", () => {
   });
 
   test("scenario 2 — Library vault: holdings and query-ready dataset", async ({ page }) => {
-    await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "load" });
+    await page.goto(`/?tab=library&folder=${encodeURIComponent(KNOWN_DATASET_FOLDER)}`, { waitUntil: "load" });
     await waitLive(page);
 
-    const rows = page.locator('.rd-v2-library-asset[data-kind="dataset"]');
+    const rows = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]');
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const rowCount = await rows.count();
 
-    const known = page.locator('.rd-v2-library-asset[data-kind="dataset"]', {
+    const known = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]', {
       hasText: KNOWN_DATASET,
     });
     if (await known.count()) {
@@ -141,7 +142,7 @@ test.describe("professor demo @ live-desk", () => {
       KNOWN_DATASET;
 
     record("library_vault", "Library vault drill-in + query-ready detail", true, {
-      folder: "research_panels/gdelt",
+      folder: KNOWN_DATASET_FOLDER,
       visible_datasets: rowCount,
       selected_dataset: String(datasetId).trim().slice(0, 80),
     });
@@ -319,7 +320,7 @@ test.describe("professor demo @ live-desk", () => {
 
   test("scenario 8 — Library: preview rows on registered dataset", async ({ page }) => {
     await page.goto(
-      `/?tab=library&folder=research_panels/gdelt&dataset=${encodeURIComponent(KNOWN_DATASET)}`,
+      `/?tab=library&folder=${encodeURIComponent(KNOWN_DATASET_FOLDER)}&dataset=${encodeURIComponent(KNOWN_DATASET)}`,
       { waitUntil: "load" },
     );
     await waitLive(page);
