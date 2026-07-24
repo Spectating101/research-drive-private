@@ -366,6 +366,22 @@ export function BrowsePage({
           }
           if (wantLive) onLiveSourcesConsumed?.(false);
           if (sourceRows.length) {
+            // A capability route is not an evidence match. When the source
+            // catalogue cannot name a route that actually matches the need,
+            // consult the external catalogue before showing generic providers.
+            if (!hasSpecificSourceRoute(sourceRows, q)) {
+              try {
+                const web = await webDiscover(q, 8);
+                const webRows = rankExternalCatalogueRows(webHitsToRows(web), q);
+                if (webRows.length) {
+                  apply({ sections: [{ id: "external_catalogues", rows: webRows }] }, "external_catalogues");
+                  setIndexMiss(Boolean(web.index_miss));
+                  return;
+                }
+              } catch {
+                // Catalogue availability is optional; retain known routes as a truthful fallback.
+              }
+            }
             apply({ results: sourceRows }, sources.demo ? "demo" : "sources");
             if (sources.demo) setDemoFallback(true);
             setIndexMiss(false);
@@ -537,6 +553,7 @@ export function BrowsePage({
   const scopeSummary = resultScopeSummary(stageCounts);
   const activeFilter = FILTERS.find((item) => item.id === stateFilter) || FILTERS[0];
   const externalSearchActive = Boolean(q && externalSearchQuery === q);
+  const externalCatalogueActive = externalSearchActive || source === "external_catalogues";
   const sourceRouteGap =
     !loading &&
     !externalSearchActive &&
@@ -735,8 +752,8 @@ export function BrowsePage({
             {ranked.bestFit ? (
               <section className="rd-v2-discover-best-fit" aria-label="Best fit" data-testid="discover-best-fit">
                 <div className="rd-v2-home-section-head">
-                  <h3>{externalSearchActive ? "External catalogue matches" : sourceRouteGap ? "Available lab routes" : "Best fit"}</h3>
-                  {externalSearchActive ? (
+                  <h3>{externalCatalogueActive ? "External catalogue matches" : sourceRouteGap ? "Available lab routes" : "Best fit"}</h3>
+                  {externalCatalogueActive ? (
                     <span className="muted">{plural(ranked.total, "external catalogue record")}</span>
                   ) : scopeSummary ? (
                     <span className="muted">{scopeSummary}</span>
@@ -747,7 +764,7 @@ export function BrowsePage({
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
-                  externalCatalogue={externalSearchActive}
+                  externalCatalogue={externalCatalogueActive}
                 />
               </section>
             ) : null}
@@ -755,14 +772,14 @@ export function BrowsePage({
             {ranked.others.length ? (
               <section className="rd-v2-discover-other-matches" aria-label="Other matches" data-testid="discover-other-matches">
                 <div className="rd-v2-home-section-head">
-                  <h3>{externalSearchActive ? "Other catalogue records" : "Other matches"}</h3>
+                  <h3>{externalCatalogueActive ? "Other catalogue records" : "Other matches"}</h3>
                 </div>
                 <DiscoverCandidateList
                   rows={ranked.others}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
-                  externalCatalogue={externalSearchActive}
+                  externalCatalogue={externalCatalogueActive}
                 />
               </section>
             ) : null}
@@ -774,7 +791,7 @@ export function BrowsePage({
                   {stateFilter !== "all" ? ` · ${activeFilter.label}` : ""}
                 </span>
                 <span className="muted">
-                  {externalSearchActive
+                  {externalCatalogueActive
                     ? "Ordered by title and description match to this question"
                     : "Ranked using active research + interpreted evidence need"}
                 </span>
