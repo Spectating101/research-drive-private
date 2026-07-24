@@ -55,7 +55,9 @@ def _write_manifest(path: Path, items: list[dict]) -> None:
     )
 
 
-def test_collect_manifest_writes_proof_bearing_zip(tmp_path: Path, http_origin: str) -> None:
+def test_collect_manifest_writes_proof_bearing_zip(
+    tmp_path: Path, http_origin: str, loopback_collect_network_policy
+) -> None:
     manifest = tmp_path / "manifest.json"
     artifact = tmp_path / "artifact.zip"
     _write_manifest(
@@ -88,7 +90,9 @@ def test_collect_manifest_writes_proof_bearing_zip(tmp_path: Path, http_origin: 
         assert json.loads(archive.read("manifest.json"))["job_id"] == "collector-contract"
 
 
-def test_collect_manifest_returns_partial_exit_with_usable_artifact(tmp_path: Path, http_origin: str) -> None:
+def test_collect_manifest_returns_partial_exit_with_usable_artifact(
+    tmp_path: Path, http_origin: str, loopback_collect_network_policy
+) -> None:
     manifest = tmp_path / "manifest.json"
     artifact = tmp_path / "artifact.zip"
     _write_manifest(
@@ -117,7 +121,9 @@ def test_collect_manifest_returns_partial_exit_with_usable_artifact(tmp_path: Pa
         assert "raw/missing.json" not in archive.namelist()
 
 
-def test_collect_manifest_rejects_unusable_or_unproven_inputs(tmp_path: Path, http_origin: str) -> None:
+def test_collect_manifest_rejects_unusable_or_unproven_inputs(
+    tmp_path: Path, http_origin: str, loopback_collect_network_policy
+) -> None:
     manifest = tmp_path / "manifest.json"
     artifact = tmp_path / "artifact.zip"
     _write_manifest(

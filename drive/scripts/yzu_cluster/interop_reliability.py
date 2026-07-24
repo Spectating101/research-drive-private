@@ -283,7 +283,7 @@ class ReliabilityMixin:
         existing = self.asset(dataset_id) if existing_row is not None else None
         snapshots = list(source_snapshots)
         if existing is not None:
-            if not self._registration_matches(
+            matches = self._registration_matches(
                 existing,
                 registry_id=registry_id,
                 revision_id=revision_id,
@@ -299,9 +299,14 @@ class ReliabilityMixin:
                 entities=entities,
                 grain=grain,
                 coverage=coverage,
-            ):
+            )
+            # Explicit revisions represent a verified later snapshot of the same
+            # logical asset. Unversioned or same-revision conflicting proof stays
+            # fenced so delayed/incorrect registration cannot replace the asset.
+            new_revision = bool(revision_id) and str(existing.get("revision_id") or "") != str(revision_id)
+            if not matches and not new_revision:
                 raise ValueError("dataset_id already exists with conflicting registration proof")
-            if run["stage"] == "registered":
+            if matches and run["stage"] == "registered":
                 return existing
 
         if run["stage"] not in {"completed", "registering", "registered"}:

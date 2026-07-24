@@ -85,6 +85,591 @@ def _expand_blob_tokens(text: str) -> set[str]:
     return expanded
 
 
+# Meaningful geography / country codes retained as query terms (not generic filler).
+_SOURCE_GEO_CODES = frozenset(
+    {
+        "us",
+        "usa",
+        "uk",
+        "eu",
+        "cn",
+        "jp",
+        "tw",
+        "kr",
+        "au",
+        "ca",
+        "nz",
+        "de",
+        "fr",
+        "ie",
+        "sg",
+        "hk",
+        "id",
+        "vn",
+        "ph",
+        "my",
+        "th",
+    }
+)
+_SOURCE_GEO_ALIASES: dict[str, frozenset[str]] = {
+    "us": frozenset({"us", "usa", "america", "american", "americans"}),
+    "usa": frozenset({"us", "usa", "america", "american", "americans"}),
+    "uk": frozenset({"uk", "britain", "british", "england", "english"}),
+    "eu": frozenset({"eu", "europe", "european"}),
+    "tw": frozenset({"tw", "taiwan", "taiwanese"}),
+    "taiwan": frozenset({"tw", "taiwan", "taiwanese"}),
+    "cn": frozenset({"cn", "china", "chinese"}),
+    "jp": frozenset({"jp", "japan", "japanese"}),
+    "ie": frozenset({"ie", "ireland", "irish"}),
+}
+_SOURCE_GEO_NAME_TOKENS = frozenset(
+    a for aliases in _SOURCE_GEO_ALIASES.values() for a in aliases
+) | frozenset(
+    {
+        "america",
+        "american",
+        "britain",
+        "british",
+        "europe",
+        "european",
+        "ireland",
+        "irish",
+        "china",
+        "japan",
+        "taiwan",
+        "taiwanese",
+        "korea",
+        "australia",
+        "canada",
+    }
+)
+
+# Generic tokens that alone must not make a source look relevant (e.g. bare "data").
+_SOURCE_GENERIC_TOKENS = frozenset(
+    {
+        "dataset",
+        "datasets",
+        "data",
+        "panel",
+        "research",
+        "study",
+        "metadata",
+        "graph",
+        "source",
+        "sources",
+        "catalog",
+        "catalogue",
+        "public",
+        "open",
+        "api",
+        "feed",
+        "feeds",
+        "file",
+        "files",
+        "bulk",
+        "instant",
+        "live",
+        "global",
+        "world",
+        "daily",
+        "monthly",
+        "annual",
+        "year",
+        "time",
+        "series",
+        "history",
+        "historical",
+        "index",
+        "incident",
+        "incidents",
+    }
+)
+
+# Finance / market providers that must not satisfy non-finance topic queries (e.g. polling).
+_FINANCE_PROVIDER_SOURCE_IDS = frozenset(
+    {
+        "lseg_edp",
+        "lseg_desktop_rescue",
+        "capital_iq_compustat",
+        "wrds_crsp_compustat",
+        "crsp_moveit",
+        "yfinance_public",
+    }
+)
+_FINANCE_CAPABILITIES = frozenset(
+    {
+        "daily_prices",
+        "fundamentals",
+        "estimates_revisions",
+        "index_pit_survivorship",
+        "risk_overlay",
+    }
+)
+_NEWS_CAPABILITIES = frozenset(
+    {"country_news_shocks", "entity_news_shocks", "entity_join_gdelt_ric"}
+)
+_POLLING_TOPIC_TOKENS = frozenset(
+    {"poll", "polls", "polling", "pollster", "election", "elections", "opinion", "survey", "surveys"}
+)
+
+# Deterministic concept → catalog evidence. Never invents access or collection success.
+_SUPPORTED_CONCEPTS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "mops_taiwan_governance",
+        "label": "MOPS Taiwan governance / disclosures",
+        "match_any": frozenset({"mops"}),
+        "match_all_groups": (
+            frozenset({"taiwan", "taiwanese", "tw"}),
+            frozenset({"governance", "regulatory", "disclosure", "disclosures", "filing", "filings"}),
+        ),
+        "capabilities": _GOVERNANCE_CAPABILITIES,
+        "source_ids": frozenset({"mops_taiwan", "twse_official"}),
+        "cue_tokens": frozenset({"mops", "taiwan", "twse", "governance", "regulatory", "disclosure"}),
+        "conflict_tokens": frozenset(),
+        "domains": frozenset({"governance"}),
+    },
+    {
+        "id": "gdelt_news",
+        "label": "GDELT news shocks",
+        "match_any": frozenset({"gdelt"}),
+        "match_all_groups": (
+            frozenset({"gdelt"}),
+            frozenset({"news", "gkg", "shock", "shocks"}),
+        ),
+        "capabilities": _NEWS_CAPABILITIES,
+        "source_ids": frozenset({"gdelt"}),
+        "cue_tokens": frozenset({"gdelt", "news", "gkg", "shock", "shocks"}),
+        "conflict_tokens": frozenset(),
+        "domains": frozenset({"news"}),
+    },
+    {
+        "id": "stablecoin_onchain_transactions",
+        "label": "Historical stablecoin / on-chain transactions",
+        "match_any": frozenset({"stablecoin", "stablecoins", "usdt", "usdc"}),
+        "match_all_groups": (
+            frozenset({"onchain", "on-chain", "blockchain", "ethereum", "crypto", "cryptocurrency"}),
+            frozenset({"transaction", "transactions", "transfer", "transfers", "stablecoin", "stablecoins"}),
+        ),
+        "capabilities": _ONCHAIN_CAPABILITIES,
+        "source_ids": frozenset({"ethereum_onchain", "bigquery_public", "coingecko"}),
+        "cue_tokens": frozenset(
+            {"stablecoin", "stablecoins", "usdt", "usdc", "ethereum", "bigquery", "onchain", "crypto", "coingecko"}
+        ),
+        "conflict_tokens": frozenset({"nft", "opensea"}),
+        "domains": frozenset({"onchain"}),
+    },
+    {
+        "id": "sec_edgar_governance",
+        "label": "SEC EDGAR filings / US governance disclosures",
+        "match_any": frozenset({"edgar"}),
+        "match_all_groups": (
+            frozenset({"sec"}),
+            frozenset({"edgar", "filing", "filings", "disclosure", "disclosures", "governance"}),
+        ),
+        "capabilities": _GOVERNANCE_CAPABILITIES,
+        "source_ids": frozenset({"sec_edgar"}),
+        "cue_tokens": frozenset({"sec", "edgar", "filing", "filings", "governance"}),
+        "conflict_tokens": frozenset(),
+        "domains": frozenset({"governance"}),
+    },
+)
+
+
+def _distinctive_query_tokens(query: str) -> set[str]:
+    """Query tokens that can establish credible source relevance."""
+    return {
+        t
+        for t in _expand_blob_tokens(query)
+        if t not in _SOURCE_GENERIC_TOKENS and (len(t) > 2 or t in _SOURCE_GEO_CODES)
+    }
+
+
+def _source_query_aspects(query: str) -> dict[str, set[str]]:
+    distinctive = _distinctive_query_tokens(query)
+    geography: set[str] = set()
+    topic: set[str] = set()
+    for tok in distinctive:
+        if tok in _SOURCE_GEO_CODES or tok in _SOURCE_GEO_NAME_TOKENS:
+            geography |= set(_SOURCE_GEO_ALIASES.get(tok, {tok}))
+            geography.add(tok)
+        else:
+            topic.add(tok)
+    return {"geography": geography, "topic": topic}
+
+
+def detect_supported_concepts(query: str) -> list[dict[str, Any]]:
+    """Map a query onto catalog-backed concepts (capability/source evidence only)."""
+    q = str(query or "").strip().lower()
+    if not q:
+        return []
+    toks = _expand_blob_tokens(q)
+    if "on-chain" in q:
+        toks = set(toks) | {"onchain", "on-chain"}
+    if "stable coin" in q or "stable coins" in q:
+        toks = set(toks) | {"stablecoin", "stablecoins"}
+    matched: list[dict[str, Any]] = []
+    for concept in _SUPPORTED_CONCEPTS:
+        if toks & set(concept["match_any"]):
+            matched.append(concept)
+            continue
+        groups = concept.get("match_all_groups") or ()
+        if groups and all(toks & set(group) for group in groups):
+            matched.append(concept)
+    return matched
+
+
+def source_query_relevance(row: dict[str, Any], query: str) -> float:
+    """Distinctive aspect/token overlap between query and source metadata (deterministic)."""
+    aspects = _source_query_aspects(query)
+    geography = aspects.get("geography") or set()
+    topic = aspects.get("topic") or set()
+    if not geography and not topic:
+        return 0.0
+    blob = _expand_blob_tokens(_blob(row))
+    score = 0.0
+    if geography:
+        if geography & blob:
+            score += 1.0
+        else:
+            return 0.0
+    topic_hits = float(sum(1.0 for t in topic if t in blob))
+    if topic and topic_hits <= 0:
+        return 0.0
+    score += topic_hits
+    return float(score)
+
+
+def source_evidence_score(row: dict[str, Any], query: str) -> tuple[float, dict[str, Any]]:
+    """Evidence for presenting a catalog/live row as a Discover candidate.
+
+    Accepts only:
+      - explicit capability/concept matches from databank_source_map, or
+      - distinctive non-generic token overlap (geo+topic when both present).
+    Rejects weak lexical coincidences (e.g. US geography alone → LSEG for polling).
+    Never invents coverage, access, or collection capability.
+    """
+    q = str(query or "").strip()
+    if not q:
+        return 0.0, {"evidence": [], "reject_reason": "empty_query"}
+
+    concepts = detect_supported_concepts(q)
+    aspects = _source_query_aspects(q)
+    topic = aspects.get("topic") or set()
+    caps = _row_caps(row)
+    blob = _expand_blob_tokens(_blob(row))
+    sid = str(row.get("source_id") or row.get("external_id") or "").strip().lower()
+    kind = str(row.get("kind") or "").strip().lower()
+    evidence: list[dict[str, Any]] = []
+    score = 0.0
+
+    # Live / unknown external hits are inspect-only; keep only with distinctive overlap.
+    if kind == "live_candidate" or bool(row.get("live_hit")):
+        lex = source_query_relevance(row, q)
+        if lex <= 0:
+            return 0.0, {
+                "evidence": [],
+                "reject_reason": "live_without_distinctive_overlap",
+                "inspect_only": True,
+            }
+        return lex, {
+            "evidence": [{"type": "distinctive_token_overlap", "score": round(lex, 2)}],
+            "inspect_only": True,
+            "trust_tier": "inspect_only",
+        }
+
+    for concept in concepts:
+        cap_hit = caps & set(concept["capabilities"])
+        preferred = sid in set(concept["source_ids"])
+        cue_hits = sorted(set(concept["cue_tokens"]) & blob)
+        conflicts = sorted(set(concept.get("conflict_tokens") or set()) & blob)
+        # Specialty conflict without cue/preferred (e.g. NFT source for stablecoin query).
+        if conflicts and not preferred and not (
+            set(concept["cue_tokens"])
+            & blob
+            & {"stablecoin", "stablecoins", "usdt", "usdc", "ethereum", "bigquery"}
+        ):
+            continue
+        # Geography-bound concepts (Taiwan MOPS) must not promote other governance seats.
+        if concept["id"] == "mops_taiwan_governance" and not preferred:
+            if not (blob & {"taiwan", "taiwanese", "tw", "mops", "twse"}):
+                continue
+        if concept["id"] == "sec_edgar_governance" and not preferred:
+            if not (blob & {"sec", "edgar"}):
+                continue
+        if preferred and cap_hit:
+            score += 2.0
+            evidence.append(
+                {
+                    "type": "preferred_source_capability",
+                    "concept": concept["id"],
+                    "capabilities": sorted(cap_hit),
+                }
+            )
+        elif cap_hit and cue_hits:
+            score += 1.75
+            evidence.append(
+                {
+                    "type": "capability_cue_match",
+                    "concept": concept["id"],
+                    "capabilities": sorted(cap_hit),
+                    "cues": cue_hits,
+                }
+            )
+        elif preferred:
+            score += 1.25
+            evidence.append({"type": "preferred_source", "concept": concept["id"]})
+        elif cap_hit and not conflicts:
+            # Capability alone is enough for broad concept queries (stablecoin → onchain_crypto).
+            score += 1.5
+            evidence.append(
+                {
+                    "type": "capability_match",
+                    "concept": concept["id"],
+                    "capabilities": sorted(cap_hit),
+                }
+            )
+
+    lex = source_query_relevance(row, q)
+    if lex > 0:
+        score += lex
+        evidence.append({"type": "distinctive_token_overlap", "score": round(lex, 2)})
+
+    # Polling / opinion queries: finance providers are never direct candidates.
+    if topic & _POLLING_TOPIC_TOKENS:
+        finance_row = sid in _FINANCE_PROVIDER_SOURCE_IDS or bool(caps & _FINANCE_CAPABILITIES)
+        if finance_row and not (caps & (_GOVERNANCE_CAPABILITIES | _NEWS_CAPABILITIES | _ONCHAIN_CAPABILITIES)):
+            return 0.0, {
+                "evidence": [],
+                "reject_reason": "finance_provider_for_polling_query",
+            }
+        # Even governance/news rows need polling topic evidence — catalog has none today.
+        if not any(t in blob for t in (topic & _POLLING_TOPIC_TOKENS)):
+            if not evidence or all(e.get("type") == "distinctive_token_overlap" for e in evidence):
+                # Geography-only or generic finance/news coincidence.
+                if lex < 2.0:
+                    return 0.0, {
+                        "evidence": [],
+                        "reject_reason": "no_polling_capability_or_topic_evidence",
+                    }
+
+    if score <= 0:
+        return 0.0, {"evidence": [], "reject_reason": "no_capability_or_distinctive_evidence"}
+
+    return float(score), {"evidence": evidence, "inspect_only": False}
+
+
+def min_source_evidence(query: str) -> float:
+    """Minimum evidence score before a row may be presented as a direct candidate."""
+    if detect_supported_concepts(query):
+        return 1.25
+    aspects = _source_query_aspects(query)
+    n = int(bool(aspects.get("geography"))) + int(bool(aspects.get("topic")))
+    if n >= 2:
+        return 2.0
+    if n >= 1:
+        return 1.0
+    return 1.0
+
+
+def build_source_groups(
+    query: str,
+    *,
+    corpus: list[dict[str, Any]] | None = None,
+    kept_rows: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Honest concept groups from catalog evidence — not invented coverage claims."""
+    qtoks = _expand_blob_tokens(query)
+    concepts = list(detect_supported_concepts(query))
+    concept_ids = {c["id"] for c in concepts}
+    # Event-like stablecoin queries: offer GDELT as a related news alternative only.
+    if (
+        qtoks & {"incident", "incidents"}
+        and qtoks & {"stablecoin", "stablecoins", "crypto", "onchain"}
+        and "gdelt_news" not in concept_ids
+    ):
+        for c in _SUPPORTED_CONCEPTS:
+            if c["id"] == "gdelt_news":
+                concepts.append(c)
+                break
+    if not concepts:
+        return []
+
+    by_id = {
+        str(r.get("source_id") or "").strip().lower(): r
+        for r in (corpus or [])
+        if str(r.get("source_id") or "").strip()
+    }
+    kept_ids = {
+        str(r.get("source_id") or "").strip().lower()
+        for r in (kept_rows or [])
+        if str(r.get("source_id") or "").strip()
+    }
+    groups: list[dict[str, Any]] = []
+    for concept in concepts:
+        member_ids = sorted(set(concept["source_ids"]) & set(by_id))
+        if not member_ids and concept["id"] == "gdelt_news" and "gdelt" in by_id:
+            member_ids = ["gdelt"]
+        if not member_ids:
+            continue
+        role = "direct"
+        notes = (
+            f"Catalog capabilities {sorted(concept['capabilities'])}; "
+            "does not assert live access or successful collection."
+        )
+        if concept["id"] == "gdelt_news" and (qtoks & {"incident", "incidents"}) and (
+            qtoks & {"stablecoin", "stablecoins", "crypto", "onchain"}
+        ):
+            role = "alternative"
+            notes = (
+                "GDELT news-shock panels are a related alternative for event-like queries; "
+                "not a curated stablecoin incident ledger."
+            )
+        if concept["id"] == "stablecoin_onchain_transactions" and (qtoks & {"incident", "incidents"}):
+            notes = (
+                "onchain_crypto covers stablecoin/on-chain transfers telemetry. "
+                "No dedicated incidents capability is declared on these sources."
+            )
+        groups.append(
+            {
+                "concept_id": concept["id"],
+                "label": concept["label"],
+                "role": role,
+                "supported": True,
+                "capabilities": sorted(concept["capabilities"]),
+                "source_ids": member_ids,
+                "candidate_keys": [
+                    str((by_id[sid] or {}).get("candidate_key") or "")
+                    for sid in member_ids
+                    if (by_id.get(sid) or {}).get("candidate_key")
+                ],
+                "in_results": sorted(sid for sid in member_ids if sid in kept_ids),
+                "notes": notes,
+            }
+        )
+    return groups
+
+
+def apply_source_relevance_gate(
+    rows: list[dict[str, Any]],
+    query: str,
+    *,
+    limit: int | None = None,
+    corpus: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Filter weak matches; annotate evidence; emit concept groups / no-supported-route."""
+    q = str(query or "").strip()
+    threshold = min_source_evidence(q)
+    distinctive = sorted(_distinctive_query_tokens(q))
+    concepts = detect_supported_concepts(q)
+    annotated: list[dict[str, Any]] = []
+    rejected = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        out = dict(row)
+        rel, meta = source_evidence_score(out, q)
+        out["query_relevance"] = round(float(rel), 2)
+        out["relevance_evidence"] = list(meta.get("evidence") or [])
+        if meta.get("inspect_only"):
+            out["inspect_only"] = True
+            out["trust_tier"] = "inspect_only"
+            # Search hits must not imply desk access/collection readiness.
+            out.pop("access_mode", None)
+            out.pop("subscription_status", None)
+        if rel >= threshold:
+            annotated.append(out)
+        else:
+            rejected += 1
+
+    annotated.sort(
+        key=lambda r: (
+            -float(r.get("query_relevance") or 0),
+            -float((r.get("rank_signals") or {}).get("hybrid_score") or r.get("score") or 0),
+            str(r.get("label") or r.get("source_id") or ""),
+        )
+    )
+    if not distinctive and not concepts:
+        kept: list[dict[str, Any]] = []
+    else:
+        kept = list(annotated)
+
+    if limit is not None:
+        kept = kept[: max(1, int(limit))] if kept else []
+
+    groups = build_source_groups(q, corpus=corpus, kept_rows=kept)
+    # Related alternatives when direct candidates empty but concept family exists.
+    alternatives: list[dict[str, Any]] = []
+    if not kept:
+        for group in groups:
+            alternatives.append(
+                {
+                    "concept_id": group["concept_id"],
+                    "label": group["label"],
+                    "source_ids": group["source_ids"],
+                    "role": group.get("role") or "alternative",
+                    "notes": group.get("notes"),
+                }
+            )
+        # If polling-like with no catalog concept, do not invent finance alternatives.
+        qtoks = _expand_blob_tokens(q)
+        if (qtoks & _POLLING_TOPIC_TOKENS) and not concepts:
+            groups = []
+            alternatives = []
+
+    no_supported_route = bool(q) and not kept
+    # When we have empty direct results but catalog concept alternatives, still flag miss.
+    if no_supported_route and alternatives:
+        # Stablecoin incidents: prefer surfacing evidence-backed onchain rows when present in corpus.
+        # Rehydrate preferred concept members as candidates when evidence exists in corpus.
+        rehydrated: list[dict[str, Any]] = []
+        for group in groups:
+            if group.get("role") == "alternative":
+                continue
+            for sid in group.get("source_ids") or []:
+                row = next(
+                    (
+                        r
+                        for r in (corpus or [])
+                        if str(r.get("source_id") or "").strip().lower() == sid
+                    ),
+                    None,
+                )
+                if not row:
+                    continue
+                rel, meta = source_evidence_score(row, q)
+                if rel < threshold:
+                    continue
+                item = dict(row)
+                item["query_relevance"] = round(float(rel), 2)
+                item["relevance_evidence"] = list(meta.get("evidence") or [])
+                rehydrated.append(item)
+        if rehydrated:
+            rehydrated.sort(
+                key=lambda r: (
+                    -float(r.get("query_relevance") or 0),
+                    str(r.get("source_id") or ""),
+                )
+            )
+            kept = rehydrated[: max(1, int(limit or len(rehydrated)))]
+            no_supported_route = False
+            alternatives = [g for g in groups if g.get("role") == "alternative"]
+            groups = build_source_groups(q, corpus=corpus, kept_rows=kept)
+
+    meta = {
+        "relevance_gate": "capability_or_distinctive_evidence",
+        "distinctive_tokens": distinctive,
+        "concepts": [c["id"] for c in concepts],
+        "min_query_relevance": threshold,
+        "candidates_before_gate": len(rows),
+        "candidates_after_gate": len(kept),
+        "rejected_weak_matches": rejected,
+        "source_groups": groups,
+        "no_supported_route": no_supported_route,
+        "alternatives": alternatives if no_supported_route else [g for g in groups if g.get("role") == "alternative"],
+    }
+    return kept, meta
+
+
 def _detect_query_domains(query: str) -> set[str]:
     """Transparent domain tags from natural-language Explore queries."""
     q = str(query or "").strip().lower()
@@ -96,12 +681,37 @@ def _detect_query_domains(query: str) -> set[str]:
         domains.add("onchain")
     # "transaction history" alone is ambiguous; only tag onchain with crypto cues.
     if ("transaction" in toks or "transactions" in toks) and (
-        toks & {"blockchain", "ethereum", "crypto", "cryptocurrency", "onchain", "stablecoin", "stablecoins", "web3", "defi", "token", "tokens"}
+        toks
+        & {
+            "blockchain",
+            "ethereum",
+            "crypto",
+            "cryptocurrency",
+            "onchain",
+            "stablecoin",
+            "stablecoins",
+            "web3",
+            "defi",
+            "token",
+            "tokens",
+        }
         or "on-chain" in q
     ):
         domains.add("onchain")
-    if toks & {"edgar", "sec", "mops", "governance", "regulatory", "filing", "filings", "disclosure", "disclosures"}:
+    if toks & {
+        "edgar",
+        "sec",
+        "mops",
+        "governance",
+        "regulatory",
+        "filing",
+        "filings",
+        "disclosure",
+        "disclosures",
+    }:
         domains.add("governance")
+    if toks & {"gdelt", "news", "gkg"} or "news shock" in q:
+        domains.add("news")
     return domains
 
 
@@ -128,12 +738,19 @@ def _domain_capability_affinity(
     if "onchain" in domains:
         onchain_cap = bool(caps & _ONCHAIN_CAPABILITIES)
         onchain_meta = bool(blob_toks & _ONCHAIN_SOURCE_HINTS) or "on-chain" in blob
-        if onchain_cap:
+        stablecoin_query = bool(q_toks & {"stablecoin", "stablecoins", "usdt", "usdc"})
+        nft_specialty = bool(blob_toks & {"nft", "opensea"}) and not bool(
+            blob_toks & {"stablecoin", "stablecoins", "usdt", "usdc", "ethereum", "bigquery"}
+        )
+        if onchain_cap and not (stablecoin_query and nft_specialty):
             score += 1.15
             signals["capability_match"] = sorted(caps & _ONCHAIN_CAPABILITIES)
-        elif onchain_meta:
+        elif onchain_meta and not (stablecoin_query and nft_specialty):
             score += 0.55
             signals["metadata_onchain_hint"] = True
+        if stablecoin_query and nft_specialty:
+            score -= 0.85
+            signals["domain_mismatch"] = "nft_specialty_for_stablecoin_query"
         # Direct query-term hits in source identity/notes (ethereum, bigquery, …).
         identity_hits = sorted((q_toks | _ONCHAIN_QUERY_TERMS) & blob_toks & _ONCHAIN_SOURCE_HINTS)
         if identity_hits:
@@ -148,6 +765,11 @@ def _domain_capability_affinity(
         if caps & _GOVERNANCE_CAPABILITIES:
             score += 0.85
             signals["capability_match"] = sorted(caps & _GOVERNANCE_CAPABILITIES)
+
+    if "news" in domains and not ("onchain" in domains):
+        if caps & _NEWS_CAPABILITIES:
+            score += 0.9
+            signals["capability_match"] = sorted(caps & _NEWS_CAPABILITIES)
 
     return score, signals
 
@@ -837,7 +1459,9 @@ def semantic_search_discover_sources(
     # Dedupe to source-level capability winners (no connector spam).
     deduped = _dedupe_best_per_capability(scored, keep_connectors=False)
     deduped.sort(key=lambda item: (-item[0], str(item[1].get("label") or "")))
-    results = [with_candidate_key(dict(row)) or row for _, row in deduped[:limit]]
+    # Wider pool before relevance gate so weak embedding heads can be dropped.
+    pre_gate = [with_candidate_key(dict(row)) or row for _, row in deduped[: max(limit * 3, limit)]]
+    results, gate_meta = apply_source_relevance_gate(pre_gate, q, limit=limit, corpus=corpus)
     results = stamp_rows(results)
     for row in results:
         row["match_mode"] = mode
@@ -845,6 +1469,7 @@ def semantic_search_discover_sources(
             row["kind"] = "source"
             row["result_type"] = "source"
 
+    relevance_miss = bool(q) and not results
     return {
         "query": q,
         "result_kind": "source",
@@ -854,10 +1479,17 @@ def semantic_search_discover_sources(
             "formula": "0.30*base_norm + 0.15*lexical_norm + 0.55*affinity_norm + 0.12*affinity_raw - 0.18*domain_irrelevant",
             "domains": sorted(_detect_query_domains(q)),
             "base_mode": base_mode,
+            **gate_meta,
         },
         "embedding_model": model_name,
         "results": results,
         "total": len(results),
+        "index_miss": relevance_miss,
+        "relevance_miss": relevance_miss,
+        "weak_match": relevance_miss,
+        "no_supported_route": bool(gate_meta.get("no_supported_route")),
+        "source_groups": list(gate_meta.get("source_groups") or []),
+        "alternatives": list(gate_meta.get("alternatives") or []),
         "sources_tried": ["databank_source_map", "desk_sources", "access_scope", "known_adapters"],
         "remote_search": {
             "attempted": False,
@@ -1045,23 +1677,35 @@ def search_discover_sources(
         )
         if live:
             live_hits, live_reports = _run_live_adapters(query, per_adapter=_LIVE_PER_ADAPTER_CAP)
-            # Append live candidates without displacing catalog semantic hits.
+            # Inspect-only live hits; pool then relevance-gate (do not invent access).
             lim = max(1, min(int(limit or 24), 100))
             existing = {str(r.get("candidate_key") or "") for r in out["results"]}
             merged = list(out["results"])
-            remaining = max(0, lim - len(merged))
-            diversified = _diversify_live_hits(live_hits, limit=remaining or lim)
+            diversified = _diversify_live_hits(live_hits, limit=max(lim, 1))
             for row in diversified:
                 key = str(row.get("candidate_key") or "")
                 if key and key in existing:
                     continue
-                merged.append(with_candidate_key(row) or row)
+                live_row = with_candidate_key(row) or row
+                live_row["inspect_only"] = True
+                live_row["trust_tier"] = "inspect_only"
+                merged.append(live_row)
                 if key:
                     existing.add(key)
-                if len(merged) >= lim:
-                    break
-            out["results"] = stamp_rows(merged[:lim])
+            corpus = _catalog_corpus(Path(repo_root).resolve(), include_providers=True)
+            gated, gate_meta = apply_source_relevance_gate(merged, query, limit=lim, corpus=corpus)
+            out["results"] = stamp_rows(gated)
             out["total"] = len(out["results"])
+            relevance_miss = bool(str(query or "").strip()) and not out["results"]
+            out["index_miss"] = relevance_miss
+            out["relevance_miss"] = relevance_miss
+            out["weak_match"] = relevance_miss
+            out["no_supported_route"] = bool(gate_meta.get("no_supported_route"))
+            out["source_groups"] = list(gate_meta.get("source_groups") or [])
+            out["alternatives"] = list(gate_meta.get("alternatives") or [])
+            ranking = dict(out.get("ranking") or {})
+            ranking.update(gate_meta)
+            out["ranking"] = ranking
             out["remote_search"] = {
                 "attempted": True,
                 "adapters": live_reports,
@@ -1070,6 +1714,7 @@ def search_discover_sources(
                     "rule": "round_robin_provider_soft_cap",
                     "soft_cap": "ceil(limit / n_providers_with_hits)",
                 },
+                "live_hits_are_inspect_only": True,
             }
             out["sources_tried"] = list(out.get("sources_tried") or []) + ["live:huggingface", "live:datacite"]
         return out
@@ -1162,7 +1807,8 @@ def search_discover_sources(
 
     deduped = _dedupe_best_per_capability(scored, keep_connectors=keep_connectors)
     deduped.sort(key=lambda item: (-item[0], str(item[1].get("label") or "")))
-    results = [with_candidate_key(row) or row for _, row in deduped[:limit]]
+    results = [with_candidate_key(row) or row for _, row in deduped[: max(limit * 3, limit)]]
+    corpus = _catalog_corpus(root, include_providers=include_providers)
 
     remote_search: dict[str, Any] = {
         "attempted": False,
@@ -1182,22 +1828,28 @@ def search_discover_sources(
                 "rule": "round_robin_provider_soft_cap",
                 "soft_cap": "ceil(limit / n_providers_with_hits)",
             },
+            "live_hits_are_inspect_only": True,
         }
         existing = {str(r.get("candidate_key") or "") for r in results}
-        remaining = max(0, limit - len(results))
-        # When catalog is empty, diversify across the full limit; otherwise fill remainder fairly.
-        diversified = _diversify_live_hits(live_hits, limit=remaining if remaining > 0 else limit)
+        diversified = _diversify_live_hits(live_hits, limit=max(limit, 1))
         for row in diversified:
             key = str(row.get("candidate_key") or "")
             if key and key in existing:
                 continue
-            results.append(with_candidate_key(row) or row)
+            live_row = with_candidate_key(row) or row
+            live_row["inspect_only"] = True
+            live_row["trust_tier"] = "inspect_only"
+            results.append(live_row)
             if key:
                 existing.add(key)
-            if len(results) >= limit:
-                break
 
-    results = stamp_rows(results[:limit])
+    gate_meta: dict[str, Any] = {}
+    if q:
+        results, gate_meta = apply_source_relevance_gate(results, q, limit=limit, corpus=corpus)
+    else:
+        results = results[:limit]
+
+    results = stamp_rows(results)
 
     # Guard: never return registry dataset default kind.
     for row in results:
@@ -1205,12 +1857,20 @@ def search_discover_sources(
             row["kind"] = "source"
             row["result_type"] = "source"
 
+    relevance_miss = bool(q) and not results
     return {
         "query": q,
         "result_kind": "source",
         "search_mode": "catalog",
         "results": results,
         "total": len(results),
+        "index_miss": relevance_miss,
+        "relevance_miss": relevance_miss,
+        "weak_match": relevance_miss,
+        "no_supported_route": bool(gate_meta.get("no_supported_route")) if gate_meta else relevance_miss,
+        "source_groups": list(gate_meta.get("source_groups") or []),
+        "alternatives": list(gate_meta.get("alternatives") or []),
+        "ranking": {"rule": "catalog_lexical", **gate_meta} if gate_meta else {"rule": "catalog_lexical"},
         "sources_tried": sources_tried,
         "remote_search": remote_search,
         "excludes": {

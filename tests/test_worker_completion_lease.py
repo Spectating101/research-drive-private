@@ -9,7 +9,9 @@ from scripts.yzu_cluster.orchestrator import YzuOrchestrator
 from scripts.yzu_cluster.worker_control import WorkerControlPlane
 
 
-def test_remote_completion_renews_lease_during_controller_finalization(tmp_path: Path) -> None:
+def test_remote_completion_renews_lease_during_controller_finalization(
+    tmp_path: Path, public_fixture_network_policy
+) -> None:
     (tmp_path / "config").mkdir()
     (tmp_path / "config/yzu_cluster.json").write_text(
         json.dumps(
@@ -37,7 +39,7 @@ def test_remote_completion_renews_lease_during_controller_finalization(tmp_path:
     job = orchestrator.submit(
         "Remote finalization",
         {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["remote-output"]},
-        {"idempotency_key": "remote-finalization"},
+        {"idempotency_key": "remote-finalization", "_ops_internal": True},
         auto_approve=True,
     )
     control.join(

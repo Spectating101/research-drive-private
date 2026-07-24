@@ -688,6 +688,8 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
         },
         "issues": issues,
         "issues_count": len(issues),
+        "inventory": health.get("inventory") or cat.get("inventory"),
+        "view_scope": health.get("view_scope") or cat.get("view_scope"),
         "spending": {
             "period": period,
             "today": usage_today,

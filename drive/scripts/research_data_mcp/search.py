@@ -7,6 +7,14 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scripts.research_data_mcp.inventory_authority import (
+    SCOPE_DESK_VISIBLE,
+    SCOPE_REGISTRY_ALL,
+    SCOPE_RETURNED_WINDOW,
+    build_inventory_summary,
+    is_excluded_operational_or_test,
+    view_scope,
+)
 from scripts.research_query_engine.engine import ResearchQueryEngine
 from scripts.yzu_cluster.acquisitions import repo_relpath
 
@@ -104,7 +112,7 @@ class SearchService:
 
     @classmethod
     def _is_ops_noise_dataset(cls, row: dict[str, Any]) -> bool:
-        if row.get("professor_visible") is False:
+        if row.get("professor_visible") is False or is_excluded_operational_or_test(row):
             return True
         blob = " ".join(
             str(row.get(key) or "")
@@ -138,6 +146,16 @@ class SearchService:
             out["description"] = one_line
         return out
 
+    def inventory_summary(self, *, include_partition_lanes: bool = True) -> dict[str, Any]:
+        """Canonical inventory projection for this loaded registry revision."""
+        self._maybe_reload_registry()
+        return build_inventory_summary(
+            self.engine.list_datasets(),
+            registry_path=self.registry_path,
+            repo_root=self.repo_root,
+            include_partition_lanes=include_partition_lanes,
+        )
+
     def list_datasets(
         self,
         q: str = "",
@@ -149,6 +167,12 @@ class SearchService:
         self._maybe_reload_registry()
         bounded_limit = max(1, min(int(limit or 200), 500))
         all_registry = list(self.engine.list_datasets())
+        inventory = build_inventory_summary(
+            all_registry,
+            registry_path=self.registry_path,
+            repo_root=self.repo_root,
+            include_partition_lanes=True,
+        )
         if q.strip() or readiness or access_shape:
             registry_rows = self.engine.search_datasets(
                 q=q,
@@ -187,6 +211,16 @@ class SearchService:
             combined = kept_registry + kept_recovery
         total_matching = len(combined)
         rows = [self._professor_view_row(row) for row in combined[:bounded_limit]]
+        filtered = bool(q.strip() or readiness or access_shape or recovery_rows)
+        if filtered:
+            scope_id = SCOPE_RETURNED_WINDOW
+            primary_field = "returned_matching"
+        elif include_ops:
+            scope_id = SCOPE_REGISTRY_ALL
+            primary_field = "registered"
+        else:
+            scope_id = SCOPE_DESK_VISIBLE
+            primary_field = "visible_to_desk"
         return {
             "returned": len(rows),
             "total": total_matching,
@@ -195,10 +229,34 @@ class SearchService:
             "datasets": rows,
             "ops_datasets_hidden": hidden_ops,
             "include_ops": bool(include_ops),
+            "inventory": inventory,
+            "view_scope": view_scope(
+                scope_id=scope_id,
+                primary_total=total_matching,
+                primary_total_field=primary_field,
+                inventory=inventory,
+                filters={
+                    "q": q,
+                    "readiness": readiness,
+                    "access_shape": access_shape,
+                    "limit": bounded_limit,
+                    "includes_receipt_recovery": bool(recovery_rows),
+                },
+                note=(
+                    "`total` is matching rows for this query window (registry + verified receipt "
+                    "recovery). Compare only with payloads that share inventory.registry_revision."
+                    "fingerprint and the same view_scope.scope. "
+                    "completed != registered != query_ready."
+                ),
+            ),
+            "ops_datasets_hidden": hidden_ops,
+            "include_ops": bool(include_ops),
             "authority_summary": {
                 "registry_rows": sum(1 for row in rows if row.get("backend") != "registered_asset_receipt"),
                 "receipt_recovery_rows": sum(1 for row in rows if row.get("backend") == "registered_asset_receipt"),
                 "registry_total": len(all_registry),
+                "visible_to_desk": inventory["totals"]["visible_to_desk"],
+                "excluded_operational_test": inventory["totals"]["excluded_operational_test"],
                 "receipt_recovery_semantics": (
                     "Only archive-verified, registry-read-back registration receipts are recovered; "
                     "receipt-only rows remain non-queryable until catalog reconciliation. "
@@ -417,6 +475,8 @@ class SearchService:
         return self.query_dataset(dataset_id, params)
 
     def library_overview(self) -> dict[str, Any]:
+        self._maybe_reload_registry()
+        inventory = self.inventory_summary()
         buckets: dict[str, list[dict[str, str]]] = {
             "instant_local": [],
             "metadata_search": [],
@@ -424,7 +484,10 @@ class SearchService:
             "procurement_ops": [],
             "other": [],
         }
-        for ds in self.list_datasets(limit=500).get("datasets") or []:
+        # Desk overview is registry-scoped (not receipt recovery). Ops/test cards
+        # remain listed under procurement_ops for operators but are excluded from
+        # the desk-visible primary total.
+        for ds in self.engine.list_datasets():
             item = {
                 "dataset_id": ds["dataset_id"],
                 "name": ds.get("name", ds["dataset_id"]),
@@ -443,11 +506,29 @@ class SearchService:
                 buckets["procurement_ops"].append(item)
             else:
                 buckets["other"].append(item)
+        desk_total = inventory["totals"]["visible_to_desk"]
+        registered_total = inventory["totals"]["registered"]
         return {
             "registry": repo_relpath(self.registry_path, self.repo_root),
-            "total_datasets": sum(len(rows) for rows in buckets.values()),
+            "total_datasets": desk_total,
+            "registered_datasets": registered_total,
+            "excluded_operational_test": inventory["totals"]["excluded_operational_test"],
+            "bucket_row_count": sum(len(rows) for rows in buckets.values()),
             "buckets": buckets,
             "partitions": self._partition_summary(),
+            "inventory": inventory,
+            "view_scope": view_scope(
+                scope_id=SCOPE_DESK_VISIBLE,
+                primary_total=desk_total,
+                primary_total_field="visible_to_desk",
+                inventory=inventory,
+                note=(
+                    "total_datasets is desk-visible registry rows. registered_datasets is the full "
+                    "registry authority count. Bucket lists still include ops cards under "
+                    "procurement_ops for operators. Do not compare to /datasets `total` when that "
+                    "window includes receipt recovery or query filters."
+                ),
+            ),
             "recommended_flow": [
                 "GET /library/catalog or /library/overview",
                 "POST /library/advise before downloading",

@@ -19,8 +19,21 @@ _CACHE_LOCK = threading.Lock()
 _IO_SNAPSHOT: dict[str, Any] = {"sampled_at": 0.0, "data": {}}
 
 
+def chat_timeout_seconds() -> float:
+    """Hard wall-clock bound for /library/chat and /library/chat/stream Composer turns.
+
+    Prefer DESK_CHAT_TIMEOUT_SECONDS. DESK_COMPOSER_SLA_SECONDS remains a legacy alias.
+    Default 40s — long enough for a real turn, short enough to avoid indefinite hangs.
+    """
+    raw = os.environ.get("DESK_CHAT_TIMEOUT_SECONDS")
+    if raw is None or not str(raw).strip():
+        raw = os.environ.get("DESK_COMPOSER_SLA_SECONDS", "40")
+    return max(5.0, float(raw))
+
+
 def composer_sla_seconds() -> float:
-    return max(15.0, float(os.environ.get("DESK_COMPOSER_SLA_SECONDS", "90")))
+    """Compatibility alias for chat_timeout_seconds()."""
+    return chat_timeout_seconds()
 
 
 def search_cache_ttl_seconds() -> float:
@@ -130,6 +143,7 @@ PROCUREMENT_RAIL = ("submit_collect", "submit_job")
 
 def scale_status() -> dict[str, Any]:
     return {
+        "chat_timeout_seconds": chat_timeout_seconds(),
         "composer_sla_seconds": composer_sla_seconds(),
         "search_cache": cache_stats(),
         "io": io_pressure_sample(),
@@ -138,6 +152,8 @@ def scale_status() -> dict[str, Any]:
         "procurement_rail": list(PROCUREMENT_RAIL),
         "fast_paths": list(DISCOVERY_RAIL),  # legacy key — discovery only
         "env": {
+            "DESK_CHAT_TIMEOUT_SECONDS": os.environ.get("DESK_CHAT_TIMEOUT_SECONDS", ""),
+            "DESK_COMPOSER_SLA_SECONDS": os.environ.get("DESK_COMPOSER_SLA_SECONDS", ""),
             "DESK_UNIFIED_SEARCH_BUDGET": os.environ.get("DESK_UNIFIED_SEARCH_BUDGET", "8"),
             "DESK_DATACITE_PREFETCH_BUDGET": os.environ.get("DESK_DATACITE_PREFETCH_BUDGET", "6"),
             "DESK_DATACITE_MAX_SHARD_SCANS": os.environ.get("DESK_DATACITE_MAX_SHARD_SCANS", "4"),
