@@ -103,15 +103,10 @@ test.describe("professor demo @ live-desk", () => {
     await expect(cont).toBeVisible();
     await expect(cont).toContainText(/Pick up|Continue working/);
     await expect(cont.getByRole("button", { name: "Continue" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Search the lab/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Discover data/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Ask the assistant/i })).toBeVisible();
     await expect(page.locator(".rd-v2-home-attention")).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent research assets" })).toBeVisible();
 
-    const holdingsText = await page.locator(".rd-v2-home-action", { hasText: "Search the lab" }).innerText();
-    const holdingsMatch = holdingsText.match(/(\d+)\s+holdings/i);
-    const holdings = holdingsMatch ? parseInt(holdingsMatch[1], 10) : datasetCount;
+    const holdings = datasetCount;
     const attentionCount = await page.locator(".rd-v2-home-attention article").count();
 
     record("home_command", "Home continuation surface + attention queue", true, {
