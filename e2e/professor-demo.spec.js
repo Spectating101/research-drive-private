@@ -153,17 +153,16 @@ test.describe("professor demo @ live-desk", () => {
     await waitLive(page);
 
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
-    const summary = page.getByRole("region", { name: "Discover result summary" });
-    await expect(summary).toBeVisible();
-    await expect(summary).toContainText(/results for/i);
-    await expect(page.getByRole("region", { name: "Sources beyond your lab" })).toBeVisible();
+    const bestFit = page.getByRole("region", { name: "Best fit" });
+    await expect(bestFit).toBeVisible();
+    await expect(bestFit).toContainText(/sources? beyond your lab|already in your lab/i);
+    const candidates = page.getByRole("list", { name: "Discover candidates" });
+    await expect(candidates.first().getByRole("button").first()).toBeVisible({ timeout: 30_000 });
+    const candidateCount = await candidates.getByRole("button").count();
 
-    const candidates = page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate');
-    await expect(candidates.first()).toBeVisible({ timeout: 30_000 });
-    const candidateCount = await candidates.count();
-
-    const firstTitle = await candidates.first().locator("strong").innerText();
-    const sourceLabel = await candidates.first().locator(".rd-v2-discover-candidate-source").innerText();
+    const firstCandidate = bestFit.getByRole("button").first();
+    const firstTitle = await firstCandidate.locator("strong").innerText();
+    const sourceLabel = (await firstCandidate.innerText()).split("\n").slice(-1)[0];
 
     record("discover_search", "Discover search + evidence evaluation", true, {
       query: SEARCH_QUERY,
