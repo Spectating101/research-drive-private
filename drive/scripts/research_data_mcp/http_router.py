@@ -370,16 +370,19 @@ def _handlers() -> dict[str, Handler]:
             url = str(hit.get("url") or "").strip()
             if not url:
                 continue
-            rows.append(
-                {
-                    "kind": "web_hit",
-                    "title": hit.get("title") or url,
-                    "url": url,
-                    "source": hit.get("source") or "web",
-                    "description": hit.get("snippet") or hit.get("content") or "",
-                    "publisher": hit.get("source") or "web",
-                }
-            )
+            row = {
+                "kind": "web_hit",
+                "title": hit.get("title") or url,
+                "url": url,
+                "source": hit.get("source") or "web",
+                "description": hit.get("snippet") or hit.get("content") or "",
+                "publisher": hit.get("source") or "web",
+                "inspect_only": True,
+                "trust_tier": "inspect_only",
+            }
+            if hit.get("query_relevance") is not None:
+                row["query_relevance"] = hit.get("query_relevance")
+            rows.append(row)
         rows = stamp_rows(rows)
         if q:
             _activity(stack, "discover", f"web:{q[:180]}", meta={"total": len(rows), "web": True})
@@ -388,7 +391,10 @@ def _handlers() -> dict[str, Handler]:
             "sections": [{"id": "web_discover", "label": "Open web", "rows": rows}] if rows else [],
             "total": len(rows),
             "index_miss": True,
+            "relevance_miss": not rows,
             "sources_tried": raw.get("sources_tried") or [],
+            "relevance": raw.get("relevance")
+            or {"rule": "distinctive_aspect_overlap", "note": "web hits are inspect-only"},
         }
 
     def library_discover_probe(stack, query, payload, params):
