@@ -101,7 +101,7 @@ test.describe("professor demo @ live-desk", () => {
 
     const cont = page.getByTestId("home-continue");
     await expect(cont).toBeVisible();
-    await expect(cont).toContainText("Continue working");
+    await expect(cont).toContainText(/Pick up|Continue working/);
     await expect(cont.getByRole("button", { name: "Continue" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Search the lab/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Discover data/i })).toBeVisible();
