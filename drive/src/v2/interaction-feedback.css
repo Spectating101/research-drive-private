@@ -72,8 +72,8 @@
 
 .rd-v2-rich-popover-close:hover,
 .rd-v2-rich-popover-close:focus-visible {
-  background: rgba(70, 86, 232, 0.09);
-  color: #3848c9;
+  background: rgba(63, 111, 92, 0.09);
+  color: #3f6f5c;
 }
 
 .rd-v2-rich-popover-close svg {
@@ -111,7 +111,7 @@
   width: 15px;
   height: 15px;
   margin-top: 1px;
-  color: #4255d8;
+  color: #3f6f5c;
   stroke-width: 2.3;
 }
 
@@ -131,8 +131,8 @@
 
 .rd-v2-context-help-rich[aria-expanded="true"] {
   opacity: 1;
-  background: rgba(70, 86, 232, 0.12);
-  color: #3446ce;
+  background: rgba(63, 111, 92, 0.12);
+  color: #3f6f5c;
 }
 
 .rd-v2-skeleton {
@@ -176,7 +176,7 @@
 .rd-v2-progress-card-head > svg {
   width: 15px;
   height: 15px;
-  color: #4656d8;
+  color: #3f6f5c;
   animation: rd-feedback-spin 0.9s linear infinite;
 }
 
@@ -220,9 +220,9 @@
 }
 
 .rd-v2-progress-card li[data-state="active"] .rd-v2-progress-marker {
-  border-color: rgba(70, 86, 232, 0.55);
-  background: rgba(70, 86, 232, 0.1);
-  color: #3d4fd4;
+  border-color: rgba(63, 111, 92, 0.55);
+  background: rgba(63, 111, 92, 0.1);
+  color: #3f6f5c;
 }
 
 .rd-v2-progress-card li[data-state="done"] .rd-v2-progress-marker {
@@ -295,7 +295,7 @@
   width: 13px;
   height: 13px;
   margin-top: 1px;
-  color: #4053d7;
+  color: #3f6f5c;
 }
 
 .rd-v2-ask-guided-empty {
@@ -378,8 +378,8 @@
   width: 13px;
   height: 13px;
   flex: 0 0 auto;
-  border: 2px solid rgba(70, 86, 232, 0.22);
-  border-top-color: #4656d8;
+  border: 2px solid rgba(63, 111, 92, 0.22);
+  border-top-color: #3f6f5c;
   border-radius: 999px;
   animation: rd-feedback-spin 0.9s linear infinite;
 }

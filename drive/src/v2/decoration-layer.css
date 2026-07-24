@@ -6,13 +6,13 @@
 }
 
 @keyframes rd-decor-marker-halo {
-  0% { box-shadow: 0 0 0 0 rgba(70, 86, 232, 0.22); }
-  100% { box-shadow: 0 0 0 6px rgba(70, 86, 232, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(63, 111, 92, 0.22); }
+  100% { box-shadow: 0 0 0 6px rgba(63, 111, 92, 0); }
 }
 
 @keyframes rd-decor-live-node {
-  0% { box-shadow: 0 0 0 0 rgba(70, 86, 232, 0.24); }
-  100% { box-shadow: 0 0 0 5px rgba(70, 86, 232, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(63, 111, 92, 0.24); }
+  100% { box-shadow: 0 0 0 5px rgba(63, 111, 92, 0); }
 }
 
 @keyframes rd-decor-progress-indeterminate {
@@ -74,7 +74,7 @@
   inset: 0 0 auto;
   height: 2px;
   content: "";
-  background: linear-gradient(90deg, #4656e8, #7461ee 58%, #4c9bd8);
+  background: linear-gradient(90deg, #4e7c67, var(--rd-link, #3f6f5c) 58%, #2f5a52);
   opacity: 0.82;
 }
 
@@ -99,7 +99,7 @@
   height: 15px;
   flex: 0 0 auto;
   margin-top: 1px;
-  color: #4656d8;
+  color: var(--rd-accent);
   animation: rd-feedback-spin 0.9s linear infinite;
 }
 
@@ -128,7 +128,7 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #4656e8;
+  background: var(--rd-accent);
 }
 
 /* Indeterminate by design: no percentage is implied without backend measurement. */
@@ -145,7 +145,7 @@
   width: 42%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(70, 86, 232, 0.24), #4656e8 48%, #7461ee);
+  background: linear-gradient(90deg, rgba(63, 111, 92, 0.25), var(--rd-link, #3f6f5c) 48%, #2f5a52);
   animation: rd-decor-progress-indeterminate 1.05s linear infinite;
 }
 
@@ -180,17 +180,17 @@
 }
 
 .rd-v2-progress-card li[data-state="past"]:not(:last-child)::after {
-  background: rgba(70, 86, 232, 0.2);
+  background: rgba(63, 111, 92, 0.2);
 }
 
 .rd-v2-progress-card li[data-state="past"] .rd-v2-progress-marker {
-  border-color: rgba(70, 86, 232, 0.24);
-  background: rgba(70, 86, 232, 0.045);
-  color: #6570a8;
+  border-color: rgba(63, 111, 92, 0.24);
+  background: rgba(63, 111, 92, 0.045);
+  color: #4e7c67;
 }
 
 .rd-v2-progress-card li[data-state="active"] {
-  background: rgba(70, 86, 232, 0.055);
+  background: rgba(63, 111, 92, 0.055);
   color: #34415a;
 }
 

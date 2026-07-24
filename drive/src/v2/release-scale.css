@@ -1,0 +1,546 @@
+/* Research Drive — resolution scale contract (last-loaded shell authority).
+ *
+ * Laptop/desktop ladder must NOT leak into ≤720 mobile sheet
+ * (premium.css / release-mobile-fixes own the phone layout).
+ *
+ * Contract:
+ *   ≥1536  full desk tokens (premium defaults)
+ *   721–1536  tighten sidebar/rail widths only — Detail/Ask rail stays open
+ *   ≤720   mobile bottom-nav + sheet rail (collapse grip OK here only)
+ */
+
+/* ── Shared fluid height ──────────────────────────────────────── */
+html,
+body,
+#root {
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+.yzu-main,
+.rd-v2-page,
+.rd-v2-body-scroll {
+  min-width: 0;
+}
+
+/* ── Laptop/desktop only (≥721) ──────────────────────────────── */
+@media (min-width: 721px) {
+  .rd-v2-shell {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    /* Always 3-col desk — ignore mobile rail-collapsed class */
+    grid-template-columns: var(--rd-sidebar) minmax(0, 1fr) var(--rd-rail);
+  }
+
+  .rd-v2-shell.no-rail {
+    grid-template-columns: var(--rd-sidebar) minmax(0, 1fr);
+  }
+
+  .yzu-inspector,
+  .yzu-inspector.rd-v2-rail-collapsed {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Hide the phone “Show Detail · Ask” grip on desk/laptop */
+  .rd-v2-rail-mobile-grip {
+    display: none !important;
+  }
+
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-pane,
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-toggle,
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-selection {
+    display: revert !important;
+  }
+
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-pane {
+    display: none;
+  }
+
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-pane.rd-v2-rail-pane-on {
+    display: flex !important;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1536px) {
+  :root {
+    --rd-sidebar-min: 200px;
+    --rd-sidebar-ideal: 15vw;
+    --rd-sidebar-max: 232px;
+    --rd-rail-min: 320px;
+    --rd-rail-ideal: 26vw;
+    --rd-rail-max: 380px;
+    --rd-main-pad-x: 20px;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1366px) {
+  :root {
+    --rd-sidebar-min: 188px;
+    --rd-sidebar-ideal: 14.5vw;
+    --rd-sidebar-max: 212px;
+    --rd-rail-min: 288px;
+    --rd-rail-ideal: 24vw;
+    --rd-rail-max: 340px;
+    --rd-header: 56px;
+    --rd-main-pad-x: 16px;
+    --rd-main-pad-y: 16px;
+  }
+
+  .rd-v2-header {
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .rd-v2-home-topband {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rd-v2-home-actions-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .rd-v2-page-head h1 {
+    font-size: clamp(22px, 2.2vw, 28px);
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1280px) {
+  :root {
+    --rd-sidebar-min: 180px;
+    --rd-sidebar-ideal: 14vw;
+    --rd-sidebar-max: 200px;
+    --rd-rail-min: 300px;
+    --rd-rail-ideal: 28vw;
+    --rd-rail-max: 340px;
+    --rd-main-pad-x: 14px;
+  }
+
+  .rd-v2-header {
+    grid-template-columns: var(--rd-sidebar) minmax(0, 1fr) auto auto;
+  }
+
+  .rd-v2-header-meta-count {
+    display: none;
+  }
+
+  .rd-v2-library-start-here {
+    gap: 6px 8px;
+  }
+
+  .rd-v2-home-actions-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  :root {
+    --rd-sidebar-min: 72px;
+    --rd-sidebar-ideal: 72px;
+    --rd-sidebar-max: 72px;
+    --rd-rail-min: 280px;
+    --rd-rail-ideal: 32vw;
+    --rd-rail-max: 320px;
+  }
+
+  .yzu-sidebar button {
+    justify-content: center;
+    padding: 0 8px;
+  }
+
+  .yzu-sidebar button::after,
+  .rd-nav-label {
+    display: none;
+  }
+
+  .rd-v2-sidebar-context,
+  .rd-v2-sidebar-recent {
+    display: none !important;
+  }
+
+  .rd-v2-home-actions-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  :root {
+    --rd-sidebar-min: 72px;
+    --rd-sidebar-ideal: 72px;
+    --rd-sidebar-max: 72px;
+    --rd-rail-min: 280px;
+    --rd-rail-ideal: 34vw;
+    --rd-rail-max: 320px;
+  }
+
+  .rd-v2-sidebar-context,
+  .rd-v2-sidebar-recent {
+    display: none !important;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 721px) {
+  :root {
+    --rd-header: 52px;
+    --rd-main-pad-y: 12px;
+  }
+
+  .rd-v2-page-head {
+    padding-bottom: 10px;
+  }
+
+  .rd-v2-home-page.rd-v2-home-i10 {
+    gap: 14px;
+  }
+}
+
+/* ── Mobile restore (≤720) — undo any leaked laptop grid ─────── */
+@media (max-width: 720px) {
+  :root {
+    --rd-sidebar-min: 0px;
+    --rd-sidebar-ideal: 0px;
+    --rd-sidebar-max: 0px;
+    --rd-rail-min: 0px;
+    --rd-rail-ideal: 0px;
+    --rd-rail-max: 0px;
+    --rd-header: 58px;
+    --rd-main-pad-x: 14px;
+    --rd-main-pad-y: 14px;
+  }
+
+  .rd-v2-shell,
+  .rd-v2-shell.no-rail,
+  .rd-v2-shell:has(.yzu-inspector.rd-v2-rail-collapsed),
+  .rd-v2-shell:has(.yzu-inspector:not(.rd-v2-rail-collapsed)),
+  .rd-v2-shell.no-rail:has(.yzu-inspector.rd-v2-rail-collapsed) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: var(--rd-header) minmax(0, 1fr);
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .rd-v2-header {
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: 38px minmax(0, 1fr) 34px;
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .yzu-main {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    min-width: 0;
+    min-height: 0;
+    /* nav 64 + grip 48 + gaps — keep content above chrome */
+    padding-bottom: 132px;
+    overflow: hidden;
+  }
+
+  .rd-v2-page,
+  .rd-v2-body-scroll {
+    min-width: 0;
+  }
+
+  .rd-v2-page-head h1 {
+    font-size: 24px;
+  }
+
+  .rd-v2-lead {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* Bottom nav sheet — beat dark-chrome !important from release-visual */
+  .yzu-sidebar.rd-v2-sidebar-wire,
+  .yzu-sidebar {
+    position: fixed !important;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    top: auto !important;
+    z-index: 80;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0;
+    width: auto !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    max-height: 64px;
+    padding: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(210, 216, 226, 0.92) !important;
+    border-right: 1px solid rgba(210, 216, 226, 0.92) !important;
+    border-radius: 20px;
+    background: rgba(251, 252, 254, 0.97) !important;
+    color: #3e4759 !important;
+    box-shadow: 0 18px 50px rgba(17, 24, 39, 0.22);
+    backdrop-filter: blur(20px) saturate(155%);
+  }
+
+  .yzu-sidebar .rd-v2-sidebar-foot-nav button,
+  .yzu-sidebar .rd-v2-sidebar-nav button,
+  .yzu-sidebar button {
+    color: #3e4759 !important;
+  }
+
+  .yzu-sidebar button svg {
+    stroke: #3e4759 !important;
+    opacity: 0.9;
+    width: 18px;
+    height: 18px;
+  }
+
+  .yzu-sidebar .rd-v2-sidebar-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+  }
+
+  .yzu-sidebar .rd-v2-sidebar-foot-nav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 44px;
+    gap: 2px;
+    height: 100%;
+    margin-left: 4px;
+    padding-left: 4px;
+    border-left: 1px solid rgba(210, 216, 226, 0.75);
+  }
+
+  /* Profile / Settings: icon-only to free space for primary 5 */
+  .yzu-sidebar .rd-v2-sidebar-foot-nav .rd-nav-label {
+    display: none !important;
+  }
+
+  .yzu-sidebar button {
+    height: 52px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 4px 2px 3px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: 14px;
+    color: #3e4759;
+  }
+
+  .yzu-sidebar button.active {
+    background: #eef1ee !important;
+    color: #0f171c !important;
+    box-shadow: none;
+  }
+
+  .yzu-sidebar button.active::after {
+    display: none !important;
+  }
+
+  .rd-nav-label {
+    display: block !important;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rd-v2-sidebar-context,
+  .rd-v2-sidebar-recent {
+    display: none !important;
+  }
+
+  .yzu-inspector,
+  .yzu-inspector.rd-v2-rail-collapsed,
+  .yzu-inspector:not(.rd-v2-rail-collapsed) {
+    position: fixed !important;
+    left: 8px;
+    right: 8px;
+    bottom: 80px;
+    top: auto !important;
+    z-index: 75;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-left: 0;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 18px 50px rgba(17, 24, 39, 0.18);
+  }
+
+  .yzu-inspector.rd-v2-rail-collapsed {
+    height: 44px !important;
+    max-height: 44px !important;
+    overflow: hidden;
+  }
+
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-chrome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    padding: 0;
+  }
+
+  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-mobile-grip {
+    display: block !important;
+    writing-mode: horizontal-tb;
+    transform: none;
+    width: 100%;
+    flex: none;
+    padding: 11px 14px;
+    border-radius: 18px;
+    background: #f7f8fb;
+    color: var(--rd-link, #3f6f5c);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .yzu-inspector:not(.rd-v2-rail-collapsed) {
+    height: min(68dvh, 720px);
+    max-height: calc(100dvh - 156px);
+  }
+
+  .rd-v2-home-topband,
+  .rd-v2-home-actions-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* ── Library / toolbars ─────────────────────────────────────── */
+  .rd-v2-library-page .rd-v2-toolbar,
+  .rd-v2-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-right: 0;
+  }
+
+  .rd-v2-library-toolbar-search {
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .rd-v2-library-page .rd-v2-chip,
+  .rd-v2-toolbar .rd-v2-chip {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    flex: 0 0 auto;
+  }
+
+  .rd-v2-toolbar-spacer,
+  .rd-v2-toolbar-count {
+    display: none;
+  }
+
+  .rd-v2-library-start-here {
+    display: grid;
+    gap: 8px;
+    margin: 0 0 12px;
+  }
+
+  .rd-v2-library-start-here-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rd-v2-library-start-here-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rd-v2-library-start-here-chips .rd-v2-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .rd-v2-library-pathbar,
+  .rd-v2-library-branchline {
+    display: grid;
+    gap: 8px;
+  }
+
+  .rd-v2-library-pathstats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    font-size: 11px;
+  }
+
+  .rd-v2-library-headline,
+  .rd-v2-library-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Home density */
+  .rd-v2-home-headroom-row {
+    flex-wrap: wrap;
+  }
+
+  .rd-v2-home-headroom-meta {
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+
+  .rd-v2-home-continue-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .rd-v2-home-continue-actions {
+    width: 100%;
+  }
+
+  .rd-v2-home-continue-actions .rd-v2-btn {
+    width: 100%;
+  }
+
+  /* Discover explore stacks */
+  .rd-v2-discover-explore-form,
+  .rd-v2-discover-craft-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px;
+  }
+
+  .rd-v2-discover-explore-form .rd-v2-btn,
+  .rd-v2-discover-craft-row .rd-v2-btn {
+    width: 100%;
+  }
+}

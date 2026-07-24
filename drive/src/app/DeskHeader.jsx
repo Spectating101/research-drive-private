@@ -12,13 +12,9 @@ export function DeskHeader({
   datasetCount,
   connectedCount,
   workCount,
-  onNavToggle,
 }) {
   return (
     <header className="yzu-header">
-      <button type="button" className="yzu-nav-toggle" aria-label="Menu" onClick={onNavToggle}>
-        ☰
-      </button>
       <button type="button" className="yzu-brand" onClick={onBrandClick}>
         <span className="rd-brand-mark">RD</span>
         <div className="yzu-brand-text">

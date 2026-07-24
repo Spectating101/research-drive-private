@@ -3,14 +3,14 @@
    faculty-desk wireframe without changing product or runtime contracts. */
 
 :root {
-  --rd-release-panel: rgba(255, 255, 255, 0.96);
-  --rd-release-line: #dde3ec;
-  --rd-release-soft: #f7f9fc;
-  --rd-release-ink: #172033;
-  --rd-release-subtle: #6c7890;
-  --rd-release-blue: #4656e8;
-  --rd-release-green: #157347;
-  --rd-release-amber: #9a6700;
+  --rd-release-panel: rgba(252, 252, 240, 0.96);
+  --rd-release-line: #e2ddd2;
+  --rd-release-soft: #f3f1ea;
+  --rd-release-ink: #182033;
+  --rd-release-subtle: #6e7685;
+  --rd-release-blue: #3f6f5c; /* sage signal — not indigo */
+  --rd-release-green: #3f6f5c;
+  --rd-release-amber: #9a650e;
 }
 
 /* Shared geometry and long-identity safety. */
@@ -106,7 +106,7 @@
   inset: 0 auto 0 0;
   width: 4px;
   border-radius: 10px 0 0 10px;
-  background: linear-gradient(180deg, #6b72ff, #3c4cdd);
+  background: linear-gradient(180deg, #4e7c67, var(--rd-release-green));
   pointer-events: none;
 }
 
@@ -203,7 +203,7 @@
 }
 
 .rd-v2-discover-modes button.on {
-  color: #303fc3;
+  color: #101820;
   background: #fff;
   box-shadow: 0 5px 16px rgba(35, 48, 128, 0.10);
 }
@@ -224,7 +224,7 @@
 .rd-v2-history-row.on {
   border-color: #cdd3ff;
   background: #f7f7ff;
-  box-shadow: inset 3px 0 0 var(--rd-release-blue), 0 8px 22px rgba(70, 86, 232, 0.08);
+  box-shadow: inset 3px 0 0 var(--rd-release-green), 0 8px 22px rgba(63, 111, 92, 0.1);
 }
 
 .rd-v2-discover-candidate-title,
@@ -395,7 +395,7 @@
 }
 
 .rd-v2-rail-toggle button.on {
-  color: #3040c5;
+  color: #101820;
   background: #fff;
   box-shadow: 0 4px 14px rgba(35, 48, 128, 0.10);
 }
@@ -589,7 +589,7 @@
   inset: 0 auto 0 0;
   width: 3px;
   border-radius: 0;
-  background: #3c4cdd;
+  background: #3f6f5c;
   pointer-events: none;
 }
 
@@ -642,7 +642,7 @@
 
 .rd-v2-home-pickup-secondary strong { font-size: 0.92rem; }
 .rd-v2-home-pickup-secondary span { color: #667084; font-size: 0.8rem; }
-.rd-v2-home-pickup-secondary em { color: #3c4cdd; font-style: normal; font-size: 0.78rem; }
+.rd-v2-home-pickup-secondary em { color: #3f6f5c; font-style: normal; font-size: 0.78rem; }
 .rd-v2-home-pickup-secondary.warn { border-color: #ead7b8; background: #fffaf2; }
 
 .rd-v2-home-headroom {
@@ -710,7 +710,7 @@
 .rd-v2-home-headroom-bar > span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #5b6cf0, #3c4cdd);
+  background: #101820;
 }
 
 .rd-v2-home-headroom-bar.warn > span {
@@ -748,7 +748,7 @@
 .rd-v2-linkish {
   border: 0;
   background: transparent;
-  color: #3c4cdd;
+  color: #3f6f5c;
   font-size: 0.8rem;
   cursor: pointer;
   padding: 0;
@@ -805,7 +805,7 @@
 .rd-v2-home-recommended-go,
 .rd-v2-discover-starter-row em {
   font-style: normal;
-  color: #3c4cdd;
+  color: #3f6f5c;
   font-size: 0.75rem;
   justify-self: end;
   align-self: center;
@@ -936,7 +936,7 @@
 }
 
 .rd-v2-discover-best-fit .rd-v2-discover-candidate {
-  border-left: 3px solid #3c4cdd;
+  border-left: 3px solid #3f6f5c;
 }
 
 .rd-v2-discover-rank-foot {
@@ -1026,7 +1026,7 @@
 .rd-v2-sidebar-recent {
   /* Nudge context/recent up after Profile/Settings left the primary stack. */
   padding: 10px 12px 8px;
-  border-top: 1px solid #e8ecf3;
+  border-top: 1px solid var(--rd-sidebar-line, rgba(252, 252, 240, 0.1));
   flex: 0 0 auto;
 }
 .rd-v2-sidebar-recent {
@@ -1037,7 +1037,7 @@
   flex: 0 0 auto;
   margin-top: auto;
   padding: 8px 12px 10px;
-  border-top: 1px solid #e8ecf3;
+  border-top: 1px solid var(--rd-sidebar-line, rgba(252, 252, 240, 0.1));
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1047,14 +1047,14 @@
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8a93a5;
+  color: rgba(252, 252, 240, 0.45);
   font-weight: 700;
 }
 .rd-v2-sidebar-research-title {
   display: block;
   font-size: 0.82rem;
   line-height: 1.3;
-  color: #1c2434;
+  color: var(--rd-sidebar-fg-strong, #fcfcf0);
   white-space: normal;
   overflow: visible;
   word-break: break-word;
@@ -1070,7 +1070,7 @@
 .rd-v2-sidebar-hint {
   margin: 6px 0 0;
   font-size: 0.72rem;
-  color: #7a8498;
+  color: var(--rd-sidebar-fg, #b7c0cc);
   line-height: 1.35;
 }
 .rd-v2-sidebar-recent ul {
@@ -1085,13 +1085,13 @@
   background: transparent;
   padding: 4px 0;
   text-align: left;
-  color: #3a4558;
+  color: var(--rd-sidebar-fg, #b7c0cc);
   font-size: 0.78rem;
   cursor: pointer;
   width: 100%;
 }
 .rd-v2-sidebar-recent button:hover {
-  color: #3c4cdd;
+  color: var(--rd-sidebar-fg-strong, #fcfcf0);
 }
 
 /* Library freeze ledger */
@@ -1138,8 +1138,8 @@
   color: #4a5568;
 }
 .rd-v2-library-readiness button.on {
-  border-color: #3c4cdd;
-  color: #3c4cdd;
+  border-color: #3f6f5c;
+  color: #3f6f5c;
   background: #eef1ff;
 }
 .rd-v2-library-readiness b {
@@ -1231,7 +1231,7 @@
   background: #f7f8fc;
 }
 .rd-v2-library-ledger-row.selected {
-  box-shadow: inset 3px 0 0 #3c4cdd;
+  box-shadow: inset 3px 0 0 #3f6f5c;
 }
 .rd-v2-library-ledger-title {
   display: grid;
@@ -1272,7 +1272,7 @@
   cursor: pointer;
 }
 .rd-v2-library-ledger-tools button.on {
-  color: #3c4cdd;
+  color: #3f6f5c;
   font-weight: 650;
 }
 .rd-v2-library-menu-sep {
@@ -1457,7 +1457,7 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: center;
-  color: #3c4cdd;
+  color: #3f6f5c;
   font-style: normal;
   font-size: 0.82rem;
   font-weight: 650;
@@ -1521,7 +1521,7 @@
 .rd-v2-library-selected-mark {
   display: inline-block;
   margin-right: 6px;
-  color: #1a56a8;
+  color: #3f6f5c;
   font-weight: 700;
   line-height: 1;
 }
@@ -1532,7 +1532,7 @@
 .rd-v2-history-line3 { color: #5b6578; font-size: 0.82rem; }
 .rd-v2-history-method-cue {
   margin-top: 2px;
-  color: #3c4cdd;
+  color: #3f6f5c;
   font-size: 0.78rem;
   font-weight: 650;
 }
@@ -1571,7 +1571,7 @@
 }
 .rd-v2-res-capacity-meter.on {
   border-color: #c5d4ea;
-  box-shadow: inset 3px 0 0 #1a56a8;
+  box-shadow: inset 3px 0 0 #3f6f5c;
 }
 .rd-v2-res-capacity-meter.warn { border-color: #f0c36a; }
 .rd-v2-res-capacity-meter-name {
@@ -1609,7 +1609,7 @@
 .rd-v2-res-capacity-meter-bar i {
   display: block;
   height: 100%;
-  background: #3c4cdd;
+  background: #3f6f5c;
 }
 .rd-v2-res-capacity-meter.warn .rd-v2-res-capacity-meter-bar i { background: #d97706; }
 .rd-v2-res-capacity-meter em {
@@ -1651,7 +1651,7 @@
 }
 .rd-v2-res-source-row.on {
   border-color: #c5d4ea;
-  box-shadow: inset 3px 0 0 #1a56a8;
+  box-shadow: inset 3px 0 0 #3f6f5c;
 }
 .rd-v2-res-source-identity {
   display: flex;
@@ -1701,7 +1701,7 @@
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.04em;
-  color: #1a56a8;
+  color: #3f6f5c;
 }
 .rd-v2-res-method-stages {
   list-style: none;
@@ -1720,7 +1720,7 @@
 }
 .rd-v2-res-method-stages li.active {
   border-color: #c5d4ea;
-  color: #1a56a8;
+  color: #3f6f5c;
   background: #f2f6ff;
 }
 .rd-v2-res-method-stages li.pending { color: #3a4558; }
@@ -1746,7 +1746,7 @@
 .rd-v2-library-verify-list li { display: flex; gap: 6px; }
 .rd-v2-library-tree-item.on {
   background: #f2f6ff;
-  box-shadow: inset 3px 0 0 #1a56a8;
+  box-shadow: inset 3px 0 0 #3f6f5c;
 }
 
 /* The selected-source inspector is part of the desk, not a separate dark
@@ -2047,3 +2047,69 @@
   }
 }
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+
+/* —— Sol desk color authority (palette only; last-loaded) —— */
+.rd-v2-shell {
+  background: var(--rd-canvas, #f3f1ea);
+}
+.yzu-sidebar.rd-v2-sidebar-wire,
+.yzu-sidebar {
+  background: var(--rd-sidebar-bg, #0f171c) !important;
+  color: var(--rd-sidebar-fg, #b7c0cc);
+  border-right-color: var(--rd-sidebar-line, rgba(252, 252, 240, 0.1)) !important;
+}
+.yzu-sidebar button svg {
+  opacity: 0.72;
+  stroke: currentColor;
+}
+.yzu-sidebar .rd-v2-sidebar-foot-nav button,
+.yzu-sidebar .rd-v2-sidebar-nav button {
+  color: var(--rd-sidebar-fg, #b7c0cc);
+}
+.yzu-sidebar .rd-v2-sidebar-foot-nav button.active,
+.yzu-sidebar .rd-v2-sidebar-nav button.active,
+.yzu-sidebar button.active {
+  background: var(--rd-sidebar-active-bg, #e7ece8) !important;
+  color: var(--rd-sidebar-active-fg, #0f171c) !important;
+}
+.yzu-sidebar button.active svg {
+  stroke: var(--rd-sidebar-active-fg, #0f171c) !important;
+  opacity: 1 !important;
+}
+.rd-v2-rail,
+.rd-v2-rail-pane,
+.rd-v2-body-scroll,
+.rd-v2-page {
+  background: transparent;
+}
+.rd-v2-catalog-list-wrap,
+.rd-v2-library-pathbar,
+.rd-v2-library-start-here {
+  color: var(--rd-body);
+}
+.rd-v2-catalog button.row {
+  background: rgba(252, 252, 240, 0.72);
+}
+.rd-v2-catalog button.row:hover {
+  background: #fff;
+}
+.rd-v2-rail {
+  background: rgba(252, 252, 240, 0.88);
+  border-left: 1px solid var(--rd-border, #e2ddd2);
+}
+.rd-v2-btn.primary,
+.rd-v2-library-action-btn.primary {
+  border-color: var(--rd-decision, #101820);
+  background: var(--rd-decision, #101820);
+  color: #fcfcf0;
+}
+/* Kill leftover indigo/violet washes from older layers */
+.rd-v2-chip.on,
+.rd-v2-header-pending-link,
+a.rd-v2-link {
+  color: var(--rd-link, #3f6f5c);
+}
+.rd-v2-chip.on {
+  border-color: var(--rd-active-border, #c5d2cb);
+  background: var(--rd-active-bg, #eef1ee);
+}

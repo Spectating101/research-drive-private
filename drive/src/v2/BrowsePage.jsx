@@ -137,7 +137,7 @@ function DiscoverModeTabs({ mode = "explore", pendingCount = 0, onChange }) {
   );
 }
 
-function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
+function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow, externalCatalogue = false }) {
   const taxonomy = row.discover_taxonomy || classifyDiscoverResult(row, labIds);
   const state = row.discover_state || discoverCandidateState(row, labIds);
   const selected = selectedId === candidateKey(row);
@@ -145,7 +145,8 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
     row.source || row.collect_via || row.source_route || row.publisher || row.backend || hostLabel(row.url);
   const taxonomyLine = taxonomy.label;
   const exceptionPill = exceptionalRowPill(row, taxonomy, state);
-  const showSufficiency = Number(taxonomy.group) >= 3 && row.discover_sufficiency?.browseLine;
+  const showSufficiency =
+    !externalCatalogue && Number(taxonomy.group) >= 3 && row.discover_sufficiency?.browseLine;
   const hasExplicitDescription = Boolean(
     String(row?.description || row?.recommended_use || row?.subtitle || "").trim(),
   );
@@ -198,7 +199,7 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow }) {
   );
 }
 
-function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow }) {
+function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow, externalCatalogue = false }) {
   return (
     <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
       {rows.map((row) => (
@@ -208,6 +209,7 @@ function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow }) {
           labIds={labIds}
           selectedId={selectedId}
           onSelectRow={onSelectRow}
+          externalCatalogue={externalCatalogue}
         />
       ))}
     </ul>
@@ -734,13 +736,18 @@ export function BrowsePage({
               <section className="rd-v2-discover-best-fit" aria-label="Best fit" data-testid="discover-best-fit">
                 <div className="rd-v2-home-section-head">
                   <h3>{externalSearchActive ? "External catalogue matches" : sourceRouteGap ? "Available lab routes" : "Best fit"}</h3>
-                  {scopeSummary ? <span className="muted">{scopeSummary}</span> : null}
+                  {externalSearchActive ? (
+                    <span className="muted">{plural(ranked.total, "external catalogue record")}</span>
+                  ) : scopeSummary ? (
+                    <span className="muted">{scopeSummary}</span>
+                  ) : null}
                 </div>
                 <DiscoverCandidateList
                   rows={[ranked.bestFit]}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
+                  externalCatalogue={externalSearchActive}
                 />
               </section>
             ) : null}
@@ -748,13 +755,14 @@ export function BrowsePage({
             {ranked.others.length ? (
               <section className="rd-v2-discover-other-matches" aria-label="Other matches" data-testid="discover-other-matches">
                 <div className="rd-v2-home-section-head">
-                  <h3>Other matches</h3>
+                  <h3>{externalSearchActive ? "Other catalogue records" : "Other matches"}</h3>
                 </div>
                 <DiscoverCandidateList
                   rows={ranked.others}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
+                  externalCatalogue={externalSearchActive}
                 />
               </section>
             ) : null}
@@ -765,7 +773,11 @@ export function BrowsePage({
                   {plural(ranked.total, "candidate")}
                   {stateFilter !== "all" ? ` · ${activeFilter.label}` : ""}
                 </span>
-                <span className="muted">Ranked using active research + interpreted evidence need</span>
+                <span className="muted">
+                  {externalSearchActive
+                    ? "Ordered by title and description match to this question"
+                    : "Ranked using active research + interpreted evidence need"}
+                </span>
               </footer>
             ) : null}
 

@@ -120,7 +120,7 @@
   .rd-v2-statement-row,
   .rd-v2-ledger-row
 ):focus-visible {
-  outline: 2px solid rgba(70, 86, 232, 0.78);
+  outline: 2px solid rgba(63, 111, 92, 0.78);
   outline-offset: 2px;
 }
 
@@ -155,12 +155,12 @@
 .rd-v2-context-help[data-state="instant-open"],
 .rd-v2-context-help[data-state="delayed-open"] {
   opacity: 1;
-  background: rgba(70, 86, 232, 0.09);
+  background: rgba(63, 111, 92, 0.09);
   transform: translateY(-1px);
 }
 
 .rd-v2-context-help:focus-visible {
-  outline: 2px solid rgba(70, 86, 232, 0.34);
+  outline: 2px solid rgba(63, 111, 92, 0.34);
   outline-offset: 2px;
 }
 

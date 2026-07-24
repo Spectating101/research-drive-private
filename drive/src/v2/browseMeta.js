@@ -7,7 +7,7 @@ import {
   classifyDiscoverResult,
   isLocalHolding,
   taxonomyStageCounts,
-} from "@/v2/discoverTaxonomy";
+} from "./discoverTaxonomy.js";
 
 export {
   classifyDiscoverResult,
@@ -15,7 +15,7 @@ export {
   orderDiscoverResults,
   taxonomyMatchesFilter,
   taxonomyStageCounts,
-} from "@/v2/discoverTaxonomy";
+} from "./discoverTaxonomy.js";
 
 /**
  * Presentation state for pills and rail actions.

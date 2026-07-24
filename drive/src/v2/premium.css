@@ -12,27 +12,50 @@
   --rd-main-pad-x: 24px;
   --rd-main-pad-y: 20px;
 
-  --rd-canvas: #f3f5f8;
-  --rd-surface: #ffffff;
-  --rd-sidebar-bg: #f6f7f9;
-  --rd-border: #e3e7ee;
-  --rd-border2: #cfd6e2;
-  --rd-text: #111827;
-  --rd-body: #344054;
-  --rd-muted: #475467;
-  --rd-accent: #4656e8;
-  --rd-link: #3f51d8;
-  --rd-active-bg: #e9ebff;
-  --rd-active-fg: #3646cf;
-  --rd-active-border: #cfd3ff;
-  --rd-hover: #f7f8fb;
+  /*
+   * Dark-chrome desk theme (not light indigo SaaS).
+   * Separated on purpose: cream paper + charcoal chrome + sage/amber signal.
+   * No violet/indigo washes — those belong to a different light theme.
+   */
+  --rd-canvas: #f3f1ea;
+  --rd-surface: #fcfcf0;
+  --rd-sidebar-bg: #0f171c;
+  --rd-sidebar-fg: #b8c2c8;
+  --rd-sidebar-fg-strong: #fcfcf0;
+  --rd-sidebar-line: rgba(252, 252, 240, 0.1);
+  --rd-sidebar-hover: rgba(252, 252, 240, 0.07);
+  --rd-sidebar-active-bg: #e7ece8; /* cool mist, not lavender */
+  --rd-sidebar-active-fg: #0f171c;
+  --rd-border: #e2ddd2;
+  --rd-border2: #d2ccc0;
+  --rd-text: #182033;
+  --rd-body: #3e4759;
+  --rd-muted: #6e7685;
+  --rd-accent: #101820; /* primary actions = decision ink */
+  --rd-link: #3f6f5c; /* sage — Sol’s non-indigo signal */
+  --rd-accent-soft: rgba(16, 24, 32, 0.08);
+  --rd-decision: #101820;
+  --rd-active-bg: #eef1ee;
+  --rd-active-fg: #1a3030;
+  --rd-active-border: #c5d2cb;
+  --rd-hover: #f5f2ea;
+  --rd-ready-bg: #eaf4ef;
+  --rd-ready-fg: #3f6f5c;
+  --rd-conn-bg: #e7ece8;
+  --rd-conn-fg: #1a3030;
+  --rd-review-bg: #fff6e4;
+  --rd-review-fg: #9a650e;
+  --rd-fail-bg: #fcecea;
+  --rd-fail-fg: #a33b2d;
+  --rd-ext-bg: #f0eee6;
+  --rd-ext-fg: #6e7685;
   --rd-radius: 12px;
   --rd-font: Inter, "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --rd-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
-  --rd-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.035);
-  --rd-shadow-sm: 0 6px 18px rgba(16, 24, 40, 0.06);
-  --rd-shadow-md: 0 18px 50px rgba(16, 24, 40, 0.10);
-  --rd-shadow-float: 0 24px 70px rgba(17, 24, 39, 0.18);
+  --rd-shadow-xs: 0 1px 2px rgba(24, 32, 51, 0.04);
+  --rd-shadow-sm: 0 8px 22px rgba(28, 35, 53, 0.055);
+  --rd-shadow-md: 0 16px 38px rgba(28, 35, 53, 0.07);
+  --rd-shadow-float: 0 24px 70px rgba(24, 32, 51, 0.16);
 }
 
 html,
@@ -46,7 +69,7 @@ body {
   margin: 0;
   color: var(--rd-body);
   background:
-    radial-gradient(circle at 42% -18%, rgba(116, 126, 255, 0.12), transparent 36rem),
+    linear-gradient(180deg, #f7f4ec 0%, var(--rd-canvas) 52%),
     var(--rd-canvas);
 }
 
@@ -62,7 +85,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
-  outline: 3px solid rgba(70, 86, 232, 0.20);
+  outline: 3px solid rgba(63, 111, 92, 0.28);
   outline-offset: 2px;
 }
 
@@ -99,10 +122,10 @@ summary:focus-visible {
   grid-template-columns: var(--rd-sidebar) minmax(120px, 260px) minmax(0, 1fr) auto auto;
   gap: 14px;
   overflow: visible;
-  background: rgba(255, 255, 255, 0.86);
-  border-bottom: 1px solid rgba(218, 223, 232, 0.84);
-  backdrop-filter: blur(18px) saturate(150%);
-  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.02);
+  background: rgba(252, 252, 240, 0.94);
+  border-bottom: 1px solid rgba(226, 221, 210, 0.95);
+  backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 0 1px 0 rgba(16, 24, 32, 0.04);
 }
 
 .yzu-brand {
@@ -114,8 +137,8 @@ summary:focus-visible {
   width: 34px;
   height: 34px;
   border-radius: 11px;
-  background: linear-gradient(145deg, #6b72ff 0%, #4656e8 48%, #2436b9 100%);
-  box-shadow: 0 8px 22px rgba(70, 86, 232, 0.25), inset 0 1px 0 rgba(255,255,255,0.30);
+  background: linear-gradient(145deg, #24343a 0%, var(--rd-decision) 55%, #0a1014 100%);
+  box-shadow: 0 8px 18px rgba(16, 24, 32, 0.28), inset 0 1px 0 rgba(252, 252, 240, 0.12);
   font-size: 10px;
   letter-spacing: 0.06em;
 }
@@ -143,9 +166,9 @@ summary:focus-visible {
 }
 
 .rd-v2-search-pill:focus-within {
-  border-color: rgba(70, 86, 232, 0.48);
+  border-color: rgba(63, 111, 92, 0.45);
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(70, 86, 232, 0.08), var(--rd-shadow-sm);
+  box-shadow: 0 0 0 4px rgba(63, 111, 92, 0.1), var(--rd-shadow-sm);
   transform: translateY(-1px);
 }
 
@@ -207,9 +230,10 @@ summary:focus-visible {
 /* ── Navigation ──────────────────────────────────────────────── */
 .yzu-sidebar {
   padding: 16px 10px 12px;
-  background: rgba(246, 247, 249, 0.82);
-  border-right: 1px solid rgba(218, 223, 232, 0.84);
-  backdrop-filter: blur(14px);
+  background: var(--rd-sidebar-bg);
+  border-right: 1px solid var(--rd-sidebar-line);
+  backdrop-filter: none;
+  color: var(--rd-sidebar-fg);
 }
 
 .yzu-sidebar nav {
@@ -221,7 +245,7 @@ summary:focus-visible {
   height: 42px;
   padding: 0 13px;
   border-radius: 11px;
-  color: #475467;
+  color: var(--rd-sidebar-fg);
   font-size: 13px;
   font-weight: 590;
   gap: 12px;
@@ -233,17 +257,22 @@ summary:focus-visible {
 }
 
 .yzu-sidebar button:hover {
-  background: rgba(255,255,255,.9);
-  color: #1d2939;
+  background: var(--rd-sidebar-hover);
+  color: var(--rd-sidebar-fg-strong);
   transform: translateX(1px);
-  box-shadow: var(--rd-shadow-xs);
+  box-shadow: none;
 }
 
 .yzu-sidebar button.active {
-  background: #fff;
-  color: #2738bd;
+  background: var(--rd-sidebar-active-bg);
+  color: var(--rd-sidebar-active-fg);
   font-weight: 680;
-  box-shadow: 0 6px 20px rgba(35, 48, 128, 0.08), 0 0 0 1px rgba(70,86,232,.08);
+  box-shadow: none;
+}
+
+.yzu-sidebar button.active svg {
+  opacity: 1;
+  stroke: var(--rd-sidebar-active-fg);
 }
 
 .yzu-sidebar button.active::after {
@@ -252,8 +281,8 @@ summary:focus-visible {
   height: 5px;
   margin-left: auto;
   border-radius: 999px;
-  background: #5362ee;
-  box-shadow: 0 0 0 4px rgba(83,98,238,.10);
+  background: var(--rd-link);
+  box-shadow: 0 0 0 4px rgba(63, 111, 92, 0.18);
 }
 
 /* ── Page surfaces ───────────────────────────────────────────── */
@@ -328,17 +357,17 @@ summary:focus-visible {
 
 .rd-v2-btn.primary,
 .rd-v2-library-action-btn.primary {
-  border-color: #4656e8;
-  background: linear-gradient(180deg, #5968f1 0%, #4656e8 100%);
-  color: #fff;
-  box-shadow: 0 7px 18px rgba(70,86,232,.22), inset 0 1px 0 rgba(255,255,255,.18);
+  border-color: var(--rd-decision);
+  background: var(--rd-decision);
+  color: #fcfcf0;
+  box-shadow: 0 7px 18px rgba(16, 24, 32, 0.2), inset 0 1px 0 rgba(252, 252, 240, 0.1);
 }
 
 .rd-v2-btn.primary:hover:not(:disabled),
 .rd-v2-library-action-btn.primary:hover {
-  border-color: #3545d5;
-  background: linear-gradient(180deg, #4f5fe8 0%, #3949d6 100%);
-  box-shadow: 0 10px 24px rgba(70,86,232,.28);
+  border-color: #1a2a32;
+  background: #1a2a32;
+  box-shadow: 0 10px 22px rgba(16, 24, 32, 0.26);
 }
 
 .rd-v2-chip {
@@ -349,9 +378,9 @@ summary:focus-visible {
 }
 
 .rd-v2-chip.on {
-  border-color: #ced3ff;
-  background: #eef0ff;
-  color: #3545c8;
+  border-color: var(--rd-active-border);
+  background: var(--rd-active-bg);
+  color: var(--rd-active-fg);
 }
 
 /* ── Inspector / Ask ─────────────────────────────────────────── */
@@ -387,8 +416,8 @@ summary:focus-visible {
 
 .rd-v2-rail-toggle button.on {
   background: #fff;
-  color: #2939c0;
-  box-shadow: 0 2px 8px rgba(16,24,40,.08), 0 0 0 1px rgba(70,86,232,.07);
+  color: var(--rd-link);
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08), 0 0 0 1px rgba(63, 111, 92, 0.16);
 }
 
 .rd-v2-rail-selection {
@@ -653,7 +682,7 @@ summary:focus-visible {
 
 .rd-v2-discover-result-eyebrow,
 .rd-v2-library-estate-eyebrow {
-  color: #5968df;
+  color: #3f6f5c;
 }
 
 .rd-v2-discover-result-title {
@@ -905,7 +934,7 @@ summary:focus-visible {
 .rd-v2-res-routes > summary span { display: grid; min-width: 0; gap: 3px; }
 .rd-v2-res-routes > summary strong { font-size: 13px; font-weight: 700; }
 .rd-v2-res-routes > summary em { color: #748196; font-size: 11.5px; font-style: normal; line-height: 1.4; }
-.rd-v2-res-routes > summary b { flex: 0 0 auto; color: #4255cf; font-size: 11.5px; font-weight: 700; }
+.rd-v2-res-routes > summary b { flex: 0 0 auto; color: #3f6f5c; font-size: 11.5px; font-weight: 700; }
 .rd-v2-res-routes[open] > summary b::after { content: " · Hide"; }
 
 .rd-v2-res-routes-body {
@@ -972,7 +1001,7 @@ summary:focus-visible {
 
 .rd-v2-res-tech-ledger > summary b {
   flex: 0 0 auto;
-  color: #4255cf;
+  color: #3f6f5c;
   font-size: 11.5px;
   font-weight: 700;
 }
@@ -1099,7 +1128,7 @@ summary:focus-visible {
 }
 
 .rd-v2-profile-lab-action {
-  color: #4051d6;
+  color: #3f6f5c;
   font-weight: 680;
 }
 

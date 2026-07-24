@@ -378,7 +378,7 @@ export function LibraryPage({
             <input
               value={searchQuery}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              placeholder="Search datasets in this library…"
+              placeholder="Search this library…"
               aria-label="Search library holdings"
               onKeyDown={(e) => {
                 // Live filter; Enter just commits focus so results stay visible.
@@ -390,13 +390,13 @@ export function LibraryPage({
             Name {sortBy === "name" ? "↑" : "↕"}
           </Chip>
           <Chip active={sortBy === "updated"} onClick={() => setSortBy("updated")}>
-            Last modified {sortBy === "updated" ? "↓" : "↕"}
+            Modified {sortBy === "updated" ? "↓" : "↕"}
           </Chip>
           <Chip
             active={filterMode === "ready"}
             onClick={() => setFilterMode((cur) => (cur === "ready" ? "all" : "ready"))}
           >
-            Filter: {filterMode === "ready" ? "Query-ready" : "All"}
+            {filterMode === "ready" ? "Ready" : "All"}
           </Chip>
           <span className="rd-v2-toolbar-spacer" />
           <span className="rd-v2-toolbar-count">
