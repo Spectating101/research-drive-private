@@ -197,12 +197,14 @@ On Windows, fingerprint the token file the same way and sync **only when hashes 
 
 ### Supervised loop
 
-Prefer a durable Windows Task Scheduler entry or a small `win_worker_loop.py` started with `Start-Process` that:
+Use the repository-owned continuity bootstrap (Task Scheduler + supervised runner):
 
-- loads the token from the local token file into `YZU_WORKER_CONTROL_TOKEN`;
-- sets `PYTHONPATH` for repo/kernel/drive;
-- calls `scripts.yzu_cluster.remote_worker` with `windows-01` / `windows_lab` / `http,python`;
-- appends stdout/stderr to a local log (for example `windows-01-worker.log`).
+See `drive/docs/WINDOWS_WORKER_CONTINUITY.md` and:
+
+- `drive/scripts/yzu_cluster/install_windows_remote_worker.ps1` (`Install` / `Status` / `Stop` / `Uninstall`)
+- `drive/scripts/yzu_cluster/run_windows_remote_worker.ps1`
+
+That package loads the token from `YZU_WORKER_CONTROL_TOKEN` or `.yzu-worker-token` (never prints/fingerprints it; never puts it on the task command line), sets `PYTHONPATH`, runs `remote_worker.py` with `windows_lab` / `http,python`, and restarts on failure. Default profile is interactive `AtLogOn`; opt-in `-ContinuityProfile NonInteractiveStartup` uses `AtStartup` + `S4U` (Administrator required) for lab hosts with nobody signed in. It does not submit jobs.
 
 After restart, confirm join succeeds (no 401) and the desk job can move `queued → running → registered` for an allowed `http_manifest` only.
 

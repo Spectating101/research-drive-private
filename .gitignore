@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+.yzu-worker-token
+**/.yzu-worker-token
 
 # Python caches and build metadata
 __pycache__/
