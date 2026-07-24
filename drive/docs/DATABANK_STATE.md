@@ -31,6 +31,14 @@ YZU Cluster is a **research databank with three simultaneous jobs**:
 
 Physical files, metadata cards, and live remote connectors are **different layers of the same inventory**, not separate products.
 
+**Inventory authority (API):** live endpoints embed a versioned `inventory` projection
+(`inventory.registry_revision.fingerprint`, `totals.registered` /
+`visible_to_desk` / `excluded_operational_test`, readiness and
+`materialization.query_ready` counts, partitions) plus a `view_scope` that
+declares which total that endpoint’s headline uses. Do not compare headline
+counts across endpoints unless `scope` and fingerprint match.
+`completed != registered != query_ready`.
+
 Related scope docs: [`DESK_STATUS.md`](DESK_STATUS.md) (faculty desk), [`STORAGE_ARCHITECTURE.md`](STORAGE_ARCHITECTURE.md) (tiers), [`PROCUREMENT_PIPELINE.md`](PROCUREMENT_PIPELINE.md) (MCP/HTTP).
 
 ---

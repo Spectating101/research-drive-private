@@ -121,6 +121,12 @@ def build_consolidated_state(gateway, *, live: bool = False) -> dict[str, Any]:
             "desk_status": "docs/DESK_STATUS.md",
             "databank_state": "docs/DATABANK_STATE.md",
             "procurement_pipeline": "docs/PROCUREMENT_PIPELINE.md",
+            "inventory_authority": (
+                "Live inventory projection is attached as inventory.* by the gateway. "
+                "headline counts may include readiness probes or cached platform slices — "
+                "reconcile only when registry fingerprints match. "
+                "completed != registered != query_ready."
+            ),
         },
     }
 

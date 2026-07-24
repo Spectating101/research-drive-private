@@ -81,6 +81,9 @@ class ResearchDataGateway:
     def search_catalog(self, **kwargs: Any) -> dict[str, Any]:
         return self.search.search_catalog(**kwargs)
 
+    def inventory_summary(self, **kwargs: Any) -> dict[str, Any]:
+        return self.search.inventory_summary(**kwargs)
+
     def library_overview(self) -> dict[str, Any]:
         return self.search.library_overview()
 
@@ -840,19 +843,87 @@ class ResearchDataGateway:
 
     def platform_state(self) -> dict[str, Any]:
         """Neutral databank progress snapshot (drive/docs/status/generated/platform_progress.json)."""
+        from scripts.research_data_mcp.inventory_authority import (
+            SCOPE_REGISTRY_ALL,
+            view_scope,
+        )
+
+        inventory = self.inventory_summary()
         path = Path(self.repo_root) / "drive/docs/status/generated/platform_progress.json"
         if not path.is_file():
             path = Path(self.repo_root) / "docs/status/generated/platform_progress.json"
         if not path.is_file():
-            return {"found": False, "note": "Run drive/scripts/sync_drive_platform_state.py"}
+            return {
+                "found": False,
+                "note": "Run drive/scripts/sync_drive_platform_state.py",
+                "inventory": inventory,
+                "view_scope": view_scope(
+                    scope_id=SCOPE_REGISTRY_ALL,
+                    primary_total=inventory["totals"]["registered"],
+                    primary_total_field="registered",
+                    inventory=inventory,
+                    note=(
+                        "Cached platform_progress.json is missing. Use inventory.* as the live "
+                        "registry authority; do not invent totals from a stale snapshot."
+                    ),
+                ),
+            }
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            return {"found": False, "error": str(exc)}
-        return {"found": True, **data}
+            return {
+                "found": False,
+                "error": str(exc),
+                "inventory": inventory,
+                "view_scope": view_scope(
+                    scope_id=SCOPE_REGISTRY_ALL,
+                    primary_total=inventory["totals"]["registered"],
+                    primary_total_field="registered",
+                    inventory=inventory,
+                ),
+            }
+        cached_inventory = data.get("inventory") if isinstance(data.get("inventory"), dict) else {}
+        # Keep snapshot inventory under a distinct key so it cannot be mistaken
+        # for the live canonical projection.
+        payload = {k: v for k, v in data.items() if k != "inventory"}
+        return {
+            "found": True,
+            **payload,
+            "snapshot_inventory": cached_inventory,
+            "inventory": inventory,
+            "view_scope": view_scope(
+                scope_id=SCOPE_REGISTRY_ALL,
+                primary_total=inventory["totals"]["registered"],
+                primary_total_field="registered",
+                inventory=inventory,
+                filters={
+                    "cache_path": str(path.relative_to(self.repo_root))
+                    if path.is_relative_to(self.repo_root)
+                    else str(path)
+                },
+                note=(
+                    "inventory.* is the live registry authority for this process. "
+                    "snapshot_inventory is the cached platform_progress slice and may lag; "
+                    "never compare snapshot totals to live endpoints unless fingerprints match."
+                ),
+            ),
+            "cached_inventory_lag": {
+                "registry_datasets": cached_inventory.get("registry_datasets"),
+                "instant_datasets": cached_inventory.get("instant_datasets"),
+                "metadata_search": cached_inventory.get("metadata_search"),
+                "live_registered": inventory["totals"]["registered"],
+                "live_visible_to_desk": inventory["totals"]["visible_to_desk"],
+            },
+        }
 
     def source_map_audit(self, *, live: bool = False) -> dict[str, Any]:
         """Canonical registry ↔ source-system map."""
+        from scripts.research_data_mcp.inventory_authority import (
+            SCOPE_SOURCE_MAPPED,
+            view_scope,
+        )
+
+        inventory = self.inventory_summary()
         if not live:
             for rel in (
                 "drive/docs/status/generated/databank_source_map.json",
@@ -864,6 +935,19 @@ class ResearchDataGateway:
                         cached = json.loads(path.read_text(encoding="utf-8"))
                         cached["found"] = True
                         cached["cache_path"] = rel
+                        cached["inventory"] = inventory
+                        cached["view_scope"] = view_scope(
+                            scope_id=SCOPE_SOURCE_MAPPED,
+                            primary_total=inventory["totals"]["registered"],
+                            primary_total_field="registered",
+                            inventory=inventory,
+                            filters={"live": False, "cache_path": rel},
+                            note=(
+                                "Source-map summary counts may come from a cached audit. "
+                                "inventory.* is the live registry authority; use the same "
+                                "fingerprint before comparing totals to /datasets or /library/overview."
+                            ),
+                        )
                         return cached
                     except json.JSONDecodeError:
                         pass
@@ -872,6 +956,18 @@ class ResearchDataGateway:
         audit = build_source_map_audit(Path(self.repo_root))
         audit["found"] = True
         audit["live"] = True
+        audit["inventory"] = inventory
+        audit["view_scope"] = view_scope(
+            scope_id=SCOPE_SOURCE_MAPPED,
+            primary_total=inventory["totals"]["registered"],
+            primary_total_field="registered",
+            inventory=inventory,
+            filters={"live": True},
+            note=(
+                "summary.registry_datasets is the source-map row universe for this audit. "
+                "Prefer inventory.totals when reconciling with other desk endpoints."
+            ),
+        )
         return audit
 
     def access_scope_audit(self, *, live: bool = False) -> dict[str, Any]:
@@ -922,6 +1018,12 @@ class ResearchDataGateway:
 
     def consolidated_state(self, *, live: bool = False) -> dict[str, Any]:
         """Single Bloomberg-style desk snapshot: catalogue + entitlements + sourcing + storage."""
+        from scripts.research_data_mcp.inventory_authority import (
+            SCOPE_REGISTRY_ALL,
+            view_scope,
+        )
+
+        inventory = self.inventory_summary()
         if not live:
             for rel in (
                 "drive/docs/status/generated/consolidated_state.json",
@@ -933,6 +1035,18 @@ class ResearchDataGateway:
                         cached = json.loads(path.read_text(encoding="utf-8"))
                         cached["found"] = True
                         cached["cache_path"] = rel
+                        cached["inventory"] = inventory
+                        cached["view_scope"] = view_scope(
+                            scope_id=SCOPE_REGISTRY_ALL,
+                            primary_total=inventory["totals"]["registered"],
+                            primary_total_field="registered",
+                            inventory=inventory,
+                            filters={"live": False, "cache_path": rel},
+                            note=(
+                                "headline.* may reflect a stale consolidated snapshot. "
+                                "inventory.* is the live registry authority for cross-endpoint comparison."
+                            ),
+                        )
                         return cached
                     except json.JSONDecodeError:
                         pass
@@ -941,6 +1055,19 @@ class ResearchDataGateway:
         audit = build_consolidated_state(self, live=live)
         audit["found"] = True
         audit["live"] = live
+        audit["inventory"] = inventory
+        audit["view_scope"] = view_scope(
+            scope_id=SCOPE_REGISTRY_ALL,
+            primary_total=inventory["totals"]["registered"],
+            primary_total_field="registered",
+            inventory=inventory,
+            filters={"live": live},
+            note=(
+                "headline.registry_datasets / instant_* are consolidated desk metrics and may "
+                "apply readiness probes. Use inventory.* + matching fingerprint to reconcile "
+                "with /datasets and /library/overview."
+            ),
+        )
         return audit
 
     def desk_health(self, *, live: bool = False) -> dict[str, Any]:
@@ -1017,23 +1144,46 @@ class ResearchDataGateway:
                 out["desk"]["status_error"] = str(exc)
 
         try:
+            from scripts.research_data_mcp.inventory_authority import (
+                SCOPE_REGISTRY_ALL,
+                view_scope,
+            )
             from scripts.yzu_cluster.partition_lanes import partition_lanes
 
+            inventory = self.inventory_summary()
             rows = self.engine.list_datasets()
             lanes = partition_lanes(self.repo_root)
             instant_n = sum(1 for d in rows if str(d.get("analysis_readiness")) == "instant")
             metadata_n = sum(1 for d in rows if str(d.get("analysis_readiness")) == "metadata_search")
             plat = self.platform_state()
-            out["datasets"] = len(rows)
+            out["datasets"] = inventory["totals"]["registered"]
+            out["inventory"] = inventory
+            out["view_scope"] = view_scope(
+                scope_id=SCOPE_REGISTRY_ALL,
+                primary_total=inventory["totals"]["registered"],
+                primary_total_field="registered",
+                inventory=inventory,
+                note=(
+                    "desk_health.datasets and cluster.registry_datasets are live registered "
+                    "counts from inventory. Resources must prefer inventory over cached "
+                    "platform_state nested totals when fingerprints differ."
+                ),
+            )
             out["cluster"] = {
-                "registry_datasets": len(rows),
+                "registry_datasets": inventory["totals"]["registered"],
+                "visible_to_desk": inventory["totals"]["visible_to_desk"],
+                "excluded_operational_test": inventory["totals"]["excluded_operational_test"],
                 "instant_datasets": instant_n,
                 "metadata_datasets": metadata_n,
+                "by_analysis_readiness": inventory["by_analysis_readiness"]["registered"],
+                "by_materialization_query_ready": inventory["by_materialization_query_ready"]["registered"],
                 "professor_partitions": len(lanes),
                 "lanes_complete": sum(1 for lane in lanes if lane.get("stage") == "complete"),
                 "lanes_running": sum(1 for lane in lanes if lane.get("stage") == "running"),
                 "refinitiv_frozen": True,
-                "platform_state": plat.get("inventory") if plat.get("found") else None,
+                "registry_fingerprint": inventory["registry_revision"].get("fingerprint"),
+                "platform_state": plat.get("snapshot_inventory") if plat.get("found") else None,
+                "platform_inventory": plat.get("inventory") if plat.get("found") else inventory,
                 "source_map": plat.get("source_map_summary") if plat.get("found") else None,
                 "sources": plat.get("sources") if plat.get("found") else None,
                 "access_scope": plat.get("access_scope_summary") if plat.get("found") else None,
