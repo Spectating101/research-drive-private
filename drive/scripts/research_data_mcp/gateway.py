@@ -1075,7 +1075,8 @@ class ResearchDataGateway:
         import shutil
 
         from scripts.research_data_mcp.desk_auth import access_token_required
-        from scripts.research_data_mcp.desk_brain import cursor_composer_available, desk_brain_mode
+        from scripts.research_data_mcp.desk_brain import composer_runtime_status
+        from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
         from scripts.research_data_mcp.llm_client import llm_configured as legacy_llm_configured
         from scripts.research_data_mcp.procurement_constants import (
             MCP_TOOL_ACQUIRE,
@@ -1084,16 +1085,18 @@ class ResearchDataGateway:
         )
         from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES
 
-        brain = desk_brain_mode(self.repo_root)
-        composer_ok = cursor_composer_available()
+        composer = composer_runtime_status(self.repo_root)
+        composer_ok = bool(composer["composer_configured"])
         stats = self.orchestrator.stats()
         out: dict[str, Any] = {
             "status": "ok",
             "service": "research_library_api",
             "desk": {
-                "brain": brain,
+                "brain": composer["brain"],
                 "composer_configured": composer_ok,
+                "composer_status": composer["composer_status"],
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
+                "chat_timeout_seconds": chat_timeout_seconds(),
                 "llm_configured": composer_ok,
                 "legacy_llm_configured": legacy_llm_configured(),
                 "jobs": stats,

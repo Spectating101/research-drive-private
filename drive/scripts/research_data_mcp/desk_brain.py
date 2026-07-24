@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -133,6 +135,8 @@ def cursor_composer_available() -> bool:
     Health used to report composer_configured from the key alone, which masked
     ModuleNotFoundError on Ask when the front door ran on system Python.
     """
+    if os.getenv("DESK_COMPOSER_FORCE_UNAVAILABLE", "").strip().lower() in {"1", "true", "yes"}:
+        return False
     if not os.getenv("CURSOR_API_KEY", "").strip():
         return False
     try:
@@ -143,8 +147,36 @@ def cursor_composer_available() -> bool:
 
 
 def desk_brain_mode(repo_root: Path | None = None) -> str:
+    """Honest Ask brain label for /health — never a static optimistic cursor_composer.
+
+    Returns:
+      cursor_composer — key + importable SDK (plausible invocation)
+      direct — Composer unavailable; equipment / contextual direct turns remain
+      unavailable — forced off via DESK_COMPOSER_FORCE_UNAVAILABLE
+    """
     _ = repo_root
-    return "cursor_composer"
+    if os.getenv("DESK_COMPOSER_FORCE_UNAVAILABLE", "").strip().lower() in {"1", "true", "yes"}:
+        return "unavailable"
+    if cursor_composer_available():
+        return "cursor_composer"
+    return "direct"
+
+
+def composer_runtime_status(repo_root: Path | None = None) -> dict[str, Any]:
+    """Single source of truth for desk health Composer readiness fields."""
+    mode = desk_brain_mode(repo_root)
+    available = mode == "cursor_composer" and cursor_composer_available()
+    if available:
+        status = "ready"
+    elif mode == "unavailable":
+        status = "unavailable"
+    else:
+        status = "direct"
+    return {
+        "brain": mode,
+        "composer_configured": bool(available),
+        "composer_status": status,
+    }
 
 
 def _repo_python(repo_root: Path) -> str:
@@ -445,6 +477,47 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n\n"
 
 
+def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: float) -> AgentTurn:
+    return AgentTurn(
+        plan={"action": "composer_timeout"},
+        action_result={
+            "action": "composer_timeout",
+            "error_type": "composer_timeout",
+            "elapsed_seconds": int(elapsed),
+            "timeout_seconds": float(limit),
+            "brain": desk_brain_mode(),
+        },
+        reply=(
+            f"Ask timed out after {int(elapsed)}s waiting for Composer "
+            f"(limit {int(limit)}s). No collection or approval was started. "
+            "Try a direct command (search, probe, status) or ask about the selected object."
+        ),
+        suggested_prompts=["status", "Search vault for related datasets", "What do we know about this?"],
+        tool_name="cursor_composer",
+    )
+
+
+def _wait_run_bounded(run: Any, timeout_seconds: float) -> None:
+    """Bound run.wait() so a stuck Composer cannot hang the desk forever.
+
+    Important: do not use ``with ThreadPoolExecutor(...)`` — on TimeoutError the
+    context-manager ``shutdown(wait=True)`` waits for the stuck worker and the
+    API hangs again. Shut down with wait=False so the caller returns promptly.
+    The orphaned wait thread stays non-daemon (executor default) until wait()
+    finishes; that is preferred over daemon threads for process safety.
+    """
+    wait = getattr(run, "wait", None)
+    if not callable(wait):
+        return
+    limit = max(1.0, float(timeout_seconds))
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        future = pool.submit(wait)
+        future.result(timeout=limit)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
 def run_cursor_composer_turn(
     gateway: Any,
     message: str,
@@ -457,19 +530,27 @@ def run_cursor_composer_turn(
     """Composer chooses tools freely via procurement MCP."""
     repo_root = Path(gateway.repo_root).resolve()
     api_key = os.getenv("CURSOR_API_KEY", "").strip()
-    if not api_key:
+    if not api_key or not cursor_composer_available():
         return AgentTurn(
             plan={"action": "composer_unavailable"},
-            action_result={"action": "composer_unavailable", "error": "missing CURSOR_API_KEY"},
+            action_result={
+                "action": "composer_unavailable",
+                "error_type": "composer_unavailable",
+                "error": "composer_not_plausibly_available",
+                "brain": desk_brain_mode(repo_root),
+            },
             reply=(
-                "The research desk runs on Cursor Composer with the procurement tool library. "
-                "Ask the lab operator to set CURSOR_API_KEY in .env.local, then try again."
+                "Composer is not available on this desk (missing CURSOR_API_KEY or cursor_sdk). "
+                "Direct equipment paths (search, probe, status, selected-object facts) still work. "
+                "Ask the lab operator to configure Composer when planning turns are needed."
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="",
         )
     from cursor_sdk import Agent
     from cursor_sdk.types import AgentOptions, ModelSelection, SendOptions
+
+    from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
 
     model_candidates = _desk_composer_models()
     agent_id = str(state.get("cursor_agent_id") or "").strip()
@@ -491,6 +572,8 @@ def run_cursor_composer_turn(
         user_text = wrap_first_turn_message(brief, user_text)
         vault_primed_env = True
     mcp_servers = _mcp_stdio_config(repo_root, vault_primed=vault_primed_env)
+    turn_budget = chat_timeout_seconds()
+    turn_started = time.monotonic()
 
     try:
         streamed: list[str] = []
@@ -517,6 +600,13 @@ def run_cursor_composer_turn(
         send_opts = SendOptions(mcp_servers=mcp_servers, on_delta=on_delta)
 
         for model_idx, model_id in enumerate(model_candidates):
+            remaining = turn_budget - (time.monotonic() - turn_started)
+            if remaining <= 0.5:
+                return _composer_timeout_turn(
+                    state,
+                    elapsed=time.monotonic() - turn_started,
+                    limit=turn_budget,
+                )
             agent_opts = AgentOptions(
                 model=ModelSelection(id=model_id),
                 api_key=api_key,
@@ -535,9 +625,31 @@ def run_cursor_composer_turn(
             with agent:
                 turn_text = user_text
                 for attempt in range(2):
+                    remaining = turn_budget - (time.monotonic() - turn_started)
+                    if remaining <= 0.5:
+                        return _composer_timeout_turn(
+                            state,
+                            elapsed=time.monotonic() - turn_started,
+                            limit=turn_budget,
+                        )
                     streamed.clear()
                     run = agent.send(turn_text, send_opts)
-                    run.wait()
+                    try:
+                        _wait_run_bounded(run, remaining)
+                    except TimeoutError:
+                        return _composer_timeout_turn(
+                            state,
+                            elapsed=time.monotonic() - turn_started,
+                            limit=turn_budget,
+                        )
+                    except Exception as wait_exc:
+                        if time.monotonic() - turn_started >= turn_budget:
+                            return _composer_timeout_turn(
+                                state,
+                                elapsed=time.monotonic() - turn_started,
+                                limit=turn_budget,
+                            )
+                        raise wait_exc
                     reply = _reply_from_run(run, streamed)
                     if reply or prime or attempt == 1:
                         break
@@ -566,6 +678,7 @@ def run_cursor_composer_turn(
         if is_error and not prime:
             action_result = {
                 "action": "composer_error",
+                "error_type": "composer_error",
                 "status": str(getattr(run, "status", "") or "empty_reply"),
             }
             if reply == EMPTY_REPLY_FALLBACK:
@@ -604,10 +717,26 @@ def run_cursor_composer_turn(
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="cursor_composer",
         )
+    except TimeoutError:
+        return _composer_timeout_turn(
+            state,
+            elapsed=time.monotonic() - turn_started,
+            limit=turn_budget,
+        )
     except Exception as exc:
+        if "timeout" in str(exc).lower() or "timed out" in str(exc).lower():
+            return _composer_timeout_turn(
+                state,
+                elapsed=time.monotonic() - turn_started,
+                limit=turn_budget,
+            )
         return AgentTurn(
             plan={"action": "composer_error"},
-            action_result={"action": "composer_error", "error": str(exc)[:400]},
+            action_result={
+                "action": "composer_error",
+                "error_type": "composer_error",
+                "error": str(exc)[:400],
+            },
             reply=(
                 "Composer could not complete that turn (connection or tool error). "
                 f"Detail: {str(exc)[:200]}"

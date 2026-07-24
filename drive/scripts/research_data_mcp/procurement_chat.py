@@ -190,6 +190,7 @@ class ProcurementChatOrchestrator:
             is_direct_probe_message,
             is_direct_status_message,
         )
+        from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
 
         rail = rail_context if isinstance(rail_context, dict) else state.get("rail_context")
         rail_dict = rail if isinstance(rail, dict) else None
@@ -197,14 +198,20 @@ class ProcurementChatOrchestrator:
         direct_probe = is_direct_probe_message(message, rail_dict)
         direct_search = skip_composer_priming and not direct_probe and not is_direct_status_message(message)
         direct_status = is_direct_status_message(message)
+        chat_timeout = chat_timeout_seconds()
 
         if not skip_composer_priming and not state.get("vault_brief"):
             from pathlib import Path
 
             from scripts.research_data_mcp.desk_vault_brief import build_vault_brief
 
-            state["vault_brief"] = build_vault_brief(Path(gateway.repo_root), state.get("faculty_profile"))
+            try:
+                state["vault_brief"] = build_vault_brief(Path(gateway.repo_root), state.get("faculty_profile"))
+            except Exception:
+                state["vault_brief"] = ""
 
+        # Priming must not consume the whole chat budget. Cap wait to half the timeout.
+        prime_wait = max(1, min(60, int(chat_timeout * 0.5)))
         if (
             not skip_composer_priming
             and desk_brain_mode(_Path(gateway.repo_root)) == "cursor_composer"
@@ -221,12 +228,12 @@ class ProcurementChatOrchestrator:
                     session_id=sid,
                     background=True,
                 )
-            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=60)
+            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=prime_wait)
             session = self.sessions.get(sid)
             state = dict(session.get("state") or state)
             self.sessions.update_state(sid, state)
         elif not skip_composer_priming and state.get("desk_priming"):
-            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=60)
+            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=prime_wait)
             session = self.sessions.get(sid)
             state = dict(session.get("state") or state)
 
@@ -261,7 +268,6 @@ class ProcurementChatOrchestrator:
         thread.start()
         started = time.monotonic()
         from scripts.research_data_mcp.desk_brain import AgentTurn
-        from scripts.research_data_mcp.desk_scale import composer_sla_seconds
 
         heartbeat_texts = (
             "Starting the research tool session…",
@@ -272,7 +278,8 @@ class ProcurementChatOrchestrator:
         heartbeat_idx = 0
         streamed_answer = False
         streamed_chunks: list[str] = []
-        composer_sla = 0.0 if skip_composer_priming else composer_sla_seconds()
+        # Direct equipment paths are not SLA-bounded by Composer; Composer path is hard-bounded.
+        turn_limit = 0.0 if skip_composer_priming else chat_timeout
         turn: AgentTurn | None = None
         sla_hit = False
 
@@ -293,7 +300,7 @@ class ProcurementChatOrchestrator:
                 turn = payload
             except queue.Empty:
                 if streamed_answer:
-                    if composer_sla and time.monotonic() - started >= composer_sla:
+                    if turn_limit and time.monotonic() - started >= turn_limit:
                         sla_hit = True
                         break
                     continue
@@ -306,15 +313,17 @@ class ProcurementChatOrchestrator:
                     "text": text,
                     "elapsed_seconds": elapsed,
                 }
-                if composer_sla and time.monotonic() - started >= composer_sla:
+                if turn_limit and time.monotonic() - started >= turn_limit:
                     sla_hit = True
                     break
 
         if sla_hit and turn is None:
             elapsed = int(time.monotonic() - started)
             partial = "".join(streamed_chunks).strip()
-            state["composer_pending"] = True
+            state.pop("composer_pending", None)
             self.sessions.update_state(sid, state)
+            # Still harvest a late completion into session history, but the HTTP
+            # response is a typed timeout — not an indefinite hang / soft pending.
             self._watch_composer_completion(
                 self,
                 sid=sid,
@@ -325,19 +334,21 @@ class ProcurementChatOrchestrator:
                 gateway=gateway,
             )
             reply = partial or (
-                f"Composer is still working ({elapsed}s). Discover and Probe stay instant — "
-                "send **status** to check this session, or keep browsing while it finishes."
+                f"Ask timed out after {elapsed}s waiting for Composer "
+                f"(limit {int(turn_limit)}s). No collection or approval was started. "
+                "Try a direct command (search, probe, status) or ask about the selected object."
             )
             turn = AgentTurn(
-                plan={"action": "composer_pending"},
+                plan={"action": "composer_timeout"},
                 action_result={
-                    "action": "composer_pending",
-                    "still_working": True,
+                    "action": "composer_timeout",
+                    "error_type": "composer_timeout",
                     "elapsed_seconds": elapsed,
+                    "timeout_seconds": float(turn_limit),
                     "partial_reply": bool(partial),
                 },
                 reply=reply,
-                suggested_prompts=["status", "Search vault for related datasets"],
+                suggested_prompts=["status", "Search vault for related datasets", "What do we know about this?"],
                 tool_name="cursor_composer",
             )
         elif turn is None:
@@ -391,7 +402,7 @@ class ProcurementChatOrchestrator:
             from scripts.research_data_mcp.desk_activity import record_activity
             from scripts.research_data_mcp.desk_usage import record_composer_turn
 
-            if action != "composer_pending":
+            if action not in {"composer_pending", "composer_timeout", "contextual"}:
                 record_composer_turn(repo_root=getattr(gateway, "repo_root", None))
             record_activity(
                 "ask",
@@ -441,6 +452,9 @@ class ProcurementChatOrchestrator:
             "composer": "Composer is working with the research tools…",
             "composer_unavailable": "Composer is not configured…",
             "composer_error": "Composer hit an error…",
+            "composer_timeout": "Composer timed out…",
+            "contextual": "Reading selected-object facts…",
+            "composer_pending": "Composer still working in the background…",
             "desk_session": "Searching vault and preparing your answer…",
             "search": "Searching the lab registry…",
             "discover_search": "Searching Discover catalog…",
