@@ -11,6 +11,10 @@ const SAFE_BOOTSTRAP_POSTS = new Set([
   "/library/desk/warm",
 ]);
 
+const SAFE_TELEMETRY_POSTS = new Set([
+  "/cdn-cgi/rum",
+]);
+
 function pathnameOf(url) {
   try {
     return new URL(url).pathname;
@@ -38,6 +42,14 @@ async function installReadOnlyGuard(page, audit) {
     if (method === "POST" && SAFE_BOOTSTRAP_POSTS.has(path)) {
       audit.allowedBootstrap.push({ method, path });
       await route.continue();
+      return;
+    }
+
+    // Cloudflare Browser Insights is injected by the public proxy. It is not
+    // Research Drive runtime state, so suppress it without weakening the app guard.
+    if (method === "POST" && SAFE_TELEMETRY_POSTS.has(path)) {
+      audit.suppressedTelemetry.push({ method, path });
+      await route.abort("blockedbyclient");
       return;
     }
 
@@ -97,6 +109,7 @@ async function finishAudit(testInfo, audit) {
 function newAudit() {
   return {
     allowedBootstrap: [],
+    suppressedTelemetry: [],
     blockedMutations: [],
     pageErrors: [],
     consoleErrors: [],
