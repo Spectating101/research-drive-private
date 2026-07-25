@@ -10,6 +10,14 @@ on:
       - "playwright.live-review.config.js"
       - "e2e/live-review.spec.js"
       - "package.json"
+  pull_request:
+    branches:
+      - sol/live-review-base
+    paths:
+      - ".github/workflows/sol-live-review.yml"
+      - "playwright.live-review.config.js"
+      - "e2e/live-review.spec.js"
+      - "package.json"
 
 permissions:
   contents: read
