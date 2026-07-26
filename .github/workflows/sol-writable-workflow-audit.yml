@@ -73,6 +73,8 @@ jobs:
       - name: Prepare ephemeral runtime state
         run: |
           mkdir -p artifacts .runtime-drive drive/data_lake/yzu_cluster drive/data_lake/procurement_memory
+          ln -sfn drive/config config
+          ln -sfn drive/data_lake data_lake
           cp drive/config/research_query_registry.json artifacts/registry-before.json
           git rev-parse HEAD | tee artifacts/private-sha.txt
           git -C public-ui rev-parse HEAD | tee artifacts/public-sha.txt
