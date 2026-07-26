@@ -93,6 +93,32 @@ def test_empty_registry_projects_empty_not_demo():
     assert proj["components"]["registry"]["status"] == "empty"
 
 
+def test_missing_raw_status_stays_unknown_not_live_from_datasets():
+    """Absent /health status must not become Live just because datasets exist."""
+    health = {
+        "datasets": 12,
+        "desk": {
+            "composer_configured": True,
+            "composer_status": "ready",
+            "gdrive": {"ok": True, "ready": True},
+            "jobs": {"pending_approval": 0, "failed_recent": 0},
+            "storage_tiers": {"hot": {"headroom_ok": True}},
+        },
+        "cluster": {"registry_datasets": 12},
+    }
+    proj = build_health_projection(health)
+    assert proj["status"] in {"unknown", "syncing"}
+    assert proj["desk_status"] in {"unknown", "syncing"}
+    assert proj["desk_status"] != "ok"
+    assert proj["label"] != "Live registry"
+    assert proj["components"]["registry"]["datasets"] == 12
+
+    # Explicit healthy / degraded synonyms stay intact.
+    assert build_health_projection({**health, "status": "synced"})["status"] == "ok"
+    assert build_health_projection({**health, "status": "ok"})["desk_status"] == "ok"
+    assert build_health_projection({**health, "status": "degraded"})["desk_status"] == "degraded"
+
+
 def test_desk_health_attaches_projection(monkeypatch):
     from pathlib import Path
     from unittest.mock import MagicMock

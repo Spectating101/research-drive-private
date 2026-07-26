@@ -53,15 +53,20 @@ def build_health_projection(health: dict[str, Any] | None) -> dict[str, Any]:
 
     raw_status = str(payload.get("status") or "").strip().lower()
     # Live API never invents demo. Demo is an offline FE seed label only.
+    # Missing status stays unknown/syncing — never invent Live from payload/datasets alone.
     if raw_status == "demo":
         # Preserve only if the payload itself was an explicit demo seed.
         status = "demo"
     elif raw_status == "degraded" or hot_ok is False:
         status = "degraded"
-    elif raw_status in {"ok", "synced", ""}:
-        status = "ok" if raw_status in {"ok", "synced", ""} else raw_status
+    elif raw_status in {"ok", "synced"}:
+        status = "ok"
+    elif raw_status in {"syncing", "unknown", "empty"}:
+        status = raw_status
+    elif not raw_status:
+        status = "unknown"
     else:
-        status = raw_status or "ok"
+        status = raw_status
 
     if status == "demo":
         desk_status = "demo"
