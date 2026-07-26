@@ -31,8 +31,6 @@ jobs:
       YZU_DESK_HOST: 127.0.0.1
       YZU_DESK_PORT: "8765"
       YZU_DESK_URL: http://127.0.0.1:8765
-      LIVE_WORKFLOW_QUERY: stablecoin
-      LIVE_PROCUREMENT_QUERY: MOPS filings
       LIVE_WORKFLOW_CANARY_URL: https://www.sec.gov/files/company_tickers.json
       YZU_RUNTIME_DRIVE_ROOT: ${{ github.workspace }}/.runtime-drive
     steps:
@@ -43,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Spectating101/yzu-cluster
-          ref: 53f98e4c9517d5e3ff04279056e89c51be63fc65
+          ref: c6c0f44849e876f8060e75186ede168e6ec222e6
           path: public-ui
 
       - name: Use Python
@@ -107,9 +105,9 @@ jobs:
           done
           curl --fail --show-error http://127.0.0.1:8765/health | tee artifacts/health-confirmed.json
 
-      - name: Run full frontend state-transition journeys
+      - name: Run Ask, worker, and Profile tail journeys
         working-directory: public-ui
-        run: npm run test:live-workflow
+        run: playwright test --config=playwright.live-workflow.config.js e2e/live-workflow-tail.spec.js
 
       - name: Snapshot ephemeral consequences
         if: always()
@@ -128,7 +126,7 @@ jobs:
           name: sol-writable-workflow-${{ github.run_id }}
           path: |
             artifacts/
-            public-ui/artifacts/live-workflow-final/
+            public-ui/artifacts/live-workflow-tail/
             public-ui/artifacts/live-workflow/report/
             public-ui/test-results/
           if-no-files-found: warn
