@@ -9,6 +9,7 @@ on:
       - ".github/workflows/sol-live-workflow.yml"
       - "playwright.live-workflow.config.js"
       - "e2e/live-workflow.spec.js"
+      - "e2e/live-workflow-completion.spec.js"
       - "package.json"
   pull_request:
     branches:
@@ -17,6 +18,7 @@ on:
       - ".github/workflows/sol-live-workflow.yml"
       - "playwright.live-workflow.config.js"
       - "e2e/live-workflow.spec.js"
+      - "e2e/live-workflow-completion.spec.js"
       - "package.json"
 
 permissions:
@@ -34,6 +36,7 @@ jobs:
     env:
       YZU_DESK_URL: https://previous.easycamp.tech
       LIVE_WORKFLOW_QUERY: stablecoin
+      LIVE_PROCUREMENT_QUERY: MOPS filings
     steps:
       - name: Checkout review branch
         uses: actions/checkout@v4
@@ -62,7 +65,8 @@ jobs:
         with:
           name: sol-live-workflow-${{ github.run_id }}
           path: |
-            artifacts/live-workflow/
+            artifacts/live-workflow-completion/
+            artifacts/live-workflow/report/
             test-results/
           if-no-files-found: warn
           retention-days: 14
