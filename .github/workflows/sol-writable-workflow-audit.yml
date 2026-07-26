@@ -33,16 +33,17 @@ jobs:
       YZU_DESK_URL: http://127.0.0.1:8765
       LIVE_WORKFLOW_QUERY: stablecoin
       LIVE_PROCUREMENT_QUERY: MOPS filings
+      LIVE_WORKFLOW_CANARY_URL: https://www.sec.gov/files/company_tickers.json
       YZU_RUNTIME_DRIVE_ROOT: ${{ github.workspace }}/.runtime-drive
     steps:
       - name: Checkout private runtime authority
         uses: actions/checkout@v4
 
-      - name: Checkout public frontend review branch
+      - name: Checkout exact public frontend audit commit
         uses: actions/checkout@v4
         with:
           repository: Spectating101/yzu-cluster
-          ref: sol/live-review
+          ref: 53f98e4c9517d5e3ff04279056e89c51be63fc65
           path: public-ui
 
       - name: Use Python
@@ -114,7 +115,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          curl --silent http://127.0.0.1:8765/library/jobs?limit=100 > artifacts/jobs-after.json || true
+          curl --silent -H "Authorization: Bearer $YZU_DESK_ACCESS_TOKEN" http://127.0.0.1:8765/library/jobs?limit=100 > artifacts/jobs-after.json || true
           curl --silent http://127.0.0.1:8765/library/discover/history?limit=100 > artifacts/history-after.json || true
           cp drive/config/research_query_registry.json artifacts/registry-after.json || true
           git status --short > artifacts/private-worktree-status.txt || true
@@ -127,7 +128,7 @@ jobs:
           name: sol-writable-workflow-${{ github.run_id }}
           path: |
             artifacts/
-            public-ui/artifacts/live-workflow-completion/
+            public-ui/artifacts/live-workflow-final/
             public-ui/artifacts/live-workflow/report/
             public-ui/test-results/
           if-no-files-found: warn
