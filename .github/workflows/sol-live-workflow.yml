@@ -1,0 +1,68 @@
+name: Sol live workflow
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - sol/live-review
+    paths:
+      - ".github/workflows/sol-live-workflow.yml"
+      - "playwright.live-workflow.config.js"
+      - "e2e/live-workflow.spec.js"
+      - "package.json"
+  pull_request:
+    branches:
+      - sol/live-review-base
+    paths:
+      - ".github/workflows/sol-live-workflow.yml"
+      - "playwright.live-workflow.config.js"
+      - "e2e/live-workflow.spec.js"
+      - "package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sol-live-workflow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  journey:
+    name: Stateful Chromium journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      YZU_DESK_URL: https://previous.easycamp.tech
+      LIVE_WORKFLOW_QUERY: stablecoin
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Confirm public endpoint
+        run: curl --fail --show-error --location --max-time 30 https://previous.easycamp.tech/ >/dev/null
+
+      - name: Run stateful live journeys
+        run: npm run test:live-workflow
+
+      - name: Upload workflow evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sol-live-workflow-${{ github.run_id }}
+          path: |
+            artifacts/live-workflow/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
