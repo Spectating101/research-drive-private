@@ -67,11 +67,16 @@ export function deskApiHealthPresentation(health, { usingSeed = false, datasetCo
     };
   }
 
-  if (raw === "ok" || Number(datasetCount) > 0) {
+  const count = Number(datasetCount) || 0;
+
+  if (raw === "ok") {
     return {
       status: "ok",
       label: deskStatusBadgeLabel("ok"),
-      detail: "Catalog · Ask · jobs reachable",
+      detail:
+        count > 0
+          ? `Catalog · Ask · jobs reachable · ${count} datasets`
+          : "Catalog · Ask · jobs reachable",
       tone: "ok",
       ok: true,
     };
@@ -81,7 +86,10 @@ export function deskApiHealthPresentation(health, { usingSeed = false, datasetCo
     return {
       status: "unknown",
       label: deskStatusBadgeLabel("unknown"),
-      detail: "Health payload missing or degraded",
+      detail:
+        count > 0
+          ? `Health payload missing status · ${count} catalog datasets seen`
+          : "Health payload missing or degraded",
       tone: "warn",
       ok: false,
     };

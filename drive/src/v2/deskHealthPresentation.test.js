@@ -19,6 +19,15 @@ describe("deskApiHealthPresentation", () => {
     assert.notEqual(view.label, "Live registry");
   });
 
+  it("does not promote Live from catalog count without explicit /health ok", () => {
+    const view = deskApiHealthPresentation({ status: "" }, { datasetCount: 12 });
+    assert.equal(view.ok, false);
+    assert.notEqual(view.status, "ok");
+    assert.notEqual(view.label, "Live registry");
+    assert.match(view.detail, /12/);
+    assert.doesNotMatch(view.detail, /Ask · jobs reachable/i);
+  });
+
   it("maps degraded without claiming Ready", () => {
     const view = deskApiHealthPresentation({ status: "degraded", desk: {} });
     assert.equal(view.label, "Desk degraded");
