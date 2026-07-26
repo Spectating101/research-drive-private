@@ -40,4 +40,50 @@ describe("deskApiHealthPresentation", () => {
     assert.equal(view.label, "Syncing…");
     assert.equal(view.status, "syncing");
   });
+
+  it("honors projected ok from health.projection when complete", () => {
+    const view = deskApiHealthPresentation({
+      status: "degraded",
+      projection: {
+        desk_status: "ok",
+        status: "ok",
+        label: "Live registry",
+        components: { catalog: "ok", ask: "ok", jobs: "ok" },
+      },
+    });
+    assert.equal(view.status, "ok");
+    assert.equal(view.label, "Live registry");
+    assert.equal(view.ok, true);
+    assert.match(view.detail, /catalog/i);
+  });
+
+  it("honors projected degraded from health.projection when complete", () => {
+    const view = deskApiHealthPresentation({
+      status: "ok",
+      projection: {
+        desk_status: "degraded",
+        status: "degraded",
+        label: "Desk degraded",
+        components: { catalog: "ok", ask: "degraded" },
+      },
+    });
+    assert.equal(view.status, "degraded");
+    assert.equal(view.label, "Desk degraded");
+    assert.equal(view.ok, false);
+    assert.equal(view.tone, "warn");
+    assert.match(view.detail, /ask/i);
+  });
+
+  it("does not promote projection missing status to live", () => {
+    const view = deskApiHealthPresentation({
+      status: "",
+      projection: {
+        label: "Live registry",
+        components: { catalog: "ok", ask: "ok", jobs: "ok" },
+      },
+    });
+    assert.equal(view.ok, false);
+    assert.notEqual(view.status, "ok");
+    assert.notEqual(view.label, "Live registry");
+  });
 });
