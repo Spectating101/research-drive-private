@@ -130,9 +130,10 @@ class SearchService:
         ).lower()
         return any(marker in blob for marker in cls._OPS_NOISE_MARKERS)
 
-    @staticmethod
-    def _professor_view_row(row: dict[str, Any]) -> dict[str, Any]:
-        """Surface readable titles for Library without renaming stable dataset_id."""
+    def _professor_view_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Surface readable titles + canonical folder membership for Library."""
+        from scripts.research_data_mcp.asset_folder_membership import stamp_asset_membership
+
         out = dict(row)
         display = str(out.get("display_name") or "").strip()
         if display:
@@ -144,7 +145,7 @@ class SearchService:
             or "Procured via" in str(out.get("description") or "")
         ):
             out["description"] = one_line
-        return out
+        return stamp_asset_membership(out, repo_root=self.repo_root)
 
     def inventory_summary(self, *, include_partition_lanes: bool = True) -> dict[str, Any]:
         """Canonical inventory projection for this loaded registry revision."""
