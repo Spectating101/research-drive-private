@@ -76,6 +76,10 @@ import { discoverModeFromLegacy, discoverModeToUrlState } from "@/v2/discoverMod
 import { jobToDiscoverHistoryEvent, pendingApprovalJobs } from "@/v2/procurementJobs";
 import { discoverCandidateState } from "@/v2/browseMeta";
 import { buildRailContext } from "@/v2/railContext";
+import { discoverSearchHandoff } from "@/v2/discoverSearchHandoff";
+import { reconcileLibraryDeepLink } from "@/v2/libraryDeepLink";
+import { buildProfessorVaultTree } from "@/v2/professorVaultTree";
+import { deskApiHealthPresentation } from "@/v2/deskHealthPresentation";
 
 function readParams() {
   const p = new URLSearchParams(window.location.search);
@@ -1098,6 +1102,39 @@ export function V2App() {
     [syncUrl],
   );
 
+  // Deep links: never show an empty folder with a selected asset that is not in it.
+  useEffect(() => {
+    if (tab !== "library") return;
+    if (!datasets.length) return;
+    const tree = buildProfessorVaultTree(
+      datasets,
+      partitions.length ? partitions : health?.cluster?.lanes || [],
+      shelves,
+    );
+    const next = reconcileLibraryDeepLink({ folderId, selectedId, tree });
+    if (next.folderId === folderId && next.selectedId === selectedId) return;
+    setFolderId(next.folderId);
+    setSelectedId(next.selectedId);
+    if (!next.selectedId) {
+      setDetail(null);
+      setPreviewOpen(false);
+      setPreviewTarget(null);
+      setActiveObject(null);
+    } else {
+      const row = datasets.find((d) => d.dataset_id === next.selectedId);
+      if (row) {
+        setDetail(row);
+        setActiveObject(datasetObject(row));
+      }
+    }
+    syncUrl({
+      tab: "library",
+      folder: next.folderId,
+      dataset: next.selectedId,
+      preview: false,
+    });
+  }, [tab, datasets, partitions, shelves, health?.cluster?.lanes, folderId, selectedId, syncUrl]);
+
   const startLibraryIntake = useCallback(
     (mode, folderObject) => {
       setSelectedId("");
@@ -1408,9 +1445,14 @@ export function V2App() {
           onGoTab={goTab}
           onProfileRefresh={reloadProfile}
           onSuggestSearch={(q) => {
-            setSearchQuery(q);
-            setTab("browse");
-            syncUrl({ tab: "browse", q });
+            const handoff = discoverSearchHandoff(q);
+            if (!handoff) {
+              goTab("browse");
+              return;
+            }
+            setDiscoverSearchQuery(handoff.discoverSearchQuery);
+            setTab(handoff.tab);
+            syncUrl({ tab: handoff.tab, q: handoff.q });
           }}
         />
       );
@@ -1487,17 +1529,10 @@ export function V2App() {
         )}
         onPendingClick={() => openDiscoverAwaiting()}
         deskStatus={
-          health == null
-            ? "syncing"
-            : usingSeed
-              ? health?.status === "ok"
-                ? "empty"
-                : "demo"
-              : health?.status === "degraded"
-                ? "degraded"
-                : health?.status === "ok" || datasets.length > 0
-                  ? "ok"
-                  : health?.status || "unknown"
+          deskApiHealthPresentation(health, {
+            usingSeed,
+            datasetCount: headerDsCount,
+          }).status
         }
         refreshedAt={deskRefreshedAt}
         integrationChips={usingSeed ? [] : buildDeskIntegrationChips(health)}

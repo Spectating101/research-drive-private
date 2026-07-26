@@ -13,6 +13,7 @@ import { PILOT_PREVIEW_EMAIL } from "@/v2/profileViewModel";
 import { PageShell, StatementRow, StatementSection } from "@/v2/ui";
 import { V2_TABS } from "@/v2/nav-config.jsx";
 import { handleEnterToSubmit } from "@/v2/enterToSubmit";
+import { deskApiHealthPresentation } from "@/v2/deskHealthPresentation";
 
 function deskAccessStatus(health) {
   const desk = health?.desk || {};
@@ -110,7 +111,9 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
   const assistant = assistantStatus(health);
   const jobs = jobsStatus(health);
   const mcpTools = resourcesRollup?.ai?.mcp_tools?.total ?? resourcesRollup?.hero?.mcp_tools ?? null;
-  const healthOk = health?.status === "ok";
+  const deskApi = deskApiHealthPresentation(health, {
+    datasetCount: Number(health?.datasets || resourcesRollup?.hero?.datasets || 0),
+  });
 
   const patch = (p) => setSettings(saveSettings(p));
 
@@ -166,16 +169,10 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
         <section className="rd-v2-settings-summary" aria-label="Research desk status">
           <SummaryCard
             label="Desk API"
-            value={health == null ? "Syncing…" : healthOk ? "Live" : health?.status || "Unknown"}
-            detail={
-              health == null
-                ? "Waiting for /health"
-                : healthOk
-                  ? "Catalog · Ask · jobs reachable"
-                  : "Health payload missing or degraded"
-            }
-            help="Truth from GET /health on the Tailscale desk."
-            warn={health != null && !healthOk}
+            value={deskApi.label}
+            detail={deskApi.detail}
+            help="Truth from GET /health on the Tailscale desk — same wording as the header badge."
+            warn={health != null && !deskApi.ok}
           />
           <SummaryCard
             label="Research assistant"

@@ -1,5 +1,7 @@
 /** v2 header — brand · research context · resting status (no global search/Ask pill) */
 
+import { deskStatusBadgeLabel } from "@/v2/deskHealthPresentation";
+
 function freshnessLabel(refreshedAt) {
   if (refreshedAt == null) return null;
   const sec = Math.max(0, Math.round((Date.now() - refreshedAt) / 1000));
@@ -64,17 +66,17 @@ export function V2DeskHeader({
       <div className="rd-v2-header-meta">
         <div className="rd-v2-trust-strip" aria-label="Desk status" data-testid="desk-integration-strip">
           {deskStatus === "ok" ? (
-            <span className="rd-v2-trust-badge ok">Live registry</span>
+            <span className="rd-v2-trust-badge ok">{deskStatusBadgeLabel("ok")}</span>
           ) : deskStatus === "syncing" ? (
-            <span className="rd-v2-trust-badge muted">Syncing…</span>
+            <span className="rd-v2-trust-badge muted">{deskStatusBadgeLabel("syncing")}</span>
           ) : deskStatus === "empty" ? (
-            <span className="rd-v2-trust-badge warn">Empty registry</span>
+            <span className="rd-v2-trust-badge warn">{deskStatusBadgeLabel("empty")}</span>
           ) : usingSeed || deskStatus === "demo" ? (
-            <span className="rd-v2-trust-badge warn">Demo catalog</span>
+            <span className="rd-v2-trust-badge warn">{deskStatusBadgeLabel("demo", { usingSeed: true })}</span>
           ) : deskStatus === "degraded" ? (
-            <span className="rd-v2-trust-badge warn">Desk degraded</span>
+            <span className="rd-v2-trust-badge warn">{deskStatusBadgeLabel("degraded")}</span>
           ) : (
-            <span className="rd-v2-trust-badge warn">Desk API offline</span>
+            <span className="rd-v2-trust-badge warn">{deskStatusBadgeLabel(deskStatus)}</span>
           )}
           {chips
             .filter((chip) => ["warn", "error", "danger", "bad"].includes(chip.tone))

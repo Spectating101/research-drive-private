@@ -6,6 +6,7 @@ import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
 import {
   classifyDiscoverResult,
   coverageLine,
+  dedupeDiscoverCandidates,
   descriptiveLine,
   discoverCandidateState,
   exceptionalRowPill,
@@ -216,20 +217,6 @@ function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow, external
   );
 }
 
-function dedupeRows(rows) {
-  const seen = new Set();
-  const out = [];
-  for (const row of rows) {
-    const stamped = withCandidateKey(row);
-    const key = candidateKey(stamped);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(stamped);
-  }
-  return out;
-}
-
-
 export function BrowsePage({
   labIds,
   catalog = [],
@@ -403,7 +390,7 @@ export function BrowsePage({
           const search = await unifiedSearch(q, 12, email);
           const searchRows = flattenRows(search);
           if (searchRows.length) {
-            mergedRows = dedupeRows([...discoverRows, ...searchRows]);
+            mergedRows = dedupeDiscoverCandidates([...discoverRows, ...searchRows]);
             label = discoverRows.length ? "discover" : "search";
           }
           if (!discoverRows.length) {
@@ -422,7 +409,7 @@ export function BrowsePage({
           const web = await webDiscover(q, 8);
           const webRows = webHitsToRows(web);
           if (webRows.length) {
-            mergedRows = dedupeRows([...mergedRows, ...webRows]);
+            mergedRows = dedupeDiscoverCandidates([...mergedRows, ...webRows]);
             if (!label) label = "web";
           }
         }
