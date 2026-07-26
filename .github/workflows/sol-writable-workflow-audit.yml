@@ -1,0 +1,130 @@
+name: Sol writable workflow audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - sol/writable-workflow-audit
+    paths:
+      - ".github/workflows/sol-writable-workflow-audit.yml"
+  pull_request:
+    branches:
+      - sol/writable-workflow-audit-base
+    paths:
+      - ".github/workflows/sol-writable-workflow-audit.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sol-writable-workflow-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-stack:
+    name: Ephemeral writable Research Drive
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+      YZU_DESK_ACCESS_TOKEN: sol-ci-ephemeral-desk-token
+      YZU_DESK_HOST: 127.0.0.1
+      YZU_DESK_PORT: "8765"
+      YZU_DESK_URL: http://127.0.0.1:8765
+      LIVE_WORKFLOW_QUERY: stablecoin
+      LIVE_PROCUREMENT_QUERY: MOPS filings
+      YZU_RUNTIME_DRIVE_ROOT: ${{ github.workspace }}/.runtime-drive
+    steps:
+      - name: Checkout private runtime authority
+        uses: actions/checkout@v4
+
+      - name: Checkout public frontend review branch
+        uses: actions/checkout@v4
+        with:
+          repository: Spectating101/yzu-cluster
+          ref: sol/live-review
+          path: public-ui
+
+      - name: Use Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: public-ui/package-lock.json
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pandas pyarrow pyyaml requests numpy python-dotenv pydantic
+
+      - name: Install and build public frontend
+        working-directory: public-ui
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium
+
+      - name: Prepare ephemeral runtime state
+        run: |
+          mkdir -p artifacts .runtime-drive data_lake/yzu_cluster data_lake/procurement_memory
+          cp config/research_query_registry.json artifacts/registry-before.json
+          git rev-parse HEAD | tee artifacts/private-sha.txt
+          git -C public-ui rev-parse HEAD | tee artifacts/public-sha.txt
+
+      - name: Start same-origin desk and controller worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup python drive/scripts/research_query_engine/server.py \
+            --host 127.0.0.1 \
+            --port 8765 \
+            --registry config/research_query_registry.json \
+            --static-dir "$GITHUB_WORKSPACE/public-ui/dist" \
+            --serve-ui \
+            > artifacts/server.log 2>&1 &
+          echo $! > artifacts/server.pid
+
+          nohup python -c 'from scripts.yzu_cluster.orchestrator import YzuOrchestrator; YzuOrchestrator().run_worker(poll_seconds=0.5)' \
+            > artifacts/worker.log 2>&1 &
+          echo $! > artifacts/worker.pid
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8765/health > artifacts/health.json; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --show-error http://127.0.0.1:8765/health | tee artifacts/health-confirmed.json
+
+      - name: Run full frontend state-transition journeys
+        working-directory: public-ui
+        run: npm run test:live-workflow
+
+      - name: Snapshot ephemeral consequences
+        if: always()
+        shell: bash
+        run: |
+          curl --silent http://127.0.0.1:8765/library/jobs?limit=100 > artifacts/jobs-after.json || true
+          curl --silent http://127.0.0.1:8765/library/discover/history?limit=100 > artifacts/history-after.json || true
+          cp config/research_query_registry.json artifacts/registry-after.json || true
+          git status --short > artifacts/private-worktree-status.txt || true
+          git -C public-ui status --short > artifacts/public-worktree-status.txt || true
+
+      - name: Upload full-stack evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sol-writable-workflow-${{ github.run_id }}
+          path: |
+            artifacts/
+            public-ui/artifacts/live-workflow-completion/
+            public-ui/artifacts/live-workflow/report/
+            public-ui/test-results/
+          if-no-files-found: warn
+          retention-days: 14
