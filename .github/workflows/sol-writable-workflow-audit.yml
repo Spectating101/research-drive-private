@@ -72,8 +72,8 @@ jobs:
 
       - name: Prepare ephemeral runtime state
         run: |
-          mkdir -p artifacts .runtime-drive data_lake/yzu_cluster data_lake/procurement_memory
-          cp config/research_query_registry.json artifacts/registry-before.json
+          mkdir -p artifacts .runtime-drive drive/data_lake/yzu_cluster drive/data_lake/procurement_memory
+          cp drive/config/research_query_registry.json artifacts/registry-before.json
           git rev-parse HEAD | tee artifacts/private-sha.txt
           git -C public-ui rev-parse HEAD | tee artifacts/public-sha.txt
 
@@ -112,7 +112,7 @@ jobs:
         run: |
           curl --silent http://127.0.0.1:8765/library/jobs?limit=100 > artifacts/jobs-after.json || true
           curl --silent http://127.0.0.1:8765/library/discover/history?limit=100 > artifacts/history-after.json || true
-          cp config/research_query_registry.json artifacts/registry-after.json || true
+          cp drive/config/research_query_registry.json artifacts/registry-after.json || true
           git status --short > artifacts/private-worktree-status.txt || true
           git -C public-ui status --short > artifacts/public-worktree-status.txt || true
 
