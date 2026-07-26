@@ -107,7 +107,7 @@ jobs:
 
       - name: Run Ask, worker, and Profile tail journeys
         working-directory: public-ui
-        run: playwright test --config=playwright.live-workflow.config.js e2e/live-workflow-tail.spec.js
+        run: npx playwright test --config=playwright.live-workflow.config.js e2e/live-workflow-tail.spec.js
 
       - name: Snapshot ephemeral consequences
         if: always()
