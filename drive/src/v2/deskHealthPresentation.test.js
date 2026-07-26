@@ -86,4 +86,29 @@ describe("deskApiHealthPresentation", () => {
     assert.notEqual(view.status, "ok");
     assert.notEqual(view.label, "Live registry");
   });
+
+  it("summarizes nested health.projection.components without [object Object]", () => {
+    const view = deskApiHealthPresentation({
+      status: "ok",
+      projection: {
+        desk_status: "degraded",
+        status: "degraded",
+        label: "Desk degraded",
+        components: {
+          catalog: { status: "ok", datasets: 12 },
+          ask: { status: "degraded", latency_ms: 2400 },
+          jobs: { status: "ok", running: 1 },
+        },
+      },
+    });
+    assert.equal(view.status, "degraded");
+    assert.equal(view.ok, false);
+    assert.equal(view.label, "Desk degraded");
+    assert.doesNotMatch(view.detail, /\[object Object\]/);
+    assert.match(view.detail, /catalog:\s*ok/i);
+    assert.match(view.detail, /ask:\s*degraded/i);
+    assert.match(view.detail, /jobs:\s*ok/i);
+    assert.doesNotMatch(view.detail, /\bReady\b|\bLive registry\b/i);
+    assert.ok(view.detail.length <= 160);
+  });
 });

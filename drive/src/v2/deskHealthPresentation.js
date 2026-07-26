@@ -14,26 +14,73 @@ export function deskStatusBadgeLabel(status, { usingSeed = false } = {}) {
   return "Desk API offline";
 }
 
+const PROJECTION_DETAIL_MAX = 160;
+
+/** Plain scalar for detail text — never String(object). */
+function componentScalar(value) {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const text = String(value).trim();
+    if (text.length > 40) return `${text.slice(0, 37)}…`;
+    return text;
+  }
+  return "";
+}
+
+/**
+ * Summarize one projection component value for accessible plain text.
+ * Nested objects contribute status (+ one optional scalar); never [object Object].
+ */
+function formatComponentValue(value) {
+  const direct = componentScalar(value);
+  if (direct) return direct;
+  if (value == null || typeof value !== "object") return "";
+
+  const status = componentScalar(value.status);
+  const scalarKeys = ["datasets", "count", "running", "latency_ms", "error", "reason", "detail"];
+  let scalar = "";
+  for (const key of scalarKeys) {
+    scalar = componentScalar(value[key]);
+    if (scalar) break;
+  }
+  if (status && scalar) return `${status} (${scalar})`;
+  return status || scalar;
+}
+
+function boundDetail(text) {
+  const out = String(text || "").trim();
+  if (out.length <= PROJECTION_DETAIL_MAX) return out;
+  return `${out.slice(0, PROJECTION_DETAIL_MAX - 1).trimEnd()}…`;
+}
+
 function projectionDetail(components) {
   if (components == null) return "";
-  if (typeof components === "string") return components.trim();
+  if (typeof components === "string") return boundDetail(components);
   if (Array.isArray(components)) {
-    return components
-      .map((c) => {
-        if (c == null) return "";
-        if (typeof c === "string") return c;
-        const name = c.name || c.id || c.label || "";
-        const st = c.status != null ? String(c.status) : "";
-        if (name && st) return `${name}: ${st}`;
-        return String(name || st || "");
-      })
-      .filter(Boolean)
-      .join(" · ");
+    return boundDetail(
+      components
+        .map((c) => {
+          if (c == null) return "";
+          if (typeof c === "string") return c;
+          const name = c.name || c.id || c.label || "";
+          const formatted = formatComponentValue(c);
+          if (name && formatted) return `${name}: ${formatted}`;
+          return String(name || formatted || "");
+        })
+        .filter(Boolean)
+        .join(" · "),
+    );
   }
   if (typeof components === "object") {
-    return Object.entries(components)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(" · ");
+    return boundDetail(
+      Object.entries(components)
+        .map(([key, value]) => {
+          const formatted = formatComponentValue(value);
+          return formatted ? `${key}: ${formatted}` : "";
+        })
+        .filter(Boolean)
+        .join(" · "),
+    );
   }
   return "";
 }
