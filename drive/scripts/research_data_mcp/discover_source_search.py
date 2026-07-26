@@ -15,6 +15,7 @@ from typing import Any
 
 from scripts.research_data_mcp.access_scope import load_access_scope
 from scripts.research_data_mcp.candidate_key import stamp_rows, with_candidate_key
+from scripts.research_data_mcp.discover_source_contract import finalize_discover_rows
 from scripts.research_data_mcp.source_map import load_desk_connectors, load_source_map
 
 _TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_\-]{1,}", re.I)
@@ -1462,7 +1463,7 @@ def semantic_search_discover_sources(
     # Wider pool before relevance gate so weak embedding heads can be dropped.
     pre_gate = [with_candidate_key(dict(row)) or row for _, row in deduped[: max(limit * 3, limit)]]
     results, gate_meta = apply_source_relevance_gate(pre_gate, q, limit=limit, corpus=corpus)
-    results = stamp_rows(results)
+    results = finalize_discover_rows(stamp_rows(results))
     for row in results:
         row["match_mode"] = mode
         if str(row.get("kind") or "") in {"local_registry", "registry_dataset", "dataset"}:
@@ -1694,7 +1695,7 @@ def search_discover_sources(
                     existing.add(key)
             corpus = _catalog_corpus(Path(repo_root).resolve(), include_providers=True)
             gated, gate_meta = apply_source_relevance_gate(merged, query, limit=lim, corpus=corpus)
-            out["results"] = stamp_rows(gated)
+            out["results"] = finalize_discover_rows(stamp_rows(gated))
             out["total"] = len(out["results"])
             relevance_miss = bool(str(query or "").strip()) and not out["results"]
             out["index_miss"] = relevance_miss
@@ -1849,7 +1850,7 @@ def search_discover_sources(
     else:
         results = results[:limit]
 
-    results = stamp_rows(results)
+    results = finalize_discover_rows(stamp_rows(results))
 
     # Guard: never return registry dataset default kind.
     for row in results:
@@ -1880,6 +1881,7 @@ def search_discover_sources(
         },
         "dedupe": {
             "per_capability": True,
+            "exact_candidate_key": True,
             "prefer_kind": "source",
             "connectors_only_when_orphan_or_explicit": True,
             "explicit_connector_request": keep_connectors,
