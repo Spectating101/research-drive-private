@@ -3,6 +3,7 @@
  * Taxonomy lives in discoverTaxonomy.js — this file adapts pills/actions without fit heuristics.
  */
 
+import { candidateKey, withCandidateKey } from "./candidateKey.js";
 import {
   classifyDiscoverResult,
   isLocalHolding,
@@ -16,6 +17,44 @@ export {
   taxonomyMatchesFilter,
   taxonomyStageCounts,
 } from "./discoverTaxonomy.js";
+
+/** Strip markup / entities from externally supplied Discover copy → plain text. */
+export function sanitizeDiscoverPlainText(value) {
+  let text = String(value ?? "");
+  if (!text) return "";
+  text = text
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text;
+}
+
+/**
+ * Suppress exact duplicate candidate identities only.
+ * Keyless rows stay visible so distinct sources are not hidden.
+ */
+export function dedupeDiscoverCandidates(rows = []) {
+  const seen = new Set();
+  const out = [];
+  for (const row of rows) {
+    const stamped = withCandidateKey(row);
+    const key = candidateKey(stamped);
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(stamped);
+  }
+  return out;
+}
 
 /**
  * Presentation state for pills and rail actions.
@@ -109,13 +148,11 @@ export function coverageLine(row) {
 }
 
 export function descriptiveLine(row) {
-  const text = String(
+  const text = sanitizeDiscoverPlainText(
     row?.description || row?.recommended_use || row?.subtitle || row?.grain || "",
-  )
-    .replace(/\s+/g, " ")
-    .trim();
+  );
   if (!text) {
-    const source = row?.source || row?.publisher || row?.collect_via;
+    const source = sanitizeDiscoverPlainText(row?.source || row?.publisher || row?.collect_via);
     return source ? `${source} source` : "No description provided";
   }
   if (text.length <= 160) return text;
@@ -138,7 +175,7 @@ const DISCOVER_TERM_LABELS = Object.freeze({
 
 /** Convert connector metadata into readable research language without changing its meaning. */
 export function humanizeDiscoverDescription(value) {
-  return String(value || "")
+  return sanitizeDiscoverPlainText(value)
     .split(" · ")
     .map((part) => {
       const normalized = part.trim().toLowerCase();
