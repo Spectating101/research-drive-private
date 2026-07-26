@@ -1256,7 +1256,9 @@ class ResearchDataGateway:
             warnings.append(f"failed_recent_{jobs.get('recent_days', 7)}d={failed_recent}")
         if warnings:
             out["desk"]["ops_warnings"] = warnings
-        return out
+        from scripts.research_data_mcp.desk_health_projection import attach_health_projection
+
+        return attach_health_projection(out)
 
     def huggingface_search(self, query: str, *, limit: int = 8) -> dict[str, Any]:
         from scripts.research_data_mcp import hf_catalog
