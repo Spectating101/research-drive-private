@@ -31,7 +31,7 @@ jobs:
       YZU_DESK_HOST: 127.0.0.1
       YZU_DESK_PORT: "8765"
       YZU_DESK_URL: http://127.0.0.1:8765
-      LIVE_WORKFLOW_CANARY_URL: https://www.sec.gov/files/company_tickers.json
+      LIVE_WORKFLOW_CANARY_URL: https://example.com/
       YZU_RUNTIME_DRIVE_ROOT: ${{ github.workspace }}/.runtime-drive
     steps:
       - name: Checkout private runtime authority
