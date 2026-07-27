@@ -5479,7 +5479,9 @@
 .rd-v2-evidence-verdict.covered { background: #e6f4ec; color: #27704f; }
 .rd-v2-evidence-verdict.partially_covered, .rd-v2-evidence-verdict.partial { background: #fff3d7; color: #8a6424; }
 .rd-v2-evidence-verdict.not_covered, .rd-v2-evidence-verdict.uncovered { background: #fce8e6; color: #9b3d35; }
-.rd-v2-evidence-verdict.unknown { background: #eef1f5; color: #5d6673; }
+/* Neutral, not alarming: `cannot_assess` means the catalog never recorded
+   coverage, not that a check ran and failed — it must not read as a red flag. */
+.rd-v2-evidence-verdict.cannot_assess, .rd-v2-evidence-verdict.unknown { background: #eef1f5; color: #5d6673; }
 .rd-v2-evidence-because { margin: -7px 0 0; color: var(--rd-body); font-size: 12.5px; line-height: 1.45; }
 .rd-v2-evidence-requirement, .rd-v2-evidence-held, .rd-v2-evidence-gap { padding-top: 12px; border-top: 1px solid var(--rd-border); }
 .rd-v2-evidence-requirement { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }

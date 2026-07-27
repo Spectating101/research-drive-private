@@ -9,6 +9,11 @@ const VERDICT_LABELS = {
   partial: "Partially covered",
   not_covered: "Not covered",
   uncovered: "Not covered",
+  // Distinct from `not_covered`: no held record has ever declared coverage for
+  // the requested dimensions, so nothing was actually checked and failed — the
+  // catalog just never recorded the fact. Conflating the two would report an
+  // absence of data as a negative finding.
+  cannot_assess: "Not yet recorded",
 };
 
 function text(value, fallback) {
@@ -111,10 +116,16 @@ function assessmentBasisSummary(basis) {
     return text(basis, "Assessment basis incomplete");
   }
   const count = Number(basis.catalog_candidates_considered);
+  const uncovered = Array.isArray(basis.uncovered_candidate_ids) ? basis.uncovered_candidate_ids : [];
   const parts = [
     Number.isFinite(count) ? `${count} held catalog record${count === 1 ? "" : "s"} considered` : "",
     text(basis.mode, "").replaceAll("_", " "),
     basis.assembly_status === "unknown" ? "assembly compatibility unknown" : "",
+    // `cannot_assess` reports which specific candidates never declared coverage,
+    // so this is a fixable data gap, not a dead end.
+    uncovered.length
+      ? `coverage never declared for ${uncovered.length} candidate${uncovered.length === 1 ? "" : "s"}: ${uncovered.slice(0, 5).join(", ")}${uncovered.length > 5 ? "…" : ""}`
+      : "",
   ].filter(Boolean);
   return parts.join(" · ") || text(basis, "Assessment basis incomplete");
 }
