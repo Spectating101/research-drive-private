@@ -100,15 +100,14 @@ def test_missing_coverage_metadata_never_becomes_verified():
     # No candidate declared coverage metadata at all for the requested dimension —
     # this is an absence of data, not a checked-and-failed result, so it must not
     # be reported as `not_covered`.
-    assert out["verdict"] == "cannot_assess"
+    assert out["verdict"] is None
+    assert out["assessment_status"] == "insufficient_metadata"
     assert out["assessment_basis"]["dimension_status"]["unit"] == "unknown"
     assert out["assessment_basis"]["uncovered_candidate_ids"] == ["legacy"]
 
 
 def test_not_covered_requires_a_declared_mismatch_not_just_absence():
-    """`not_covered` and `cannot_assess` must stay distinct: a real declared
-    mismatch is `not_covered`; zero declared coverage anywhere is `cannot_assess`.
-    """
+    """A declared mismatch is `not_covered`; absent metadata has no verdict."""
     req = requirement(event_type="earthquake", geography="Japan")
     declared_mismatch_row = supported_row(event_type="earnings", geography="Taiwan")
     out = assess_held_evidence(Gateway([declared_mismatch_row]), question="Japan earthquakes", requirement=req)
@@ -117,13 +116,15 @@ def test_not_covered_requires_a_declared_mismatch_not_just_absence():
 
     undeclared_row = {"dataset_id": "no_metadata", "materialization": {"query_ready": True}}
     out2 = assess_held_evidence(Gateway([undeclared_row]), question="Japan earthquakes", requirement=req)
-    assert out2["verdict"] == "cannot_assess"
+    assert out2["verdict"] is None
+    assert out2["assessment_status"] == "insufficient_metadata"
     assert out2["assessment_basis"]["uncovered_candidate_ids"] == ["no_metadata"]
 
 
-def test_cannot_assess_with_zero_candidates_considered():
+def test_insufficient_metadata_with_zero_candidates_considered():
     out = assess_held_evidence(Gateway([]), question="Japan earthquakes", requirement=requirement(geography="Japan"))
-    assert out["verdict"] == "cannot_assess"
+    assert out["verdict"] is None
+    assert out["assessment_status"] == "insufficient_metadata"
     assert out["assessment_basis"]["catalog_candidates_considered"] == 0
     assert out["assessment_basis"]["uncovered_candidate_ids"] == []
 

@@ -4,14 +4,11 @@ This module deliberately assesses catalog evidence, rather than predicting wheth
 research is "ready".  A catalog row only supports a requirement dimension when
 that dimension is explicitly documented in the row's coverage metadata.
 
-Verdicts: `covered`, `partially_covered`, `not_covered`, `cannot_assess`.
-`not_covered` and `cannot_assess` are deliberately distinct: `not_covered` means a
-candidate declared coverage for a dimension and it did not satisfy the
-requirement (a real negative finding); `cannot_assess` means no candidate
-considered declared coverage metadata for any requested dimension at all (the
-catalog never recorded the fact, so nothing was actually checked). Collapsing
-these into one verdict would misrepresent an absence of data as a checked-and-
-failed result.
+Verdicts remain `covered`, `partially_covered`, or `not_covered`. Assessment
+status is separate: `insufficient_metadata` means no candidate considered
+declared coverage metadata for any requested dimension, so no coverage verdict
+can honestly be established. Collapsing that state into `not_covered` would
+misrepresent an absence of data as a checked-and-failed result.
 """
 
 from __future__ import annotations
@@ -378,13 +375,20 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     all_dimensions_undeclared = bool(requested) and all(
         state == "unknown" for state in dimension_status.values()
     )
-    if compatible_records:
+    if not requested:
+        assessment_status = "insufficient_requirement"
+        verdict = None
+    elif all_dimensions_undeclared:
+        assessment_status = "insufficient_metadata"
+        verdict = None
+    elif compatible_records:
+        assessment_status = "assessed"
         verdict = "covered"
     elif supported_count:
+        assessment_status = "assessed"
         verdict = "partially_covered"
-    elif all_dimensions_undeclared:
-        verdict = "cannot_assess"
     else:
+        assessment_status = "assessed"
         verdict = "not_covered"
 
     held = [
@@ -423,17 +427,17 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     # opposed to a vague instruction to "collect more evidence".
     uncovered_candidate_ids = (
         sorted({record.get("dataset_id") for record, _ in assessed if record.get("dataset_id")})
-        if verdict == "cannot_assess"
+        if assessment_status == "insufficient_metadata"
         else []
     )
 
-    if not requested:
+    if assessment_status == "insufficient_requirement":
         because = "No explicit research requirement dimensions were supplied, so held coverage cannot be established."
     elif verdict == "covered":
         because = "One held catalog record explicitly documents verified support for every stated requirement dimension."
     elif verdict == "partially_covered":
         because = "Held evidence supports some stated dimensions, but at least one dimension is missing, unknown, or conflicting."
-    elif verdict == "cannot_assess":
+    elif assessment_status == "insufficient_metadata":
         because = (
             "No catalog record considered declares coverage metadata for any requested dimension. "
             "This is a gap in what the catalog records, not evidence that the requirement is unmet."
@@ -443,6 +447,7 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     return {
         "question": question,
         "requirement": normalized,
+        "assessment_status": assessment_status,
         "verdict": verdict,
         "because": because,
         "held_evidence": held,
