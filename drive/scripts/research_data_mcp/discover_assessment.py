@@ -3,6 +3,15 @@
 This module deliberately assesses catalog evidence, rather than predicting whether
 research is "ready".  A catalog row only supports a requirement dimension when
 that dimension is explicitly documented in the row's coverage metadata.
+
+Verdicts: `covered`, `partially_covered`, `not_covered`, `cannot_assess`.
+`not_covered` and `cannot_assess` are deliberately distinct: `not_covered` means a
+candidate declared coverage for a dimension and it did not satisfy the
+requirement (a real negative finding); `cannot_assess` means no candidate
+considered declared coverage metadata for any requested dimension at all (the
+catalog never recorded the fact, so nothing was actually checked). Collapsing
+these into one verdict would misrepresent an absence of data as a checked-and-
+failed result.
 """
 
 from __future__ import annotations
@@ -359,10 +368,22 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
         if requested and all(per_dimension.get(dimension) == "supported" for dimension in requested)
     ]
     distributed_support = bool(requested and supported_count == len(requested) and not compatible_records)
+    # A dimension can fail to match for two different reasons, and conflating them
+    # produces a dishonest verdict: either (a) some candidate explicitly declared
+    # coverage and it didn't satisfy the requirement (a real negative finding), or
+    # (b) no candidate declared coverage metadata for that dimension at all (the
+    # catalog never recorded the fact, so nothing was actually checked). `cannot
+    # assess` names case (b) instead of reporting it as `not_covered`, which would
+    # imply a check happened and failed.
+    all_dimensions_undeclared = bool(requested) and all(
+        state == "unknown" for state in dimension_status.values()
+    )
     if compatible_records:
         verdict = "covered"
     elif supported_count:
         verdict = "partially_covered"
+    elif all_dimensions_undeclared:
+        verdict = "cannot_assess"
     else:
         verdict = "not_covered"
 
@@ -397,14 +418,28 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     else:
         gap = None
 
+    # Candidates that were actually considered but never declared coverage for any
+    # requested dimension — these are the specific rows a curator could fix, as
+    # opposed to a vague instruction to "collect more evidence".
+    uncovered_candidate_ids = (
+        sorted({record.get("dataset_id") for record, _ in assessed if record.get("dataset_id")})
+        if verdict == "cannot_assess"
+        else []
+    )
+
     if not requested:
         because = "No explicit research requirement dimensions were supplied, so held coverage cannot be established."
     elif verdict == "covered":
         because = "One held catalog record explicitly documents verified support for every stated requirement dimension."
-    elif supported_count:
+    elif verdict == "partially_covered":
         because = "Held evidence supports some stated dimensions, but at least one dimension is missing, unknown, or conflicting."
+    elif verdict == "cannot_assess":
+        because = (
+            "No catalog record considered declares coverage metadata for any requested dimension. "
+            "This is a gap in what the catalog records, not evidence that the requirement is unmet."
+        )
     else:
-        because = "No held catalog evidence explicitly and verifiably supports the stated requirement dimensions."
+        because = "At least one held catalog record declares coverage for a requested dimension, and it does not satisfy the requirement."
     return {
         "question": question,
         "requirement": normalized,
@@ -417,6 +452,7 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
             "catalog_candidates_considered": len(assessed),
             "dimension_status": dimension_status,
             "compatible_record_ids": [record.get("dataset_id") for record in compatible_records],
+            "uncovered_candidate_ids": uncovered_candidate_ids,
             "assembly_status": "unknown" if distributed_support else "not_needed" if compatible_records else "not_established",
             "rule": "Only explicit coverage metadata plus verified materialization supports a dimension; readiness, access, and field labels remain distinct declared evidence.",
         },
