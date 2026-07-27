@@ -246,6 +246,43 @@ export const MOCK_WEB_DISCOVER = {
   index_miss: true,
 };
 
+export const MOCK_DISCOVER_ASSESSMENT = {
+  question: "Do we hold issuer-quarter governance data for Taiwan?",
+  requirement: {
+    unit: { value: "issuer_quarter", provenance: "drafted" },
+    "universe/geography": { value: "Taiwan listed issuers", provenance: "explicit" },
+    time_range: { value: null, provenance: "unspecified" },
+    frequency: { value: "quarterly", provenance: "drafted" },
+    fields: { value: ["board_composition", "governance_score"], provenance: "explicit" },
+    event_type: { value: null, provenance: "unspecified" },
+  },
+  verdict: "partially_covered",
+  because: "A held filing record covers issuer-quarter observations, but governance fields are incomplete.",
+  held_evidence: [
+    {
+      dataset_id: "issuer_weekly_panel",
+      title: "Issuer weekly fundamentals",
+      contribution: "Held issuer observations for Taiwan.",
+      limitations: ["Required fields: unknown"],
+      evidence_state: {
+        materialization: { status: "query_ready_declared" },
+        access: { status: "declared", value: "materialized" },
+        coverage: { status: "documented" },
+      },
+    },
+  ],
+  gap: {
+    statement: "Board-governance variables are not evidenced in the held record.",
+    blocks: "A governance-specific issuer-quarter analysis.",
+    resolution_evidence: "A field dictionary or verified governance extract.",
+  },
+  assessment_basis: {
+    mode: "deterministic_catalog_metadata",
+    catalog_candidates_considered: 2,
+    assembly_status: "not_established",
+  },
+};
+
 export async function mockV2Api(
   page,
   {
@@ -253,6 +290,7 @@ export async function mockV2Api(
     jobsBody = MOCK_JOBS,
     historyBody = { items: [] },
     profileBody = { found: true, profile: { name_en: "Test Prof", discipline: "YZU" } },
+    assessmentBody = null,
   } = {},
 ) {
   const liveJobs = {
@@ -297,6 +335,16 @@ export async function mockV2Api(
       }),
     });
   });
+  if (assessmentBody) {
+    await page.route("**/library/discover/assessment", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(assessmentBody),
+      });
+    });
+  }
   await page.route("**/library/discover/collect", (route) => {
     if (route.request().method() !== "POST") {
       return route.continue();

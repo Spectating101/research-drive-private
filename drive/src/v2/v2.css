@@ -5422,6 +5422,91 @@
   padding: 2px 18px 28px;
 }
 
+/* The assessment is deliberately a narrow sequence, not a second dashboard.
+   It uses the existing paper/surface foundation and leaves Detail + Ask in the rail. */
+.rd-v2-evidence-brief {
+  max-width: 920px;
+  margin: 8px 0 4px;
+  padding: 10px 0 14px;
+}
+
+.rd-v2-evidence-question { display: grid; gap: 7px; }
+.rd-v2-evidence-question-row { display: flex; align-items: stretch; gap: 8px; }
+.rd-v2-evidence-question-row textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  background: var(--rd-surface);
+  color: var(--rd-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  resize: vertical;
+}
+.rd-v2-evidence-question .rd-v2-ask-send-hint { margin: 0; }
+.rd-v2-evidence-question.is-assessed { padding-bottom: 3px; }
+.rd-v2-evidence-suggestions { padding-top: 10px; }
+.rd-v2-evidence-suggestions h2 { margin: 4px 0; color: var(--rd-text); font-size: 16px; }
+.rd-v2-evidence-suggestions > p { margin: 4px 0 8px; color: var(--rd-muted); font-size: 12px; }
+.rd-v2-evidence-suggestion-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.rd-v2-evidence-suggestion-list button {
+  display: grid;
+  gap: 2px;
+  max-width: 320px;
+  padding: 7px 9px;
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  background: var(--rd-surface);
+  color: var(--rd-text);
+  cursor: pointer;
+  text-align: left;
+}
+.rd-v2-evidence-suggestion-list strong { font-size: 12px; }
+.rd-v2-evidence-suggestion-list span { color: var(--rd-muted); font-size: 11px; }
+.rd-v2-evidence-starters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rd-v2-evidence-starters button { padding: 4px 7px; border: 0; background: transparent; color: #315f90; cursor: pointer; font: inherit; font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; }
+.rd-v2-evidence-intake { display: flex; align-items: center; gap: 7px; max-width: 520px; margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--rd-border); }
+.rd-v2-evidence-intake label { flex: 0 0 auto; color: var(--rd-muted); font-size: 11.5px; font-weight: 600; }
+.rd-v2-evidence-intake input { min-width: 0; flex: 1; padding: 5px 7px; border: 1px solid var(--rd-border); border-radius: 4px; background: transparent; color: var(--rd-text); font: inherit; font-size: 11.5px; }
+.rd-v2-evidence-intake button { padding: 4px 2px; border: 0; background: transparent; color: #315f90; cursor: pointer; font: inherit; font-size: 11.5px; }
+.rd-v2-evidence-assessment { display: grid; gap: 14px; padding-top: 14px; }
+.rd-v2-evidence-assessment-head, .rd-v2-evidence-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.rd-v2-evidence-assessment-head h2 { margin: 3px 0 0; color: var(--rd-muted); font-size: 14px; font-weight: 500; line-height: 1.3; }
+.rd-v2-evidence-verdict { flex: 0 0 auto; padding: 9px 12px; border: 1px solid currentColor; border-radius: 4px; font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+.rd-v2-evidence-verdict.covered { background: #e6f4ec; color: #27704f; }
+.rd-v2-evidence-verdict.partially_covered, .rd-v2-evidence-verdict.partial { background: #fff3d7; color: #8a6424; }
+.rd-v2-evidence-verdict.not_covered, .rd-v2-evidence-verdict.uncovered { background: #fce8e6; color: #9b3d35; }
+.rd-v2-evidence-verdict.unknown { background: #eef1f5; color: #5d6673; }
+.rd-v2-evidence-because { margin: -7px 0 0; color: var(--rd-body); font-size: 12.5px; line-height: 1.45; }
+.rd-v2-evidence-requirement, .rd-v2-evidence-held, .rd-v2-evidence-gap { padding-top: 12px; border-top: 1px solid var(--rd-border); }
+.rd-v2-evidence-requirement { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+.rd-v2-evidence-requirement > .rd-v2-evidence-section-head { grid-column: 1 / -1; }
+.rd-v2-evidence-section-head p { margin: 3px 0 0; color: var(--rd-muted); font-size: 11.5px; }
+.rd-v2-evidence-dimension { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; }
+.rd-v2-evidence-dimension label { display: grid; gap: 3px; color: var(--rd-muted); font-size: 10.5px; font-weight: 700; }
+.rd-v2-evidence-dimension input, .rd-v2-evidence-dimension select { min-width: 0; padding: 6px 7px; border: 1px solid var(--rd-border); border-radius: 4px; background: var(--rd-surface); color: var(--rd-text); font: inherit; font-size: 12px; }
+.rd-v2-evidence-held ul { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.rd-v2-evidence-held button { display: grid; width: 100%; gap: 2px; padding: 7px 0; border: 0; border-bottom: 1px solid var(--rd-border); border-radius: 0; background: transparent; color: var(--rd-text); cursor: pointer; text-align: left; }
+.rd-v2-evidence-held button:hover { color: #315f90; }
+.rd-v2-evidence-held strong { font-size: 12px; line-height: 1.25; }
+.rd-v2-evidence-held span, .rd-v2-evidence-held em { overflow: hidden; color: var(--rd-muted); font-size: 11.5px; font-style: normal; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.rd-v2-evidence-gap strong { display: block; margin-top: 4px; color: var(--rd-text); font-size: 13px; }
+.rd-v2-evidence-gap { padding: 10px 12px; border-top: 0; border-left: 2px solid #9a6f25; background: color-mix(in srgb, #f1dfb4 28%, transparent); }
+.rd-v2-evidence-gap p, .rd-v2-evidence-basis { margin: 5px 0 0; color: var(--rd-body); font-size: 12px; line-height: 1.4; }
+.rd-v2-evidence-basis { color: var(--rd-muted); }
+@media (max-width: 640px) {
+  .rd-v2-evidence-brief { margin-top: 8px; padding: 12px; }
+  .rd-v2-evidence-question-row { align-items: stretch; flex-direction: column; }
+  .rd-v2-evidence-question-row .rd-v2-btn { align-self: flex-end; }
+  .rd-v2-evidence-requirement { grid-template-columns: 1fr; }
+  .rd-v2-evidence-requirement > .rd-v2-evidence-section-head { grid-column: auto; }
+  .rd-v2-evidence-dimension { grid-template-columns: 1fr; }
+  .rd-v2-evidence-intake { align-items: stretch; flex-direction: column; }
+}
+
 /* Discover is a working index, not a floating dashboard card. The shared
    page shell remains available to other surfaces with different needs. */
 .rd-v2-discover-page .rd-v2-body-scroll {

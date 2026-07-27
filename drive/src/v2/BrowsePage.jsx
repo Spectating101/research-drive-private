@@ -24,7 +24,7 @@ import {
 import { assessLocalSufficiency } from "@/v2/discoverSufficiency";
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
-import { DiscoverEmptyState } from "@/v2/DiscoverEmptyState";
+import { DiscoverEvidenceBrief } from "@/v2/DiscoverEvidenceBrief";
 import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
@@ -259,6 +259,7 @@ export function BrowsePage({
   const [stateFilter, setStateFilter] = useState("all");
   const [indexMiss, setIndexMiss] = useState(false);
   const [externalSearchQuery, setExternalSearchQuery] = useState("");
+  const [assessmentActive, setAssessmentActive] = useState(false);
 
   const pendingRows = useMemo(
     () => pendingApprovalJobs(jobs).map((job) => jobToCandidateRow(job)).filter(Boolean),
@@ -621,9 +622,16 @@ export function BrowsePage({
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >
       <div className="rd-v2-discover-browse" data-testid="discover-browse-mode" data-mode="browse">
-        {!q ? (
-          <DiscoverEmptyState onSuggest={onSuggestSearch} onCraftUrl={onCraftUrl} />
-        ) : (
+        {(!q || assessmentActive) ? (
+          <DiscoverEvidenceBrief
+            catalog={catalog}
+            onSelectRow={onSelectRow}
+            onLegacySearch={onSuggestSearch}
+            onAssessmentActive={setAssessmentActive}
+            onCraftUrl={onCraftUrl}
+          />
+        ) : null}
+        {!assessmentActive && q ? (
           <>
             <section
               className="rd-v2-discover-explore-workspace"
@@ -806,7 +814,7 @@ export function BrowsePage({
               </p>
             </details>
           </>
-        )}
+        ) : null}
       </div>
     </PageShell>
   );

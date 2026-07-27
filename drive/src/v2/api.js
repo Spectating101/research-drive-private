@@ -145,6 +145,22 @@ export function discoverSources(
   return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: live ? 45000 : 12000 });
 }
 
+/**
+ * Deliberate evidence-need assessment. This is intentionally separate from
+ * catalogue search: typing a question must not start a live assessment.
+ */
+export function assessDiscoverEvidence({ question, requirement } = {}) {
+  return fetchJson("/library/discover/assessment", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      question: String(question || "").trim(),
+      ...(requirement ? { requirement } : {}),
+    }),
+    timeoutMs: 20000,
+  });
+}
+
 /** Durable Discover history (intents / subscriptions / collection runs). */
 export function discoverHistory({ limit = 50, kind = "", sessionId = "" } = {}) {
   const params = new URLSearchParams({ limit: String(limit) });
