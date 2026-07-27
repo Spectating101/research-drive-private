@@ -331,41 +331,21 @@ export function BrowsePage({
           setRows([]);
           return;
         }
-        // Prefer Explore sources contract (semantic hybrid), escalate to live adapters
-        // when the local catalogue is thin or Search-wider requested. Fall back to legacy path.
+        // Two tempos, deliberately separated. A plain keyword lookup must stay fast,
+        // so it uses the index-only path below (discoverSearch/unifiedSearch).
+        // Semantic hybrid search and live external adapters are an explicit
+        // escalation via "Search wider" (preferLiveSources): that cascade costs
+        // several sequential round trips, and paying it on every ordinary query is
+        // what made a simple lookup take ~10s against the live desk.
+        if (preferLiveSources) {
         try {
-          const wantLive = Boolean(preferLiveSources);
           let sources = await discoverSources(q, {
             limit: 12,
             semantic: true,
-            live: wantLive,
+            live: true,
           });
           let sourceRows = sourcesResponseToRows(sources);
-          if (!wantLive && sourceRows.length && sourceRows.length < 3) {
-            try {
-              const liveSources = await discoverSources(q, {
-                limit: 12,
-                semantic: true,
-                live: true,
-              });
-              const liveRows = sourcesResponseToRows(liveSources);
-              if (liveRows.length > sourceRows.length) {
-                sources = liveSources;
-                sourceRows = liveRows;
-              }
-            } catch {
-              /* live adapters optional — keep local/semantic hits */
-            }
-          }
-          if (!sourceRows.length && !wantLive) {
-            try {
-              sources = await discoverSources(q, { limit: 12, semantic: true, live: true });
-              sourceRows = sourcesResponseToRows(sources);
-            } catch {
-              /* continue to legacy path */
-            }
-          }
-          if (wantLive) onLiveSourcesConsumed?.(false);
+          onLiveSourcesConsumed?.(false);
           if (sourceRows.length) {
             // A capability route is not an evidence match. When the source
             // catalogue cannot name a route that actually matches the need,
@@ -389,8 +369,9 @@ export function BrowsePage({
             return;
           }
         } catch {
-          if (preferLiveSources) onLiveSourcesConsumed?.(false);
-          /* sources endpoint optional — continue */
+          onLiveSourcesConsumed?.(false);
+          /* sources endpoint optional — fall through to the index path */
+        }
         }
         const discover = await discoverSearch(q, 12, email);
         const discoverRows = flattenRows(discover);
@@ -419,7 +400,10 @@ export function BrowsePage({
           return !tax.key.startsWith("local-") && Boolean(discoverCandidateUrl(r));
         });
 
-        if (mergedRows.length && !hasAcquireCandidate && q) {
+        // Open-web enrichment is another network hop. Keep it on the explicit
+        // "Search wider" escalation; an index hit that lacks an acquire route is
+        // still a truthful instant result, and the user can widen from there.
+        if (preferLiveSources && mergedRows.length && !hasAcquireCandidate && q) {
           const web = await webDiscover(q, 8);
           const webRows = webHitsToRows(web);
           if (webRows.length) {
