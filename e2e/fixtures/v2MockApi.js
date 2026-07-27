@@ -256,6 +256,7 @@ export const MOCK_DISCOVER_ASSESSMENT = {
     fields: { value: ["board_composition", "governance_score"], provenance: "explicit" },
     event_type: { value: null, provenance: "unspecified" },
   },
+  assessment_status: "assessed",
   verdict: "partially_covered",
   because: "A held filing record covers issuer-quarter observations, but governance fields are incomplete.",
   held_evidence: [

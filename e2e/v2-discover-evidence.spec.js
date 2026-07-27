@@ -49,4 +49,29 @@ test.describe("Discover evidence assessment", () => {
     await page.getByTestId("discover-held-evidence").getByRole("button", { name: /Issuer weekly fundamentals/ }).click();
     await expect(page.locator("aside.rd-v2-rail").getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "true");
   });
+
+  test("missing catalog coverage is neutral and does not become a negative verdict", async ({ page }) => {
+    await mockV2Api(page, {
+      assessmentBody: {
+        ...MOCK_DISCOVER_ASSESSMENT,
+        assessment_status: "insufficient_metadata",
+        verdict: null,
+        because: "No catalog record considered declares coverage metadata for any requested dimension.",
+        held_evidence: [],
+        assessment_basis: {
+          ...MOCK_DISCOVER_ASSESSMENT.assessment_basis,
+          uncovered_candidate_ids: ["issuer_weekly_panel"],
+        },
+      },
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await page.getByLabel("Explore question").fill("Do we hold issuer-quarter governance data for Taiwan?");
+    await page.getByRole("button", { name: "Assess evidence" }).click();
+
+    await expect(page.getByTestId("discover-verdict")).toHaveText("Not yet recorded");
+    await expect(page.getByTestId("discover-verdict")).toHaveClass(/insufficient_metadata/);
+    await expect(page.getByTestId("discover-assessment-result")).not.toContainText("Not covered");
+  });
 });

@@ -9,11 +9,12 @@ const VERDICT_LABELS = {
   partial: "Partially covered",
   not_covered: "Not covered",
   uncovered: "Not covered",
-  // Distinct from `not_covered`: no held record has ever declared coverage for
-  // the requested dimensions, so nothing was actually checked and failed — the
-  // catalog just never recorded the fact. Conflating the two would report an
-  // absence of data as a negative finding.
+  // Backward compatibility for the short-lived fourth-verdict contract.
   cannot_assess: "Not yet recorded",
+};
+const ASSESSMENT_STATUS_LABELS = {
+  insufficient_metadata: "Not yet recorded",
+  insufficient_requirement: "Needs a brief",
 };
 
 function text(value, fallback) {
@@ -180,7 +181,11 @@ export function DiscoverEvidenceBrief({
   const suggestions = useMemo(() => localSuggestions(catalog, draft), [catalog, draft]);
   const heldEvidence = Array.isArray(assessment?.held_evidence) ? assessment.held_evidence : [];
   const verdictKey = String(assessment?.verdict || "").trim().toLowerCase().replace(/[ -]/g, "_");
-  const verdictLabel = VERDICT_LABELS[verdictKey] || text(assessment?.verdict, "Assessment pending");
+  const assessmentStatus = String(assessment?.assessment_status || "").trim().toLowerCase().replace(/[ -]/g, "_");
+  const verdictLabel = ASSESSMENT_STATUS_LABELS[assessmentStatus]
+    || VERDICT_LABELS[verdictKey]
+    || text(assessment?.verdict, "Assessment pending");
+  const verdictTone = assessmentStatus || verdictKey || "unknown";
 
   const requestAssessment = async ({ requirement } = {}) => {
     const question = draft.trim();
@@ -287,7 +292,7 @@ export function DiscoverEvidenceBrief({
               <span className="rd-v2-eyebrow">Held-evidence assessment</span>
               <h2>{text(assessment.question, draft)}</h2>
             </div>
-            <span className={`rd-v2-evidence-verdict ${verdictKey || "unknown"}`} data-testid="discover-verdict">
+            <span className={`rd-v2-evidence-verdict ${verdictTone}`} data-testid="discover-verdict">
               {verdictLabel}
             </span>
           </header>
