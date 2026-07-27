@@ -87,6 +87,12 @@ class ResearchDataGateway:
     def library_overview(self) -> dict[str, Any]:
         return self.search.library_overview()
 
+    def discover_assessment(self, question: str, requirement: dict[str, Any] | None = None, *, limit: int = 100) -> dict[str, Any]:
+        """Answer whether catalog-held evidence covers an explicit requirement."""
+        from scripts.research_data_mcp.discover_assessment import assess_held_evidence
+
+        return assess_held_evidence(self, question=question, requirement=requirement, limit=limit)
+
     def ops_status(self, lane: str = "") -> dict[str, Any]:
         return self.search.ops_status(lane)
 
