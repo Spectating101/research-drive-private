@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { assessDiscoverEvidence } from "@/v2/api";
 import { DISCOVER_SUGGESTIONS } from "@/v2/deskSeed";
 import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
@@ -167,16 +167,26 @@ export function DiscoverEvidenceBrief({
   onLegacySearch,
   onAssessmentActive,
   onCraftUrl,
+  onAssessmentChange,
+  onClose,
+  initialQuestion = "",
+  autoAssess = false,
+  variant = "standalone",
 }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialQuestion);
   const [assessment, setAssessment] = useState(null);
   const [dimensions, setDimensions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoStartedRef = useRef("");
 
   useEffect(() => {
     setDimensions(normalizeRequirement(assessment?.requirement));
   }, [assessment]);
+
+  useEffect(() => {
+    if (initialQuestion) setDraft(initialQuestion);
+  }, [initialQuestion]);
 
   const suggestions = useMemo(() => localSuggestions(catalog, draft), [catalog, draft]);
   const heldEvidence = Array.isArray(assessment?.held_evidence) ? assessment.held_evidence : [];
@@ -187,17 +197,19 @@ export function DiscoverEvidenceBrief({
     || text(assessment?.verdict, "Assessment pending");
   const verdictTone = assessmentStatus || verdictKey || "unknown";
 
-  const requestAssessment = async ({ requirement } = {}) => {
-    const question = draft.trim();
+  const requestAssessment = async ({ requirement, questionOverride } = {}) => {
+    const question = String(questionOverride || draft).trim();
     if (!question) return;
     setLoading(true);
     setError("");
     try {
       const next = await assessDiscoverEvidence({ question, requirement });
       setAssessment(next);
+      onAssessmentChange?.(next);
       onAssessmentActive?.(true);
     } catch (requestError) {
       setError("Assessment is unavailable. Showing the catalogue instead.");
+      onAssessmentChange?.(null);
       onAssessmentActive?.(false);
       // Existing catalogue search is retained only as a graceful fallback.
       onLegacySearch?.(question);
@@ -206,15 +218,41 @@ export function DiscoverEvidenceBrief({
     }
   };
 
+  useEffect(() => {
+    const question = String(initialQuestion || "").trim();
+    if (!autoAssess || !question || autoStartedRef.current === question) return;
+    autoStartedRef.current = question;
+    requestAssessment({ questionOverride: question });
+    // One deliberate assessment per mounted query. Reassessment is explicit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAssess, initialQuestion]);
+
   const updateDimension = (index, field, value) => {
     setDimensions((current) => current.map((item, itemIndex) =>
       itemIndex === index ? { ...item, [field]: value } : item,
     ));
   };
 
+  const requirementEditor = (
+    <section className="rd-v2-evidence-requirement" aria-label="Editable evidence brief">
+      <div className="rd-v2-evidence-section-head">
+        <div><span className="rd-v2-eyebrow">Evidence brief</span><p>Edit only what the assessment should use on its next pass.</p></div>
+        <button type="button" className="rd-v2-btn sm" disabled={loading} onClick={() => requestAssessment({ requirement: keyedRequirement(dimensions) })}>
+          Apply & reassess
+        </button>
+      </div>
+      {dimensions.length ? dimensions.map((dimension, index) => (
+        <div className="rd-v2-evidence-dimension" key={dimension.key}>
+          <label>{dimension.label}<input aria-label={`${dimension.label} value`} value={dimension.value} onChange={(event) => updateDimension(index, "value", event.target.value)} /></label>
+          <label>Basis<select aria-label={`${dimension.label} provenance`} value={dimension.provenance} onChange={(event) => updateDimension(index, "provenance", event.target.value)}>{PROVENANCE.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+        </div>
+      )) : <p className="muted">Requirement dimensions were not supplied.</p>}
+    </section>
+  );
+
   return (
-    <section className="rd-v2-evidence-brief" aria-label="Evidence assessment" data-testid="discover-evidence-brief">
-      <form
+    <section className={`rd-v2-evidence-brief ${variant === "layered" ? "is-layered" : ""}`} aria-label="Evidence assessment" data-testid="discover-evidence-brief">
+      {variant !== "layered" ? <form
         className={`rd-v2-evidence-question${assessment ? " is-assessed" : ""}`}
         onSubmit={(event) => {
           event.preventDefault();
@@ -237,10 +275,10 @@ export function DiscoverEvidenceBrief({
           </button>
         </div>
         <p className="rd-v2-ask-send-hint">Enter to assess · ⇧↵ newline</p>
-      </form>
+      </form> : null}
 
       {!assessment ? (
-        <div className="rd-v2-evidence-suggestions" data-testid="discover-empty">
+        variant === "layered" ? null : <div className="rd-v2-evidence-suggestions" data-testid="discover-empty">
           <span className="rd-v2-eyebrow">Held locally</span>
           <h2>What evidence are you looking for?</h2>
           <p data-testid="discover-evidence-suggestions">Local context only while you type. An assessment runs when you submit.</p>
@@ -295,25 +333,21 @@ export function DiscoverEvidenceBrief({
             <span className={`rd-v2-evidence-verdict ${verdictTone}`} data-testid="discover-verdict">
               {verdictLabel}
             </span>
+            {onClose ? <button type="button" className="rd-v2-evidence-close" onClick={onClose}>Hide assessment</button> : null}
           </header>
           <p className="rd-v2-evidence-because">{text(assessment.because, "Reasoning was not provided.")}</p>
 
-          <section className="rd-v2-evidence-requirement" aria-label="Editable evidence brief">
-            <div className="rd-v2-evidence-section-head">
-              <div><span className="rd-v2-eyebrow">Evidence brief</span><p>Edit only what the assessment should use on its next pass.</p></div>
-              <button type="button" className="rd-v2-btn sm" disabled={loading} onClick={() => requestAssessment({ requirement: keyedRequirement(dimensions) })}>
-                Apply & reassess
-              </button>
-            </div>
-            {dimensions.length ? dimensions.map((dimension, index) => (
-              <div className="rd-v2-evidence-dimension" key={dimension.key}>
-                <label>{dimension.label}<input aria-label={`${dimension.label} value`} value={dimension.value} onChange={(event) => updateDimension(index, "value", event.target.value)} /></label>
-                <label>Basis<select aria-label={`${dimension.label} provenance`} value={dimension.provenance} onChange={(event) => updateDimension(index, "provenance", event.target.value)}>{PROVENANCE.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-              </div>
-            )) : <p className="muted">Requirement dimensions were not supplied.</p>}
-          </section>
+          {variant === "layered" ? (
+            <details className="rd-v2-evidence-edit">
+              <summary>
+                <span>{dimensions.filter((item) => item.value !== "Unknown").map((item) => `${item.label}: ${item.value}`).slice(0, 3).join(" · ") || "Requirement not yet specified"}</span>
+                <b>Edit brief</b>
+              </summary>
+              {requirementEditor}
+            </details>
+          ) : requirementEditor}
 
-          <section className="rd-v2-evidence-held" aria-label="Held evidence">
+          {variant !== "layered" ? <section className="rd-v2-evidence-held" aria-label="Held evidence">
             <div className="rd-v2-evidence-section-head"><div><span className="rd-v2-eyebrow">Held evidence</span><p>Select a record for existing Detail or Ask.</p></div></div>
             {heldEvidence.length ? (
               <ul data-testid="discover-held-evidence">
@@ -327,7 +361,7 @@ export function DiscoverEvidenceBrief({
                 })}
               </ul>
             ) : <p className="muted">No held evidence was returned. This does not establish that no evidence exists.</p>}
-          </section>
+          </section> : null}
 
           <section className="rd-v2-evidence-gap" aria-label="Evidence gap" data-testid="discover-evidence-gap">
             <span className="rd-v2-eyebrow">One precise gap</span>

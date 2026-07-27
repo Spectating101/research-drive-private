@@ -60,6 +60,7 @@ export function AskRail({
   const isProfile = mainTab === "profile";
   const isDiscover = mainTab === "browse";
   const isDiscoverHistory = isDiscover && dataset?.kind === "discover_history";
+  const isDiscoverInvestigation = isDiscover && dataset?.kind === "discover_investigation";
   const isSynthesis = mainTab === "synthesis";
   const profileContext = dataset?.title || "Profile";
   const synthesisContext =
@@ -72,6 +73,8 @@ export function AskRail({
     ? "Ask"
     : isDiscoverHistory
       ? "Ask · lifecycle item"
+      : isDiscoverInvestigation
+        ? "Ask · investigation"
       : isDiscover
         ? "Ask · selected source"
         : isSynthesis
@@ -83,6 +86,10 @@ export function AskRail({
       : `Context · ${profileContext}`
     : isDiscoverHistory && discoverTitle
       ? `Lifecycle context · ${discoverTitle}`
+      : isDiscoverInvestigation && discoverTitle
+        ? hasThread
+          ? `Continuing · investigation → ${discoverTitle}`
+          : `Investigation · ${discoverTitle}`
       : isDiscover && discoverTitle && hasThread
         ? `Selected context · ${discoverTitle}`
         : isDiscover && discoverTitle

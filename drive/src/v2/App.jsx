@@ -707,19 +707,42 @@ export function V2App() {
     setRailTab("detail");
   }, []);
 
-  const askSearchWeb = useCallback(
+  const searchDiscoverWider = useCallback(
     (query) => {
       const q = String(query || discoverSearchQuery || "").trim();
       if (!q) return;
-      // Force Explore to re-query with live adapters, and brief Ask in parallel.
+      // Wider discovery is deliberate. It does not silently start an Ask turn.
       setDiscoverPreferLive(true);
       setDiscoverSearchQuery(q);
       goTab("browse");
       syncUrl({ tab: "browse", q });
-      setRailTab("ask");
-      setPendingAsk(
-        `Find external datasets for: ${q}. Start with open-web discovery, probe promising sources, and propose the safest acquisition plan for this lab.`,
+    },
+    [discoverSearchQuery, goTab, syncUrl],
+  );
+
+  const askDiscoverQuery = useCallback(
+    (query, context = {}) => {
+      const q = String(query || discoverSearchQuery || "").trim();
+      if (!q) return;
+      const resultNames = Array.isArray(context?.rows)
+        ? context.rows.slice(0, 6).map((row) => row?.title || row?.name || row?.dataset_id).filter(Boolean)
+        : [];
+      const prompt = String(context?.prompt || "").trim() || (
+        context?.kind === "results"
+          ? `Continue this Discover investigation: ${q}. Current index candidates: ${resultNames.join("; ") || "none named"}. Help refine the evidence requirement, explain what is known versus unknown, and identify the next valid action. Do not submit procurement without explicit approval.`
+          : `Investigate this evidence need: ${q}. Begin with held evidence, ask for missing requirement details when needed, and use wider discovery only when it adds value. Keep procurement approval-gated.`
       );
+      setDiscoverSearchQuery(q);
+      setActiveObject({
+        kind: "discover_investigation",
+        title: q,
+        question: q,
+        search_query: q,
+      });
+      goTab("browse");
+      syncUrl({ tab: "browse", q });
+      setRailTab("ask");
+      setPendingAsk({ prompt, displayText: q });
     },
     [discoverSearchQuery, goTab, syncUrl],
   );
@@ -1335,7 +1358,8 @@ export function V2App() {
             goTab("browse");
           }}
           onCraftUrl={craftPublicUrlPlan}
-          onSearchWeb={askSearchWeb}
+          onSearchWeb={searchDiscoverWider}
+          onAskQuery={askDiscoverQuery}
           onSelectRow={(row) => {
             const nextKey = candidateKey(row);
             browseSelectedKeyRef.current = nextKey;
@@ -1583,7 +1607,7 @@ export function V2App() {
                 : tab === "browse"
                   ? selectedHistoryEvent
                     ? { ...selectedHistoryEvent, title: selectedHistoryEvent.target || selectedHistoryEvent.title, kind: "discover_history" }
-                    : browseTarget
+                    : browseTarget || (activeObject?.kind === "discover_investigation" ? activeObject : null)
                 : tab === "home" && activeObject?.kind === "home_attention"
                   ? {
                       title: `Home · ${activeObject.title}`,
