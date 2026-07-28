@@ -135,6 +135,10 @@ test.describe("Discover adaptive Explore", () => {
     await expect(comparison).toContainText("Planned output");
     await expect(comparison).toContainText("Unknown");
     await expect(comparison).toContainText("Next valid action");
+    await expect(comparison).toContainText("issuer_quarter");
+    await expect(comparison).toContainText("Taiwan listed issuers");
+    await expect(comparison).toContainText("board_composition, governance_score");
+    await expect(comparison).not.toContainText("Stablecoin de-peg exchange activity dataset");
     await expect(comparison.getByRole("button", { name: /Review acquisition route/ })).toBeVisible();
     await expect(comparison).toContainText("cannot submit procurement");
 
@@ -158,13 +162,15 @@ test.describe("Discover adaptive Explore", () => {
     await expect(workspace).toContainText("TW listed company filings");
     await expect(workspace).toContainText("Proposed routes · review required");
     await expect(workspace).toContainText("Recommended route");
+    await expect(workspace.getByRole("button", { name: "Select route" })).toHaveCount(0);
+    await expect(workspace.locator(".rd-v2-intent-workspace-head")).not.toContainText("Intent ");
     await expect(workspace.getByRole("button", { name: "Submit for approval" })).toHaveCount(0);
     await expect(page.getByTestId("discover-result-summary")).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Review acquisition" })).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Durable Discover decision record");
     await expect(page.locator("aside.rd-v2-rail").getByRole("button", { name: "Request this evidence" })).toHaveCount(0);
 
-    await workspace.getByRole("button", { name: "Accept routes for review" }).click();
+    await workspace.getByRole("button", { name: "Continue to route selection" }).click();
     await expect(workspace).toContainText("Reviewed routes");
     await expect(workspace.getByRole("button", { name: "Submit for approval" })).toBeEnabled();
     await workspace.getByRole("button", { name: "Submit for approval" }).click();
@@ -173,5 +179,54 @@ test.describe("Discover adaptive Explore", () => {
     await expect(workspace.getByTestId("discover-intent-collection")).toContainText(
       "collection remains governed by History",
     );
+  });
+
+  test("mobile research brief, results, and bottom navigation do not collide", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockV2Api(page, {
+      discoverBody: MOCK_DISCOVER_HIT,
+      assessmentBody: MOCK_DISCOVER_ASSESSMENT,
+    });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await search(page, "Do we hold issuer-quarter governance data for Taiwan?");
+
+    const grip = page.locator(".rd-v2-rail-mobile-grip");
+    if (await grip.getAttribute("aria-expanded") === "true") await grip.click();
+
+    const briefBox = await page.getByTestId("discover-interpreting").boundingBox();
+    const filterBox = await page.getByTestId("discover-filter-menu").boundingBox();
+    expect(briefBox).not.toBeNull();
+    expect(filterBox).not.toBeNull();
+    expect(filterBox.y).toBeGreaterThanOrEqual(briefBox.y + briefBox.height - 1);
+
+    const rowBox = await page.getByTestId("discover-best-fit").locator(".rd-v2-discover-candidate").first().boundingBox();
+    expect(rowBox).not.toBeNull();
+    expect(rowBox.x).toBeGreaterThanOrEqual(0);
+    expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(390);
+
+    const resourcesBox = await page.getByRole("button", { name: "Resources", exact: true }).boundingBox();
+    const profileButton = page.getByRole("button", { name: "Profile", exact: true });
+    const settingsButton = page.getByRole("button", { name: "Settings", exact: true });
+    const profileBox = await profileButton.boundingBox();
+    const settingsBox = await settingsButton.boundingBox();
+    const profileIconBox = await profileButton.locator("svg").boundingBox();
+    const settingsIconBox = await settingsButton.locator("svg").boundingBox();
+    expect(resourcesBox).not.toBeNull();
+    expect(profileBox).not.toBeNull();
+    expect(settingsBox).not.toBeNull();
+    expect(profileIconBox).not.toBeNull();
+    expect(settingsIconBox).not.toBeNull();
+    expect(resourcesBox.x + resourcesBox.width).toBeLessThanOrEqual(profileBox.x + 1);
+    expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(settingsBox.x + 1);
+    expect(profileIconBox.x + profileIconBox.width).toBeLessThanOrEqual(settingsIconBox.x);
+
+    const dimensions = await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      body: document.body.scrollWidth,
+      document: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+    expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport);
   });
 });

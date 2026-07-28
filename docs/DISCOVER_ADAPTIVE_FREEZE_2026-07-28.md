@@ -572,3 +572,53 @@ History → exact Library handoff
 ```
 
 These unfinished items do not authorize substitute pages, permanent panels, fabricated values, or a return to the Search | Ask toggle.
+
+---
+
+## 16. UX polish closure
+
+The post-freeze interface audit is resolved as a bounded polish pass. It does not amend the composition in §14.
+
+User-visible language now uses one possession boundary:
+
+```text
+in your Library
+Beyond your Library
+Library evidence
+Library comparison
+```
+
+`lab`, `held`, and `local` remain valid internal data-model terms, but they are not competing user-facing names for the Library boundary on the adaptive Explore surface.
+
+The result header now states one set and its useful partition:
+
+```text
+N results · X offerings available to add · Y results in your Library
+```
+
+Additional route-verification or reference counts appear only when those categories exist. The duplicate candidate total at the bottom of the list is removed.
+
+Acquisition review follows these display rules:
+
+```text
+human offering and route titles in the primary reading path
+technical identifiers behind a collapsed Technical details disclosure
+no disabled Select route action before proposal review
+Continue to route selection records the proposal but does not start collection
+Collection / Boundary / Next replace the misleading Use now label
+```
+
+The custom strategy renderer is topic-agnostic. It binds its output title, unit, universe, period, and fields from the assessment requirement. Stablecoin values live in the committed visual fixture, not in production presentation logic.
+
+Mobile acceptance is geometric, not screenshot-only:
+
+```text
+Research brief stacks above Filters at 390px
+result rows remain inside the viewport with no horizontal document overflow
+Resources, Profile, and Settings controls and icons do not overlap
+the preserved Detail / Ask sheet remains independently collapsible
+```
+
+The deterministic capture journey is
+[`e2e/discover-adaptive-freeze-screenshots.spec.js`](../e2e/discover-adaptive-freeze-screenshots.spec.js).
+It regenerates the five fixture-backed artifacts listed in §15 with a question-specific grounded Ask answer. The live read-only artifact remains separately identified and is not represented as proof of mutation-backed assessment.

@@ -836,7 +836,7 @@ export function V2App() {
         });
         setDiscoverModeSafe("explore");
         goTab("browse");
-        showToast("Acquisition intent recorded — review required");
+        showToast("Acquisition review opened — collection has not started");
       } catch (err) {
         setRailTab("ask");
         setPendingAsk({

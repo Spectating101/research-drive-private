@@ -135,7 +135,7 @@ function evidenceCandidate(evidence) {
   return {
     dataset_id: evidence?.dataset_id || "",
     candidate_key: evidence?.dataset_id ? `dataset:${evidence.dataset_id}` : undefined,
-    title: text(evidence?.title, "Held evidence record"),
+    title: text(evidence?.title, "Library evidence record"),
     description: text(evidence?.contribution, "Contribution unknown"),
     limitations: text(evidence?.limitations, "Limitations unknown"),
     evidence_state: evidenceStateSummary(evidence?.evidence_state),
@@ -347,8 +347,8 @@ export function DiscoverEvidenceBrief({
             </details>
           ) : requirementEditor}
 
-          {variant !== "layered" ? <section className="rd-v2-evidence-held" aria-label="Held evidence">
-            <div className="rd-v2-evidence-section-head"><div><span className="rd-v2-eyebrow">Held evidence</span><p>Select a record for existing Detail or Ask.</p></div></div>
+          {variant !== "layered" ? <section className="rd-v2-evidence-held" aria-label="Library evidence">
+            <div className="rd-v2-evidence-section-head"><div><span className="rd-v2-eyebrow">Library evidence</span><p>Select a record for existing Detail or Ask.</p></div></div>
             {heldEvidence.length ? (
               <ul data-testid="discover-held-evidence">
                 {heldEvidence.map((evidence, index) => {
@@ -360,7 +360,7 @@ export function DiscoverEvidenceBrief({
                   </button></li>;
                 })}
               </ul>
-            ) : <p className="muted">No held evidence was returned. This does not establish that no evidence exists.</p>}
+            ) : <p className="muted">No Library evidence was returned. This does not establish that no evidence exists.</p>}
           </section> : null}
 
           <section className="rd-v2-evidence-gap" aria-label="Evidence gap" data-testid="discover-evidence-gap">
@@ -374,7 +374,7 @@ export function DiscoverEvidenceBrief({
           {assessment.assessment_basis ? <p className="rd-v2-evidence-basis">Basis: {assessmentBasisSummary(assessment.assessment_basis)}</p> : null}
         </div>
       )}
-      {loading ? <p className="rd-v2-browse-loading" data-testid="discover-assessment-loading">Checking held evidence against the brief…</p> : null}
+      {loading ? <p className="rd-v2-browse-loading" data-testid="discover-assessment-loading">Checking Library evidence against the brief…</p> : null}
       {error ? <p className="rd-v2-discover-error" role="status">{error}</p> : null}
     </section>
   );

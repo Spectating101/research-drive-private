@@ -327,10 +327,12 @@ body,
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: 44px;
+    grid-template-columns: repeat(2, 44px);
     gap: 2px;
     height: 100%;
-    margin-left: 4px;
-    padding-left: 4px;
+    margin: 0 0 0 4px;
+    padding: 0 0 0 4px;
+    border-top: 0;
     border-left: 1px solid rgba(210, 216, 226, 0.75);
   }
 
@@ -531,6 +533,35 @@ body,
   }
 
   /* Discover explore stacks */
+  .rd-v2-discover-query-tools {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .rd-v2-discover-query-tools .rd-v2-discover-interpreting,
+  .rd-v2-discover-query-tools .rd-v2-discover-filter-menu {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .rd-v2-discover-query-tools .rd-v2-discover-filter-popover {
+    width: 100%;
+  }
+
+  /* The five primary destinations and two icon-only account actions share
+     one bottom sheet. Keep each grid inside its own track so Resources never
+     collides with Profile or Settings on 390px viewports. */
+  .yzu-sidebar .rd-v2-sidebar-nav {
+    width: auto;
+    min-width: 0;
+  }
+
+  .yzu-sidebar .rd-v2-sidebar-foot-nav {
+    width: 96px;
+    min-width: 96px;
+  }
+
   .rd-v2-discover-explore-form,
   .rd-v2-discover-craft-row {
     display: grid !important;

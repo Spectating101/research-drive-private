@@ -46,8 +46,11 @@ const DECISION_ROWS = [
   ["next", "Next"],
 ];
 
-export function RailDecisionSummary({ status, primary, risk, next }) {
-  const rows = DECISION_ROWS.map(([key, label]) => [label, { status, primary, risk, next }[key]])
+export function RailDecisionSummary({ status, primary, risk, next, labels = {} }) {
+  const rows = DECISION_ROWS.map(([key, defaultLabel]) => [
+    labels[key] || defaultLabel,
+    { status, primary, risk, next }[key],
+  ])
     .filter(([, value]) => value != null && String(value).trim() !== "");
   if (!rows.length) return null;
 

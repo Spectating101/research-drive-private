@@ -29,9 +29,9 @@ import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
 const FILTERS = [
   { id: "all", label: "All results" },
-  { id: "in_lab", label: "In lab" },
+  { id: "in_lab", label: "In your Library" },
   { id: "query_ready", label: "Query ready" },
-  { id: "external", label: "Beyond your lab" },
+  { id: "external", label: "Beyond your Library" },
   { id: "needs_access", label: "Needs access" },
 ];
 
@@ -42,8 +42,8 @@ function plural(value, singular, pluralValue = `${singular}s`) {
 function resultScopeSummary(counts) {
   const wider = Math.max(0, Number(counts?.external || 0) - Number(counts?.needsAccess || 0));
   return [
-    counts?.inLab ? `${plural(counts.inLab, "result")} already in your lab` : null,
-    wider ? `${plural(wider, "source")} beyond your lab` : null,
+    counts?.inLab ? `${plural(counts.inLab, "result")} in your Library` : null,
+    wider ? `${plural(wider, "source")} beyond your Library` : null,
     counts?.needsAccess
       ? counts.needsAccess === 1
         ? "1 source needs access review"
@@ -62,7 +62,7 @@ function candidateTitle(row) {
 function offeringType(row, taxonomy) {
   const kind = String(row?.kind || row?.type || row?.artifact_type || "").toLowerCase();
   const url = String(row?.url || row?.source_url || row?.resolved_url || "").toLowerCase();
-  if (taxonomy?.key?.startsWith("local-")) return "Held dataset";
+  if (taxonomy?.key?.startsWith("local-")) return "Library dataset";
   if (/paper|article|literature|publication|openalex/.test(kind)) return "Reference only";
   if (/web|page|context/.test(kind)) return "Web context";
   if (/connector|api|bigquery|warehouse/.test(kind) || row?.connector) return "Connector";
@@ -75,7 +75,7 @@ function offeringType(row, taxonomy) {
 function accessLabel(taxonomy) {
   switch (taxonomy?.key) {
     case "local-query-ready":
-      return "In lab · Query-ready declared";
+      return "In your Library · Query-ready declared";
     case "external-discoverable":
       return "Access not verified";
     case "external-probed":
@@ -89,6 +89,16 @@ function accessLabel(taxonomy) {
     default:
       return taxonomy?.label || "State not recorded";
   }
+}
+
+function libraryFacingSufficiency(value) {
+  return String(value || "")
+    .replaceAll("Exact local match", "Exact Library match")
+    .replaceAll("Partial local coverage", "Partial Library coverage")
+    .replaceAll("Related lab asset", "Related Library asset")
+    .replaceAll("No local alternative found", "No Library alternative found")
+    .replaceAll("Local comparison unavailable", "Library comparison unavailable")
+    .replaceAll("In lab", "In Library");
 }
 
 function hostLabel(value) {
@@ -228,17 +238,17 @@ function DiscoverCandidateRow({
           <span className="rd-v2-discover-offering-facts">
             {[
               offeringType(row, taxonomy),
+              showCoverage ? coverage : null,
               row?.refresh_frequency || row?.refresh || row?.update_frequency,
               row?.probe_snapshot?.observed_at ? "Observed probe" : null,
             ].filter(Boolean).join(" · ")}
           </span>
-          {showCoverage ? <span className="rd-v2-discover-coverage">{coverage}</span> : null}
           {showSufficiency ? (
             <span
               className={`rd-v2-discover-sufficiency rd-v2-discover-sufficiency-${row.discover_sufficiency.state}`}
               data-testid="discover-sufficiency-line"
             >
-              {row.discover_sufficiency.browseLine}
+              {libraryFacingSufficiency(row.discover_sufficiency.browseLine)}
             </span>
           ) : null}
         </span>
@@ -342,13 +352,19 @@ function DiscoverRouteComparison({
     if (Array.isArray(value)) return value.length ? value.join(", ") : fallback;
     return String(value || "").trim() || fallback;
   };
-  const stablecoin = /stablecoin|de-?peg/i.test(query || "");
-  const outputTitle = stablecoin
-    ? "Stablecoin de-peg exchange activity dataset"
-    : "Research-ready evidence dataset";
-  const answerLine = stablecoin
-    ? "Aligns de-peg event days with exchange-level price and volume so activity before and after each event can be compared."
-    : `Produces the proposed ${readRequirement("unit", "research unit")} evidence needed to address the recorded gap alongside held evidence.`;
+  const outputTitle = readRequirement("output_title", "Proposed research evidence dataset");
+  const proposedUnit = readRequirement("unit");
+  const proposedUniverse = readRequirement("universe/geography");
+  const proposedPeriod = readRequirement("time_range");
+  const proposedFields = readRequirement("fields");
+  const recordedGap = String(
+    gap?.blocks || gap?.statement || "the required evidence is not yet established",
+  ).replace(/[.!?]+$/, "");
+  const answerLine = [
+    `Organizes ${proposedFields} at ${proposedUnit}`,
+    proposedUniverse !== "Not yet specified" ? `for ${proposedUniverse}` : "",
+    `to address the recorded gap: ${recordedGap}.`,
+  ].filter(Boolean).join(" ");
   const nextAction = publicRoute
     ? {
         text: `Review the declared route for ${candidateTitle(publicRoute)} and verify coverage before approval.`,
@@ -370,13 +386,13 @@ function DiscoverRouteComparison({
         };
   const inputCards = [
     held ? {
-      label: "Held evidence",
+      label: "Library evidence",
       title: candidateTitle(held),
       state: "Observed in Library",
       action: () => onSelectRow?.(held),
     } : {
-      label: "Held evidence",
-      title: "No held input established",
+      label: "Library evidence",
+      title: "No Library input established",
       state: "Unknown",
     },
     publicRoute ? {
@@ -396,7 +412,9 @@ function DiscoverRouteComparison({
     },
     {
       label: "Identity + coverage",
-      title: stablecoin ? "Exchange and stablecoin mapping" : readRequirement("universe/geography"),
+      title: proposedUniverse === "Not yet specified"
+        ? "Identity and coverage contract"
+        : `Coverage map · ${proposedUniverse}`,
       state: "Proposed · must verify",
     },
   ];
@@ -461,10 +479,10 @@ function DiscoverRouteComparison({
             <span>Planned output</span>
             <strong>{outputTitle}</strong>
             <dl>
-              <div><dt>Unit</dt><dd>{stablecoin ? "exchange × stablecoin × day" : readRequirement("unit")}</dd></div>
-              <div><dt>Universe</dt><dd>{stablecoin ? "Major exchanges · refine in Ask" : readRequirement("universe/geography")}</dd></div>
-              <div><dt>Period</dt><dd>{stablecoin ? "2020–present · proposed" : readRequirement("time_range")}</dd></div>
-              <div><dt>Fields</dt><dd>{stablecoin ? "price, volume, abnormal volume, de-peg event" : readRequirement("fields")}</dd></div>
+              <div><dt>Unit</dt><dd>{proposedUnit}</dd></div>
+              <div><dt>Universe</dt><dd>{proposedUniverse}</dd></div>
+              <div><dt>Period</dt><dd>{proposedPeriod}</dd></div>
+              <div><dt>Fields</dt><dd>{proposedFields}</dd></div>
             </dl>
             <em>Register only after archive and query-readiness verification</em>
           </div>
@@ -918,6 +936,23 @@ export function BrowsePage({
     }
     return groups;
   }, [filtered, labIds]);
+  const resultBreakdown = useMemo(
+    () => [
+      resultGroups.available.length
+        ? `${plural(resultGroups.available.length, "offering")} available to add`
+        : null,
+      resultGroups.external.length
+        ? `${plural(resultGroups.external.length, "route")} to verify`
+        : null,
+      resultGroups.context.length
+        ? plural(resultGroups.context.length, "reference")
+        : null,
+      resultGroups.held.length
+        ? `${plural(resultGroups.held.length, "result")} in your Library`
+        : null,
+    ].filter(Boolean).join(" · "),
+    [resultGroups],
+  );
 
   const filterCounts = useMemo(
     () =>
@@ -1021,7 +1056,7 @@ export function BrowsePage({
     <details className="rd-v2-discover-library-evidence" data-testid="discover-library-evidence">
       <summary>Library evidence · {resultGroups.held.length}</summary>
       <div className="rd-v2-discover-library-popover">
-        <span className="rd-v2-eyebrow">Relevant held evidence</span>
+        <span className="rd-v2-eyebrow">Relevant Library evidence</span>
         <DiscoverCandidateList
           rows={resultGroups.held.slice(0, 4)}
           labIds={labIds}
@@ -1053,7 +1088,7 @@ export function BrowsePage({
     <PageShell
       className="rd-v2-discover-page"
       title="Discover"
-      lead="Search the lab first, then evaluate sources beyond it"
+      lead="Search your Library first, then evaluate sources beyond it"
       headExtra={modeTabs}
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >
@@ -1087,7 +1122,7 @@ export function BrowsePage({
               ) : <p className="muted">No external source recommendations are available yet.</p>}
               {idleHoldings.length ? (
                 <div className="rd-v2-discover-idle-library-note">
-                  Library evidence · {labIds.size} held assets are checked automatically after a research question.
+                  Library evidence · {labIds.size} assets are checked automatically after a research question.
                 </div>
               ) : null}
             </div>
@@ -1162,7 +1197,11 @@ export function BrowsePage({
               <div className="rd-v2-discover-result-actions" aria-label="Discover next actions">
                 <div>
                   <strong>{plural(filtered.length, "result")}</strong>
-                  <span>{preferLiveSources || source === "sources" || externalCatalogueActive ? "wider discovery" : "index lookup"}</span>
+                  <span>
+                    {resultBreakdown || (preferLiveSources || source === "sources" || externalCatalogueActive
+                      ? "wider discovery"
+                      : "index lookup")}
+                  </span>
                 </div>
                 <div>
                   {onSearchWeb ? (
@@ -1207,10 +1246,10 @@ export function BrowsePage({
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
                 <div className="rd-v2-home-section-head">
                   <div>
-                    <span className="rd-v2-eyebrow">Beyond your library</span>
+                    <span className="rd-v2-eyebrow">Beyond your Library</span>
                     <h3>Available to add</h3>
                   </div>
-                  <span className="muted">{plural(resultGroups.available.length, "supported offering")}</span>
+                  <span className="muted">{plural(resultGroups.available.length, "offering")} available to add</span>
                 </div>
                 <DiscoverCandidateList
                   rows={resultGroups.available}
@@ -1242,13 +1281,13 @@ export function BrowsePage({
               <p className="rd-v2-browse-loading">Showing current matches while wider sources refresh…</p>
             ) : null}
             {loading && !filtered.length ? (
-              <p className="rd-v2-browse-loading">Searching the lab and wider sources…</p>
+              <p className="rd-v2-browse-loading">Searching your Library and wider sources…</p>
             ) : null}
 
             {!loading && allInLab ? (
               <div className="rd-v2-discover-expand-search">
                 <div>
-                  <strong>You already hold every current match.</strong>
+                  <strong>Every current match is already in your Library.</strong>
                   <span>Search wider only when you need alternatives or broader coverage.</span>
                 </div>
               </div>
@@ -1264,8 +1303,8 @@ export function BrowsePage({
               <section className="rd-v2-discover-route-gap" aria-label="No specific source route match">
                 <div>
                   <span className="rd-v2-eyebrow">No direct route match</span>
-                  <strong>No current lab source route specifically matches “{q}”.</strong>
-                  <p>The routes below are available to the lab, but they are not evidence results for this question.</p>
+                  <strong>No current source route specifically matches “{q}”.</strong>
+                  <p>The routes below are known to the desk, but they are not evidence results for this question.</p>
                 </div>
                 <button type="button" className="rd-v2-btn sm" onClick={() => setExternalSearchQuery(q)}>
                   Search external catalogues
@@ -1329,14 +1368,10 @@ export function BrowsePage({
 
             {filtered.length ? (
               <footer className="rd-v2-discover-rank-foot" data-testid="discover-rank-foot">
-                <span>
-                  {plural(filtered.length, "candidate")}
-                  {stateFilter !== "all" ? ` · ${activeFilter.label}` : ""}
-                </span>
                 <span className="muted">
                   {externalCatalogueActive
                     ? "Ordered by title and description match to this question"
-                    : "Ranked using active research + interpreted evidence need"}
+                    : `Ranked using active research + interpreted evidence need${stateFilter !== "all" ? ` · ${activeFilter.label}` : ""}`}
                 </span>
               </footer>
             ) : null}
