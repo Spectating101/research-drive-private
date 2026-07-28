@@ -11,12 +11,14 @@ Acquire, catalog, vault, and serve datasets for the professor desk.
 - `drive/config/` — registry (write), collection queue, GDrive partitions, GDELT fleet
 - `drive/docs/` — **canonical desk documentation** (databank state, activation backlog)
 
-## Documentation (neutral inventory vs activation)
+## Documentation
 
 | Doc | Role |
 |-----|------|
+| [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) | **Start here** — product direction, truth rules, and authority map |
+| [`docs/DOCUMENTATION_GUIDE.md`](docs/DOCUMENTATION_GUIDE.md) | Documentation classes and cleanup rules |
 | [`docs/DATABANK_STATE.md`](docs/DATABANK_STATE.md) | **What we have** — equal-weight inventory, paths, coverage |
-| [`docs/DESK_ACTIVATION.md`](docs/DESK_ACTIVATION.md) | **What to do next** — operational queue; filter via faculty profile |
+| [`docs/DESK_ACTIVATION.md`](docs/DESK_ACTIVATION.md) | Historical activation backlog; verify against live state before acting |
 | `docs/status/generated/platform_progress.json` | Machine-readable progress + incomplete items |
 
 Refresh: `python3 drive/scripts/sync_drive_platform_state.py`
@@ -30,7 +32,7 @@ bash drive/scripts/run_yzu_cluster.sh          # API + UI + worker
 bash drive/scripts/run_research_query_engine.sh
 bash drive/scripts/run_research_data_mcp.sh
 python3 drive/scripts/sync_drive_platform_state.py
-bash drive/scripts/run_data_collection_queue.py
+python3 drive/scripts/run_data_collection_queue.py
 ```
 
 Legacy paths under `scripts/` are symlinks into this tree.

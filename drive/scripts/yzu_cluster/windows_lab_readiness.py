@@ -14,7 +14,7 @@ _ROOT = repo_root_from_file(__file__)
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from scripts.yzu_cluster.pools import ssh_run, windows_target, windows_workers
+from scripts.yzu_cluster.pools import ssh_run, windows_host_reachable, windows_target, windows_workers
 from scripts.yzu_cluster.windows_remote import windows_lab_paths
 
 _CACHE: dict[str, Any] = {"ts": 0.0, "payload": {}}
@@ -22,9 +22,12 @@ _CACHE_TTL = 300.0
 
 
 def _probe_sharpe_repo(target: str, sharpe_repo: str, key: str, timeout: int = 12) -> bool:
+    """Return True for a full venv checkout or a thin pull-worker layout."""
     ps = (
         "powershell.exe -NoProfile -Command "
         f"\"if (Test-Path '{sharpe_repo}\\.venv\\Scripts\\python.exe') {{ 'OK' }} "
+        f"elseif ((Test-Path '{sharpe_repo}\\drive\\scripts\\yzu_cluster\\remote_worker.py') "
+        f"-and (Get-Command py -ErrorAction SilentlyContinue)) {{ 'OK' }} "
         f"elseif (Test-Path '{sharpe_repo}') {{ 'PARTIAL' }} else {{ 'MISSING' }}\""
     )
     run = ssh_run(target, ps, key=key, timeout=timeout)
@@ -69,6 +72,7 @@ def probe_windows_lab(
     key = paths["key"]
     provisioned: list[str] = []
     partial: list[str] = []
+    reachable_hosts: list[str] = []
     scraper_hosts: list[str] = []
     errors: list[str] = []
     scraper_errors: list[str] = []
@@ -77,6 +81,10 @@ def probe_windows_lab(
         host = str(worker.get("hostname") or worker.get("tailscale_ip") or "")
         target = windows_target(worker)
         try:
+            if not windows_host_reachable(worker, key=key, force=force):
+                errors.append(f"{host}: ssh unreachable")
+                continue
+            reachable_hosts.append(host)
             if _probe_sharpe_repo(target, sharpe_repo, key):
                 provisioned.append(host)
             else:
@@ -101,15 +109,19 @@ def probe_windows_lab(
     payload = {
         "sharpe_repo": sharpe_repo,
         "joined_workers": len(workers),
+        "reachable_workers": len(reachable_hosts),
+        "reachable_hosts": reachable_hosts[:8],
         "provisioned_workers": len(provisioned),
         "partial_workers": len(partial),
         "provisioned_hosts": provisioned[:8],
         "scraper_ready_hosts": scraper_hosts[:8],
         "scraper_ready": len(scraper_hosts) > 0,
         "queue_ready": len(provisioned) > 0,
-        "http_shard_ready": len(workers) > 0,
+        # HTTP SCP shards only need SSH+python; full Sharpe venv is optional.
+        "http_shard_ready": len(reachable_hosts) > 0,
         "reason": (
-            f"{len(provisioned)}/{len(workers)} workers have {sharpe_repo}"
+            f"{len(reachable_hosts)}/{len(workers)} joined hosts SSH-reachable; "
+            f"{len(provisioned)} provisioned at {sharpe_repo}"
             if workers
             else "no joined windows_lab workers"
         ),

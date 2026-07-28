@@ -45,6 +45,17 @@ CONTROL_PROFILES: Dict[str, Dict[str, Any]] = {
         "cb_cooldown_months": 2,
         "cb_floor_gross": 0.30,
     },
+    # Compatibility profile used by the live integration policy. It retains the
+    # defensive circuit breaker while applying the tighter live crypto cap.
+    "defensive_live": {
+        "min_cash_weight": 0.10,
+        "max_crypto_gross": 0.35,
+        "cb_dd_trigger": 0.10,
+        "cb_alpha_trigger": -0.015,
+        "cb_alpha_window": 3,
+        "cb_cooldown_months": 2,
+        "cb_floor_gross": 0.30,
+    },
 }
 
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import re
 import json
 import subprocess
 import time
@@ -39,6 +40,85 @@ def _stage(progress: float, running: bool, complete: bool) -> str:
 
 def _tone(stage: str) -> str:
     return {"complete": "green", "running": "blue", "starting": "amber", "setup": "red", "idle": "amber"}.get(stage, "blue")
+
+
+def _runtime_worker_index(runtime: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Map runtime worker_id -> worker payload from runtime_health()."""
+    if not isinstance(runtime, dict):
+        return {}
+    cluster = runtime.get("cluster") if isinstance(runtime.get("cluster"), dict) else runtime
+    workers = cluster.get("workers") if isinstance(cluster, dict) else None
+    if not isinstance(workers, list):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for worker in workers:
+        if not isinstance(worker, dict):
+            continue
+        wid = str(worker.get("id") or worker.get("worker_id") or "").strip()
+        if wid:
+            out[wid] = worker
+    return out
+
+
+def _inventory_runtime_id(row: dict[str, Any]) -> str | None:
+    """Best-effort map inventory notes/hostname to runtime worker_id (windows-01…)."""
+    notes = str(row.get("notes") or "")
+    match = re.search(r"\b(windows-\d+)\b", notes, flags=re.IGNORECASE)
+    if match:
+        return match.group(1).lower()
+    return None
+
+
+def _effective_worker_status(
+    *,
+    inventory_status: str,
+    runtime_worker: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Honest desk status: joined inventory ≠ claimable heartbeat.
+
+    Runtime freshness is authoritative. Stale workers stay ``stale`` (membership
+    only) — never remapped to idle/online/available. Fresh claimable labels pass
+    through (``ready`` collapses to ``online`` for Resources).
+    """
+    inv = str(inventory_status or "").strip() or "unknown"
+    if not runtime_worker:
+        return {
+            "inventory_status": inv,
+            "effective_status": inv if inv != "joined" else "joined_unseen",
+            "runtime_id": None,
+            "freshness": None,
+        }
+    freshness = runtime_worker.get("freshness") if isinstance(runtime_worker.get("freshness"), dict) else {}
+    age = freshness.get("age_seconds")
+    state = str(freshness.get("state") or "").strip().lower()
+    runtime_status = str(runtime_worker.get("status") or "").strip().lower()
+    stored = str(runtime_worker.get("stored_status") or "").strip().lower()
+    wid = str(runtime_worker.get("id") or runtime_worker.get("worker_id") or "")
+    # Stale freshness/status must win over stored online/idle labels.
+    if state == "stale" or runtime_status == "stale":
+        effective = "stale"
+    elif state == "fresh" or runtime_status in {"online", "ready", "idle"}:
+        label = runtime_status if runtime_status in {"online", "ready", "idle"} else stored
+        if label == "ready":
+            effective = "online"
+        elif label in {"online", "idle"}:
+            effective = label
+        else:
+            effective = "online"
+    elif stored in {"online", "ready", "idle"}:
+        effective = "online" if stored == "ready" else stored
+    else:
+        effective = runtime_status or state or "unknown"
+    return {
+        "inventory_status": inv,
+        "effective_status": effective,
+        "runtime_id": wid or None,
+        "freshness": freshness or {
+            "state": state or None,
+            "age_seconds": age,
+        },
+    }
+
 
 
 class YzuClusterAPI:
@@ -321,7 +401,7 @@ class YzuClusterAPI:
                 "amount": f"{_fmt_num(dc['total_progress'])} / {_fmt_num(dc['total_target'])} records",
                 "worker": f"{len(dc['y2025_shards'])} shards",
                 "destination": "GDrive · dataset_catalog/datacite",
-                "updated_at": max((s.get("updated_at") or "") for s in dc["y2025_shards"]) or _now(),
+                "updated_at": (max((s.get("updated_at") or "") for s in dc["y2025_shards"]) if dc["y2025_shards"] else "") or _now(),
                 "detail": dc,
             }
         )
@@ -388,22 +468,38 @@ class YzuClusterAPI:
 
     def workers(self, live: bool = True) -> dict[str, Any]:
         joined = [w for w in self.windows_workers() if w.get("status") == "joined"]
+        runtime = self.orchestrator.runtime_health() if self.orchestrator else None
+        by_id = _runtime_worker_index(runtime)
         nodes = []
         for w in joined:
             ip = w.get("tailscale_ip", "")
             ok = False
             if live and ip:
                 ok, _ = self._ssh_probe(ip, "hostname", timeout=8)
+            runtime_id = _inventory_runtime_id(w)
+            runtime_worker = by_id.get(runtime_id or "") if runtime_id else None
+            honesty = _effective_worker_status(
+                inventory_status=str(w.get("status") or ""),
+                runtime_worker=runtime_worker,
+            )
             nodes.append(
                 {
                     "hostname": w.get("hostname", ""),
                     "tailscale_ip": ip,
-                    "status": w.get("status", ""),
+                    "status": honesty["effective_status"],
+                    "inventory_status": honesty["inventory_status"],
+                    "runtime_id": honesty["runtime_id"],
+                    "freshness": honesty["freshness"],
                     "ssh_ok": ok if live else None,
                     "pool": "windows_lab",
                 }
             )
-        runtime = self.orchestrator.runtime_health() if self.orchestrator else None
+        # Surface probe/diag leftovers separately so they are not mistaken for lab capacity.
+        junk = [
+            worker
+            for wid, worker in by_id.items()
+            if wid.startswith("probe-") or wid.endswith("-diag")
+        ]
         return {
             "windows_lab": nodes,
             "datacite_shards": self.datacite_shards(live=live),
@@ -411,6 +507,14 @@ class YzuClusterAPI:
             "spectator": self.cfg["worker_pools"].get("spectator", {}),
             "storage": self.cfg.get("storage", {}),
             "runtime": runtime,
+            "runtime_junk": junk,
+            "semantics": {
+                "inventory_joined": "configured for routing",
+                "online": "heartbeat within stale threshold",
+                "idle": "runtime reports idle/ready with fresh heartbeat",
+                "stale": "runtime heartbeat older than worker_stale_after_seconds, or probe leftover",
+                "joined_unseen": "inventory joined but never seen in runtime store",
+            },
         }
 
     def status(self, live: bool = False) -> dict[str, Any]:
@@ -425,6 +529,7 @@ class YzuClusterAPI:
                 "windows_lab": {
                     "joined": len([w for w in self.windows_workers() if w.get("status") == "joined"]),
                     "total": len(self.windows_workers()),
+                    "note": "joined is inventory; see /yzu/workers for effective online/idle/stale",
                 }
             },
             "datacite": dc,

@@ -32,8 +32,22 @@ class RegistryPromoter:
 
     def _artifact_exists(self, local_path: str) -> bool:
         if "*" in local_path:
-            return bool(glob(str(self.repo_root / local_path)))
-        return (self.repo_root / local_path).exists()
+            if glob(str(self.repo_root / local_path)):
+                return True
+            # Runtime-bind fallback (front-door / SR → runtime-integration).
+            import os
+            runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
+            if runtime:
+                return bool(glob(str(Path(runtime) / local_path)))
+            return False
+        path = self.repo_root / local_path
+        if path.exists():
+            return True
+        import os
+        runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
+        if runtime:
+            return (Path(runtime) / local_path).exists()
+        return False
 
     def _task_ids_from_job(self, job: dict[str, Any]) -> list[str]:
         plan = job.get("plan") or {}
@@ -232,6 +246,8 @@ class RegistryPromoter:
         if job.get("status") != "completed":
             return []
         self.reload_map()
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+
         promoted = []
         for task_id in self._task_ids_from_job(job):
             spec = self._spec_for_task(task_id, job, campaign_id)
@@ -240,6 +256,14 @@ class RegistryPromoter:
             local_path = spec.get("local_path") or spec.get("local_root")
             if local_path and not self._artifact_exists(local_path):
                 continue
+            smoke = prove_query_smoke(self.repo_root, spec, limit=3)
+            spec["query_smoke"] = smoke
+            if smoke.get("ok"):
+                spec["analysis_readiness"] = "query_ready"
+                spec["source_access_mode"] = spec.get("source_access_mode") or "materialized_query_ready"
+            else:
+                # Honest: archived/registered bytes exist, but not proven queryable yet.
+                spec["analysis_readiness"] = "registered"
             entry = self._upsert_dataset(spec, task_id=task_id, job_id=job.get("id", ""), campaign_id=campaign_id)
             promoted.append(entry)
         return promoted
@@ -272,16 +296,14 @@ class RegistryPromoter:
         local_path = file_path
         backend = "local_file"
         access_shape = "local_file"
-        readiness = "metadata_search"
+        readiness = "registered"
         suffix = Path(fname).suffix.lower()
         if suffix == ".csv":
             backend = "local_csv_file"
-            readiness = "instant"
         elif suffix in {".json", ".jsonl"}:
             backend = "local_json_file"
         elif suffix == ".parquet":
             backend = "local_parquet_file"
-            readiness = "instant"
 
         if not self._artifact_exists(file_path):
             glob_path = f"{dest}/*"
@@ -309,6 +331,15 @@ class RegistryPromoter:
         }
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+
+        smoke = prove_query_smoke(self.repo_root, spec, limit=3)
+        spec["query_smoke"] = smoke
+        if smoke.get("ok"):
+            spec["analysis_readiness"] = "query_ready"
+            spec["source_access_mode"] = "materialized_query_ready"
+        else:
+            spec["analysis_readiness"] = "registered"
         entry = self._upsert_dataset(
             spec,
             task_id=dataset_id,
@@ -354,14 +385,14 @@ class RegistryPromoter:
         if primary and self._artifact_exists(primary):
             backend = "local_parquet_panel"
             access_shape = "local_derived_tables"
-            readiness = "instant"
+            readiness = "registered"
             local_root = str(Path(primary).parent)
             local_file = Path(primary).name
             local_path = primary
         elif parquet_paths:
             backend = "local_parquet_panel"
             access_shape = "local_derived_tables"
-            readiness = "instant"
+            readiness = "registered"
             local_path = parquet_paths[0]
             local_root = str(Path(local_path).parent)
             local_file = Path(local_path).name
@@ -380,14 +411,14 @@ class RegistryPromoter:
             "access_shape": access_shape,
             "analysis_readiness": readiness,
             "grain": "hf_snapshot",
-            "description": f"Procured Hugging Face dataset `{dad}`.",
+            "description": f"Procured Hugging Face dataset `{did}`.",
             "capabilities": ["limit", "export_json", "filter_date_range"],
             "recommended_use": f"Query cached HF data; handle hf:{did}",
             "domain": "huggingface",
             "partition_id": "acquired.procured",
             "source_id": "huggingface",
             "source_system": "Hugging Face",
-            "source_access_mode": "materialized_instant" if readiness == "instant" else "materialized_bulk",
+            "source_access_mode": "materialized_bulk",
             "hf_dataset_id": did,
             "handle": f"hf:{did}",
         }
@@ -399,6 +430,18 @@ class RegistryPromoter:
             spec["local_file"] = local_file
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": False, "hf_dataset_id": did}
+
+        # Same readiness contract as http/DataCite: query_ready only after smoke proves rows.
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+
+        if backend in {"local_parquet_panel", "local_json_glob", "local_json_file", "local_csv_file"} and local_path:
+            smoke = prove_query_smoke(self.repo_root, spec, limit=3)
+            spec["query_smoke"] = smoke
+            if smoke.get("ok"):
+                spec["analysis_readiness"] = "query_ready"
+                spec["source_access_mode"] = "materialized_query_ready"
+            else:
+                spec["analysis_readiness"] = "registered"
 
         entry = self._upsert_dataset(
             spec,

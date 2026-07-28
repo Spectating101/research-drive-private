@@ -3,16 +3,34 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import json
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Iterator, Any
 
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+
+def _failure_bucket(title: str, error: str) -> str:
+    blob = f"{title} {error}".lower()
+    if any(x in blob for x in ("canary", "smoke", "probe-controller", "windows claim procure")):
+        return "ops_canary"
+    if "discover refresh twse" in blob or "twse_official" in blob:
+        return "discover_spam"
+    if "no artifact zip" in blob:
+        return "collect_no_artifact"
+    if "importerror" in blob or "modulenotfound" in blob:
+        return "code_bug"
+    if "no downloadable items" in blob:
+        return "bad_manifest"
+    return "other"
 
 
 class YzuJobStore:
@@ -45,8 +63,23 @@ class YzuJobStore:
                 )"""
             )
 
-    def _db(self):
-        return sqlite3.connect(self.path, timeout=30)
+    @contextmanager
+    def _db(self) -> Iterator[sqlite3.Connection]:
+        """Open a short-lived connection that always closes.
+
+        Python 3.12+ ``Connection.__exit__`` commits/rollbacks but no longer
+        closes the handle, so ``with sqlite3.connect(...)`` leaks FDs under
+        desk polling (/health, job list, workers).
+        """
+        db = sqlite3.connect(self.path, timeout=30)
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     def create(
         self,
@@ -67,11 +100,39 @@ class YzuJobStore:
         self.event(job_id, "info", f"Job created ({status})")
         return self.get(job_id)
 
-    def update(self, job_id: str, status: str, result: dict | None = None, error: str = "") -> dict:
+    def set_plan(self, job_id: str, plan: dict) -> dict:
+        """Replace the stored plan (used after approve-time revalidation)."""
         with self._db() as db:
             db.execute(
-                "UPDATE jobs SET updated_at=?, status=?, result_json=?, error=? WHERE id=?",
-                (now(), status, json.dumps(result or {}), error, job_id),
+                "UPDATE jobs SET updated_at=?, plan_json=? WHERE id=?",
+                (now(), json.dumps(plan or {}), job_id),
+            )
+        return self.get(job_id)
+
+    def update(
+        self,
+        job_id: str,
+        status: str,
+        result: dict | None = None,
+        error: str = "",
+        *,
+        expected_status: str | None = None,
+    ) -> dict:
+        """Update one legacy projection, optionally using optimistic fencing.
+
+        Runtime reconciliation runs in a separate process from the worker-control
+        server. A stale reconciliation must not overwrite a completion payload
+        committed after the reconciliation read the job.
+        """
+        where = "WHERE id=?"
+        params: list[object] = [now(), status, json.dumps(result or {}), error, job_id]
+        if expected_status is not None:
+            where += " AND status=?"
+            params.append(expected_status)
+        with self._db() as db:
+            db.execute(
+                f"UPDATE jobs SET updated_at=?, status=?, result_json=?, error=? {where}",
+                tuple(params),
             )
         return self.get(job_id)
 
@@ -165,6 +226,16 @@ class YzuJobStore:
                     (cutoff,),
                 ).fetchone()[0]
             )
+            failed_rows = db.execute(
+                "SELECT title, COALESCE(error, '') FROM jobs WHERE status='failed' AND updated_at >= ?",
+                (cutoff,),
+            ).fetchall()
+            buckets: dict[str, int] = {}
+            for title, error in failed_rows:
+                bucket = _failure_bucket(str(title or ""), str(error or ""))
+                buckets[bucket] = buckets.get(bucket, 0) + 1
+            ops_noise = int(buckets.get("ops_canary", 0) + buckets.get("discover_spam", 0))
+            failed_actionable = max(0, failed_recent - ops_noise)
             pending_oldest = db.execute(
                 "SELECT MIN(created_at) FROM jobs WHERE status='pending_approval'"
             ).fetchone()[0]
@@ -188,6 +259,9 @@ class YzuJobStore:
             "running": base["running"],
             "failed_recent_days": days,
             "failed_recent": failed_recent,
+            "failed_actionable": failed_actionable,
+            "failed_ops_noise": ops_noise,
+            "failed_buckets": buckets,
             "cancelled_recent": cancelled_recent,
             "pending_oldest_age_days": oldest_age_days,
         }
@@ -197,11 +271,14 @@ class YzuJobStore:
             "lifetime": dict(base),
             "actionable": actionable,
             "failed_recent": failed_recent,
+            "failed_actionable": failed_actionable,
+            "failed_ops_noise": ops_noise,
+            "failed_buckets": buckets,
             "cancelled_recent": cancelled_recent,
             "recent_days": days,
             "semantics": (
                 "pending_approval/queued/running are live; "
-                "failed/cancelled are lifetime totals — use failed_recent/"
-                "cancelled_recent for actionable debt"
+                "failed/cancelled are lifetime totals — use failed_actionable "
+                "(excludes canary/discover spam) for desk debt"
             ),
         }

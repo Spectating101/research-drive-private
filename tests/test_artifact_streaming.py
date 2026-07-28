@@ -35,7 +35,7 @@ def _claimed(orchestrator: YzuOrchestrator) -> tuple[str, dict]:
     job = orchestrator.submit(
         "Stream artifact",
         {"job_type": "http_manifest", "url": "https://example.test/data.csv"},
-        {"idempotency_key": "stream-artifact"},
+        {"idempotency_key": "stream-artifact", "_ops_internal": True},
         auto_approve=True,
     )
     control = WorkerControlPlane(orchestrator, token="secret-token")

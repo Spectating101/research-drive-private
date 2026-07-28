@@ -28,6 +28,11 @@ class JobService:
         *,
         auto_approve: bool = False,
     ) -> dict[str, Any]:
+        from scripts.research_data_mcp.execution_policy import enforce_execution_submit
+
+        # Keep original request for orchestrator (single source of truth for _ops_internal).
+        request = dict(request or {})
+        plan, auto_approve = enforce_execution_submit(plan, dict(request), auto_approve=auto_approve)
         validated = self.validate(plan)
         if not validated.get("launchable", True):
             return {
@@ -35,7 +40,7 @@ class JobService:
                 "plan": validated,
                 "error": validated.get("validation_error", "plan not launchable"),
             }
-        job = self.orchestrator.submit(title, validated, request or {}, auto_approve=auto_approve)
+        job = self.orchestrator.submit(title, validated, request, auto_approve=auto_approve)
         return {"job": enrich_job_identity(job), "plan": validated}
 
     def approve(self, job_id: str) -> dict[str, Any]:
@@ -51,15 +56,15 @@ class JobService:
         payload = {"jobs": self.orchestrator.list_jobs(min(max(limit, 1), 200), status=status)}
         return enrich_jobs_payload(payload) or payload
 
-    def run_schedule(self, schedule_id: str) -> dict[str, Any]:
-        return self.orchestrator.run_schedule(schedule_id)
+    def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict[str, Any]:
+        return self.orchestrator.run_schedule(schedule_id, dry_run=dry_run)
 
     def tick(self) -> dict[str, Any] | None:
         # Cadence first — must not wait behind a long-running job execution.
         gateway = getattr(self, "gateway", None) or getattr(self.campaign_runner, "gateway", None)
         if gateway is not None and hasattr(gateway, "discover_refresh_tick"):
             try:
-                gateway.discover_refresh_tick(limit=5, auto_approve_safe=True)
+                gateway.discover_refresh_tick(limit=5, auto_approve_safe=False)
             except Exception:  # noqa: BLE001
                 pass
         job = self.orchestrator.worker_tick()

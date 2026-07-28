@@ -28,7 +28,12 @@ class ResearchDataGateway:
         jobs: JobService | None = None,
     ):
         self.repo_root = Path(repo_root).resolve()
-        registry = Path(registry_path) if registry_path else self.repo_root / "config/research_query_registry.json"
+        if registry_path:
+            registry = Path(registry_path)
+        else:
+            from scripts.research_data_mcp.bootstrap import default_registry_path
+
+            registry = default_registry_path(self.repo_root)
         if not registry.is_absolute():
             registry = (self.repo_root / registry).resolve()
         self.registry_path = registry
@@ -177,7 +182,14 @@ class ResearchDataGateway:
 
         if not email_n and not slug_n:
             env_default = (os.environ.get("DESK_DEFAULT_FACULTY_EMAIL") or "").strip()
-            if default or env_default:
+            # Soft-default pilot so Home / right-rail / Resources are populated without an
+            # explicit browser bind. Opt out with DESK_AUTO_DEFAULT_FACULTY=0.
+            auto_default = (os.environ.get("DESK_AUTO_DEFAULT_FACULTY") or "1").strip().lower() not in {
+                "0",
+                "false",
+                "no",
+            }
+            if default or env_default or auto_default:
                 target = env_default
                 if not target:
                     pilot = next((row for row in faculty if row.get("pilot_professor")), None)
@@ -185,7 +197,12 @@ class ResearchDataGateway:
                 if target:
                     row = resolve_profile(email=target)
                     if row:
-                        out = {"found": True, "profile": profile_summary(row, repo_root=self.repo_root), "defaulted": True}
+                        out = {
+                            "found": True,
+                            "profile": profile_summary(row, repo_root=self.repo_root),
+                            "defaulted": True,
+                            "bound_via": "pilot_default",
+                        }
                         out["registry_count"] = registry_count
                         return out
             return {
@@ -217,6 +234,11 @@ class ResearchDataGateway:
         from scripts.research_data_mcp.faculty_profile import profile_summary, resolve_profile
 
         profile: dict[str, Any] | None = None
+        if not email:
+            # Match faculty_profile soft-default so Ask brief includes pilot context.
+            fallback = self.faculty_profile(default=True)
+            if fallback.get("found") and isinstance(fallback.get("profile"), dict):
+                email = str(fallback["profile"].get("email") or "")
         row = resolve_profile(email=email) if email else None
         if row:
             profile = profile_summary(row, repo_root=self.repo_root)
@@ -1484,7 +1506,7 @@ class ResearchDataGateway:
         limit: int = 10,
         force_subscription_id: str = "",
         force: bool = False,
-        auto_approve_safe: bool = True,
+        auto_approve_safe: bool = False,
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_refresh_runner import tick_discover_refresh
 
@@ -1690,7 +1712,7 @@ class ResearchDataGateway:
         thread_id: str,
         *,
         evidence_ids: list[str] | None = None,
-        auto_approve_safe: bool = True,
+        auto_approve_safe: bool = False,
         limit: int = 8,
     ) -> dict:
         """Submit Discover collect jobs for resolvable missing-evidence intents.

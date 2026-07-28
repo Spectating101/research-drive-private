@@ -51,6 +51,8 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/stop", "handler": "library_discover_subscription_stop"},
     {"method": "POST", "path": "/library/discover/subscriptions/{subscription_id}/run", "handler": "library_discover_subscription_run"},
     {"method": "GET", "path": "/library/discover/history", "handler": "library_discover_history"},
+    # Alias — some clients hit /library/history; same discover landings payload.
+    {"method": "GET", "path": "/library/history", "handler": "library_discover_history"},
     {"method": "GET", "path": "/library/overview", "handler": "library_overview"},
     {"method": "GET", "path": "/library/partitions", "handler": "library_partitions"},
     {"method": "GET", "path": "/library/browse", "handler": "library_browse"},
@@ -239,9 +241,11 @@ def _match(path: str, pattern: str) -> dict[str, str] | None:
     pat_parts = [part for part in pattern.strip("/").split("/") if part != ""]
     if not pat_parts:
         return {} if not p_parts else None
-    # Trailing {param} may consume remaining path segments (DOI values contain '/').
+    # Only DOI placeholders may consume remaining path segments. Treating every
+    # trailing placeholder as greedy lets generic resource routes swallow nested
+    # routes such as /threads/{id}/discover-handoff.
     last = pat_parts[-1]
-    greedy = last.startswith("{") and last.endswith("}")
+    greedy = last == "{doi}"
     if greedy:
         if len(p_parts) < len(pat_parts):
             return None
@@ -282,18 +286,20 @@ def _handlers() -> dict[str, Handler]:
     def health(stack, query, payload, params):
         # Soft cadence nudge — safe no-op when nothing is due / tick busy.
         try:
-            stack.gateway.discover_refresh_tick(limit=3, auto_approve_safe=True)
+            stack.gateway.discover_refresh_tick(limit=3, auto_approve_safe=False)
         except Exception:  # noqa: BLE001
             pass
         return stack.gateway.desk_health(live=_live_flag(query))
 
     def datasets(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "").strip()
+        include_ops = str(query.get("include_ops") or "").strip().lower() in {"1", "true", "yes"}
         return stack.gateway.list_datasets(
             q=q,
             readiness=str(query.get("readiness") or "").strip(),
             access_shape=str(query.get("access_shape") or query.get("access_mode") or "").strip(),
             limit=_query_int(query, "limit", 200),
+            include_ops=include_ops,
         )
 
     def dataset_describe(stack, query, payload, params):
@@ -707,7 +713,7 @@ def _handlers() -> dict[str, Handler]:
             limit=int(body.get("limit") or query.get("limit") or 10),
             force_subscription_id=str(body.get("subscription_id") or ""),
             force=bool(body.get("force")),
-            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+            auto_approve_safe=body.get("auto_approve_safe", False) not in {False, "0", "false", "no"},
         )
         _activity(
             stack,
@@ -723,7 +729,7 @@ def _handlers() -> dict[str, Handler]:
             limit=1,
             force_subscription_id=params["subscription_id"],
             force=True,
-            auto_approve_safe=body.get("auto_approve_safe", True) not in {False, "0", "false", "no"},
+            auto_approve_safe=body.get("auto_approve_safe", False) not in {False, "0", "false", "no"},
         )
         _activity(stack, "refresh_run", params["subscription_id"], meta={"fired": len(out.get("fired") or [])})
         return out
@@ -779,13 +785,45 @@ def _handlers() -> dict[str, Handler]:
     def library_partitions(stack, query, payload, params):
         from datetime import datetime, timezone
 
+        from scripts.yzu_cluster.partition_lanes import professor_shelves
+
         overview = stack.gateway.library_overview()
         parts = overview.get("partitions") or {}
+        lanes = parts.get("lanes") or []
+        shelves = professor_shelves(stack.gateway.repo_root)
+        # Attach surfaced lane counts so the Library can render shelf-first nav.
+        by_shelf: dict[str, list] = {}
+        for lane in lanes:
+            sid = str(lane.get("shelf_id") or "ungrouped")
+            by_shelf.setdefault(sid, []).append(lane.get("partition_id"))
+        shelf_rows = []
+        for shelf in shelves:
+            sid = str(shelf.get("id") or "")
+            present = by_shelf.get(sid) or []
+            shelf_rows.append(
+                {
+                    **shelf,
+                    "surfaced_partition_ids": present,
+                    "surfaced_count": len(present),
+                }
+            )
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "partitions": parts.get("lanes") or [],
+            "nav_mode": "professor_shelves",
+            "shelves": shelf_rows,
+            "partitions": lanes,
             "total": parts.get("total", 0),
             "complete": parts.get("complete", 0),
+            "guide": {
+                "how_to_read": "Open a shelf first, then a folder inside it. dataset_id stays stable for queries.",
+                "start_here": [
+                    "news_events",
+                    "asia_stocks",
+                    "us_markets",
+                    "crypto_onchain",
+                    "analysis_ready",
+                ],
+            },
         }
 
     def library_browse(stack, query, payload, params):
@@ -884,7 +922,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.synthesis_thread_collect_missing(
             params["thread_id"],
             evidence_ids=list(body.get("evidence_ids") or []),
-            auto_approve_safe=bool(body.get("auto_approve_safe", True)),
+            auto_approve_safe=bool(body.get("auto_approve_safe", False)),
             limit=int(body.get("limit") or 8),
         )
 
@@ -1175,7 +1213,8 @@ def _handlers() -> dict[str, Handler]:
         return stack.jobs.submit(
             str(payload.get("title") or "Archive to GDrive"),
             plan,
-            auto_approve=bool(payload.get("auto_approve", True)),
+            {"_ops_internal": True},
+            auto_approve=bool(payload.get("auto_approve", False)),
         )
 
     def yzu_status(stack, query, payload, params):

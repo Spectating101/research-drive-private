@@ -79,7 +79,73 @@ class SearchService:
         tokens = [token for token in re.split(r"\W+", query) if len(token) > 2]
         return bool(tokens and any(token in text for token in tokens))
 
-    def list_datasets(self, q: str = "", readiness: str = "", access_shape: str = "", limit: int = 200) -> dict[str, Any]:
+    _OPS_NOISE_MARKERS = (
+        "canary",
+        "smoke",
+        "probe",
+        "windows http prove",
+        "landing prove",
+        "day-2 deploy",
+        "day2_deploy",
+        "mcp_canary",
+        "host acceptance",
+        "host_acceptance",
+        "post-heal",
+        "fullops",
+        "winclaim",
+        "ssrf3_",
+        "rev_live",
+        "example.com",
+        "capability_canary",
+        "codex_sec_tickers_canary",
+        "synthesis_agent_canary",
+        "synthesis_sec_ticker_count_canary",
+    )
+
+    @classmethod
+    def _is_ops_noise_dataset(cls, row: dict[str, Any]) -> bool:
+        if row.get("professor_visible") is False:
+            return True
+        blob = " ".join(
+            str(row.get(key) or "")
+            for key in (
+                "dataset_id",
+                "registry_id",
+                "name",
+                "display_name",
+                "description",
+                "source",
+                "grain",
+                "manifest_id",
+                "job_id",
+            )
+        ).lower()
+        return any(marker in blob for marker in cls._OPS_NOISE_MARKERS)
+
+    @staticmethod
+    def _professor_view_row(row: dict[str, Any]) -> dict[str, Any]:
+        """Surface readable titles for Library without renaming stable dataset_id."""
+        out = dict(row)
+        display = str(out.get("display_name") or "").strip()
+        if display:
+            out["name"] = display
+        one_line = str(out.get("one_line") or "").strip()
+        if one_line and (
+            not out.get("description")
+            or "Auto-promoted" in str(out.get("description") or "")
+            or "Procured via" in str(out.get("description") or "")
+        ):
+            out["description"] = one_line
+        return out
+
+    def list_datasets(
+        self,
+        q: str = "",
+        readiness: str = "",
+        access_shape: str = "",
+        limit: int = 200,
+        include_ops: bool = False,
+    ) -> dict[str, Any]:
         self._maybe_reload_registry()
         bounded_limit = max(1, min(int(limit or 200), 500))
         all_registry = list(self.engine.list_datasets())
@@ -100,24 +166,43 @@ class SearchService:
             if str(row.get("dataset_id") or "") not in registry_ids
             and self._receipt_matches(row, q=q, readiness=readiness, access_shape=access_shape)
         ]
-        # Recent verified registered assets lead the list so a newly registered
-        # object cannot disappear behind an older registry window.
-        combined = recovery_rows + registry_rows
+        # Professor Library: registry holdings first. Ops canaries/receipts stay out
+        # unless include_ops=1 (staff). Otherwise Apps & connections fills with junk.
+        hidden_ops = 0
+        if include_ops:
+            combined = recovery_rows + registry_rows
+        else:
+            kept_registry = []
+            for row in registry_rows:
+                if self._is_ops_noise_dataset(row):
+                    hidden_ops += 1
+                    continue
+                kept_registry.append(row)
+            kept_recovery = []
+            for row in recovery_rows:
+                if self._is_ops_noise_dataset(row):
+                    hidden_ops += 1
+                    continue
+                kept_recovery.append(row)
+            combined = kept_registry + kept_recovery
         total_matching = len(combined)
-        rows = combined[:bounded_limit]
+        rows = [self._professor_view_row(row) for row in combined[:bounded_limit]]
         return {
             "returned": len(rows),
             "total": total_matching,
             "truncated": total_matching > len(rows),
             "limit": bounded_limit,
             "datasets": rows,
+            "ops_datasets_hidden": hidden_ops,
+            "include_ops": bool(include_ops),
             "authority_summary": {
                 "registry_rows": sum(1 for row in rows if row.get("backend") != "registered_asset_receipt"),
                 "receipt_recovery_rows": sum(1 for row in rows if row.get("backend") == "registered_asset_receipt"),
                 "registry_total": len(all_registry),
                 "receipt_recovery_semantics": (
                     "Only archive-verified, registry-read-back registration receipts are recovered; "
-                    "receipt-only rows remain non-queryable until catalog reconciliation."
+                    "receipt-only rows remain non-queryable until catalog reconciliation. "
+                    "Professor list hides canary/smoke/ops receipts by default."
                 ),
             },
         }
@@ -137,17 +222,72 @@ class SearchService:
     def query_dataset(self, dataset_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
         self._reload_if_unknown(dataset_id)
+        limit = int(params.get("limit") or 50)
+        preview_budget = max(1, min(limit, 100))
+        want_preview = str(params.get("preview") or "").strip().lower() in {"1", "true", "yes"} or limit <= 100
+
+        def _preview(spec: dict[str, Any]) -> dict[str, Any]:
+            from scripts.research_data_mcp.dataset_preview import preview_dataset_rows
+
+            return preview_dataset_rows(self.repo_root, spec, limit=preview_budget, allow_remote=True)
+
         if dataset_id not in self.engine.datasets:
             from scripts.research_data_mcp.registered_asset_authority import get_verified_registration_receipt
 
             receipt = get_verified_registration_receipt(self.repo_root, dataset_id)
             if receipt is not None:
+                # UI Preview asks /query?limit=N — return sample rows instead of a hard catalog error.
+                if want_preview:
+                    sample = _preview(receipt)
+                    if sample.get("rows"):
+                        return sample
+                    # Keep a soft empty preview payload so the modal can explain the gap.
+                    meta = dict(sample.get("meta") or {})
+                    meta.update(
+                        {
+                            "analysis_readiness": receipt.get("analysis_readiness") or "registered",
+                            "catalog_state": "reconciliation_required",
+                            "message": meta.get("message")
+                            or (
+                                f"{dataset_id} is registered in the vault but has no sampleable local/GDrive file yet."
+                            ),
+                        }
+                    )
+                    return {"dataset_id": dataset_id, "rows": [], "meta": meta}
                 raise ValueError(
                     f"{dataset_id} is {receipt.get('analysis_readiness') or 'registered'} but is not present in the "
                     "loaded query catalog; reconcile the registry row and prove a query smoke before query_ready"
                 )
         ds = self.engine.datasets.get(dataset_id)
-        if ds and self._requires_explicit_hydration(ds, params):
+        hydrate_requested = str(params.get("hydrate") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        hydrate: dict[str, Any] = {}
+        if ds:
+            from scripts.research_data_mcp.registry_hydrate import ensure_registry_local_bytes
+
+            try:
+                # Every query performs a cheap hydration preflight. Ordinary
+                # queries remain non-mutating; hydrate=1 authorizes the pull.
+                hydrate = ensure_registry_local_bytes(
+                    self.repo_root,
+                    ds,
+                    dry_run=not hydrate_requested,
+                )
+            except Exception as exc:
+                hydrate = {"ok": False, "error": str(exc)[:200]}
+            if hydrate.get("ok"):
+                self.reload_registry()
+                ds = self.engine.datasets.get(dataset_id)
+
+        if ds and self._requires_explicit_hydration(ds, params) and not hydrate.get("ok"):
+            # Preview path: sample local/remote bytes instead of returning an empty hydrate stub.
+            if want_preview and not hydrate_requested:
+                sample = _preview(ds)
+                if sample.get("rows"):
+                    return sample
             return {
                 "dataset_id": dataset_id,
                 "meta": {
@@ -158,28 +298,103 @@ class SearchService:
                     "source_of_truth": ds.get("source_of_truth"),
                     "canonical_remote": ds.get("canonical_remote") or (ds.get("lineage") or {}).get("canonical_remote"),
                     "message": "This registered asset has metadata only on the desk. Hydrate it before querying rows.",
-                    "hydrate_requested": str(params.get("hydrate") or "").strip().lower() in {"1", "true", "yes"},
+                    "hydrate_requested": hydrate_requested,
+                    "hydrate": hydrate,
                     "params": params,
                 },
                 "rows": [],
             }
-        if ds:
-            from scripts.research_data_mcp.registry_hydrate import ensure_registry_local_bytes
 
-            hydrate = ensure_registry_local_bytes(self.repo_root, ds)
-            if hydrate.get("ok"):
-                self.reload_registry()
+        def _is_status_card(rows: list) -> bool:
+            if not rows:
+                return False
+            row = rows[0] if isinstance(rows[0], dict) else {}
+            keys = set(row)
+            if keys & {"interface", "safe_actions", "bigquery_ready", "bigquery_dependency"}:
+                return True
+            # File-inventory listings (path/file/bytes) are not professor Preview tables.
+            if {"path", "file", "bytes"} <= keys and len(keys) <= 8:
+                extra = keys - {"path", "file", "bytes", "keys", "json_type", "parse_error", "name", "cik", "ticker", "title", "entityType"}
+                if not extra:
+                    return True
+            return False
+
         try:
-            return self.engine.query(dataset_id, **params).to_dict()
+            out = self.engine.query(dataset_id, **params).to_dict()
+            rows = out.get("rows") or []
+            if want_preview and ds and (not rows or _is_status_card(rows)):
+                if ds.get("backend") == "usdt_bigquery_catalogue":
+                    sample_params = dict(params)
+                    sample_params["action"] = "sample"
+                    sample_params["preview"] = "1"
+                    try:
+                        sample_out = self.engine.query(dataset_id, **sample_params).to_dict()
+                        if sample_out.get("rows") and not _is_status_card(sample_out.get("rows") or []):
+                            meta = dict(sample_out.get("meta") or {})
+                            meta["preview"] = True
+                            meta["mode"] = meta.get("mode") or "local_rpc_sample"
+                            sample_out["meta"] = meta
+                            return sample_out
+                    except Exception:
+                        pass
+                sample = _preview(ds)
+                if sample.get("rows"):
+                    return sample
+                if _is_status_card(rows):
+                    return {
+                        "dataset_id": dataset_id,
+                        "rows": [],
+                        "meta": {
+                            "preview": True,
+                            "error": "preview_status_card_suppressed",
+                            "message": (
+                                "This asset is a guarded remote catalogue. "
+                                "No local sample rows are available for Preview yet."
+                            ),
+                            "returned": 0,
+                        },
+                    }
+            return out
         except KeyError as exc:
             self.reload_registry()
             try:
                 return self.engine.query(dataset_id, **params).to_dict()
-            except KeyError:
+            except Exception:
+                if want_preview:
+                    sample = _preview(ds or {"dataset_id": dataset_id})
+                    if sample.get("rows"):
+                        return sample
+                    return {
+                        "dataset_id": dataset_id,
+                        "rows": [],
+                        "meta": {
+                            "preview": True,
+                            "error": "preview_unavailable",
+                            "message": f"Preview unavailable for {dataset_id}: not in query catalog.",
+                            "returned": 0,
+                        },
+                    }
                 known = sorted(self.engine.datasets.keys())
                 raise KeyError(
                     f"unknown dataset_id: {dataset_id}. Known: {', '.join(known[:12])}{'...' if len(known) > 12 else ''}"
                 ) from exc
+        except Exception as exc:
+            # Preview must never 500 the modal — return sample or soft empty payload.
+            if want_preview:
+                sample = _preview(ds or {"dataset_id": dataset_id})
+                if sample.get("rows"):
+                    return sample
+                return {
+                    "dataset_id": dataset_id,
+                    "rows": [],
+                    "meta": {
+                        "preview": True,
+                        "error": "preview_unavailable",
+                        "message": f"Preview unavailable: {exc}",
+                        "returned": 0,
+                    },
+                }
+            raise
 
     @staticmethod
     def _requires_explicit_hydration(ds: dict[str, Any], params: dict[str, Any]) -> bool:

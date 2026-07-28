@@ -16,6 +16,8 @@ from scripts.yzu_cluster.acquisitions import (
     enrich_http_manifest_plan,
     materialize_job,
     registry_spec_from_materialized,
+    remote_collect_script,
+    repo_relpath,
 )
 from scripts.yzu_cluster.pools import (
     datacite_shard_probe_argv,
@@ -47,13 +49,25 @@ ALLOWED_JOB_TYPES = {
 }
 
 
+def collection_queue_runner(repo_root: Path) -> Path:
+    """Resolve the queue entrypoint in both split and legacy checkout layouts."""
+    candidates = (
+        repo_root / "scripts/run_data_collection_queue.py",
+        repo_root / "drive/scripts/run_data_collection_queue.py",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError("collection queue runner is missing from the private checkout")
+
+
 class YzuExecutor:
     def __init__(self, repo_root: Path, cfg: dict[str, Any], jobs_root: Path, event_cb: Callable[[str, str, str], None] | None = None):
         self.repo_root = repo_root
         self.cfg = cfg
         self.jobs_root = jobs_root
         self.procurement = ProcurementWorkbench(jobs_root)
-        self.remote_worker = repo_root / "scripts/cluster_agent/remote_collect.py"
+        self.remote_worker = remote_collect_script(repo_root)
         self.agent_cfg = self._load_agent_cfg()
         self.spectator = SpectatorEngine(self.repo_root, self.cfg, agent_cfg=self.agent_cfg)
         self._event = event_cb or (lambda _j, _l, _m: None)
@@ -118,9 +132,8 @@ class YzuExecutor:
     ) -> dict[str, Any]:
         log_path = self.jobs_root / job_id / log_name
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        shell_cmd = subprocess.list2cmdline(command)
         if use_ops_host_for_pool(self.cfg, pool):
-            process = run_on_ops_host(self.cfg, shell_cmd, log_path=log_path, timeout=timeout)
+            process = run_on_ops_host(self.cfg, command, log_path=log_path, timeout=timeout)
         elif pool == "windows_lab":
             from scripts.yzu_cluster.windows_lab_readiness import probe_windows_lab
 
@@ -166,6 +179,18 @@ class YzuExecutor:
         pipeline = self.pipelines().get(pipeline_id)
         if not pipeline:
             raise ValueError(f"pipeline is not registered: {pipeline_id}")
+        if pipeline.get("enabled") is False or pipeline.get("legacy_quarantine"):
+            raise ValueError(
+                f"pipeline {pipeline_id!r} is disabled/quarantined; "
+                "craft a generic http_manifest/scraper_run/source_probe instead"
+            )
+        from scripts.research_data_mcp.craft_collect import is_forbidden_product_id
+
+        if is_forbidden_product_id(str(pipeline_id)):
+            raise ValueError(
+                f"pipeline {pipeline_id!r} is a named vendor product lane; "
+                "use research_craft_collect_plan"
+            )
         command = [str(part) for part in pipeline["command"]]
         pool = str(pipeline.get("pool", "optiplex"))
         if pool == "windows_lab":
@@ -245,7 +270,9 @@ class YzuExecutor:
     def _collection_queue_batch(self, job_id: str, plan: dict[str, Any]) -> dict[str, Any]:
         from scripts.yzu_cluster.cluster_ops import remote_queue_on_windows
 
-        command = ["python3", "scripts/run_data_collection_queue.py"]
+        runner = collection_queue_runner(self.repo_root)
+        runner_arg = runner.relative_to(self.repo_root).as_posix()
+        command = ["python3", runner_arg]
         only = plan.get("only") or plan.get("task_ids")
         if only:
             if isinstance(only, list):
@@ -529,13 +556,30 @@ class YzuExecutor:
             prefer_local = prefer_local_collect(self.cfg, agent_cfg=self.agent_cfg)
         if prefer_local:
             result = collect_local_manifest(self.repo_root, job_id, plan, jobs_root=self.jobs_root)
+            if not force_local and cluster_only(self.cfg):
+                from scripts.yzu_cluster.windows_lab_readiness import probe_windows_lab
+
+                if not probe_windows_lab(self.cfg, self.agent_cfg, force=True).get("http_shard_ready"):
+                    result["collect_mode"] = "local_fallback"
         else:
             try:
                 result = self._http_manifest_remote(job_id, plan)
             except Exception as exc:
-                if disable_local or not self.cfg.get("operations", {}).get("http_remote_fallback", True):
+                # The personal controller is a disaster-recovery path, not a
+                # second attempt after a Windows collection failure. Re-probe
+                # the pool so source/provider errors stay attached to the
+                # Windows attempt instead of silently moving execution local.
+                from scripts.yzu_cluster.windows_lab_readiness import probe_windows_lab
+
+                ready = probe_windows_lab(self.cfg, self.agent_cfg, force=True)
+                windows_unavailable = not bool(ready.get("http_shard_ready"))
+                if (
+                    disable_local
+                    or not self.cfg.get("operations", {}).get("http_remote_fallback", True)
+                    or not windows_unavailable
+                ):
                     raise
-                self._event(job_id, "warn", f"remote http_manifest failed ({exc}); collecting locally")
+                self._event(job_id, "warn", f"windows_lab unavailable ({exc}); collecting on controller fallback")
                 result = collect_local_manifest(self.repo_root, job_id, plan, jobs_root=self.jobs_root)
                 result["collect_mode"] = "local_fallback"
         return materialize_job(self.repo_root, job_id, plan, result, cfg=self.cfg)
@@ -560,11 +604,14 @@ class YzuExecutor:
                 result = future.result()
                 results.append(result)
                 self._event(job_id, "info", f"Shard {result['shard']} returned from {result['worker']}")
-        return {"artifacts": sorted(results, key=lambda row: row["shard"]), "output_dir": str(job_dir.relative_to(self.repo_root)), "collect_mode": "remote"}
+        return {"artifacts": sorted(results, key=lambda row: row["shard"]), "output_dir": repo_relpath(job_dir, self.repo_root), "collect_mode": "remote"}
 
     def _windows_workers(self) -> list[dict[str, Any]]:
         inv = self.agent_cfg.get("inventory") or self.cfg["worker_pools"]["windows_lab"]["inventory"]
-        return windows_workers(inv)
+        key = self.agent_cfg.get("ssh_key") or self.cfg["worker_pools"]["windows_lab"].get("ssh_key")
+        # Skip inventory hosts that are marked joined but SSH-dead — otherwise the
+        # first shards burn ConnectTimeout before local_fallback.
+        return windows_workers(inv, require_reachable=True, ssh_key=key)
 
     def _dispatch_shard(self, job_id: str, shard: int, worker: dict, items: list[dict], job_dir: Path, plan: dict) -> dict:
         prefix = f"rd_{job_id}_{shard:02d}"
@@ -577,10 +624,21 @@ class YzuExecutor:
         remote_script = f"{prefix}_collect.py"
         remote_manifest = f"{prefix}.json"
         remote_artifact = f"{prefix}.zip"
+        remote_policy = "network_policy.py"
+        policy_src = self.remote_worker.with_name("network_policy.py")
+        if not policy_src.is_file():
+            raise FileNotFoundError(f"network policy module missing next to collector: {policy_src}")
         subprocess.run(["scp", *common, str(self.remote_worker), f"{target}:{remote_script}"], check=True, timeout=60)
+        # Sibling import: remote_collect falls back to `from network_policy import …`
+        subprocess.run(["scp", *common, str(policy_src), f"{target}:{remote_policy}"], check=True, timeout=60)
         subprocess.run(["scp", *common, str(manifest), f"{target}:{remote_manifest}"], check=True, timeout=60)
+        remote_python = (
+            self.agent_cfg.get("remote_python")
+            or self.cfg.get("worker_pools", {}).get("windows_lab", {}).get("remote_python")
+            or "py -3"
+        )
         command = (
-            f"{self.agent_cfg.get('remote_python', 'python')} .\\{remote_script} --manifest .\\{remote_manifest} "
+            f"{remote_python} .\\{remote_script} --manifest .\\{remote_manifest} "
             f"--artifact .\\{remote_artifact} --workers {min(int(plan.get('per_node_workers', 2)), 4)} "
             f"--timeout {min(int(plan.get('request_timeout', 60)), 300)} --retries {min(int(plan.get('retries', 3)), 5)} "
             f"--delay {max(float(plan.get('delay_seconds', 0.25)), 0.1)}"
@@ -597,12 +655,15 @@ class YzuExecutor:
         subprocess.run(["scp", *common, f"{target}:{remote_artifact}", str(artifact)], check=True, timeout=300)
         if not artifact.exists() or artifact.stat().st_size < 32:
             raise RuntimeError(f"{worker['hostname']} shard {shard} artifact missing or too small ({artifact.stat().st_size if artifact.exists() else 0} bytes)")
-        cleanup = f"powershell -NoProfile -Command \"Remove-Item -Force -ErrorAction SilentlyContinue '{remote_script}','{remote_manifest}','{remote_artifact}'\""
+        cleanup = (
+            f"powershell -NoProfile -Command \"Remove-Item -Force -ErrorAction SilentlyContinue "
+            f"'{remote_script}','{remote_policy}','{remote_manifest}','{remote_artifact}'\""
+        )
         subprocess.run(["ssh", "-n", "-i", key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", target, cleanup], check=False, timeout=30)
         return {
             "shard": shard,
             "worker": worker["hostname"],
-            "artifact": str(artifact.relative_to(self.repo_root)),
+            "artifact": repo_relpath(artifact, self.repo_root),
             "bytes": artifact.stat().st_size,
             "worker_exit": run.returncode,
         }

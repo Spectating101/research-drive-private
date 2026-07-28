@@ -17,11 +17,15 @@ def vault_path(repo_root: Path) -> Path:
 def load_vault(repo_root: Path) -> dict[str, Any]:
     path = vault_path(repo_root)
     if not path.exists():
-        example = repo_root / "config/procurement_credentials.example.json"
-        if example.exists():
-            payload = json.loads(example.read_text(encoding="utf-8"))
-            save_vault(repo_root, payload)
-            return payload
+        for rel in (
+            "config/procurement_credentials.example.json",
+            "drive/config/procurement_credentials.example.json",
+        ):
+            example = repo_root / rel
+            if example.exists():
+                payload = json.loads(example.read_text(encoding="utf-8"))
+                save_vault(repo_root, payload)
+                return payload
         return {"profiles": [], "license_approvals": []}
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -36,18 +40,45 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def list_profiles(repo_root: Path) -> list[dict[str, Any]]:
-    profiles = []
-    for row in load_vault(repo_root).get("profiles") or []:
-        env_var = str(row.get("env_var") or "")
-        profiles.append(
-            {
-                **row,
-                "required": bool(row.get("required")),
-                "configured": bool(env_var and os.environ.get(env_var)),
+def _env_present(row: dict[str, Any]) -> tuple[bool, str]:
+    """Return (configured, matched_env_var) using primary + alternate env names."""
+    candidates = [str(row.get("env_var") or "").strip()]
+    candidates.extend(str(x).strip() for x in (row.get("env_vars_alt") or []) if str(x).strip())
+    for name in candidates:
+        if not name:
+            continue
+        val = os.environ.get(name)
+        if val and str(val).strip():
+            return True, name
+    return False, str(row.get("env_var") or "")
+
+
+def _profile_configured(row: dict[str, Any]) -> dict[str, Any]:
+    check = str(row.get("check") or "").strip()
+    configured, matched = _env_present(row)
+    detail = {"matched_env_var": matched or None}
+    if check == "bigquery_adc":
+        try:
+            from scripts.research_data_mcp import bigquery_client
+
+            status = bigquery_client.status()
+            configured = status.get("credentials") == "available"
+            detail["bigquery"] = {
+                "credentials": status.get("credentials"),
+                "project": status.get("project"),
             }
-        )
-    return profiles
+        except Exception as exc:
+            detail["bigquery_error"] = str(exc)[:160]
+    return {
+        **row,
+        "required": bool(row.get("required")),
+        "configured": bool(configured),
+        "config_detail": detail,
+    }
+
+
+def list_profiles(repo_root: Path) -> list[dict[str, Any]]:
+    return [_profile_configured(row) for row in load_vault(repo_root).get("profiles") or []]
 
 
 def upsert_profile(repo_root: Path, profile: dict[str, Any]) -> dict[str, Any]:

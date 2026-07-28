@@ -69,7 +69,7 @@ def validate_generic_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
             f"collect_plan.job_type must be one of {sorted(GENERIC_JOB_TYPES)}; got {job_type!r}"
         )
     # Only refuse named product ids in executable slots — not destination/dataset landing names.
-    for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type"):
+    for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type", "task_id"):
         raw = str(plan.get(key) or "").strip()
         if raw and is_forbidden_product_id(raw):
             raise ValueError(
@@ -88,6 +88,60 @@ def validate_generic_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
     out.setdefault("launchable", True)
     out.setdefault("requires_approval", True)
     return out
+
+
+# Ops/system job types (never faculty/Composer acquisition surface).
+OPS_JOB_TYPES = frozenset(
+    {
+        "archive_upload",
+        "collection_hydrate",
+        "bigquery_query",
+        "synthesis_execute",
+        "harvest_shard",
+        "registered_pipeline",
+        "collection_queue_task",
+        "collection_queue_batch",
+    }
+)
+
+
+def enforce_submit_doctrine(
+    plan: dict[str, Any] | None,
+    *,
+    scope: str = "faculty",
+) -> dict[str, Any]:
+    """Positive capability boundary for job submit.
+
+    * ``faculty`` (default): only ``http_manifest`` / ``scraper_run`` / ``source_probe``.
+    * ``ops``: broader ops job types, still refuses named vendor product ids.
+      Mark plan with ``ops_privileged=True`` (or pass ``scope='ops'``).
+    """
+    if not isinstance(plan, dict):
+        raise ValueError("plan must be an object")
+    for key in ("pipeline_id", "script_key", "queue_task_id", "source_task_id", "job_type", "task_id"):
+        raw = str(plan.get(key) or "").strip()
+        if raw and is_forbidden_product_id(raw):
+            raise ValueError(
+                f"Refusing named vendor product id in {key}={raw!r}. "
+                "Use research_craft_collect_plan for a generic custom pipeline."
+            )
+    job_type = str(plan.get("job_type") or "").strip()
+    ops = scope == "ops" or bool(plan.get("ops_privileged"))
+    if not ops:
+        if job_type not in GENERIC_JOB_TYPES:
+            raise ValueError(
+                f"Faculty/desk submit allows only {sorted(GENERIC_JOB_TYPES)}; got {job_type!r}. "
+                "Ops/system jobs require ops_privileged=true."
+            )
+        return validate_generic_plan(plan)
+    if job_type in GENERIC_JOB_TYPES or plan.get("crafted") or plan.get("pipeline") == "custom":
+        return validate_generic_plan(plan)
+    if job_type and job_type not in OPS_JOB_TYPES:
+        raise ValueError(
+            f"Ops submit rejects unknown job_type={job_type!r}; "
+            f"allowed ops types={sorted(OPS_JOB_TYPES)}"
+        )
+    return plan
 
 
 def _slug(text: str, *, limit: int = 48) -> str:

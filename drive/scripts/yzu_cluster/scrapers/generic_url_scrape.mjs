@@ -8,8 +8,244 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import dns from "node:dns/promises";
+import net from "node:net";
+import http from "node:http";
+import https from "node:https";
 
 const FILE_EXT_RE = /\.(csv|tsv|json|jsonl|zip|gz|parquet|xlsx?|xml|pdf|txt|ndjson)(\?|$)/i;
+
+function isBlockedIpv4(hostname) {
+  const parts = String(hostname || "")
+    .split(".")
+    .map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return false;
+  }
+  const [a, b, c] = parts;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true; // link-local / cloud metadata
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT / Tailscale
+  if (a === 192 && b === 0 && (c === 0 || c === 2)) return true;
+  if (a === 198 && (b === 18 || b === 19)) return true;
+  if (a === 198 && b === 51 && c === 100) return true;
+  if (a === 203 && b === 0 && c === 113) return true;
+  return false;
+}
+
+function isBlockedIpv6(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  if (!h) return true;
+  if (h === "::1" || h === "0:0:0:0:0:0:0:1") return true;
+  if (h.startsWith("fe80:")) return true; // link-local
+  if (h.startsWith("fc") || h.startsWith("fd")) return true; // ULA fc00::/7
+  if (h.startsWith("2001:db8:")) return true; // documentation
+  // IPv4-mapped ::ffff:a.b.c.d
+  const mapped = h.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (mapped) return isBlockedIpv4(mapped[1]);
+  return false;
+}
+
+function isBlockedHostname(hostname) {
+  const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!h) return true;
+  if (
+    h === "localhost" ||
+    h === "localhost.localdomain" ||
+    h === "metadata" ||
+    h === "metadata.google.internal" ||
+    h === "instance-data" ||
+    h.endsWith(".localhost") ||
+    h.endsWith(".local") ||
+    h.endsWith(".internal") ||
+    h.endsWith(".lan") ||
+    h.endsWith(".home")
+  ) {
+    return true;
+  }
+  const ipKind = net.isIP(h);
+  if (ipKind === 4) return isBlockedIpv4(h);
+  if (ipKind === 6) return isBlockedIpv6(h);
+  return false;
+}
+
+function isBlockedUrl(raw) {
+  try {
+    const u = new URL(String(raw || ""));
+    if (!["http:", "https:"].includes(u.protocol)) return true;
+    return isBlockedHostname(u.hostname);
+  } catch {
+    return true;
+  }
+}
+
+async function resolvesToBlockedAddress(hostname) {
+  const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!h) return true;
+  if (net.isIP(h)) return isBlockedHostname(h);
+  try {
+    const rows = await dns.lookup(h, { all: true, verbatim: true });
+    if (!rows.length) return true;
+    return rows.some((row) => {
+      if (row.family === 4 || net.isIP(row.address) === 4) return isBlockedIpv4(row.address);
+      return isBlockedIpv6(row.address);
+    });
+  } catch {
+    return true; // fail-closed on DNS errors
+  }
+}
+
+async function isBlockedUrlAsync(raw) {
+  try {
+    const u = new URL(String(raw || ""));
+    if (!["http:", "https:"].includes(u.protocol)) return true;
+    if (isBlockedHostname(u.hostname)) return true;
+    return resolvesToBlockedAddress(u.hostname);
+  } catch {
+    return true;
+  }
+}
+
+async function pickPublicPinnedAddress(hostname) {
+  const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (net.isIP(h)) {
+    if (isBlockedHostname(h)) throw new Error(`blocked address: ${h}`);
+    return h;
+  }
+  const rows = await dns.lookup(h, { all: true, verbatim: true });
+  const addrs = rows.map((r) => r.address).filter(Boolean);
+  if (!addrs.length) throw new Error(`no addresses for ${h}`);
+  const blocked = addrs.filter((a) => (net.isIP(a) === 4 ? isBlockedIpv4(a) : isBlockedIpv6(a)));
+  if (blocked.length) {
+    throw new Error(`non-public address(es): ${blocked.join(",")}`);
+  }
+  const v4 = addrs.find((a) => net.isIP(a) === 4);
+  return v4 || addrs[0];
+}
+
+function pinnedRequestOnce(url, { method = "GET", headers = {}, body = null, timeoutMs = 30000 } = {}) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const u = new URL(url);
+      if (!["http:", "https:"].includes(u.protocol)) {
+        reject(new Error(`unsupported scheme ${u.protocol}`));
+        return;
+      }
+      if (await isBlockedUrlAsync(url)) {
+        reject(new Error(`blocked non-public url: ${url}`));
+        return;
+      }
+      const pinned = await pickPublicPinnedAddress(u.hostname);
+      const lib = u.protocol === "https:" ? https : http;
+      const port = Number(u.port || (u.protocol === "https:" ? 443 : 80));
+      const hdrs = { ...headers, Host: u.hostname };
+      delete hdrs["host"];
+      const req = lib.request(
+        {
+          host: pinned,
+          servername: u.hostname,
+          port,
+          path: `${u.pathname || "/"}${u.search || ""}`,
+          method,
+          headers: hdrs,
+          timeout: timeoutMs,
+        },
+        (res) => {
+          const chunks = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode || 0,
+              headers: res.headers || {},
+              body: Buffer.concat(chunks),
+              url,
+              pinned,
+            });
+          });
+        },
+      );
+      req.on("timeout", () => {
+        req.destroy(new Error("pinned request timeout"));
+      });
+      req.on("error", reject);
+      if (body) req.write(body);
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function pinnedFetchRaw(url, opts = {}) {
+  let current = url;
+  for (let hop = 0; hop < 8; hop += 1) {
+    const res = await pinnedRequestOnce(current, opts);
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const location = res.headers.location || res.headers.Location;
+      if (!location) throw new Error(`HTTP ${res.status} without Location`);
+      current = new URL(String(location), current).href;
+      if (await isBlockedUrlAsync(current)) {
+        throw new Error(`blocked redirect target: ${current}`);
+      }
+      continue;
+    }
+    return { ...res, finalUrl: current };
+  }
+  throw new Error("too many redirects");
+}
+
+async function installNetworkGuard(pageOrContext) {
+  const pinFulfill = !["0", "false", "no"].includes(
+    String(process.env.PLAYWRIGHT_PINNED_FULFILL || "1").toLowerCase(),
+  );
+  await pageOrContext.route("**/*", async (route) => {
+    const request = route.request();
+    const target = request.url();
+    if (!/^https?:/i.test(target)) {
+      return route.continue();
+    }
+    if (await isBlockedUrlAsync(target)) {
+      return route.abort("blockedbyclient");
+    }
+    if (!pinFulfill) {
+      return route.continue();
+    }
+    try {
+      const method = request.method();
+      if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        return route.abort("blockedbyclient");
+      }
+      const headers = { ...request.headers() };
+      delete headers["host"];
+      delete headers["content-length"];
+      const postData = request.postDataBuffer ? request.postDataBuffer() : request.postData();
+      const result = await pinnedFetchRaw(target, {
+        method,
+        headers,
+        body: postData || null,
+        timeoutMs: Number(process.env.PLAYWRIGHT_TIMEOUT_MS || 45000),
+      });
+      const outHeaders = {};
+      for (const [k, v] of Object.entries(result.headers || {})) {
+        if (v == null) continue;
+        if (["content-encoding", "transfer-encoding", "content-length"].includes(String(k).toLowerCase())) {
+          continue;
+        }
+        outHeaders[k] = Array.isArray(v) ? v.join("\n") : String(v);
+      }
+      return route.fulfill({
+        status: result.status,
+        headers: outHeaders,
+        body: result.body,
+      });
+    } catch {
+      return route.abort("failed");
+    }
+  });
+}
+
 
 function parseArgs(argv) {
   const out = {
@@ -38,6 +274,9 @@ function parseArgs(argv) {
   }
   if (!out.url.startsWith("http")) {
     throw new Error("--url https://... is required");
+  }
+  if (isBlockedUrl(out.url)) {
+    throw new Error(`blocked non-public url: ${out.url}`);
   }
   return out;
 }
@@ -69,14 +308,40 @@ async function loadPlaywright() {
 }
 
 async function fetchFallback(url, timeoutMs) {
+  if (await isBlockedUrlAsync(url)) {
+    throw new Error(`blocked non-public url: ${url}`);
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": "YZU-GenericScraper/1.0 (+research procurement)" },
-      redirect: "follow",
-    });
+    // Manual redirect loop so every hop is re-validated (no silent private follow).
+    let current = url;
+    let response = null;
+    for (let hop = 0; hop < 8; hop += 1) {
+      if (await isBlockedUrlAsync(current)) {
+        throw new Error(`blocked non-public url: ${current}`);
+      }
+      response = await fetch(current, {
+        signal: controller.signal,
+        headers: { "User-Agent": "YZU-GenericScraper/1.0 (+research procurement)" },
+        redirect: "manual",
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new Error(`HTTP ${response.status} without Location`);
+        }
+        current = new URL(location, current).href;
+        continue;
+      }
+      break;
+    }
+    if (!response) {
+      throw new Error("empty fetch response");
+    }
+    if (await isBlockedUrlAsync(current)) {
+      throw new Error(`blocked non-public redirect target: ${current}`);
+    }
     const text = await response.text();
     const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
     const links = [];
@@ -87,7 +352,7 @@ async function fetchFallback(url, timeoutMs) {
       const label = normalizeText(m[2].replace(/<[^>]+>/g, ""));
       let absolute = href;
       try {
-        absolute = new URL(href, url).href;
+        absolute = new URL(href, current).href;
       } catch {
         continue;
       }
@@ -95,7 +360,7 @@ async function fetchFallback(url, timeoutMs) {
     }
     return {
       engine: "fetch",
-      url,
+      url: current,
       status: response.status,
       title: titleMatch ? normalizeText(titleMatch[1]) : "",
       links,
@@ -123,16 +388,23 @@ async function playwrightExtract(url, mode, timeoutMs) {
   const context = await browser.newContext({
     userAgent: "YZU-GenericScraper/1.0 (+research procurement)",
   });
+  await installNetworkGuard(context);
   const page = await context.newPage();
   page.setDefaultNavigationTimeout(timeoutMs);
   page.setDefaultTimeout(timeoutMs);
   try {
+    if (await isBlockedUrlAsync(url)) {
+      throw new Error(`blocked non-public url: ${url}`);
+    }
     let response;
     try {
       response = await page.goto(url, { waitUntil: "networkidle", timeout: timeoutMs });
     } catch {
       response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
       await page.waitForTimeout(2000);
+    }
+    if (page.url() && (await isBlockedUrlAsync(page.url()))) {
+      throw new Error(`blocked non-public navigation target: ${page.url()}`);
     }
     const title = normalizeText(await page.title());
     const metaDescription = normalizeText(
@@ -216,8 +488,11 @@ function resolvePlaywrightLaunch(url) {
   }
   const launchOpts = {
     headless,
-    args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+    args: ["--disable-blink-features=AutomationControlled"],
   };
+  if (["1", "true", "yes"].includes(String(process.env.PLAYWRIGHT_NO_SANDBOX || "").toLowerCase())) {
+    launchOpts.args.push("--no-sandbox");
+  }
   const channel = process.env.PLAYWRIGHT_CHANNEL || (etherscan ? "chrome" : "");
   if (channel) launchOpts.channel = channel;
   return launchOpts;
@@ -282,6 +557,10 @@ async function playwrightCatalog(startUrl, config, timeoutMs) {
     throw new Error("catalog mode requires Playwright");
   }
   const { browser, context, persistent } = await launchCatalogBrowser(chromium, startUrl);
+  await installNetworkGuard(context);
+  if (await isBlockedUrlAsync(startUrl)) {
+    throw new Error(`blocked non-public url: ${startUrl}`);
+  }
   const page = context.pages()[0] || (await context.newPage());
   page.setDefaultNavigationTimeout(timeoutMs);
   page.setDefaultTimeout(timeoutMs);
@@ -781,6 +1060,10 @@ async function playwrightSingleToken(tokenUrl, outDir, timeoutMs) {
   const tokensDir = path.join(outDir, "tokens");
   await fs.mkdir(tokensDir, { recursive: true });
   const { browser, context, persistent } = await launchCatalogBrowser(chromium, tokenUrl);
+  await installNetworkGuard(context);
+  if (await isBlockedUrlAsync(tokenUrl)) {
+    throw new Error(`blocked non-public url: ${tokenUrl}`);
+  }
   const page = context.pages()[0] || (await context.newPage());
   page.setDefaultNavigationTimeout(timeoutMs);
   page.setDefaultTimeout(timeoutMs);

@@ -5,8 +5,13 @@ from __future__ import annotations
 
 import csv
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
+
+# hostname/ip -> (ok: bool, checked_at: float)
+_REACHABILITY_CACHE: dict[str, tuple[bool, float]] = {}
+_REACHABILITY_TTL_S = 90.0
 
 
 def datacite_shard_probe_argv(shard: str) -> list[str]:
@@ -112,7 +117,21 @@ def scp_push(local: Path, target: str, remote: str, *, key: str, timeout: int = 
     )
 
 
-def windows_workers(inventory: str | Path, *, joined_only: bool = True) -> list[dict[str, Any]]:
+def windows_workers(
+    inventory: str | Path,
+    *,
+    joined_only: bool = True,
+    require_reachable: bool = False,
+    ssh_key: str | Path | None = None,
+    reachability_ttl_s: float = _REACHABILITY_TTL_S,
+) -> list[dict[str, Any]]:
+    """Load windows_lab inventory rows.
+
+    When ``require_reachable`` is true, skip hosts that fail a short SSH probe
+    (cached). Inventory status values other than ``joined`` are already excluded
+    when ``joined_only`` is set — mark dead hosts ``unreachable`` / ``needs_python``
+    so SCP shards never target them.
+    """
     path = Path(inventory)
     if not path.exists():
         return []
@@ -120,7 +139,63 @@ def windows_workers(inventory: str | Path, *, joined_only: bool = True) -> list[
         rows = list(csv.DictReader(handle))
     if joined_only:
         rows = [row for row in rows if row.get("status") == "joined"]
+    if require_reachable:
+        key = str(ssh_key or "")
+        rows = [
+            row
+            for row in rows
+            if windows_host_reachable(row, key=key, ttl_s=reachability_ttl_s)
+        ]
     return rows
+
+
+def windows_host_reachable(
+    worker: dict[str, Any],
+    *,
+    key: str = "",
+    ttl_s: float = _REACHABILITY_TTL_S,
+    force: bool = False,
+) -> bool:
+    """Return True when SSH BatchMode to the worker succeeds within ConnectTimeout."""
+    cache_key = str(worker.get("tailscale_ip") or worker.get("hostname") or "")
+    if not cache_key:
+        return False
+    now = time.time()
+    if not force and cache_key in _REACHABILITY_CACHE:
+        ok, checked = _REACHABILITY_CACHE[cache_key]
+        if (now - checked) < ttl_s:
+            return ok
+    target = windows_target(worker)
+    args = [
+        "ssh",
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=4",
+        "-o",
+        "IdentitiesOnly=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+    ]
+    if key:
+        args.extend(["-i", str(key)])
+    args.extend([target, "echo OK"])
+    try:
+        run = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=8,
+            check=False,
+        )
+        ok = run.returncode == 0 and "OK" in (run.stdout or "")
+    except (subprocess.TimeoutExpired, OSError):
+        ok = False
+    _REACHABILITY_CACHE[cache_key] = (ok, now)
+    return ok
 
 
 def windows_target(worker: dict[str, Any], *, default_user: str = "user") -> str:

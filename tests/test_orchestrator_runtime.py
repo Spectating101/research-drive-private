@@ -31,10 +31,29 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
     return YzuOrchestrator(tmp_path)
 
 
+def _ops_request(idempotency_key: str) -> dict[str, object]:
+    return {"idempotency_key": idempotency_key, "_ops_internal": True}
+
+
+def test_faculty_acquisition_requires_explicit_approval(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+
+    submitted = orchestrator.submit(
+        "Probe example",
+        {"job_type": "http_manifest", "url": "https://example.test"},
+        {"idempotency_key": "faculty-probe"},
+        auto_approve=True,
+    )
+
+    assert submitted["status"] == "pending_approval"
+    assert submitted["plan"]["execution_policy"]["scope"] == "faculty"
+    assert submitted["plan"]["execution_policy"]["auto_approve_allowed"] is False
+
+
 def test_orchestrator_projects_idempotent_runtime_jobs(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path)
     plan = {"job_type": "http_manifest", "url": "https://example.test"}
-    request = {"idempotency_key": "probe-example"}
+    request = _ops_request("probe-example")
 
     submitted = orchestrator.submit("Probe example", plan, request, auto_approve=True)
     replay = orchestrator.submit("Probe example", plan, request, auto_approve=True)
@@ -51,7 +70,7 @@ def test_orchestrator_executes_only_a_claimed_compatible_job(tmp_path: Path) -> 
     job = orchestrator.submit(
         "Probe example",
         {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["probe-output"]},
-        {"idempotency_key": "probe-execute"},
+        _ops_request("probe-execute"),
         auto_approve=True,
     )
 
@@ -63,11 +82,11 @@ def test_orchestrator_executes_only_a_claimed_compatible_job(tmp_path: Path) -> 
 
 
 def test_browser_job_stays_queued_without_a_live_browser_worker(tmp_path: Path) -> None:
-    orchestrator = _orchestrator(tmp_path)
+    orchestrator = _orchestrator(tmp_path, operations={"disable_local_scrape": True})
     job = orchestrator.submit(
         "Scrape example",
         {"job_type": "scraper_run", "script_key": "generic_url_scrape", "url": "https://example.test"},
-        {"idempotency_key": "browser-queued"},
+        _ops_request("browser-queued"),
         auto_approve=True,
     )
 
@@ -82,7 +101,7 @@ def test_runtime_lease_recovery_reconciles_legacy_running_job(tmp_path: Path) ->
     job = orchestrator.submit(
         "Probe example",
         {"job_type": "http_manifest", "url": "https://example.test"},
-        {"idempotency_key": "lease-reconcile"},
+        _ops_request("lease-reconcile"),
         auto_approve=True,
     )
     claim = orchestrator.runtime.claim_job(job["id"], lease_seconds=1)
@@ -111,7 +130,7 @@ def test_blocking_execution_renews_lease_before_concurrent_reaper(tmp_path: Path
     job = orchestrator.submit(
         "Slow probe",
         {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["slow-output"]},
-        {"idempotency_key": "slow-probe"},
+        _ops_request("slow-probe"),
         auto_approve=True,
     )
     reaped: list[object] = []
@@ -133,7 +152,7 @@ def test_blocking_execution_renews_lease_before_concurrent_reaper(tmp_path: Path
 def test_concurrent_identical_submission_returns_one_legacy_job(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path)
     plan = {"job_type": "http_manifest", "url": "https://example.test"}
-    request = {"idempotency_key": "concurrent-probe"}
+    request = _ops_request("concurrent-probe")
     barrier = threading.Barrier(2)
     results: list[dict] = []
     errors: list[Exception] = []
@@ -185,7 +204,7 @@ def test_post_registration_failure_does_not_fail_registered_run(tmp_path: Path) 
     job = orchestrator.submit(
         "Probe example",
         {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["probe-output"]},
-        {"idempotency_key": "post-registration"},
+        _ops_request("post-registration"),
         auto_approve=True,
     )
 

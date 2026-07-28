@@ -631,6 +631,7 @@ def profile_score_adjustment(row: dict[str, Any], query: str, profile: dict[str,
             delta += 0.22
 
     # No lab_fintech_stack / vendor-id ranking boosts — craft + registry search only.
+    row_id = str(row.get("dataset_id") or row.get("id") or "").strip().lower()
     for rid in profile.get("registry_dataset_ids") or []:
         if row_id and row_id == str(rid).lower():
             delta += 0.5

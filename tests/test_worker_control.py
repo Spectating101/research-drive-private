@@ -58,7 +58,7 @@ def test_remote_worker_join_claim_heartbeat_usage_and_complete(tmp_path: Path) -
             "outputs": ["remote-dataset"],
             "resource_requirements": {"cpu_cores": 1, "memory_mb": 256},
         },
-        {"idempotency_key": "remote-http-1"},
+        {"idempotency_key": "remote-http-1", "_ops_internal": True},
         auto_approve=True,
     )
 
@@ -131,7 +131,7 @@ def test_uploaded_artifact_materializes_on_controller(tmp_path: Path) -> None:
             "url": "https://example.test/upload.csv",
             "validation": {"min_files": 1, "min_total_bytes": 1},
         },
-        {"idempotency_key": "remote-upload-1"},
+        {"idempotency_key": "remote-upload-1", "_ops_internal": True},
         auto_approve=True,
     )
     control.join(
@@ -196,7 +196,7 @@ def test_remote_failure_requeues_and_fences_old_attempt(tmp_path: Path) -> None:
     job = orchestrator.submit(
         "Retry remote collection",
         {"job_type": "http_manifest", "url": "https://example.test/retry.csv", "max_attempts": 2},
-        {"idempotency_key": "remote-retry-1"},
+        {"idempotency_key": "remote-retry-1", "_ops_internal": True},
         auto_approve=True,
     )
     control.join(

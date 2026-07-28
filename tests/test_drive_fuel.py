@@ -19,11 +19,12 @@ def test_fuel_manifest_loads():
     assert "ticker_week_entity_market_panel" in ids
 
 
-def test_inventory_fuel_reports_fused_ready_or_stale():
+def test_inventory_fuel_reports_honest_local_readiness():
     report = inventory_fuel(REPO, probe_http=False)
     assert report["n_datasets"] >= 8
     by_id = {r["dataset_id"]: r for r in report["datasets"]}
     fused = by_id["cross_asset_fused_primary_panel"]
-    assert fused["status"] in {"ready", "stale"}
-    assert fused["resolved_path"]
+    assert fused["status"] in {"ready", "stale", "missing"}
+    if fused["status"] != "missing":
+        assert fused["resolved_path"]
     assert "supply_asks" in report

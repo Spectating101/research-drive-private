@@ -29,6 +29,11 @@ def main() -> int:
     submit.add_argument("--title", default="YZU job")
     submit.add_argument("--plan", type=Path, help="JSON plan file")
     submit.add_argument("--approve", action="store_true")
+    submit.add_argument(
+        "--ops",
+        action="store_true",
+        help="Mark submit as trusted ops/controller (_ops_internal); required for non-generic job types",
+    )
 
     approve = sub.add_parser("approve", help="Approve pending job")
     approve.add_argument("job_id")
@@ -42,6 +47,7 @@ def main() -> int:
 
     run_sched = sub.add_parser("run-schedule", help="Trigger schedule now")
     run_sched.add_argument("schedule_id")
+    run_sched.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args()
     stack = create_stack()
@@ -66,7 +72,10 @@ def main() -> int:
             plan = json.loads(args.plan.read_text(encoding="utf-8"))
         else:
             plan = json.loads(sys.stdin.read() or "{}")
-        job = jobs_svc.submit(args.title, plan, auto_approve=args.approve)["job"]
+        request = {"source": "yzu_cli"}
+        if args.ops:
+            request["_ops_internal"] = True
+        job = jobs_svc.submit(args.title, plan, request, auto_approve=args.approve)["job"]
         if args.approve and job["status"] == "pending_approval":
             job = jobs_svc.approve(job["id"])
         print(json.dumps(job, indent=2))
@@ -84,7 +93,7 @@ def main() -> int:
         print(json.dumps(orch.schedules(), indent=2))
         return 0
     if args.cmd == "run-schedule":
-        print(json.dumps(jobs_svc.run_schedule(args.schedule_id), indent=2))
+        print(json.dumps(jobs_svc.run_schedule(args.schedule_id, dry_run=args.dry_run), indent=2))
         return 0
     return 1
 
