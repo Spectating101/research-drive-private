@@ -67,8 +67,7 @@ def run_registry_pair(
 
     suggested_profiles: list[str] = []
     ids = {left_id, right_id}
-    if "skynet_stablecoin_harvest" in ids or any("etherscan" in str(x).lower() for x in ids):
-        suggested_profiles.append("skynet_etherscan_stablecoin")
+    # Auto-suggest of named synthesis profiles disabled — composer/researcher picks profiles explicitly.
 
     return {
         "profile_id": f"pair:{left_id}:{right_id}",

@@ -21,6 +21,7 @@ dependencies = [
     "pyyaml",
     "paramiko",
     "python-dotenv",
+    "requests",
     "networkx",
     "pyarrow",
     "structlog",
@@ -32,6 +33,15 @@ dependencies = [
     "pytest",
     "pytest-asyncio",
     "yfinance"
+]
+
+[project.optional-dependencies]
+ui = [
+    "playwright"
+]
+quality = [
+    "mypy",
+    "ruff"
 ]
 
 [tool.setuptools.packages.find]

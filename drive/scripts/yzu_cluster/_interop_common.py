@@ -192,7 +192,15 @@ class BaseStore:
             raise ValueError("run is not pending approval")
         return self.record(run_id, "queued", event_type="approved")
 
-    def claim(self, worker_id: str, *, lease_seconds: int = 120, at: str | None = None) -> Claim | None:
+    def claim(
+        self,
+        worker_id: str,
+        *,
+        lease_seconds: int = 120,
+        at: str | None = None,
+        allowed_job_types: Iterable[str] | None = None,
+        deny_job_id_prefixes: Iterable[str] | None = None,
+    ) -> Claim | None:
         if lease_seconds < 1:
             raise ValueError("lease_seconds must be positive")
         at = at or now_utc()
@@ -200,6 +208,8 @@ class BaseStore:
         if worker["status"] not in {"online", "ready", "idle"}:
             return None
         available = set(normalize_capabilities(worker["capabilities"]))
+        allowed_types_set = set(allowed_job_types) if allowed_job_types is not None else None
+        deny_prefixes_tuple = tuple(deny_job_id_prefixes) if deny_job_id_prefixes is not None else None
         expiry = (
             (parse_time(at) or datetime.now(timezone.utc)) + timedelta(seconds=lease_seconds)
         ).isoformat().replace("+00:00", "Z")
@@ -211,6 +221,8 @@ class BaseStore:
                 (
                     row for row in rows
                     if set(loads(row["required_capabilities"], [])).issubset(available)
+                    and (allowed_types_set is None or row["job_type"] in allowed_types_set)
+                    and (deny_prefixes_tuple is None or not str(row["job_id"]).startswith(deny_prefixes_tuple))
                     and self._resource_fit(row["run_id"], worker_id)
                 ),
                 None,

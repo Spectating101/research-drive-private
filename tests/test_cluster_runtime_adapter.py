@@ -60,10 +60,16 @@ def test_runtime_claims_only_fresh_capable_workers_and_fences_attempts(tmp_path:
         runtime.heartbeat(job["id"], claim.worker_id, attempt=claim.attempt + 1)
 
 
-def test_runtime_requires_a_real_capability_for_browser_work(tmp_path: Path) -> None:
+def test_runtime_requires_a_real_capability_when_local_browser_is_disabled(tmp_path: Path) -> None:
     database = tmp_path / "jobs.sqlite3"
     legacy = YzuJobStore(database)
-    runtime = ClusterRuntimeAdapter(database, {"controller": {"hostname": "optiplex"}})
+    runtime = ClusterRuntimeAdapter(
+        database,
+        {
+            "controller": {"hostname": "optiplex"},
+            "operations": {"disable_local_scrape": True},
+        },
+    )
     job = legacy.create(
         "Collect source through browser",
         {},

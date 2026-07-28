@@ -304,8 +304,8 @@ def test_failed_execution_is_visible_on_the_thread(store):
 
 
 def test_synthesis_approval_boundaries(stack):
-    """Desk can approve synthesis; agents and approve-safe cannot."""
-    job = stack.orchestrator.store.create(
+    """Desk can approve valid synthesis; agents cannot; incomplete plans stay blocked."""
+    incomplete = stack.orchestrator.store.create(
         "Synthesis approval boundary",
         {},
         {
@@ -314,12 +314,29 @@ def test_synthesis_approval_boundaries(stack):
     "title": "Synthesis boundary",
     "execution_spec": {
         "input_dataset_id": "google_trends_stablecoin_weekly",
-        "output_dataset_id": "synthesis_boundary_output",
+        "output_dataset_id": "",
         "group_by": [],
         "metrics": [{"function": "count", "as": "row_count"}],
         "transforms": [],
     },
 },
+        status="pending_approval",
+    )
+    with pytest.raises(ValueError, match="cannot approve non-launchable plan"):
+        stack.orchestrator.approve(incomplete["id"])
+
+    job = stack.orchestrator.store.create(
+        "Synthesis approval boundary",
+        {},
+        {
+            "job_type": "synthesis_execute",
+            "title": "Synthesis boundary",
+            "execution_spec": {
+                "input_dataset_id": "fixture_input",
+                "output_dataset_id": "synthesis_boundary_out",
+                "metrics": [{"function": "count", "as": "n"}],
+            },
+        },
         status="pending_approval",
     )
     with pytest.raises(PermissionError, match="researcher confirmation"):

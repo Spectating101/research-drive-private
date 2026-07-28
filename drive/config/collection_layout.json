@@ -100,6 +100,8 @@
         "refinitiv_entity_market_spine"
       ]
     },
+    {
+      "id": "research_models",
       "label": "Saved model artifacts",
       "drive_path": "research_models",
       "local_path": null,

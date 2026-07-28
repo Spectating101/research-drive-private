@@ -19,10 +19,11 @@ def _load_module(name: str, relative_path: str):
     return module
 
 
-def test_bulk_collect_load_env_value_reads_dotenv(tmp_path):
+def test_bulk_collect_load_env_value_reads_explicit_dotenv(monkeypatch, tmp_path):
     mod = _load_module("coingecko_bulk_collect_test", "scripts/coingecko_bulk_collect.py")
     env_file = tmp_path / ".env.local"
     env_file.write_text("export COINGECKO_API_KEY='CG-test-key'\n", encoding="utf-8")
+    monkeypatch.setenv("COINGECKO_API_KEY", "CG-host-key")
 
     assert mod.load_env_value("COINGECKO_API_KEY", env_path=env_file) == "CG-test-key"
 
@@ -63,9 +64,10 @@ def test_bulk_collect_client_sets_user_agent_and_api_key(monkeypatch):
     assert seen["timeout"] == 9
 
 
-def test_crypto_data_pipeline_load_env_value_reads_dotenv(tmp_path):
+def test_crypto_data_pipeline_load_env_value_reads_explicit_dotenv(monkeypatch, tmp_path):
     mod = _load_module("crypto_data_pipeline_test", "scripts/crypto_data_pipeline.py")
     env_file = tmp_path / ".env.local"
     env_file.write_text('COINGECKO_API_KEY="CG-pipeline-key"\n', encoding="utf-8")
+    monkeypatch.setenv("COINGECKO_API_KEY", "CG-host-key")
 
     assert mod._load_env_value("COINGECKO_API_KEY", env_path=env_file) == "CG-pipeline-key"

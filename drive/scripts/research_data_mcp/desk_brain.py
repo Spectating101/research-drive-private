@@ -17,6 +17,45 @@ from sharpe_kernel.paths import repo_root_from_file
 DeskEventSink: TypeAlias = Callable[[dict[str, Any]], None]
 
 
+class CursorSdkUnavailable(RuntimeError):
+    """Raised when the optional Cursor SDK runtime cannot be imported."""
+
+
+@dataclass(frozen=True)
+class _CursorSdkBindings:
+    agent: Any
+    agent_options: Any
+    model_selection: Any
+    send_options: Any
+    stdio_mcp_server_config: Any
+    local_agent_options: Any
+    cloud_agent_options: Any
+
+
+def _load_cursor_sdk_bindings() -> _CursorSdkBindings:
+    try:
+        from cursor_sdk import Agent
+        from cursor_sdk.types import (
+            AgentOptions,
+            CloudAgentOptions,
+            LocalAgentOptions,
+            ModelSelection,
+            SendOptions,
+            StdioMcpServerConfig,
+        )
+    except ImportError as exc:
+        raise CursorSdkUnavailable("cursor_sdk is not installed or is incomplete") from exc
+    return _CursorSdkBindings(
+        agent=Agent,
+        agent_options=AgentOptions,
+        model_selection=ModelSelection,
+        send_options=SendOptions,
+        stdio_mcp_server_config=StdioMcpServerConfig,
+        local_agent_options=LocalAgentOptions,
+        cloud_agent_options=CloudAgentOptions,
+    )
+
+
 @dataclass
 class AgentTurn:
     plan: dict[str, Any]
@@ -136,8 +175,8 @@ def cursor_composer_available() -> bool:
     if not os.getenv("CURSOR_API_KEY", "").strip():
         return False
     try:
-        import cursor_sdk  # noqa: F401
-    except ImportError:
+        _load_cursor_sdk_bindings()
+    except CursorSdkUnavailable:
         return False
     return True
 
@@ -167,9 +206,13 @@ def _desk_pythonpath(repo_root: Path) -> str:
     return os.pathsep.join(dict.fromkeys(parts))
 
 
-def _mcp_stdio_config(repo_root: Path, *, vault_primed: bool = False) -> dict[str, Any]:
-    from cursor_sdk.types import StdioMcpServerConfig
-
+def _mcp_stdio_config(
+    repo_root: Path,
+    *,
+    vault_primed: bool = False,
+    sdk: _CursorSdkBindings | None = None,
+) -> dict[str, Any]:
+    bindings = sdk or _load_cursor_sdk_bindings()
     env = {k: v for k, v in os.environ.items() if isinstance(v, str)}
     env["PYTHONPATH"] = _desk_pythonpath(repo_root)
     env["SHARPE_REPO_ROOT"] = str(repo_root)
@@ -177,7 +220,7 @@ def _mcp_stdio_config(repo_root: Path, *, vault_primed: bool = False) -> dict[st
     if vault_primed:
         env["RESEARCH_MCP_VAULT_PRIMED"] = "1"
     return {
-        "research_procurement": StdioMcpServerConfig(
+        "research_procurement": bindings.stdio_mcp_server_config(
             command=_repo_python(repo_root),
             args=["-m", "scripts.research_data_mcp.server", "--transport", "stdio"],
             cwd=str(repo_root),
@@ -209,13 +252,14 @@ def _desk_setting_sources() -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
-def _desk_local_options(repo_root: Path) -> Any:
-    from cursor_sdk.types import LocalAgentOptions
-
+def _desk_local_options(
+    repo_root: Path, *, sdk: _CursorSdkBindings | None = None
+) -> Any:
+    bindings = sdk or _load_cursor_sdk_bindings()
     sources = _desk_setting_sources()
     if sources:
-        return LocalAgentOptions(cwd=str(repo_root), setting_sources=sources)
-    return LocalAgentOptions(cwd=str(repo_root))
+        return bindings.local_agent_options(cwd=str(repo_root), setting_sources=sources)
+    return bindings.local_agent_options(cwd=str(repo_root))
 
 
 def _desk_composer_models() -> list[str]:
@@ -227,13 +271,14 @@ def _desk_composer_models() -> list[str]:
     return models
 
 
-def _desk_agent_runtime_kwargs(repo_root: Path) -> dict[str, Any]:
+def _desk_agent_runtime_kwargs(
+    repo_root: Path, *, sdk: _CursorSdkBindings | None = None
+) -> dict[str, Any]:
     """Cloud agents use CURSOR_API_KEY only (headless desk). Local needs Cursor IDE bridge."""
+    bindings = sdk or _load_cursor_sdk_bindings()
     if os.getenv("DESK_COMPOSER_LOCAL", "").strip().lower() in {"1", "true", "yes"}:
-        return {"local": _desk_local_options(repo_root)}
-    from cursor_sdk.types import CloudAgentOptions
-
-    return {"cloud": CloudAgentOptions()}
+        return {"local": _desk_local_options(repo_root, sdk=bindings)}
+    return {"cloud": bindings.cloud_agent_options()}
 
 
 def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
@@ -423,11 +468,13 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     """Compact UI envelope for Composer — matches RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT."""
     if not isinstance(ctx, dict) or not ctx:
         return ""
+    from scripts.research_data_mcp.desk_asset_grounding import format_asset_grounding_block
+
     entity = ctx.get("entity") if isinstance(ctx.get("entity"), dict) else {}
     lines = ["[UI rail context]"]
     for key in (
         "tab", "mode", "thread_id", "session_id", "conversation_id", "dataset_id",
-        "folder_id", "search_query", "readiness", "vault_path",
+        "folder_id", "search_query", "readiness", "analysis_readiness", "vault_path",
     ):
         val = ctx.get(key)
         if val:
@@ -436,13 +483,15 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
         lines.append(
             f"- entity: {entity.get('kind')} · {entity.get('title') or entity.get('id') or ''}"[:280]
         )
-    actions = ctx.get("actions")
+    actions = ctx.get("valid_next_actions") or ctx.get("actions")
     if isinstance(actions, list) and actions:
         lines.append(f"- actions: {', '.join(str(a) for a in actions[:8])}")
     compare = ctx.get("compare")
     if isinstance(compare, dict) and compare.get("left") and compare.get("right"):
         lines.append(f"- compare: {compare.get('left')} × {compare.get('right')}")
-    return "\n".join(lines) + "\n\n"
+    rail_block = "\n".join(lines) + "\n\n"
+    grounding = format_asset_grounding_block(ctx)
+    return rail_block + grounding
 
 
 def run_cursor_composer_turn(
@@ -468,31 +517,33 @@ def run_cursor_composer_turn(
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="",
         )
-    from cursor_sdk import Agent
-    from cursor_sdk.types import AgentOptions, ModelSelection, SendOptions
-
-    model_candidates = _desk_composer_models()
-    agent_id = str(state.get("cursor_agent_id") or "").strip()
-    had_agent = bool(agent_id)
-    user_text = message.strip()
-    rail_prefix = _format_rail_context(state.get("rail_context") or {})
-    if rail_prefix and rail_prefix not in user_text:
-        user_text = rail_prefix + user_text
-    vault_primed_env = False
-    if prime:
-        pass
-    elif not had_agent and not state.get("desk_primed"):
-        from scripts.research_data_mcp.desk_vault_brief import build_vault_brief, wrap_first_turn_message
-
-        brief = str(state.get("vault_brief") or "").strip()
-        if not brief:
-            brief = build_vault_brief(repo_root, state.get("faculty_profile"))
-            state["vault_brief"] = brief
-        user_text = wrap_first_turn_message(brief, user_text)
-        vault_primed_env = True
-    mcp_servers = _mcp_stdio_config(repo_root, vault_primed=vault_primed_env)
-
     try:
+        sdk = _load_cursor_sdk_bindings()
+        model_candidates = _desk_composer_models()
+        agent_id = str(state.get("cursor_agent_id") or "").strip()
+        had_agent = bool(agent_id)
+        user_text = message.strip()
+        rail_prefix = _format_rail_context(state.get("rail_context") or {})
+        if rail_prefix and rail_prefix not in user_text:
+            user_text = rail_prefix + user_text
+        vault_primed_env = False
+        if prime:
+            pass
+        elif not had_agent and not state.get("desk_primed"):
+            from scripts.research_data_mcp.desk_vault_brief import (
+                build_vault_brief,
+                wrap_first_turn_message,
+            )
+
+            brief = str(state.get("vault_brief") or "").strip()
+            if not brief:
+                brief = build_vault_brief(repo_root, state.get("faculty_profile"))
+                state["vault_brief"] = brief
+            user_text = wrap_first_turn_message(brief, user_text)
+            vault_primed_env = True
+        mcp_servers = _mcp_stdio_config(
+            repo_root, vault_primed=vault_primed_env, sdk=sdk
+        )
         streamed: list[str] = []
         run = None
         reply = ""
@@ -514,21 +565,21 @@ def run_cursor_composer_turn(
                 if label:
                     _emit_event(event_sink, {"type": "activity", "text": label})
 
-        send_opts = SendOptions(mcp_servers=mcp_servers, on_delta=on_delta)
+        send_opts = sdk.send_options(mcp_servers=mcp_servers, on_delta=on_delta)
 
         for model_idx, model_id in enumerate(model_candidates):
-            agent_opts = AgentOptions(
-                model=ModelSelection(id=model_id),
+            agent_opts = sdk.agent_options(
+                model=sdk.model_selection(id=model_id),
                 api_key=api_key,
                 name=f"research-desk-{session_id[:8] or 'anon'}",
                 mcp_servers=mcp_servers,
-                **_desk_agent_runtime_kwargs(repo_root),
+                **_desk_agent_runtime_kwargs(repo_root, sdk=sdk),
             )
             resume_id = agent_id if model_idx == 0 else ""
             if resume_id:
-                agent = Agent.resume(resume_id, agent_opts)
+                agent = sdk.agent.resume(resume_id, agent_opts)
             else:
-                agent = Agent.create(agent_opts)
+                agent = sdk.agent.create(agent_opts)
                 state["cursor_agent_id"] = agent.agent_id
                 agent_id = agent.agent_id
 
@@ -597,12 +648,38 @@ def run_cursor_composer_turn(
         if prime and state.get("cursor_agent_id"):
             state["desk_primed"] = True
 
+        from scripts.research_data_mcp.desk_asset_grounding import (
+            grounding_from_rail,
+            sanitize_grounded_reply,
+            sanitize_suggested_prompts,
+            suggested_prompts_for_asset,
+        )
+
+        grounding = grounding_from_rail(state.get("rail_context") or {})
+        readiness = grounding.get("canonical_readiness")
+        did = str(grounding.get("dataset_id") or "")
+        reply = sanitize_grounded_reply(reply, readiness, dataset_id=did)
+        suggestions = _faculty_starter_prompts(state)
+        if grounding.get("registered_or_ready"):
+            suggestions = suggested_prompts_for_asset(did, readiness) + suggestions
+        suggestions = sanitize_suggested_prompts(suggestions, readiness)
         return AgentTurn(
             plan={"action": "composer", "brain": "cursor_composer"},
             action_result=action_result,
             reply=reply,
-            suggested_prompts=_faculty_starter_prompts(state),
+            suggested_prompts=suggestions[:5],
             tool_name="cursor_composer",
+        )
+    except CursorSdkUnavailable as exc:
+        return AgentTurn(
+            plan={"action": "composer_unavailable"},
+            action_result={"action": "composer_unavailable", "error": str(exc)},
+            reply=(
+                "Cursor Composer is configured, but cursor_sdk is unavailable on this host. "
+                "Ask the lab operator to install the Cursor SDK in the desk runtime."
+            ),
+            suggested_prompts=_faculty_starter_prompts(state),
+            tool_name="",
         )
     except Exception as exc:
         return AgentTurn(

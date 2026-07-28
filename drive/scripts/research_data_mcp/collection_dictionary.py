@@ -256,20 +256,36 @@ def _scan_datacite_shards(repo_root: Path) -> list[dict[str, Any]]:
 
 
 def _load_semantic(repo_root: Path) -> dict[str, Any]:
+    """Load static Drive/ops annotation file.
+
+    This is NOT agent-reasoned taxonomy. Capability reasoning belongs to discover
+    intents + registry semantic_index + the custom procure pipeline.
+    """
     path = Path(repo_root).resolve() / "config/collection_semantic.json"
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
 def _semantic_block(semantic_cfg: dict[str, Any], part: dict[str, Any]) -> dict[str, Any]:
+    """Merge domain templates with optional partition overrides.
+
+    Empty / example / professor-hidden slots skip per-partition overrides so we
+    do not hardcode vendor product lanes (e.g. OpenSea) into chat taxonomy.
+    """
     pid = str(part["id"])
     domain = str(part.get("domain") or "")
     dom_tpl = (semantic_cfg.get("domain_templates") or {}).get(domain) or {}
-    override = (semantic_cfg.get("partitions") or {}).get(pid) or {}
+    status = str(part.get("status") or "").lower()
+    skip_override = (
+        part.get("professor_visible") is False
+        or status in {"example_slot", "example_reference", "catalog_only"}
+    )
+    override = {} if skip_override else ((semantic_cfg.get("partitions") or {}).get(pid) or {})
     return {
         "topics": override.get("topics") or [domain],
         "use_cases": override.get("use_cases") or dom_tpl.get("use_cases") or [],
         "example_questions": override.get("example_questions") or dom_tpl.get("example_questions") or [],
         "related_partition_ids": override.get("related") or [],
+        "annotation_source": "domain_template" if not override else "static_partition_override",
     }
 
 
@@ -377,15 +393,17 @@ def _scan_registry(repo_root: Path, partitions: list[dict[str, Any]]) -> list[di
         action = "query_now" if on_disk else "collect"
         action_label = "Query now" if on_disk else "Not on disk"
         missing = [] if on_disk else ["local_bytes"]
-        title = str(row.get("name") or did)
+        title = str(row.get("display_name") or row.get("name") or did)
+        one_line = str(row.get("one_line") or row.get("description") or "")[:220]
         rows.append(
             {
                 "id": f"registry:{did}",
                 "kind": "registry_dataset",
                 "dataset_id": did,
                 "title": title,
+                "description": one_line,
                 "domain": part_by_reg.get(did, "registry"),
-                "partition_id": part_by_reg.get(did, ""),
+                "partition_id": part_by_reg.get(did, "") or str(row.get("partition_id") or ""),
                 "chat_line": _chat_line(title, "registry", action_label, f"dataset:{did}"),
                 "action": action,
                 "action_label": action_label,
@@ -646,12 +664,24 @@ def build_dictionary(repo_root: Path) -> dict[str, Any]:
     dc_complete = sum(1 for r in datacite_shards if r.get("availability", {}).get("harvest_complete"))
     dc_local_jsonl = sum(int(r.get("availability", {}).get("on_local_jsonl_bytes") or 0) for r in datacite_shards)
 
+    professor_nav = cfg.get("professor_nav") or {}
+    visible_shelves = [
+        s
+        for s in (professor_nav.get("shelves") or [])
+        if s.get("professor_visible") is not False
+    ]
+
     return {
         "version": DICT_VERSION,
         "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "purpose": "Single table dictionary: mini-schema + what we have vs miss (DataCite first, then partitions/registry/queue/curated).",
         "canonical_root": cfg.get("canonical_root"),
         "mini_schema": MINI_SCHEMA,
+        "professor_nav": {
+            "how_to_read": professor_nav.get("how_to_read"),
+            "shelves": visible_shelves,
+            "guide": cfg.get("professor_guide") or {},
+        },
         "summary": {
             "datacite_shards": len(datacite_shards),
             "datacite_shards_complete": dc_complete,
@@ -667,6 +697,7 @@ def build_dictionary(repo_root: Path) -> dict[str, Any]:
             "queue_with_output": sum(1 for r in queue_tasks if r.get("availability", {}).get("have")),
             "curated_catalogs": len(curated_catalogs),
             "gap_count": len(gaps),
+            "professor_shelves": len(visible_shelves),
         },
         "tables": tables,
         "gaps": gaps,

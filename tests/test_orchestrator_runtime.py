@@ -34,6 +34,21 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
     return YzuOrchestrator(tmp_path)
 
 
+def test_faculty_acquisition_requires_explicit_approval(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+
+    submitted = orchestrator.submit(
+        "Probe example",
+        {"job_type": "http_manifest", "url": "https://8.8.8.8"},
+        {"idempotency_key": "faculty-probe"},
+        auto_approve=True,
+    )
+
+    assert submitted["status"] == "pending_approval"
+    assert submitted["plan"]["execution_policy"]["scope"] == "faculty"
+    assert submitted["plan"]["execution_policy"]["auto_approve_allowed"] is False
+
+
 def test_orchestrator_projects_idempotent_runtime_jobs(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path)
     plan = {"job_type": "http_manifest", "url": "https://8.8.8.8"}
@@ -66,7 +81,7 @@ def test_orchestrator_executes_only_a_claimed_compatible_job(tmp_path: Path) -> 
 
 
 def test_browser_job_stays_queued_without_a_live_browser_worker(tmp_path: Path) -> None:
-    orchestrator = _orchestrator(tmp_path)
+    orchestrator = _orchestrator(tmp_path, operations={"disable_local_scrape": True})
     job = orchestrator.submit(
         "Scrape example",
         {"job_type": "scraper_run", "script_key": "generic_url_scrape", "url": "https://8.8.8.8"},
