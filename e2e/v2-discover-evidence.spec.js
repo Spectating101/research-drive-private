@@ -33,11 +33,9 @@ test.describe("Discover adaptive Explore", () => {
     expect(widerCalls).toBe(0);
     expect(assessmentCalls).toBe(0);
 
-    await page.getByRole("radio", { name: "Ask" }).click();
-    await page.getByLabel("Ask Discover").fill("Which of these supports issuer-quarter governance research?");
-    await page.getByRole("button", { name: "Ask", exact: true }).click();
+    await page.getByRole("button", { name: "Ask about results" }).click();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · investigation");
-    await expect(page.getByTestId("ask-messages")).toContainText("Which of these supports issuer-quarter governance research?");
+    await expect(page.getByTestId("ask-messages")).toContainText("MOPS filings");
     await page.getByTestId("ask-composer").fill("Limit that to Taiwan and quarterly observations.");
     await page.getByTestId("ask-composer").press("Enter");
     await expect(page.getByTestId("ask-messages")).toContainText("Limit that to Taiwan and quarterly observations.");
@@ -130,5 +128,40 @@ test.describe("Discover adaptive Explore", () => {
 
     await comparison.getByRole("button", { name: "Inspect route evidence" }).click();
     await expect(page.locator("aside.rd-v2-rail").getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("an external result becomes a reviewed durable intent before approval submission", async ({ page }) => {
+    await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await search(page, "MOPS filings");
+
+    await page.getByTestId("discover-best-fit").click();
+    const rail = page.locator("aside.rd-v2-rail");
+    await rail.getByRole("button", { name: "Request this evidence" }).click();
+    await expect(page.getByTestId("discover-request-confirm")).toContainText(
+      "No collection starts from this action",
+    );
+    await page.getByRole("button", { name: "Open acquisition review" }).click();
+
+    const workspace = page.getByTestId("discover-intent-workspace");
+    await expect(workspace).toBeVisible();
+    await expect(workspace).toContainText("MOPS financial statements");
+    await expect(workspace).toContainText("TW listed company filings");
+    await expect(workspace).toContainText("Proposed routes · review required");
+    await expect(workspace).toContainText("Recommended route");
+    await expect(workspace.getByRole("button", { name: "Submit for approval" })).toHaveCount(0);
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("Durable Discover decision record");
+    await expect(page.locator("aside.rd-v2-rail").getByRole("button", { name: "Request this evidence" })).toHaveCount(0);
+
+    await workspace.getByRole("button", { name: "Accept routes for review" }).click();
+    await expect(workspace).toContainText("Reviewed routes");
+    await expect(workspace.getByRole("button", { name: "Submit for approval" })).toBeEnabled();
+    await workspace.getByRole("button", { name: "Submit for approval" }).click();
+
+    await expect(workspace.getByTestId("discover-intent-collection")).toContainText("pending approval");
+    await expect(workspace.getByTestId("discover-intent-collection")).toContainText(
+      "collection remains governed by History",
+    );
   });
 });

@@ -5505,7 +5505,7 @@
 
 .rd-v2-discover-composer {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
   gap: 8px;
 }
@@ -5523,35 +5523,10 @@
   resize: vertical;
 }
 .rd-v2-discover-composer > p {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   margin: -3px 0 0;
   color: var(--rd-muted);
   font-size: 10.5px;
-}
-.rd-v2-discover-composer-modes {
-  display: flex;
-  align-self: flex-start;
-  padding: 2px;
-  border: 1px solid var(--rd-border);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--rd-border) 35%, transparent);
-}
-.rd-v2-discover-composer-modes button {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--rd-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 650;
-}
-.rd-v2-discover-composer-modes button.on {
-  background: var(--rd-surface);
-  color: var(--rd-text);
-  box-shadow: 0 1px 2px rgb(16 24 32 / 9%);
 }
 .rd-v2-discover-composer.is-idle { max-width: 860px; }
 .rd-v2-discover-idle { display: grid; gap: 24px; padding: 20px 16px 40px; }
@@ -5716,6 +5691,86 @@
 .rd-v2-discover-route-compare > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
 .rd-v2-discover-route-compare > footer p { margin: 0; color: var(--rd-muted); font-size: 10.5px; }
 .rd-v2-discover-route-compare > footer button { padding: 3px 0; border: 0; background: transparent; color: #315f90; cursor: pointer; font: inherit; font-size: 10.5px; font-weight: 650; }
+
+.rd-v2-intent-workspace {
+  display: grid;
+  gap: 16px;
+  max-width: 960px;
+  padding: 18px 16px 44px;
+}
+.rd-v2-intent-workspace-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rd-border);
+}
+.rd-v2-intent-workspace-head > .rd-v2-linkish { grid-column: 1 / -1; justify-self: start; }
+.rd-v2-intent-workspace-head h2 { margin: 5px 0 7px; font-size: 20px; line-height: 1.25; letter-spacing: -.01em; }
+.rd-v2-intent-workspace-head p { max-width: 720px; margin: 0; color: var(--rd-body); font-size: 12.5px; line-height: 1.5; }
+.rd-v2-intent-use { margin-top: 7px !important; }
+.rd-v2-intent-use b { margin-right: 6px; color: var(--rd-text); }
+.rd-v2-intent-identity { display: grid; align-content: start; justify-items: end; gap: 4px; color: var(--rd-muted); font-family: var(--rd-mono); font-size: 10px; }
+.rd-v2-intent-identity strong { color: var(--rd-body); font-family: inherit; font-size: 11.5px; text-transform: capitalize; }
+.rd-v2-intent-need,
+.rd-v2-intent-empty,
+.rd-v2-intent-collection {
+  padding: 12px 14px;
+  border-left: 2px solid #66758a;
+  background: color-mix(in srgb, #dbe2eb 25%, transparent);
+}
+.rd-v2-intent-need p, .rd-v2-intent-empty p, .rd-v2-intent-collection p { margin: 5px 0 0; color: var(--rd-body); font-size: 12px; line-height: 1.45; }
+.rd-v2-intent-proposal,
+.rd-v2-intent-reviewed {
+  padding: 18px 20px;
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  background: var(--rd-surface);
+}
+.rd-v2-intent-proposal > header h3,
+.rd-v2-intent-reviewed > header h3,
+.rd-v2-intent-empty h3,
+.rd-v2-intent-collection h3 { margin: 4px 0 0; font-size: 15px; line-height: 1.35; }
+.rd-v2-intent-proposal > header p { margin: 6px 0 0; color: var(--rd-muted); font-size: 11.5px; }
+.rd-v2-intent-route-list { display: grid; gap: 0; margin-top: 14px; border-top: 1px solid var(--rd-border); }
+.rd-v2-intent-route { display: grid; gap: 10px; padding: 15px 0; border-bottom: 1px solid var(--rd-border); }
+.rd-v2-intent-route > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rd-v2-intent-route h3 { margin: 4px 0 0; font-size: 13.5px; }
+.rd-v2-intent-route > header button {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #315f90;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+}
+.rd-v2-intent-route.is-selected { box-shadow: inset 2px 0 0 #315f90; padding-left: 12px; }
+.rd-v2-intent-route > p { margin: 0; color: var(--rd-body); font-size: 12px; line-height: 1.4; }
+.rd-v2-intent-route dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 18px; margin: 0; }
+.rd-v2-intent-route dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
+.rd-v2-intent-route dt { color: var(--rd-muted); font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.rd-v2-intent-route dd { margin: 0; color: var(--rd-body); font-size: 11.5px; line-height: 1.35; }
+.rd-v2-intent-route dd.is-unknown { color: #8a6424; }
+.rd-v2-intent-proposal > footer,
+.rd-v2-intent-submit,
+.rd-v2-intent-collection {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.rd-v2-intent-proposal > footer p { margin: 0 auto 0 0; color: var(--rd-muted); font-size: 10.5px; }
+.rd-v2-intent-submit { justify-content: space-between; }
+.rd-v2-intent-submit > div { display: grid; gap: 3px; }
+.rd-v2-intent-submit strong { font-size: 12px; }
+.rd-v2-intent-submit span { color: var(--rd-muted); font-size: 10.5px; }
+.rd-v2-intent-empty { border-left-color: #9a6f25; background: color-mix(in srgb, #f1dfb4 22%, transparent); }
+.rd-v2-intent-empty .rd-v2-btn { margin-top: 10px; }
+.rd-v2-intent-collection { justify-content: space-between; margin-top: 0; border-left-color: #3d7654; background: color-mix(in srgb, #dceee2 36%, transparent); }
+.rd-v2-intent-error { margin: 0; padding: 9px 11px; border-left: 2px solid #9b3d35; background: #fce8e6; color: #8f312a; font-size: 11.5px; }
 @media (max-width: 640px) {
   .rd-v2-evidence-brief { margin-top: 8px; padding: 12px; }
   .rd-v2-evidence-question-row { align-items: stretch; flex-direction: column; }
@@ -5726,7 +5781,6 @@
   .rd-v2-evidence-intake { align-items: stretch; flex-direction: column; }
   .rd-v2-discover-composer { grid-template-columns: 1fr; }
   .rd-v2-discover-composer > p { grid-column: auto; }
-  .rd-v2-discover-composer-modes { justify-self: start; }
   .rd-v2-discover-composer .rd-v2-btn { justify-self: end; }
   .rd-v2-discover-result-actions,
   .rd-v2-discover-gap-action,
@@ -5736,6 +5790,13 @@
   .rd-v2-discover-route-compare > footer { align-items: flex-start; flex-direction: column; }
   .rd-v2-evidence-brief.is-layered .rd-v2-evidence-assessment-head { grid-template-columns: 1fr auto; }
   .rd-v2-evidence-close { grid-column: 1 / -1; justify-self: end; }
+  .rd-v2-intent-workspace-head { grid-template-columns: 1fr; }
+  .rd-v2-intent-identity { justify-items: start; }
+  .rd-v2-intent-route dl { grid-template-columns: 1fr; }
+  .rd-v2-intent-proposal > footer,
+  .rd-v2-intent-submit,
+  .rd-v2-intent-collection { align-items: stretch; flex-direction: column; }
+  .rd-v2-intent-proposal > footer p { margin: 0 0 5px; }
 }
 
 /* Discover is a working index, not a floating dashboard card. The shared

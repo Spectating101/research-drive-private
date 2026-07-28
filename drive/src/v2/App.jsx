@@ -7,6 +7,8 @@ import {
   deskResources,
   deskWarm,
   ensureDeskSession,
+  createDiscoverIntent,
+  craftDiscoverIntentProposal,
   discoverHistory,
   facultyProfile,
   libraryOps,
@@ -17,7 +19,7 @@ import {
   listLibraryNav,
   probePublicSource,
   procurementCatalogSummary,
-  submitDiscoverCollect,
+  setDiscoverIntentProposal,
   submitLibraryJob,
   craftCollectPlan,
   yzuClusterStatus,
@@ -67,6 +69,10 @@ import {
   discoverCandidateUrl,
 } from "@/v2/discoverActions";
 import { candidateKey } from "@/v2/candidateKey";
+import {
+  discoverIntentCandidate,
+  proposalFromDiscoverCandidate,
+} from "@/v2/discoverIntent";
 import {
   durableHistoryToEvents,
   enrichHistoryEventsFromJobs,
@@ -183,6 +189,8 @@ export function V2App() {
   const [discoverSearchQuery, setDiscoverSearchQuery] = useState(() => readParams().q);
   const [discoverMode, setDiscoverMode] = useState(() => readParams().discoverMode || "explore");
   const [discoverFocusAwaiting, setDiscoverFocusAwaiting] = useState(() => Boolean(readParams().discoverFocusAwaiting));
+  /** Temporary full-canvas intent review inside Discover Explore; never a permanent mode. */
+  const [discoverIntentRecord, setDiscoverIntentRecord] = useState(null);
   /** One-shot: Explore should hit live source adapters (Search wider / Ask handoff). */
   const [discoverPreferLive, setDiscoverPreferLive] = useState(false);
   const [historyEvents, setHistoryEvents] = useState([]);
@@ -775,59 +783,60 @@ export function V2App() {
       browseSelectedKeyRef.current = key;
 
       const probeResult = browseProbe.candidateKey === key ? browseProbe.result : null;
-      const connectorId = probeResult?.connector?.connector_id || probeResult?.connector?.id;
-
-      if (connectorId) {
-        setCollectSubmittingKey(key);
-        setRailTab("detail");
-        try {
-          const out = await submitDiscoverCollect(connectorId, {
-            limit: 200,
-            autoApprove: false,
-            candidateKey: key,
-            sourceIdentity: target?.source || target?.collect_via || "",
-            datasetId: target?.dataset_id || "",
-            doi: target?.doi || "",
-            url: discoverCandidateUrl(target) || "",
+      const candidate = discoverIntentCandidate(target, probeResult);
+      const researchNeed = discoverSearchQuery.trim() || `Evaluate and acquire ${candidate.title}`;
+      setCollectSubmittingKey(key);
+      setRailTab("detail");
+      try {
+        let intent = await createDiscoverIntent({
+          researchNeed,
+          title: candidate.title,
+          candidate,
+          userEmail: loadUserEmail(),
+        });
+        const declaredProposal = proposalFromDiscoverCandidate(candidate);
+        if (declaredProposal) {
+          intent = await setDiscoverIntentProposal(intent.id, declaredProposal);
+        } else if (candidate.url) {
+          const crafted = await craftDiscoverIntentProposal({
+            intentId: intent.id,
+            researchNeed,
+            url: candidate.url,
+            title: candidate.title,
           });
-          const job = out?.job;
-          if (job) {
-            setJobs((prev) => {
-              const others = (Array.isArray(prev) ? prev : []).filter((j) => j?.id !== job.id);
-              return [job, ...others];
-            });
-          }
-          setLifecycleRefreshFailed(false);
-          // Refresh catalog/ops, but preserve the exact submitted job if listJobs
-          // has not indexed it yet (common race right after collect).
-          refreshBackend({ preserveJob: job || null });
-          setRailTab("detail");
-          showToast(
-            job?.status === "pending_approval"
-              ? "Collection submitted — approval required"
-              : "Collection job queued — track it in Resources",
-          );
-        } catch (err) {
-          setRailTab("ask");
-          setPendingAsk({
-            prompt: buildAddToLabPrompt(target, probeResult),
-            displayText: buildAddToLabDisplayText(target, probeResult),
-          });
-          showToast(err?.message || "Collect failed — queued Ask instead");
-        } finally {
-          setCollectSubmittingKey("");
+          intent = crafted?.intent || intent;
         }
-        return;
+        setDiscoverIntentRecord({
+          intent,
+          candidate,
+          target,
+          researchNeed,
+        });
+        setDiscoverModeSafe("explore");
+        goTab("browse");
+        showToast("Acquisition intent recorded — review required");
+      } catch (err) {
+        setRailTab("ask");
+        setPendingAsk({
+          prompt: buildAddToLabPrompt(target, probeResult),
+          displayText: buildAddToLabDisplayText(target, probeResult),
+        });
+        showToast(err?.message || "Intent creation failed — opened Ask instead");
+      } finally {
+        setCollectSubmittingKey("");
       }
-
-      setRailTab("ask");
-      setPendingAsk({
-        prompt: buildAddToLabPrompt(target, probeResult),
-        displayText: buildAddToLabDisplayText(target, probeResult),
-      });
-      showToast("Queued Ask — Request this evidence");
     },
-    [labIds, browseProbe, catalog, syncUrl, showToast, refreshBackend, collectSubmittingKey],
+    [
+      labIds,
+      browseProbe,
+      catalog,
+      syncUrl,
+      showToast,
+      collectSubmittingKey,
+      discoverSearchQuery,
+      setDiscoverModeSafe,
+      goTab,
+    ],
   );
 
   const craftPublicUrlPlan = useCallback(
@@ -1348,12 +1357,37 @@ export function V2App() {
           onDiscoverModeChange={setDiscoverModeSafe}
           historyEvents={historyItems}
           selectedHistoryId={selectedHistoryId}
+          intentRecord={discoverIntentRecord}
+          onIntentChange={setDiscoverIntentRecord}
+          onCloseIntent={() => setDiscoverIntentRecord(null)}
+          onIntentSubmitted={(job, record) => {
+            if (job?.id) {
+              setJobs((previous) => {
+                const others = (Array.isArray(previous) ? previous : []).filter((item) => item?.id !== job.id);
+                return [job, ...others];
+              });
+            }
+            setDiscoverIntentRecord(record);
+            setLifecycleRefreshFailed(false);
+            refreshBackend({ preserveJob: job || null });
+            showToast(
+              job?.status === "pending_approval"
+                ? "Intent submitted — approval required"
+                : "Intent submitted — open History for lifecycle state",
+            );
+          }}
+          onOpenIntentHistory={(record) => {
+            const job = record?.job || record?.intent?.job || null;
+            setDiscoverIntentRecord(null);
+            openDiscoverHistory(job, { focusAwaiting: job?.status === "pending_approval" });
+          }}
           onSelectHistoryEvent={(event) => {
             setSelectedHistoryId(event?.id || "");
             setActiveObject(discoverHistoryObject(event));
             setRailTab("detail");
           }}
           onSuggestSearch={(q) => {
+            setDiscoverIntentRecord(null);
             setDiscoverSearchQuery(q);
             goTab("browse");
           }}
@@ -1563,6 +1597,7 @@ export function V2App() {
         browseTarget={browseTarget}
         historyEvent={selectedHistoryEvent}
         historyJob={selectedHistoryJob}
+        discoverIntentRecord={discoverIntentRecord}
         resourceRow={resourceRow}
         resourcesRollup={resourcesRollup}
         activeObject={activeObject}
@@ -1605,7 +1640,14 @@ export function V2App() {
                     title: `Resources · ${resourceRow.label}`,
                   }
                 : tab === "browse"
-                  ? selectedHistoryEvent
+                  ? discoverIntentRecord
+                    ? {
+                        title: discoverIntentRecord.intent?.title || discoverIntentRecord.candidate?.title || "Acquisition review",
+                        kind: "discover_intent",
+                        intent_id: discoverIntentRecord.intent?.id,
+                        research_need: discoverIntentRecord.intent?.research_need || discoverIntentRecord.researchNeed,
+                      }
+                    : selectedHistoryEvent
                     ? { ...selectedHistoryEvent, title: selectedHistoryEvent.target || selectedHistoryEvent.title, kind: "discover_history" }
                     : browseTarget || (activeObject?.kind === "discover_investigation" ? activeObject : null)
                 : tab === "home" && activeObject?.kind === "home_attention"

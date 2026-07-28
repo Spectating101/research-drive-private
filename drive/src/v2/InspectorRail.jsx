@@ -15,9 +15,13 @@ import { displayName } from "@/v2/datasetMeta";
 import { LibraryDatasetRailPanel } from "@/v2/LibraryDatasetRailPanel";
 import { ResourcesOverviewRailPanel } from "@/v2/ResourcesOverviewRailPanel";
 import { DiscoverHistoryRailPanel } from "@/v2/DiscoverHistoryRailPanel";
+import { DiscoverIntentRailPanel } from "@/v2/DiscoverIntentRailPanel";
 import { SynthesisThreadRailPanel } from "@/v2/SynthesisThreadRailPanel";
 
-function railSelectionHint(mainTab, dataset, browseTarget, historyEvent, resourceRow, clusterContext) {
+function railSelectionHint(mainTab, dataset, browseTarget, historyEvent, discoverIntentRecord, resourceRow, clusterContext) {
+  if (mainTab === "browse" && discoverIntentRecord) {
+    return discoverIntentRecord.intent?.title || discoverIntentRecord.candidate?.title || "Acquisition review";
+  }
   if (mainTab === "browse" && historyEvent) {
     return historyEvent.target || historyEvent.title || historyEvent.id || "Discover lifecycle item";
   }
@@ -86,6 +90,7 @@ export function InspectorRail({
   browseTarget,
   historyEvent,
   historyJob,
+  discoverIntentRecord,
   resourceRow,
   resourcesRollup,
   activeObject,
@@ -127,7 +132,9 @@ export function InspectorRail({
   } else if (mainTab === "cluster") {
     detailPanel = <ClusterRailPanel compare={clusterContext} onAskAbout={onAskAbout} />;
   } else if (mainTab === "browse") {
-    detailPanel = historyEvent ? (
+    detailPanel = discoverIntentRecord ? (
+      <DiscoverIntentRailPanel record={discoverIntentRecord} />
+    ) : historyEvent ? (
       <DiscoverHistoryRailPanel
         event={historyEvent}
         job={historyJob}
@@ -223,13 +230,13 @@ export function InspectorRail({
   const allowActiveHint = activeHintBelongsToTab(mainTab, activeObject);
   const selectionHint =
     (allowActiveHint ? activeObjectSelectionHint(activeObject) : "") ||
-    railSelectionHint(mainTab, dataset, browseTarget, historyEvent, resourceRow, clusterContext);
+    railSelectionHint(mainTab, dataset, browseTarget, historyEvent, discoverIntentRecord, resourceRow, clusterContext);
 
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   useEffect(() => {
     if (mainTab === "browse") {
-      setMobileRailOpen(Boolean(browseTarget || historyEvent) && railTab === "ask");
+      setMobileRailOpen(Boolean(browseTarget || historyEvent || discoverIntentRecord) && railTab === "ask");
       return;
     }
     if (mainTab === "home") {
@@ -249,7 +256,7 @@ export function InspectorRail({
       return;
     }
     setMobileRailOpen(true);
-  }, [selectionHint, mainTab, browseTarget, historyEvent, railTab, activeObject?.kind]);
+  }, [selectionHint, mainTab, browseTarget, historyEvent, discoverIntentRecord, railTab, activeObject?.kind]);
 
   return (
     <aside

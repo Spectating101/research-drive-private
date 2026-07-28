@@ -25,6 +25,7 @@ import { assessLocalSufficiency } from "@/v2/discoverSufficiency";
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverEvidenceBrief } from "@/v2/DiscoverEvidenceBrief";
+import { DiscoverIntentWorkspace } from "@/v2/DiscoverIntentWorkspace";
 import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
@@ -240,19 +241,15 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow, externalCa
 
 function DiscoverQueryComposer({
   value,
-  mode,
-  onModeChange,
   onValueChange,
   onSearch,
-  onAsk,
   idle = false,
 }) {
   const submit = (event) => {
     event.preventDefault();
     const next = String(value || "").trim();
     if (!next) return;
-    if (mode === "ask") onAsk?.(next);
-    else onSearch?.(next);
+    onSearch?.(next);
   };
   return (
     <form
@@ -260,26 +257,16 @@ function DiscoverQueryComposer({
       data-testid="discover-query-composer"
       onSubmit={submit}
     >
-      <div className="rd-v2-discover-composer-modes" role="radiogroup" aria-label="Discover input mode">
-        <button type="button" role="radio" aria-checked={mode === "search"} className={mode === "search" ? "on" : ""} onClick={() => onModeChange?.("search")}>
-          Search
-        </button>
-        <button type="button" role="radio" aria-checked={mode === "ask"} className={mode === "ask" ? "on" : ""} onClick={() => onModeChange?.("ask")}>
-          Ask
-        </button>
-      </div>
       <textarea
         value={value}
         onChange={(event) => onValueChange?.(event.target.value)}
         onKeyDown={handleEnterToRequestSubmit}
         rows={1}
-        placeholder={mode === "ask" ? "Describe what you need to investigate…" : "Search datasets, identifiers, or evidence…"}
-        aria-label={mode === "ask" ? "Ask Discover" : "Search Discover"}
+        placeholder="Search datasets, identifiers, or describe the evidence you need…"
+        aria-label="Search Discover"
       />
-      <button type="submit" className="rd-v2-btn sm primary">
-        {mode === "ask" ? "Ask" : "Search"}
-      </button>
-      <p>{mode === "ask" ? "Starts or continues an investigation in Ask." : "Fast index lookup. Wider discovery is explicit."}</p>
+      <button type="submit" className="rd-v2-btn sm primary">Search</button>
+      <p>Fast index lookup. Ask is seeded from the resulting evidence, not a separate search mode.</p>
     </form>
   );
 }
@@ -428,6 +415,11 @@ export function BrowsePage({
   historyEvents = [],
   selectedHistoryId = "",
   onSelectHistoryEvent,
+  intentRecord = null,
+  onIntentChange,
+  onCloseIntent,
+  onIntentSubmitted,
+  onOpenIntentHistory,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -440,7 +432,6 @@ export function BrowsePage({
   const [assessmentActive, setAssessmentActive] = useState(false);
   const [assessmentResult, setAssessmentResult] = useState(null);
   const [routeComparisonOpen, setRouteComparisonOpen] = useState(false);
-  const [inputMode, setInputMode] = useState("search");
   const [queryDraft, setQueryDraft] = useState(searchQuery || "");
 
   const pendingRows = useMemo(
@@ -802,6 +793,32 @@ export function BrowsePage({
     );
   }
 
+  if (intentRecord) {
+    return (
+      <PageShell
+        className="rd-v2-discover-page rd-v2-discover-page--intent"
+        title="Discover"
+        lead="Review one durable acquisition intent before collection"
+        headExtra={modeTabs}
+      >
+        <DiscoverIntentWorkspace
+          record={intentRecord}
+          onChange={onIntentChange}
+          onBack={onCloseIntent}
+          onAsk={(record) => onAskQuery?.(
+            record?.researchNeed || searchQuery,
+            {
+              kind: "implementation",
+              prompt: `Investigate acquisition routes for ${record?.candidate?.title || "this offering"}. Intent ${record?.intent?.id || "is recorded"}. Explain only supported routes, required evidence, and unknowns. Do not submit procurement.`,
+            },
+          )}
+          onSubmitted={onIntentSubmitted}
+          onOpenHistory={onOpenIntentHistory}
+        />
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       className="rd-v2-discover-page"
@@ -815,11 +832,8 @@ export function BrowsePage({
           <section className="rd-v2-discover-idle" data-testid="discover-empty">
             <DiscoverQueryComposer
               value={queryDraft}
-              mode={inputMode}
-              onModeChange={setInputMode}
               onValueChange={setQueryDraft}
               onSearch={onSuggestSearch}
-              onAsk={onAskQuery}
               idle
             />
             <div className="rd-v2-discover-idle-held">
@@ -866,11 +880,8 @@ export function BrowsePage({
               <header className="rd-v2-discover-explore-need">
                 <DiscoverQueryComposer
                   value={queryDraft}
-                  mode={inputMode}
-                  onModeChange={setInputMode}
                   onValueChange={setQueryDraft}
                   onSearch={onSuggestSearch}
-                  onAsk={onAskQuery}
                 />
               </header>
 

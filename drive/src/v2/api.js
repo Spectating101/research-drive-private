@@ -161,6 +161,93 @@ export function assessDiscoverEvidence({ question, requirement } = {}) {
   });
 }
 
+/** Durable Discover sourcing intent — reviewed before any collection job exists. */
+export function createDiscoverIntent({
+  researchNeed,
+  title = "",
+  candidate = null,
+  sessionId = "",
+  userEmail = "",
+} = {}) {
+  return fetchJson("/library/discover/intents", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      research_need: String(researchNeed || "").trim(),
+      title: String(title || "").trim(),
+      candidate: candidate && typeof candidate === "object" ? candidate : undefined,
+      session_id: String(sessionId || "").trim(),
+      user_email: String(userEmail || "").trim(),
+    }),
+  });
+}
+
+export function getDiscoverIntent(intentId) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}`);
+}
+
+export function setDiscoverIntentProposal(intentId, proposal) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/proposal`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ proposal }),
+  });
+}
+
+export function reviewDiscoverIntentProposal(intentId, {
+  decision,
+  proposalId,
+  proposalHash,
+} = {}) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/review`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      decision,
+      proposal_id: proposalId,
+      proposal_hash: proposalHash,
+    }),
+  });
+}
+
+export function selectDiscoverIntentRoute(intentId, routeId) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/route`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ route_id: routeId }),
+  });
+}
+
+export function submitDiscoverIntent(intentId, { limit = 200 } = {}) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/submit`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ limit }),
+  });
+}
+
+/** Build and persist a bounded generic proposal for a concrete public URL. */
+export function craftDiscoverIntentProposal({
+  intentId,
+  researchNeed,
+  url = "",
+  title = "",
+  mode = "",
+} = {}) {
+  return fetchJson("/library/craft/discover-proposal", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      intent_id: String(intentId || "").trim(),
+      research_need: String(researchNeed || "").trim(),
+      url: String(url || "").trim(),
+      title: String(title || "").trim(),
+      mode: String(mode || "").trim(),
+    }),
+    timeoutMs: 20000,
+  });
+}
+
 /** Durable Discover history (intents / subscriptions / collection runs). */
 export function discoverHistory({ limit = 50, kind = "", sessionId = "" } = {}) {
   const params = new URLSearchParams({ limit: String(limit) });

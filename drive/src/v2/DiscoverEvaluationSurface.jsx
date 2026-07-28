@@ -531,10 +531,10 @@ export function DiscoverEvaluationSurface({
 
         {requestConfirm ? (
           <div className="rd-v2-eval-confirm" data-testid="discover-request-confirm">
-            <p>Request this evidence as a durable Discover lifecycle item?</p>
+            <p>Open a durable acquisition intent for review? No collection starts from this action.</p>
             <div className="rd-v2-eval-confirm-actions">
               <button type="button" className="rd-v2-btn primary" disabled={probeLoading || submitting} onClick={confirmRequestEvidence}>
-                Confirm request
+                Open acquisition review
               </button>
               <button type="button" className="rd-v2-btn" onClick={() => setRequestConfirm(false)}>
                 Cancel
