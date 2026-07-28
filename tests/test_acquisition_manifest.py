@@ -106,7 +106,7 @@ def test_single_parquet_registers_local_root_and_local_file(tmp_path: Path) -> N
     assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote
 
 
-def test_geojson_registers_as_instant_local_json(tmp_path: Path) -> None:
+def test_geojson_registers_as_registered_local_json_before_smoke(tmp_path: Path) -> None:
     spec = registry_spec_from_materialized(
         tmp_path,
         {
@@ -128,7 +128,7 @@ def test_geojson_registers_as_instant_local_json(tmp_path: Path) -> None:
     assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote
 
 
-def test_extensionless_json_api_sniffs_as_instant(tmp_path: Path) -> None:
+def test_extensionless_json_api_sniffs_as_registered_before_smoke(tmp_path: Path) -> None:
     canonical = tmp_path / "data_lake/procured/openalex_canary"
     canonical.mkdir(parents=True)
     (canonical / "works").write_text('{"results":[{"id":"W1"}]}\n', encoding="utf-8")

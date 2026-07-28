@@ -70,7 +70,9 @@ def test_verified_receipt_recovers_missing_registered_asset(tmp_path: Path) -> N
     jobs.update("day2-smoke-job", "completed", _registration_result("day2_smoke"))
 
     service = _service(root, registry)
-    listed = service.list_datasets()
+    # This fixture intentionally uses a smoke-style ID, which the professor
+    # catalog hides unless staff explicitly asks for operational assets.
+    listed = service.list_datasets(include_ops=True)
     described = service.describe_dataset("day2_smoke")
 
     assert listed["datasets"][0]["dataset_id"] == "day2_smoke"
@@ -82,8 +84,12 @@ def test_verified_receipt_recovers_missing_registered_asset(tmp_path: Path) -> N
     assert described["catalog_reconciliation"]["state"] == "receipt_only"
     assert described["catalog_reconciliation"]["query_allowed"] is False
 
+    preview = service.query_dataset("day2_smoke")
+    assert preview["rows"] == []
+    assert preview["meta"]["catalog_state"] == "reconciliation_required"
+
     with pytest.raises(ValueError, match="not present in the loaded query catalog"):
-        service.query_dataset("day2_smoke")
+        service.query_dataset("day2_smoke", {"limit": 101})
 
 
 def test_completed_jobs_without_full_registration_proof_are_not_assets(tmp_path: Path) -> None:

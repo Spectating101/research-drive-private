@@ -1,11 +1,8 @@
-"""Durable Discover source refresh subscriptions.
+"""Durable, non-executing Discover source refresh subscriptions.
 
 Linked to a Discover intent / source / connector. Cadence and pause/resume/stop
-are persisted honestly. When schedule_spec.cron is present and the subscription
-is active, DiscoverRefreshRunner arms next_run_at and may submit collection
-jobs on tick — execution_mode=scheduled, auto_refresh=true.
-
-Manual cadence stays non-executing with next_run_at=null.
+are persisted honestly, but subscriptions are review records only: they never
+arm a next run or submit collection jobs.
 """
 
 from __future__ import annotations
@@ -25,17 +22,8 @@ PAUSED = "paused"
 STOPPED = "stopped"
 ALLOWED_STATUS = frozenset({ACTIVE, PAUSED, STOPPED})
 
-EXECUTION_MODE_SCHEDULED = "scheduled"
 EXECUTION_MODE_NON = "non_executing"
-EXECUTION_NOTE_SCHEDULED = (
-    "Discover refresh runner arms next_run_at from schedule_spec.cron and submits "
-    "a Discover-linked collection job when due (tick via jobs worker or "
-    "POST /library/discover/subscriptions/tick)."
-)
-EXECUTION_NOTE_NON = (
-    "Manual cadence or no parseable cron — recorded for Discover History only; "
-    "no automatic next run is claimed."
-)
+EXECUTION_NOTE_NON = "Recorded for Discover History and review only; no automatic next run is enabled."
 
 
 def discover_refresh_store_path(repo_root: str | Path) -> Path:
@@ -48,16 +36,6 @@ def _now() -> str:
 
 def _clone(value: Any) -> Any:
     return json.loads(json.dumps(value or {}))
-
-
-def _parse_iso(value: str | None) -> datetime | None:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
 
 
 class DiscoverRefreshStore:
@@ -120,36 +98,16 @@ class DiscoverRefreshStore:
         after: datetime | None = None,
         clear_next: bool = False,
     ) -> dict[str, Any]:
-        from scripts.research_data_mcp.discover_schedule_spec import compute_next_run_at
-
-        cron = str((schedule_spec or {}).get("cron") or "").strip()
-        can_arm = bool(cron) and status == ACTIVE and enabled and cadence != "manual"
-        next_run: str | None = None
-        if can_arm and not clear_next:
-            next_run = compute_next_run_at(schedule_spec, after=after)
-        if can_arm and next_run:
-            mode = EXECUTION_MODE_SCHEDULED
-            note = EXECUTION_NOTE_SCHEDULED
-            auto = True
-            spec = dict(schedule_spec or {})
-            spec["executable"] = True
-            if not spec.get("note"):
-                spec["note"] = EXECUTION_NOTE_SCHEDULED
-        else:
-            mode = EXECUTION_MODE_NON
-            note = EXECUTION_NOTE_NON
-            auto = False
-            next_run = None
-            spec = dict(schedule_spec or {})
-            if not cron or cadence == "manual":
-                spec["executable"] = False
+        spec = dict(schedule_spec or {})
+        spec["executable"] = False
+        spec["note"] = "Schedule recorded for review only; no automatic execution is enabled."
         return {
-            "execution_mode": mode,
-            "execution_note": note,
+            "execution_mode": EXECUTION_MODE_NON,
+            "execution_note": EXECUTION_NOTE_NON,
             "last_run_at": last_run_at,
-            "next_run_at": next_run,
+            "next_run_at": None,
             "last_job_id": last_job_id,
-            "auto_refresh": auto,
+            "auto_refresh": False,
             "requested_schedule": requested_schedule,
             "schedule_note": schedule_note,
             "schedule_spec": spec,
@@ -249,31 +207,16 @@ class DiscoverRefreshStore:
         return [self._row(dict(r)) for r in rows]
 
     def list_due(self, *, now: datetime | None = None, limit: int = 20) -> list[dict[str, Any]]:
-        """Active scheduled subscriptions whose next_run_at is due."""
-        stamp = now or datetime.now(UTC)
-        due: list[dict[str, Any]] = []
-        for row in self.list(limit=200, status=ACTIVE):
-            if not row.get("enabled"):
-                continue
-            if row.get("execution_mode") != EXECUTION_MODE_SCHEDULED:
-                continue
-            next_at = _parse_iso(row.get("next_run_at"))
-            if next_at is None:
-                continue
-            if next_at.tzinfo is None:
-                next_at = next_at.replace(tzinfo=UTC)
-            if next_at <= stamp.astimezone(UTC):
-                due.append(row)
-            if len(due) >= limit:
-                break
-        return due
+        """Subscriptions are descriptive records, so none can become due."""
+        _ = now, limit
+        return []
 
     def _row(self, item: dict[str, Any]) -> dict[str, Any]:
         state = json.loads(item.pop("state_json") or "{}")
         status = str(item.get("status") or ACTIVE)
         enabled = bool(item.get("enabled")) and status == ACTIVE
-        mode = str(state.get("execution_mode") or EXECUTION_MODE_NON)
-        auto = bool(state.get("auto_refresh")) and mode == EXECUTION_MODE_SCHEDULED and enabled
+        schedule_spec = dict(state.get("schedule_spec") or {})
+        schedule_spec["executable"] = False
         out = {
             "id": item["id"],
             "created_at": item["created_at"],
@@ -286,14 +229,14 @@ class DiscoverRefreshStore:
             "enabled": enabled,
             "destination": item.get("destination") or "",
             "status": status,
-            "execution_mode": mode,
-            "execution_note": state.get("execution_note") or EXECUTION_NOTE_NON,
-            "auto_refresh": auto,
+            "execution_mode": EXECUTION_MODE_NON,
+            "execution_note": EXECUTION_NOTE_NON,
+            "auto_refresh": False,
             "requested_schedule": state.get("requested_schedule") or "",
             "schedule_note": state.get("schedule_note") or "",
-            "schedule_spec": state.get("schedule_spec") or {},
+            "schedule_spec": schedule_spec,
             "last_run_at": state.get("last_run_at") or None,
-            "next_run_at": state.get("next_run_at") or None,
+            "next_run_at": None,
             "last_job_id": state.get("last_job_id") or None,
             "last_run_status": state.get("last_run_status") or None,
             "last_run_plan": state.get("last_run_plan") or None,
@@ -321,6 +264,17 @@ class DiscoverRefreshStore:
         }
         if state_patch:
             state.update(_clone(state_patch))
+        schedule_spec = dict(state.get("schedule_spec") or {})
+        schedule_spec["executable"] = False
+        state.update(
+            {
+                "execution_mode": EXECUTION_MODE_NON,
+                "execution_note": EXECUTION_NOTE_NON,
+                "auto_refresh": False,
+                "next_run_at": None,
+                "schedule_spec": schedule_spec,
+            }
+        )
         status = str(fields.get("status", current["status"]))
         if status not in ALLOWED_STATUS:
             raise ValueError(f"status must be one of {sorted(ALLOWED_STATUS)}")

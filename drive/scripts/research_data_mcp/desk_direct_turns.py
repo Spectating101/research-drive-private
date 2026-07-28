@@ -243,6 +243,16 @@ _QUERY_PATTERNS = (
         re.I,
     ),
 )
+# Rail-selected asset: require explicit describe/query intent (do not hijack every Ask turn).
+_DESCRIBE_RAIL_INTENT = re.compile(
+    r"(?i)\b(?:describe|show|open|inspect|what(?:'s|\s+is)|tell\s+me\s+about)\b"
+    r".{0,40}\b(?:this|selected|dataset|asset|panel|holding)\b"
+    r"|\b(?:describe|inspect)\s+(?:this|it|the\s+selected)\b"
+)
+_QUERY_RAIL_INTENT = re.compile(
+    r"(?i)\b(?:query|sample|preview)\b.{0,40}\b(?:this|selected|dataset|asset|panel|rows?)\b"
+    r"|\b(?:query|sample|preview)\s+(?:this|it|the\s+selected)\b"
+)
 
 
 def doi_from_message(message: str, rail_context: dict[str, Any] | None = None) -> str | None:
@@ -277,14 +287,17 @@ def dataset_id_from_message(
     if not text:
         return None
     rail = rail_context if isinstance(rail_context, dict) else {}
-    explicit = str(rail.get("dataset_id") or "").strip()
-    if explicit:
-        return explicit
+    from scripts.research_data_mcp.desk_asset_grounding import selected_dataset_id
+
+    rail_id = selected_dataset_id(rail)
     patterns = _DESCRIBE_PATTERNS if mode == "describe" else _QUERY_PATTERNS
     for pattern in patterns:
         match = pattern.match(text)
         if match:
             return match.group(1).strip()
+    intent = _DESCRIBE_RAIL_INTENT if mode == "describe" else _QUERY_RAIL_INTENT
+    if rail_id and intent.search(text[:220]):
+        return rail_id
     return None
 
 
@@ -585,12 +598,12 @@ def try_direct_refresh_tick_turn(gateway: Any, message: str, state: dict[str, An
     if errors:
         lines.append(f"Errors: {len(errors)} (see action result).")
     if not fired and not errors:
-        lines.append("Nothing due — use force tick or wait until next_run_at.")
+        lines.append("Subscriptions are non-executing; start a reviewed collect from Ask when needed.")
     return AgentTurn(
         plan={"action": "refresh_tick", "fast_path": True, **req},
         action_result={"action": "refresh_tick", "fast_path": True, "tick": out, **req},
         reply="\n".join(lines),
-        suggested_prompts=["Open Discover History", "Approve pending refresh jobs"],
+        suggested_prompts=["Open Discover History", "Collect a source now"],
         tool_name="research_discover_tick_refresh_subscriptions",
     )
 
@@ -616,7 +629,7 @@ def try_direct_schedule_turn(
             timezone="Asia/Taipei",
             schedule_note=(
                 "Registered from Ask. Visible in Discover → History → Scheduled. "
-                "When cron is present, the Discover refresh runner arms next_run_at."
+                "The schedule is descriptive and does not execute automatically."
             ),
         )
     except Exception as exc:  # noqa: BLE001
@@ -646,11 +659,7 @@ def try_direct_schedule_turn(
         + (f" · next run `{next_run}`" if next_run else " · no automatic next run")
         + f"\n- Subscription `{sub_id[:12]}…` · status **{sub.get('status') or 'active'}**\n\n"
         "Open **Discover → History → Scheduled** to see it. "
-        + (
-            "The refresh runner will submit a Discover collect job when due (or on force tick)."
-            if next_run
-            else "Manual cadence — run collect from Ask when you need a refresh."
-        )
+        "This subscription is non-executing; start a reviewed collect from Ask when needed."
     )
     try:
         from scripts.research_data_mcp.desk_activity import record_activity
@@ -1188,13 +1197,28 @@ def try_direct_equipment_turn(
 
 
 def _describe_reply(dataset_id: str, out: dict[str, Any]) -> str:
-    title = str(out.get("title") or out.get("name") or dataset_id)
-    readiness = str(out.get("readiness") or out.get("access_mode") or "unknown")
+    from scripts.research_data_mcp.desk_asset_grounding import ground_from_dataset_row
+
+    grounding = ground_from_dataset_row(out if isinstance(out, dict) else {}, dataset_id=dataset_id)
+    title = str(
+        (grounding.get("asset_identity") or {}).get("name")
+        or out.get("title")
+        or out.get("name")
+        or dataset_id
+    )
+    readiness = grounding.get("canonical_readiness") or "unknown"
     lines = [f"**{title}** (`{dataset_id}`) — readiness: {readiness}"]
-    summary = str(out.get("summary") or out.get("description") or "").strip()
+    summary = str(out.get("summary") or out.get("description") or out.get("one_line") or "").strip()
     if summary:
         lines.append(summary[:500])
-    local = out.get("local_path") or out.get("path")
+    proof = grounding.get("registry_proof") or {}
+    if proof.get("registry_row_loaded") is True:
+        lines.append("Registry: loaded row confirmed.")
+    if proof.get("archive_verified") is True:
+        lines.append("Archive: verified.")
+    elif proof.get("archive_verified") is False:
+        lines.append("Archive: not verified.")
+    local = out.get("local_path") or out.get("path") or out.get("local_root")
     if local:
         lines.append(f"Local path: `{local}`")
     return "\n".join(lines)
@@ -1218,11 +1242,30 @@ def try_direct_describe_turn(
             suggested_prompts=[f"Search vault for {dataset_id}"],
             tool_name="research_describe_dataset",
         )
+    from scripts.research_data_mcp.desk_asset_grounding import (
+        ground_from_dataset_row,
+        suggested_prompts_for_asset,
+    )
+
+    grounding = ground_from_dataset_row(out if isinstance(out, dict) else {}, dataset_id=dataset_id)
     return AgentTurn(
         plan={"action": "describe_dataset", "fast_path": True, "dataset_id": dataset_id},
-        action_result={"action": "describe_dataset", "fast_path": True, "dataset": out, "dataset_id": dataset_id},
+        action_result={
+            "action": "describe_dataset",
+            "fast_path": True,
+            "dataset": out,
+            "dataset_id": dataset_id,
+            "asset_grounding": {
+                "canonical_readiness": grounding.get("canonical_readiness"),
+                "registry_proof": grounding.get("registry_proof"),
+                "asset_identity": grounding.get("asset_identity"),
+                "valid_next_actions": grounding.get("valid_next_actions"),
+            },
+        },
         reply=_describe_reply(dataset_id, out),
-        suggested_prompts=[f"Query sample rows from {dataset_id}", f"Queue DOI collect for {dataset_id}"],
+        suggested_prompts=suggested_prompts_for_asset(
+            dataset_id, grounding.get("canonical_readiness")
+        ),
         tool_name="research_describe_dataset",
     )
 

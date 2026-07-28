@@ -73,12 +73,12 @@ def _effective_worker_status(
     *,
     inventory_status: str,
     runtime_worker: dict[str, Any] | None,
-    idle_grace_seconds: int = 86400,
 ) -> dict[str, Any]:
-    """Honest desk status: joined inventory ≠ live heartbeat.
+    """Honest desk status: joined inventory ≠ claimable heartbeat.
 
-    Thin Windows workers often heartbeat only while executing jobs, so age > 300s
-    is usually idle — not dead. Probe/diag leftovers stay stale.
+    Runtime freshness is authoritative. Stale workers stay ``stale`` (membership
+    only) — never remapped to idle/online/available. Fresh claimable labels pass
+    through (``ready`` collapses to ``online`` for Resources).
     """
     inv = str(inventory_status or "").strip() or "unknown"
     if not runtime_worker:
@@ -90,19 +90,31 @@ def _effective_worker_status(
         }
     freshness = runtime_worker.get("freshness") if isinstance(runtime_worker.get("freshness"), dict) else {}
     age = freshness.get("age_seconds")
-    state = str(freshness.get("state") or runtime_worker.get("status") or "unknown")
+    state = str(freshness.get("state") or "").strip().lower()
+    runtime_status = str(runtime_worker.get("status") or "").strip().lower()
+    stored = str(runtime_worker.get("stored_status") or "").strip().lower()
     wid = str(runtime_worker.get("id") or runtime_worker.get("worker_id") or "")
-    effective = state
-    if state == "stale" and isinstance(age, (int, float)) and age <= idle_grace_seconds:
-        effective = "idle"
-    elif state == "fresh" or str(runtime_worker.get("status") or "") == "online":
-        effective = "online"
+    # Stale freshness/status must win over stored online/idle labels.
+    if state == "stale" or runtime_status == "stale":
+        effective = "stale"
+    elif state == "fresh" or runtime_status in {"online", "ready", "idle"}:
+        label = runtime_status if runtime_status in {"online", "ready", "idle"} else stored
+        if label == "ready":
+            effective = "online"
+        elif label in {"online", "idle"}:
+            effective = label
+        else:
+            effective = "online"
+    elif stored in {"online", "ready", "idle"}:
+        effective = "online" if stored == "ready" else stored
+    else:
+        effective = runtime_status or state or "unknown"
     return {
         "inventory_status": inv,
         "effective_status": effective,
         "runtime_id": wid or None,
         "freshness": freshness or {
-            "state": state,
+            "state": state or None,
             "age_seconds": age,
         },
     }
@@ -499,8 +511,8 @@ class YzuClusterAPI:
             "semantics": {
                 "inventory_joined": "configured for routing",
                 "online": "heartbeat within stale threshold",
-                "idle": "joined worker with recent-but-expired heartbeat (typical when no job running)",
-                "stale": "heartbeat older than idle grace, or probe leftover",
+                "idle": "runtime reports idle/ready with fresh heartbeat",
+                "stale": "runtime heartbeat older than worker_stale_after_seconds, or probe leftover",
                 "joined_unseen": "inventory joined but never seen in runtime store",
             },
         }

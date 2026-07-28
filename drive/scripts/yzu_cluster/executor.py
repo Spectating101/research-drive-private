@@ -132,9 +132,8 @@ class YzuExecutor:
     ) -> dict[str, Any]:
         log_path = self.jobs_root / job_id / log_name
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        shell_cmd = subprocess.list2cmdline(command)
         if use_ops_host_for_pool(self.cfg, pool):
-            process = run_on_ops_host(self.cfg, shell_cmd, log_path=log_path, timeout=timeout)
+            process = run_on_ops_host(self.cfg, command, log_path=log_path, timeout=timeout)
         elif pool == "windows_lab":
             from scripts.yzu_cluster.windows_lab_readiness import probe_windows_lab
 

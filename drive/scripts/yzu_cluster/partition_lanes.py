@@ -100,7 +100,29 @@ def _should_surface(part: dict[str, Any], *, local_bytes: int) -> bool:
     return local_bytes > 0
 
 
-def partition_lane(repo_root: Path, part: dict[str, Any]) -> dict[str, Any] | None:
+def _shelf_index(cfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Map partition_id → shelf metadata for professor navigation."""
+    out: dict[str, dict[str, Any]] = {}
+    nav = cfg.get("professor_nav") or {}
+    for shelf in nav.get("shelves") or []:
+        shelf_meta = {
+            "shelf_id": shelf.get("id"),
+            "shelf_label": shelf.get("label"),
+            "shelf_blurb": shelf.get("blurb"),
+            "shelf_sort": shelf.get("sort", 500),
+            "shelf_visible": shelf.get("professor_visible", True) is not False,
+        }
+        for pid in shelf.get("partition_ids") or []:
+            out[str(pid)] = shelf_meta
+    return out
+
+
+def partition_lane(
+    repo_root: Path,
+    part: dict[str, Any],
+    *,
+    shelf_by_pid: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     local = _local_storage_path(repo_root, part)
     local_ok = bool(local and local.exists())
     local_bytes = _local_bytes(local) if local_ok and local else 0
@@ -113,6 +135,7 @@ def partition_lane(repo_root: Path, part: dict[str, Any]) -> dict[str, Any] | No
     status = str(part.get("status") or "unknown")
     stage, tone = _stage_for_status(status, local_ok=local_ok)
     release = _release_meta(repo_root, part) if status == "frozen_release" else None
+    shelf = (shelf_by_pid or {}).get(pid) or {}
 
     amount_bits: list[str] = []
     if registry_ids:
@@ -131,6 +154,7 @@ def partition_lane(repo_root: Path, part: dict[str, Any]) -> dict[str, Any] | No
 
     remote = _canonical_remote(repo_root, part, use_target=True) or _canonical_remote(repo_root, part)
     subtitle = str(part.get("professor_label") or part.get("title") or pid)
+    scope = str(part.get("professor_blurb") or part.get("description") or "")[:200]
     detail: dict[str, Any] = {
         "partition_id": pid,
         "domain": domain,
@@ -141,6 +165,8 @@ def partition_lane(repo_root: Path, part: dict[str, Any]) -> dict[str, Any] | No
         "target_drive_path": part.get("target_drive_path"),
         "canonical_remote": remote,
         "role": "vault_holding" if local_bytes > 0 else "generic_land_zone",
+        "shelf_id": shelf.get("shelf_id"),
+        "professor_sort": part.get("professor_sort"),
     }
     if release:
         detail["release"] = {
@@ -153,11 +179,15 @@ def partition_lane(repo_root: Path, part: dict[str, Any]) -> dict[str, Any] | No
     return {
         "id": f"partition_{pid.replace('.', '_')}",
         "partition_id": pid,
-        "name": str(part.get("title") or pid),
+        "name": subtitle,
         "subtitle": subtitle,
         "professor_label": subtitle,
+        "professor_blurb": scope,
+        "professor_sort": int(part.get("professor_sort") or shelf.get("shelf_sort") or 500),
         "professor_visible": True,
-        "scope": str(part.get("description") or "")[:160],
+        "shelf_id": shelf.get("shelf_id"),
+        "shelf_label": shelf.get("shelf_label"),
+        "scope": scope,
         "stage": stage,
         "tone": tone,
         "progress": progress,
@@ -172,12 +202,42 @@ def partition_lane(repo_root: Path, part: dict[str, Any]) -> dict[str, Any] | No
     }
 
 
-def partition_lanes(repo_root: Path) -> list[dict[str, Any]]:
+def professor_shelves(repo_root: Path) -> list[dict[str, Any]]:
+    """Professor-facing shelf map (logical nav; physical paths unchanged)."""
     cfg = _load_partitions(str(repo_root))
+    nav = cfg.get("professor_nav") or {}
+    shelves = []
+    for shelf in nav.get("shelves") or []:
+        if shelf.get("professor_visible") is False:
+            continue
+        shelves.append(
+            {
+                "id": shelf.get("id"),
+                "label": shelf.get("label"),
+                "blurb": shelf.get("blurb"),
+                "sort": shelf.get("sort", 500),
+                "partition_ids": list(shelf.get("partition_ids") or []),
+            }
+        )
+    shelves.sort(key=lambda s: (s.get("sort", 500), s.get("label") or ""))
+    return shelves
+
+
+def partition_lanes(repo_root: Path) -> list[dict[str, Any]]:
+    # Config edits must win over process lifetime — drop stale cache.
+    _load_partitions.cache_clear()
+    cfg = _load_partitions(str(repo_root))
+    shelf_by_pid = _shelf_index(cfg)
     lanes: list[dict[str, Any]] = []
     for part in cfg.get("partitions") or []:
-        row = partition_lane(repo_root, part)
+        row = partition_lane(repo_root, part, shelf_by_pid=shelf_by_pid)
         if row:
             lanes.append(row)
-    lanes.sort(key=lambda r: (r.get("stage") != "complete", r.get("name", "")))
+    lanes.sort(
+        key=lambda r: (
+            int(r.get("professor_sort") or 500),
+            r.get("shelf_label") or "",
+            r.get("professor_label") or r.get("name") or "",
+        )
+    )
     return lanes

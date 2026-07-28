@@ -9,7 +9,10 @@ from typing import Any
 
 ACCESS_SCOPE_REL = "config/databank_access_scope.json"
 RESEARCH_COVERAGE_REL = "docs/status/generated/databank_research_coverage.json"
-REFINITIV_ENTITLEMENT_REL = "docs/status/generated/refinitiv_harvest_completion.json"
+REFINITIV_ENTITLEMENT_RELS = (
+    "docs/status/generated/refinitiv_entitlement_probe.json",
+    "docs/status/generated/refinitiv_harvest_completion.json",
+)
 
 # Numeric rank for max-merge across sources (higher = more reachable)
 ACCESS_RANK: dict[str, int] = {
@@ -190,12 +193,16 @@ def build_access_coverage_audit(repo_root: Path) -> dict[str, Any]:
         for sid in cell["sources"]:
             not_wired_sources.setdefault(sid, []).append(cell)
 
-    refinitiv_ent = _load_json(str(root), REFINITIV_ENTITLEMENT_REL)
+    refinitiv_ent = None
+    for _rel in REFINITIV_ENTITLEMENT_RELS:
+        refinitiv_ent = _load_json(str(root), _rel)
+        if refinitiv_ent:
+            break
     entitlement_probe = None
     if refinitiv_ent:
         entitlement_probe = {
             "canonical_run_id": refinitiv_ent.get("canonical_run_id"),
-            "summary": refinitiv_ent.get("entitlement_summary"),
+            "summary": refinitiv_ent.get("entitlement_summary") or refinitiv_ent.get("summary"),
             "blocked_categories": refinitiv_ent.get("blocked_categories"),
             "entitled_categories": [
                 {"id": c.get("category_id"), "description": c.get("description")}

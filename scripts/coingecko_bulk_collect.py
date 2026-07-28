@@ -114,13 +114,16 @@ def _strip_wrapping_quotes(value: str) -> str:
     return value
 
 
-def load_env_value(name: str, env_path: Path = _ENV_FILE) -> str:
-    value = str(os.environ.get(name, "") or "").strip()
-    if value:
-        return value
-    if not env_path.exists():
-        return ""
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+def load_env_value(name: str, env_path: Path | None = None) -> str:
+    explicit_path = env_path is not None
+    path = env_path or _ENV_FILE
+    if not explicit_path:
+        value = str(os.environ.get(name, "") or "").strip()
+        if value:
+            return value
+    if not path.exists():
+        return str(os.environ.get(name, "") or "").strip() if explicit_path else ""
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -129,7 +132,7 @@ def load_env_value(name: str, env_path: Path = _ENV_FILE) -> str:
         if not line.startswith(f"{name}="):
             continue
         return _strip_wrapping_quotes(line.split("=", 1)[1])
-    return ""
+    return str(os.environ.get(name, "") or "").strip() if explicit_path else ""
 
 
 @dataclass

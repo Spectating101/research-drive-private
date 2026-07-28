@@ -26,6 +26,17 @@ from scripts.yzu_cluster.acquisitions import repo_relpath
 DEFAULT_REGISTRY = "config/research_query_registry.json"
 
 
+def default_registry_path(repo_root: Path) -> Path:
+    """Resolve the canonical registry in front-door and Drive-only checkouts."""
+    primary = repo_root / DEFAULT_REGISTRY
+    if primary.is_file():
+        return primary
+    drive_registry = repo_root / "drive" / DEFAULT_REGISTRY
+    if drive_registry.is_file():
+        return drive_registry
+    return primary
+
+
 def _valid_materialization_manifest(
     repo_root: Path,
     result: dict[str, Any] | None,
@@ -104,7 +115,7 @@ def create_stack(
     from scripts.research_data_mcp.env_loader import load_procurement_env
 
     load_procurement_env(root)
-    registry = Path(registry_path) if registry_path else root / DEFAULT_REGISTRY
+    registry = Path(registry_path) if registry_path else default_registry_path(root)
     if not registry.is_absolute():
         registry = (root / registry).resolve()
 

@@ -1,8 +1,4 @@
-"""Tick Discover refresh subscriptions that are due.
-
-Fires a Discover-linked collection job via resolve_discover_collect_plan, then
-arms the next next_run_at. Safe plans may auto-approve; others stay pending.
-"""
+"""Compatibility tick surface for non-executing Discover subscriptions."""
 
 from __future__ import annotations
 
@@ -75,21 +71,6 @@ def _tick_discover_refresh_locked(
     errors: list[dict[str, Any]] = []
     rearmed = 0
 
-    # Migrate legacy active cron rows that were stored as non_executing pre-runner.
-    for row in store.list(limit=200, status="active"):
-        if not row.get("enabled"):
-            continue
-        cron = str((row.get("schedule_spec") or {}).get("cron") or "").strip()
-        if not cron or row.get("cadence") == "manual":
-            continue
-        if row.get("execution_mode") == "scheduled" and row.get("next_run_at"):
-            continue
-        try:
-            store.rearm(str(row["id"]))
-            rearmed += 1
-        except Exception:  # noqa: BLE001
-            pass
-
     if force_id:
         try:
             candidates = [store.get(force_id)]
@@ -118,6 +99,9 @@ def _tick_discover_refresh_locked(
         sid = str(sub.get("id") or "")
         if sub.get("status") != "active" or not sub.get("enabled"):
             skipped.append({"subscription_id": sid, "reason": "not_active"})
+            continue
+        if sub.get("execution_mode") != "scheduled":
+            skipped.append({"subscription_id": sid, "reason": "subscription_non_executing"})
             continue
         if not force and not force_id:
             next_at = str(sub.get("next_run_at") or "")

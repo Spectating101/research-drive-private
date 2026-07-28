@@ -5,28 +5,22 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "drive/config/**"
       - "drive/scripts/yzu_cluster/**"
       - "drive/scripts/cluster_agent/**"
       - "drive/scripts/research_data_mcp/**"
       - "drive/scripts/research_query_engine/**"
       - "drive/config/optiplex-front-door.env.example"
       - "drive/docs/status/releases/RC2_FRONT_DOOR_CONTRACT.md"
-      - "tests/test_cluster_runtime_adapter.py"
-      - "tests/test_orchestrator_runtime.py"
-      - "tests/test_bootstrap_drive_order.py"
-      - "tests/test_acquisition_manifest.py"
-      - "tests/test_scraper_manifest.py"
-      - "tests/test_registry_authority.py"
-      - "tests/test_registry_transaction.py"
-      - "tests/test_worker_control.py"
-      - "tests/test_worker_completion_lease.py"
-      - "tests/test_completion_lease_scope.py"
-      - "tests/test_remote_worker.py"
-      - "tests/test_remote_collect.py"
-      - "tests/test_artifact_streaming.py"
-      - "tests/test_job_status_counts.py"
-      - "tests/test_research_query_server.py"
-      - "tests/test_yzu_interop_*.py"
+      - "drive/src/v2/**"
+      - "drive/tests/**"
+      - "kernel/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.js"
+      - "pytest.ini"
+      - "pyproject.toml"
+      - "tests/**"
       - ".github/workflows/private-runtime-contract.yml"
   workflow_dispatch:
 
@@ -42,6 +36,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -50,7 +49,18 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance
+          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance ruff
+
+      - name: Install UI dependencies
+        run: npm ci
+
+      - name: Guard and validate configuration
+        shell: bash
+        run: |
+          test -f drive/config/research_query_registry.json
+          test ! -L drive/config/research_query_registry.json
+          python -m json.tool drive/config/research_query_registry.json >/dev/null
+          git ls-files -z 'drive/config/*.json' 'drive/config/**/*.json' | xargs -0 -n1 python -m json.tool >/dev/null
 
       - name: Compile runtime modules
         run: |
@@ -62,6 +72,19 @@ jobs:
           bash -n drive/scripts/research_query_engine/build_optiplex_front_door.sh
           bash -n drive/scripts/research_query_engine/run_optiplex_front_door.sh
           bash -n drive/scripts/research_query_engine/install_optiplex_front_door_systemd_user.sh
+
+      - name: Run pragmatic Python lint gate
+        run: |
+          python -m ruff check drive/scripts drive/tests tests --select E9,F63,F7,F82 --per-file-ignores 'drive/scripts/research_data_mcp/catalog.py:F821,drive/scripts/yzu_cluster/worker_control.py:F821'
+
+      - name: Run Research Drive tests
+        run: |
+          python -m pytest -q drive/tests
+
+      - name: Run UI unit tests and production build
+        run: |
+          node --test drive/src/v2/*.test.js
+          npm run build
 
       - name: Run worker control service contracts
         id: worker_control

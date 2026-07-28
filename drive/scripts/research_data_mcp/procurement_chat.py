@@ -52,8 +52,12 @@ class ProcurementChatOrchestrator:
         else:
             state["faculty_profile"] = {"email": email, "unknown": True}
 
-    def _wait_for_prime_events(self, gateway: Any, session_id: str, *, timeout_seconds: int = 60):
-        """Yield visible progress while a background Composer warmup is still running."""
+    def _wait_for_prime_events(self, gateway: Any, session_id: str, *, timeout_seconds: int = 12):
+        """Yield visible progress while a background Composer warmup is still running.
+
+        Cap the wait short and fail open: a stuck prime must not freeze Ask for a full minute
+        (Cloudflare also buffers NDJSON, so long priming looks like a dead right rail).
+        """
         deadline = time.monotonic() + max(timeout_seconds, 1)
         last_notice = -10
         state: dict[str, Any] = {}
@@ -73,7 +77,12 @@ class ProcurementChatOrchestrator:
                 }
             time.sleep(0.5)
         session = self.sessions.get(session_id)
-        return dict(session.get("state") or state)
+        state = dict(session.get("state") or state)
+        # Fail open: clear stuck priming so the turn can create/resume Composer itself.
+        if state.get("desk_priming") and not state.get("desk_primed"):
+            state.pop("desk_priming", None)
+            self.sessions.update_state(session_id, state)
+        return state
 
     @staticmethod
     def _watch_composer_completion(
@@ -124,7 +133,17 @@ class ProcurementChatOrchestrator:
                 action = str(action_result.get("action") or turn.plan.get("action") or "composer")
                 action = orchestrator._infer_action_label(message, reply, action, action_result)
                 action_result["action"] = action
-                suggestions = turn.suggested_prompts or []
+                from scripts.research_data_mcp.desk_asset_grounding import (
+                    grounding_from_rail,
+                    sanitize_grounded_reply,
+                    sanitize_suggested_prompts,
+                )
+
+                grounding = grounding_from_rail(live.get("rail_context") or {})
+                readiness = grounding.get("canonical_readiness")
+                did = str(grounding.get("dataset_id") or "")
+                reply = sanitize_grounded_reply(reply, readiness, dataset_id=did)
+                suggestions = sanitize_suggested_prompts(turn.suggested_prompts or [], readiness)
                 next_steps = orchestrator._build_next_steps(live, action_result, suggestions)
                 orchestrator.sessions.append_message(
                     sid,
@@ -179,7 +198,9 @@ class ProcurementChatOrchestrator:
         state = dict(session.get("state") or {})
         self._bind_faculty_profile(state, user_email)
         if isinstance(rail_context, dict) and rail_context:
-            state["rail_context"] = rail_context
+            from scripts.research_data_mcp.desk_asset_grounding import resolve_and_enrich_rail_context
+
+            state["rail_context"] = resolve_and_enrich_rail_context(gateway, rail_context)
 
         from pathlib import Path as _Path
 
@@ -221,12 +242,12 @@ class ProcurementChatOrchestrator:
                     session_id=sid,
                     background=True,
                 )
-            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=60)
+            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=12)
             session = self.sessions.get(sid)
             state = dict(session.get("state") or state)
             self.sessions.update_state(sid, state)
         elif not skip_composer_priming and state.get("desk_priming"):
-            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=60)
+            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=12)
             session = self.sessions.get(sid)
             state = dict(session.get("state") or state)
 
@@ -373,6 +394,19 @@ class ProcurementChatOrchestrator:
         }
 
         suggestions = turn.suggested_prompts
+        from scripts.research_data_mcp.desk_asset_grounding import (
+            grounding_from_rail,
+            sanitize_grounded_reply,
+            sanitize_suggested_prompts,
+        )
+
+        grounding = grounding_from_rail(state.get("rail_context") or {})
+        readiness = grounding.get("canonical_readiness")
+        did = str(grounding.get("dataset_id") or "")
+        reply = sanitize_grounded_reply(str(getattr(turn, "reply", "") or ""), readiness, dataset_id=did)
+        # Keep turn reply aligned with sanitized text for downstream complete payload.
+        turn.reply = reply
+        suggestions = sanitize_suggested_prompts(suggestions, readiness)
         next_steps = self._build_next_steps(state, action_result, suggestions)
 
         title = session.get("title") or ""
@@ -532,12 +566,21 @@ class ProcurementChatOrchestrator:
         action_result: dict[str, Any],
         suggestions: list[str],
     ) -> list[dict[str, Any]]:
+        from scripts.research_data_mcp.desk_asset_grounding import (
+            grounding_from_rail,
+            sanitize_next_steps,
+            sanitize_suggested_prompts,
+        )
+
+        grounding = grounding_from_rail(state.get("rail_context") or {})
+        readiness = grounding.get("canonical_readiness")
+        clean_suggestions = sanitize_suggested_prompts(suggestions, readiness)
         steps: list[dict[str, Any]] = []
-        for prompt in suggestions[:3]:
+        for prompt in clean_suggestions[:3]:
             steps.append({"label": prompt[:80], "prompt": prompt, "kind": "chat"})
         if state.get("pending_job_id"):
             steps.append({"label": "Check job progress", "prompt": "status", "kind": "status"})
         paths = action_result.get("paths") or []
         if paths:
             steps.append({"label": "Open collected file", "path": paths[0], "kind": "artifact"})
-        return steps[:4]
+        return sanitize_next_steps(steps, readiness)[:4]

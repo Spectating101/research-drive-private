@@ -507,6 +507,7 @@ def _looks_like_error_envelope(rows: list[Any]) -> str | None:
                 return "api_error_envelope"
         if keys <= err_keys or (keys & {"error", "errors"} and not (keys & data_keys)):
             return "api_error_envelope"
+        # Single documentation/status object with no tabular grain.
         if keys <= {"status", "ok", "documentation", "docs", "message", "version", "gecko_says"} and "gecko_says" not in keys:
             if "documentation" in keys or keys in ({"status", "ok"}, {"status"}):
                 return "non_tabular_status_document"

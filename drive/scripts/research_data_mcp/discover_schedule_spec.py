@@ -1,8 +1,8 @@
-"""Structured schedule specs for Discover refresh subscriptions.
+"""Structured, descriptive schedule specs for Discover refresh subscriptions.
 
-Cadence (manual|daily|weekly|monthly) remains a coarse classification.
-Execution uses schedule_spec.cron + timezone via the Discover refresh runner —
-never natural-language alone.
+Cadence (manual|daily|weekly|monthly) remains a coarse classification. Cron and
+timezone are parsed for validation and display, but a subscription does not
+authorize execution.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ def build_schedule_spec(
     timezone: str = DEFAULT_TIMEZONE,
     explicit: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return a structured schedule_spec dict (executable when cron is present)."""
+    """Return a validated schedule description that is never executable."""
     if isinstance(explicit, dict) and explicit.get("cron"):
         cron = str(explicit.get("cron"))[:64]
         return {
@@ -89,8 +89,8 @@ def build_schedule_spec(
             "cron": cron,
             "requested_schedule": str(explicit.get("requested_schedule") or requested_schedule or "")[:240],
             "inferred": False,
-            "executable": bool(cron.strip()),
-            "note": "Discover refresh runner executes this cron when the subscription is active.",
+            "executable": False,
+            "note": "Schedule recorded for review only; no automatic execution is enabled.",
         }
 
     text = str(requested_schedule or "").strip()
@@ -113,12 +113,8 @@ def build_schedule_spec(
         "cron": cron,
         "requested_schedule": text[:240],
         "inferred": True,
-        "executable": bool(cron),
-        "note": (
-            "Discover refresh runner executes this cron when the subscription is active."
-            if cron
-            else "Manual cadence — no automatic next run."
-        ),
+        "executable": False,
+        "note": "Schedule recorded for review only; no automatic execution is enabled.",
     }
 
 
@@ -150,6 +146,8 @@ def compute_next_run_at(
 ) -> str | None:
     """Next UTC ISO timestamp for schedule_spec.cron, or None if manual/unparseable."""
     if not isinstance(spec, dict):
+        return None
+    if spec.get("executable") is not True:
         return None
     cron = str(spec.get("cron") or "").strip()
     if not cron:

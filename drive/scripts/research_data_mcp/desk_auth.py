@@ -106,7 +106,7 @@ def desk_session_cookie_valid(handler: BaseHTTPRequestHandler, token: str) -> bo
     got = read_desk_session_cookie(handler)
     if not got or not token:
         return False
-    return hmac.compare_digest(got, session_cookie_value(token))
+    return _token_matches(got, session_cookie_value(token))
 
 
 def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
@@ -118,7 +118,7 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
     referer = str(handler.headers.get("Referer") or "").strip()
     allowed = {f"http://{host}", f"https://{host}"}
     if origin:
-        return origin.rstrip("/") in allowed
+        return origin.rstrip("/").lower() in allowed
     if referer:
         parsed = urlparse(referer)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -129,12 +129,11 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
 
 
 def _token_matches(provided: str, expected: str) -> bool:
-    a = provided.encode("utf-8")
-    b = expected.encode("utf-8")
-    if len(a) != len(b):
-        hmac.compare_digest(b, b)  # constant work
-        return False
-    return hmac.compare_digest(a, b)
+    # Compare fixed-length digests so compare_digest does not disclose the
+    # expected token length through its unequal-length fast path.
+    provided_digest = hashlib.sha256(provided.encode("utf-8")).digest()
+    expected_digest = hashlib.sha256(expected.encode("utf-8")).digest()
+    return hmac.compare_digest(provided_digest, expected_digest)
 
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
@@ -159,8 +158,10 @@ def clear_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
 
 def authorize(handler: BaseHTTPRequestHandler, path: str, method: str = "GET") -> tuple[bool, str]:
     token = access_token_required()
-    if not token or not path_requires_auth(path, method=method):
+    if not path_requires_auth(path, method=method):
         return True, ""
+    if not token:
+        return False, "Desk access token is not configured on this host"
     auth = str(handler.headers.get("Authorization") or "")
     header = str(handler.headers.get("X-Desk-Token") or "")
     provided = ""
