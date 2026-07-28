@@ -36,7 +36,7 @@ case "$branch" in
       echo "OK    frontend branch tracks yzu-cluster"
     fi
     ;;
-  *discover-evidence-verdict)
+  *discover-evidence-verdict|reconcile/discover-evidence-main)
     if [[ -z "$private_remote" || "$upstream" != "$private_remote/"* ]]; then
       echo "FAIL  backend Discover branch must track research-drive-private"
       fail=1
