@@ -1,7 +1,11 @@
 # Research Drive — repository authority (canonical)
 
-**Last updated:** 2026-07-23  
+**Last updated:** 2026-07-28
 **Rule:** one backend authority. Do not dual-push desk/runtime code.
+
+The active Discover branch and worktree map lives in
+[DISCOVER_RELEASE_TOPOLOGY.md](./DISCOVER_RELEASE_TOPOLOGY.md). Public and private
+repositories have independent root histories: share contracts and payloads, never Git ancestry.
 
 ## Authority table
 
