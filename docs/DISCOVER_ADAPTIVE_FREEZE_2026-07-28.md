@@ -445,7 +445,7 @@ The first four external rows and their descriptions must remain readable without
 
 ---
 
-## 12. Hard acceptance
+## 12. Release acceptance
 
 An implementation is conformant only when:
 
@@ -466,7 +466,7 @@ no mutation occurs without explicit review / approval
 History preserves the complete decision chain
 ```
 
-Required rendered journeys:
+Required before production release:
 
 ```text
 idle Explore
@@ -525,11 +525,14 @@ Any change to this model must amend this file and [`UI_PRODUCT_AUTHORITY.md`](UI
 
 ## 15. Frozen rendered evidence and implementation boundary
 
-The exact implementation reviewed with this freeze is captured here:
+The exact implementation reviewed in this slice is captured here:
 
 - [question results + automatic Ask](status/generated/discover-freeze-2026-07-28/results.png)
 - [visual custom-strategy modal](status/generated/discover-freeze-2026-07-28/strategy.png)
 - [read-only live API question + progressive external results](status/generated/discover-freeze-2026-07-28/live-question.png)
+- [acquisition review over preserved results](status/generated/discover-freeze-2026-07-28/acquisition-review.png)
+- [mobile automatic Ask sheet](status/generated/discover-freeze-2026-07-28/mobile-question.png)
+- [mobile question results after collapsing Ask](status/generated/discover-freeze-2026-07-28/mobile-results.png)
 
 Implemented in this slice:
 
@@ -538,6 +541,7 @@ one automatic composer
 deterministic keyword vs research-question routing
 fast results for both paths
 automatic assessment + seeded right-rail Ask for questions
+progressive semantic/web enrichment without clearing first results
 external result priority and normalized descriptions
 small Add to collection row action
 Library evidence chrome instead of a permanent held-results block
@@ -546,15 +550,25 @@ diagram-first custom-strategy modal
 acquisition review as a modal over preserved results
 ```
 
-Still dependent on backend or later lifecycle work:
+The live review artifact proves progressive external discovery, retained Library evidence, and automatic Ask selection. It does **not** prove a live assessment verdict or live `Custom strategy ready`: the public review endpoint rejects the required desk mutation. Those states are exercised only against the committed assessment contract and fixtures in this slice.
+
+Still dependent on a mutation-capable backend or later lifecycle work:
 
 ```text
-automatic progressive semantic/web enrichment without clearing first results
+live assessment verdict and custom-strategy gating
 Ask-authored requirement updates reflected in the strategy without reload
 durable Save strategy action
 complete source feasibility matrix after probes
 History-to-Library proof chain for every route
 production deployment
+```
+
+The remaining production-release journeys not demonstrated by these six captures are:
+
+```text
+Ask clarification → custom strategy ready against a mutation-capable backend
+submission → History
+History → exact Library handoff
 ```
 
 These unfinished items do not authorize substitute pages, permanent panels, fabricated values, or a return to the Search | Ask toggle.

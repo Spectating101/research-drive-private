@@ -130,9 +130,12 @@ test.describe("Discover adaptive Explore", () => {
     await page.getByRole("button", { name: "Custom strategy ready" }).click();
     const comparison = page.getByTestId("discover-route-comparison");
     await expect(comparison).toBeVisible();
+    await expect(comparison).toContainText("How it answers the question");
     await expect(comparison).toContainText("Proposed transform");
     await expect(comparison).toContainText("Planned output");
     await expect(comparison).toContainText("Unknown");
+    await expect(comparison).toContainText("Next valid action");
+    await expect(comparison.getByRole("button", { name: /Review acquisition route/ })).toBeVisible();
     await expect(comparison).toContainText("cannot submit procurement");
 
     await comparison.getByRole("button", { name: /MOPS financial statements/ }).click();

@@ -346,6 +346,28 @@ function DiscoverRouteComparison({
   const outputTitle = stablecoin
     ? "Stablecoin de-peg exchange activity dataset"
     : "Research-ready evidence dataset";
+  const answerLine = stablecoin
+    ? "Aligns de-peg event days with exchange-level price and volume so activity before and after each event can be compared."
+    : `Produces the proposed ${readRequirement("unit", "research unit")} evidence needed to address the recorded gap alongside held evidence.`;
+  const nextAction = publicRoute
+    ? {
+        text: `Review the declared route for ${candidateTitle(publicRoute)} and verify coverage before approval.`,
+        label: "Review acquisition route",
+        run: () => onReviewAcquisition?.(publicRoute),
+      }
+    : accessRoute
+      ? {
+          text: `Review entitlement and permitted coverage for ${candidateTitle(accessRoute)} before choosing a route.`,
+          label: "Review access route",
+          run: () => onReviewAcquisition?.(accessRoute),
+        }
+      : {
+          text: "Clarify the missing source and coverage constraints in Ask before recording implementation work.",
+          label: "Refine in Ask",
+          run: () => onAsk?.(
+            `Refine a custom dataset strategy for: ${query}. The current gap is: ${gap?.statement || "not fully specified"}. Ask for the missing source and coverage constraints. Do not submit procurement.`,
+          ),
+        };
   const inputCards = [
     held ? {
       label: "Held evidence",
@@ -409,6 +431,10 @@ function DiscoverRouteComparison({
         <p className="rd-v2-discover-route-intro">
           {gap?.statement || "The standard sourcing path does not yet establish every part of this evidence need."}
         </p>
+        <section className="rd-v2-discover-strategy-answer">
+          <span>How it answers the question</span>
+          <p>{answerLine}</p>
+        </section>
         <div className="rd-v2-discover-strategy-flow" aria-label="Proposed dataset strategy">
           <div className="rd-v2-discover-strategy-inputs">
             {inputCards.map((input) => (
@@ -448,6 +474,13 @@ function DiscoverRouteComparison({
           <span><b>Proposed</b> output contract and transformation</span>
           <span><b>Unknown</b> cost, completion time, full coverage, and feasibility</span>
         </div>
+        <section className="rd-v2-discover-strategy-next">
+          <div>
+            <span>Next valid action</span>
+            <p>{nextAction.text}</p>
+          </div>
+          <button type="button" onClick={nextAction.run}>{nextAction.label} →</button>
+        </section>
         <footer>
           <p>This preview cannot submit procurement or promise delivery.</p>
           <button type="button" onClick={() => onAsk?.(
