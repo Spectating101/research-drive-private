@@ -284,6 +284,36 @@ export const MOCK_DISCOVER_ASSESSMENT = {
   },
 };
 
+export const MOCK_STABLECOIN_ASSESSMENT = {
+  question: "What data can I use to study stablecoin de-pegs?",
+  requirement: {
+    output_title: { value: "Stablecoin de-peg exchange activity dataset", provenance: "drafted" },
+    unit: { value: "exchange × stablecoin × day", provenance: "drafted" },
+    "universe/geography": { value: "Major stablecoin exchanges", provenance: "drafted" },
+    time_range: { value: "2020–present", provenance: "drafted" },
+    frequency: { value: "daily", provenance: "drafted" },
+    fields: {
+      value: ["price", "volume", "abnormal volume", "de-peg event"],
+      provenance: "drafted",
+    },
+    event_type: { value: "de-peg event", provenance: "explicit" },
+  },
+  assessment_status: "assessed",
+  verdict: "partially_covered",
+  because: "Known sources cover de-peg events and market activity, but not harmonized exchange-level daily volume.",
+  held_evidence: [],
+  gap: {
+    statement: "Harmonized exchange-level daily volume is not evidenced by the standard sources.",
+    blocks: "A comparison of exchange activity before and after each de-peg event.",
+    resolution_evidence: "Verified exchange-level price and volume joined to dated de-peg events.",
+  },
+  assessment_basis: {
+    mode: "deterministic_catalog_metadata",
+    catalog_candidates_considered: 2,
+    assembly_status: "not_established",
+  },
+};
+
 export async function mockV2Api(
   page,
   {
@@ -292,6 +322,7 @@ export async function mockV2Api(
     historyBody = { items: [] },
     profileBody = { found: true, profile: { name_en: "Test Prof", discipline: "YZU" } },
     assessmentBody = null,
+    chatReply = "",
   } = {},
 ) {
   const liveJobs = {
@@ -638,7 +669,7 @@ export async function mockV2Api(
   const fulfillChat = (route) => {
     const body = route.request().postDataJSON?.() || {};
     const entity = body?.rail_context?.entity || {};
-    const reply =
+    const reply = chatReply || (
       entity.kind === "discover_history"
         ? `Lifecycle context received for ${entity.title || "selected record"}.`
         : entity.kind === "external_candidate"
@@ -649,7 +680,8 @@ export async function mockV2Api(
                 "The mapped Library inputs are candidate evidence: core signals support the construct, while validation sources test whether it behaves as intended. " +
                 "The main unresolved risk is construct validity and time alignment. Which signal should define the primary measure?"
               )
-            : "Resources context received.";
+            : "Resources context received."
+    );
     return route.fulfill({
       status: 200,
       contentType: "application/json",

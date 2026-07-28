@@ -40,7 +40,8 @@ test.describe("v2 Discover tab", () => {
     await expect(page.locator('button.rd-v2-discover-candidate')).not.toHaveCount(0);
     await expect(page.getByTestId("discover-best-fit")).toContainText(/TWSE Open\s*API|TWSE|MOPS|candidate/i);
     await expect(page.getByTestId("discover-interpreting")).toBeVisible();
-    await expect(page.getByTestId("discover-rank-foot")).toContainText(/\d+ candidate/i);
+    await expect(page.getByLabel("Discover next actions")).toContainText(/\d+ result/i);
+    await expect(page.getByTestId("discover-rank-foot")).toContainText(/Ranked using active research/i);
     await expect(page.getByTestId("discover-filter-menu")).toBeVisible();
     await expect(page.getByTestId("discover-browse-mode")).not.toContainText(/process overview/i);
   });

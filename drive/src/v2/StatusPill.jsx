@@ -66,8 +66,8 @@ const GUIDANCE = {
     next: "Inspect the recorded error and retry only after correcting the cause.",
   },
   external: {
-    title: "Beyond your lab",
-    summary: "This source is known outside the current lab holdings.",
+    title: "Beyond your Library",
+    summary: "This source is known outside your current Library.",
     checks: [
       "The source has not been claimed as locally owned",
       "Access and licensing may still need verification",

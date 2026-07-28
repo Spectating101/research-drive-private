@@ -25,7 +25,14 @@ function Fact({ label, value, unknown = false }) {
   );
 }
 
-function RouteCard({ route, selected, recommended = false, disabled, onSelect }) {
+function routeTitle(route, sourceTitle = "") {
+  const raw = text(route?.title, "Untitled acquisition route");
+  return /^collect through [a-z0-9_-]+$/i.test(raw) && sourceTitle
+    ? `Collect from ${sourceTitle}`
+    : raw;
+}
+
+function RouteCard({ route, sourceTitle, selected, recommended = false, disabled, onSelect }) {
   const highlighted = selected || recommended;
   return (
     <article className={`rd-v2-intent-route${highlighted ? " is-selected" : ""}`}>
@@ -34,9 +41,9 @@ function RouteCard({ route, selected, recommended = false, disabled, onSelect })
           <span className="rd-v2-eyebrow">
             {selected ? "Selected route" : recommended ? "Recommended route" : "Available route"}
           </span>
-          <h3>{text(route.title, "Untitled acquisition route")}</h3>
+          <h3>{routeTitle(route, sourceTitle)}</h3>
         </div>
-        {!selected ? (
+        {!selected && onSelect ? (
           <button type="button" disabled={disabled} onClick={onSelect}>Select route</button>
         ) : null}
       </header>
@@ -138,13 +145,12 @@ export function DiscoverIntentWorkspace({
       <header className="rd-v2-intent-workspace-head">
         <button type="button" className="rd-v2-linkish" onClick={onBack}>← Back to results</button>
         <div>
-          <span className="rd-v2-eyebrow">Discover acquisition intent</span>
+          <span className="rd-v2-eyebrow">Acquisition review</span>
           <h2>{title}</h2>
           <p>{description}</p>
           {use ? <p className="rd-v2-intent-use"><b>How to use it</b> {use}</p> : null}
         </div>
         <div className="rd-v2-intent-identity">
-          <span>Intent {text(intent?.id).slice(0, 12)}{intent?.id ? "…" : ""}</span>
           <strong>{text(state.status, "draft").replaceAll("_", " ")}</strong>
         </div>
       </header>
@@ -170,18 +176,19 @@ export function DiscoverIntentWorkspace({
               <RouteCard
                 key={route.id}
                 route={route}
+                sourceTitle={title}
                 recommended={route.id === proposal.recommended_route_id}
                 disabled
               />
             ))}
           </div>
           <footer>
-            <p>Accepting records these routes for review. It does not start collection.</p>
+            <p>Continue to record this proposal and choose one route. Collection will not start.</p>
             <button type="button" className="rd-v2-btn primary" disabled={Boolean(busy)} onClick={() => review("accept")}>
-              {busy === "review:accept" ? "Accepting…" : "Accept routes for review"}
+              {busy === "review:accept" ? "Recording…" : "Continue to route selection"}
             </button>
             <button type="button" className="rd-v2-btn" disabled={Boolean(busy)} onClick={() => review("reject")}>
-              Reject draft
+              Reject proposal
             </button>
           </footer>
         </section>
@@ -196,6 +203,7 @@ export function DiscoverIntentWorkspace({
               <RouteCard
                 key={route.id}
                 route={route}
+                sourceTitle={title}
                 selected={route.id === state.selected_route_id}
                 disabled={Boolean(busy) || Boolean(collection.job_id)}
                 onSelect={() => selectRoute(route.id)}
@@ -205,7 +213,7 @@ export function DiscoverIntentWorkspace({
           {!collection.job_id ? (
             <div className="rd-v2-intent-submit">
               <div>
-                <strong>{selectedRoute?.title || "Select a route"}</strong>
+                <strong>{selectedRoute ? routeTitle(selectedRoute, title) : "Select a route"}</strong>
                 <span>Submission creates a pending-approval job. It does not approve the collection.</span>
               </div>
               <button
@@ -244,6 +252,18 @@ export function DiscoverIntentWorkspace({
             Open in History →
           </button>
         </section>
+      ) : null}
+
+      {intent?.id ? (
+        <details className="rd-v2-intent-technical">
+          <summary>Technical details</summary>
+          <dl>
+            <Fact label="Intent ID" value={intent.id} />
+            <Fact label="Candidate key" value={candidate.candidate_key} />
+            <Fact label="Selected route" value={selectedRoute?.id} />
+            <Fact label="Connector" value={selectedRoute?.connector_id} />
+          </dl>
+        </details>
       ) : null}
     </section>
   );
