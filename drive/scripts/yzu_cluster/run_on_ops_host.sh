@@ -19,13 +19,17 @@ repo = Path(".").resolve()
 cfg = json.loads((repo / "config/yzu_cluster.json").read_text(encoding="utf-8"))
 argv = sys.argv[2:]
 timeout = int(os.environ.get("CLUSTER_OPS_TIMEOUT", "7200"))
+cfg = dict(cfg)
+operations = dict(cfg.get("operations") or {})
+host = dict(operations.get("ops_host") or {})
 if not cluster_only(cfg):
-    cfg = dict(cfg)
-    operations = dict(cfg.get("operations") or {})
-    host = dict(operations.get("ops_host") or {})
-    host.update({"mode": "local", "repo_root": str(repo)})
-    operations["ops_host"] = host
-    cfg["operations"] = operations
+    host["mode"] = "local"
+if str(host.get("mode") or "local").lower() == "local":
+    # A checked-in controller path is deployment metadata, not a valid cwd for
+    # every checkout (for example, a CI runner or a second worktree).
+    host["repo_root"] = str(repo)
+operations["ops_host"] = host
+cfg["operations"] = operations
 proc = run_on_ops_host(cfg, argv, timeout=timeout)
 raise SystemExit(proc.returncode)
 ' -- "$@"
