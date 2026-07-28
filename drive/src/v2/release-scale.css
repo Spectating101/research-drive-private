@@ -62,14 +62,13 @@ body,
     display: none !important;
   }
 
-  .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-pane,
   .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-toggle,
   .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-selection {
     display: revert !important;
   }
 
   .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-pane {
-    display: none;
+    display: none !important;
   }
 
   .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-pane.rd-v2-rail-pane-on {

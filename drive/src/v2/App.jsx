@@ -191,6 +191,12 @@ export function V2App() {
   const [discoverFocusAwaiting, setDiscoverFocusAwaiting] = useState(() => Boolean(readParams().discoverFocusAwaiting));
   /** Temporary full-canvas intent review inside Discover Explore; never a permanent mode. */
   const [discoverIntentRecord, setDiscoverIntentRecord] = useState(null);
+  /** Coverage assessment lives in the Discover Detail rail and never replaces results. */
+  const [discoverAssessment, setDiscoverAssessment] = useState({
+    active: false,
+    question: "",
+    result: null,
+  });
   /** One-shot: Explore should hit live source adapters (Search wider / Ask handoff). */
   const [discoverPreferLive, setDiscoverPreferLive] = useState(false);
   const [historyEvents, setHistoryEvents] = useState([]);
@@ -754,6 +760,19 @@ export function V2App() {
     },
     [discoverSearchQuery, goTab, syncUrl],
   );
+
+  const openDiscoverAssessment = useCallback((query) => {
+    const q = String(query || discoverSearchQuery || "").trim();
+    if (!q) return;
+    setDiscoverAssessment({ active: true, question: q, result: null });
+    setActiveObject({
+      kind: "discover_investigation",
+      title: q,
+      question: q,
+      search_query: q,
+    });
+    setRailTab("detail");
+  }, [discoverSearchQuery]);
 
   const askAddToLab = useCallback(
     async (target) => {
@@ -1388,13 +1407,19 @@ export function V2App() {
           }}
           onSuggestSearch={(q) => {
             setDiscoverIntentRecord(null);
+            setDiscoverAssessment({ active: false, question: "", result: null });
             setDiscoverSearchQuery(q);
             goTab("browse");
           }}
           onCraftUrl={craftPublicUrlPlan}
           onSearchWeb={searchDiscoverWider}
           onAskQuery={askDiscoverQuery}
+          onReviewAcquisition={askAddToLab}
+          assessmentActive={discoverAssessment.active}
+          assessmentResult={discoverAssessment.result}
+          onOpenAssessment={openDiscoverAssessment}
           onSelectRow={(row) => {
+            setDiscoverAssessment((current) => ({ ...current, active: false }));
             const nextKey = candidateKey(row);
             browseSelectedKeyRef.current = nextKey;
             dismissToastIf(
@@ -1598,6 +1623,21 @@ export function V2App() {
         historyEvent={selectedHistoryEvent}
         historyJob={selectedHistoryJob}
         discoverIntentRecord={discoverIntentRecord}
+        discoverAssessment={discoverAssessment}
+        discoverCatalog={catalog}
+        onDiscoverAssessmentChange={(result) => {
+          setDiscoverAssessment((current) => ({ ...current, active: true, result }));
+        }}
+        onDiscoverAssessmentActive={(active) => {
+          setDiscoverAssessment((current) => ({ ...current, active }));
+        }}
+        onCloseDiscoverAssessment={() => {
+          setDiscoverAssessment({ active: false, question: "", result: null });
+        }}
+        onSuggestDiscoverSearch={(query) => {
+          setDiscoverSearchQuery(query);
+          goTab("browse");
+        }}
         resourceRow={resourceRow}
         resourcesRollup={resourcesRollup}
         activeObject={activeObject}

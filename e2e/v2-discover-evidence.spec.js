@@ -33,7 +33,8 @@ test.describe("Discover adaptive Explore", () => {
     expect(widerCalls).toBe(0);
     expect(assessmentCalls).toBe(0);
 
-    await page.getByRole("button", { name: "Ask about results" }).click();
+    await page.getByRole("button", { name: "Ask mode" }).click();
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · investigation");
     await expect(page.getByTestId("ask-messages")).toContainText("MOPS filings");
     await page.getByTestId("ask-composer").fill("Limit that to Taiwan and quarterly observations.");
@@ -61,7 +62,7 @@ test.describe("Discover adaptive Explore", () => {
     await expect.poll(() => widerCalls).toBeGreaterThan(0);
   });
 
-  test("assessment layers over retained results and exposes editable provenance", async ({ page }) => {
+  test("assessment stays in the Detail rail while results remain visible", async ({ page }) => {
     await mockV2Api(page, {
       discoverBody: MOCK_DISCOVER_HIT,
       assessmentBody: MOCK_DISCOVER_ASSESSMENT,
@@ -75,6 +76,7 @@ test.describe("Discover adaptive Explore", () => {
     await expect(result).toBeVisible();
     await expect(page.getByTestId("discover-verdict")).toHaveText("Partially covered");
     await expect(page.getByTestId("discover-best-fit")).toContainText("MOPS financial statements");
+    await expect(page.locator("aside.rd-v2-rail").getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "true");
     await result.locator("details.rd-v2-evidence-edit > summary").click();
     await expect(result.getByLabel("Geography / universe value")).toHaveValue("Taiwan listed issuers");
     await expect(result.getByLabel("Fields provenance")).toHaveValue("explicit");
@@ -104,7 +106,7 @@ test.describe("Discover adaptive Explore", () => {
 
     await expect(page.getByTestId("discover-verdict")).toHaveText("Not yet recorded");
     await expect(page.getByTestId("discover-verdict")).toHaveClass(/insufficient_metadata/);
-    await expect(page.getByText("Verify catalog coverage before comparing procurement routes.")).toBeVisible();
+    await expect(page.getByText("Coverage is not yet recorded.")).toBeVisible();
     await expect(page.getByTestId("discover-route-comparison")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Compare ways/ })).toHaveCount(0);
   });
@@ -119,15 +121,15 @@ test.describe("Discover adaptive Explore", () => {
     await search(page, "Taiwan issuer-quarter governance");
     await page.getByRole("button", { name: "Assess coverage" }).click();
 
-    await page.getByRole("button", { name: /Compare ways to close this gap/ }).click();
+    await page.getByRole("button", { name: /Review strategy/ }).click();
     const comparison = page.getByTestId("discover-route-comparison");
     await expect(comparison).toBeVisible();
     await expect(comparison).toContainText("Inspect a public collection route");
     await expect(comparison).toContainText("Record implementation needed");
     await expect(comparison).toContainText("approval remains required");
 
-    await comparison.getByRole("button", { name: "Inspect route evidence" }).click();
-    await expect(page.locator("aside.rd-v2-rail").getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "true");
+    await comparison.getByRole("button", { name: "Review acquisition" }).click();
+    await expect(page.getByTestId("discover-intent-workspace")).toBeVisible();
   });
 
   test("an external result becomes a reviewed durable intent before approval submission", async ({ page }) => {

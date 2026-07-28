@@ -19,12 +19,10 @@ import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidat
 import { buildDiscoverLifecycle, projectDiscoverCandidateLifecycle } from "@/v2/discoverLifecycle";
 import {
   interpretEvidenceNeed,
-  splitBestFitAndOthers,
 } from "@/v2/discoverComposition";
 import { assessLocalSufficiency } from "@/v2/discoverSufficiency";
 import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
-import { DiscoverEvidenceBrief } from "@/v2/DiscoverEvidenceBrief";
 import { DiscoverIntentWorkspace } from "@/v2/DiscoverIntentWorkspace";
 import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
@@ -243,13 +241,17 @@ function DiscoverQueryComposer({
   value,
   onValueChange,
   onSearch,
+  onAsk,
+  mode = "search",
+  onModeChange,
   idle = false,
 }) {
   const submit = (event) => {
     event.preventDefault();
     const next = String(value || "").trim();
     if (!next) return;
-    onSearch?.(next);
+    if (mode === "ask") onAsk?.(next);
+    else onSearch?.(next);
   };
   return (
     <form
@@ -257,16 +259,46 @@ function DiscoverQueryComposer({
       data-testid="discover-query-composer"
       onSubmit={submit}
     >
+      <div className="rd-v2-discover-composer-modes" role="group" aria-label="Discover input mode">
+        <button
+          type="button"
+          className={mode === "search" ? "on" : ""}
+          aria-pressed={mode === "search"}
+          aria-label="Search mode"
+          onClick={() => onModeChange?.("search")}
+        >
+          Search
+        </button>
+        <button
+          type="button"
+          className={mode === "ask" ? "on" : ""}
+          aria-pressed={mode === "ask"}
+          aria-label="Ask mode"
+          onClick={() => onModeChange?.("ask")}
+        >
+          Ask
+        </button>
+      </div>
       <textarea
         value={value}
         onChange={(event) => onValueChange?.(event.target.value)}
         onKeyDown={handleEnterToRequestSubmit}
         rows={1}
-        placeholder="Search datasets, identifiers, or describe the evidence you need…"
-        aria-label="Search Discover"
+        placeholder={
+          mode === "ask"
+            ? "Ask about an evidence need, source, or acquisition strategy…"
+            : "Search datasets, identifiers, or topics…"
+        }
+        aria-label={mode === "ask" ? "Ask Discover" : "Search Discover"}
       />
-      <button type="submit" className="rd-v2-btn sm primary">Search</button>
-      <p>Fast index lookup. Ask is seeded from the resulting evidence, not a separate search mode.</p>
+      <button type="submit" className="rd-v2-btn sm primary">
+        {mode === "ask" ? "Ask" : "Search"}
+      </button>
+      <p>
+        {mode === "ask"
+          ? "Opens the existing Ask rail with this query and the visible Discover evidence in context."
+          : "Fast index lookup. Search wider only when you explicitly need live and semantic discovery."}
+      </p>
     </form>
   );
 }
@@ -278,7 +310,16 @@ function routeUnknown(row) {
   return "Coverage for the stated gap is not recorded.";
 }
 
-function DiscoverRouteComparison({ gap, rows, labIds, onSelectRow, onAsk, onSearchWider, onClose }) {
+function DiscoverRouteComparison({
+  gap,
+  rows,
+  labIds,
+  onSelectRow,
+  onReviewAcquisition,
+  onAsk,
+  onSearchWider,
+  onClose,
+}) {
   const classified = rows.map((row) => ({
     row,
     taxonomy: row.discover_taxonomy || classifyDiscoverResult(row, labIds),
@@ -306,8 +347,8 @@ function DiscoverRouteComparison({ gap, rows, labIds, onSelectRow, onAsk, onSear
       adds: candidateTitle(publicRoute),
       requires: "Verify the probe and collection plan; approval remains required before a write.",
       unknown: routeUnknown(publicRoute),
-      action: "Inspect route evidence",
-      run: () => onSelectRow?.(publicRoute),
+      action: "Review acquisition",
+      run: () => onReviewAcquisition?.(publicRoute),
     } : null,
     accessRoute ? {
       id: "access",
@@ -315,8 +356,8 @@ function DiscoverRouteComparison({ gap, rows, labIds, onSelectRow, onAsk, onSear
       adds: candidateTitle(accessRoute),
       requires: "Confirm entitlement, permitted fields, and usable historical coverage.",
       unknown: routeUnknown(accessRoute),
-      action: "Inspect access evidence",
-      run: () => onSelectRow?.(accessRoute),
+      action: "Review access route",
+      run: () => onReviewAcquisition?.(accessRoute),
     } : null,
     {
       id: "implementation",
@@ -331,35 +372,57 @@ function DiscoverRouteComparison({ gap, rows, labIds, onSelectRow, onAsk, onSear
     },
   ].filter(Boolean);
 
+  useEffect(() => {
+    const handleKey = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
   return (
-    <section className="rd-v2-discover-route-compare" data-testid="discover-route-comparison" aria-label="Compare ways to close the evidence gap">
-      <header>
-        <div>
-          <span className="rd-v2-eyebrow">Compare ways to close the gap</span>
-          <h3>{gap?.statement || "Unresolved evidence requirement"}</h3>
+    <div
+      className="rd-v2-discover-route-scrim"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}
+    >
+      <section
+        className="rd-v2-discover-route-compare"
+        data-testid="discover-route-comparison"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ways to get this evidence"
+      >
+        <header>
+          <div>
+            <span className="rd-v2-eyebrow">Custom acquisition strategy</span>
+            <h3>{gap?.statement || "Unresolved evidence requirement"}</h3>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close acquisition strategy">Close</button>
+        </header>
+        <p className="rd-v2-discover-route-intro">
+          Compare only routes supported by the evidence currently visible. Nothing is submitted from this preview.
+        </p>
+        <div className="rd-v2-discover-route-grid">
+          {routes.map((route) => (
+            <article key={route.id}>
+              <h4>{route.label}</h4>
+              <dl>
+                <div><dt>Adds</dt><dd>{route.adds}</dd></div>
+                <div><dt>Requires</dt><dd>{route.requires}</dd></div>
+                <div><dt>Unknown</dt><dd>{route.unknown}</dd></div>
+              </dl>
+              <button type="button" onClick={route.run}>{route.action} →</button>
+            </article>
+          ))}
         </div>
-        <button type="button" onClick={onClose}>Collapse</button>
-      </header>
-      <div className="rd-v2-discover-route-grid">
-        {routes.map((route) => (
-          <article key={route.id}>
-            <h4>{route.label}</h4>
-            <dl>
-              <div><dt>Adds</dt><dd>{route.adds}</dd></div>
-              <div><dt>Requires</dt><dd>{route.requires}</dd></div>
-              <div><dt>Unknown</dt><dd>{route.unknown}</dd></div>
-            </dl>
-            <button type="button" onClick={route.run}>{route.action} →</button>
-          </article>
-        ))}
-      </div>
-      <footer>
-        <p>Choosing a route opens its evidence in Detail. Collection still requires the existing confirmation and approval gates.</p>
-        {!publicRoute && !accessRoute && onSearchWider ? (
-          <button type="button" onClick={onSearchWider}>Search wider for external offerings →</button>
-        ) : null}
-      </footer>
-    </section>
+        <footer>
+          <p>A chosen acquisition route opens the existing review and approval flow.</p>
+          {!publicRoute && !accessRoute && onSearchWider ? (
+            <button type="button" onClick={onSearchWider}>Search wider for external offerings →</button>
+          ) : null}
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -409,6 +472,7 @@ export function BrowsePage({
   onCraftUrl,
   onSearchWeb,
   onAskQuery,
+  onReviewAcquisition,
   discoverMode = "explore",
   onDiscoverModeChange,
   discoverFocusAwaiting = false,
@@ -420,6 +484,9 @@ export function BrowsePage({
   onCloseIntent,
   onIntentSubmitted,
   onOpenIntentHistory,
+  assessmentActive = false,
+  assessmentResult = null,
+  onOpenAssessment,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -429,10 +496,9 @@ export function BrowsePage({
   const [stateFilter, setStateFilter] = useState("all");
   const [indexMiss, setIndexMiss] = useState(false);
   const [externalSearchQuery, setExternalSearchQuery] = useState("");
-  const [assessmentActive, setAssessmentActive] = useState(false);
-  const [assessmentResult, setAssessmentResult] = useState(null);
   const [routeComparisonOpen, setRouteComparisonOpen] = useState(false);
   const [queryDraft, setQueryDraft] = useState(searchQuery || "");
+  const [composerMode, setComposerMode] = useState("search");
 
   const pendingRows = useMemo(
     () => pendingApprovalJobs(jobs).map((job) => jobToCandidateRow(job)).filter(Boolean),
@@ -443,8 +509,6 @@ export function BrowsePage({
 
   useEffect(() => {
     setQueryDraft(searchQuery || "");
-    setAssessmentActive(false);
-    setAssessmentResult(null);
     setRouteComparisonOpen(false);
   }, [searchQuery]);
 
@@ -685,8 +749,25 @@ export function BrowsePage({
     });
   }, [merged, stateFilter, labIds]);
 
-  const ranked = useMemo(() => splitBestFitAndOthers(filtered), [filtered]);
   const interpretation = useMemo(() => interpretEvidenceNeed(searchQuery), [searchQuery]);
+
+  const resultGroups = useMemo(() => {
+    const groups = {
+      available: [],
+      external: [],
+      held: [],
+      context: [],
+    };
+    for (const row of filtered) {
+      const taxonomy = row.discover_taxonomy || classifyDiscoverResult(row, labIds);
+      const type = offeringType(row, taxonomy);
+      if (taxonomy.key.startsWith("local-")) groups.held.push(row);
+      else if (type === "Reference only" || type === "Web context") groups.context.push(row);
+      else if (["external-acquirable", "external-probed"].includes(taxonomy.key)) groups.available.push(row);
+      else groups.external.push(row);
+    }
+    return groups;
+  }, [filtered, labIds]);
 
   const filterCounts = useMemo(
     () =>
@@ -834,6 +915,9 @@ export function BrowsePage({
               value={queryDraft}
               onValueChange={setQueryDraft}
               onSearch={onSuggestSearch}
+              onAsk={(question) => onAskQuery?.(question, { kind: "investigation" })}
+              mode={composerMode}
+              onModeChange={setComposerMode}
               idle
             />
             <div className="rd-v2-discover-idle-held">
@@ -882,6 +966,9 @@ export function BrowsePage({
                   value={queryDraft}
                   onValueChange={setQueryDraft}
                   onSearch={onSuggestSearch}
+                  onAsk={(question) => onAskQuery?.(question, { kind: "results", rows: merged })}
+                  mode={composerMode}
+                  onModeChange={setComposerMode}
                 />
               </header>
 
@@ -921,7 +1008,7 @@ export function BrowsePage({
               </div>
               <div className="rd-v2-discover-result-actions" aria-label="Discover next actions">
                 <div>
-                  <strong>{plural(ranked.total, "result")}</strong>
+                  <strong>{plural(filtered.length, "result")}</strong>
                   <span>{preferLiveSources || source === "sources" || externalCatalogueActive ? "wider discovery" : "index lookup"}</span>
                 </div>
                 <div>
@@ -934,44 +1021,21 @@ export function BrowsePage({
                     type="button"
                     className={assessmentActive ? "on" : ""}
                     onClick={() => {
-                      setAssessmentActive(true);
+                      onOpenAssessment?.(q);
                       setRouteComparisonOpen(false);
                     }}
                   >
                     Assess coverage
                   </button>
-                  {onAskQuery ? (
-                    <button type="button" onClick={() => onAskQuery(q, { kind: "results", rows: merged })}>
-                      Ask about results
-                    </button>
-                  ) : null}
                 </div>
               </div>
             </section>
 
-            {assessmentActive ? (
-              <DiscoverEvidenceBrief
-                key={`assessment:${q}`}
-                initialQuestion={q}
-                autoAssess
-                variant="layered"
-                catalog={catalog}
-                onSelectRow={onSelectRow}
-                onLegacySearch={onSuggestSearch}
-                onAssessmentActive={setAssessmentActive}
-                onAssessmentChange={setAssessmentResult}
-                onClose={() => {
-                  setAssessmentActive(false);
-                  setRouteComparisonOpen(false);
-                }}
-              />
-            ) : null}
-
             {hasMetadataGap && onAskQuery ? (
               <div className="rd-v2-discover-metadata-action">
                 <div>
-                  <strong>Verify catalog coverage before comparing procurement routes.</strong>
-                  <span>The current records do not establish whether the evidence is absent or merely undocumented.</span>
+                  <strong>Coverage is not yet recorded.</strong>
+                  <span>The assessment remains available in Detail; Ask can prepare a metadata review without starting procurement.</span>
                 </div>
                 <button type="button" onClick={() => onAskQuery(
                   q,
@@ -980,19 +1044,39 @@ export function BrowsePage({
                     prompt: `Review the catalog metadata gap for: ${q}. Identify which held records need coverage verification and what evidence would establish their unit, geography, period, frequency, fields, or event type. Do not start procurement.`,
                   },
                 )}>
-                  Request catalog review →
+                  Ask for catalog review →
                 </button>
               </div>
+            ) : null}
+
+            {resultGroups.available.length ? (
+              <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
+                <div className="rd-v2-home-section-head">
+                  <div>
+                    <span className="rd-v2-eyebrow">Beyond your library</span>
+                    <h3>Available to add</h3>
+                  </div>
+                  <span className="muted">{plural(resultGroups.available.length, "supported offering")}</span>
+                </div>
+                <DiscoverCandidateList
+                  rows={resultGroups.available}
+                  labIds={labIds}
+                  selectedId={selectedId}
+                  onSelectRow={onSelectRow}
+                  externalCatalogue={externalCatalogueActive}
+                />
+              </section>
             ) : null}
 
             {hasEvidenceGap && !routeComparisonOpen ? (
               <div className="rd-v2-discover-gap-action">
                 <div>
-                  <strong>Compare feasible ways to close the recorded gap.</strong>
-                  <span>Compare only routes supported by the held and external evidence currently visible.</span>
+                  <span className="rd-v2-eyebrow">Custom strategy available</span>
+                  <strong>{assessmentResult?.gap?.statement || "A recorded evidence gap needs a supported acquisition route."}</strong>
+                  <span>Review how the desk can obtain the missing evidence without leaving these results.</span>
                 </div>
                 <button type="button" onClick={() => setRouteComparisonOpen(true)}>
-                  Compare ways to close this gap →
+                  Review strategy →
                 </button>
               </div>
             ) : null}
@@ -1003,6 +1087,7 @@ export function BrowsePage({
                 rows={merged}
                 labIds={labIds}
                 onSelectRow={onSelectRow}
+                onReviewAcquisition={onReviewAcquisition}
                 onAsk={(prompt) => onAskQuery?.(q, { kind: "implementation", prompt })}
                 onSearchWider={() => onSearchWeb?.(q)}
                 onClose={() => setRouteComparisonOpen(false)}
@@ -1058,18 +1143,22 @@ export function BrowsePage({
               </div>
             ) : null}
 
-            {ranked.bestFit ? (
-              <section className="rd-v2-discover-best-fit" aria-label="Best fit" data-testid="discover-best-fit">
+            {resultGroups.external.length ? (
+              <section
+                className={resultGroups.available.length ? "rd-v2-discover-other-matches" : "rd-v2-discover-best-fit"}
+                aria-label="Other external matches"
+                data-testid={resultGroups.available.length ? "discover-other-matches" : "discover-best-fit"}
+              >
                 <div className="rd-v2-home-section-head">
-                  <h3>{externalCatalogueActive ? "External catalogue matches" : sourceRouteGap ? "Available lab routes" : "Best fit"}</h3>
+                  <h3>{externalCatalogueActive ? "External catalogue matches" : "Other external matches"}</h3>
                   {externalCatalogueActive ? (
-                    <span className="muted">{plural(ranked.total, "external catalogue record")}</span>
+                    <span className="muted">{plural(resultGroups.external.length, "external catalogue record")}</span>
                   ) : scopeSummary ? (
                     <span className="muted">{scopeSummary}</span>
                   ) : null}
                 </div>
                 <DiscoverCandidateList
-                  rows={[ranked.bestFit]}
+                  rows={resultGroups.external}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
@@ -1078,13 +1167,28 @@ export function BrowsePage({
               </section>
             ) : null}
 
-            {ranked.others.length ? (
-              <section className="rd-v2-discover-other-matches" aria-label="Other matches" data-testid="discover-other-matches">
+            {resultGroups.held.length ? (
+              <details className="rd-v2-discover-held-results" open={!resultGroups.available.length && !resultGroups.external.length}>
+                <summary>
+                  <span>Already in your Library</span>
+                  <b>{resultGroups.held.length}</b>
+                </summary>
+                <DiscoverCandidateList
+                  rows={resultGroups.held}
+                  labIds={labIds}
+                  selectedId={selectedId}
+                  onSelectRow={onSelectRow}
+                />
+              </details>
+            ) : null}
+
+            {resultGroups.context.length ? (
+              <section className="rd-v2-discover-other-matches" aria-label="References and web context">
                 <div className="rd-v2-home-section-head">
-                  <h3>{externalCatalogueActive ? "Other catalogue records" : "Other matches"}</h3>
+                  <h3>References and web context</h3>
                 </div>
                 <DiscoverCandidateList
-                  rows={ranked.others}
+                  rows={resultGroups.context}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
@@ -1093,10 +1197,10 @@ export function BrowsePage({
               </section>
             ) : null}
 
-            {ranked.total ? (
+            {filtered.length ? (
               <footer className="rd-v2-discover-rank-foot" data-testid="discover-rank-foot">
                 <span>
-                  {plural(ranked.total, "candidate")}
+                  {plural(filtered.length, "candidate")}
                   {stateFilter !== "all" ? ` · ${activeFilter.label}` : ""}
                 </span>
                 <span className="muted">
