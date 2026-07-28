@@ -201,6 +201,10 @@ class ProcurementChatOrchestrator:
             from scripts.research_data_mcp.desk_asset_grounding import resolve_and_enrich_rail_context
 
             state["rail_context"] = resolve_and_enrich_rail_context(gateway, rail_context)
+            # Warm-up reloads session state in a background worker. Persist the
+            # UI scope first so a Synthesis turn cannot be downgraded to the
+            # generic procurement contract during that reload.
+            self.sessions.update_state(sid, state)
 
         from pathlib import Path as _Path
 
