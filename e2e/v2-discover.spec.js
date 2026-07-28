@@ -30,7 +30,7 @@ test.describe("v2 Discover tab", () => {
     await expect(page.getByRole("button", { name: "Search mode" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Ask mode" })).toBeVisible();
     await expect(page.getByLabel("Public URL or DOI")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Start with evidence already in the lab" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sources the desk already knows how to investigate" })).toBeVisible();
   });
 
   test("keyword search renders the external result composition", async ({ page }) => {

@@ -14,10 +14,14 @@ async function search(page, query = "MOPS filings") {
 
 test.describe("Discover adaptive Explore", () => {
   test("plain lookup stays on the index path and Ask starts a continuing investigation", async ({ page }) => {
-    let widerCalls = 0;
+    let deepCalls = 0;
     let assessmentCalls = 0;
     page.on("request", (request) => {
-      if (request.url().includes("/library/discover/sources")) widerCalls += 1;
+      const url = new URL(request.url());
+      if (
+        url.pathname.includes("/library/discover/sources")
+        && (url.searchParams.get("live") === "1" || url.searchParams.get("semantic") === "1")
+      ) deepCalls += 1;
       if (request.url().includes("/library/discover/assessment")) assessmentCalls += 1;
     });
     await mockV2Api(page, {
@@ -30,7 +34,7 @@ test.describe("Discover adaptive Explore", () => {
     await expect(page.getByLabel("Public URL or DOI")).toBeVisible();
     await search(page);
     await expect(page.getByTestId("discover-best-fit")).toContainText("MOPS financial statements");
-    expect(widerCalls).toBe(0);
+    expect(deepCalls).toBe(0);
     expect(assessmentCalls).toBe(0);
 
     await page.getByRole("button", { name: "Ask mode" }).click();
@@ -40,14 +44,18 @@ test.describe("Discover adaptive Explore", () => {
     await page.getByTestId("ask-composer").fill("Limit that to Taiwan and quarterly observations.");
     await page.getByTestId("ask-composer").press("Enter");
     await expect(page.getByTestId("ask-messages")).toContainText("Limit that to Taiwan and quarterly observations.");
-    expect(widerCalls).toBe(0);
+    expect(deepCalls).toBe(0);
   });
 
   test("an index miss stays local until Search wider is explicit", async ({ page }) => {
-    let widerCalls = 0;
+    let deepCalls = 0;
     let webCalls = 0;
     page.on("request", (request) => {
-      if (request.url().includes("/library/discover/sources")) widerCalls += 1;
+      const url = new URL(request.url());
+      if (
+        url.pathname.includes("/library/discover/sources")
+        && (url.searchParams.get("live") === "1" || url.searchParams.get("semantic") === "1")
+      ) deepCalls += 1;
       if (request.url().includes("/library/discover/web")) webCalls += 1;
     });
     await mockV2Api(page);
@@ -55,11 +63,11 @@ test.describe("Discover adaptive Explore", () => {
     await waitForShell(page);
     await search(page, "xylophone qqq archive");
     await expect(page.getByText(/No matches for/)).toBeVisible();
-    expect(widerCalls).toBe(0);
+    expect(deepCalls).toBe(0);
     expect(webCalls).toBe(0);
 
     await page.getByRole("button", { name: "Search wider", exact: true }).click();
-    await expect.poll(() => widerCalls).toBeGreaterThan(0);
+    await expect.poll(() => deepCalls).toBeGreaterThan(0);
   });
 
   test("assessment stays in the Detail rail while results remain visible", async ({ page }) => {

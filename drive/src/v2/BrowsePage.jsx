@@ -558,9 +558,18 @@ export function BrowsePage({
           return;
         }
         if (!q) {
-          setRows([]);
-          setSource("");
-          setDemoFallback(false);
+          try {
+            const knownSources = await discoverSources("", {
+              limit: 8,
+              semantic: false,
+              live: false,
+            });
+            apply({ results: sourcesResponseToRows(knownSources) }, "known_sources");
+          } catch {
+            setRows([]);
+            setSource("");
+            setDemoFallback(false);
+          }
           return;
         }
         if (externalSearchActive) {
@@ -575,12 +584,10 @@ export function BrowsePage({
           setRows([]);
           return;
         }
-        // Two tempos, deliberately separated. A plain keyword lookup must stay fast,
-        // so it uses the index-only path below (discoverSearch/unifiedSearch).
-        // Semantic hybrid search and live external adapters are an explicit
-        // escalation via "Search wider" (preferLiveSources): that cascade costs
-        // several sequential round trips, and paying it on every ordinary query is
-        // what made a simple lookup take ~10s against the live desk.
+        // Two tempos, deliberately separated. A plain keyword lookup consults the
+        // local holding index and the known-source route index in parallel. Neither
+        // call fans out to remote providers. Semantic hybrid search and live
+        // external adapters remain an explicit "Search wider" escalation.
         if (preferLiveSources) {
         try {
           let sources = await discoverSources(q, {
@@ -617,20 +624,32 @@ export function BrowsePage({
           /* sources endpoint optional — fall through to the index path */
         }
         }
-        const discover = await discoverSearch(q, 12, email);
+        const [discoverResult, knownSourcesResult] = await Promise.allSettled([
+          discoverSearch(q, 12, email),
+          discoverSources(q, { limit: 8, semantic: false, live: false }),
+        ]);
+        if (discoverResult.status === "rejected" && knownSourcesResult.status === "rejected") {
+          throw discoverResult.reason;
+        }
+        const discover = discoverResult.status === "fulfilled" ? discoverResult.value : {};
         const discoverRows = flattenRows(discover);
+        const knownSourceRows =
+          knownSourcesResult.status === "fulfilled"
+            ? sourcesResponseToRows(knownSourcesResult.value)
+            : [];
         const needsUnified =
-          discoverRows.length === 0 || Boolean(discover.index_miss || discover.weak_match);
-        let mergedRows = discoverRows;
-        let label = discoverRows.length ? "discover" : "";
+          discoverRows.length === 0 && knownSourceRows.length === 0
+            || Boolean(discover.index_miss || discover.weak_match);
+        let mergedRows = dedupeRows([...knownSourceRows, ...discoverRows]);
+        let label = mergedRows.length ? "index" : "";
         let miss = Boolean(discover.index_miss) && discoverRows.length === 0;
 
         if (needsUnified) {
           const search = await unifiedSearch(q, 12, email);
           const searchRows = flattenRows(search);
           if (searchRows.length) {
-            mergedRows = dedupeRows([...discoverRows, ...searchRows]);
-            label = discoverRows.length ? "discover" : "search";
+            mergedRows = dedupeRows([...knownSourceRows, ...discoverRows, ...searchRows]);
+            label = knownSourceRows.length || discoverRows.length ? "index" : "search";
           }
           if (!discoverRows.length) {
             miss = Boolean(
@@ -816,11 +835,18 @@ export function BrowsePage({
     && assessmentResult?.gap;
   const hasMetadataGap = assessmentStatus === "insufficient_metadata";
   const idleHoldings = useMemo(
-    () => catalog.slice(0, 4).map((row) => ({
+    () => catalog.filter((row) => labIds.has(row.dataset_id || row.id)).slice(0, 4).map((row) => ({
       ...row,
       discover_taxonomy: classifyDiscoverResult(row, labIds),
     })),
     [catalog, labIds],
+  );
+  const idleRecommendations = useMemo(
+    () => merged
+      .filter((row) => !(row.discover_taxonomy || classifyDiscoverResult(row, labIds)).key.startsWith("local-"))
+      .filter((row) => String(row.result_type || row.kind || "").toLowerCase() !== "connector")
+      .slice(0, 4),
+    [merged, labIds],
   );
 
   const modeTabs = (
@@ -923,19 +949,30 @@ export function BrowsePage({
             <div className="rd-v2-discover-idle-held">
               <div className="rd-v2-home-section-head">
                 <div>
-                  <span className="rd-v2-eyebrow">Held locally</span>
-                  <h3>Start with evidence already in the lab</h3>
+                  <span className="rd-v2-eyebrow">Curated beyond your Library</span>
+                  <h3>Sources the desk already knows how to investigate</h3>
                 </div>
-                <span className="muted">{plural(catalog.length, "catalog record")}</span>
+                <span className="muted">{plural(merged.length, "known source route")}</span>
               </div>
-              {idleHoldings.length ? (
+              {idleRecommendations.length ? (
                 <DiscoverCandidateList
-                  rows={idleHoldings}
+                  rows={idleRecommendations}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
                 />
-              ) : <p className="muted">No local catalog metadata is available yet.</p>}
+              ) : <p className="muted">No external source recommendations are available yet.</p>}
+              {idleHoldings.length ? (
+                <details className="rd-v2-discover-idle-library">
+                  <summary>{plural(labIds.size, "held Library asset")}</summary>
+                  <DiscoverCandidateList
+                    rows={idleHoldings}
+                    labIds={labIds}
+                    selectedId={selectedId}
+                    onSelectRow={onSelectRow}
+                  />
+                </details>
+              ) : null}
             </div>
             {onCraftUrl ? (
               <form

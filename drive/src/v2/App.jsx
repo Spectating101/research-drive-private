@@ -82,6 +82,7 @@ import { discoverModeFromLegacy, discoverModeToUrlState } from "@/v2/discoverMod
 import { jobToDiscoverHistoryEvent, pendingApprovalJobs } from "@/v2/procurementJobs";
 import { discoverCandidateState } from "@/v2/browseMeta";
 import { buildRailContext } from "@/v2/railContext";
+import { holdingIdsFromCatalog } from "@/v2/discoverTaxonomy";
 
 function readParams() {
   const p = new URLSearchParams(window.location.search);
@@ -474,7 +475,9 @@ export function V2App() {
 
   const pageSearchQuery = tab === "browse" ? discoverSearchQuery : tab === "library" ? librarySearchQuery : "";
 
-  const labIds = useMemo(() => new Set(catalog.map((d) => d.dataset_id)), [catalog]);
+  // `/datasets` is the registry authority, not a possession list: it includes
+  // held assets, catalogue references, connectors, and procurement candidates.
+  const labIds = useMemo(() => holdingIdsFromCatalog(catalog), [catalog]);
 
   const selectedFromList = useMemo(
     () => catalog.find((d) => d.dataset_id === selectedId) || null,
