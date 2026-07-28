@@ -1,5 +1,10 @@
 # Research Drive private repository topology
 
+> **Current Discover authority (2026-07-28):**
+> [DISCOVER_RELEASE_TOPOLOGY.md](./DISCOVER_RELEASE_TOPOLOGY.md) is the canonical branch,
+> PR, worktree, and promotion map for the active Discover redesign. Release coordinates
+> below are retained as historical context where they differ.
+
 This repository is the production control-plane authority for Research Drive. It contains the real orchestrator, MCP, workers, scrapers, registry mutation, archive integration, and host-facing runtime.
 
 ## Current authority
