@@ -12,8 +12,8 @@ import {
  */
 
 async function searchDiscover(page, query = "MOPS") {
-  await page.getByLabel("Search Discover").fill(query);
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByLabel("Search or describe a research need").fill(query);
+  await page.getByRole("button", { name: "Explore", exact: true }).click();
   await expect(page.getByTestId("discover-result-summary")).toBeVisible();
 }
 
@@ -25,10 +25,11 @@ test.describe("v2 Discover tab", () => {
     await waitForShell(page);
   });
 
-  test("empty state offers the shared Search/Ask entrance and quiet intake", async ({ page }) => {
+  test("empty state offers one adaptive entrance and quiet intake", async ({ page }) => {
     await expect(page.getByTestId("discover-empty")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Search mode" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("button", { name: "Ask mode" })).toBeVisible();
+    await expect(page.getByLabel("Search or describe a research need")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Explore", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /mode/i })).toHaveCount(0);
     await expect(page.getByLabel("Public URL or DOI")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Sources the desk already knows how to investigate" })).toBeVisible();
   });

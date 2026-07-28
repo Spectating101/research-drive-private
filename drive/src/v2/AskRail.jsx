@@ -240,9 +240,11 @@ export function AskRail({
               return (
                 <div
                   key={`${m.role}-${i}`}
-                  className={`rd-v2-ask-bubble${m.role === "error" ? " error" : ""}`}
+                  className={`rd-v2-ask-bubble${m.role === "error" ? " error" : ""}${m.role === "notice" ? " notice" : ""}`}
                 >
-                  <span className="rd-v2-ask-bubble-role">{m.role === "error" ? "Error" : "You"}</span>
+                  <span className="rd-v2-ask-bubble-role">
+                    {m.role === "error" ? "Error" : m.role === "notice" ? "Read-only review" : "You"}
+                  </span>
                   <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
                 </div>
               );

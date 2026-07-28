@@ -1,8 +1,8 @@
 # Discover E2E — authority audit and classification
 
 **Status:** Current test-contract for Discover browser gates  
-**Date:** 2026-07-15  
-**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md) and incorporated Discover appendix [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md)  
+**Date:** 2026-07-28
+**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md) and the current Discover appendix [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md). The July 15 appendix remains History/lifecycle provenance only where non-conflicting.
 **Program:** [`UI_IMPLEMENTATION_PROGRAM.md`](UI_IMPLEMENTATION_PROGRAM.md)  
 **Scope:** `e2e/v2-discover-loop.spec.js`, `e2e/v2-discover.spec.js`, and any Discover Playwright greps
 
@@ -38,9 +38,15 @@ Application grammar:
   Navigation | Centre | Detail / Ask
 
 Explore:
-  one evidence-need input accepts natural language and short queries
+  one automatic composer accepts natural language and short queries
+  no Search | Ask toggle
+  keyword → fast results, Ask quiet
+  research question → same results + automatic assessment + seeded right-rail Ask
   visible interpretation readout
-  ranked evidence landscape
+  external offerings remain the ranked centre priority
+  Library evidence is compact chrome, not a permanent results section
+  Custom strategy is compact state chrome and a temporary visual modal
+  Add to collection is a row action opening modal review
   selection leaves ranked list visible
   selected marker = ▌
   Detail owns selected-source judgment / current decision
@@ -72,6 +78,11 @@ Rail:
 Slice acceptance:
 
 ```text
+Keyword → fast results → Ask remains quiet.
+Question → same results → assessment starts → Ask is seeded.
+Library evidence stays in compact chrome.
+Custom strategy opens a modal over preserved results.
+Add to collection opens acquisition review over preserved results.
 Select source → ranked list remains visible → Detail changes.
 Explore and History are the only Discover modes.
 Select History row → discover_lifecycle owns Detail / Ask.

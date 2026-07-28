@@ -168,7 +168,14 @@ function DiscoverModeTabs({ mode = "explore", pendingCount = 0, onChange }) {
   );
 }
 
-function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow, externalCatalogue = false }) {
+function DiscoverCandidateRow({
+  row,
+  labIds,
+  selectedId,
+  onSelectRow,
+  onAdd,
+  externalCatalogue = false,
+}) {
   const taxonomy = row.discover_taxonomy || classifyDiscoverResult(row, labIds);
   const state = row.discover_state || discoverCandidateState(row, labIds);
   const selected = selectedId === candidateKey(row);
@@ -184,6 +191,9 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow, externalCa
   const evidenceLine = hasExplicitDescription ? humanizeDiscoverDescription(descriptiveLine(row)) : "";
   const coverage = coverageLine(row);
   const showCoverage = coverage && coverage !== "Coverage not described";
+  const canAdd = !taxonomy.key.startsWith("local-")
+    && !["Reference only", "Web context"].includes(offeringType(row, taxonomy))
+    && typeof onAdd === "function";
 
   return (
     <li className={selected ? "rd-v2-row-on" : undefined}>
@@ -233,8 +243,30 @@ function DiscoverCandidateRow({ row, labIds, selectedId, onSelectRow, externalCa
           ) : null}
         </span>
       </button>
+      {canAdd ? (
+        <button
+          type="button"
+          className="rd-v2-discover-row-add"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAdd(row);
+          }}
+        >
+          Add to collection
+        </button>
+      ) : null}
     </li>
   );
+}
+
+export function isDiscoverResearchQuestion(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (text.includes("?")) return true;
+  if (/^(what|which|where|when|why|how|can|could|should|would|do|does|is|are|i need|we need|help me|find me)\b/i.test(text)) {
+    return true;
+  }
+  return text.split(/\s+/).length >= 8;
 }
 
 function DiscoverQueryComposer({
@@ -242,16 +274,20 @@ function DiscoverQueryComposer({
   onValueChange,
   onSearch,
   onAsk,
-  mode = "search",
-  onModeChange,
+  onAssess,
   idle = false,
 }) {
   const submit = (event) => {
     event.preventDefault();
     const next = String(value || "").trim();
     if (!next) return;
-    if (mode === "ask") onAsk?.(next);
-    else onSearch?.(next);
+    onSearch?.(next);
+    if (isDiscoverResearchQuestion(next)) {
+      // Assessment is deliberately started before Ask so the visible rail lands
+      // on the continuing conversation while the hidden Detail lens evaluates.
+      onAssess?.(next);
+      onAsk?.(next);
+    }
   };
   return (
     <form
@@ -259,58 +295,27 @@ function DiscoverQueryComposer({
       data-testid="discover-query-composer"
       onSubmit={submit}
     >
-      <div className="rd-v2-discover-composer-modes" role="group" aria-label="Discover input mode">
-        <button
-          type="button"
-          className={mode === "search" ? "on" : ""}
-          aria-pressed={mode === "search"}
-          aria-label="Search mode"
-          onClick={() => onModeChange?.("search")}
-        >
-          Search
-        </button>
-        <button
-          type="button"
-          className={mode === "ask" ? "on" : ""}
-          aria-pressed={mode === "ask"}
-          aria-label="Ask mode"
-          onClick={() => onModeChange?.("ask")}
-        >
-          Ask
-        </button>
-      </div>
       <textarea
         value={value}
         onChange={(event) => onValueChange?.(event.target.value)}
         onKeyDown={handleEnterToRequestSubmit}
         rows={1}
-        placeholder={
-          mode === "ask"
-            ? "Ask about an evidence need, source, or acquisition strategy…"
-            : "Search datasets, identifiers, or topics…"
-        }
-        aria-label={mode === "ask" ? "Ask Discover" : "Search Discover"}
+        placeholder="Search datasets, or describe what data you need…"
+        aria-label="Search or describe a research need"
       />
       <button type="submit" className="rd-v2-btn sm primary">
-        {mode === "ask" ? "Ask" : "Search"}
+        Explore
       </button>
       <p>
-        {mode === "ask"
-          ? "Opens the existing Ask rail with this query and the visible Discover evidence in context."
-          : "Fast index lookup. Search wider only when you explicitly need live and semantic discovery."}
+        Keywords return fast results. A research question also starts a contextual Ask investigation automatically.
       </p>
     </form>
   );
 }
 
-function routeUnknown(row) {
-  if (!row) return "No candidate evidence has been selected.";
-  const coverage = coverageLine(row);
-  if (coverage && coverage !== "Coverage not described") return `Fit to the full gap beyond ${coverage}.`;
-  return "Coverage for the stated gap is not recorded.";
-}
-
 function DiscoverRouteComparison({
+  query,
+  requirement,
   gap,
   rows,
   labIds,
@@ -331,46 +336,48 @@ function DiscoverRouteComparison({
   const accessRoute = classified.find(({ taxonomy }) =>
     ["licensed-manual", "external-unavailable"].includes(taxonomy.key),
   )?.row;
-  const routes = [
+  const readRequirement = (key, fallback = "Not yet specified") => {
+    const item = requirement?.[key];
+    const value = item?.value;
+    if (Array.isArray(value)) return value.length ? value.join(", ") : fallback;
+    return String(value || "").trim() || fallback;
+  };
+  const stablecoin = /stablecoin|de-?peg/i.test(query || "");
+  const outputTitle = stablecoin
+    ? "Stablecoin de-peg exchange activity dataset"
+    : "Research-ready evidence dataset";
+  const inputCards = [
     held ? {
-      id: "reuse",
-      label: "Reuse with a limitation",
-      adds: candidateTitle(held),
-      requires: "Record the limitation before carrying the evidence into Synthesis.",
-      unknown: routeUnknown(held),
-      action: "Inspect held evidence",
-      run: () => onSelectRow?.(held),
-    } : null,
-    publicRoute ? {
-      id: "public",
-      label: "Inspect a public collection route",
-      adds: candidateTitle(publicRoute),
-      requires: "Verify the probe and collection plan; approval remains required before a write.",
-      unknown: routeUnknown(publicRoute),
-      action: "Review acquisition",
-      run: () => onReviewAcquisition?.(publicRoute),
-    } : null,
-    accessRoute ? {
-      id: "access",
-      label: "Request access review",
-      adds: candidateTitle(accessRoute),
-      requires: "Confirm entitlement, permitted fields, and usable historical coverage.",
-      unknown: routeUnknown(accessRoute),
-      action: "Review access route",
-      run: () => onReviewAcquisition?.(accessRoute),
-    } : null,
-    {
-      id: "implementation",
-      label: "Record implementation needed",
-      adds: "A durable specification for the unresolved evidence requirement.",
-      requires: "Engineering ownership and a supported source route.",
-      unknown: "Delivery timing and implementation feasibility are not established.",
-      action: "Discuss implementation",
-      run: () => onAsk?.(
-        `Record an implementation need for this Discover gap: ${gap?.statement || "unresolved evidence gap"}. Identify the evidence contract, unknowns, and the safest next valid action. Do not submit procurement or invent delivery timing.`,
-      ),
+      label: "Held evidence",
+      title: candidateTitle(held),
+      state: "Observed in Library",
+      action: () => onSelectRow?.(held),
+    } : {
+      label: "Held evidence",
+      title: "No held input established",
+      state: "Unknown",
     },
-  ].filter(Boolean);
+    publicRoute ? {
+      label: "Source route",
+      title: candidateTitle(publicRoute),
+      state: publicRoute?.probe_snapshot?.observed_at ? "Probe observed" : "Route declared · verify",
+      action: () => onReviewAcquisition?.(publicRoute),
+    } : accessRoute ? {
+      label: "Access route",
+      title: candidateTitle(accessRoute),
+      state: "Entitlement must be verified",
+      action: () => onReviewAcquisition?.(accessRoute),
+    } : {
+      label: "Source route",
+      title: "No supported route established",
+      state: "Needs investigation",
+    },
+    {
+      label: "Identity + coverage",
+      title: stablecoin ? "Exchange and stablecoin mapping" : readRequirement("universe/geography"),
+      state: "Proposed · must verify",
+    },
+  ];
 
   useEffect(() => {
     const handleKey = (event) => {
@@ -394,31 +401,62 @@ function DiscoverRouteComparison({
       >
         <header>
           <div>
-            <span className="rd-v2-eyebrow">Custom acquisition strategy</span>
-            <h3>{gap?.statement || "Unresolved evidence requirement"}</h3>
+            <span className="rd-v2-eyebrow">Custom dataset strategy · proposed</span>
+            <h3>{outputTitle}</h3>
           </div>
           <button type="button" onClick={onClose} aria-label="Close acquisition strategy">Close</button>
         </header>
         <p className="rd-v2-discover-route-intro">
-          Compare only routes supported by the evidence currently visible. Nothing is submitted from this preview.
+          {gap?.statement || "The standard sourcing path does not yet establish every part of this evidence need."}
         </p>
-        <div className="rd-v2-discover-route-grid">
-          {routes.map((route) => (
-            <article key={route.id}>
-              <h4>{route.label}</h4>
-              <dl>
-                <div><dt>Adds</dt><dd>{route.adds}</dd></div>
-                <div><dt>Requires</dt><dd>{route.requires}</dd></div>
-                <div><dt>Unknown</dt><dd>{route.unknown}</dd></div>
-              </dl>
-              <button type="button" onClick={route.run}>{route.action} →</button>
-            </article>
-          ))}
+        <div className="rd-v2-discover-strategy-flow" aria-label="Proposed dataset strategy">
+          <div className="rd-v2-discover-strategy-inputs">
+            {inputCards.map((input) => (
+              <button
+                key={input.label}
+                type="button"
+                disabled={!input.action}
+                onClick={input.action}
+              >
+                <span>{input.label}</span>
+                <strong>{input.title}</strong>
+                <em>{input.state}</em>
+              </button>
+            ))}
+          </div>
+          <div className="rd-v2-discover-strategy-arrow" aria-hidden="true">→</div>
+          <div className="rd-v2-discover-strategy-process">
+            <span>Proposed transform</span>
+            <strong>Collect · normalize · reconcile</strong>
+            <em>Implementation and source terms remain unverified</em>
+          </div>
+          <div className="rd-v2-discover-strategy-arrow" aria-hidden="true">→</div>
+          <div className="rd-v2-discover-strategy-output">
+            <span>Planned output</span>
+            <strong>{outputTitle}</strong>
+            <dl>
+              <div><dt>Unit</dt><dd>{stablecoin ? "exchange × stablecoin × day" : readRequirement("unit")}</dd></div>
+              <div><dt>Universe</dt><dd>{stablecoin ? "Major exchanges · refine in Ask" : readRequirement("universe/geography")}</dd></div>
+              <div><dt>Period</dt><dd>{stablecoin ? "2020–present · proposed" : readRequirement("time_range")}</dd></div>
+              <div><dt>Fields</dt><dd>{stablecoin ? "price, volume, abnormal volume, de-peg event" : readRequirement("fields")}</dd></div>
+            </dl>
+            <em>Register only after archive and query-readiness verification</em>
+          </div>
+        </div>
+        <div className="rd-v2-discover-strategy-truth">
+          <span><b>Observed</b> only states shown on source records</span>
+          <span><b>Proposed</b> output contract and transformation</span>
+          <span><b>Unknown</b> cost, completion time, full coverage, and feasibility</span>
         </div>
         <footer>
-          <p>A chosen acquisition route opens the existing review and approval flow.</p>
+          <p>This preview cannot submit procurement or promise delivery.</p>
+          <button type="button" onClick={() => onAsk?.(
+            `Refine a custom dataset strategy for: ${query}. The current gap is: ${gap?.statement || "not fully specified"}. Ask for the missing context and keep observed facts, proposals, and unknowns separate. Do not submit procurement.`,
+          )}>
+            Refine in Ask →
+          </button>
           {!publicRoute && !accessRoute && onSearchWider ? (
-            <button type="button" onClick={onSearchWider}>Search wider for external offerings →</button>
+            <button type="button" onClick={onSearchWider}>Search wider →</button>
           ) : null}
         </footer>
       </section>
@@ -426,7 +464,14 @@ function DiscoverRouteComparison({
   );
 }
 
-function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow, externalCatalogue = false }) {
+function DiscoverCandidateList({
+  rows,
+  labIds,
+  selectedId,
+  onSelectRow,
+  onAdd,
+  externalCatalogue = false,
+}) {
   return (
     <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
       {rows.map((row) => (
@@ -436,6 +481,7 @@ function DiscoverCandidateList({ rows, labIds, selectedId, onSelectRow, external
           labIds={labIds}
           selectedId={selectedId}
           onSelectRow={onSelectRow}
+          onAdd={onAdd}
           externalCatalogue={externalCatalogue}
         />
       ))}
@@ -498,7 +544,8 @@ export function BrowsePage({
   const [externalSearchQuery, setExternalSearchQuery] = useState("");
   const [routeComparisonOpen, setRouteComparisonOpen] = useState(false);
   const [queryDraft, setQueryDraft] = useState(searchQuery || "");
-  const [composerMode, setComposerMode] = useState("search");
+  const [loadedQuery, setLoadedQuery] = useState("");
+  const [enrichedQuestion, setEnrichedQuestion] = useState("");
 
   const pendingRows = useMemo(
     () => pendingApprovalJobs(jobs).map((job) => jobToCandidateRow(job)).filter(Boolean),
@@ -510,6 +557,7 @@ export function BrowsePage({
   useEffect(() => {
     setQueryDraft(searchQuery || "");
     setRouteComparisonOpen(false);
+    setEnrichedQuestion("");
   }, [searchQuery]);
 
   useEffect(() => {
@@ -533,6 +581,7 @@ export function BrowsePage({
     setRows([]);
     setStateFilter("all");
     setIndexMiss(false);
+    setLoadedQuery("");
 
     const flattenRows = (data) => {
       const fromApi = (data.sections || []).flatMap((s) => s.rows || []);
@@ -712,6 +761,7 @@ export function BrowsePage({
         }
       } finally {
         setLoading(false);
+        setLoadedQuery(q);
       }
     };
 
@@ -720,6 +770,54 @@ export function BrowsePage({
       cancelled = true;
     };
   }, [searchQuery, discoverMode, labIds, preferLiveSources, onLiveSourcesConsumed, externalSearchQuery]);
+
+  useEffect(() => {
+    const q = String(searchQuery || "").trim();
+    if (
+      !isExplore
+      || !q
+      || loadedQuery !== q
+      || preferLiveSources
+      || externalSearchQuery === q
+      || !isDiscoverResearchQuestion(q)
+      || enrichedQuestion === q
+    ) return undefined;
+
+    let cancelled = false;
+    setEnrichedQuestion(q);
+    const enrich = async () => {
+      let extra = [];
+      try {
+        const sources = await discoverSources(q, { limit: 12, semantic: true, live: true });
+        extra = sourcesResponseToRows(sources);
+      } catch {
+        // The first result paint remains valid when optional enrichment is unavailable.
+      }
+      if (!extra.length || !hasSpecificSourceRoute(extra, q)) {
+        try {
+          const web = await webDiscover(q, 8);
+          extra = dedupeRows([...extra, ...rankExternalCatalogueRows(webHitsToRows(web), q)]);
+        } catch {
+          // Web context is optional and must never erase already-rendered evidence.
+        }
+      }
+      if (cancelled || !extra.length) return;
+      setRows((current) => dedupeRows([...current, ...extra]));
+      setSource((current) => current ? `${current}+progressive` : "progressive");
+      setIndexMiss(false);
+    };
+    enrich();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchQuery,
+    isExplore,
+    loadedQuery,
+    preferLiveSources,
+    externalSearchQuery,
+    enrichedQuestion,
+  ]);
 
   const merged = useMemo(() => {
     const seen = new Set();
@@ -833,7 +931,10 @@ export function BrowsePage({
     assessmentStatus === "assessed"
     && ["partially_covered", "partial", "not_covered", "uncovered"].includes(assessmentVerdict)
     && assessmentResult?.gap;
-  const hasMetadataGap = assessmentStatus === "insufficient_metadata";
+  const strategyNeedsContext = ["insufficient_metadata", "insufficient_requirement", "cannot_assess"].includes(
+    assessmentStatus,
+  );
+  const assessmentPending = Boolean(assessmentActive && !assessmentResult);
   const idleHoldings = useMemo(
     () => catalog.filter((row) => labIds.has(row.dataset_id || row.id)).slice(0, 4).map((row) => ({
       ...row,
@@ -883,6 +984,21 @@ export function BrowsePage({
     </details>
   );
 
+  const libraryEvidenceMenu = resultGroups.held.length ? (
+    <details className="rd-v2-discover-library-evidence" data-testid="discover-library-evidence">
+      <summary>Library evidence · {resultGroups.held.length}</summary>
+      <div className="rd-v2-discover-library-popover">
+        <span className="rd-v2-eyebrow">Relevant held evidence</span>
+        <DiscoverCandidateList
+          rows={resultGroups.held.slice(0, 4)}
+          labIds={labIds}
+          selectedId={selectedId}
+          onSelectRow={onSelectRow}
+        />
+      </div>
+    </details>
+  ) : null;
+
   if (showHistory) {
     return (
       <PageShell
@@ -895,32 +1011,6 @@ export function BrowsePage({
           events={historyEvents}
           selectedId={selectedHistoryId}
           onSelectEvent={onSelectHistoryEvent}
-        />
-      </PageShell>
-    );
-  }
-
-  if (intentRecord) {
-    return (
-      <PageShell
-        className="rd-v2-discover-page rd-v2-discover-page--intent"
-        title="Discover"
-        lead="Review one durable acquisition intent before collection"
-        headExtra={modeTabs}
-      >
-        <DiscoverIntentWorkspace
-          record={intentRecord}
-          onChange={onIntentChange}
-          onBack={onCloseIntent}
-          onAsk={(record) => onAskQuery?.(
-            record?.researchNeed || searchQuery,
-            {
-              kind: "implementation",
-              prompt: `Investigate acquisition routes for ${record?.candidate?.title || "this offering"}. Intent ${record?.intent?.id || "is recorded"}. Explain only supported routes, required evidence, and unknowns. Do not submit procurement.`,
-            },
-          )}
-          onSubmitted={onIntentSubmitted}
-          onOpenHistory={onOpenIntentHistory}
         />
       </PageShell>
     );
@@ -942,8 +1032,7 @@ export function BrowsePage({
               onValueChange={setQueryDraft}
               onSearch={onSuggestSearch}
               onAsk={(question) => onAskQuery?.(question, { kind: "investigation" })}
-              mode={composerMode}
-              onModeChange={setComposerMode}
+              onAssess={onOpenAssessment}
               idle
             />
             <div className="rd-v2-discover-idle-held">
@@ -960,18 +1049,13 @@ export function BrowsePage({
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
+                  onAdd={onReviewAcquisition}
                 />
               ) : <p className="muted">No external source recommendations are available yet.</p>}
               {idleHoldings.length ? (
-                <details className="rd-v2-discover-idle-library">
-                  <summary>{plural(labIds.size, "held Library asset")}</summary>
-                  <DiscoverCandidateList
-                    rows={idleHoldings}
-                    labIds={labIds}
-                    selectedId={selectedId}
-                    onSelectRow={onSelectRow}
-                  />
-                </details>
+                <div className="rd-v2-discover-idle-library-note">
+                  Library evidence · {labIds.size} held assets are checked automatically after a research question.
+                </div>
               ) : null}
             </div>
             {onCraftUrl ? (
@@ -1004,8 +1088,7 @@ export function BrowsePage({
                   onValueChange={setQueryDraft}
                   onSearch={onSuggestSearch}
                   onAsk={(question) => onAskQuery?.(question, { kind: "results", rows: merged })}
-                  mode={composerMode}
-                  onModeChange={setComposerMode}
+                  onAssess={onOpenAssessment}
                 />
               </header>
 
@@ -1054,37 +1137,38 @@ export function BrowsePage({
                       Search wider
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    className={assessmentActive ? "on" : ""}
-                    onClick={() => {
-                      onOpenAssessment?.(q);
-                      setRouteComparisonOpen(false);
-                    }}
-                  >
-                    Assess coverage
-                  </button>
+                  {libraryEvidenceMenu}
+                  {assessmentPending ? (
+                    <button type="button" className="rd-v2-discover-strategy-trigger is-pending" disabled>
+                      Assessing strategy…
+                    </button>
+                  ) : strategyNeedsContext ? (
+                    <button
+                      type="button"
+                      className="rd-v2-discover-strategy-trigger"
+                      onClick={() => onAskQuery?.(
+                        q,
+                        {
+                          kind: "strategy_context",
+                          rows: merged,
+                          prompt: `Clarify the evidence requirement for: ${q}. Ask only for the missing context needed to judge coverage and prepare a custom dataset strategy. Do not submit procurement.`,
+                        },
+                      )}
+                    >
+                      Strategy needs context
+                    </button>
+                  ) : hasEvidenceGap ? (
+                    <button
+                      type="button"
+                      className="rd-v2-discover-strategy-trigger is-ready"
+                      onClick={() => setRouteComparisonOpen(true)}
+                    >
+                      Custom strategy ready
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </section>
-
-            {hasMetadataGap && onAskQuery ? (
-              <div className="rd-v2-discover-metadata-action">
-                <div>
-                  <strong>Coverage is not yet recorded.</strong>
-                  <span>The assessment remains available in Detail; Ask can prepare a metadata review without starting procurement.</span>
-                </div>
-                <button type="button" onClick={() => onAskQuery(
-                  q,
-                  {
-                    kind: "metadata_review",
-                    prompt: `Review the catalog metadata gap for: ${q}. Identify which held records need coverage verification and what evidence would establish their unit, geography, period, frequency, fields, or event type. Do not start procurement.`,
-                  },
-                )}>
-                  Ask for catalog review →
-                </button>
-              </div>
-            ) : null}
 
             {resultGroups.available.length ? (
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
@@ -1100,26 +1184,16 @@ export function BrowsePage({
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
+                  onAdd={onReviewAcquisition}
                   externalCatalogue={externalCatalogueActive}
                 />
               </section>
             ) : null}
 
-            {hasEvidenceGap && !routeComparisonOpen ? (
-              <div className="rd-v2-discover-gap-action">
-                <div>
-                  <span className="rd-v2-eyebrow">Custom strategy available</span>
-                  <strong>{assessmentResult?.gap?.statement || "A recorded evidence gap needs a supported acquisition route."}</strong>
-                  <span>Review how the desk can obtain the missing evidence without leaving these results.</span>
-                </div>
-                <button type="button" onClick={() => setRouteComparisonOpen(true)}>
-                  Review strategy →
-                </button>
-              </div>
-            ) : null}
-
             {hasEvidenceGap && routeComparisonOpen ? (
               <DiscoverRouteComparison
+                query={q}
+                requirement={assessmentResult.requirement}
                 gap={assessmentResult.gap}
                 rows={merged}
                 labIds={labIds}
@@ -1199,24 +1273,10 @@ export function BrowsePage({
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
+                  onAdd={onReviewAcquisition}
                   externalCatalogue={externalCatalogueActive}
                 />
               </section>
-            ) : null}
-
-            {resultGroups.held.length ? (
-              <details className="rd-v2-discover-held-results" open={!resultGroups.available.length && !resultGroups.external.length}>
-                <summary>
-                  <span>Already in your Library</span>
-                  <b>{resultGroups.held.length}</b>
-                </summary>
-                <DiscoverCandidateList
-                  rows={resultGroups.held}
-                  labIds={labIds}
-                  selectedId={selectedId}
-                  onSelectRow={onSelectRow}
-                />
-              </details>
             ) : null}
 
             {resultGroups.context.length ? (
@@ -1259,6 +1319,32 @@ export function BrowsePage({
           </>
         ) : null}
       </div>
+      {intentRecord ? (
+        <div
+          className="rd-v2-discover-intent-scrim"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Review acquisition"
+          onMouseDown={(event) => event.target === event.currentTarget && onCloseIntent?.()}
+        >
+          <div className="rd-v2-discover-intent-modal">
+            <DiscoverIntentWorkspace
+              record={intentRecord}
+              onChange={onIntentChange}
+              onBack={onCloseIntent}
+              onAsk={(record) => onAskQuery?.(
+                record?.researchNeed || searchQuery,
+                {
+                  kind: "implementation",
+                  prompt: `Investigate acquisition routes for ${record?.candidate?.title || "this offering"}. Intent ${record?.intent?.id || "is recorded"}. Explain only supported routes, required evidence, and unknowns. Do not submit procurement.`,
+                },
+              )}
+              onSubmitted={onIntentSubmitted}
+              onOpenHistory={onOpenIntentHistory}
+            />
+          </div>
+        </div>
+      ) : null}
     </PageShell>
   );
 }
