@@ -141,3 +141,52 @@ def test_battery_classifies_transport_failure(monkeypatch, tmp_path: Path):
 
     assert report["outcome"] == "transport_failed"
     assert report["cases"] == []
+
+
+def test_preflight_combines_search_details_and_synthesis_profiles(monkeypatch):
+    from scripts.research_data_mcp.synthesis_acceptance import (
+        SynthesisAcceptanceClient,
+    )
+
+    client = SynthesisAcceptanceClient("http://example.test")
+
+    def fake_get(path, query):
+        if path == "/library/search":
+            return {
+                "rows": [
+                    {
+                        "dataset_id": "mops_governance_panel",
+                        "title": "Taiwan MOPS governance misconduct panel",
+                    }
+                ]
+            }
+        if path == "/datasets/mops_governance_panel":
+            return {
+                "dataset_id": "mops_governance_panel",
+                "description": "Official governance filings and disclosures.",
+            }
+        if path == "/library/synthesis/profiles":
+            return {
+                "profiles": [
+                    {
+                        "title": "Governance intervention pattern",
+                        "description": "Point-in-time filing-date construction.",
+                    }
+                ]
+            }
+        raise AssertionError(path)
+
+    monkeypatch.setattr(client, "_get", fake_get)
+    preflight = client.preflight_case(
+        {
+            "retrieval_query": "Taiwan MOPS governance",
+            "expected_asset_groups": [
+                ["mops"],
+                ["filing", "disclosure"],
+                ["point-in-time"],
+            ],
+        }
+    )
+    assert preflight["ok"] is True
+    assert preflight["detail_count"] == 1
+    assert preflight["profile_count"] == 1
