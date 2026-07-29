@@ -5,6 +5,7 @@
     {
       "id": "idn_retail_coordination",
       "title": "Indonesia retail-facing coordination proxy",
+      "retrieval_query": "JKSE PIT Indonesia microstructure estimate revisions",
       "request": "Construct a point-in-time firm-week measure of retail-facing trading coordination among Indonesian equities from 2010 through 2026. Preserve point-in-time JKSE membership, distinguish common news reaction from coordination, do not describe identities as verified retail, use held Indonesian microstructure evidence and estimate-revision or news evidence where defensible, preserve survivorship and entity-mapping limitations, and emit component and coverage flags. On this first turn, interpret the construct, verify the strongest held assets, identify what remains ambiguous, and ask the one highest-value clarification. Do not create, collect, execute, or materialise anything.",
       "expected_asset_groups": [
         ["jkse pit", "point-in-time jkse"],
@@ -21,6 +22,7 @@
     {
       "id": "stablecoin_trust",
       "title": "Stablecoin trust deterioration construct",
+      "retrieval_query": "stablecoin Skynet Etherscan DeFiLlama GDELT trust security liquidity",
       "request": "Define a weekly stablecoin trust-deterioration dataset from 2017 through 2026 using held evidence. The construct should separate security incidents, market stress, adoption or liquidity changes, and public attention. Treat trust as latent rather than directly observed, avoid hindsight leakage, state which components are proxies, and retain component availability flags. On this first turn, interpret the construct, verify the strongest Library assets, explain the central validity risk, and ask exactly one clarification that would materially change the design. Do not run or materialise anything.",
       "expected_asset_groups": [
         ["skynet", "certik"],
@@ -38,6 +40,7 @@
     {
       "id": "taiwan_governance_intensity",
       "title": "Taiwan governance intervention intensity",
+      "retrieval_query": "Taiwan MOPS TWSE governance filings disclosures",
       "request": "Construct a point-in-time firm-quarter measure of governance intervention intensity for Taiwan-listed firms from 2012 through 2026 using held disclosure and market evidence. Distinguish regulatory or board interventions from routine filings, preserve filing dates rather than fiscal-period hindsight, retain source and component flags, and do not equate disclosure volume with governance quality. First interpret the measure, identify the best held inputs and their roles, expose the most consequential ambiguity, and ask one clarification. Do not execute.",
       "expected_asset_groups": [
         ["mops"],
@@ -54,6 +57,7 @@
     {
       "id": "asia_regulatory_shock",
       "title": "Asia regulatory-shock exposure",
+      "retrieval_query": "Asia country daily GDELT news shock market returns",
       "request": "Design a country-day regulatory-shock exposure dataset for Asian financial markets from 2015 through 2026. Use held news and market evidence, separate an event's occurrence from its salience and market response, prevent the market outcome from defining the shock itself, and preserve country, date, source, and coverage uncertainty. On the first turn, verify the strongest held assets, propose the construct boundary, identify unresolved validity threats, and ask exactly one high-value clarification. Do not collect or execute.",
       "expected_asset_groups": [
         ["gdelt", "news shock", "asia daily news"],
@@ -69,6 +73,7 @@
     {
       "id": "historical_community_engagement",
       "title": "Historical crypto community engagement",
+      "retrieval_query": "crypto GitHub Google Trends GDELT community followers engagement",
       "request": "Construct an asset-week historical community-engagement measure for major crypto assets from 2018 through 2026 even though complete historical social-platform follower counts do not exist. Use held alternatives where defensible, distinguish developer activity, search attention, news attention, and community growth, avoid presenting any one proxy as engagement itself, and retain missingness and source-change flags. First interpret the latent construct, verify relevant held assets, compare defensible proxy roles, name the irreducible limitation, and ask one clarification. Do not procure or materialise.",
       "expected_asset_groups": [
         ["github", "developer activity"],
