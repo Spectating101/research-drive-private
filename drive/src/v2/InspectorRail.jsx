@@ -284,12 +284,15 @@ export function InspectorRail({
       );
       return;
     }
-    if (mainTab === "home") {
-      setMobileRailOpen(railTab === "ask");
+    // Ask is an explicit working state on every surface. Do not collapse the
+    // mobile sheet merely because Profile, Settings, or another page has no
+    // selected row.
+    if (railTab === "ask") {
+      setMobileRailOpen(true);
       return;
     }
-    if (mainTab === "synthesis") {
-      setMobileRailOpen(railTab === "ask");
+    if (mainTab === "home" || mainTab === "synthesis") {
+      setMobileRailOpen(false);
       return;
     }
     if (mainTab === "library" && activeObject?.kind === "library_folder") {

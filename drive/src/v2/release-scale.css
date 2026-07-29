@@ -324,14 +324,7 @@ body,
   }
 
   .yzu-sidebar .rd-v2-sidebar-foot-nav {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 44px;
-    gap: 2px;
-    height: 100%;
-    margin-left: 4px;
-    padding-left: 4px;
-    border-left: 1px solid rgba(210, 216, 226, 0.75);
+    display: none !important;
   }
 
   /* Profile / Settings: icon-only to free space for primary 5 */
@@ -543,14 +536,14 @@ body,
     width: 100%;
   }
 
-  /* Synthesis keeps the primary five destinations legible on the phone.
-     Profile and Settings remain available from the account surface; squeezing
-     seven icons into this tray caused Resources to collide with them. */
-  .rd-v2-shell:has(.rd-v2-synthesis-page) .yzu-sidebar {
+  /* Keep the five working destinations legible on every phone surface.
+     Profile and Settings remain available through the persistent account
+     control; squeezing seven destinations into this tray causes collisions. */
+  .rd-v2-shell .yzu-sidebar {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
-  .rd-v2-shell:has(.rd-v2-synthesis-page) .yzu-sidebar .rd-v2-sidebar-foot-nav {
+  .rd-v2-shell .yzu-sidebar .rd-v2-sidebar-foot-nav {
     display: none !important;
   }
 

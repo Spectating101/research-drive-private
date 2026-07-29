@@ -58,6 +58,7 @@ export function AskRail({
 
   const ctxParts = [contextLabel, mainTab, searchQuery ? `search: ${searchQuery}` : ""].filter(Boolean);
   const isProfile = mainTab === "profile";
+  const isSettings = mainTab === "settings";
   const isDiscover = mainTab === "browse";
   const isDiscoverHistory = isDiscover && dataset?.kind === "discover_history";
   const isDiscoverInvestigation = isDiscover && dataset?.kind === "discover_investigation";
@@ -71,6 +72,8 @@ export function AskRail({
   const discoverTitle = dataset?.title || dataset?.dataset_id || "";
   const railTitle = isProfile
     ? "Ask"
+    : isSettings
+      ? "Ask · desk setup"
     : isDiscoverHistory
       ? "Ask · lifecycle item"
       : isDiscoverInvestigation
@@ -84,6 +87,8 @@ export function AskRail({
     ? hasThread
       ? `Continuing · context → ${profileContext}`
       : `Context · ${profileContext}`
+    : isSettings
+      ? "Context · desk preferences and connection state"
     : isDiscoverHistory && discoverTitle
       ? `Lifecycle context · ${discoverTitle}`
       : isDiscoverInvestigation && discoverTitle
@@ -118,7 +123,41 @@ export function AskRail({
       <div className="rd-v2-ask-messages" data-testid="ask-messages" aria-busy={busy}>
         {messages.length === 0 ? (
           isProfile ? (
-            <p className="rd-v2-ask-placeholder rd-v2-ask-placeholder-quiet" />
+            <div className="rd-v2-ask-placeholder">
+              <p>
+                Ask how the saved research memory shapes Discover and Synthesis, or correct context that the desk
+                should stop carrying forward.
+              </p>
+              <div className="rd-v2-chips-row rd-v2-ask-chips">
+                {[
+                  "What research context do you remember?",
+                  "How does this profile affect Discover?",
+                  "Which assumptions should I correct?",
+                ].map((p) => (
+                  <button key={p} type="button" className="rd-v2-chip clickable" disabled={busy} onClick={() => send(p)}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : isSettings ? (
+            <div className="rd-v2-ask-placeholder">
+              <p>
+                Ask what the current desk settings change, which connections are available, and where approval or
+                readiness boundaries still apply.
+              </p>
+              <div className="rd-v2-chips-row rd-v2-ask-chips">
+                {[
+                  "Explain the current desk setup.",
+                  "Which settings affect approvals?",
+                  "What remains unconnected?",
+                ].map((p) => (
+                  <button key={p} type="button" className="rd-v2-chip clickable" disabled={busy} onClick={() => send(p)}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : isDiscoverHistory && discoverTitle ? (
             <div className="rd-v2-ask-placeholder">
               <p>
@@ -261,7 +300,9 @@ export function AskRail({
           rows={3}
           placeholder={
             isProfile
-              ? "Message…"
+              ? "Correct the research memory or ask how it is used…"
+              : isSettings
+                ? "Ask about desk behavior, access, or approvals…"
               : isSynthesis
                 ? "Correct the interpretation, add a constraint, or ask…"
                 : isDiscoverHistory

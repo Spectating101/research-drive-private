@@ -145,7 +145,12 @@ export function HomePage({
       onGoTab(point?.tab || "library");
       return;
     }
-    // openLibraryDataset (passed as onSelectDataset) sets tab+selection atomically.
+    // Home is a resume surface, not a second Library. Keep the researcher
+    // oriented here while exposing the dataset preview and grounded rail.
+    if (onPreviewDataset) {
+      onPreviewDataset(point.dataset);
+      return;
+    }
     onSelectDataset?.(point.dataset);
   };
 

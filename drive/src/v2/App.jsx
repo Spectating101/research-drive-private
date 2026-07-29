@@ -1596,6 +1596,7 @@ export function V2App() {
         integrationChips={usingSeed ? [] : buildDeskIntegrationChips(health)}
         activeResearchTitle={activeResearch.title}
         currentPage={tab}
+        onAccountNavigate={goTab}
       />
       <V2Sidebar
         tab={tab}

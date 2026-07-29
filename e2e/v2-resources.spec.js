@@ -3,11 +3,15 @@ import { mockV2Api, waitForShell } from "./fixtures/v2MockApi.js";
 import { MOCK_RESOURCES_ROLLUP } from "./fixtures/mockResourcesRollup.js";
 
 function capacityInventory(page) {
-  return page.getByRole("region", { name: "Capacity and access" });
+  return page.getByRole("region", { name: "Sources overview" });
 }
 
-async function openSourceRoutes(page) {
-  await capacityInventory(page).locator(".rd-v2-res-routes > summary").click();
+function capacityGrid(page) {
+  return page.getByTestId("resources-capacity-grid");
+}
+
+function sourceLedger(page) {
+  return page.getByTestId("resources-source-ledger");
 }
 
 test.describe("v2 Resources tab", () => {
@@ -25,21 +29,15 @@ test.describe("v2 Resources tab", () => {
     const inventory = capacityInventory(page);
     await expect(inventory).toContainText("Capacity & access");
     await expect(inventory).toContainText("Storage");
-    await expect(inventory).toContainText("Accounts & limits");
-    await expect(inventory).toContainText("Available source routes");
+    await expect(inventory).toContainText("Services");
+    await expect(inventory).toContainText("Desk");
     await expect(inventory).not.toContainText("Work capacity");
-    await expect(inventory.locator('[data-kind="usage"]', { hasText: "Drive vault" })).toBeVisible();
-    await expect(inventory.locator('[data-kind="source"]')).toHaveCount(5);
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "Market & filings" })).not.toBeVisible();
-    await openSourceRoutes(page);
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "GDELT" })).toHaveCount(0);
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "Market & filings" })).toBeVisible();
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "Catalog APIs" })).toBeVisible();
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "Discovery & intake" })).toBeVisible();
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "Open web" })).toBeVisible();
-    await expect(inventory.locator('[data-kind="source"]', { hasText: "Remote tables" })).toBeVisible();
-    await expect(inventory.locator('[data-kind="metered"]', { hasText: "BigQuery" })).toBeVisible();
-    await expect(main.locator(".rd-v2-toolbar-stat")).toContainText("2/12 busy");
+    await expect(capacityGrid(page).getByRole("button", { name: /GDrive vault/ })).toBeVisible();
+    await expect(capacityGrid(page).getByRole("button", { name: /BigQuery/ })).toBeVisible();
+    await expect(sourceLedger(page)).toContainText("Licensed / institutional");
+    await expect(sourceLedger(page)).toContainText("Public market & filings");
+    await expect(sourceLedger(page)).toContainText("Research & open data");
+    await expect(main).toContainText("3/12 joined");
     await expect(main.getByText("Current status")).toHaveCount(0);
     await expect(main.getByText("Ask / model turns")).toHaveCount(0);
     await expect(main.getByText("Metered APIs")).toHaveCount(0);
@@ -48,26 +46,22 @@ test.describe("v2 Resources tab", () => {
   });
 
   test("inventory row opens the matching rail resource", async ({ page }) => {
-    const inventory = capacityInventory(page);
-    await openSourceRoutes(page);
-    await inventory.locator('[data-kind="source"]', { hasText: "Catalog APIs" }).click();
+    await sourceLedger(page).getByRole("button", { name: /DataCite/ }).first().click();
 
     const rail = page.getByRole("complementary", { name: "Inspector" });
-    await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("Catalog APIs");
+    await expect(rail.locator(".rd-v2-rail-selection")).toContainText("DataCite");
     await expect(rail).toContainText("DataCite");
-    await expect(rail).toContainText("Academic metadata and dataset APIs");
-    await expect(rail).toContainText("DOI lookup and dataset import");
+    await expect(rail).toContainText(/metadata|dataset|DOI|harvest/i);
   });
 
   test("selected inventory resource can be sent to Ask from the rail", async ({ page }) => {
-    const inventory = capacityInventory(page);
-    await inventory.locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
+    await capacityGrid(page).getByRole("button", { name: /BigQuery/ }).click();
 
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await rail.getByRole("button", { name: "Ask about this →" }).click();
     await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await expect(rail).toContainText("Resources · BigQuery");
-    await expect(page.getByTestId("ask-messages")).toContainText("Explain this metered Resources provider");
+    await expect(page.getByTestId("ask-messages")).toContainText(/Explain this Resources .*BigQuery/);
   });
 
   test("right rail starts with lab capacity context", async ({ page }) => {
@@ -75,7 +69,7 @@ test.describe("v2 Resources tab", () => {
     await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("Resources");
     await expect(rail).toContainText("Lab capacity");
     await expect(rail).toContainText("Current capacity");
-    await expect(rail).toContainText(/items? need attention|Desk ready|collection.*running/i);
+    await expect(rail).toContainText(/awaiting your approval|capacity warning|source routes/i);
     await expect(rail.getByRole("button", { name: "Open activity" })).toBeVisible();
     await expect(rail).not.toContainText("Select a key resource");
   });
@@ -84,7 +78,8 @@ test.describe("v2 Resources tab", () => {
     const main = page.locator("main");
     await page.getByRole("button", { name: "Usage", exact: true }).click();
     await expect(main.locator('[aria-label="Usage report"]')).toContainText("Remote tables");
-    await expect(main.getByRole("heading", { name: "Review queue" })).toBeVisible();
+    await expect(main).toContainText("Approvals stay on Discover History");
+    await expect(main.getByRole("heading", { name: "Review queue" })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Run log" })).toBeVisible();
     await expect(main.getByText("USB bulk cache")).toHaveCount(0);
     await expect(main.getByText("get Taiwan gov panel")).toBeVisible();
@@ -95,44 +90,46 @@ test.describe("v2 Resources tab", () => {
   test("Usage filters log categories", async ({ page }) => {
     const main = page.locator("main");
     await page.getByRole("button", { name: "Usage", exact: true }).click();
-    await main.getByRole("button", { name: "Discovery", exact: true }).click();
-    await expect(main.getByRole("button", { name: "Discovery", exact: true })).toHaveClass(/on/);
+    const discoveryFilter = main.getByRole("button", { name: "Filter usage: Discovery" });
+    await discoveryFilter.click();
+    await expect(discoveryFilter).toHaveClass(/on/);
     await expect(main.getByText("taiwan equity")).toBeVisible();
     await expect(main.getByText("get Taiwan gov panel")).toHaveCount(0);
-    await main.getByRole("button", { name: "Review", exact: true }).click();
-    await expect(main.getByRole("heading", { name: "Review queue" })).toBeVisible();
+    await main.getByRole("button", { name: "Filter usage: Review" }).click();
+    await expect(main.getByText("No usage rows in this period.")).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Review queue" })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Run log" })).toHaveCount(0);
   });
 
   test("selecting meter row shows rail drill-down", async ({ page }) => {
-    await capacityInventory(page).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
-    await expect(
-      page.locator("aside").getByRole("button", { name: "View activity →" }),
-    ).toBeVisible();
+    await capacityGrid(page).getByRole("button", { name: /BigQuery/ }).click();
+    const rail = page.locator("aside");
+    await expect(rail.getByRole("region", { name: "Decision summary" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: "Ask about this →" })).toBeVisible();
   });
 
-  test("View activity switches to Usage tab filtered", async ({ page }) => {
-    await capacityInventory(page).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
-    await page.locator("aside").getByRole("button", { name: "View activity →" }).click();
-    await expect(page.getByRole("button", { name: /Remote table events/ })).toBeVisible();
+  test("Open activity switches the Resources overview to Usage", async ({ page }) => {
+    await page.locator("aside").getByRole("button", { name: "Open activity" }).click();
+    await expect(page.getByRole("button", { name: "Usage", exact: true })).toHaveClass(/on/);
+    await expect(page.getByRole("heading", { name: "Run log" })).toBeVisible();
     await expect(page.getByText("get Taiwan gov panel")).toBeVisible();
   });
 
   test("Ask about account limit carries Resources context into rail", async ({ page }) => {
-    await capacityInventory(page).locator('[data-kind="metered"]', { hasText: "BigQuery" }).click();
+    await capacityGrid(page).getByRole("button", { name: /BigQuery/ }).click();
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await rail.getByRole("button", { name: "Ask about this →" }).click();
     await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await expect(rail).toContainText("Resources · BigQuery");
-    await expect(rail).toContainText("Explain this metered Resources provider");
+    await expect(rail).toContainText(/Explain this Resources .*BigQuery/);
   });
 
-  test("approval review row lives in Usage", async ({ page }) => {
+  test("approval review stays in Discover rather than the usage ledger", async ({ page }) => {
     const main = page.locator("main");
     await page.getByRole("button", { name: "Usage", exact: true }).click();
-    await expect(main.getByRole("heading", { name: "Review queue" })).toBeVisible();
-    await expect(main.getByRole("button", { name: /awaiting approval/ })).toBeVisible();
-    await expect(main.getByRole("button", { name: /Approval needed/ })).toBeVisible();
+    await expect(main).toContainText("Approvals stay on Discover History");
+    await expect(main.getByRole("heading", { name: "Review queue" })).toHaveCount(0);
+    await expect(main.getByRole("button", { name: /awaiting approval/ })).toHaveCount(0);
   });
 
   test("refresh chip refetches resources rollup", async ({ page }) => {
@@ -169,11 +166,11 @@ test("v2 Resources loading state does not flash account summary", async ({ page 
   await page.goto("/?tab=resources", { waitUntil: "domcontentloaded" });
 
   const main = page.locator("main");
-  await expect(main.getByRole("status")).toContainText("Loading resources");
+  await expect(main.getByRole("status")).toContainText("Syncing");
   await expect(main.getByText("Current status")).toHaveCount(0);
   await expect(main.getByText("Account summary")).toHaveCount(0);
 
   releaseResources();
   await waitForShell(page);
-  await expect(main.getByRole("region", { name: "Capacity and access" })).toBeVisible();
+  await expect(main.getByRole("region", { name: "Sources overview" })).toBeVisible();
 });

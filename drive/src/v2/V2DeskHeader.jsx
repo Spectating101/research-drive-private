@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 /** v2 header — brand · research context · resting status (no global search/Ask pill) */
 
 function freshnessLabel(refreshedAt) {
@@ -32,7 +34,10 @@ export function V2DeskHeader({
   integrationChips = [],
   activeResearchTitle = "Active research",
   currentPage = "home",
+  onAccountNavigate,
 }) {
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef(null);
   const metaText = usingSeed
     ? `${datasetCount} datasets`
     : workCount > 0
@@ -41,6 +46,27 @@ export function V2DeskHeader({
   const fresh = freshnessLabel(refreshedAt);
   const chips = Array.isArray(integrationChips) ? integrationChips : [];
   const pageLabel = PAGE_LABELS[currentPage] || String(currentPage || "").toUpperCase();
+
+  useEffect(() => {
+    if (!accountOpen) return undefined;
+    const closeOutside = (event) => {
+      if (!accountRef.current?.contains(event.target)) setAccountOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setAccountOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [accountOpen]);
+
+  const openAccountPage = (page) => {
+    setAccountOpen(false);
+    onAccountNavigate?.(page);
+  };
 
   return (
     <header className="yzu-header rd-v2-header rd-v2-header-wire">
@@ -114,9 +140,30 @@ export function V2DeskHeader({
           </button>
         ) : null}
       </div>
-      <button type="button" className="rd-header-avatar" aria-label="Account">
-        {headerInitials}
-      </button>
+      <div className="rd-v2-account-menu-wrap" ref={accountRef}>
+        <button
+          type="button"
+          className="rd-header-avatar"
+          aria-label="Account"
+          aria-haspopup="menu"
+          aria-expanded={accountOpen}
+          onClick={() => setAccountOpen((open) => !open)}
+        >
+          {headerInitials}
+        </button>
+        {accountOpen ? (
+          <div className="rd-v2-account-menu" role="menu" aria-label="Account destinations">
+            <button type="button" role="menuitem" onClick={() => openAccountPage("profile")}>
+              <span>Profile</span>
+              <small>Research memory</small>
+            </button>
+            <button type="button" role="menuitem" onClick={() => openAccountPage("settings")}>
+              <span>Settings</span>
+              <small>Desk preferences</small>
+            </button>
+          </div>
+        ) : null}
+      </div>
     </header>
   );
 }

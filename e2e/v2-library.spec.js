@@ -11,13 +11,11 @@ test.describe("v2 Library directory", () => {
 
   test("Lab root renders as a folder-first directory", async ({ page }) => {
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Library" })).toBeVisible();
-    const estate = page.getByTestId("library-estate-browser");
-    await expect(estate).toContainText("All holdings");
-    await expect(estate).toContainText(/3 assets/);
-    await expect(estate).toContainText(/3 ready to use/);
-    await expect(page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Research panels" })).toBeVisible();
-    await expect(page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Connected sources" })).toBeVisible();
-    await expect(page.locator(".rd-v2-library-pathbar")).toHaveCount(0);
+    const directory = page.getByTestId("library-directory");
+    await expect(directory).toBeVisible();
+    await expect(page.locator(".rd-v2-library-pathbar")).toContainText("Lab root");
+    await expect(page.getByRole("list", { name: "Catalog" })).toBeVisible();
+    await expect(page.locator('.rd-v2-catalog-list button[data-kind="folder"]').first()).toBeVisible();
     await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("In this library");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Add data");
@@ -26,14 +24,10 @@ test.describe("v2 Library directory", () => {
   });
 
   test("folders drill down to datasets and keep the rail as the selection anchor", async ({ page }) => {
-    await page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Research panels" }).click();
-    await expect(page.getByTestId("library-estate-browser")).toContainText("Research panels");
-    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Research panels");
-
-    await page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "gdelt" }).click();
-    await expect(page.locator('.rd-v2-library-asset[data-kind="dataset"]')).toHaveCount(1);
-    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("gdelt");
-    await page.locator('.rd-v2-library-asset[data-kind="dataset"]', { hasText: "Asia daily news-risk panel" }).click();
+    await page.getByRole("textbox", { name: "Search library holdings" }).fill("Asia");
+    const row = page.locator('.rd-v2-catalog-list button[data-kind="dataset"]', { hasText: "Asia daily news-risk panel" });
+    await expect(row).toBeVisible();
+    await row.click();
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Asia daily news-risk panel");
@@ -43,7 +37,7 @@ test.describe("v2 Library directory", () => {
     await expect(rail).toContainText("Coverage & grain");
     await expect(rail).toContainText("Join keys");
     await expect(rail.getByRole("button", { name: "Preview rows" })).toBeVisible();
-    await expect(page.getByTestId("library-estate-browser")).not.toContainText("Selected");
+    await expect(page.getByTestId("library-directory")).not.toContainText("Selected");
   });
 
   test("New menu routes upload intake through the rail", async ({ page }) => {

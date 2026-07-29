@@ -338,6 +338,57 @@
   cursor: pointer;
 }
 
+.rd-v2-account-menu-wrap {
+  position: relative;
+  z-index: 60;
+  justify-self: end;
+}
+
+.rd-v2-header:has(.rd-v2-account-menu) {
+  z-index: 90;
+}
+
+.rd-v2-account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  width: 190px;
+  padding: 6px;
+  border: 1px solid var(--rd-border);
+  border-radius: 12px;
+  background: var(--rd-surface, #fff);
+  box-shadow: 0 16px 40px rgba(17, 24, 39, 0.16);
+}
+
+.rd-v2-account-menu button {
+  display: grid;
+  gap: 2px;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--rd-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rd-v2-account-menu button:hover,
+.rd-v2-account-menu button:focus-visible {
+  background: var(--rd-canvas, #f3f1ea);
+  outline: none;
+}
+
+.rd-v2-account-menu span {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.rd-v2-account-menu small {
+  color: var(--rd-muted);
+  font-size: 9px;
+}
+
 /* ── 4. Sidebar ── GDrive navigation style ────────────────────── */
 .yzu-sidebar {
   padding: 12px 0 8px;

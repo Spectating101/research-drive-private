@@ -456,7 +456,7 @@ export function LibraryPage({
           <span>{readyCount} query-ready</span>
         </div>
       </div>
-      <div className="rd-v2-catalog-list-wrap">
+      <div className="rd-v2-catalog-list-wrap" data-testid="library-directory">
         {visibleRows.length ? (
           <CatalogList
             rows={visibleRows}
