@@ -412,6 +412,16 @@ class SynthesisAcceptanceClient:
     def open_session(self) -> None:
         self._post("/library/desk/session", {})
 
+    def ensure_chat_session(self) -> str:
+        """Bootstrap a durable procurement chat session id before the first turn."""
+        if self.session_id:
+            return self.session_id
+        result = self._post("/library/desk/warm", {"background": True})
+        sid = str(result.get("session_id") or "").strip()
+        if sid:
+            self.session_id = sid
+        return self.session_id
+
     def list_profile_ids(self) -> set[str]:
         try:
             payload = self._get("/library/synthesis/profiles", {})
@@ -476,8 +486,12 @@ class SynthesisAcceptanceClient:
             self.session_id = sid
         return result
 
-    def run_case(self, case: dict[str, Any]) -> dict[str, Any]:
-        return self.run_chat(str(case.get("request") or ""), case)
+    def run_case(self, case: dict[str, Any], *, thread_id: str = "") -> dict[str, Any]:
+        return self.run_chat(
+            str(case.get("request") or ""),
+            case,
+            thread_id=thread_id,
+        )
 
     def run_follow_up(self, case: dict[str, Any], *, thread_id: str = "") -> dict[str, Any]:
         return self.run_chat(
@@ -611,42 +625,18 @@ class SynthesisAcceptanceClient:
         }
 
 
-def _thread_id_from_chat(result: dict[str, Any]) -> str:
-    artifacts = result.get("artifacts")
-    artifacts = artifacts if isinstance(artifacts, dict) else {}
-    for key in ("synthesis_thread_id", "thread_id"):
-        value = str(artifacts.get(key) or result.get(key) or "").strip()
-        if value:
-            return value
-    return ""
-
-
-def _ensure_thread(
+def _prepare_construction_thread(
     client: SynthesisAcceptanceClient,
     case: dict[str, Any],
-    *,
-    chat_results: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Resolve or create a synthesis thread and link it to the chat session."""
-    linkage: dict[str, Any] = {"source": "unknown", "thread_id": ""}
-    for result in reversed(chat_results):
-        thread_id = _thread_id_from_chat(result)
-        if thread_id:
-            linkage = {"source": "chat_artifacts", "thread_id": thread_id}
-            break
-
-    if not linkage["thread_id"]:
-        existing = client.list_threads()
-        if existing:
-            linkage = {"source": "session_list", "thread_id": existing[0].get("id")}
-        else:
-            created = client.create_thread(case)
-            linkage = {"source": "created", "thread_id": created.get("id")}
-
-    thread_id = str(linkage.get("thread_id") or "").strip()
+    """Create and link a synthesis thread before any construction chat turn."""
+    client.ensure_chat_session()
+    created = client.create_thread(case)
+    thread_id = str(created.get("id") or "").strip()
     if not thread_id:
-        raise ValueError("could not resolve synthesis thread for construction investigation")
+        raise ValueError("could not prepare synthesis thread for construction investigation")
 
+    linkage: dict[str, Any] = {"source": "prepared", "thread_id": thread_id}
     linked = client.link_thread(thread_id)
     linkage["linked_session_id"] = linked.get("session_id") or client.session_id
     thread = client.get_thread(thread_id)
@@ -787,10 +777,29 @@ def run_construction_investigation(
             "groups": [],
         }
 
-    chat_results: list[dict[str, Any]] = []
+    thread_id = ""
+    linkage: dict[str, Any] = {}
+    recorded_proposal: dict[str, Any] | None = None
     try:
-        first_raw = client.run_case(case)
-        chat_results.append(first_raw)
+        thread, linkage = _prepare_construction_thread(client, case)
+        thread_id = str(thread.get("id") or "")
+    except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
+        phases["thread_linkage"] = {
+            "phase": "thread_linkage",
+            "outcome": "transport_failed",
+            "error": str(exc),
+            "checks": [],
+        }
+        return _construction_report(
+            case,
+            phases=phases,
+            proof_mode=proof_mode,
+            preflight=preflight,
+            started=case_started,
+        )
+
+    try:
+        first_raw = client.run_case(case, thread_id=thread_id)
         phases["first_turn"] = evaluate_response(case, first_raw)
     except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
         phases["first_turn"] = {
@@ -809,9 +818,7 @@ def run_construction_investigation(
         )
 
     try:
-        thread_id = _thread_id_from_chat(chat_results[-1])
         follow_raw = client.run_follow_up(case, thread_id=thread_id)
-        chat_results.append(follow_raw)
         phases["follow_up"] = evaluate_follow_up_response(case, follow_raw)
     except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
         phases["follow_up"] = {
@@ -829,11 +836,7 @@ def run_construction_investigation(
             started=case_started,
         )
 
-    thread_id = ""
-    recorded_proposal: dict[str, Any] | None = None
     try:
-        thread, linkage = _ensure_thread(client, case, chat_results=chat_results)
-        thread_id = str(thread.get("id") or "")
         thread = client.get_thread(thread_id)
         phases["thread_linkage"] = {
             "phase": "thread_linkage",
@@ -852,6 +855,11 @@ def run_construction_investigation(
                     "ok": str(thread.get("session_id") or "") == str(client.session_id),
                     "session_id": thread.get("session_id"),
                     "linked_session_id": linkage.get("linked_session_id"),
+                },
+                {
+                    "name": "no_duplicate_thread",
+                    "ok": len(session_threads := client.list_threads()) == 1,
+                    "observed": len(session_threads),
                 },
             ],
             "linkage": linkage,
