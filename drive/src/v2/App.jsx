@@ -1369,6 +1369,10 @@ export function V2App() {
           onAskComposer={askFromPrompt}
           onGoTab={goTab}
           onOpenDataset={openInLibraryFromDiscover}
+          onReviewExecution={(execution) => {
+            const jobId = execution?.job_id || "";
+            openDiscoverAwaiting({ job: jobId ? { id: jobId, status: "pending_approval" } : null });
+          }}
           onSelectThread={(thread) => {
             setActiveObject(synthesisThreadObject(thread));
           }}

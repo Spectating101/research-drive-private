@@ -70,6 +70,40 @@ function threadOutput(thread) {
   return state.execution?.output_dataset_id || state.execution_spec?.output_dataset_id || "";
 }
 
+const SYNTHESIS_STAGES = [
+  ["Define", "Research object"],
+  ["Ground", "Library evidence"],
+  ["Review", "Method decision"],
+  ["Build", "Approved execution"],
+  ["Reuse", "Library asset"],
+];
+
+function synthesisStageIndex(thread) {
+  const state = thread?.state || {};
+  const execution = state.execution || {};
+  const mode = stateFor(thread);
+  if (mode === "registered" || mode === "query_ready") return 4;
+  if (execution.status || state.execution_spec) return 3;
+  if (state.proposal) return 2;
+  if ((state.nodes || []).length) return 1;
+  return 0;
+}
+
+function SynthesisProgress({ thread }) {
+  const active = synthesisStageIndex(thread);
+  return (
+    <ol className="s04-steps" aria-label="Synthesis project stages">
+      {SYNTHESIS_STAGES.map(([label, detail], index) => (
+        <li key={label} className={index < active ? "done" : index === active ? "now" : ""}>
+          <span>{index < active ? "✓" : index + 1}</span>
+          <b>{label}</b>
+          <small>{detail}</small>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function ThreadList({ threads, selectedId, loading, onSelect, onNew }) {
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -146,6 +180,7 @@ function ThreadHeader({ thread }) {
           {text(state.required_grain || state.spec?.grain, "Not specified")}
         </span>
       </div>
+      <SynthesisProgress thread={thread} />
     </>
   );
 }
@@ -216,41 +251,107 @@ function EvidenceMap({ thread, onAsk }) {
   );
 }
 
+function metricLabel(metric) {
+  const fn = text(metric?.function || metric?.aggregate, "metric");
+  const column = text(metric?.column || metric?.field);
+  const alias = text(metric?.as || metric?.name);
+  const expression = column ? `${fn}(${column})` : fn;
+  return alias && alias !== expression ? `${alias} ← ${expression}` : expression;
+}
+
+function softIdentifier(value, fallback = "Not reported") {
+  return text(value, fallback).replace(/([_/.-])/g, "$1\u200b");
+}
+
 function ProposalReview({ thread, busy, onDecide, onAsk }) {
-  const proposal = thread?.state?.proposal || {};
+  const state = thread?.state || {};
+  const proposal = state.proposal || {};
+  const spec = proposal.execution_spec || {};
   const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
+  const metrics = Array.isArray(spec.metrics) ? spec.metrics : [];
+  const groupBy = Array.isArray(spec.group_by) ? spec.group_by : [];
+  const limitations = (
+    Array.isArray(state.spec?.limitations)
+      ? state.spec.limitations
+      : Array.isArray(state.limitations)
+        ? state.limitations
+        : []
+  ).filter(Boolean);
+  const unknowns = (
+    Array.isArray(state.spec?.unavailable)
+      ? state.spec.unavailable
+      : Array.isArray(state.unavailable)
+        ? state.unavailable
+        : []
+  ).filter(Boolean);
   const canDecide = Boolean(proposal.id && proposal.proposal_hash);
   return (
-    <section className="s04-card" data-testid="synthesis-proposal-state">
+    <section className="s04-card s04-proposal-card" data-testid="synthesis-proposal-state">
       <header className="s04-title">
         <div>
           <small>Review proposed change</small>
           <h2>{text(proposal.title, "Untitled proposal")}</h2>
         </div>
-        <em className="warn">Review required</em>
+        <em className={proposal.execution_preflight?.ok ? "success" : "warn"}>
+          {proposal.execution_preflight?.ok ? "Preflight passed · review required" : "Review required"}
+        </em>
       </header>
-      <div className="s04-resolved-list">
-        <strong>{text(proposal.summary, "The agent proposed a change to this durable construction.")}</strong>
-        <ul>
-          {operations.length ? (
-            operations.slice(0, 8).map((operation, index) => (
-              <li key={`${operation.op || operation.type || "change"}-${index}`}>
-                {text(operation.summary || operation.label || operation.path || operation.op || operation.type, "Structured state change")}
-              </li>
-            ))
-          ) : (
-            <li>No operation summary was returned. Inspect this proposal with Ask before deciding.</li>
-          )}
-        </ul>
-      </div>
+      <p className="s04-proposal-summary">
+        {text(proposal.summary, "The agent proposed a change to this durable construction.")}
+      </p>
       {proposal.execution_spec ? (
-        <div className="s04-method">
-          <div><dt>Input</dt><dd>{text(proposal.execution_spec.input_dataset_id, "Not reported")}</dd></div>
-          <div><dt>Output</dt><dd>{text(proposal.execution_spec.output_dataset_id, "Not reported")}</dd></div>
-          <div><dt>Grouping</dt><dd>{Array.isArray(proposal.execution_spec.group_by) ? proposal.execution_spec.group_by.join(" · ") : "Not reported"}</dd></div>
-          <div><dt>Metrics</dt><dd>{Array.isArray(proposal.execution_spec.metrics) ? proposal.execution_spec.metrics.length : "Not reported"}</dd></div>
+        <div className="s04-method-flow" aria-label="Proposed construction pipeline">
+          <article>
+            <small>Held input</small>
+            <strong>{softIdentifier(spec.input_dataset_id)}</strong>
+            <span>Registered Library evidence</span>
+          </article>
+          <b aria-hidden="true">→</b>
+          <article className="transform">
+            <small>Construction</small>
+            <strong>{groupBy.length ? `Group by ${groupBy.join(" + ")}` : "Aggregate all rows"}</strong>
+            <div>
+              {metrics.length
+                ? metrics.slice(0, 5).map((metric, index) => <span key={`${metricLabel(metric)}-${index}`}>{metricLabel(metric)}</span>)
+                : <span>Metric detail not reported</span>}
+            </div>
+          </article>
+          <b aria-hidden="true">→</b>
+          <article className="output">
+            <small>Proposed output</small>
+            <strong>{softIdentifier(spec.output_dataset_id)}</strong>
+            <span>Nothing is materialised yet</span>
+          </article>
         </div>
       ) : null}
+      <div className="s04-review-grid">
+        <section className="s04-resolved-list">
+          <small>Exact change set</small>
+          <ul>
+            {operations.length ? (
+              operations.slice(0, 8).map((operation, index) => (
+                <li key={`${operation.op || operation.type || "change"}-${index}`}>
+                  {text(operation.summary || operation.label || operation.path || operation.op || operation.type, "Structured state change")}
+                </li>
+              ))
+            ) : (
+              <li>No operation summary was returned. Inspect this proposal with Ask before deciding.</li>
+            )}
+          </ul>
+        </section>
+        <section className="s04-review-risks">
+          <small>Still not established</small>
+          {limitations.length || unknowns.length ? (
+            <ul>
+              {[...limitations, ...unknowns].slice(0, 5).map((item, index) => (
+                <li key={`${text(item)}-${index}`}>{text(item)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No additional limitation was recorded. Ask should still challenge construct validity before acceptance.</p>
+          )}
+        </section>
+      </div>
       {!canDecide ? <p className="s04-fixture">This proposal has no revision hash, so it cannot be accepted from the desk. Refresh it through Ask.</p> : null}
       <footer className="s04-actions">
         <p>
@@ -265,34 +366,81 @@ function ProposalReview({ thread, busy, onDecide, onAsk }) {
   );
 }
 
-function ExecutionRecord({ thread, busy, onRequest, onAsk, onOpenDataset }) {
+function executionTrack(status, registered) {
+  const normalized = text(status).toLowerCase().replace(/-/g, "_");
+  const approved = ["queued", "running", "registering", "archiving", "registered", "query_ready", "completed", "failed"].includes(normalized);
+  const workerDone = ["registering", "archiving", "registered", "query_ready", "completed"].includes(normalized);
+  const archiveDone = ["registered", "query_ready", "completed"].includes(normalized);
+  return [
+    { label: "Method accepted", detail: "Revision bound", state: "done" },
+    {
+      label: "Researcher approval",
+      detail: normalized === "pending_approval" ? "Decision required" : approved ? "Approved" : "Not requested",
+      state: normalized === "pending_approval" ? "now" : approved ? "done" : "",
+    },
+    {
+      label: "Worker build",
+      detail: normalized === "running" ? "Running" : normalized === "queued" ? "Queued" : workerDone ? "Completed" : normalized === "failed" ? "Failed" : "Waiting",
+      state: ["queued", "running", "failed"].includes(normalized) ? "now" : workerDone ? "done" : "",
+    },
+    {
+      label: "Archive + registry",
+      detail: ["registering", "archiving"].includes(normalized) ? "Verifying" : archiveDone ? "Verified" : "Waiting",
+      state: ["registering", "archiving"].includes(normalized) ? "now" : archiveDone ? "done" : "",
+    },
+    {
+      label: "Library handoff",
+      detail: registered ? "Reusable asset" : "Not registered",
+      state: registered ? "done" : "",
+    },
+  ];
+}
+
+function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDataset }) {
   const state = thread?.state || {};
   const execution = state.execution || {};
   const spec = state.execution_spec || {};
+  const rawStatus = text(execution.status).toLowerCase().replace(/-/g, "_");
   const status = text(execution.status, "not requested").replace(/_/g, " ");
   const outputId = threadOutput(thread);
   const mode = stateFor(thread);
   const queryReady = mode === "query_ready";
   const registered = mode === "registered" || queryReady;
   const failed = execution.status === "failed";
+  const pendingApproval = rawStatus === "pending_approval";
+  const active = ["queued", "running", "registering", "archiving"].includes(rawStatus);
   const hasSpec = Boolean(spec.input_dataset_id && spec.output_dataset_id);
+  const track = executionTrack(rawStatus, registered);
 
   return (
     <section className="s04-card" data-testid={queryReady ? "synthesis-query-ready-state" : registered ? "synthesis-registered-state" : failed ? "synthesis-failed-state" : "synthesis-execution-state"}>
       <header className="s04-title">
         <div>
           <small>{queryReady ? "Query-ready research asset" : registered ? "Registered research asset" : failed ? "Execution failed" : "Execution record"}</small>
-          <h2>{registered ? text(outputId, "Registered output") : text(spec.output_dataset_id, "No execution requested")}</h2>
+          <h2>{registered ? softIdentifier(outputId, "Registered output") : softIdentifier(spec.output_dataset_id, "No execution requested")}</h2>
         </div>
         <em className={registered ? "success" : failed ? "warn" : "neutral"}>{queryReady ? "Query ready" : registered ? "Registered" : status}</em>
       </header>
       {hasSpec ? (
         <dl className="s04-method">
-          <div><dt>Input</dt><dd>{text(spec.input_dataset_id)}</dd></div>
-          <div><dt>Output</dt><dd>{text(spec.output_dataset_id)}</dd></div>
+          <div><dt>Input</dt><dd>{softIdentifier(spec.input_dataset_id)}</dd></div>
+          <div><dt>Output</dt><dd>{softIdentifier(spec.output_dataset_id)}</dd></div>
           <div><dt>Group by</dt><dd>{Array.isArray(spec.group_by) ? spec.group_by.join(" · ") : "Not reported"}</dd></div>
           <div><dt>Metrics</dt><dd>{Array.isArray(spec.metrics) ? `${spec.metrics.length} defined` : "Not reported"}</dd></div>
         </dl>
+      ) : null}
+      {hasSpec ? (
+        <ol className="s04-exec-track" aria-label="Synthesis execution lifecycle">
+          {track.map((step, index) => (
+            <li key={step.label} className={step.state}>
+              <b>{step.state === "done" ? "✓" : index + 1}</b>
+              <span>
+                <strong>{step.label}</strong>
+                <small>{step.detail}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
       ) : null}
       <div className="s04-proof">
         <section>
@@ -308,7 +456,7 @@ function ExecutionRecord({ thread, busy, onRequest, onAsk, onOpenDataset }) {
           <dl>
             <div><dt>Archive</dt><dd>{execution.drive_verified ? "Reported verified" : "Not reported"}</dd></div>
             <div><dt>Registry</dt><dd>{queryReady ? "Query-ready output reported" : registered ? "Registered output reported" : "Not claimed"}</dd></div>
-            <div><dt>Output</dt><dd>{text(outputId, "Not registered")}</dd></div>
+            <div><dt>Output</dt><dd>{softIdentifier(outputId, "Not registered")}</dd></div>
           </dl>
         </section>
       </div>
@@ -326,8 +474,22 @@ function ExecutionRecord({ thread, busy, onRequest, onAsk, onOpenDataset }) {
                 ? "Requesting execution creates a durable job. Registration remains a separate verified outcome."
                 : "An accepted execution specification is required before this thread can request a build."}
         </p>
-        {registered ? <button type="button" className="rd-v2-btn primary" onClick={() => onOpenDataset?.({ dataset_id: outputId, name: outputId, analysis_readiness: "instant" })}>Open in Library</button> : null}
-        {!registered && hasSpec ? <button type="button" className="rd-v2-btn primary" disabled={busy || Boolean(execution.status)} onClick={onRequest}>Request execution</button> : null}
+        {registered ? (
+          <button
+            type="button"
+            className="rd-v2-btn primary"
+            onClick={() => onOpenDataset?.({
+              dataset_id: outputId,
+              name: outputId,
+              analysis_readiness: queryReady ? "query_ready" : "registered",
+            })}
+          >
+            Open in Library
+          </button>
+        ) : null}
+        {!registered && hasSpec && !rawStatus ? <button type="button" className="rd-v2-btn primary" disabled={busy} onClick={onRequest}>Request execution</button> : null}
+        {pendingApproval ? <button type="button" className="rd-v2-btn primary" onClick={() => onReview?.(execution)}>Review approval</button> : null}
+        {active ? <span className="s04-live-note">This thread refreshes automatically.</span> : null}
         <button type="button" className="rd-v2-btn" onClick={() => onAsk("Explain the exact execution state and which evidence is still missing before this output can be trusted.")}>Ask about execution</button>
       </footer>
     </section>
@@ -484,7 +646,7 @@ function EmptyWorkspace({ profiles, profilesLoading, profilesError, onStartBluep
   );
 }
 
-export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread, onBeginNew }) {
+export function SynthesisPage({ onAskComposer, onOpenDataset, onReviewExecution, onSelectThread, onBeginNew }) {
   const [threads, setThreads] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
@@ -746,7 +908,16 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread, on
             <>
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
-              {showExecution ? <ExecutionRecord thread={selected} busy={busy} onRequest={requestExecution} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
+              {showExecution ? (
+                <ExecutionRecord
+                  thread={selected}
+                  busy={busy}
+                  onRequest={requestExecution}
+                  onReview={onReviewExecution}
+                  onAsk={ask}
+                  onOpenDataset={onOpenDataset}
+                />
+              ) : null}
               {mode === "explore" ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
               {mode === "draft" ? <DraftCanvas thread={selected} onAsk={ask} /> : null}
             </>
