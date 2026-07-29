@@ -197,6 +197,13 @@ def test_rejects_false_execution_claim():
     assert checks["no_execution_claim"]["ok"] is False
 
 
+def test_query_ready_input_is_not_mistaken_for_synthesized_output():
+    from scripts.research_data_mcp.synthesis_acceptance import _execution_claim_patterns
+
+    assert _execution_claim_patterns("The held Asia panel is query-ready.") == []
+    assert _execution_claim_patterns("The synthesized output is now query-ready.")
+
+
 def test_case_file_is_complete_and_non_mutating():
     from scripts.research_data_mcp.synthesis_acceptance import case_workflow, load_cases
 

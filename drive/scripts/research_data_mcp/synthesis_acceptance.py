@@ -39,7 +39,12 @@ _FORBIDDEN_EXECUTION_CLAIMS = (
         r"\b(?:i|we|the system)\s+(?:have\s+)?(?:collected|executed|materialised|materialized|registered)\b",
         re.I,
     ),
-    re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
+    re.compile(
+        r"(?:^|[.!?]\s+)(?:the\s+)?(?:synthesized\s+|synthesised\s+)?"
+        r"(?:construct|synthesis|output|result|measure|panel|dataset)\s+"
+        r"(?:is|are)(?:\s+now)?\s+query[- ]ready\b",
+        re.I | re.M,
+    ),
     re.compile(
         r"\b(?:collection|execution|materialisation|materialization)\s+(?:is\s+)?complete\b",
         re.I,
@@ -171,6 +176,10 @@ def evaluate_response(case: dict[str, Any], result: dict[str, Any]) -> dict[str,
                     "proxy",
                     "could",
                     "would",
+                    "not a held",
+                    "not held",
+                    "does not exist",
+                    "not a ready-made",
                 )
             ),
         },
