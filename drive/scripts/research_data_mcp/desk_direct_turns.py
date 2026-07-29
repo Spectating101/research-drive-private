@@ -1030,7 +1030,7 @@ def try_direct_approve_job_turn(gateway: Any, message: str, state: dict[str, Any
             "history_kind": "collection_run",
         },
         reply=f"Approved job `{jid}` — status now **{status}**. Discover History should reflect the collection run.",
-        suggested_prompts=["Open Discover History", f"status"],
+        suggested_prompts=["Open Discover History", "status"],
         tool_name="procurement_approve_job",
     )
 
@@ -1194,6 +1194,26 @@ def try_direct_equipment_turn(
     if collect is not None:
         return collect
     return try_direct_search_turn(gateway, message, state)
+
+
+def try_direct_synthesis_read_turn(
+    gateway: Any,
+    message: str,
+    state: dict[str, Any],
+) -> AgentTurn | None:
+    """Allow only non-mutating direct equipment during a first Synthesis turn."""
+    for handler in (
+        try_direct_status_turn,
+        try_direct_discover_search_turn,
+        try_direct_probe_turn,
+        try_direct_describe_turn,
+        try_direct_query_turn,
+        try_direct_search_turn,
+    ):
+        turn = handler(gateway, message, state)
+        if turn is not None:
+            return turn
+    return None
 
 
 def _describe_reply(dataset_id: str, out: dict[str, Any]) -> str:

@@ -197,10 +197,17 @@ class ProcurementChatOrchestrator:
         sid = session["id"]
         state = dict(session.get("state") or {})
         self._bind_faculty_profile(state, user_email)
-        if isinstance(rail_context, dict) and rail_context:
-            from scripts.research_data_mcp.desk_asset_grounding import resolve_and_enrich_rail_context
+        if isinstance(rail_context, dict):
+            if rail_context:
+                from scripts.research_data_mcp.desk_asset_grounding import (
+                    resolve_and_enrich_rail_context,
+                )
 
-            state["rail_context"] = resolve_and_enrich_rail_context(gateway, rail_context)
+                state["rail_context"] = resolve_and_enrich_rail_context(
+                    gateway, rail_context
+                )
+            else:
+                state.pop("rail_context", None)
             # Warm-up reloads session state in a background worker. Persist the
             # UI scope first so a Synthesis turn cannot be downgraded to the
             # generic procurement contract during that reload.
@@ -216,7 +223,7 @@ class ProcurementChatOrchestrator:
             is_direct_status_message,
         )
 
-        rail = rail_context if isinstance(rail_context, dict) else state.get("rail_context")
+        rail = state.get("rail_context")
         rail_dict = rail if isinstance(rail, dict) else None
         skip_composer_priming = is_direct_equipment_message(message, rail_dict)
         direct_probe = is_direct_probe_message(message, rail_dict)

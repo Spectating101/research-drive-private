@@ -210,6 +210,7 @@ def _mcp_stdio_config(
     repo_root: Path,
     *,
     vault_primed: bool = False,
+    synthesis_read_only: bool = False,
     sdk: _CursorSdkBindings | None = None,
 ) -> dict[str, Any]:
     bindings = sdk or _load_cursor_sdk_bindings()
@@ -217,10 +218,17 @@ def _mcp_stdio_config(
     env["PYTHONPATH"] = _desk_pythonpath(repo_root)
     env["SHARPE_REPO_ROOT"] = str(repo_root)
     env["RESEARCH_MCP_DESK"] = "1"
+    if synthesis_read_only:
+        env["RESEARCH_MCP_SYNTHESIS_READ_ONLY"] = "1"
     if vault_primed:
         env["RESEARCH_MCP_VAULT_PRIMED"] = "1"
+    server_name = (
+        "research_procurement_synthesis_read_only"
+        if synthesis_read_only
+        else "research_procurement"
+    )
     return {
-        "research_procurement": bindings.stdio_mcp_server_config(
+        server_name: bindings.stdio_mcp_server_config(
             command=_repo_python(repo_root),
             args=["-m", "scripts.research_data_mcp.server", "--transport", "stdio"],
             cwd=str(repo_root),
@@ -513,7 +521,10 @@ def run_cursor_composer_turn(
     """Composer chooses tools freely via procurement MCP."""
     repo_root = Path(gateway.repo_root).resolve()
     from scripts.research_data_mcp.desk_synthesis_contract import (
+        first_turn_reply_is_acceptable,
         is_synthesis_context,
+        record_synthesis_turn,
+        synthesis_first_turn,
         synthesis_failure_reply,
         wrap_synthesis_request,
     )
@@ -543,10 +554,13 @@ def run_cursor_composer_turn(
         sdk = _load_cursor_sdk_bindings()
         model_candidates = _desk_composer_models()
         agent_id = str(state.get("cursor_agent_id") or "").strip()
+        composer_mode = "synthesis_read_only" if synthesis_context else "default"
+        if state.get("composer_context_mode") not in (None, composer_mode):
+            agent_id = ""
+            state.pop("cursor_agent_id", None)
+        state["composer_context_mode"] = composer_mode
         had_agent = bool(agent_id)
-        synthesis_first_turn = synthesis_context and not bool(
-            state.get("synthesis_user_turns")
-        )
+        first_synthesis_turn = synthesis_first_turn(state)
         user_text = message.strip()
         rail_prefix = _format_rail_context(state.get("rail_context") or {})
         if rail_prefix and rail_prefix not in user_text:
@@ -567,7 +581,7 @@ def run_cursor_composer_turn(
             user_text = wrap_first_turn_message(brief, user_text)
             vault_primed_env = True
         if synthesis_context:
-            if synthesis_first_turn:
+            if first_synthesis_turn:
                 from scripts.research_data_mcp.desk_synthesis_grounding import (
                     build_synthesis_grounding_brief,
                 )
@@ -577,17 +591,22 @@ def run_cursor_composer_turn(
                 user_text = f"{grounding}\n\n{user_text}"
             user_text = wrap_synthesis_request(
                 user_text,
-                first_user_turn=synthesis_first_turn,
+                first_user_turn=first_synthesis_turn,
             )
         mcp_servers = _mcp_stdio_config(
-            repo_root, vault_primed=vault_primed_env, sdk=sdk
+            repo_root,
+            vault_primed=vault_primed_env,
+            synthesis_read_only=synthesis_context,
+            sdk=sdk,
         )
         streamed: list[str] = []
         run = None
         reply = ""
         model_id = model_candidates[0]
+        tool_call_started = False
 
         def on_delta(update: Any) -> None:
+            nonlocal tool_call_started
             payload = _interaction_payload(update)
             typ = str(payload.get("type") or "")
             if typ == "text-delta":
@@ -597,6 +616,7 @@ def run_cursor_composer_turn(
                     _emit_event(event_sink, {"type": "delta", "text": chunk})
                 return
             if typ == "tool-call-started":
+                tool_call_started = True
                 tool_call = payload.get("tool_call") or {}
                 name = str(tool_call.get("name") or tool_call.get("toolName") or "")
                 label = _tool_activity_label(name)
@@ -606,6 +626,7 @@ def run_cursor_composer_turn(
         send_opts = sdk.send_options(mcp_servers=mcp_servers, on_delta=on_delta)
 
         for model_idx, model_id in enumerate(model_candidates):
+            send_started = False
             try:
                 agent_opts = sdk.agent_options(
                     model=sdk.model_selection(id=model_id),
@@ -626,10 +647,16 @@ def run_cursor_composer_turn(
                     turn_text = user_text
                     for attempt in range(2):
                         streamed.clear()
+                        send_started = True
                         run = agent.send(turn_text, send_opts)
                         run.wait()
                         reply = _reply_from_run(run, streamed)
-                        if reply or prime or attempt == 1:
+                        if (
+                            reply
+                            or prime
+                            or attempt == 1
+                            or tool_call_started
+                        ):
                             break
                         turn_text = (
                             f"{user_text}\n\n"
@@ -638,7 +665,7 @@ def run_cursor_composer_turn(
             except Exception:
                 can_retry_fresh = (
                     model_idx < len(model_candidates) - 1
-                    and (not had_agent or synthesis_first_turn)
+                    and not send_started
                 )
                 if not can_retry_fresh:
                     raise
@@ -655,10 +682,7 @@ def run_cursor_composer_turn(
             )
             if not is_model_error or model_idx == len(model_candidates) - 1:
                 break
-            if had_agent and not synthesis_first_turn:
-                break
-            agent_id = ""
-            state.pop("cursor_agent_id", None)
+            break
 
         if not reply:
             reply = EMPTY_REPLY_FALLBACK
@@ -723,7 +747,14 @@ def run_cursor_composer_turn(
         if prime and state.get("cursor_agent_id"):
             state["desk_primed"] = True
         if synthesis_context and not prime and not is_error:
-            state["synthesis_user_turns"] = int(state.get("synthesis_user_turns") or 0) + 1
+            if first_synthesis_turn:
+                action_result["synthesis_contract_validated"] = (
+                    first_turn_reply_is_acceptable(reply)
+                )
+            if not first_synthesis_turn or action_result.get(
+                "synthesis_contract_validated"
+            ):
+                record_synthesis_turn(state)
 
         from scripts.research_data_mcp.desk_asset_grounding import (
             grounding_from_rail,
@@ -793,9 +824,17 @@ def run_desk_agent_turn(
     event_sink: DeskEventSink | None = None,
 ) -> AgentTurn:
     _ = orchestrator, session_id
-    from scripts.research_data_mcp.desk_direct_turns import try_direct_equipment_turn
+    from scripts.research_data_mcp.desk_direct_turns import (
+        try_direct_equipment_turn,
+        try_direct_synthesis_read_turn,
+    )
+    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
 
-    direct = try_direct_equipment_turn(gateway, message, state)
+    direct = (
+        try_direct_synthesis_read_turn(gateway, message, state)
+        if synthesis_first_turn(state)
+        else try_direct_equipment_turn(gateway, message, state)
+    )
     if direct is not None:
         return direct
     return run_cursor_composer_turn(

@@ -108,6 +108,9 @@ def _install_empty_cursor(monkeypatch):
     cursor_types.AgentOptions = lambda **kwargs: kwargs
     cursor_types.ModelSelection = lambda **kwargs: kwargs
     cursor_types.SendOptions = lambda **kwargs: kwargs
+    cursor_types.StdioMcpServerConfig = lambda **kwargs: kwargs
+    cursor_types.LocalAgentOptions = lambda **kwargs: kwargs
+    cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
     monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
     monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
 
@@ -119,7 +122,9 @@ def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_pat
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
     monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
     monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
-    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root: {})
+    monkeypatch.setattr(
+        desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
+    )
     monkeypatch.setattr(
         desk_catalog_fallback,
         "try_inventory_fallback",
@@ -150,7 +155,9 @@ def test_empty_discover_turn_keeps_existing_inventory_fallback(monkeypatch, tmp_
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
     monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
     monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
-    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root: {})
+    monkeypatch.setattr(
+        desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
+    )
     monkeypatch.setattr(
         desk_catalog_fallback,
         "try_inventory_fallback",
@@ -247,12 +254,17 @@ def test_first_synthesis_turn_retries_fresh_model_after_resume_error(monkeypatch
     cursor_types.AgentOptions = lambda **kwargs: kwargs
     cursor_types.ModelSelection = lambda **kwargs: kwargs
     cursor_types.SendOptions = lambda **kwargs: kwargs
+    cursor_types.StdioMcpServerConfig = lambda **kwargs: kwargs
+    cursor_types.LocalAgentOptions = lambda **kwargs: kwargs
+    cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
     monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
     monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
     monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["primary", "backup"])
     monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
-    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root: {})
+    monkeypatch.setattr(
+        desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
+    )
 
     gateway = types.SimpleNamespace(repo_root=tmp_path)
     state = {
@@ -266,3 +278,76 @@ def test_first_synthesis_turn_retries_fresh_model_after_resume_error(monkeypatch
     assert turn.action_result["composer_model"] == "backup"
     assert turn.action_result["cursor_agent_id"] == "agent-backup"
     assert state["synthesis_user_turns"] == 1
+
+
+def test_synthesis_phase_is_tracked_per_thread():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        record_synthesis_turn,
+        synthesis_first_turn,
+    )
+
+    state = _state(
+        tab="synthesis",
+        mode="define",
+        thread_id="thread-a",
+        entity={"kind": "synthesis_thread", "id": "thread-a"},
+    )
+    assert synthesis_first_turn(state)
+    record_synthesis_turn(state)
+    assert not synthesis_first_turn(state)
+
+    state["rail_context"]["thread_id"] = "thread-b"
+    state["rail_context"]["entity"]["id"] = "thread-b"
+    assert synthesis_first_turn(state)
+
+
+def test_first_synthesis_turn_blocks_direct_collection(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain
+
+    called = {"collect": 0, "composer": 0}
+
+    class Gateway:
+        repo_root = tmp_path
+
+        def collect_datacite_doi(self, *_args, **_kwargs):
+            called["collect"] += 1
+            raise AssertionError("first-turn Synthesis must not collect")
+
+    def fake_composer(*_args, **_kwargs):
+        called["composer"] += 1
+        return desk_brain.AgentTurn(
+            plan={"action": "composer"},
+            action_result={"action": "composer"},
+            reply="I would propose a provisional proxy. Which horizon matters most?",
+        )
+
+    monkeypatch.setattr(desk_brain, "run_cursor_composer_turn", fake_composer)
+    state = _state(
+        tab="synthesis",
+        mode="define",
+        thread_id="thread-a",
+        entity={"kind": "synthesis_thread", "id": "thread-a"},
+    )
+    turn = desk_brain.run_desk_agent_turn(
+        None,
+        Gateway(),
+        "Collect DOI 10.5281/zenodo.12345",
+        state,
+    )
+
+    assert turn.action_result["action"] == "composer"
+    assert called == {"collect": 0, "composer": 1}
+
+
+def test_synthesis_mcp_registration_is_read_only(monkeypatch):
+    from scripts.research_data_mcp.mcp_register import registered_tool_names
+
+    monkeypatch.setenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "1")
+    names = set(registered_tool_names())
+    assert "research_query_dataset" in names
+    assert "research_synthesis_pair" in names
+    assert "bigquery_dry_run" in names
+    assert "research_synthesis_run" not in names
+    assert "datacite_collect_doi" not in names
+    assert "yzu_submit_job" not in names
+    assert "procurement_approve_job" not in names

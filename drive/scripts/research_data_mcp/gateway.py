@@ -1016,7 +1016,6 @@ class ResearchDataGateway:
                 "desk_session_cookie": bool(access_token_required()),
             },
         }
-        storage = getattr(self.orchestrator, "cfg", {}).get("storage") or {}
         from scripts.research_data_mcp.storage_tiers import storage_tiers_status
 
         tiers = storage_tiers_status(self.repo_root)
@@ -1109,10 +1108,10 @@ class ResearchDataGateway:
         hot = (out.get("desk") or {}).get("storage_tiers", {}).get("hot") or {}
         jobs = (out.get("desk") or {}).get("jobs") or {}
         warnings: list[str] = []
-        if composer_runtime.get("status") == "degraded":
+        if composer_runtime.get("status") in {"degraded", "stale", "unverified"}:
             warnings.append(
                 "composer_runtime="
-                f"{composer_runtime.get('error_category') or 'provider_error'}"
+                f"{composer_runtime.get('error_category') or composer_runtime.get('status')}"
             )
             out["status"] = "degraded"
         if hot.get("headroom_ok") is False:

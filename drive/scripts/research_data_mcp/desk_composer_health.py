@@ -9,6 +9,7 @@ from typing import Any
 
 _LOCK = threading.Lock()
 _LAST: dict[str, Any] = {}
+COMPOSER_HEALTH_TTL_SECONDS = 300
 
 
 def _utc_now() -> str:
@@ -60,7 +61,11 @@ def record_composer_failure(detail: Any, *, model: str = "") -> None:
         )
 
 
-def composer_runtime_status(*, configured: bool) -> dict[str, Any]:
+def composer_runtime_status(
+    *,
+    configured: bool,
+    max_age_seconds: int = COMPOSER_HEALTH_TTL_SECONDS,
+) -> dict[str, Any]:
     if not configured:
         return {
             "status": "unavailable",
@@ -81,6 +86,21 @@ def composer_runtime_status(*, configured: bool) -> dict[str, Any]:
             "model": "",
             "error_category": None,
         }
+    checked_at = str(latest.get("checked_at") or "")
+    try:
+        checked = datetime.fromisoformat(checked_at)
+        if checked.tzinfo is None:
+            checked = checked.replace(tzinfo=timezone.utc)
+        age_seconds = max(
+            0, int((datetime.now(timezone.utc) - checked).total_seconds())
+        )
+    except (TypeError, ValueError):
+        age_seconds = max(0, int(max_age_seconds)) + 1
+    latest["age_seconds"] = age_seconds
+    if age_seconds > max(0, int(max_age_seconds)):
+        latest["status"] = "stale"
+        latest["verified"] = False
+        latest["error_category"] = "stale_observation"
     latest["configured"] = True
     return latest
 

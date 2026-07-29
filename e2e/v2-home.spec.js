@@ -37,10 +37,12 @@ test.describe("v2 Home attention", () => {
     const queue = page.getByRole("region", { name: "Attention queue" });
     await queue.locator('[data-kind="approval"]').getByRole("button", { name: /^Open Approval/ }).click();
 
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    const reviewQueue = page.getByTestId("discover-queue-strip");
+    await expect(reviewQueue).toBeVisible();
+    await expect(reviewQueue).toContainText("Needs your review");
+    await reviewQueue.getByTestId("discover-queue-row").first().click();
     const rail = page.locator("aside.rd-v2-rail");
-    await expect(page).toHaveURL(/mode=(approvals|activity)/);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await expect(page.getByTestId("discover-activity")).toContainText("Review queue");
     await expect(rail.locator(".rd-v2-rail-selection")).toContainText("MOPS financial statements");
     await expect(rail.getByTestId("procurement-decision-card")).toBeVisible();
     await expect(rail).toContainText("job-pending-1");

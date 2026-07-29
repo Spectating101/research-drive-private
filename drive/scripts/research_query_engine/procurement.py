@@ -7,17 +7,17 @@ import json
 import re
 import socket
 import sqlite3
-import ssl
-import urllib.error
 import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from scripts.cluster_agent import network_policy
+
 
 MAX_SAMPLE_BYTES = 2 * 1024 * 1024
+MAX_PROBE_REDIRECTS = 5
 DATA_EXTENSIONS = {".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".zip", ".gz", ".parquet", ".xlsx", ".xml"}
 
 
@@ -43,19 +43,45 @@ def assert_public_url(url: str) -> urllib.parse.ParseResult:
     return parsed
 
 
-class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        assert_public_url(newurl)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+def _read_pinned_public_url(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float,
+    max_bytes: int,
+) -> tuple[str, int, dict[str, str], bytes, bool]:
+    """Read a bounded response through DNS-pinned public sockets and redirects."""
+    current = str(url or "").strip()
+    for redirect_count in range(MAX_PROBE_REDIRECTS + 1):
+        with network_policy.open_pinned_public_url(
+            current,
+            headers=headers,
+            timeout=timeout,
+        ) as response:
+            status = int(response.status)
+            response_headers = {
+                str(key).lower(): str(value)
+                for key, value in response.headers.items()
+            }
+            if status in {301, 302, 303, 307, 308}:
+                location = response_headers.get("location", "").strip()
+                if not location:
+                    raise ValueError("redirect response omitted Location")
+                if redirect_count >= MAX_PROBE_REDIRECTS:
+                    raise ValueError("too many public-source redirects")
+                current = urllib.parse.urljoin(current, location)
+                continue
+            body = response.read(max_bytes + 1)
+            return (
+                current,
+                status,
+                response_headers,
+                body[:max_bytes],
+                len(body) > max_bytes,
+            )
+    raise ValueError("too many public-source redirects")
 
 
-def _probe_ssl_context() -> ssl.SSLContext:
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        return ssl.create_default_context()
 class LinkParser(HTMLParser):
     def __init__(self, base_url: str):
         super().__init__()
@@ -134,25 +160,18 @@ class ProcurementWorkbench:
     def __init__(self, root: Path):
         self.root = root
         self.store = ConnectorStore(root / "procurement_connectors.sqlite3")
-        self.opener = urllib.request.build_opener(
-            SafeRedirectHandler(),
-            urllib.request.HTTPSHandler(context=_probe_ssl_context()),
-        )
 
     def probe(self, url: str, name: str = "") -> dict[str, Any]:
         parsed = assert_public_url(url)
-        request = urllib.request.Request(
+        final_url, status, headers, body, truncated = _read_pinned_public_url(
             url,
-            headers={"User-Agent": "ResearchDrive-Probe/1.0", "Range": f"bytes=0-{MAX_SAMPLE_BYTES - 1}"},
+            headers={
+                "User-Agent": "ResearchDrive-Probe/1.0",
+                "Range": f"bytes=0-{MAX_SAMPLE_BYTES - 1}",
+            },
+            timeout=45,
+            max_bytes=MAX_SAMPLE_BYTES,
         )
-        with self.opener.open(request, timeout=45) as response:
-            final_url = response.geturl()
-            assert_public_url(final_url)
-            body = response.read(MAX_SAMPLE_BYTES + 1)
-            truncated = len(body) > MAX_SAMPLE_BYTES
-            body = body[:MAX_SAMPLE_BYTES]
-            headers = {key.lower(): value for key, value in response.headers.items()}
-            status = response.status
 
         content_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
         access_mode = self._access_mode(final_url, content_type)
@@ -294,11 +313,15 @@ class ProcurementWorkbench:
     def _robots(self, parsed: urllib.parse.ParseResult) -> dict[str, Any]:
         url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/robots.txt", "", "", ""))
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "ResearchDrive-Probe/1.0"})
-            with self.opener.open(request, timeout=10) as response:
-                text = response.read(65536).decode("utf-8", errors="replace")
+            _, _, _, body, _ = _read_pinned_public_url(
+                url,
+                headers={"User-Agent": "ResearchDrive-Probe/1.0"},
+                timeout=10,
+                max_bytes=65536,
+            )
+            text = body.decode("utf-8", errors="replace")
             return {"url": url, "available": True, "disallow_all": bool(re.search(r"User-agent:\s*\*.*?Disallow:\s*/\s*$", text, re.I | re.M | re.S))}
-        except (OSError, urllib.error.URLError, ValueError):
+        except (OSError, ValueError):
             return {"url": url, "available": False, "disallow_all": False}
 
     def _recommend(self, access_mode: str, files: list[dict[str, str]], pagination: dict[str, Any]) -> str:
