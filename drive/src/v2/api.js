@@ -472,6 +472,17 @@ export function getSynthesisThread(threadId) {
   return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}`);
 }
 
+export function linkSynthesisThreadConversation(threadId, { sessionId, conversationId = "" } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/conversation`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      session_id: sessionId,
+      conversation_id: conversationId || undefined,
+    }),
+  });
+}
+
 export function createSynthesisThread({ objective, title = "", requiredGrain = "", sessionId = "" } = {}) {
   return fetchJson("/library/synthesis/threads", {
     method: "POST",
@@ -483,6 +494,11 @@ export function createSynthesisThread({ objective, title = "", requiredGrain = "
       session_id: sessionId || loadChatSessionId() || undefined,
     }),
   });
+}
+
+export function getChatSession(sessionId) {
+  if (!sessionId) return Promise.resolve(null);
+  return fetchJson(`/library/chat/${encodeURIComponent(sessionId)}`);
 }
 
 export function decideSynthesisProposal(threadId, { decision, proposalId, proposalHash } = {}) {

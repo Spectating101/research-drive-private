@@ -66,7 +66,7 @@ export function AskRail({
   const synthesisContext =
     dataset?.title && dataset.title !== "Synthesis studio"
       ? dataset.title
-      : "Historical stablecoin attention";
+      : "Synthesis studio";
   const hasThread = messages.length > 0;
   const discoverTitle = dataset?.title || dataset?.dataset_id || "";
   const railTitle = isProfile

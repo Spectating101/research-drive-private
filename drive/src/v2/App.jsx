@@ -1455,9 +1455,16 @@ export function V2App() {
           onAskComposer={askFromPrompt}
           onGoTab={goTab}
           onOpenDataset={openInLibraryFromDiscover}
+          onReviewExecution={(execution) => {
+            const jobId = execution?.job_id || "";
+            openDiscoverAwaiting({ job: jobId ? { id: jobId, status: "pending_approval" } : null });
+          }}
           onSelectThread={(thread) => {
             setActiveObject(synthesisThreadObject(thread));
-            setRailTab("detail");
+          }}
+          onBeginNew={() => {
+            setActiveObject(null);
+            setRailTab("ask");
           }}
         />
       );
@@ -1703,7 +1710,12 @@ export function V2App() {
                     }
                 : tab === "synthesis"
                   ? activeObject?.kind === "synthesis_thread"
-                    ? { title: activeObject.title, kind: "synthesis_thread" }
+                    ? {
+                        title: activeObject.title,
+                        kind: "synthesis_thread",
+                        thread_id: activeObject.id,
+                        session_id: activeObject.thread?.session_id || "",
+                      }
                     : { title: "Synthesis studio", kind: "synthesis_thread" }
                 : tab === "profile"
                   ? {

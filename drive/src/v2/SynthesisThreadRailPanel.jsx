@@ -22,13 +22,14 @@ function compactObjective(value) {
 function stateSummary(thread) {
   const state = thread?.state || {};
   const execution = state.execution || {};
-  const registered = execution.status === "registered" || thread?.materialisation === "registered";
+  const queryReady = execution.status === "query_ready" || thread?.materialisation === "query_ready";
+  const registered = queryReady || execution.status === "registered" || thread?.materialisation === "registered";
   if (registered) {
     return {
-      status: "Registered output",
+      status: queryReady ? "Query-ready output" : "Registered output",
       primary: "Open the reusable asset",
       risk: execution.drive_verified ? "Drive verification reported" : "Verification detail not reported",
-      next: "Inspect the registered asset in Library",
+      next: queryReady ? "Query or inspect the asset in Library" : "Inspect readiness in Library",
     };
   }
   if (execution.status === "failed") {
@@ -66,6 +67,7 @@ function stateSummary(thread) {
 export function SynthesisThreadRailPanel({ thread, onAskAbout, onOpenInLibrary }) {
   const state = thread?.state || {};
   const execution = state.execution || {};
+  const queryReady = execution.status === "query_ready" || thread?.materialisation === "query_ready";
   const outputId = execution.output_dataset_id || state.execution_spec?.output_dataset_id || "";
   const summary = stateSummary(thread);
   const sources = (state.nodes || [])
@@ -93,7 +95,11 @@ export function SynthesisThreadRailPanel({ thread, onAskAbout, onOpenInLibrary }
           <button
             type="button"
             className="rd-v2-btn primary"
-            onClick={() => onOpenInLibrary?.({ dataset_id: outputId, name: outputId, analysis_readiness: "instant" })}
+            onClick={() => onOpenInLibrary?.({
+              dataset_id: outputId,
+              name: outputId,
+              analysis_readiness: queryReady ? "query_ready" : "registered",
+            })}
           >
             Open in Library
           </button>

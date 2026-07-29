@@ -6,6 +6,7 @@ const renderDir = "artifacts/synthesis-renders";
 
 const EXPLORING_THREAD = {
   id: "thread-attention",
+  session_id: "synthesis-session-attention",
   created_at: "2026-07-19T08:00:00+00:00",
   updated_at: "2026-07-19T08:00:00+00:00",
   title: "Historical stablecoin attention",
@@ -46,13 +47,25 @@ const PROPOSAL_THREAD = {
     maturity: "review",
     maturityLabel: "Method review",
     lastActivity: "A bounded weekly aggregate was proposed.",
-    nodes: [],
+    nodes: [
+      {
+        id: "stablecoin_trust_engagement_weekly",
+        type: "source",
+        layer: "evidence",
+        label: "Stablecoin trust and engagement",
+        role: "Held input",
+        status: "held",
+        grain: "asset-week",
+        coverage: "2021–2026",
+      },
+    ],
     edges: [],
     proposal: {
       id: "proposal-weekly-v1",
       proposal_hash: "sha256:proposal-weekly-v1",
       title: "Aggregate held weekly panel",
       summary: "Aggregate the held evidence by week and preserve the input identity.",
+      execution_preflight: { ok: true },
       operations: [{ op: "update_spec", summary: "Use weekly aggregation and bounded metrics." }],
       execution_spec: {
         input_dataset_id: "stablecoin_trust_engagement_weekly",
@@ -61,6 +74,10 @@ const PROPOSAL_THREAD = {
         metrics: [{ field: "attention", aggregate: "mean" }],
       },
     },
+    limitations: [
+      "Search interest is a proxy for attention, not directly observed investor belief.",
+      "Weekly aggregation can hide short-lived event reactions.",
+    ],
   },
 };
 
@@ -176,6 +193,11 @@ async function installSynthesisThreadMock(page) {
       thread.updated_at = "2026-07-19T09:01:00+00:00";
       return respond(thread);
     }
+    if (suffix === "conversation" && method === "POST") {
+      const body = route.request().postDataJSON?.() || {};
+      thread.session_id = body.session_id || "";
+      return respond(thread);
+    }
     if (suffix === "execute" && method === "POST") {
       thread.state.execution = {
         status: "pending_approval",
@@ -192,6 +214,28 @@ async function installSynthesisThreadMock(page) {
     }
     return respond({ error: "unsupported mock route" }, 400);
   });
+
+  await page.route("**/api/library/chat/synthesis-session-attention", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session_id: "synthesis-session-attention",
+        messages: [
+          {
+            role: "user",
+            content: "Keep the primary horizon weekly.",
+            artifacts: {},
+          },
+          {
+            role: "assistant",
+            content: "The weekly horizon is attached to this project; daily evidence still requires an explicit aggregation rule.",
+            artifacts: { action: "synthesis_reasoning" },
+          },
+        ],
+      }),
+    }),
+  );
 }
 
 test.describe("v2 Synthesis durable thread surface", () => {
@@ -208,20 +252,34 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Search intent");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Historical stablecoin attention");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("3 mapped inputs");
+    await expect(page.getByTestId("rail-pane-ask")).toBeHidden();
     await expect(page.getByText("Nothing registered", { exact: true })).toBeVisible();
     await capture(page, "01-durable-evidence-desktop");
   });
 
   test("accepts a revision-bound proposal, then requests but does not fabricate execution", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
-    await expect(page.getByTestId("synthesis-proposal-state")).toContainText("Aggregate held weekly panel");
+    const proposal = page.getByTestId("synthesis-proposal-state");
+    await expect(proposal).toContainText("Aggregate held weekly panel");
+    await expect(proposal).toContainText("Held input");
+    await expect(proposal).toContainText("Proposed output");
+    await expect(proposal).toContainText("Nothing is materialised yet");
+    await expect(proposal).toContainText("Still not established");
+    await capture(page, "02-proposal-review-desktop");
     await page.getByRole("button", { name: "Accept proposal" }).click();
     await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
     await page.getByRole("button", { name: "Request execution" }).click();
     const pending = page.getByTestId("synthesis-execution-state");
     await expect(pending).toContainText("pending approval");
+    await expect(pending.getByRole("button", { name: "Review approval" })).toBeVisible();
+    await expect(pending.getByRole("button", { name: "Request execution" })).toHaveCount(0);
+    await expect(pending).toContainText("Researcher approval");
+    await expect(pending).toContainText("Archive + registry");
     await expect(pending.getByText("Query ready", { exact: true })).toHaveCount(0);
-    await capture(page, "02-execution-request-desktop");
+    await capture(page, "03-execution-request-desktop");
+    await pending.getByRole("button", { name: "Review approval" }).click();
+    await expect(page).toHaveURL(/tab=browse/);
+    await expect(page).toHaveURL(/mode=history/);
   });
 
   test("renders registered output only from thread registration evidence", async ({ page }) => {
@@ -233,7 +291,9 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(registered.getByText("Registered", { exact: true })).toBeVisible();
     await expect(registered.getByText("Query ready", { exact: true })).toHaveCount(0);
     await expect(registered.getByRole("button", { name: "Open in Library" })).toBeVisible();
-    await capture(page, "03-registered-desktop");
+    await expect(registered).toContainText("Library handoff");
+    await expect(registered).toContainText("Registered");
+    await capture(page, "04-registered-desktop");
   });
 
   test("renders query-ready only from an explicit query-ready lifecycle", async ({ page }) => {
@@ -248,22 +308,36 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.getByRole("button", { name: "Discuss construction in Ask" }).click();
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Ask · synthesis thread");
-    await expect(rail).toContainText("Synthesis thread context received for Historical stablecoin attention");
+    await expect(rail).toContainText("Keep the primary horizon weekly.");
+    await expect(rail).toContainText("Provisionally, Historical stablecoin attention");
+    await expect(rail).toContainText("construct validity and time alignment");
+    await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("rail-pane-detail")).toBeHidden();
     await expect(rail.getByTestId("ask-composer")).toHaveAttribute(
       "placeholder",
       "Correct the interpretation, add a constraint, or ask…",
     );
-    await capture(page, "04-shared-ask-desktop");
+    await capture(page, "05-shared-ask-desktop");
   });
 
   test("creates a durable thread before handing the objective to Ask", async ({ page }) => {
     await page.getByRole("button", { name: "+ New" }).click();
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("Synthesis studio");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Historical stablecoin attention");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Keep the primary horizon weekly.");
+    await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(250);
+    await capture(page, "06-new-project-entry-desktop");
     const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
     await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
-    await page.getByRole("button", { name: "Create thread & discuss" }).click();
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
     await expect(page.getByText(objective, { exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · synthesis thread");
-    await capture(page, "05-new-thread-ask-desktop");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText(`Provisionally, ${objective}`);
+    await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(250);
+    await capture(page, "07-new-project-ask-desktop");
   });
 
   test("keeps the right rail usable on mobile while the workspace remains source-backed", async ({ page }) => {
@@ -271,8 +345,38 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForShell(page);
     await expect(page.getByTestId("synthesis-evidence-state")).toBeVisible();
+    await expect(page.locator(".rd-v2-sidebar-foot-nav")).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
+      .toBe(true);
+    await capture(page, "08-durable-evidence-mobile");
     await page.getByRole("button", { name: /Show Detail.*Ask|Hide panel/ }).click();
-    await expect(page.locator("aside.rd-v2-rail")).toBeVisible();
-    await capture(page, "06-durable-evidence-mobile");
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toBeVisible();
+    await expect.poll(async () => (await rail.boundingBox())?.height || 0).toBeGreaterThan(600);
+    await expect(rail.getByTestId("rail-pane-detail")).toBeVisible();
+    await expect(rail).toContainText("3 mapped inputs");
+    await capture(page, "09-detail-sheet-mobile");
+    await rail.getByRole("tab", { name: "Ask" }).click();
+    await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await expect(rail.getByTestId("rail-pane-detail")).toBeHidden();
+    await expect(rail.getByTestId("ask-composer")).toBeVisible();
+    await page.waitForTimeout(250);
+    await capture(page, "10-ask-sheet-mobile");
+  });
+
+  test("keeps proposal review legible on mobile without flattening the method flow", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 1200 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
+    const proposal = page.getByTestId("synthesis-proposal-state");
+    await expect(proposal).toContainText("Held input");
+    await expect(proposal).toContainText("Construction");
+    await expect(proposal).toContainText("Proposed output");
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
+      .toBe(true);
+    await capture(page, "11-proposal-review-mobile");
   });
 });

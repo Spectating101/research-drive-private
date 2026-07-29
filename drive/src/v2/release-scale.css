@@ -542,4 +542,22 @@ body,
   .rd-v2-discover-craft-row .rd-v2-btn {
     width: 100%;
   }
+
+  /* Synthesis keeps the primary five destinations legible on the phone.
+     Profile and Settings remain available from the account surface; squeezing
+     seven icons into this tray caused Resources to collide with them. */
+  .rd-v2-shell:has(.rd-v2-synthesis-page) .yzu-sidebar {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .rd-v2-shell:has(.rd-v2-synthesis-page) .yzu-sidebar .rd-v2-sidebar-foot-nav {
+    display: none !important;
+  }
+
+  /* The inspector is an overlay sheet on mobile. Do not reserve its full
+     expanded height inside the Synthesis work surface; doing so trapped the
+     evidence map in a short scroller above a large dead zone. */
+  .rd-v2-shell:has(.rd-v2-synthesis-page):has(.yzu-inspector:not(.rd-v2-rail-collapsed)) .yzu-main {
+    padding-bottom: 132px;
+  }
 }
