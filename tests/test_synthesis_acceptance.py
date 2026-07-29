@@ -319,13 +319,17 @@ def test_construction_workflow_fixture_proof(monkeypatch, tmp_path: Path):
         def open_session(self):
             self.session_id = "sess-fixture"
 
+        def ensure_chat_session(self):
+            self.session_id = "sess-fixture"
+            return self.session_id
+
         def list_profile_ids(self):
             return {"skynet_etherscan_stablecoin"}
 
         def preflight_case(self, case):
             return {"ok": True, "query": case.get("retrieval_query"), "groups": []}
 
-        def run_case(self, case):
+        def run_case(self, case, *, thread_id=""):
             self.session_id = "sess-fixture"
             return {
                 "session_id": "sess-fixture",
@@ -346,11 +350,11 @@ def test_construction_workflow_fixture_proof(monkeypatch, tmp_path: Path):
                     "stay separate. Coverage gaps remain unknown."
                 ),
                 "action": "composer",
-                "artifacts": {"action": "composer", "synthesis_thread_id": "thread-fixture"},
+                "artifacts": {"action": "composer"},
             }
 
         def list_threads(self, session_id=""):
-            return []
+            return [{"id": "thread-fixture"}]
 
         def create_thread(self, case):
             return {"id": "thread-fixture"}
@@ -387,6 +391,96 @@ def test_construction_workflow_fixture_proof(monkeypatch, tmp_path: Path):
     assert report["cases"][0]["phases"]["construction_state"]["outcome"] == "passed"
 
 
+def test_construction_workflow_prepares_thread_before_chat(monkeypatch, tmp_path: Path):
+    from scripts.research_data_mcp import synthesis_acceptance
+
+    case_path = tmp_path / "cases.json"
+    case_path.write_text(
+        json.dumps({"cases": [_construction_case()]}),
+        encoding="utf-8",
+    )
+    call_order: list[str] = []
+    chat_thread_ids: list[str] = []
+
+    class FakeClient(synthesis_acceptance.SynthesisAcceptanceClient):
+        def open_session(self):
+            self.session_id = "sess-order"
+
+        def ensure_chat_session(self):
+            call_order.append("ensure_chat_session")
+            self.session_id = "sess-order"
+            return self.session_id
+
+        def list_profile_ids(self):
+            return set()
+
+        def preflight_case(self, case):
+            return {"ok": True, "query": "", "groups": []}
+
+        def create_thread(self, case):
+            call_order.append("create_thread")
+            return {"id": "thread-order"}
+
+        def link_thread(self, thread_id):
+            call_order.append("link_thread")
+            return {"id": thread_id, "session_id": self.session_id}
+
+        def run_case(self, case, *, thread_id=""):
+            call_order.append("run_case")
+            chat_thread_ids.append(thread_id)
+            return {
+                "reply": (
+                    "Provisionally, ASEAN trade and GDELT news could support a latent stress proxy. "
+                    "Survivorship and coverage remain risks. Which horizon should be primary?"
+                ),
+                "action": "composer",
+                "artifacts": {"action": "composer"},
+            }
+
+        def run_follow_up(self, case, thread_id=""):
+            call_order.append("run_follow_up")
+            chat_thread_ids.append(thread_id)
+            return {
+                "reply": (
+                    "A one-week horizon keeps port congestion as a logistics proxy while demand shocks "
+                    "stay separate. Coverage gaps remain unknown."
+                ),
+                "action": "composer",
+                "artifacts": {"action": "composer"},
+            }
+
+        def list_threads(self, session_id=""):
+            return [{"id": "thread-order"}]
+
+        def get_thread(self, thread_id):
+            return _construction_thread() | {"id": thread_id, "session_id": self.session_id}
+
+        def set_thread_proposal(self, thread_id, proposal):
+            thread = self.get_thread(thread_id)
+            thread["state"]["proposal"] = proposal | {"proposal_hash": "abc123"}
+            return thread
+
+    monkeypatch.setattr(synthesis_acceptance, "SynthesisAcceptanceClient", FakeClient)
+    report = synthesis_acceptance.run_battery(
+        "http://127.0.0.1:9",
+        cases_path=case_path,
+        workflow="construction_investigation",
+        proof_mode="fixture",
+    )
+
+    assert call_order[:4] == [
+        "ensure_chat_session",
+        "create_thread",
+        "link_thread",
+        "run_case",
+    ]
+    assert chat_thread_ids == ["thread-order", "thread-order"]
+    linkage = report["cases"][0]["phases"]["thread_linkage"]
+    assert linkage["linkage"]["source"] == "prepared"
+    assert linkage["checks"][2]["name"] == "no_duplicate_thread"
+    assert linkage["checks"][2]["ok"] is True
+
+
 def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Path):
     from scripts.research_data_mcp import synthesis_acceptance
 
@@ -396,10 +490,16 @@ def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Pat
         encoding="utf-8",
     )
     set_proposal_calls: list[tuple[str, dict]] = []
+    create_thread_calls: list[dict] = []
+    chat_thread_ids: list[str] = []
 
     class FakeClient(synthesis_acceptance.SynthesisAcceptanceClient):
         def open_session(self):
             self.session_id = "sess-provider"
+
+        def ensure_chat_session(self):
+            self.session_id = "sess-provider"
+            return self.session_id
 
         def list_profile_ids(self):
             return {"skynet_etherscan_stablecoin"}
@@ -407,7 +507,8 @@ def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Pat
         def preflight_case(self, case):
             return {"ok": True, "query": case.get("retrieval_query"), "groups": []}
 
-        def run_case(self, case):
+        def run_case(self, case, *, thread_id=""):
+            chat_thread_ids.append(thread_id)
             self.session_id = "sess-provider"
             return {
                 "session_id": "sess-provider",
@@ -421,6 +522,7 @@ def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Pat
             }
 
         def run_follow_up(self, case, thread_id=""):
+            chat_thread_ids.append(thread_id)
             return {
                 "session_id": "sess-provider",
                 "reply": (
@@ -428,13 +530,14 @@ def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Pat
                     "stay separate. Coverage gaps remain unknown."
                 ),
                 "action": "composer",
-                "artifacts": {"action": "composer", "synthesis_thread_id": "thread-provider"},
+                "artifacts": {"action": "composer"},
             }
 
         def list_threads(self, session_id=""):
-            return []
+            return [{"id": "thread-provider"}]
 
         def create_thread(self, case):
+            create_thread_calls.append(case)
             return {"id": "thread-provider"}
 
         def link_thread(self, thread_id):
@@ -472,6 +575,8 @@ def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Pat
     )
 
     assert set_proposal_calls == []
+    assert len(create_thread_calls) == 1
+    assert chat_thread_ids == ["thread-provider", "thread-provider"]
     assert report["proof_mode"] == "provider"
     assert report["outcome"] == "failed"
     case_report = report["cases"][0]
