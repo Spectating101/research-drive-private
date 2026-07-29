@@ -204,6 +204,26 @@ def test_query_ready_input_is_not_mistaken_for_synthesized_output():
     assert _execution_claim_patterns("The synthesized output is now query-ready.")
 
 
+def test_group_matching_normalizes_research_typography_and_asset_ids():
+    from scripts.research_data_mcp.synthesis_acceptance import _group_hits
+
+    text = (
+        "Synthesis Closure Acceptance Input is held at country\u2013week and "
+        "country\u00d7week grain with a news shock field."
+    )
+    groups = _group_hits(
+        text,
+        [
+            ["synthesis_acceptance_input", "synthesis closure acceptance input"],
+            ["country-week"],
+            ["country x week"],
+            ["news_shock"],
+        ],
+    )
+
+    assert all(group["ok"] for group in groups)
+
+
 def test_case_file_is_complete_and_non_mutating():
     from scripts.research_data_mcp.synthesis_acceptance import case_workflow, load_cases
 
