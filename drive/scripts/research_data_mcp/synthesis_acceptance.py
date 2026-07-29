@@ -99,12 +99,44 @@ def select_cases(
     return rows
 
 
+_MATCH_PUNCTUATION = str.maketrans(
+    {
+        "\u2010": " ",
+        "\u2011": " ",
+        "\u2012": " ",
+        "\u2013": " ",
+        "\u2014": " ",
+        "\u2212": " ",
+        "\u00d7": " ",
+        "_": " ",
+    }
+)
+
+
+def _match_form(value: str) -> str:
+    translated = str(value).lower().translate(_MATCH_PUNCTUATION)
+    translated = re.sub(r"\bx\b", " ", translated)
+    return " ".join(translated.split())
+
+
+def _compact_match_form(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", _match_form(value))
+
+
 def _group_hits(text: str, groups: list[list[str]]) -> list[dict[str, Any]]:
-    lowered = text.lower()
+    normalized = _match_form(text)
+    compact = _compact_match_form(text)
     out: list[dict[str, Any]] = []
     for group in groups:
         terms = [str(term).strip().lower() for term in group if str(term).strip()]
-        hits = [term for term in terms if term in lowered]
+        hits = []
+        for term in terms:
+            normalized_term = _match_form(term)
+            compact_term = _compact_match_form(term)
+            if normalized_term in normalized or (
+                len(compact_term) >= 6 and compact_term in compact
+            ):
+                hits.append(term)
         out.append({"terms": terms, "hits": hits, "ok": bool(hits)})
     return out
 
