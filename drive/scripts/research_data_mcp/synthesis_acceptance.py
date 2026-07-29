@@ -61,12 +61,23 @@ def evaluate_response(case: dict[str, Any], result: dict[str, Any]) -> dict[str,
     action = str(result.get("action") or artifacts.get("action") or "").strip()
 
     if action in _PROVIDER_ACTIONS:
+        provider_chain = {
+            "primary": str(artifacts.get("brain") or "cursor_composer"),
+            "primary_error": str(
+                artifacts.get("error") or artifacts.get("reason") or ""
+            ),
+            "fallback": str(artifacts.get("fallback") or ""),
+            "fallback_error_category": str(
+                artifacts.get("fallback_error_category") or ""
+            ),
+        }
         return {
             "id": case.get("id"),
             "title": case.get("title"),
             "outcome": "provider_failed",
             "action": action,
-            "provider_error": str(artifacts.get("error") or artifacts.get("reason") or ""),
+            "provider_error": provider_chain["primary_error"],
+            "provider_chain": provider_chain,
             "reply": reply,
             "checks": [],
         }

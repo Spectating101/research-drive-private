@@ -12,11 +12,18 @@ import re
 from typing import Any
 
 _SYNTHESIS_FALLBACK_THREAD = "__synthesis_session__"
-_FALSE_EXECUTION_CLAIM = re.compile(
-    r"\b(?:i|we|the system)\s+(?:have\s+)?"
-    r"(?:collected|executed|materialised|materialized|registered)\b"
-    r"|\b(?:is|are|now)\s+query[- ]ready\b",
-    re.IGNORECASE,
+_FALSE_EXECUTION_CLAIMS = (
+    re.compile(
+        r"\b(?:i|we|the system)\s+(?:have\s+)?"
+        r"(?:collected|executed|materialised|materialized|registered)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:collection|execution|materialisation|materialization)\s+"
+        r"(?:is\s+)?complete\b",
+        re.I,
+    ),
+    re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
 )
 
 
@@ -79,11 +86,18 @@ def synthesis_first_turn(state: dict[str, Any] | None) -> bool:
     return is_synthesis_context(state) and synthesis_turn_count(state) == 0
 
 
-def record_synthesis_turn(state: dict[str, Any]) -> None:
+def _advance_synthesis_phase(state: dict[str, Any]) -> None:
     """Advance only the current Synthesis thread, preserving the legacy counter."""
     key = synthesis_thread_key(state)
     counts = state.get("synthesis_thread_turns")
-    counts = dict(counts) if isinstance(counts, dict) else {}
+    if isinstance(counts, dict):
+        counts = dict(counts)
+    else:
+        try:
+            legacy_count = max(0, int(state.get("synthesis_user_turns") or 0))
+        except (TypeError, ValueError):
+            legacy_count = 0
+        counts = {key: legacy_count} if legacy_count else {}
     counts[key] = max(0, int(counts.get(key) or 0)) + 1
     state["synthesis_thread_turns"] = counts
     state["synthesis_user_turns"] = sum(
@@ -93,18 +107,7 @@ def record_synthesis_turn(state: dict[str, Any]) -> None:
 
 def first_turn_reply_is_acceptable(reply: str) -> bool:
     """Minimal deterministic gate before advancing a Synthesis thread phase."""
-    text = str(reply or "").strip()
-    lowered = text.casefold()
-    provisional = any(
-        marker in lowered
-        for marker in ("provisional", "propose", "candidate", "proxy", "could", "would")
-    )
-    return (
-        len(text) >= 40
-        and text.count("?") == 1
-        and provisional
-        and _FALSE_EXECUTION_CLAIM.search(text) is None
-    )
+    return not synthesis_reply_violations(reply, first_user_turn=True)
 
 
 def wrap_synthesis_request(user_text: str, *, first_user_turn: bool) -> str:
@@ -160,3 +163,74 @@ def synthesis_failure_reply(status: str = "") -> str:
         f"{detail}. I have not inferred a construct, selected proxies, or changed "
         "the project. Please retry; the same research context remains attached."
     )
+
+
+def synthesis_reply_violations(text: str, *, first_user_turn: bool) -> list[str]:
+    """Return contract violations that make a model reply unsafe to surface."""
+    reply = str(text or "").strip()
+    violations: list[str] = []
+    if not reply:
+        return ["empty_reply"]
+    if any(pattern.search(reply) for pattern in _FALSE_EXECUTION_CLAIMS):
+        violations.append("false_execution_claim")
+    if first_user_turn and len(reply) < 40:
+        violations.append("insufficient_substance")
+    if first_user_turn and reply.count("?") != 1:
+        violations.append("clarification_question_count")
+    if first_user_turn and not any(
+        marker in reply.lower()
+        for marker in ("provisional", "propose", "candidate", "proxy", "could", "would")
+    ):
+        violations.append("missing_provisional_language")
+    return violations
+
+
+def synthesis_history_brief(
+    state: dict[str, Any],
+    *,
+    max_turns: int = 6,
+    max_chars: int = 9000,
+) -> str:
+    """Render bounded prior turns when a stateless provider must take over."""
+    rows = state.get("synthesis_turn_history")
+    if not isinstance(rows, list) or not rows:
+        return ""
+    lines = [
+        "[Prior Synthesis turns]",
+        "Treat this transcript as project context, not as newly verified evidence.",
+    ]
+    for row in rows[-max(max_turns, 1) :]:
+        if not isinstance(row, dict):
+            continue
+        user = str(row.get("user") or "").strip()
+        assistant = str(row.get("assistant") or "").strip()
+        if user:
+            lines.append(f"Faculty: {user[:900]}")
+        if assistant:
+            lines.append(f"Synthesis: {assistant[:1800]}")
+    lines.append("[/Prior Synthesis turns]")
+    return "\n".join(lines)[:max_chars]
+
+
+def record_synthesis_turn(
+    state: dict[str, Any],
+    *,
+    user: str = "",
+    assistant: str = "",
+    provider: str = "",
+    max_turns: int = 8,
+) -> None:
+    """Advance the current thread and optionally retain bounded failover context."""
+    _advance_synthesis_phase(state)
+    if not (user or assistant or provider):
+        return
+    rows = state.get("synthesis_turn_history")
+    history = list(rows) if isinstance(rows, list) else []
+    history.append(
+        {
+            "user": str(user or "")[:1200],
+            "assistant": str(assistant or "")[:2600],
+            "provider": str(provider or "")[:80],
+        }
+    )
+    state["synthesis_turn_history"] = history[-max(max_turns, 1) :]

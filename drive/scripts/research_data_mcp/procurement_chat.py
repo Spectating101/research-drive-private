@@ -486,6 +486,7 @@ class ProcurementChatOrchestrator:
             "composer": "Composer is working with the research tools…",
             "composer_unavailable": "Composer is not configured…",
             "composer_error": "Composer hit an error…",
+            "synthesis_reasoning": "Reasoning from verified Library context…",
             "desk_session": "Searching vault and preparing your answer…",
             "search": "Searching the lab registry…",
             "discover_search": "Searching Discover catalog…",

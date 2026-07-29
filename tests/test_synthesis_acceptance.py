@@ -55,7 +55,34 @@ def test_provider_failure_is_not_scored_as_reasoning_failure():
 
     assert evaluated["outcome"] == "provider_failed"
     assert evaluated["provider_error"] == "internal error"
+    assert evaluated["provider_chain"]["primary"] == "cursor_composer"
+    assert evaluated["provider_chain"]["fallback"] == ""
     assert evaluated["checks"] == []
+
+
+def test_provider_failure_reports_the_fallback_chain():
+    from scripts.research_data_mcp.synthesis_acceptance import evaluate_response
+
+    result = {
+        "action": "composer_error",
+        "reply": "The Synthesis agent did not return a usable reasoning turn.",
+        "artifacts": {
+            "action": "composer_error",
+            "brain": "cursor_composer",
+            "error": "internal error",
+            "fallback": "gemini_failed",
+            "fallback_error_category": "authentication",
+        },
+    }
+    evaluated = evaluate_response(_case(), result)
+
+    assert evaluated["outcome"] == "provider_failed"
+    assert evaluated["provider_chain"] == {
+        "primary": "cursor_composer",
+        "primary_error": "internal error",
+        "fallback": "gemini_failed",
+        "fallback_error_category": "authentication",
+    }
 
 
 def test_rejects_inventory_dump_and_missing_clarification():

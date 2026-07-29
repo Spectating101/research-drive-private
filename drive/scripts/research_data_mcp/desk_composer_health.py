@@ -30,6 +30,8 @@ def _error_category(detail: Any) -> str:
         return "empty_reply"
     if "connection" in text or "network" in text:
         return "connection"
+    if "contract_violation" in text:
+        return "contract_violation"
     return "provider_error"
 
 
