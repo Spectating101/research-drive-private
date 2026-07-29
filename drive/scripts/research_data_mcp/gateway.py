@@ -1871,6 +1871,7 @@ class ResearchDataGateway:
             plan["title"],
             plan,
             {
+                "_ops_internal": True,
                 "thread_id": thread_id,
                 "objective": thread.get("objective") or "",
                 "search_goal": thread.get("objective") or "",
