@@ -964,6 +964,11 @@ class ResearchDataGateway:
         )
 
         composer_runtime = composer_runtime_status(configured=composer_ok)
+        from scripts.research_data_mcp.desk_synthesis_fallback import (
+            synthesis_fallback_runtime_status,
+        )
+
+        synthesis_fallback_runtime = synthesis_fallback_runtime_status()
         stats = self.orchestrator.stats()
         out: dict[str, Any] = {
             "status": "ok",
@@ -974,6 +979,7 @@ class ResearchDataGateway:
                 "composer_status": composer_runtime["status"],
                 "composer_runtime": composer_runtime,
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
+                "synthesis_fallback": synthesis_fallback_runtime,
                 "llm_configured": composer_ok,
                 "legacy_llm_configured": legacy_llm_configured(),
                 "jobs": stats,
@@ -988,7 +994,6 @@ class ResearchDataGateway:
                 "desk_session_cookie": bool(access_token_required()),
             },
         }
-        storage = getattr(self.orchestrator, "cfg", {}).get("storage") or {}
         from scripts.research_data_mcp.storage_tiers import storage_tiers_status
 
         tiers = storage_tiers_status(self.repo_root)
@@ -1087,6 +1092,11 @@ class ResearchDataGateway:
                 f"{composer_runtime.get('error_category') or 'provider_error'}"
             )
             out["status"] = "degraded"
+        if synthesis_fallback_runtime.get("status") == "degraded":
+            warnings.append(
+                "synthesis_fallback="
+                f"{synthesis_fallback_runtime.get('error_category') or 'provider_error'}"
+            )
         if hot.get("headroom_ok") is False:
             warnings.append(
                 f"nvme_headroom: {hot.get('free_gb')} GB free < min {hot.get('required_min_gb')} GB"

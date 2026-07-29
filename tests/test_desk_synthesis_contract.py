@@ -69,6 +69,46 @@ def test_synthesis_failure_never_claims_inventory_or_progress():
     assert "ready now" not in reply.lower()
 
 
+def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_reply_violations,
+    )
+
+    violations = synthesis_reply_violations(
+        (
+            "I have collected the final panel. Could this use a week? "
+            "Would a month be better?"
+        ),
+        first_user_turn=True,
+    )
+    assert "false_execution_claim" in violations
+    assert "clarification_question_count" in violations
+
+
+def test_synthesis_history_is_bounded_and_provider_neutral():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        record_synthesis_turn,
+        synthesis_history_brief,
+    )
+
+    state = {}
+    for index in range(10):
+        record_synthesis_turn(
+            state,
+            user=f"faculty-{index}",
+            assistant=f"answer-{index}",
+            provider="test-provider",
+            max_turns=8,
+        )
+
+    assert len(state["synthesis_turn_history"]) == 8
+    brief = synthesis_history_brief(state, max_turns=2)
+    assert "faculty-7" not in brief
+    assert "faculty-8" in brief
+    assert "faculty-9" in brief
+    assert "newly verified evidence" in brief
+
+
 def _install_empty_cursor(monkeypatch):
     class EmptyRun:
         status = "success"
@@ -113,13 +153,24 @@ def _install_empty_cursor(monkeypatch):
 
 
 def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_path):
-    from scripts.research_data_mcp import desk_brain, desk_catalog_fallback
+    from scripts.research_data_mcp import (
+        desk_brain,
+        desk_catalog_fallback,
+        desk_synthesis_fallback,
+    )
 
     _install_empty_cursor(monkeypatch)
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
     monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
     monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root: {})
+    monkeypatch.setattr(
+        desk_synthesis_fallback,
+        "run_gemini_synthesis_turn",
+        lambda _prompt: (_ for _ in ()).throw(
+            desk_synthesis_fallback.SynthesisFallbackError("not_configured")
+        ),
+    )
     monkeypatch.setattr(
         desk_catalog_fallback,
         "try_inventory_fallback",
@@ -137,7 +188,8 @@ def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_pat
     turn = desk_brain.run_cursor_composer_turn(gateway, "Build a proxy", state)
 
     assert turn.action_result["action"] == "composer_error"
-    assert turn.action_result["fallback"] == "none"
+    assert turn.action_result["fallback"] == "gemini_failed"
+    assert turn.action_result["fallback_error_category"] == "not_configured"
     assert turn.action_result["mode"] == "synthesis"
     assert "did not return a usable reasoning turn" in turn.reply
     assert state.get("synthesis_user_turns") is None
