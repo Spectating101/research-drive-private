@@ -475,12 +475,16 @@ export async function mockV2Api(
         : entity.kind === "external_candidate"
           ? `Source context received for ${entity.title || "selected candidate"}.`
           : entity.kind === "synthesis_thread"
-            ? `Synthesis thread context received for ${entity.title || "selected thread"}.`
-          : "Resources context received.";
+            ? (
+                `Provisionally, ${entity.title || "this construct"} should be treated as a latent research measure, not as an observed field. ` +
+                "The mapped Library inputs are candidate evidence: core signals support the construct, while validation sources test whether it behaves as intended. " +
+                "The main unresolved risk is construct validity and time alignment. Which signal should define the primary measure?"
+              )
+            : "Resources context received.";
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ session_id: "test-session", reply, action: "answer" }),
+      body: JSON.stringify({ session_id: body.session_id || "test-session", reply, action: "answer" }),
     });
   };
   await page.route("**/api/library/chat/stream", fulfillChat);

@@ -6,6 +6,7 @@ const renderDir = "artifacts/synthesis-renders";
 
 const EXPLORING_THREAD = {
   id: "thread-attention",
+  session_id: "synthesis-session-attention",
   created_at: "2026-07-19T08:00:00+00:00",
   updated_at: "2026-07-19T08:00:00+00:00",
   title: "Historical stablecoin attention",
@@ -176,6 +177,11 @@ async function installSynthesisThreadMock(page) {
       thread.updated_at = "2026-07-19T09:01:00+00:00";
       return respond(thread);
     }
+    if (suffix === "conversation" && method === "POST") {
+      const body = route.request().postDataJSON?.() || {};
+      thread.session_id = body.session_id || "";
+      return respond(thread);
+    }
     if (suffix === "execute" && method === "POST") {
       thread.state.execution = {
         status: "pending_approval",
@@ -192,6 +198,28 @@ async function installSynthesisThreadMock(page) {
     }
     return respond({ error: "unsupported mock route" }, 400);
   });
+
+  await page.route("**/api/library/chat/synthesis-session-attention", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session_id: "synthesis-session-attention",
+        messages: [
+          {
+            role: "user",
+            content: "Keep the primary horizon weekly.",
+            artifacts: {},
+          },
+          {
+            role: "assistant",
+            content: "The weekly horizon is attached to this project; daily evidence still requires an explicit aggregation rule.",
+            artifacts: { action: "synthesis_reasoning" },
+          },
+        ],
+      }),
+    }),
+  );
 }
 
 test.describe("v2 Synthesis durable thread surface", () => {
@@ -208,6 +236,7 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Search intent");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Historical stablecoin attention");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("3 mapped inputs");
+    await expect(page.getByTestId("rail-pane-ask")).toBeHidden();
     await expect(page.getByText("Nothing registered", { exact: true })).toBeVisible();
     await capture(page, "01-durable-evidence-desktop");
   });
@@ -248,7 +277,11 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.getByRole("button", { name: "Discuss construction in Ask" }).click();
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Ask · synthesis thread");
-    await expect(rail).toContainText("Synthesis thread context received for Historical stablecoin attention");
+    await expect(rail).toContainText("Keep the primary horizon weekly.");
+    await expect(rail).toContainText("Provisionally, Historical stablecoin attention");
+    await expect(rail).toContainText("construct validity and time alignment");
+    await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("rail-pane-detail")).toBeHidden();
     await expect(rail.getByTestId("ask-composer")).toHaveAttribute(
       "placeholder",
       "Correct the interpretation, add a constraint, or ask…",
@@ -258,12 +291,22 @@ test.describe("v2 Synthesis durable thread surface", () => {
 
   test("creates a durable thread before handing the objective to Ask", async ({ page }) => {
     await page.getByRole("button", { name: "+ New" }).click();
+    await expect(page.locator("aside.rd-v2-rail")).toContainText("Synthesis studio");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Historical stablecoin attention");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Keep the primary horizon weekly.");
+    await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(250);
+    await capture(page, "05-new-project-entry-desktop");
     const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
     await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
-    await page.getByRole("button", { name: "Create thread & discuss" }).click();
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
     await expect(page.getByText(objective, { exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · synthesis thread");
-    await capture(page, "05-new-thread-ask-desktop");
+    await expect(page.locator("aside.rd-v2-rail")).toContainText(`Provisionally, ${objective}`);
+    await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(250);
+    await capture(page, "06-new-project-ask-desktop");
   });
 
   test("keeps the right rail usable on mobile while the workspace remains source-backed", async ({ page }) => {
@@ -271,8 +314,20 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForShell(page);
     await expect(page.getByTestId("synthesis-evidence-state")).toBeVisible();
+    await expect(page.locator(".rd-v2-sidebar-foot-nav")).toBeHidden();
+    await capture(page, "07-durable-evidence-mobile");
     await page.getByRole("button", { name: /Show Detail.*Ask|Hide panel/ }).click();
-    await expect(page.locator("aside.rd-v2-rail")).toBeVisible();
-    await capture(page, "06-durable-evidence-mobile");
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toBeVisible();
+    await expect.poll(async () => (await rail.boundingBox())?.height || 0).toBeGreaterThan(600);
+    await expect(rail.getByTestId("rail-pane-detail")).toBeVisible();
+    await expect(rail).toContainText("3 mapped inputs");
+    await capture(page, "08-detail-sheet-mobile");
+    await rail.getByRole("tab", { name: "Ask" }).click();
+    await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    await expect(rail.getByTestId("rail-pane-detail")).toBeHidden();
+    await expect(rail.getByTestId("ask-composer")).toBeVisible();
+    await page.waitForTimeout(250);
+    await capture(page, "09-ask-sheet-mobile");
   });
 });

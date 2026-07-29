@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deskWarm, sendChatMessage } from "@/v2/api";
+import {
+  deskWarm,
+  getChatSession,
+  linkSynthesisThreadConversation,
+  sendChatMessage,
+} from "@/v2/api";
 import { normalizeActivityStep } from "@/v2/deskIntegration";
 import { clearChatSessionId, loadChatSessionId, loadUserEmail, saveChatSessionId } from "@/v2/deskSession";
 import { classifyAskIntent, shapeAskReplyForIntent } from "@/v2/askIntent";
@@ -15,16 +20,37 @@ function normalizeOutgoingMessage(value, fallback = "") {
   return { prompt, displayText: prompt };
 }
 
+function restoreMessage(row) {
+  const artifacts = row?.artifacts && typeof row.artifacts === "object" ? row.artifacts : {};
+  return {
+    role: row?.role === "assistant" ? "assistant" : row?.role === "error" ? "error" : "user",
+    text: String(row?.content || row?.text || ""),
+    action: artifacts.action,
+    toolName: artifacts.tool_name,
+    candidates: Array.isArray(artifacts.candidates) ? artifacts.candidates : [],
+    suggestedPrompts: Array.isArray(artifacts.suggestions) ? artifacts.suggestions : [],
+    nextSteps: Array.isArray(artifacts.next_steps) ? artifacts.next_steps : [],
+    pendingJobId: artifacts.job_id || artifacts.pending_job_id || null,
+    jobStatus: artifacts.job_status || artifacts.job?.status,
+  };
+}
+
 export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const sessionRef = useRef(loadChatSessionId());
+  const generalSessionRef = useRef(loadChatSessionId());
+  const sessionRef = useRef(generalSessionRef.current);
+  const previousContextKindRef = useRef(dataset?.kind || "");
   const warmStartedRef = useRef(false);
   const railRef = useRef(railContext);
   const busyRef = useRef(false);
   const intentRef = useRef("general");
+  const synthesisThreadId =
+    dataset?.kind === "synthesis_thread" ? String(dataset.thread_id || "") : "";
+  const synthesisSessionId =
+    dataset?.kind === "synthesis_thread" ? String(dataset.session_id || "") : "";
 
   useEffect(() => {
     railRef.current = railContext;
@@ -39,6 +65,42 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
       background: true,
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const contextKind = dataset?.kind || "";
+    const leavingSynthesis =
+      previousContextKindRef.current === "synthesis_thread" && contextKind !== "synthesis_thread";
+    previousContextKindRef.current = contextKind;
+    if (contextKind !== "synthesis_thread" && !leavingSynthesis) return undefined;
+
+    let cancelled = false;
+    setMessages([]);
+    setInput("");
+    setStatus("");
+
+    const targetSessionId =
+      contextKind === "synthesis_thread" ? synthesisSessionId : generalSessionRef.current;
+    if (!targetSessionId) {
+      sessionRef.current = "";
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    sessionRef.current = targetSessionId;
+    getChatSession(targetSessionId)
+      .then((session) => {
+        if (cancelled) return;
+        const rows = Array.isArray(session?.messages) ? session.messages : [];
+        setMessages(rows.map(restoreMessage));
+      })
+      .catch(() => {
+        if (!cancelled) setMessages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset?.kind, synthesisThreadId, synthesisSessionId]);
 
   const contextPrefix = dataset?.dataset_id
     ? `[context: ${dataset.dataset_id}] `
@@ -115,7 +177,16 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
 
         if (out.session_id) {
           sessionRef.current = out.session_id;
-          saveChatSessionId(out.session_id);
+          if (synthesisThreadId) {
+            if (out.session_id !== synthesisSessionId) {
+              linkSynthesisThreadConversation(synthesisThreadId, {
+                sessionId: out.session_id,
+              }).catch(() => {});
+            }
+          } else {
+            generalSessionRef.current = out.session_id;
+            saveChatSessionId(out.session_id);
+          }
         }
         const reply = out.reply || out.message || "Done.";
         const artifacts = out.artifacts || {};
@@ -129,7 +200,10 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           );
         if (composerBroken) {
           sessionRef.current = "";
-          clearChatSessionId();
+          if (!synthesisThreadId) {
+            generalSessionRef.current = "";
+            clearChatSessionId();
+          }
         }
         const pendingJobId =
           artifacts.job?.id || statePatch.pending_job_id || out.pending_job_id || null;
@@ -221,7 +295,14 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         intentRef.current = "general";
       }
     },
-    [contextPrefix, input, onCollected, onToast],
+    [
+      contextPrefix,
+      input,
+      onCollected,
+      onToast,
+      synthesisSessionId,
+      synthesisThreadId,
+    ],
   );
 
   return {
