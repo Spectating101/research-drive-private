@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import os
-
-from mcp.server.fastmcp import FastMCP
+from typing import TYPE_CHECKING
 
 from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES, ResearchToolHandlers
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
 SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
     {
