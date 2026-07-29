@@ -34,6 +34,8 @@ WORKFLOW_CONSTRUCTION = "construction_investigation"
 _PROVIDER_ACTIONS = frozenset(
     {"composer_error", "composer_unavailable", "composer_pending"}
 )
+_COMPOSER_POLL_INTERVAL = 0.5
+_COMPOSER_POLL_TIMEOUT_CAP = 120.0
 _FORBIDDEN_EXECUTION_CLAIMS = (
     re.compile(
         r"\b(?:i|we|the system)\s+(?:have\s+)?(?:collected|executed|materialised|materialized|registered)\b",
@@ -105,6 +107,121 @@ def _group_hits(text: str, groups: list[list[str]]) -> list[dict[str, Any]]:
         hits = [term for term in terms if term in lowered]
         out.append({"terms": terms, "hits": hits, "ok": bool(hits)})
     return out
+
+
+def _chat_action(result: dict[str, Any]) -> str:
+    artifacts = result.get("artifacts")
+    artifacts = artifacts if isinstance(artifacts, dict) else {}
+    return str(result.get("action") or artifacts.get("action") or "").strip()
+
+
+def _is_composer_pending(result: dict[str, Any]) -> bool:
+    return _chat_action(result) == "composer_pending"
+
+
+def _chat_result_from_assistant_message(
+    session: dict[str, Any],
+    message: dict[str, Any],
+) -> dict[str, Any]:
+    artifacts = message.get("artifacts")
+    artifacts = artifacts if isinstance(artifacts, dict) else {}
+    action = str(artifacts.get("action") or "composer").strip()
+    return {
+        "session_id": str(session.get("session_id") or "").strip(),
+        "reply": str(message.get("content") or "").strip(),
+        "action": action,
+        "artifacts": artifacts,
+    }
+
+
+def find_background_completion(
+    session: dict[str, Any],
+    *,
+    pending_reply: str = "",
+) -> dict[str, Any] | None:
+    """Reconstruct a completed chat turn from session messages after composer_pending clears."""
+    messages = session.get("messages")
+    if not isinstance(messages, list):
+        return None
+    pending_reply = pending_reply.strip()
+    pending_index = -1
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        artifacts = message.get("artifacts")
+        artifacts = artifacts if isinstance(artifacts, dict) else {}
+        content = str(message.get("content") or "").strip()
+        if (
+            str(artifacts.get("action") or "").strip() == "composer_pending"
+            or (pending_reply and content == pending_reply)
+        ):
+            pending_index = index
+
+    candidates = messages[pending_index + 1 :] if pending_index >= 0 else messages
+    for message in reversed(candidates):
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        artifacts = message.get("artifacts")
+        artifacts = artifacts if isinstance(artifacts, dict) else {}
+        action = str(artifacts.get("action") or "").strip()
+        if action == "composer_pending":
+            continue
+        content = str(message.get("content") or "").strip()
+        if pending_reply and content == pending_reply:
+            continue
+        if artifacts.get("background_completion"):
+            return _chat_result_from_assistant_message(session, message)
+        if pending_index >= 0 and action in _PROVIDER_ACTIONS - {"composer_pending"}:
+            return _chat_result_from_assistant_message(session, message)
+        if pending_index >= 0 and action and action not in _PROVIDER_ACTIONS:
+            return _chat_result_from_assistant_message(session, message)
+    return None
+
+
+def composer_pending_timeout_result(
+    *,
+    session_id: str = "",
+    error: str = "composer pending polling timed out",
+) -> dict[str, Any]:
+    return {
+        "session_id": session_id,
+        "action": "composer_error",
+        "reply": "The Synthesis agent did not return a usable reasoning turn.",
+        "artifacts": {"action": "composer_error", "error": error},
+    }
+
+
+def wait_for_composer_completion(
+    client: SynthesisAcceptanceClient,
+    pending: dict[str, Any],
+    *,
+    poll_interval: float = _COMPOSER_POLL_INTERVAL,
+    poll_timeout: float | None = None,
+) -> dict[str, Any]:
+    """Poll session state until a background Composer turn finishes or times out."""
+    session_id = str(pending.get("session_id") or client.session_id or "").strip()
+    if not session_id:
+        return pending
+    deadline = time.monotonic() + (
+        poll_timeout if poll_timeout is not None else min(client.timeout, _COMPOSER_POLL_TIMEOUT_CAP)
+    )
+    pending_reply = str(pending.get("reply") or "").strip()
+    while time.monotonic() < deadline:
+        try:
+            session = client.get_chat_session(session_id)
+        except (OSError, urllib.error.URLError, json.JSONDecodeError):
+            time.sleep(poll_interval)
+            continue
+        state = session.get("state")
+        state = state if isinstance(state, dict) else {}
+        if state.get("composer_pending"):
+            time.sleep(poll_interval)
+            continue
+        completed = find_background_completion(session, pending_reply=pending_reply)
+        if completed:
+            return completed
+        time.sleep(poll_interval)
+    return composer_pending_timeout_result(session_id=session_id)
 
 
 def _provider_failure(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any] | None:
@@ -462,11 +579,17 @@ class SynthesisAcceptanceClient:
         """Bootstrap a durable procurement chat session id before the first turn."""
         if self.session_id:
             return self.session_id
-        result = self._post("/library/desk/warm", {"background": True})
+        result = self._post("/library/desk/warm", {"background": False})
         sid = str(result.get("session_id") or "").strip()
         if sid:
             self.session_id = sid
         return self.session_id
+
+    def get_chat_session(self, session_id: str = "") -> dict[str, Any]:
+        sid = str(session_id or self.session_id or "").strip()
+        if not sid:
+            raise ValueError("session_id is required")
+        return self._get(f"/library/chat/{urllib.parse.quote(sid, safe='')}", {})
 
     def list_profile_ids(self) -> set[str]:
         payload = self._get("/library/synthesis/profiles", {})
@@ -527,6 +650,8 @@ class SynthesisAcceptanceClient:
         sid = str(result.get("session_id") or "").strip()
         if sid:
             self.session_id = sid
+        if _is_composer_pending(result):
+            result = wait_for_composer_completion(self, result)
         return result
 
     def run_case(self, case: dict[str, Any], *, thread_id: str = "") -> dict[str, Any]:

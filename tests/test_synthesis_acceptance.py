@@ -756,6 +756,187 @@ def test_battery_classifies_transport_failure(monkeypatch, tmp_path: Path):
     assert report["cases"] == []
 
 
+def test_ensure_chat_session_uses_synchronous_warm(monkeypatch):
+    from scripts.research_data_mcp.synthesis_acceptance import SynthesisAcceptanceClient
+
+    client = SynthesisAcceptanceClient("http://example.test")
+    posted: list[dict] = []
+
+    def fake_post(path, payload):
+        posted.append({"path": path, "payload": payload})
+        return {"session_id": "sess-warm"}
+
+    monkeypatch.setattr(client, "_post", fake_post)
+    assert client.ensure_chat_session() == "sess-warm"
+    assert posted == [
+        {"path": "/library/desk/warm", "payload": {"background": False}},
+    ]
+    assert client.ensure_chat_session() == "sess-warm"
+    assert len(posted) == 1
+
+
+def test_find_background_completion_prefers_marked_assistant_turn():
+    from scripts.research_data_mcp.synthesis_acceptance import find_background_completion
+
+    session = {
+        "session_id": "sess-1",
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "Composer is still working (30s).",
+                "artifacts": {"action": "composer_pending", "still_working": True},
+            },
+            {
+                "role": "assistant",
+                "content": (
+                    "Provisionally, ASEAN trade and GDELT news could support a latent stress proxy. "
+                    "Survivorship and coverage remain risks. Which horizon should be primary?"
+                ),
+                "artifacts": {"action": "composer", "background_completion": True},
+            },
+        ],
+    }
+    completed = find_background_completion(
+        session,
+        pending_reply="Composer is still working (30s).",
+    )
+
+    assert completed is not None
+    assert completed["action"] == "composer"
+    assert completed["artifacts"]["background_completion"] is True
+    assert "Which horizon should be primary?" in completed["reply"]
+
+
+def test_find_background_completion_never_reuses_pre_pending_turn():
+    from scripts.research_data_mcp.synthesis_acceptance import find_background_completion
+
+    pending_reply = "Composer is still working."
+    session = {
+        "session_id": "sess-1",
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "Earlier completed first turn.",
+                "artifacts": {"action": "composer"},
+            },
+            {
+                "role": "assistant",
+                "content": pending_reply,
+                "artifacts": {"action": "composer_pending"},
+            },
+        ],
+    }
+
+    assert find_background_completion(session, pending_reply=pending_reply) is None
+
+
+def test_wait_for_composer_completion_times_out(monkeypatch):
+    from scripts.research_data_mcp.synthesis_acceptance import (
+        SynthesisAcceptanceClient,
+        evaluate_response,
+        wait_for_composer_completion,
+    )
+
+    client = SynthesisAcceptanceClient("http://example.test", timeout=5.0)
+    client.session_id = "sess-timeout"
+    pending = {
+        "session_id": "sess-timeout",
+        "action": "composer_pending",
+        "reply": "Composer is still working.",
+        "artifacts": {"action": "composer_pending", "still_working": True},
+    }
+
+    def fake_get_session(_session_id=""):
+        return {
+            "session_id": "sess-timeout",
+            "state": {"composer_pending": True},
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": pending["reply"],
+                    "artifacts": pending["artifacts"],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(client, "get_chat_session", fake_get_session)
+    monkeypatch.setattr("scripts.research_data_mcp.synthesis_acceptance.time.sleep", lambda *_args: None)
+
+    resolved = wait_for_composer_completion(
+        client,
+        pending,
+        poll_interval=0.01,
+        poll_timeout=0.05,
+    )
+    evaluated = evaluate_response(_case(), resolved)
+
+    assert resolved["action"] == "composer_error"
+    assert "timed out" in resolved["artifacts"]["error"]
+    assert evaluated["outcome"] == "provider_failed"
+
+
+def test_run_chat_resolves_composer_pending_before_grading(monkeypatch):
+    from scripts.research_data_mcp.synthesis_acceptance import (
+        SynthesisAcceptanceClient,
+        evaluate_response,
+    )
+
+    client = SynthesisAcceptanceClient("http://example.test")
+    client.session_id = "sess-bg"
+    poll_calls = {"count": 0}
+
+    def fake_post(path, payload):
+        if path == "/library/chat":
+            return {
+                "session_id": "sess-bg",
+                "action": "composer_pending",
+                "reply": "Composer is still working (45s).",
+                "artifacts": {"action": "composer_pending", "still_working": True},
+            }
+        raise AssertionError(path)
+
+    def fake_get_session(_session_id=""):
+        poll_calls["count"] += 1
+        if poll_calls["count"] < 2:
+            return {
+                "session_id": "sess-bg",
+                "state": {"composer_pending": True},
+                "messages": [],
+            }
+        return {
+            "session_id": "sess-bg",
+            "state": {},
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Composer is still working (45s).",
+                    "artifacts": {"action": "composer_pending", "still_working": True},
+                },
+                {
+                    "role": "assistant",
+                    "content": (
+                        "Provisionally, JKSE PIT and IDN FRY microstructure could support the proxy. "
+                        "Survivorship, entity mapping, and unverified retail identities remain risks. "
+                        "Which coordination horizon should be primary: same-day, two-day, or one-week?"
+                    ),
+                    "artifacts": {"action": "composer", "background_completion": True},
+                },
+            ],
+        }
+
+    monkeypatch.setattr(client, "_post", fake_post)
+    monkeypatch.setattr(client, "get_chat_session", fake_get_session)
+    monkeypatch.setattr("scripts.research_data_mcp.synthesis_acceptance.time.sleep", lambda *_args: None)
+
+    resolved = client.run_chat("Define a proxy", _case())
+    evaluated = evaluate_response(_case(), resolved)
+
+    assert poll_calls["count"] >= 2
+    assert resolved["action"] == "composer"
+    assert resolved["artifacts"]["background_completion"] is True
+    assert evaluated["outcome"] == "passed"
+
+
 def test_preflight_combines_search_details_and_synthesis_profiles(monkeypatch):
     from scripts.research_data_mcp.synthesis_acceptance import (
         SynthesisAcceptanceClient,
