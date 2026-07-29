@@ -26,6 +26,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/catalog", "handler": "library_catalog"},
     {"method": "GET", "path": "/library/search", "handler": "library_unified_search"},
     {"method": "GET", "path": "/library/discover", "handler": "library_discover"},
+    {"method": "POST", "path": "/library/discover/assessment", "handler": "library_discover_assessment"},
     {"method": "POST", "path": "/library/discover/semantic", "handler": "library_discover_semantic"},
     {"method": "GET", "path": "/library/discover/web", "handler": "library_discover_web"},
     {"method": "POST", "path": "/library/discover/probe", "handler": "library_discover_probe"},
@@ -345,6 +346,18 @@ def _handlers() -> dict[str, Handler]:
         )
         if q.strip():
             _activity(stack, "discover", q[:200], meta={"limit": query.get("limit"), "total": out.get("total")})
+        return out
+
+    def library_discover_assessment(stack, query, payload, params):
+        requirement = payload.get("requirement")
+        if requirement is not None and not isinstance(requirement, dict):
+            raise ValueError("requirement must be an object when provided")
+        out = stack.gateway.discover_assessment(
+            str(payload.get("question") or ""),
+            requirement=requirement,
+            limit=int(payload.get("limit") or 100),
+        )
+        _activity(stack, "discover_assessment", str(payload.get("question") or "")[:200], meta={"verdict": out.get("verdict")})
         return out
 
     def library_discover_semantic(stack, query, payload, params):
@@ -1345,6 +1358,7 @@ def _handlers() -> dict[str, Handler]:
         "library_catalog": library_catalog,
         "library_unified_search": library_unified_search,
         "library_discover": library_discover,
+        "library_discover_assessment": library_discover_assessment,
         "library_discover_semantic": library_discover_semantic,
         "library_discover_web": library_discover_web,
         "library_discover_probe": library_discover_probe,
