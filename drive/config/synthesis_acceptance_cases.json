@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "contract": "synthesis_first_turn",
+  "version": 2,
+  "contracts": ["synthesis_first_turn", "synthesis_construction_investigation"],
   "cases": [
     {
       "id": "idn_retail_coordination",
@@ -87,6 +87,73 @@
         ["proxy"],
         ["latent", "construct validity"]
       ]
+    },
+    {
+      "workflow": "construction_investigation",
+      "id": "asean_supply_chain_stress",
+      "title": "ASEAN supply-chain stress exposure (novel construct)",
+      "required_grain": "country-week",
+      "retrieval_query": "ASEAN trade shipping GDELT news market returns supply chain",
+      "request": "Design a country-week ASEAN supply-chain stress exposure measure from 2014 through 2026 that does not exist as a held synthesis profile. Use held trade, shipping, news, and market evidence where defensible. Separate logistics disruption from demand shock, preserve point-in-time news timing, retain source and coverage flags, and treat stress as latent rather than directly observed. On this first turn, interpret the construct, verify the strongest held assets, identify the central ambiguity, and ask exactly one clarification. Do not collect, execute, or materialise anything.",
+      "follow_up": "Use a one-week primary horizon and treat port congestion as a proxy for logistics stress rather than a direct measure. Keep demand-shock and logistics-disruption components separate.",
+      "expected_asset_groups": [
+        ["gdelt", "news"],
+        ["trade", "shipping", "port"],
+        ["market", "returns"]
+      ],
+      "required_risk_groups": [
+        ["latent", "proxy"],
+        ["point-in-time", "timing", "leakage"],
+        ["coverage", "country coverage"],
+        ["logistics", "demand shock", "disruption"]
+      ],
+      "expected_follow_up_groups": [
+        ["one-week", "week"],
+        ["port", "congestion", "logistics"],
+        ["demand", "disruption"]
+      ],
+      "required_construction_groups": [
+        ["input", "held", "trade"],
+        ["proxy", "port", "congestion"],
+        ["transform", "country-week", "aggregate"],
+        ["assumption", "provisional"],
+        ["unknown", "coverage", "ambiguous"]
+      ],
+      "submit_execution": false,
+      "proposal_fixture": {
+        "id": "acceptance-asean-stress-v1",
+        "title": "Record investigated ASEAN stress construction",
+        "summary": "Grounded inputs, proxies, transforms, assumptions, and unknowns from the two-turn investigation.",
+        "operations": [
+          {
+            "op": "update_spec",
+            "patch": {
+              "coreEvidence": [
+                "held ASEAN trade panel",
+                "GDELT country-week news shock features"
+              ],
+              "construction": [
+                "input: held trade and shipping evidence",
+                "proxy: port congestion as logistics-stress component",
+                "transform: country-week aggregation with one-week primary horizon",
+                "assumption: stress remains latent and provisional",
+                "unknown: country coverage gaps and ambiguous demand-vs-logistics attribution"
+              ],
+              "limitations": [
+                "news timing must stay point-in-time",
+                "proxy congestion is not direct logistics stress"
+              ],
+              "unavailable": [
+                "verified real-time port throughput for every ASEAN market"
+              ]
+            }
+          },
+          {
+            "op": "append_activity",
+            "message": "Acceptance harness recorded the investigated construction state."
+          }
+        ]
+      }
     }
   ]
 }
