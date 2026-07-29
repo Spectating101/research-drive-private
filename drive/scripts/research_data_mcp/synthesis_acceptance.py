@@ -160,8 +160,9 @@ class SynthesisAcceptanceClient:
 
     def _get(self, path: str, query: dict[str, Any]) -> dict[str, Any]:
         encoded = urllib.parse.urlencode(query)
+        suffix = f"?{encoded}" if encoded else ""
         request = urllib.request.Request(
-            f"{self.base_url}{path}?{encoded}",
+            f"{self.base_url}{path}{suffix}",
             method="GET",
             headers={"Origin": self.origin},
         )
@@ -212,7 +213,34 @@ class SynthesisAcceptanceClient:
             for section in payload.get("sections") or []:
                 rows.extend(section.get("rows") or [])
         rows = [row for row in rows[:12] if isinstance(row, dict)]
-        blob = json.dumps(rows, ensure_ascii=False, default=str)
+        details: list[dict[str, Any]] = []
+        for row in rows[:8]:
+            dataset_id = str(row.get("dataset_id") or row.get("id") or "").strip()
+            if not dataset_id:
+                continue
+            try:
+                detail = self._get(
+                    f"/datasets/{urllib.parse.quote(dataset_id, safe='')}",
+                    {},
+                )
+            except (OSError, urllib.error.URLError, json.JSONDecodeError):
+                continue
+            if isinstance(detail, dict):
+                details.append(detail)
+        try:
+            profile_payload = self._get("/library/synthesis/profiles", {})
+            profiles = [
+                row
+                for row in profile_payload.get("profiles") or []
+                if isinstance(row, dict)
+            ]
+        except (OSError, urllib.error.URLError, json.JSONDecodeError):
+            profiles = []
+        blob = json.dumps(
+            {"rows": rows, "details": details, "profiles": profiles},
+            ensure_ascii=False,
+            default=str,
+        )
         groups = _group_hits(
             blob,
             [list(group) for group in case.get("expected_asset_groups") or []],
@@ -220,6 +248,8 @@ class SynthesisAcceptanceClient:
         return {
             "query": query,
             "row_count": len(rows),
+            "detail_count": len(details),
+            "profile_count": len(profiles),
             "rows": [
                 {
                     "dataset_id": row.get("dataset_id") or row.get("id"),
