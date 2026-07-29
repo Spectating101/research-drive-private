@@ -607,6 +607,18 @@ def run_cursor_composer_turn(
             reply = sanitize_desk_reply(reply, first_turn=True)
 
         is_error = (run is None) or (getattr(run, "status", "") == "error") or (not reply) or (reply == EMPTY_REPLY_FALLBACK)
+        from scripts.research_data_mcp.desk_composer_health import (
+            record_composer_failure,
+            record_composer_success,
+        )
+
+        if is_error:
+            record_composer_failure(
+                str(getattr(run, "status", "") or "empty_reply"),
+                model=model_id,
+            )
+        else:
+            record_composer_success(model=model_id)
         if is_error and not prime:
             action_result = {
                 "action": "composer_error",
@@ -660,6 +672,9 @@ def run_cursor_composer_turn(
             tool_name="cursor_composer",
         )
     except Exception as exc:
+        from scripts.research_data_mcp.desk_composer_health import record_composer_failure
+
+        record_composer_failure(exc, model=locals().get("model_id", ""))
         synthesis_context = is_synthesis_context(state)
         return AgentTurn(
             plan={"action": "composer_error"},

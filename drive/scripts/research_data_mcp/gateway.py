@@ -959,6 +959,11 @@ class ResearchDataGateway:
 
         brain = desk_brain_mode(self.repo_root)
         composer_ok = cursor_composer_available()
+        from scripts.research_data_mcp.desk_composer_health import (
+            composer_runtime_status,
+        )
+
+        composer_runtime = composer_runtime_status(configured=composer_ok)
         stats = self.orchestrator.stats()
         out: dict[str, Any] = {
             "status": "ok",
@@ -966,6 +971,8 @@ class ResearchDataGateway:
             "desk": {
                 "brain": brain,
                 "composer_configured": composer_ok,
+                "composer_status": composer_runtime["status"],
+                "composer_runtime": composer_runtime,
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
                 "llm_configured": composer_ok,
                 "legacy_llm_configured": legacy_llm_configured(),
@@ -1074,6 +1081,12 @@ class ResearchDataGateway:
         hot = (out.get("desk") or {}).get("storage_tiers", {}).get("hot") or {}
         jobs = (out.get("desk") or {}).get("jobs") or {}
         warnings: list[str] = []
+        if composer_runtime.get("status") == "degraded":
+            warnings.append(
+                "composer_runtime="
+                f"{composer_runtime.get('error_category') or 'provider_error'}"
+            )
+            out["status"] = "degraded"
         if hot.get("headroom_ok") is False:
             warnings.append(
                 f"nvme_headroom: {hot.get('free_gb')} GB free < min {hot.get('required_min_gb')} GB"
