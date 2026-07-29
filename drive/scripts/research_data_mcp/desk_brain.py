@@ -567,6 +567,14 @@ def run_cursor_composer_turn(
             user_text = wrap_first_turn_message(brief, user_text)
             vault_primed_env = True
         if synthesis_context:
+            if synthesis_first_turn:
+                from scripts.research_data_mcp.desk_synthesis_grounding import (
+                    build_synthesis_grounding_brief,
+                )
+
+                grounding = build_synthesis_grounding_brief(gateway, message)
+                state["synthesis_grounding_brief"] = grounding
+                user_text = f"{grounding}\n\n{user_text}"
             user_text = wrap_synthesis_request(
                 user_text,
                 first_user_turn=synthesis_first_turn,

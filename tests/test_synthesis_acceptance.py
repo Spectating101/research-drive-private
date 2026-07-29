@@ -107,6 +107,7 @@ def test_case_file_is_complete_and_non_mutating():
     assert len({row["id"] for row in cases}) == len(cases)
     for row in cases:
         request = row["request"].lower()
+        assert row["retrieval_query"]
         assert row["expected_asset_groups"]
         assert row["required_risk_groups"]
         assert any(term in request for term in ("do not", "don't"))

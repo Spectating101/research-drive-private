@@ -16,6 +16,7 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -157,6 +158,16 @@ class SynthesisAcceptanceClient:
         with self.opener.open(request, timeout=self.timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def _get(self, path: str, query: dict[str, Any]) -> dict[str, Any]:
+        encoded = urllib.parse.urlencode(query)
+        request = urllib.request.Request(
+            f"{self.base_url}{path}?{encoded}",
+            method="GET",
+            headers={"Origin": self.origin},
+        )
+        with self.opener.open(request, timeout=self.timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+
     def open_session(self) -> None:
         self._post("/library/desk/session", {})
 
@@ -181,6 +192,45 @@ class SynthesisAcceptanceClient:
                 },
             },
         )
+
+    def preflight_case(self, case: dict[str, Any]) -> dict[str, Any]:
+        query = str(case.get("retrieval_query") or "").strip()
+        if not query:
+            return {"query": "", "rows": [], "groups": [], "ok": False}
+        payload = self._get(
+            "/library/search",
+            {
+                "q": query,
+                "limit": 12,
+                "include_hf": 0,
+                "include_datacite": 0,
+                "skip_discover": 1,
+            },
+        )
+        rows = list(payload.get("rows") or [])
+        if not rows:
+            for section in payload.get("sections") or []:
+                rows.extend(section.get("rows") or [])
+        rows = [row for row in rows[:12] if isinstance(row, dict)]
+        blob = json.dumps(rows, ensure_ascii=False, default=str)
+        groups = _group_hits(
+            blob,
+            [list(group) for group in case.get("expected_asset_groups") or []],
+        )
+        return {
+            "query": query,
+            "row_count": len(rows),
+            "rows": [
+                {
+                    "dataset_id": row.get("dataset_id") or row.get("id"),
+                    "title": row.get("title") or row.get("name"),
+                    "source": row.get("source"),
+                }
+                for row in rows[:8]
+            ],
+            "groups": groups,
+            "ok": bool(groups) and all(group.get("ok") for group in groups),
+        }
 
 
 def run_battery(
@@ -212,6 +262,17 @@ def run_battery(
 
     for case in cases:
         case_started = time.time()
+        preflight: dict[str, Any]
+        try:
+            preflight = client.preflight_case(case)
+        except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+            preflight = {
+                "query": str(case.get("retrieval_query") or ""),
+                "ok": False,
+                "error": str(exc),
+                "rows": [],
+                "groups": [],
+            }
         try:
             raw = client.run_case(case)
             evaluated = evaluate_response(case, raw)
@@ -223,6 +284,7 @@ def run_battery(
                 "error": str(exc),
                 "checks": [],
             }
+        evaluated["grounding_preflight"] = preflight
         evaluated["elapsed_ms"] = int((time.time() - case_started) * 1000)
         rows.append(evaluated)
 
