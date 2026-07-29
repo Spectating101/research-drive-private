@@ -1,6 +1,6 @@
 /**
- * Discover Explore composition — DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md
- * Ranked centre: interpreting chips → Best fit → Other matches.
+ * Discover adaptive Explore composition — DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md
+ * One composer → immediate results → compact evidence chrome → contextual Ask.
  * Legacy groupDiscoverBrowseRows kept for tests / alternate buckets.
  */
 
@@ -44,6 +44,22 @@ const STOP = new Set([
   "we",
   "you",
   "me",
+  "what",
+  "which",
+  "where",
+  "when",
+  "why",
+  "how",
+  "can",
+  "could",
+  "should",
+  "would",
+  "do",
+  "does",
+  "use",
+  "using",
+  "study",
+  "research",
   "data",
   "dataset",
   "datasets",

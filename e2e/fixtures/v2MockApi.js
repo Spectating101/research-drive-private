@@ -246,6 +246,44 @@ export const MOCK_WEB_DISCOVER = {
   index_miss: true,
 };
 
+export const MOCK_DISCOVER_ASSESSMENT = {
+  question: "Do we hold issuer-quarter governance data for Taiwan?",
+  requirement: {
+    unit: { value: "issuer_quarter", provenance: "drafted" },
+    "universe/geography": { value: "Taiwan listed issuers", provenance: "explicit" },
+    time_range: { value: null, provenance: "unspecified" },
+    frequency: { value: "quarterly", provenance: "drafted" },
+    fields: { value: ["board_composition", "governance_score"], provenance: "explicit" },
+    event_type: { value: null, provenance: "unspecified" },
+  },
+  assessment_status: "assessed",
+  verdict: "partially_covered",
+  because: "A held filing record covers issuer-quarter observations, but governance fields are incomplete.",
+  held_evidence: [
+    {
+      dataset_id: "issuer_weekly_panel",
+      title: "Issuer weekly fundamentals",
+      contribution: "Held issuer observations for Taiwan.",
+      limitations: ["Required fields: unknown"],
+      evidence_state: {
+        materialization: { status: "query_ready_declared" },
+        access: { status: "declared", value: "materialized" },
+        coverage: { status: "documented" },
+      },
+    },
+  ],
+  gap: {
+    statement: "Board-governance variables are not evidenced in the held record.",
+    blocks: "A governance-specific issuer-quarter analysis.",
+    resolution_evidence: "A field dictionary or verified governance extract.",
+  },
+  assessment_basis: {
+    mode: "deterministic_catalog_metadata",
+    catalog_candidates_considered: 2,
+    assembly_status: "not_established",
+  },
+};
+
 export async function mockV2Api(
   page,
   {
@@ -253,11 +291,14 @@ export async function mockV2Api(
     jobsBody = MOCK_JOBS,
     historyBody = { items: [] },
     profileBody = { found: true, profile: { name_en: "Test Prof", discipline: "YZU" } },
+    assessmentBody = null,
   } = {},
 ) {
   const liveJobs = {
     jobs: Array.isArray(jobsBody?.jobs) ? [...jobsBody.jobs] : [],
   };
+  const liveIntents = new Map();
+  let nextIntentId = 1;
   await page.route("**/datasets", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_DATASETS) }),
   );
@@ -297,6 +338,16 @@ export async function mockV2Api(
       }),
     });
   });
+  if (assessmentBody) {
+    await page.route("**/library/discover/assessment", (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(assessmentBody),
+      });
+    });
+  }
   await page.route("**/library/discover/collect", (route) => {
     if (route.request().method() !== "POST") {
       return route.continue();
@@ -331,6 +382,124 @@ export async function mockV2Api(
       body: JSON.stringify({ job }),
     });
   });
+  const handleDiscoverIntent = (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const suffix = url.pathname.split("/library/discover/intents")[1] || "";
+    const parts = suffix.split("/").filter(Boolean);
+    const intentId = parts[0] || "";
+    const action = parts[1] || "";
+    let body = {};
+    try {
+      body = request.postDataJSON?.() || JSON.parse(request.postData() || "{}");
+    } catch {
+      body = {};
+    }
+    const fulfill = (payload, status = 200) =>
+      route.fulfill({ status, contentType: "application/json", body: JSON.stringify(payload) });
+
+    if (request.method() === "POST" && !intentId) {
+      const id = `intent-e2e-${nextIntentId++}`;
+      const intent = {
+        id,
+        title: body.title || body.research_need || "Discover acquisition intent",
+        research_need: body.research_need || "",
+        state: {
+          status: "draft",
+          candidate: body.candidate || {},
+          routes: [],
+          selected_route_id: "",
+          proposal: null,
+          collection: { job_id: "", status: "not_started", registered_dataset_id: "" },
+        },
+      };
+      liveIntents.set(id, intent);
+      return fulfill(intent);
+    }
+
+    const current = liveIntents.get(intentId);
+    if (!current) return fulfill({ error: "intent not found" }, 404);
+    if (request.method() === "GET" && !action) return fulfill(current);
+
+    if (request.method() === "POST" && action === "proposal") {
+      const proposal = {
+        ...(body.proposal || {}),
+        proposal_hash: "proposal-hash-e2e",
+      };
+      const next = {
+        ...current,
+        state: { ...current.state, status: "proposal_ready", proposal },
+      };
+      liveIntents.set(intentId, next);
+      return fulfill(next);
+    }
+
+    if (request.method() === "POST" && action === "review") {
+      const accepted = body.decision === "accept";
+      const proposal = current.state.proposal || {};
+      const routes = accepted ? proposal.routes || [] : [];
+      const next = {
+        ...current,
+        state: {
+          ...current.state,
+          status: accepted ? "ready_for_review" : "draft",
+          proposal: null,
+          routes,
+          selected_route_id: accepted
+            ? proposal.recommended_route_id || routes[0]?.id || ""
+            : "",
+        },
+      };
+      liveIntents.set(intentId, next);
+      return fulfill(next);
+    }
+
+    if (request.method() === "POST" && action === "route") {
+      const next = {
+        ...current,
+        state: {
+          ...current.state,
+          status: "ready_for_review",
+          selected_route_id: body.route_id || "",
+        },
+      };
+      liveIntents.set(intentId, next);
+      return fulfill(next);
+    }
+
+    if (request.method() === "POST" && action === "submit") {
+      const job = {
+        id: `job-discover-intent-${liveJobs.jobs.length + 1}`,
+        status: "pending_approval",
+        candidate_key: current.state.candidate?.candidate_key || null,
+        connector_id:
+          current.state.routes.find((item) => item.id === current.state.selected_route_id)?.connector_id ||
+          null,
+        registered_dataset_id: null,
+        output_manifest_id: null,
+        plan: { title: current.title },
+      };
+      liveJobs.jobs = [job, ...liveJobs.jobs];
+      const next = {
+        ...current,
+        state: {
+          ...current.state,
+          status: "pending_approval",
+          collection: {
+            job_id: job.id,
+            status: job.status,
+            registered_dataset_id: "",
+          },
+        },
+      };
+      liveIntents.set(intentId, next);
+      return fulfill({ intent: next, job });
+    }
+
+    return route.continue();
+  };
+  await page.route("**/library/discover/intents", handleDiscoverIntent);
+  await page.route("**/library/discover/intents/**", handleDiscoverIntent);
   await page.route("**/library/discover/web*", (route) =>
     route.fulfill({
       status: 200,

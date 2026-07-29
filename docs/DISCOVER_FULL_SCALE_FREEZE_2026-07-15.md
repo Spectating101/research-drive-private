@@ -1,13 +1,15 @@
 # Research Drive — Discover full-scale freeze
 
-**Status:** FROZEN VISUAL / INTERACTION AUTHORITY  
+**Status:** PARTIALLY SUPERSEDED — HISTORY / LIFECYCLE PROVENANCE
 **Date:** 2026-07-15  
 **Authority:** Normative Discover appendix incorporated by [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md)  
 **Scope:** `drive/src/v2/*`, Discover API projections, typed rail context, Discover tests, rendered-pixel review  
 
-This appendix preserves the complete Discover composition approved during the 2026-07-15 convergence pass. It is intentionally visual-first. The CLI wireframes below are implementation authority, not illustrative sketches.
+> **Current authority:** [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) supersedes this file's Explore entry, selected-candidate composition, right-rail Ask entry behavior, and procurement-review composition. This file remains authoritative for History and lifecycle truth only where it does not conflict with the adaptive freeze.
 
-No current component, screenshot, fixture, test, Focused Evaluation workspace, Activity feed, or backend event kind overrides this appendix. A proposed Discover composition change must amend `UI_PRODUCT_AUTHORITY.md` and this appendix before implementation.
+This appendix preserves the Discover composition approved during the 2026-07-15 convergence pass as historical provenance plus continuing History/lifecycle authority.
+
+No current component, screenshot, fixture, test, Focused Evaluation workspace, Activity feed, or backend event kind overrides the current authority hierarchy.
 
 ---
 

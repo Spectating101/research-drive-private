@@ -60,6 +60,7 @@ export function AskRail({
   const isProfile = mainTab === "profile";
   const isDiscover = mainTab === "browse";
   const isDiscoverHistory = isDiscover && dataset?.kind === "discover_history";
+  const isDiscoverInvestigation = isDiscover && dataset?.kind === "discover_investigation";
   const isSynthesis = mainTab === "synthesis";
   const profileContext = dataset?.title || "Profile";
   const synthesisContext =
@@ -72,6 +73,8 @@ export function AskRail({
     ? "Ask"
     : isDiscoverHistory
       ? "Ask · lifecycle item"
+      : isDiscoverInvestigation
+        ? "Ask · investigation"
       : isDiscover
         ? "Ask · selected source"
         : isSynthesis
@@ -83,6 +86,10 @@ export function AskRail({
       : `Context · ${profileContext}`
     : isDiscoverHistory && discoverTitle
       ? `Lifecycle context · ${discoverTitle}`
+      : isDiscoverInvestigation && discoverTitle
+        ? hasThread
+          ? `Continuing · investigation → ${discoverTitle}`
+          : `Investigation · ${discoverTitle}`
       : isDiscover && discoverTitle && hasThread
         ? `Selected context · ${discoverTitle}`
         : isDiscover && discoverTitle
@@ -233,9 +240,11 @@ export function AskRail({
               return (
                 <div
                   key={`${m.role}-${i}`}
-                  className={`rd-v2-ask-bubble${m.role === "error" ? " error" : ""}`}
+                  className={`rd-v2-ask-bubble${m.role === "error" ? " error" : ""}${m.role === "notice" ? " notice" : ""}`}
                 >
-                  <span className="rd-v2-ask-bubble-role">{m.role === "error" ? "Error" : "You"}</span>
+                  <span className="rd-v2-ask-bubble-role">
+                    {m.role === "error" ? "Error" : m.role === "notice" ? "Read-only review" : "You"}
+                  </span>
                   <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
                 </div>
               );

@@ -206,15 +206,21 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         }
       } catch (err) {
         const msg = err.message || String(err);
+        const readOnlyReview = /review endpoint does not allow desk mutations|read[- ]only.*review/i.test(msg);
         if (/composer|internal:\s*internal error|could not complete/i.test(msg)) {
           sessionRef.current = "";
           clearChatSessionId();
         }
         setMessages((m) => [
           ...m.filter((x) => !x.streaming),
-          { role: "error", text: msg },
+          {
+            role: readOnlyReview ? "notice" : "error",
+            text: readOnlyReview
+              ? "Ask is unavailable on this read-only review build. The question and visible results remain intact."
+              : msg,
+          },
         ]);
-        setStatus(msg || "Chat failed");
+        setStatus(readOnlyReview ? "Read-only review" : (msg || "Chat failed"));
       } finally {
         busyRef.current = false;
         setBusy(false);

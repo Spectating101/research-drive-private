@@ -5,6 +5,7 @@ import {
   exceptionalRowPill,
   hasAcquisitionRoute,
   hasBoundProbe,
+  holdingIdsFromCatalog,
   isQueryReady,
   orderDiscoverResults,
   taxonomyMatchesFilter,
@@ -14,7 +15,12 @@ describe("discover taxonomy (D1 / D1.1)", () => {
   it("classifies query-ready local holdings", () => {
     const lab = new Set(["gdelt_asia"]);
     const c = classifyDiscoverResult(
-      { dataset_id: "gdelt_asia", analysis_readiness: "instant", local_root: "panels/gdelt" },
+      {
+        dataset_id: "gdelt_asia",
+        analysis_readiness: "instant",
+        local_root: "panels/gdelt",
+        materialization: { query_ready: true },
+      },
       lab,
     );
     assert.equal(c.key, "local-query-ready");
@@ -29,6 +35,42 @@ describe("discover taxonomy (D1 / D1.1)", () => {
     );
     assert.equal(c.key, "local-connected");
     assert.notEqual(c.key, "local-query-ready");
+  });
+
+  it("does not equate catalogue membership or declared instant access with proven query readiness", () => {
+    const rows = [
+      {
+        dataset_id: "catalogue",
+        source_access_mode: "procurement_catalog",
+        local_path: "data_lake/catalogue/card.json",
+      },
+      {
+        dataset_id: "collected",
+        source_access_mode: "procurement_catalog",
+        local_path: "data_lake/procured/collected",
+        materialization: { query_ready: false, resolved_path: "/vault/procured/collected" },
+      },
+      {
+        dataset_id: "held",
+        source_access_mode: "materialized_instant",
+        local_path: "data_lake/held/data.json",
+        analysis_readiness: "instant",
+        materialization: { query_ready: false },
+      },
+      {
+        dataset_id: "proved",
+        source_access_mode: "materialized_instant",
+        local_path: "data_lake/proved/data.json",
+        materialization: { query_ready: true },
+      },
+    ];
+    const lab = holdingIdsFromCatalog(rows);
+    assert.deepEqual([...lab], ["collected", "held", "proved"]);
+    assert.equal(classifyDiscoverResult(rows[1], lab).key, "local-connected");
+    assert.equal(isQueryReady(rows[2]), false);
+    assert.equal(classifyDiscoverResult(rows[2], lab).key, "local-connected");
+    assert.equal(classifyDiscoverResult(rows[3], lab).key, "local-query-ready");
+    assert.equal(classifyDiscoverResult(rows[0], lab).key, "external-discoverable");
   });
 
   it("marks registry metadata-only when no connection or query path", () => {
@@ -173,7 +215,7 @@ describe("discover taxonomy (D1 / D1.1)", () => {
 
   it("maps filters to taxonomy membership", () => {
     const qr = classifyDiscoverResult(
-      { dataset_id: "x", analysis_readiness: "instant" },
+      { dataset_id: "x", analysis_readiness: "instant", materialization: { query_ready: true } },
       new Set(["x"]),
     );
     assert.equal(taxonomyMatchesFilter(qr, "query_ready"), true);

@@ -103,16 +103,42 @@ function trim(value) {
   return String(value ?? "").trim();
 }
 
+const CATALOG_ONLY_ACCESS = new Set([
+  "catalog_reference",
+  "procurement_catalog",
+  "live_connector",
+]);
+
 /** Lab-owned / registry-local possession. */
 export function isLocalHolding(row, labIds) {
   if (!row || typeof row !== "object") return false;
   const id = row.dataset_id || row.id;
   if (id && labIds?.has?.(id)) return true;
-  if (row.local_ready || row.in_vault || row.local_root) return true;
+  if (row.local_ready || row.in_vault) return true;
   const kind = lower(row.kind);
   if (kind === "local_registry" || kind === "lab") return true;
   if (row.local === true || row.in_lab === true) return true;
-  return false;
+  if (row.registry_id || row.registration_id || row.registered === true) return true;
+  if (row.materialization?.query_ready === true) return true;
+  if (row.materialization?.resolved_path) return true;
+
+  // A registry row is not automatically a Library holding. The registry also
+  // contains catalogue references, procurement candidates, and live connectors
+  // whose local_path points to their metadata card rather than acquired evidence.
+  const access = lower(row.source_access_mode || row.access_shape || "");
+  if (CATALOG_ONLY_ACCESS.has(access)) return false;
+  const hasLocalPath = Boolean(row.local_root || row.local_path);
+  if (!hasLocalPath) return false;
+  if (["derived_internal", "materialized_bulk", "materialized_instant"].includes(access)) {
+    return true;
+  }
+  const readiness = lower(row.analysis_readiness || row.readiness);
+  if (readiness === "instant" || readiness === "query_ready" || readiness === "registered") {
+    return true;
+  }
+  // Collected outputs sometimes predate source_access_mode. A concrete local
+  // backend + path is possession evidence; a generic registry card is not.
+  return !access && lower(row.backend).startsWith("local_");
 }
 
 /**
@@ -121,21 +147,24 @@ export function isLocalHolding(row, labIds) {
  */
 export function isQueryReady(row) {
   if (!row || typeof row !== "object") return false;
+  if (row.materialization?.query_ready === true) return true;
+  if (row.materialization?.query_ready === false) return false;
   if (row.query_ready === true || row.queryable === true) return true;
   const readiness = lower(row.analysis_readiness || row.readiness);
+  // `instant` is the registry's declared query posture. The UI labels this
+  // "Query-ready declared"; an explicit failed materialization above wins.
   if (readiness === "instant" || readiness === "query_ready" || readiness === "queryable") return true;
-  const caps = row.capabilities;
-  if (
-    Array.isArray(caps) &&
-    caps.some((c) => {
-      const s = lower(c);
-      // Require an explicit query/filter/SQL signal — not merely “panel”.
-      return /^(query|queryable|sql|filter)$/.test(s) || /query|sql|filter/.test(s);
-    })
-  ) {
-    return true;
-  }
   return false;
+}
+
+/** Conservative possession set for Discover. Catalogue membership alone is excluded. */
+export function holdingIdsFromCatalog(rows = []) {
+  return new Set(
+    rows
+      .filter((row) => isLocalHolding(row))
+      .map((row) => row?.dataset_id || row?.id)
+      .filter(Boolean),
+  );
 }
 
 /** Known storage/source connection without proven query path. */

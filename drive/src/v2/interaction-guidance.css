@@ -47,8 +47,7 @@
   animation: rd-page-enter var(--rd-decor-duration-fade) var(--rd-decor-ease-enter) both;
 }
 
-.rd-v2-rail-pane,
-.rd-v2-ask-rail {
+.rd-v2-rail-pane.rd-v2-rail-pane-on {
   animation: rd-pane-enter var(--rd-decor-duration-small) var(--rd-decor-ease-enter) both;
 }
 

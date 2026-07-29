@@ -15,11 +15,28 @@ import { displayName } from "@/v2/datasetMeta";
 import { LibraryDatasetRailPanel } from "@/v2/LibraryDatasetRailPanel";
 import { ResourcesOverviewRailPanel } from "@/v2/ResourcesOverviewRailPanel";
 import { DiscoverHistoryRailPanel } from "@/v2/DiscoverHistoryRailPanel";
+import { DiscoverIntentRailPanel } from "@/v2/DiscoverIntentRailPanel";
 import { SynthesisThreadRailPanel } from "@/v2/SynthesisThreadRailPanel";
+import { DiscoverEvidenceBrief } from "@/v2/DiscoverEvidenceBrief";
 
-function railSelectionHint(mainTab, dataset, browseTarget, historyEvent, resourceRow, clusterContext) {
+function railSelectionHint(
+  mainTab,
+  dataset,
+  browseTarget,
+  historyEvent,
+  discoverIntentRecord,
+  discoverAssessment,
+  resourceRow,
+  clusterContext,
+) {
+  if (mainTab === "browse" && discoverIntentRecord) {
+    return discoverIntentRecord.intent?.title || discoverIntentRecord.candidate?.title || "Acquisition review";
+  }
   if (mainTab === "browse" && historyEvent) {
     return historyEvent.target || historyEvent.title || historyEvent.id || "Discover lifecycle item";
+  }
+  if (mainTab === "browse" && discoverAssessment?.active) {
+    return "Coverage assessment";
   }
   if (mainTab === "browse" && browseTarget) {
     return browseTarget.title || browseTarget.dataset_id || "Discover result";
@@ -68,7 +85,9 @@ function activeHintBelongsToTab(mainTab, object) {
   if (mainTab === "library") {
     return ["library_folder", "library_intake", "dataset"].includes(object.kind);
   }
-  if (mainTab === "browse") return ["external_candidate", "discover_history"].includes(object.kind);
+  if (mainTab === "browse") {
+    return ["external_candidate", "discover_history", "discover_investigation"].includes(object.kind);
+  }
   if (mainTab === "resources") return object.kind === "resource_row";
   if (mainTab === "home") return ["dataset", "home_attention"].includes(object.kind);
   if (mainTab === "cluster") return object.kind === "comparison";
@@ -86,6 +105,13 @@ export function InspectorRail({
   browseTarget,
   historyEvent,
   historyJob,
+  discoverIntentRecord,
+  discoverAssessment,
+  discoverCatalog = [],
+  onDiscoverAssessmentChange,
+  onDiscoverAssessmentActive,
+  onCloseDiscoverAssessment,
+  onSuggestDiscoverSearch,
   resourceRow,
   resourcesRollup,
   activeObject,
@@ -127,12 +153,26 @@ export function InspectorRail({
   } else if (mainTab === "cluster") {
     detailPanel = <ClusterRailPanel compare={clusterContext} onAskAbout={onAskAbout} />;
   } else if (mainTab === "browse") {
-    detailPanel = historyEvent ? (
+    detailPanel = discoverIntentRecord ? (
+      <DiscoverIntentRailPanel record={discoverIntentRecord} />
+    ) : historyEvent ? (
       <DiscoverHistoryRailPanel
         event={historyEvent}
         job={historyJob}
         onAskAbout={onAskAbout}
         onReviewRequest={onReviewHistoryRequest}
+      />
+    ) : discoverAssessment?.active ? (
+      <DiscoverEvidenceBrief
+        key={`assessment-rail:${discoverAssessment.question}`}
+        initialQuestion={discoverAssessment.question}
+        autoAssess
+        variant="layered"
+        catalog={discoverCatalog}
+        onLegacySearch={onSuggestDiscoverSearch}
+        onAssessmentActive={onDiscoverAssessmentActive}
+        onAssessmentChange={onDiscoverAssessmentChange}
+        onClose={onCloseDiscoverAssessment}
       />
     ) : (
       <BrowseRailPanel
@@ -223,13 +263,25 @@ export function InspectorRail({
   const allowActiveHint = activeHintBelongsToTab(mainTab, activeObject);
   const selectionHint =
     (allowActiveHint ? activeObjectSelectionHint(activeObject) : "") ||
-    railSelectionHint(mainTab, dataset, browseTarget, historyEvent, resourceRow, clusterContext);
+    railSelectionHint(
+      mainTab,
+      dataset,
+      browseTarget,
+      historyEvent,
+      discoverIntentRecord,
+      discoverAssessment,
+      resourceRow,
+      clusterContext,
+    );
 
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   useEffect(() => {
     if (mainTab === "browse") {
-      setMobileRailOpen(Boolean(browseTarget || historyEvent) && railTab === "ask");
+      setMobileRailOpen(
+        Boolean(discoverAssessment?.active) ||
+          (Boolean(browseTarget || historyEvent || discoverIntentRecord) && railTab === "ask"),
+      );
       return;
     }
     if (mainTab === "home") {
@@ -249,7 +301,16 @@ export function InspectorRail({
       return;
     }
     setMobileRailOpen(true);
-  }, [selectionHint, mainTab, browseTarget, historyEvent, railTab, activeObject?.kind]);
+  }, [
+    selectionHint,
+    mainTab,
+    browseTarget,
+    historyEvent,
+    discoverIntentRecord,
+    discoverAssessment?.active,
+    railTab,
+    activeObject?.kind,
+  ]);
 
   return (
     <aside
