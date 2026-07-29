@@ -241,6 +241,26 @@ def test_construction_follow_up_passes_with_advancement():
     assert all(check["ok"] for check in evaluated["checks"])
 
 
+def test_construction_follow_up_rejects_generic_token_overlap():
+    from scripts.research_data_mcp.synthesis_acceptance import evaluate_follow_up_response
+
+    case = _construction_case()
+    case["expected_follow_up_groups"] = []
+    result = {
+        "action": "composer",
+        "reply": (
+            "This response acknowledges that more detail was supplied, but only repeats "
+            "generic planning language and never incorporates the substantive direction."
+        ),
+        "artifacts": {"action": "composer"},
+    }
+    evaluated = evaluate_follow_up_response(case, result)
+    checks = {row["name"]: row for row in evaluated["checks"]}
+
+    assert evaluated["outcome"] == "contract_failed"
+    assert checks["incorporates_clarification"]["ok"] is False
+
+
 def test_construction_state_requires_linked_thread_and_elements():
     from scripts.research_data_mcp.synthesis_acceptance import evaluate_construction_state
 
@@ -356,6 +376,7 @@ def test_construction_workflow_fixture_proof(monkeypatch, tmp_path: Path):
         cases_path=case_path,
         workflow="construction_investigation",
         proof_mode="fixture",
+        allow_fixture_mutation=True,
     )
 
     assert report["contract"] == "construction_investigation"
@@ -463,6 +484,138 @@ def test_provider_mode_never_injects_proposal_fixture(monkeypatch, tmp_path: Pat
     assert construction_phase["outcome"] == "contract_failed"
     assert construction_phase["checks"][0]["name"] == "requires_agent_proposal"
     assert construction_phase["outcome"] != "transport_failed"
+
+
+def test_fixture_proof_requires_explicit_mutation_permission(tmp_path: Path):
+    from scripts.research_data_mcp import synthesis_acceptance
+
+    case_path = tmp_path / "cases.json"
+    case_path.write_text(
+        json.dumps({"cases": [_construction_case()]}),
+        encoding="utf-8",
+    )
+
+    try:
+        synthesis_acceptance.run_battery(
+            "http://127.0.0.1:9",
+            cases_path=case_path,
+            workflow="construction_investigation",
+            proof_mode="fixture",
+        )
+    except ValueError as exc:
+        assert "fixture proof mode mutates durable thread state" in str(exc)
+    else:
+        raise AssertionError("fixture proof mode should require explicit mutation permission")
+
+
+def test_construction_inventory_failure_is_transport_failure(monkeypatch, tmp_path: Path):
+    from scripts.research_data_mcp import synthesis_acceptance
+
+    case_path = tmp_path / "cases.json"
+    case_path.write_text(
+        json.dumps({"cases": [_construction_case()]}),
+        encoding="utf-8",
+    )
+
+    class FakeClient(synthesis_acceptance.SynthesisAcceptanceClient):
+        def open_session(self):
+            self.session_id = "sess-profile-failure"
+
+        def list_profile_ids(self):
+            raise OSError("profile inventory offline")
+
+    monkeypatch.setattr(synthesis_acceptance, "SynthesisAcceptanceClient", FakeClient)
+    report = synthesis_acceptance.run_battery(
+        "http://127.0.0.1:9",
+        cases_path=case_path,
+        workflow="construction_investigation",
+    )
+
+    assert report["outcome"] == "transport_failed"
+    assert report["cases"] == []
+    assert "profile inventory offline" in report["error"]
+
+
+def test_missing_chat_thread_creates_fresh_thread():
+    from scripts.research_data_mcp.synthesis_acceptance import _ensure_thread
+
+    class FakeClient:
+        session_id = "sess-fresh"
+
+        def create_thread(self, case):
+            return {"id": "thread-fresh"}
+
+        def link_thread(self, thread_id):
+            return {"id": thread_id, "session_id": self.session_id}
+
+        def get_thread(self, thread_id):
+            return {"id": thread_id, "session_id": self.session_id, "state": {}}
+
+        def list_threads(self, session_id=""):
+            raise AssertionError("must not inherit an arbitrary existing thread")
+
+    thread, linkage = _ensure_thread(FakeClient(), _construction_case(), chat_results=[{}])
+
+    assert thread["id"] == "thread-fresh"
+    assert linkage["source"] == "created"
+
+
+def test_execution_submission_requires_explicit_runner_permission():
+    from scripts.research_data_mcp import synthesis_acceptance
+
+    case = _construction_case() | {"submit_execution": True}
+
+    class FakeClient:
+        session_id = "sess-execution-gate"
+
+        def list_profile_ids(self):
+            return set()
+
+        def preflight_case(self, case):
+            return {"ok": True, "groups": []}
+
+        def run_case(self, case):
+            return {
+                "reply": (
+                    "Provisionally, held ASEAN trade and GDELT news could support a latent stress "
+                    "proxy. Survivorship, timing leakage, and country coverage remain risks. "
+                    "Which horizon should be primary?"
+                ),
+                "action": "composer",
+                "artifacts": {"action": "composer", "thread_id": "thread-gated"},
+            }
+
+        def run_follow_up(self, case, thread_id=""):
+            return {
+                "reply": (
+                    "A one-week horizon keeps port congestion as a logistics proxy while demand "
+                    "shocks stay separate. Coverage gaps remain unknown."
+                ),
+                "action": "composer",
+                "artifacts": {"action": "composer", "thread_id": thread_id},
+            }
+
+        def link_thread(self, thread_id):
+            return {"id": thread_id, "session_id": self.session_id}
+
+        def get_thread(self, thread_id):
+            return _construction_thread() | {
+                "id": thread_id,
+                "session_id": self.session_id,
+            }
+
+        def accept_thread_proposal(self, thread_id, proposal):
+            raise AssertionError("execution must remain gated")
+
+    report = synthesis_acceptance.run_construction_investigation(
+        FakeClient(),
+        case,
+        profile_ids=set(),
+    )
+
+    phase = report["phases"]["execution_submission"]
+    assert phase["outcome"] == "contract_failed"
+    assert phase["checks"][0]["name"] == "explicit_execution_opt_in"
 
 
 def test_battery_classifies_transport_failure(monkeypatch, tmp_path: Path):

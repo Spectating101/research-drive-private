@@ -45,6 +45,24 @@ _FORBIDDEN_EXECUTION_CLAIMS = (
         re.I,
     ),
 )
+_FOLLOW_UP_STOPWORDS = frozenset(
+    {
+        "about",
+        "after",
+        "also",
+        "from",
+        "into",
+        "primary",
+        "should",
+        "that",
+        "their",
+        "then",
+        "this",
+        "treat",
+        "using",
+        "with",
+    }
+)
 
 
 def load_cases(path: Path = DEFAULT_CASES) -> list[dict[str, Any]]:
@@ -201,13 +219,29 @@ def evaluate_follow_up_response(case: dict[str, Any], result: dict[str, Any]) ->
         reply,
         [list(group) for group in case.get("expected_follow_up_groups") or []],
     )
+    clarification_terms = [
+        token
+        for token in re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)?", follow_up)
+        if len(token) >= 4 and token not in _FOLLOW_UP_STOPWORDS
+    ]
+    clarification_hits = [
+        token for token in dict.fromkeys(clarification_terms) if token in reply.lower()
+    ]
+    required_clarification_hits = min(2, len(set(clarification_terms)))
     forbidden = _execution_claim_patterns(reply)
     checks = [
         {"name": "usable_reply", "ok": len(reply) >= 80, "observed": len(reply)},
         {
             "name": "incorporates_clarification",
-            "ok": not follow_up or any(token in reply.lower() for token in follow_up.split()[:6]),
+            "ok": not follow_up
+            or (
+                bool(clarification_terms)
+                and len(clarification_hits) >= required_clarification_hits
+            ),
             "follow_up_prefix": follow_up[:120],
+            "terms": list(dict.fromkeys(clarification_terms)),
+            "hits": clarification_hits,
+            "required_hits": required_clarification_hits,
         },
         {
             "name": "construct_advance",
@@ -410,13 +444,13 @@ class SynthesisAcceptanceClient:
             return json.loads(response.read().decode("utf-8"))
 
     def open_session(self) -> None:
-        self._post("/library/desk/session", {})
+        payload = self._post("/library/desk/session", {})
+        session_id = str(payload.get("session_id") or "").strip()
+        if session_id:
+            self.session_id = session_id
 
     def list_profile_ids(self) -> set[str]:
-        try:
-            payload = self._get("/library/synthesis/profiles", {})
-        except (OSError, urllib.error.URLError, json.JSONDecodeError):
-            return set()
+        payload = self._get("/library/synthesis/profiles", {})
         return {
             str(row.get("id") or "").strip()
             for row in payload.get("profiles") or []
@@ -636,12 +670,11 @@ def _ensure_thread(
             break
 
     if not linkage["thread_id"]:
-        existing = client.list_threads()
-        if existing:
-            linkage = {"source": "session_list", "thread_id": existing[0].get("id")}
-        else:
-            created = client.create_thread(case)
-            linkage = {"source": "created", "thread_id": created.get("id")}
+        # Never inherit an arbitrary thread from the session list. A chat artifact
+        # is authoritative; without one, create a case-specific thread so a prior
+        # acceptance case cannot leak stale construction state into this proof.
+        created = client.create_thread(case)
+        linkage = {"source": "created", "thread_id": created.get("id")}
 
     thread_id = str(linkage.get("thread_id") or "").strip()
     if not thread_id:
@@ -768,6 +801,7 @@ def run_construction_investigation(
     *,
     profile_ids: set[str] | None = None,
     proof_mode: str = "provider",
+    allow_execution_submission: bool = False,
 ) -> dict[str, Any]:
     """Run one multi-turn construction investigation acceptance case."""
     case_started = time.time()
@@ -882,7 +916,28 @@ def run_construction_investigation(
             "checks": [],
         }
 
-    if case.get("submit_execution") and thread_id and recorded_proposal.get("id"):
+    execution_requested = bool(case.get("submit_execution"))
+    if execution_requested and not allow_execution_submission:
+        phases["execution_submission"] = {
+            "phase": "execution_submission",
+            "outcome": "contract_failed",
+            "checks": [
+                {
+                    "name": "explicit_execution_opt_in",
+                    "ok": False,
+                    "reason": (
+                        "case requests execution submission, but the runner was not "
+                        "started with explicit execution permission"
+                    ),
+                }
+            ],
+        }
+    elif (
+        execution_requested
+        and thread_id
+        and recorded_proposal
+        and recorded_proposal.get("id")
+    ):
         try:
             accepted = client.accept_thread_proposal(thread_id, recorded_proposal)
             accepted_proposal = (accepted.get("state") or {}).get("proposal")
@@ -897,6 +952,19 @@ def run_construction_investigation(
                 "error": str(exc),
                 "checks": [],
             }
+    elif execution_requested:
+        phases["execution_submission"] = {
+            "phase": "execution_submission",
+            "outcome": "contract_failed",
+            "checks": [
+                {
+                    "name": "recorded_proposal_required",
+                    "ok": False,
+                    "thread_id": thread_id,
+                    "reason": "execution submission requires a linked thread proposal",
+                }
+            ],
+        }
 
     return _construction_report(
         case,
@@ -936,7 +1004,15 @@ def run_battery(
     timeout: float = 150.0,
     workflow: str = WORKFLOW_FIRST_TURN,
     proof_mode: str = "provider",
+    allow_fixture_mutation: bool = False,
+    allow_execution_submission: bool = False,
 ) -> dict[str, Any]:
+    if proof_mode == "fixture" and not allow_fixture_mutation:
+        raise ValueError(
+            "fixture proof mode mutates durable thread state; "
+            "set allow_fixture_mutation=True only for a disposable test desk"
+        )
+
     cases = select_cases(load_cases(cases_path), workflow=workflow, case_ids=case_ids)
     if not cases:
         raise ValueError(f"no selected Synthesis acceptance cases for workflow={workflow}")
@@ -957,7 +1033,17 @@ def run_battery(
         }
 
     if workflow == WORKFLOW_CONSTRUCTION:
-        profile_ids = client.list_profile_ids()
+        try:
+            profile_ids = client.list_profile_ids()
+        except (OSError, urllib.error.URLError, json.JSONDecodeError) as exc:
+            return {
+                "contract": workflow,
+                "proof_mode": proof_mode,
+                "base_url": base_url,
+                "outcome": "transport_failed",
+                "error": f"could not verify synthesis profile inventory: {exc}",
+                "cases": [],
+            }
         for case in cases:
             rows.append(
                 run_construction_investigation(
@@ -965,6 +1051,7 @@ def run_battery(
                     case,
                     profile_ids=profile_ids,
                     proof_mode=proof_mode,
+                    allow_execution_submission=allow_execution_submission,
                 )
             )
     else:
@@ -1031,7 +1118,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--proof-mode",
         choices=("provider", "fixture"),
         default="provider",
-        help="provider=live HTTP; fixture=label only (tests inject responses)",
+        help=(
+            "provider=agent-originated proposal only; fixture=permit deterministic "
+            "proposal injection into a disposable test desk"
+        ),
+    )
+    parser.add_argument(
+        "--allow-fixture-mutation",
+        action="store_true",
+        help="Explicitly permit fixture mode to write proposal state",
+    )
+    parser.add_argument(
+        "--allow-execution-submission",
+        action="store_true",
+        help=(
+            "Permit cases with submit_execution=true to accept a proposal and create "
+            "a pending-approval job"
+        ),
     )
     return parser
 
@@ -1045,6 +1148,8 @@ def main() -> int:
         timeout=args.timeout,
         workflow=args.workflow,
         proof_mode=args.proof_mode,
+        allow_fixture_mutation=args.allow_fixture_mutation,
+        allow_execution_submission=args.allow_execution_submission,
     )
     rendered = json.dumps(report, indent=2, ensure_ascii=False)
     if args.output:
