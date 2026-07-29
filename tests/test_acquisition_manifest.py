@@ -106,6 +106,39 @@ def test_single_parquet_registers_local_root_and_local_file(tmp_path: Path) -> N
     assert spec["analysis_readiness"] == "registered"  # smoke upgrades to query_ready on promote
 
 
+def test_synthesis_materialization_preserves_reviewed_research_metadata(tmp_path: Path) -> None:
+    spec = registry_spec_from_materialized(
+        tmp_path,
+        {
+            "id": "synthesis-job",
+            "plan": {
+                "title": "ASEAN stress proxy",
+                "objective": "Study ASEAN supply-chain stress at country-week grain.",
+                "job_type": "synthesis_execute",
+                "grain": "country_week",
+                "execution_spec": {
+                    "input_dataset_id": "held_asean_inputs",
+                    "output_dataset_id": "synthesis_asean_stress",
+                    "group_by": ["country_iso3", "week"],
+                    "metrics": [{"function": "count", "as": "row_count"}],
+                    "transforms": [],
+                },
+            },
+        },
+        {
+            "dataset_id": "synthesis_asean_stress",
+            "canonical_dir": "data_lake/synthesis/asean_stress",
+            "files": [{"name": "output.parquet", "bytes": 4096}],
+        },
+    )
+
+    assert spec is not None
+    assert spec["grain"] == "country_week"
+    assert spec["join_keys"] == ["country_iso3", "week"]
+    assert spec["recommended_use"] == "Study ASEAN supply-chain stress at country-week grain."
+    assert spec["lineage"]["upstream_dataset_ids"] == ["held_asean_inputs"]
+
+
 def test_geojson_registers_as_registered_local_json_before_smoke(tmp_path: Path) -> None:
     spec = registry_spec_from_materialized(
         tmp_path,

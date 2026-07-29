@@ -441,7 +441,7 @@ def registry_spec_from_materialized(
         "backend": backend,
         "access_shape": "local_file_tree" if "*" in local_path else "local_file",
         "analysis_readiness": readiness,
-        "grain": "procured_snapshot",
+        "grain": str(plan.get("grain") or "procured_snapshot"),
         "local_path": local_path,
         "description": (
             f"Materialised by synthesis execution job `{job.get('id', '')}`."
@@ -467,6 +467,15 @@ def registry_spec_from_materialized(
         spec["source_system"] = "In-house synthesis thread outputs"
         spec["source_access_mode"] = "derived_internal"
         exec_spec = plan.get("execution_spec") or {}
+        group_by = [
+            str(column)
+            for column in (exec_spec.get("group_by") or [])
+            if str(column).strip()
+        ]
+        if group_by:
+            spec["join_keys"] = group_by
+        if str(plan.get("objective") or "").strip():
+            spec["recommended_use"] = str(plan["objective"]).strip()
         upstream = str(exec_spec.get("input_dataset_id") or "").strip()
         lineage = dict(spec.get("lineage") or {})
         if upstream:

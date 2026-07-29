@@ -359,6 +359,7 @@ def test_synthesis_submit_uses_server_internal_scope_but_never_auto_approves(
     thread = isolated.create(
         objective="Exercise the synthesis approval boundary.",
         title="Approval boundary",
+        required_grain="country_week",
         state={
             "proposal": {
                 "id": "approval-boundary",
@@ -409,6 +410,8 @@ def test_synthesis_submit_uses_server_internal_scope_but_never_auto_approves(
     assert observed["request"]["_ops_internal"] is True
     assert observed["auto_approve"] is False
     assert observed["plan"]["job_type"] == "synthesis_execute"
+    assert observed["plan"]["grain"] == "country_week"
+    assert observed["plan"]["objective"] == "Exercise the synthesis approval boundary."
     assert result["job"]["status"] == "pending_approval"
     refreshed = isolated.get(thread["id"])
     assert refreshed["state"]["execution"]["status"] == "pending_approval"

@@ -1889,6 +1889,12 @@ class ResearchDataGateway:
             "title": f"Synthesis: {thread.get('title') or spec['output_dataset_id']}",
             "job_type": "synthesis_execute",
             "thread_id": thread_id,
+            "objective": str(thread.get("objective") or ""),
+            "grain": str(
+                state.get("required_grain")
+                or (state.get("spec") or {}).get("grain")
+                or ""
+            ),
             "execution_spec": spec,
             "accepted_spec_hash": accepted_hash,
             "dataset_id": spec["output_dataset_id"],
