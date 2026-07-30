@@ -53,11 +53,14 @@ test.describe("v2 Home Iteration 10 freeze", () => {
   });
 
   test("decision secondary surfaces Review into Discover History when approval pending", async ({ page }) => {
+    // MOCK_JOBS always carries one pending_approval job, so this card must
+    // appear. The previous count-then-skip guard raced the jobs fetch: the
+    // test silently skipped when jobs had not landed yet and only exercised
+    // the assertion when they had, which is why it alternated between pass
+    // and skip across runs. Waiting for the card makes the outcome mean
+    // something either way.
     const secondary = page.locator(".rd-v2-home-pickup-secondary.warn");
-    if ((await secondary.count()) === 0) {
-      test.skip(true, "mock has no pending approval secondary");
-      return;
-    }
+    await expect(secondary).toBeVisible();
     await secondary.click();
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
     await expect(page.getByRole("tab", { name: /^History/ })).toHaveAttribute("aria-selected", "true");
