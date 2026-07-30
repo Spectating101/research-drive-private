@@ -99,9 +99,11 @@ async function v2Nav(page, label) {
 }
 
 async function selectFirstDataset(page) {
-  await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "domcontentloaded" });
+  await page.goto("/?tab=library", { waitUntil: "domcontentloaded" });
   await page.locator(".rd-v2-shell").waitFor({ timeout: 30_000 });
-  const row = page.locator('.rd-v2-library-asset[data-kind="dataset"]').first();
+  await page.getByTestId("library-directory").waitFor({ state: "visible", timeout: 15_000 });
+  await page.getByRole("textbox", { name: "Search library holdings" }).fill("Asia");
+  const row = page.locator('.rd-v2-catalog-list button[data-kind="dataset"]').first();
   await row.waitFor({ state: "visible", timeout: 15_000 });
   await row.click();
 }
@@ -136,10 +138,13 @@ test.describe("v2 parity @ desk-v2-1440", () => {
     expect(metrics.shellW).toBeLessThanOrEqual(1442);
     expect(metrics.headerH).toBeGreaterThanOrEqual(60);
     expect(metrics.headerH).toBeLessThanOrEqual(66);
-    expect(metrics.sidebarW / metrics.shellW).toBeGreaterThanOrEqual(0.16);
-    expect(metrics.sidebarW / metrics.shellW).toBeLessThanOrEqual(0.2);
-    expect(metrics.railW / metrics.shellW).toBeGreaterThanOrEqual(0.28);
-    expect(metrics.railW / metrics.shellW).toBeLessThanOrEqual(0.32);
+    // Premium shell authority is 216px–252px at this viewport, keeping the
+    // navigation compact while preserving the larger decision rail.
+    expect(metrics.sidebarW / metrics.shellW).toBeGreaterThanOrEqual(0.14);
+    expect(metrics.sidebarW / metrics.shellW).toBeLessThanOrEqual(0.18);
+    // Release-scale authority uses a 26vw rail at 1440px, bounded to 320–380px.
+    expect(metrics.railW / metrics.shellW).toBeGreaterThanOrEqual(0.24);
+    expect(metrics.railW / metrics.shellW).toBeLessThanOrEqual(0.28);
     expect(metrics.mainW).toBeGreaterThan(metrics.railW);
     expect(metrics.mainW).toBeGreaterThan(metrics.sidebarW);
     expect(metrics.sidebarW + metrics.mainW + metrics.railW).toBeLessThanOrEqual(metrics.shellW + 2);
