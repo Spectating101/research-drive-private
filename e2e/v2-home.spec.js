@@ -52,13 +52,14 @@ test.describe("v2 Home Iteration 10 freeze", () => {
     await expect(rail.locator(".rd-v2-ask-ctx")).toContainText(datasetId);
   });
 
-  test("decision secondary surfaces Review into Resources when approval pending", async ({ page }) => {
+  test("decision secondary surfaces Review into Discover History when approval pending", async ({ page }) => {
     const secondary = page.locator(".rd-v2-home-pickup-secondary.warn");
     if ((await secondary.count()) === 0) {
       test.skip(true, "mock has no pending approval secondary");
       return;
     }
     await secondary.click();
-    await expect(page.locator(".rd-v2-page-head h1", { hasText: "Resources" })).toBeVisible();
+    await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^History/ })).toHaveAttribute("aria-selected", "true");
   });
 });

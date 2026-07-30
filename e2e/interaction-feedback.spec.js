@@ -26,13 +26,12 @@ test.describe("Research Drive interaction feedback convergence", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
 
-    await expect(page.getByTestId("home-loading-state")).toBeVisible();
     await expect(page.getByTestId("interaction-skeleton").first()).toBeVisible();
     await expect(page.getByTestId("home-continue")).toHaveAttribute("aria-busy", "true");
     ensureArtifactDir();
     await page.screenshot({ path: `${ARTIFACT_DIR}/feedback-home-loading-1440x900.png` });
 
-    await expect(page.getByTestId("home-loading-state")).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByTestId("interaction-skeleton")).toHaveCount(0, { timeout: 10_000 });
     await expect(page.getByTestId("home-continue").getByRole("button", { name: "Continue" })).toBeVisible();
   });
 

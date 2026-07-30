@@ -330,6 +330,13 @@ export async function mockV2Api(
   };
   const liveIntents = new Map();
   let nextIntentId = 1;
+  await page.route("**/library/desk/session", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, authorized: true }),
+    }),
+  );
   await page.route("**/datasets", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_DATASETS) }),
   );
