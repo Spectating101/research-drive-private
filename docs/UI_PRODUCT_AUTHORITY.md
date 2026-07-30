@@ -1,7 +1,7 @@
 # Research Drive UI Product Authority
 
 **Status:** CURRENT UX IMPLEMENTATION AUTHORITY  
-**Date:** 2026-07-28
+**Date:** 2026-07-30
 **Applies to:** `drive/src/v2/*` and every faculty-facing Research Drive route  
 **Implementation owner:** frontend and backend workers executing this document  
 **Acceptance owner:** rendered workflow and pixel review  
@@ -12,7 +12,9 @@ For Discover, [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZ
 
 For Library, [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the normative full-scale visual and interaction appendix incorporated by reference into this authority. Its complete CLI wireframes are implementation authority, not examples.
 
-A Discover or Library composition change must amend this document and the corresponding full-scale appendix before implementation.
+For cross-product visual completion, [`RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md`](RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md) is the current normative finishing appendix incorporated by reference into this authority. It preserves the settled page compositions and authorizes only the bounded visual-closure work listed there.
+
+A page-composition change must amend this document and the corresponding page authority before implementation. Visual-closure work must conform to the July 30 finishing appendix.
 
 ## 1. Product promise
 
