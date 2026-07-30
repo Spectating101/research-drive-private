@@ -493,6 +493,7 @@ def test_construction_workflow_prepares_thread_before_chat(monkeypatch, tmp_path
         cases_path=case_path,
         workflow="construction_investigation",
         proof_mode="fixture",
+        allow_fixture_mutation=True,
     )
 
     assert call_order[:4] == [
@@ -668,11 +669,16 @@ def test_construction_inventory_failure_is_transport_failure(monkeypatch, tmp_pa
     assert "profile inventory offline" in report["error"]
 
 
-def test_missing_chat_thread_creates_fresh_thread():
-    from scripts.research_data_mcp.synthesis_acceptance import _ensure_thread
+def test_construction_prepares_fresh_thread():
+    from scripts.research_data_mcp.synthesis_acceptance import (
+        _prepare_construction_thread,
+    )
 
     class FakeClient:
         session_id = "sess-fresh"
+
+        def ensure_chat_session(self):
+            return self.session_id
 
         def create_thread(self, case):
             return {"id": "thread-fresh"}
@@ -683,13 +689,10 @@ def test_missing_chat_thread_creates_fresh_thread():
         def get_thread(self, thread_id):
             return {"id": thread_id, "session_id": self.session_id, "state": {}}
 
-        def list_threads(self, session_id=""):
-            raise AssertionError("must not inherit an arbitrary existing thread")
-
-    thread, linkage = _ensure_thread(FakeClient(), _construction_case(), chat_results=[{}])
+    thread, linkage = _prepare_construction_thread(FakeClient(), _construction_case())
 
     assert thread["id"] == "thread-fresh"
-    assert linkage["source"] == "created"
+    assert linkage["source"] == "prepared"
 
 
 def test_execution_submission_requires_explicit_runner_permission():
@@ -700,13 +703,19 @@ def test_execution_submission_requires_explicit_runner_permission():
     class FakeClient:
         session_id = "sess-execution-gate"
 
+        def ensure_chat_session(self):
+            return self.session_id
+
         def list_profile_ids(self):
             return set()
 
         def preflight_case(self, case):
             return {"ok": True, "groups": []}
 
-        def run_case(self, case):
+        def create_thread(self, case):
+            return {"id": "thread-gated"}
+
+        def run_case(self, case, *, thread_id=""):
             return {
                 "reply": (
                     "Provisionally, held ASEAN trade and GDELT news could support a latent stress "
@@ -735,6 +744,9 @@ def test_execution_submission_requires_explicit_runner_permission():
                 "id": thread_id,
                 "session_id": self.session_id,
             }
+
+        def list_threads(self, session_id=""):
+            return [{"id": "thread-gated", "session_id": self.session_id}]
 
         def accept_thread_proposal(self, thread_id, proposal):
             raise AssertionError("execution must remain gated")
