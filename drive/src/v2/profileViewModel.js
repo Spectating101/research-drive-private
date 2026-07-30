@@ -257,7 +257,7 @@ export function buildDeskRead(profile, { previewing = false } = {}) {
   } else if (lab.suggested.length) {
     deskParts.push(`${lab.suggested.length} suggested next.`);
   } else if (!lab.linked.length) {
-    deskParts.push("No lab holdings linked yet.");
+    deskParts.push("No Library evidence linked yet.");
   }
 
   return {

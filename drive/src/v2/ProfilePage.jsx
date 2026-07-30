@@ -141,12 +141,19 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefres
           data-testid="profile-memory"
           aria-labelledby="profile-memory-title"
         >
+          {/* VC-1: research memory stays editable — it drives Discover ranking,
+              Ask context, and Synthesis constraints. No completion score. */}
           <header className="rd-v2-profile-section-head">
             <div>
-              <h2 id="profile-memory-title">Memory</h2>
-              <p>Context Research Drive should remember while finding and evaluating evidence.</p>
+              <h2 id="profile-memory-title">Research memory</h2>
+              <p>
+                Context Research Drive should remember while finding and evaluating evidence.
+                It shapes Discover ranking, Ask context, and Synthesis constraints.
+              </p>
             </div>
-            <span>{savedCount} saved</span>
+            <button type="button" className="rd-v2-btn sm" onClick={() => onGoTab?.("settings")}>
+              Edit research memory
+            </button>
           </header>
           <div className="rd-v2-profile-memory-layout">
             <ul className="rd-v2-profile-memory">
@@ -172,14 +179,26 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefres
           </div>
         </section>
       ) : (bound || previewing) && !memory.length ? (
-        <section className="rd-v2-profile-section" data-testid="profile-memory-thin" aria-label="Memory">
+        <section className="rd-v2-profile-section" data-testid="profile-memory-thin" aria-label="Research memory">
+          {/* VC-1: an empty research memory must offer a way to improve it —
+              it changes Discover ranking, Ask context, and Synthesis
+              constraints, so a dead read-only record is not enough. */}
           <header className="rd-v2-profile-section-head">
             <div>
-              <h2>Memory</h2>
-              <p>Thin faculty profiles keep Memory empty rather than inventing research context.</p>
+              <h2>Research memory</h2>
+              <p>Thin faculty profiles keep this empty rather than inventing research context.</p>
             </div>
           </header>
-          <p className="rd-v2-empty-inline">No specialties, tracks, or methods on file.</p>
+          <p className="rd-v2-empty-inline">No research direction saved.</p>
+          <p className="rd-v2-profile-memory-effect">
+            Research memory shapes Discover ranking, the context Ask carries, and the
+            constraints Synthesis applies.
+          </p>
+          <div className="rd-v2-profile-memory-actions">
+            <button type="button" className="rd-v2-btn sm primary" onClick={() => onGoTab?.("settings")}>
+              Add research focus
+            </button>
+          </div>
         </section>
       ) : null}
 
@@ -220,8 +239,8 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefres
         >
           <header className="rd-v2-profile-section-head">
             <div>
-              <h2 id="profile-lab-title">Lab</h2>
-              <p>Data relationships already attached to this research context and useful next connections.</p>
+              <h2 id="profile-lab-title">Library connections</h2>
+              <p>Library evidence already attached to this research context, and useful next connections.</p>
             </div>
             <span>Linked · next</span>
           </header>
@@ -247,9 +266,16 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefres
                   ))}
                 </ul>
               ) : (
-                <p className="rd-v2-empty-inline" data-testid="profile-lab-linked-empty">
-                  None yet
-                </p>
+                <div data-testid="profile-lab-linked-empty">
+                  <p className="rd-v2-empty-inline">No evidence linked to this profile.</p>
+                  <button
+                    type="button"
+                    className="rd-v2-btn sm"
+                    onClick={() => onGoTab?.("library")}
+                  >
+                    Find relevant Library assets
+                  </button>
+                </div>
               )}
             </div>
 
@@ -274,7 +300,9 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefres
                   ))}
                 </ul>
               ) : (
-                <p className="rd-v2-empty-inline">—</p>
+                <p className="rd-v2-empty-inline">
+                  Suggestions appear after a research focus is saved.
+                </p>
               )}
             </div>
           </div>
