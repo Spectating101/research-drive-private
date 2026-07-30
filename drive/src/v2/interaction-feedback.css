@@ -198,13 +198,21 @@
   line-height: 1.35;
 }
 
+/* VC-7: working progress must not read as disabled content. The current step
+   carries the strongest weight, completed steps stay legible, and only future
+   steps recede. (The list emits data-state past/active/pending — the former
+   "done" selector never matched and left finished steps unstyled.) */
 .rd-v2-progress-card li[data-state="active"] {
-  color: #34415a;
-  font-weight: 650;
+  color: #1f2a3d;
+  font-weight: 680;
 }
 
-.rd-v2-progress-card li[data-state="done"] {
-  color: #647089;
+.rd-v2-progress-card li[data-state="past"] {
+  color: #55617a;
+}
+
+.rd-v2-progress-card li[data-state="pending"] {
+  color: #9aa3b5;
 }
 
 .rd-v2-progress-marker {
@@ -220,15 +228,21 @@
 }
 
 .rd-v2-progress-card li[data-state="active"] .rd-v2-progress-marker {
-  border-color: rgba(63, 111, 92, 0.55);
-  background: rgba(63, 111, 92, 0.1);
-  color: #3f6f5c;
+  border-color: #3f6f5c;
+  background: #3f6f5c;
+  color: #fff;
 }
 
-.rd-v2-progress-card li[data-state="done"] .rd-v2-progress-marker {
-  border-color: rgba(56, 145, 106, 0.4);
-  background: rgba(56, 145, 106, 0.1);
+.rd-v2-progress-card li[data-state="past"] .rd-v2-progress-marker {
+  border-color: rgba(56, 145, 106, 0.55);
+  background: rgba(56, 145, 106, 0.14);
   color: #27815b;
+}
+
+.rd-v2-progress-card li[data-state="pending"] .rd-v2-progress-marker {
+  border-color: rgba(186, 196, 216, 0.9);
+  background: #fff;
+  color: #a6aebd;
 }
 
 .rd-v2-progress-marker svg {

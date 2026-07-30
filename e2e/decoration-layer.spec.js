@@ -79,7 +79,12 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
     const activeStep = Number(await progress.getAttribute("data-active-step"));
     expect(activeStep).toBeGreaterThanOrEqual(2);
     await expect(progress.locator('li[data-state="past"]')).not.toHaveCount(0);
-    await expect(progress.locator('li[data-state="past"] .rd-v2-progress-marker svg')).toHaveCount(0);
+    // VC-7: completed work carries an explicit check, and exactly one step is
+    // current, so working progress cannot read as disabled content.
+    await expect(
+      progress.locator('li[data-state="past"] .rd-v2-progress-marker svg').first(),
+    ).toBeVisible();
+    await expect(progress.locator('li[aria-current="step"]')).toHaveCount(1);
 
     ensureArtifactDir();
     await page.screenshot({ path: `${ARTIFACT_DIR}/decoration-ask-activity-1440x900.png`, fullPage: true });

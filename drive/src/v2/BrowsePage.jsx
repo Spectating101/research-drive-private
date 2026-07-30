@@ -39,6 +39,10 @@ function plural(value, singular, pluralValue = `${singular}s`) {
   return `${value} ${value === 1 ? singular : pluralValue}`;
 }
 
+/** VC-5: first-use examples for the single adaptive composer. */
+const DISCOVER_KEYWORD_EXAMPLE = "stablecoin";
+const DISCOVER_QUESTION_EXAMPLE = "What data can I use to study de-pegs?";
+
 function resultScopeSummary(counts) {
   const wider = Math.max(0, Number(counts?.external || 0) - Number(counts?.needsAccess || 0));
   return [
@@ -319,6 +323,20 @@ function DiscoverQueryComposer({
       <p>
         Keywords return fast results. A research question also starts a contextual Ask investigation automatically.
       </p>
+      {/* VC-5: two compact examples teach the one-composer behaviour by
+          demonstration. They are examples, not modes or tabs. */}
+      {idle ? (
+        <div className="rd-v2-discover-composer-examples" data-testid="discover-composer-examples">
+          <button type="button" onClick={() => onValueChange?.(DISCOVER_KEYWORD_EXAMPLE)}>
+            <span>Try a keyword</span>
+            <em>{DISCOVER_KEYWORD_EXAMPLE}</em>
+          </button>
+          <button type="button" onClick={() => onValueChange?.(DISCOVER_QUESTION_EXAMPLE)}>
+            <span>Ask a research need</span>
+            <em>{DISCOVER_QUESTION_EXAMPLE}</em>
+          </button>
+        </div>
+      ) : null}
     </form>
   );
 }
@@ -1104,25 +1122,34 @@ export function BrowsePage({
               idle
             />
             <div className="rd-v2-discover-idle-held">
-              <div className="rd-v2-home-section-head">
-                <div>
-                  <span className="rd-v2-eyebrow">Curated beyond your Library</span>
-                  <h3>Sources the desk already knows how to investigate</h3>
-                </div>
-                <span className="muted">{plural(merged.length, "known source route")}</span>
-              </div>
+              {/* VC-5: with no known routes this collapses to one quiet line
+                  instead of an oversized empty section. */}
               {idleRecommendations.length ? (
-                <DiscoverCandidateList
-                  rows={idleRecommendations}
-                  labIds={labIds}
-                  selectedId={selectedId}
-                  onSelectRow={onSelectRow}
-                  onAdd={onReviewAcquisition}
-                />
-              ) : <p className="muted">No external source recommendations are available yet.</p>}
+                <>
+                  <div className="rd-v2-home-section-head">
+                    <div>
+                      <span className="rd-v2-eyebrow">Curated beyond your Library</span>
+                      <h3>Sources the desk already knows how to investigate</h3>
+                    </div>
+                    <span className="muted">{plural(merged.length, "known source route")}</span>
+                  </div>
+                  <DiscoverCandidateList
+                    rows={idleRecommendations}
+                    labIds={labIds}
+                    selectedId={selectedId}
+                    onSelectRow={onSelectRow}
+                    onAdd={onReviewAcquisition}
+                  />
+                </>
+              ) : (
+                <p className="muted">
+                  No curated source routes yet — search above, or paste a URL or DOI below.
+                </p>
+              )}
               {idleHoldings.length ? (
                 <div className="rd-v2-discover-idle-library-note">
-                  Library evidence · {labIds.size} assets are checked automatically after a research question.
+                  Library evidence · {plural(labIds.size, "asset")}{" "}
+                  {labIds.size === 1 ? "is" : "are"} checked automatically after a research question.
                 </div>
               ) : null}
             </div>
@@ -1244,12 +1271,13 @@ export function BrowsePage({
 
             {resultGroups.available.length ? (
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
+                {/* VC-5: the result header already states the offering count;
+                    repeating it beside an identical heading is noise. */}
                 <div className="rd-v2-home-section-head">
                   <div>
                     <span className="rd-v2-eyebrow">Beyond your Library</span>
                     <h3>Available to add</h3>
                   </div>
-                  <span className="muted">{plural(resultGroups.available.length, "offering")} available to add</span>
                 </div>
                 <DiscoverCandidateList
                   rows={resultGroups.available}

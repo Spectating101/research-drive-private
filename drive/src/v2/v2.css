@@ -9219,3 +9219,40 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   gap: 8px;
   margin: 0 0 10px;
 }
+
+/* VC-5: first-use examples under the idle Discover composer. Compact,
+   demonstrative, and never a mode or tab. */
+.rd-v2-discover-composer-examples {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+.rd-v2-discover-composer-examples button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--rd-border);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.rd-v2-discover-composer-examples button:hover {
+  border-color: #aebfb6;
+  background: #f7faf8;
+}
+.rd-v2-discover-composer-examples span {
+  color: var(--rd-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.rd-v2-discover-composer-examples em {
+  color: var(--rd-text);
+  font-size: 12px;
+  font-style: normal;
+}

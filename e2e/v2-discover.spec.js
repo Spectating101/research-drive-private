@@ -31,7 +31,17 @@ test.describe("v2 Discover tab", () => {
     await expect(page.getByRole("button", { name: "Explore", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /mode/i })).toHaveCount(0);
     await expect(page.getByLabel("Public URL or DOI")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Sources the desk already knows how to investigate" })).toBeVisible();
+    // VC-5: two compact examples teach the one-composer behaviour, and the
+    // curated-source block collapses to a single quiet line when it has no
+    // routes rather than filling the canvas with an empty section.
+    const examples = page.getByTestId("discover-composer-examples");
+    await expect(examples).toBeVisible();
+    await expect(examples.getByText("Try a keyword")).toBeVisible();
+    await expect(examples.getByText("Ask a research need")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Sources the desk already knows how to investigate" }),
+    ).toHaveCount(0);
+    await expect(page.getByText("No curated source routes yet")).toBeVisible();
   });
 
   test("keyword search renders the external result composition", async ({ page }) => {

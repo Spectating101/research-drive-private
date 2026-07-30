@@ -183,15 +183,17 @@
   background: rgba(63, 111, 92, 0.2);
 }
 
+/* VC-7: completed steps stay clearly legible rather than fading toward
+   disabled; the current step keeps the strongest emphasis. */
 .rd-v2-progress-card li[data-state="past"] .rd-v2-progress-marker {
-  border-color: rgba(63, 111, 92, 0.24);
-  background: rgba(63, 111, 92, 0.045);
-  color: #4e7c67;
+  border-color: rgba(56, 145, 106, 0.55);
+  background: rgba(56, 145, 106, 0.14);
+  color: #27815b;
 }
 
 .rd-v2-progress-card li[data-state="active"] {
-  background: rgba(63, 111, 92, 0.055);
-  color: #34415a;
+  background: rgba(63, 111, 92, 0.09);
+  color: #1f2a3d;
 }
 
 .rd-v2-progress-card li[data-state="active"] .rd-v2-progress-marker {
