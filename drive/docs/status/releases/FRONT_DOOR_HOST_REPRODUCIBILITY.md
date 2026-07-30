@@ -7,6 +7,12 @@
 
 1. Front door Python provides an importable `cursor_sdk` (`YZU_PYTHON_BIN`).
 2. `CURSOR_API_KEY` is set **and** `cursor_composer_available()` can import `cursor_sdk` (health is not key-only).
+   An optional `GEMINI_API_KEY` plus explicit
+   `DESK_SYNTHESIS_GEMINI_ENABLED=true` enables only the read-only Synthesis
+   reasoning fallback; its runtime health is reported separately and it never
+   substitutes for Composer's MCP-backed procurement or execution capabilities.
+   Leave the switch off unless sending the research question and bounded
+   candidate titles to that provider is approved.
 3. When the worker/controller promote into a separate runtime-integration store, the front-door checkout binds that store via `YZU_RUNTIME_DRIVE_ROOT`.
 4. Newly collected procured assets have local bytes at the registry `local_path` (hydrate from acquisition staging when needed).
 5. Worker-control `:8780` stays Tailscale-bound; the Windows worker token matches the controller token.
@@ -23,7 +29,8 @@ YZU_RUNTIME_DRIVE_ROOT=/absolute/path/to/.../Sharpe-Renaissance-runtime-integrat
 SHARPE_REGISTRY_PATH=drive/config/research_query_registry.json
 ```
 
-Never commit real tokens. Keep `YZU_DESK_ACCESS_TOKEN`, `CURSOR_API_KEY`, and `YZU_WORKER_CONTROL_TOKEN` host-local.
+Never commit real tokens. Keep `YZU_DESK_ACCESS_TOKEN`, `CURSOR_API_KEY`,
+optional `GEMINI_API_KEY`, and `YZU_WORKER_CONTROL_TOKEN` host-local.
 
 ## Deterministic linking
 

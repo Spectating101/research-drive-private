@@ -187,6 +187,13 @@ def _mcp_stdio_config(repo_root: Path, *, vault_primed: bool = False) -> dict[st
 
 
 def _faculty_starter_prompts(state: dict[str, Any]) -> list[str]:
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        is_synthesis_context,
+        synthesis_starter_prompts,
+    )
+
+    if is_synthesis_context(state):
+        return synthesis_starter_prompts()
     row = state.get("faculty_profile_row") or {}
     out: list[str] = []
     for item in row.get("starter_prompts") or []:
@@ -445,6 +452,105 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n\n"
 
 
+def _prepare_synthesis_fallback_prompt(
+    gateway: Any,
+    message: str,
+    state: dict[str, Any],
+) -> tuple[str, bool]:
+    """Build the same grounded contract without requiring a Cursor session."""
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_history_brief,
+        wrap_synthesis_request,
+    )
+    from scripts.research_data_mcp.desk_synthesis_grounding import (
+        build_synthesis_grounding_brief,
+    )
+
+    first_user_turn = not bool(state.get("synthesis_user_turns"))
+    parts: list[str] = []
+    rail_prefix = _format_rail_context(state.get("rail_context") or {}).strip()
+    if rail_prefix:
+        parts.append(rail_prefix)
+    history = synthesis_history_brief(state)
+    if history:
+        parts.append(history)
+    if first_user_turn:
+        grounding = build_synthesis_grounding_brief(gateway, message)
+        state["synthesis_grounding_brief"] = grounding
+        parts.append(grounding)
+    parts.append(message.strip())
+    return (
+        wrap_synthesis_request(
+            "\n\n".join(part for part in parts if part),
+            first_user_turn=first_user_turn,
+        ),
+        first_user_turn,
+    )
+
+
+def _run_synthesis_reasoning_fallback(
+    prompt: str,
+    *,
+    raw_message: str,
+    state: dict[str, Any],
+    first_user_turn: bool,
+    event_sink: DeskEventSink | None,
+    fallback_from: str,
+) -> AgentTurn:
+    """Use a stateless read-only provider while preserving project continuity."""
+    from scripts.research_data_mcp.desk_reply_sanitize import sanitize_desk_reply
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        record_synthesis_turn,
+        synthesis_reply_violations,
+    )
+    from scripts.research_data_mcp.desk_synthesis_fallback import (
+        SynthesisFallbackError,
+        run_gemini_synthesis_turn,
+    )
+
+    _emit_event(
+        event_sink,
+        {"type": "activity", "text": "Reasoning from verified Library context…"},
+    )
+    reply, metadata = run_gemini_synthesis_turn(prompt)
+    reply = sanitize_desk_reply(reply, first_turn=first_user_turn)
+    violations = synthesis_reply_violations(
+        reply,
+        first_user_turn=first_user_turn,
+    )
+    if violations:
+        raise SynthesisFallbackError(
+            "contract_violation",
+            ", ".join(violations),
+        )
+
+    record_synthesis_turn(
+        state,
+        user=raw_message,
+        assistant=reply,
+        provider="gemini",
+    )
+    state["synthesis_user_turns"] = int(state.get("synthesis_user_turns") or 0) + 1
+    action_result = {
+        "action": "synthesis_reasoning",
+        "brain": "gemini_synthesis",
+        "mode": "synthesis",
+        "fallback_from": fallback_from,
+        **metadata,
+    }
+    return AgentTurn(
+        plan={
+            "action": "synthesis_reasoning",
+            "brain": "gemini_synthesis",
+            "read_only": True,
+        },
+        action_result=action_result,
+        reply=reply,
+        suggested_prompts=_faculty_starter_prompts(state),
+        tool_name="gemini_synthesis",
+    )
+
+
 def run_cursor_composer_turn(
     gateway: Any,
     message: str,
@@ -456,14 +562,67 @@ def run_cursor_composer_turn(
 ) -> AgentTurn:
     """Composer chooses tools freely via procurement MCP."""
     repo_root = Path(gateway.repo_root).resolve()
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        is_synthesis_context,
+        synthesis_failure_reply,
+        wrap_synthesis_request,
+    )
+
+    synthesis_context = is_synthesis_context(state)
     api_key = os.getenv("CURSOR_API_KEY", "").strip()
     if not api_key:
+        if synthesis_context:
+            try:
+                fallback_prompt, first_user_turn = _prepare_synthesis_fallback_prompt(
+                    gateway,
+                    message,
+                    state,
+                )
+                return _run_synthesis_reasoning_fallback(
+                    fallback_prompt,
+                    raw_message=message,
+                    state=state,
+                    first_user_turn=first_user_turn,
+                    event_sink=event_sink,
+                    fallback_from="cursor_not_configured",
+                )
+            except Exception as exc:
+                from scripts.research_data_mcp.desk_synthesis_fallback import (
+                    SynthesisFallbackError,
+                )
+
+                category = (
+                    exc.category
+                    if isinstance(exc, SynthesisFallbackError)
+                    else "provider_error"
+                )
+                return AgentTurn(
+                    plan={"action": "composer_unavailable"},
+                    action_result={
+                        "action": "composer_unavailable",
+                        "error": "missing CURSOR_API_KEY",
+                        "mode": "synthesis",
+                        "fallback": "gemini_failed",
+                        "fallback_error_category": category,
+                    },
+                    reply=synthesis_failure_reply("agent_unavailable"),
+                    suggested_prompts=_faculty_starter_prompts(state),
+                    tool_name="",
+                )
         return AgentTurn(
             plan={"action": "composer_unavailable"},
-            action_result={"action": "composer_unavailable", "error": "missing CURSOR_API_KEY"},
+            action_result={
+                "action": "composer_unavailable",
+                "error": "missing CURSOR_API_KEY",
+                **({"mode": "synthesis", "fallback": "none"} if synthesis_context else {}),
+            },
             reply=(
-                "The research desk runs on Cursor Composer with the procurement tool library. "
-                "Ask the lab operator to set CURSOR_API_KEY in .env.local, then try again."
+                synthesis_failure_reply("agent_unavailable")
+                if synthesis_context
+                else (
+                    "The research desk runs on Cursor Composer with the procurement tool library. "
+                    "Ask the lab operator to set CURSOR_API_KEY in .env.local, then try again."
+                )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="",
@@ -478,6 +637,7 @@ def run_cursor_composer_turn(
     rail_prefix = _format_rail_context(state.get("rail_context") or {})
     if rail_prefix and rail_prefix not in user_text:
         user_text = rail_prefix + user_text
+    synthesis_first_turn = synthesis_context and not bool(state.get("synthesis_user_turns"))
     vault_primed_env = False
     if prime:
         pass
@@ -490,6 +650,19 @@ def run_cursor_composer_turn(
             state["vault_brief"] = brief
         user_text = wrap_first_turn_message(brief, user_text)
         vault_primed_env = True
+    if synthesis_context:
+        if synthesis_first_turn:
+            from scripts.research_data_mcp.desk_synthesis_grounding import (
+                build_synthesis_grounding_brief,
+            )
+
+            grounding = build_synthesis_grounding_brief(gateway, message)
+            state["synthesis_grounding_brief"] = grounding
+            user_text = f"{grounding}\n\n{user_text}"
+        user_text = wrap_synthesis_request(
+            user_text,
+            first_user_turn=synthesis_first_turn,
+        )
     mcp_servers = _mcp_stdio_config(repo_root, vault_primed=vault_primed_env)
 
     try:
@@ -517,31 +690,47 @@ def run_cursor_composer_turn(
         send_opts = SendOptions(mcp_servers=mcp_servers, on_delta=on_delta)
 
         for model_idx, model_id in enumerate(model_candidates):
-            agent_opts = AgentOptions(
-                model=ModelSelection(id=model_id),
-                api_key=api_key,
-                name=f"research-desk-{session_id[:8] or 'anon'}",
-                mcp_servers=mcp_servers,
-                **_desk_agent_runtime_kwargs(repo_root),
-            )
-            resume_id = agent_id if model_idx == 0 else ""
-            if resume_id:
-                agent = Agent.resume(resume_id, agent_opts)
-            else:
-                agent = Agent.create(agent_opts)
-                state["cursor_agent_id"] = agent.agent_id
-                agent_id = agent.agent_id
+            try:
+                agent_opts = AgentOptions(
+                    model=ModelSelection(id=model_id),
+                    api_key=api_key,
+                    name=f"research-desk-{session_id[:8] or 'anon'}",
+                    mcp_servers=mcp_servers,
+                    **_desk_agent_runtime_kwargs(repo_root),
+                )
+                resume_id = agent_id if model_idx == 0 else ""
+                if resume_id:
+                    agent = Agent.resume(resume_id, agent_opts)
+                else:
+                    agent = Agent.create(agent_opts)
+                    state["cursor_agent_id"] = agent.agent_id
+                    agent_id = agent.agent_id
 
-            with agent:
-                turn_text = user_text
-                for attempt in range(2):
-                    streamed.clear()
-                    run = agent.send(turn_text, send_opts)
-                    run.wait()
-                    reply = _reply_from_run(run, streamed)
-                    if reply or prime or attempt == 1:
-                        break
-                    turn_text = f"{message.strip()}\n\n(Please answer in plain prose for the faculty user.)"
+                with agent:
+                    turn_text = user_text
+                    for attempt in range(2):
+                        streamed.clear()
+                        run = agent.send(turn_text, send_opts)
+                        run.wait()
+                        reply = _reply_from_run(run, streamed)
+                        if reply or prime or attempt == 1:
+                            break
+                        turn_text = (
+                            f"{user_text}\n\n"
+                            "(The previous attempt returned no final text. Answer now in plain prose.)"
+                        )
+            except Exception:
+                can_retry_fresh = (
+                    model_idx < len(model_candidates) - 1
+                    and (not had_agent or synthesis_first_turn)
+                )
+                if not can_retry_fresh:
+                    raise
+                agent_id = ""
+                state.pop("cursor_agent_id", None)
+                run = None
+                reply = ""
+                continue
 
             is_model_error = (
                 run is None
@@ -550,7 +739,7 @@ def run_cursor_composer_turn(
             )
             if not is_model_error or model_idx == len(model_candidates) - 1:
                 break
-            if had_agent:
+            if had_agent and not synthesis_first_turn:
                 break
             agent_id = ""
             state.pop("cursor_agent_id", None)
@@ -563,12 +752,88 @@ def run_cursor_composer_turn(
             reply = sanitize_desk_reply(reply, first_turn=True)
 
         is_error = (run is None) or (getattr(run, "status", "") == "error") or (not reply) or (reply == EMPTY_REPLY_FALLBACK)
+        synthesis_violations: list[str] = []
+        if synthesis_context and not prime and not is_error:
+            from scripts.research_data_mcp.desk_synthesis_contract import (
+                synthesis_reply_violations,
+            )
+
+            synthesis_violations = synthesis_reply_violations(
+                reply,
+                first_user_turn=synthesis_first_turn,
+            )
+            is_error = bool(synthesis_violations)
+        from scripts.research_data_mcp.desk_composer_health import (
+            record_composer_failure,
+            record_composer_success,
+        )
+
+        if is_error:
+            record_composer_failure(
+                (
+                    f"contract_violation:{','.join(synthesis_violations)}"
+                    if synthesis_violations
+                    else str(getattr(run, "status", "") or "empty_reply")
+                ),
+                model=model_id,
+            )
+        else:
+            record_composer_success(model=model_id)
         if is_error and not prime:
             action_result = {
                 "action": "composer_error",
                 "status": str(getattr(run, "status", "") or "empty_reply"),
             }
-            if reply == EMPTY_REPLY_FALLBACK:
+            if synthesis_context:
+                try:
+                    fallback_prompt, fallback_first_turn = (
+                        _prepare_synthesis_fallback_prompt(
+                            gateway,
+                            message,
+                            state,
+                        )
+                    )
+                    return _run_synthesis_reasoning_fallback(
+                        fallback_prompt,
+                        raw_message=message,
+                        state=state,
+                        first_user_turn=fallback_first_turn,
+                        event_sink=event_sink,
+                        fallback_from="cursor_composer",
+                    )
+                except Exception as exc:
+                    from scripts.research_data_mcp.desk_synthesis_fallback import (
+                        SynthesisFallbackError,
+                    )
+
+                    category = (
+                        exc.category
+                        if isinstance(exc, SynthesisFallbackError)
+                        else "provider_error"
+                    )
+                    action_result.update(
+                        {
+                            "mode": "synthesis",
+                            "fallback": "gemini_failed",
+                            "fallback_error_category": category,
+                            "reason": (
+                                "composer_contract_violation"
+                                if synthesis_violations
+                                else "empty_or_failed_composer_reply"
+                            ),
+                            **(
+                                {"contract_violations": synthesis_violations}
+                                if synthesis_violations
+                                else {}
+                            ),
+                        }
+                    )
+                    reply = synthesis_failure_reply(
+                        "response_contract"
+                        if synthesis_violations
+                        else action_result["status"]
+                    )
+            elif reply == EMPTY_REPLY_FALLBACK:
                 from scripts.research_data_mcp.desk_catalog_fallback import try_inventory_fallback
 
                 brief = str(state.get("vault_brief") or "").strip()
@@ -596,6 +861,18 @@ def run_cursor_composer_turn(
             state.update(action_result["state_patch"])
         if prime and state.get("cursor_agent_id"):
             state["desk_primed"] = True
+        if synthesis_context and not prime and not is_error:
+            from scripts.research_data_mcp.desk_synthesis_contract import (
+                record_synthesis_turn,
+            )
+
+            record_synthesis_turn(
+                state,
+                user=message,
+                assistant=reply,
+                provider="cursor_composer",
+            )
+            state["synthesis_user_turns"] = int(state.get("synthesis_user_turns") or 0) + 1
 
         return AgentTurn(
             plan={"action": "composer", "brain": "cursor_composer"},
@@ -605,12 +882,61 @@ def run_cursor_composer_turn(
             tool_name="cursor_composer",
         )
     except Exception as exc:
+        from scripts.research_data_mcp.desk_composer_health import record_composer_failure
+
+        record_composer_failure(exc, model=locals().get("model_id", ""))
+        synthesis_context = is_synthesis_context(state)
+        if synthesis_context and not prime:
+            try:
+                fallback_prompt, fallback_first_turn = (
+                    _prepare_synthesis_fallback_prompt(
+                        gateway,
+                        message,
+                        state,
+                    )
+                )
+                return _run_synthesis_reasoning_fallback(
+                    fallback_prompt,
+                    raw_message=message,
+                    state=state,
+                    first_user_turn=fallback_first_turn,
+                    event_sink=event_sink,
+                    fallback_from="cursor_composer",
+                )
+            except Exception as fallback_exc:
+                from scripts.research_data_mcp.desk_synthesis_fallback import (
+                    SynthesisFallbackError,
+                )
+
+                fallback_category = (
+                    fallback_exc.category
+                    if isinstance(fallback_exc, SynthesisFallbackError)
+                    else "provider_error"
+                )
+        else:
+            fallback_category = ""
         return AgentTurn(
             plan={"action": "composer_error"},
-            action_result={"action": "composer_error", "error": str(exc)[:400]},
+            action_result={
+                "action": "composer_error",
+                "error": str(exc)[:400],
+                **(
+                    {
+                        "mode": "synthesis",
+                        "fallback": "gemini_failed",
+                        "fallback_error_category": fallback_category,
+                    }
+                    if synthesis_context
+                    else {}
+                ),
+            },
             reply=(
-                "Composer could not complete that turn (connection or tool error). "
-                f"Detail: {str(exc)[:200]}"
+                synthesis_failure_reply("connection_or_tool_error")
+                if synthesis_context
+                else (
+                    "Composer could not complete that turn (connection or tool error). "
+                    f"Detail: {str(exc)[:200]}"
+                )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="cursor_composer",

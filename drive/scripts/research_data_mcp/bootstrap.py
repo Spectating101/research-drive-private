@@ -201,7 +201,7 @@ def create_stack(
         if str((plan or {}).get("job_type") or "") == "synthesis_execute":
             from scripts.research_data_mcp.drive_first import (
                 _stamp_registry_drive_paths,
-                compact_ephemeral_path,
+                compact_finalized_archives,
                 finalize_job_to_drive,
                 is_drive_first,
             )
@@ -243,9 +243,9 @@ def create_stack(
                 evidence = _registration_evidence(result, output_id)
                 if evidence:
                     result["registration_evidence"] = evidence
-            compacted = compact_ephemeral_path(root, str(materialized["canonical_dir"]))
+            compacted = compact_finalized_archives(root, finalize, plan=plan or {})
             if isinstance(result, dict):
-                result["drive_finalize"]["compacted"] = [compacted]
+                result["drive_finalize"]["compacted"] = compacted
             return promoted
         doi = str((plan or {}).get("datacite_doi") or "")
         hf_id = str((plan or {}).get("hf_dataset_id") or "")

@@ -959,6 +959,16 @@ class ResearchDataGateway:
 
         brain = desk_brain_mode(self.repo_root)
         composer_ok = cursor_composer_available()
+        from scripts.research_data_mcp.desk_composer_health import (
+            composer_runtime_status,
+        )
+
+        composer_runtime = composer_runtime_status(configured=composer_ok)
+        from scripts.research_data_mcp.desk_synthesis_fallback import (
+            synthesis_fallback_runtime_status,
+        )
+
+        synthesis_fallback_runtime = synthesis_fallback_runtime_status()
         stats = self.orchestrator.stats()
         out: dict[str, Any] = {
             "status": "ok",
@@ -966,7 +976,10 @@ class ResearchDataGateway:
             "desk": {
                 "brain": brain,
                 "composer_configured": composer_ok,
+                "composer_status": composer_runtime["status"],
+                "composer_runtime": composer_runtime,
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
+                "synthesis_fallback": synthesis_fallback_runtime,
                 "llm_configured": composer_ok,
                 "legacy_llm_configured": legacy_llm_configured(),
                 "jobs": stats,
@@ -981,7 +994,6 @@ class ResearchDataGateway:
                 "desk_session_cookie": bool(access_token_required()),
             },
         }
-        storage = getattr(self.orchestrator, "cfg", {}).get("storage") or {}
         from scripts.research_data_mcp.storage_tiers import storage_tiers_status
 
         tiers = storage_tiers_status(self.repo_root)
@@ -1074,6 +1086,17 @@ class ResearchDataGateway:
         hot = (out.get("desk") or {}).get("storage_tiers", {}).get("hot") or {}
         jobs = (out.get("desk") or {}).get("jobs") or {}
         warnings: list[str] = []
+        if composer_runtime.get("status") == "degraded":
+            warnings.append(
+                "composer_runtime="
+                f"{composer_runtime.get('error_category') or 'provider_error'}"
+            )
+            out["status"] = "degraded"
+        if synthesis_fallback_runtime.get("status") == "degraded":
+            warnings.append(
+                "synthesis_fallback="
+                f"{synthesis_fallback_runtime.get('error_category') or 'provider_error'}"
+            )
         if hot.get("headroom_ok") is False:
             warnings.append(
                 f"nvme_headroom: {hot.get('free_gb')} GB free < min {hot.get('required_min_gb')} GB"
@@ -1838,6 +1861,12 @@ class ResearchDataGateway:
             "title": f"Synthesis: {thread.get('title') or spec['output_dataset_id']}",
             "job_type": "synthesis_execute",
             "thread_id": thread_id,
+            "objective": str(thread.get("objective") or ""),
+            "grain": str(
+                state.get("required_grain")
+                or (state.get("spec") or {}).get("grain")
+                or ""
+            ),
             "execution_spec": spec,
             "accepted_spec_hash": accepted_hash,
             "dataset_id": spec["output_dataset_id"],
@@ -1848,6 +1877,7 @@ class ResearchDataGateway:
             plan["title"],
             plan,
             {
+                "_ops_internal": True,
                 "thread_id": thread_id,
                 "objective": thread.get("objective") or "",
                 "search_goal": thread.get("objective") or "",

@@ -1,0 +1,159 @@
+{
+  "version": 2,
+  "contracts": ["synthesis_first_turn", "synthesis_construction_investigation"],
+  "cases": [
+    {
+      "id": "idn_retail_coordination",
+      "title": "Indonesia retail-facing coordination proxy",
+      "retrieval_query": "JKSE PIT Indonesia microstructure estimate revisions",
+      "request": "Construct a point-in-time firm-week measure of retail-facing trading coordination among Indonesian equities from 2010 through 2026. Preserve point-in-time JKSE membership, distinguish common news reaction from coordination, do not describe identities as verified retail, use held Indonesian microstructure evidence and estimate-revision or news evidence where defensible, preserve survivorship and entity-mapping limitations, and emit component and coverage flags. On this first turn, interpret the construct, verify the strongest held assets, identify what remains ambiguous, and ask the one highest-value clarification. Do not create, collect, execute, or materialise anything.",
+      "expected_asset_groups": [
+        ["jkse pit", "point-in-time jkse"],
+        ["microstructure", "idn fry"],
+        ["estimate revision", "news"]
+      ],
+      "required_risk_groups": [
+        ["survivorship"],
+        ["entity mapping", "identifier mapping"],
+        ["retail ident", "retail-facing", "unverified retail"],
+        ["common news", "market-wide news", "shared news"]
+      ]
+    },
+    {
+      "id": "stablecoin_trust",
+      "title": "Stablecoin trust deterioration construct",
+      "retrieval_query": "stablecoin Skynet Etherscan DeFiLlama GDELT trust security liquidity",
+      "request": "Define a weekly stablecoin trust-deterioration dataset from 2017 through 2026 using held evidence. The construct should separate security incidents, market stress, adoption or liquidity changes, and public attention. Treat trust as latent rather than directly observed, avoid hindsight leakage, state which components are proxies, and retain component availability flags. On this first turn, interpret the construct, verify the strongest Library assets, explain the central validity risk, and ask exactly one clarification that would materially change the design. Do not run or materialise anything.",
+      "expected_asset_groups": [
+        ["skynet", "certik"],
+        ["etherscan", "on-chain"],
+        ["defillama", "liquidity", "adoption"],
+        ["gdelt", "news", "incident"]
+      ],
+      "required_risk_groups": [
+        ["latent", "proxy"],
+        ["leakage", "point-in-time", "hindsight"],
+        ["coverage"],
+        ["construct validity", "validity"]
+      ]
+    },
+    {
+      "id": "taiwan_governance_intensity",
+      "title": "Taiwan governance intervention intensity",
+      "retrieval_query": "Taiwan MOPS TWSE governance filings disclosures",
+      "request": "Construct a point-in-time firm-quarter measure of governance intervention intensity for Taiwan-listed firms from 2012 through 2026 using held disclosure and market evidence. Distinguish regulatory or board interventions from routine filings, preserve filing dates rather than fiscal-period hindsight, retain source and component flags, and do not equate disclosure volume with governance quality. First interpret the measure, identify the best held inputs and their roles, expose the most consequential ambiguity, and ask one clarification. Do not execute.",
+      "expected_asset_groups": [
+        ["mops"],
+        ["twse"],
+        ["filing", "disclosure"]
+      ],
+      "required_risk_groups": [
+        ["filing date", "point-in-time", "hindsight"],
+        ["routine filing", "routine disclosure"],
+        ["governance quality"],
+        ["coverage"]
+      ]
+    },
+    {
+      "id": "asia_regulatory_shock",
+      "title": "Asia regulatory-shock exposure",
+      "retrieval_query": "Asia country daily GDELT news shock market returns",
+      "request": "Design a country-day regulatory-shock exposure dataset for Asian financial markets from 2015 through 2026. Use held news and market evidence, separate an event's occurrence from its salience and market response, prevent the market outcome from defining the shock itself, and preserve country, date, source, and coverage uncertainty. On the first turn, verify the strongest held assets, propose the construct boundary, identify unresolved validity threats, and ask exactly one high-value clarification. Do not collect or execute.",
+      "expected_asset_groups": [
+        ["gdelt", "news shock", "asia daily news"],
+        ["market", "returns", "price"]
+      ],
+      "required_risk_groups": [
+        ["endogeneity", "outcome", "market response"],
+        ["salience"],
+        ["event definition", "construct boundary"],
+        ["coverage", "country coverage"]
+      ]
+    },
+    {
+      "id": "historical_community_engagement",
+      "title": "Historical crypto community engagement",
+      "retrieval_query": "crypto GitHub Google Trends GDELT community followers engagement",
+      "request": "Construct an asset-week historical community-engagement measure for major crypto assets from 2018 through 2026 even though complete historical social-platform follower counts do not exist. Use held alternatives where defensible, distinguish developer activity, search attention, news attention, and community growth, avoid presenting any one proxy as engagement itself, and retain missingness and source-change flags. First interpret the latent construct, verify relevant held assets, compare defensible proxy roles, name the irreducible limitation, and ask one clarification. Do not procure or materialise.",
+      "expected_asset_groups": [
+        ["github", "developer activity"],
+        ["google trends", "search attention"],
+        ["gdelt", "news attention"],
+        ["community", "followers", "social"]
+      ],
+      "required_risk_groups": [
+        ["missing", "unavailable"],
+        ["source change", "platform change"],
+        ["proxy"],
+        ["latent", "construct validity"]
+      ]
+    },
+    {
+      "workflow": "construction_investigation",
+      "id": "asean_supply_chain_stress",
+      "title": "ASEAN supply-chain stress exposure (novel construct)",
+      "required_grain": "country-week",
+      "retrieval_query": "ASEAN trade shipping GDELT news market returns supply chain",
+      "request": "Design a country-week ASEAN supply-chain stress exposure measure from 2014 through 2026 that does not exist as a held synthesis profile. Use held trade, shipping, news, and market evidence where defensible. Separate logistics disruption from demand shock, preserve point-in-time news timing, retain source and coverage flags, and treat stress as latent rather than directly observed. On this first turn, interpret the construct, verify the strongest held assets, identify the central ambiguity, and ask exactly one clarification. Do not collect, execute, or materialise anything.",
+      "follow_up": "Use a one-week primary horizon and treat port congestion as a proxy for logistics stress rather than a direct measure. Keep demand-shock and logistics-disruption components separate. Define exposure as an explicit equal-weight blend of export/production-node stress and import-dependence stress for the first proposal. Materialised trade or shipping evidence is not a hard prerequisite: proceed provisionally with verified news and market evidence, keep 2014–2017 and physical-flow coverage visibly unresolved, and do not treat missing inputs as observed. This resolves the design choices for a reviewable first proposal. Record that proposed construction state on the linked Synthesis thread now, including inputs, proxies, transforms, assumptions, and unknowns. Do not execute or submit it.",
+      "expected_asset_groups": [
+        ["gdelt", "news"],
+        ["trade", "shipping", "port"],
+        ["market", "returns"]
+      ],
+      "required_risk_groups": [
+        ["latent", "proxy"],
+        ["point-in-time", "timing", "leakage"],
+        ["coverage", "country coverage"],
+        ["logistics", "demand shock", "disruption"]
+      ],
+      "expected_follow_up_groups": [
+        ["one-week", "week"],
+        ["port", "congestion", "logistics"],
+        ["demand", "disruption"]
+      ],
+      "required_construction_groups": [
+        ["input", "held", "trade"],
+        ["proxy", "port", "congestion"],
+        ["transform", "country-week", "aggregate"],
+        ["assumption", "provisional"],
+        ["unknown", "coverage", "ambiguous"]
+      ],
+      "submit_execution": false,
+      "proposal_fixture": {
+        "id": "acceptance-asean-stress-v1",
+        "title": "Record investigated ASEAN stress construction",
+        "summary": "Grounded inputs, proxies, transforms, assumptions, and unknowns from the two-turn investigation.",
+        "operations": [
+          {
+            "op": "update_spec",
+            "patch": {
+              "coreEvidence": [
+                "held ASEAN trade panel",
+                "GDELT country-week news shock features"
+              ],
+              "construction": [
+                "input: held trade and shipping evidence",
+                "proxy: port congestion as logistics-stress component",
+                "transform: country-week aggregation with one-week primary horizon",
+                "assumption: stress remains latent and provisional",
+                "unknown: country coverage gaps and ambiguous demand-vs-logistics attribution"
+              ],
+              "limitations": [
+                "news timing must stay point-in-time",
+                "proxy congestion is not direct logistics stress"
+              ],
+              "unavailable": [
+                "verified real-time port throughput for every ASEAN market"
+              ]
+            }
+          },
+          {
+            "op": "append_activity",
+            "message": "Acceptance harness recorded the investigated construction state."
+          }
+        ]
+      }
+    }
+  ]
+}
