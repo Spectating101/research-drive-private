@@ -397,21 +397,29 @@ body,
     overflow: hidden;
   }
 
+  /* VC-2: a closed rail is a compact contextual control, not a full-width
+     dormant bar competing with the result list for the phone viewport. */
   .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-chrome {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    justify-items: end;
     height: auto;
     padding: 0;
   }
 
   .yzu-inspector.rd-v2-rail-collapsed .rd-v2-rail-mobile-grip {
-    display: block !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
     writing-mode: horizontal-tb;
     transform: none;
-    width: 100%;
+    width: auto;
+    min-width: 44px;
+    min-height: 44px;
     flex: none;
-    padding: 11px 14px;
-    border-radius: 18px;
+    padding: 0 16px;
+    border-radius: 22px;
+    border: 1px solid var(--rd-border, #e0e4ed);
     background: #f7f8fb;
     color: var(--rd-link, #3f6f5c);
     font-size: 12px;
