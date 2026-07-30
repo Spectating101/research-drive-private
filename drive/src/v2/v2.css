@@ -9273,3 +9273,17 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rd-v2-profile-lab-block [data-testid="profile-lab-linked-empty"] button {
   margin-top: 8px;
 }
+
+/* VC-8: bounded intake actions for a genuinely empty Library branch, and
+   suggested questions when the Home trail has nothing durable yet. */
+.rd-v2-library-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rd-v2-home-section-empty-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

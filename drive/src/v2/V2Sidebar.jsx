@@ -59,9 +59,11 @@ export function V2Sidebar({
         )}
       </div>
 
-      <div className="rd-v2-sidebar-recent" aria-label="Recent">
-        <p className="rd-v2-sidebar-kicker">Recent</p>
-        {recent.length ? (
+      {/* VC-8: with no real recent assets the block is removed rather than
+          decorated with a placeholder line. */}
+      {recent.length ? (
+        <div className="rd-v2-sidebar-recent" aria-label="Recent">
+          <p className="rd-v2-sidebar-kicker">Recent</p>
           <ul>
             {recent.map((item) => (
               <li key={item.id}>
@@ -71,10 +73,8 @@ export function V2Sidebar({
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="rd-v2-sidebar-hint">Recent assets appear as you work.</p>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       <nav className="rd-v2-sidebar-foot-nav" aria-label="Account">
         {V2_SIDEBAR_FOOT_TABS.map(renderNavButton)}

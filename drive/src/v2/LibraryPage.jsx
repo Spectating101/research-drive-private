@@ -468,12 +468,28 @@ export function LibraryPage({
           />
         ) : (
           <div className="rd-v2-library-empty">
-            <strong>{searchActive ? "No datasets match this search" : "No holdings in this branch"}</strong>
+            <strong>{searchActive ? "No datasets match this search" : "Nothing else in this folder"}</strong>
             <p>
               {searchActive
                 ? "Try a broader keyword, or clear the search to browse shelves again."
-                : "Clear the filter or open the Lab breadcrumb to return to indexed folders."}
+                : "Clear the filter or use the breadcrumb to return to indexed folders."}
             </p>
+            {/* VC-8: an empty branch offers bounded intake instead of a dead
+                end. These reuse the existing Library intake handlers — no
+                dashboard, tutorial stack, or duplicated Discover catalogue. */}
+            {!searchActive ? (
+              <div className="rd-v2-library-empty-actions">
+                <button type="button" className="rd-v2-btn sm" onClick={() => onStartUpload?.()}>
+                  Add files
+                </button>
+                <button type="button" className="rd-v2-btn sm" onClick={() => onStartUrl?.()}>
+                  Add URL
+                </button>
+                <button type="button" className="rd-v2-btn sm" onClick={() => onStartProcure?.()}>
+                  Find missing data
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

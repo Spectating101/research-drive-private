@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { resolveCapacityMark } from "@/v2/capacityMarks";
 import { GuidedState, Skeleton } from "@/v2/InteractionFeedback";
+import { HomeSuggestedAsks } from "@/v2/HomeSuggestedAsks";
 import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
 import { PageShell } from "@/v2/ui";
 import {
@@ -107,6 +108,7 @@ export function HomePage({
   onSelectDataset,
   onPreviewDataset,
   onSuggestSearch,
+  onAskComposer,
 }) {
   const loading = health == null && datasets.length === 0;
   // Mirror Resources cache-first: never block Home headroom on a cold /desk/resources round-trip.
@@ -331,7 +333,14 @@ export function HomePage({
             ))}
           </ul>
         ) : (
-          <p className="rd-v2-home-section-empty">No material machine consequences to show.</p>
+          // VC-8: a sparse trail offers the existing profile-aware suggested
+          // questions rather than a dead line of system language.
+          <div className="rd-v2-home-section-empty-actions">
+            <p className="rd-v2-home-section-empty">
+              Nothing durable yet — recent work will collect here.
+            </p>
+            <HomeSuggestedAsks profile={profile} onAskComposer={onAskComposer || onSuggestSearch} />
+          </div>
         )}
       </section>
     </PageShell>
