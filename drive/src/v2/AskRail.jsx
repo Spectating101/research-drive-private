@@ -186,7 +186,7 @@ export function AskRail({
                 {[
                   `Assess this source: ${discoverTitle}`,
                   `What are the main risks of ${discoverTitle}?`,
-                  `Compare ${discoverTitle} with my lab holdings`,
+                  `Compare ${discoverTitle} with my Library holdings`,
                   `What should I probe next for ${discoverTitle}?`,
                 ].map((p) => (
                   <button

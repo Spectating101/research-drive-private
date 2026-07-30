@@ -128,7 +128,7 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
           <h3 className="rd-v2-library-rail-module-title">{sourceAuthorityLine(dataset, fields)}</h3>
           <div className="rd-v2-library-inspector-facts">
             <Fact label="Route" value={route} />
-            <Fact label="Vault" value={fields.vault ? "Archived in lab" : "Local archive not confirmed"} />
+            <Fact label="Vault" value={fields.vault ? "Archived in Library" : "Local archive not confirmed"} />
             <Fact label="Updated" value={updated} />
           </div>
         </section>

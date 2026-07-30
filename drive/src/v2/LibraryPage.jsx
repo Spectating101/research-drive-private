@@ -61,7 +61,7 @@ function sortItems(rows, sortBy) {
 }
 
 function folderDestination(trail, folderId) {
-  if (!folderId) return "Lab root";
+  if (!folderId) return "Library root";
   return trail.map((c) => c.name).join(" / ");
 }
 
@@ -243,7 +243,7 @@ export function LibraryPage({
 
   const trail = useMemo(() => {
     const crumbs = breadcrumbTrail(tree, folderId);
-    if (crumbs[0]) crumbs[0].name = "Lab";
+    if (crumbs[0]) crumbs[0].name = "Library";
     return crumbs;
   }, [tree, folderId]);
 
@@ -262,7 +262,7 @@ export function LibraryPage({
     () => sortItems(displayRows.filter((item) => itemMatchesFilter(item, filterMode)), sortBy),
     [displayRows, filterMode, sortBy],
   );
-  const currentFolderName = isRoot ? "Lab root" : trail[trail.length - 1]?.name || "Lab";
+  const currentFolderName = isRoot ? "Library root" : trail[trail.length - 1]?.name || "Library";
   const showingBranchFallback = false;
   const showingSearchHits = searchActive;
   const folderRows = useMemo(

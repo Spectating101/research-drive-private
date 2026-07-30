@@ -9,14 +9,14 @@ test.describe("v2 Library directory", () => {
     await waitForShell(page);
   });
 
-  test("Lab root renders as a folder-first directory", async ({ page }) => {
+  test("Library root renders as a folder-first directory", async ({ page }) => {
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Library" })).toBeVisible();
     const directory = page.getByTestId("library-directory");
     await expect(directory).toBeVisible();
-    await expect(page.locator(".rd-v2-library-pathbar")).toContainText("Lab root");
+    await expect(page.locator(".rd-v2-library-pathbar")).toContainText("Library root");
     await expect(page.getByRole("list", { name: "Catalog" })).toBeVisible();
     await expect(page.locator('.rd-v2-catalog-list button[data-kind="folder"]').first()).toBeVisible();
-    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab");
+    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Library");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("In this library");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Add data");
     await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Branch actions");
@@ -50,7 +50,7 @@ test.describe("v2 Library directory", () => {
     await expect(page.getByRole("dialog", { name: "Upload files to library" })).toHaveCount(0);
     await expect(rail).toContainText("Upload files");
     await expect(rail).toContainText("Destination");
-    await expect(rail).toContainText("Lab");
+    await expect(rail).toContainText("Library");
     await expect(rail.getByRole("button", { name: "Send to Ask" })).toBeDisabled();
 
     await rail.locator('input[type="file"]').setInputFiles({
@@ -61,7 +61,7 @@ test.describe("v2 Library directory", () => {
     await expect(rail).toContainText("faculty-panel.csv");
     await rail.getByRole("button", { name: "Send to Ask" }).click();
     await expect(page.locator(".rd-v2-rail-toggle button.on", { hasText: "Ask" })).toBeVisible();
-    await expect(page.getByTestId("ask-messages")).toContainText("Upload files to Lab");
+    await expect(page.getByTestId("ask-messages")).toContainText("Upload files to Library");
     await expect(page.getByTestId("ask-messages")).toContainText("faculty-panel.csv");
   });
 
@@ -90,7 +90,7 @@ test.describe("v2 Library navigation", () => {
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Asia daily news-risk panel");
 
     await page.locator("aside.yzu-sidebar").getByRole("button", { name: "Library", exact: true }).click();
-    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Lab");
+    await expect(page.locator(".rd-v2-rail-selection")).toHaveText("Library");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("In this library");
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Add data");
     await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Upload here");

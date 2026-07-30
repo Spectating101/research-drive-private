@@ -3,7 +3,7 @@ import { Check, LoaderCircle } from "lucide-react";
 
 const DEFAULT_ASK_STEPS = [
   "Preparing the active research context",
-  "Searching lab holdings and connected evidence",
+  "Searching Library holdings and connected evidence",
   "Checking provenance, readiness, and uncertainty",
   "Composing a grounded response",
 ];

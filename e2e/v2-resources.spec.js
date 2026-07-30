@@ -67,10 +67,10 @@ test.describe("v2 Resources tab", () => {
     await expect(page.getByTestId("ask-messages")).toContainText(/Explain this Resources .*BigQuery/);
   });
 
-  test("right rail starts with lab capacity context", async ({ page }) => {
+  test("right rail starts with Library capacity context", async ({ page }) => {
     const rail = page.getByRole("complementary", { name: "Inspector" });
     await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("Resources");
-    await expect(rail).toContainText("Lab capacity");
+    await expect(rail).toContainText("Library capacity");
     await expect(rail).toContainText("Current capacity");
     await expect(rail).toContainText(/awaiting your approval|capacity warning|source routes/i);
     await expect(rail.getByRole("button", { name: "Open activity" })).toBeVisible();

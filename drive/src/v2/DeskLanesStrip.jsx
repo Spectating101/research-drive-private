@@ -5,7 +5,7 @@
 const ACTIONS = [
   {
     id: "library",
-    label: "Search the lab",
+    label: "Search the Library",
     detail: "Browse vault holdings",
     tab: "library",
   },

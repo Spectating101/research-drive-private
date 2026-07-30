@@ -36,8 +36,8 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
     <RailFrame>
       <RailEntityHeader
         id="resources"
-        title="Lab capacity"
-        description="Access, current usage, and research capability across the lab."
+        title="Library capacity"
+        description="Access, current usage, and research capability across the Library."
         pills={
           <span className={`rd-v2-pill${pill.warn ? " warn" : ""}`}>
             {pill.label}

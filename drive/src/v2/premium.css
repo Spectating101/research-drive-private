@@ -17,8 +17,8 @@
    * Separated on purpose: cream paper + charcoal chrome + sage/amber signal.
    * No violet/indigo washes — those belong to a different light theme.
    */
-  --rd-canvas: #f3f1ea;
-  --rd-surface: #fcfcf0;
+  --rd-canvas: #eeeae0;
+  --rd-surface: #fffdf6;
   --rd-sidebar-bg: #0f171c;
   --rd-sidebar-fg: #b8c2c8;
   --rd-sidebar-fg-strong: #fcfcf0;
@@ -26,7 +26,7 @@
   --rd-sidebar-hover: rgba(252, 252, 240, 0.07);
   --rd-sidebar-active-bg: #e7ece8; /* cool mist, not lavender */
   --rd-sidebar-active-fg: #0f171c;
-  --rd-border: #e2ddd2;
+  --rd-border: #dbd4c5;
   --rd-border2: #d2ccc0;
   --rd-text: #182033;
   --rd-body: #3e4759;

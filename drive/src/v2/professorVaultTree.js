@@ -72,7 +72,7 @@ export function buildProfessorVaultTree(datasets = [], partitions = [], shelves 
   const root = {
     id: "",
     kind: "folder",
-    name: "Lab",
+    name: "Library",
     path: [],
     children: {},
   };
@@ -228,7 +228,7 @@ export function buildProfessorVaultTree(datasets = [], partitions = [], shelves 
   return {
     root,
     scope: "lab",
-    rootName: "Lab",
+    rootName: "Library",
     meta: { placed, skipped, shelves: Object.keys(root.children || {}).length },
   };
 }
