@@ -143,7 +143,7 @@ function facultyOpsLabel(label, key) {
   const map = {
     "Ask / model turns": "Ask usage",
     Workers: "Collection workers",
-    Vault: "Lab vault",
+    Vault: "Library vault",
     "Query engine": "Desk connection",
   };
   return map[label] || label;
@@ -896,7 +896,7 @@ export function ResourcesPage({
   return (
     <PageShell
       title="Resources"
-      lead="Capacity, licensed routes, and the usage ledger for this lab period."
+      lead="Capacity, licensed routes, and the usage ledger for this period."
       toolbar={
         <>
           <Chip

@@ -78,7 +78,7 @@ test.describe("Discover sufficiency screenshots", () => {
       join_keys: ["date", "country_iso3"],
       collect_via: "http_fetch",
     });
-    await expect(detail.getByTestId("discover-lab-coverage")).toContainText("Related lab asset");
+    await expect(detail.getByTestId("discover-lab-coverage")).toContainText("Related Library asset");
     await shot(page, "03-desktop-related-local");
 
     detail = await selectCandidate(page, {

@@ -25,7 +25,7 @@ describe("usefulForLine", () => {
 
 describe("evaluationActions", () => {
   it("local query-ready primary is Open in Library", () => {
-    const taxonomy = { key: "local-query-ready", label: "In lab · Query ready" };
+    const taxonomy = { key: "local-query-ready", label: "In Library · Query ready" };
     const actions = evaluationActions({}, taxonomy);
     assert.equal(actions.primary.id, "open_library");
     assert.equal(actions.primary.label, "Open in Library");

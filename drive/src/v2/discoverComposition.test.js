@@ -9,7 +9,7 @@ import {
 describe("groupDiscoverBrowseRows", () => {
   it("buckets by taxonomy group into lab / external / needs access", () => {
     const groups = groupDiscoverBrowseRows([
-      { title: "Lab A", discover_taxonomy: { key: "local-query-ready", group: 1, label: "In lab · Query ready" } },
+      { title: "Lab A", discover_taxonomy: { key: "local-query-ready", group: 1, label: "In Library · Query ready" } },
       { title: "Ext B", discover_taxonomy: { key: "external-acquirable", group: 3, label: "External · Acquisition available" } },
       { title: "Lic C", discover_taxonomy: { key: "licensed-manual", group: 4, label: "Licensed / manual access" } },
     ]);

@@ -105,7 +105,7 @@ export function canIUseDecision(dataset) {
   if (state.kind === "external") {
     return {
       headline: "External source",
-      body: "This source is not confirmed as a usable local lab asset.",
+      body: "This source is not confirmed as a usable Library asset.",
     };
   }
   if (state.kind === "registered") {

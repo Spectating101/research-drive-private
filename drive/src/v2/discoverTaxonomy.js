@@ -2,9 +2,9 @@
  * Discover result taxonomy (D1 / D1.1).
  *
  * Machine keys → human labels:
- *   local-query-ready      → In lab · Query ready
- *   local-connected        → In lab · Connected
- *   local-metadata         → In lab · Metadata only
+ *   local-query-ready      → In Library · Query ready
+ *   local-connected        → In Library · Connected
+ *   local-metadata         → In Library · Metadata only
  *   external-discoverable  → External · Available to inspect
  *   external-probed        → External · Probed
  *   external-acquirable    → External · Acquisition available
@@ -30,24 +30,24 @@ import { candidateKey } from "./candidateKey.js";
 
 export const TAXONOMY = {
   "local-query-ready": {
-    label: "In lab · Query ready",
-    possession: "In lab",
+    label: "In Library · Query ready",
+    possession: "In Library",
     readiness: "Query ready",
     className: "lab",
     group: 1,
     filter: ["in_lab", "query_ready"],
   },
   "local-connected": {
-    label: "In lab · Connected",
-    possession: "In lab",
+    label: "In Library · Connected",
+    possession: "In Library",
     readiness: "Connected",
     className: "lab",
     group: 2,
     filter: ["in_lab"],
   },
   "local-metadata": {
-    label: "In lab · Metadata only",
-    possession: "In lab",
+    label: "In Library · Metadata only",
+    possession: "In Library",
     readiness: "Metadata only",
     className: "lab",
     group: 2,

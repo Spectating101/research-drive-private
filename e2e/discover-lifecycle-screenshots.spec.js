@@ -62,7 +62,7 @@ test.describe("Discover lifecycle screenshots", () => {
       result: { query_ready: true, analysis_readiness: "instant" },
     })]);
     await expect(surface.getByTestId("discover-lifecycle")).toContainText("Query ready");
-    await expect(surface.locator('[aria-label="Can I use this"]')).toContainText("In lab · Query ready");
+    await expect(surface.locator('[aria-label="Can I use this"]')).toContainText("In Library · Query ready");
     await expect(page.getByTestId("discover-eval-actions").getByRole("button", { name: "Open in Library" })).toBeVisible();
     await shot(page, "04-desktop-query-ready");
 

@@ -209,7 +209,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
   const [target, setTarget] = useState("");
   const names = files.map((file) => file.name).filter(Boolean);
   const mode = object?.mode || "upload";
-  const destination = object?.destination || "Lab root";
+  const destination = object?.destination || "Library root";
 
   const chooseFiles = () => inputRef.current?.click();
   const setPickedFiles = (picked) => setFiles(Array.from(picked || []));

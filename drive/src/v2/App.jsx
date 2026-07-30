@@ -1177,7 +1177,7 @@ export function V2App() {
   const submitLibraryUpload = useCallback(
     (files, intake) => {
       const names = Array.from(files || []).map((file) => file.name).filter(Boolean);
-      const destination = intake?.destination || "Lab root";
+      const destination = intake?.destination || "Library root";
       const filePart = names.length ? ` Files: ${names.join(", ")}.` : " No files selected yet.";
       queueLibraryAsk(
         `Upload files to ${destination}.${filePart} Confirm destination, ingestion, schema detection, and vault archival.`,
@@ -1188,7 +1188,7 @@ export function V2App() {
 
   const submitLibraryUrl = useCallback(
     (value, intake) => {
-      const destination = intake?.destination || "Lab root";
+      const destination = intake?.destination || "Library root";
       const targets = String(value || "").trim().replace(/\s+/g, " ");
       queueLibraryAsk(
         `Add URL or DOI to ${destination}. Targets: ${targets}. Probe source, collect metadata, and procure if missing.`,
@@ -1199,7 +1199,7 @@ export function V2App() {
 
   const submitLibraryProcure = useCallback(
     (intake) => {
-      const destination = intake?.destination || "Lab root";
+      const destination = intake?.destination || "Library root";
       queueLibraryAsk(
         `Procure datasets for ${destination}. Search faculty sources, check the local catalog, probe public sources, and propose acquisition steps.`,
       );

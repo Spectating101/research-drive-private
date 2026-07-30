@@ -190,7 +190,7 @@ export function buildLab(profile) {
     suggested.push({
       id: rec.dataset_id || key,
       label,
-      reason: inLab ? "in lab, not linked" : "not in lab yet",
+      reason: inLab ? "in Library, not linked" : "not in Library yet",
       action: inLab ? "link" : "search",
       query: rec.search_query || rec.prompt || label,
       datasetId: rec.dataset_id || "",

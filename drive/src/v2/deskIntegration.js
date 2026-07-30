@@ -117,7 +117,7 @@ export function buildObjectEstateCrumb(object, { probeState = null, searchMeta =
       object.analysis_readiness === "instant" ||
       object.analysis_readiness === "instant_or_minutes" ||
       object.analysis_readiness === "queryable";
-    authority = ready ? "Query-ready registry" : "Lab registry";
+    authority = ready ? "Query-ready registry" : "Library registry";
   }
   if (object.cached === true) authority = (authority ? `${authority} · ` : "") + "Cached";
   if (object.demo || object._demo) authority = "Demo fixture — verify source";

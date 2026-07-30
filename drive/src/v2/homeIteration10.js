@@ -14,7 +14,7 @@ function purposeLine(ds) {
     ds?.description ||
     ds?.purpose ||
     [ds?.source, ds?.coverage, ds?.grain].filter(Boolean).join(" · ") ||
-    "Research dataset in the lab vault"
+    "Research dataset in the Library"
   );
 }
 
@@ -300,7 +300,7 @@ export function buildRecommendedEvidence(profile, { limit = 2 } = {}) {
     id: item.id,
     title: item.label,
     reason: item.reason || "recommended for current research",
-    badge: item.action === "link" ? "IN LAB, NOT LINKED" : "NOT IN LAB YET",
+    badge: item.action === "link" ? "IN LIBRARY, NOT LINKED" : "NOT IN LIBRARY YET",
     query: item.query,
     datasetId: item.datasetId,
     action: item.action === "link" ? "library" : "explore",

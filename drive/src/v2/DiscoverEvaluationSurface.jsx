@@ -230,7 +230,7 @@ export function DiscoverEvaluationSurface({
         ? {
             prompt: [
               `Assess this Discover source for research use: ${label}.`,
-              "Summarize what is verified, what remains unknown, access/acquisition constraints, local lab coverage, and the safest next action.",
+              "Summarize what is verified, what remains unknown, access/acquisition constraints, Library coverage, and the safest next action.",
               "Do not invent legal clearance, query readiness, or equivalence.",
               "",
               "Local comparison (structured):",

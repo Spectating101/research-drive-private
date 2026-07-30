@@ -121,13 +121,13 @@ export function groupDiscoverBrowseRows(rows) {
   return [
     {
       id: "lab",
-      title: "Already in your lab",
-      description: "Use what the lab already holds before collecting again.",
+      title: "Already in your Library",
+      description: "Use what your Library already holds before collecting again.",
       rows: lab,
     },
     {
       id: "external",
-      title: "Sources beyond your lab",
+      title: "Sources beyond your Library",
       description: "Evaluate public and connected sources before acquisition.",
       rows: external,
     },

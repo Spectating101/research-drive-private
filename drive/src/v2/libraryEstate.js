@@ -155,5 +155,5 @@ export function assetTypeLabel(row) {
   if (domain === "procured" || path.includes("procured")) return "Acquired asset";
   if (path.includes("research_panels") || domain === "derived") return "Derived panel";
   if (readiness === "remote") return "Catalog record";
-  return "Lab dataset";
+  return "Library dataset";
 }

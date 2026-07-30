@@ -77,10 +77,10 @@ const GUIDANCE = {
   },
   remote: {
     title: "Remote query",
-    summary: "The data is queried upstream rather than stored in the lab archive.",
+    summary: "The data is queried upstream rather than stored in the Library archive.",
     checks: [
       "Results depend on upstream availability",
-      "The lab may retain metadata without retaining the source bytes",
+      "The Library may retain metadata without retaining the source bytes",
       "Remote access does not imply durable archival",
     ],
     next: "Confirm limits and decide whether a durable local copy is required.",

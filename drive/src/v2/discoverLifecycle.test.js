@@ -136,7 +136,7 @@ describe("classifyJobLifecycle", () => {
     assert.equal(c.state, LIFECYCLE.COMPLETED_UNREGISTERED);
   });
 
-  it("registered_dataset_id = Registered in lab", () => {
+  it("registered_dataset_id = Registered in Library", () => {
     const c = classifyJobLifecycle(
       job({ status: "completed", registered_dataset_id: "mops_financial_statements_2026" }),
       { catalog: [{ dataset_id: "mops_financial_statements_2026" }] },
@@ -161,7 +161,7 @@ describe("classifyJobLifecycle", () => {
     assert.notEqual(c.state, LIFECYCLE.QUERY_READY);
   });
 
-  it("registered query-ready asset = In lab · Query ready", () => {
+  it("registered query-ready asset = In Library · Query ready", () => {
     const c = classifyJobLifecycle(
       job({ status: "completed", registered_dataset_id: "mops_panel" }),
       {
@@ -169,7 +169,7 @@ describe("classifyJobLifecycle", () => {
       },
     );
     assert.equal(c.state, LIFECYCLE.QUERY_READY);
-    assert.equal(c.label, "In lab · Query ready");
+    assert.equal(c.label, "In Library · Query ready");
   });
 });
 
@@ -309,7 +309,7 @@ describe("applyLifecycleToEvaluation (A4)", () => {
       ],
     });
     const next = applyLifecycleToEvaluation(evaluation, life);
-    assert.equal(next.decision.headline, "In lab · Query ready");
+    assert.equal(next.decision.headline, "In Library · Query ready");
     assert.equal(next.taxonomyKey, "local-query-ready");
     assert.equal(
       next.unknowns.some((u) => /endpoint not probed|Acquisition constraints/i.test(u)),
@@ -324,7 +324,7 @@ describe("applyLifecycleToEvaluation (A4)", () => {
       jobs: [job({ status: "completed", registered_dataset_id: "mops_panel" })],
     });
     const next = applyLifecycleToEvaluation(evaluation, life);
-    assert.equal(next.decision.headline, "Registered in lab");
+    assert.equal(next.decision.headline, "Registered in Library");
     assert.notEqual(next.taxonomyKey, "local-query-ready");
     assert.equal(
       next.unknowns.some((u) => /endpoint not probed|Acquisition constraints/i.test(u)),

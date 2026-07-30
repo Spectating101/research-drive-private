@@ -38,7 +38,7 @@ const sampleRollup = {
 };
 
 describe("buildCapacityAccessPairs", () => {
-  it("showcases vault/cache, Cursor/BQ, and compact lab fleet", () => {
+  it("showcases vault/cache, Cursor/BQ, and compact collector fleet", () => {
     const pairs = buildCapacityAccessPairs(sampleRollup);
     assert.deepEqual(
       pairs.map((p) => p.id),
@@ -56,7 +56,11 @@ describe("buildCapacityAccessPairs", () => {
     assert.match(byId.cache.name, /Transcend/i);
     assert.match(byId.cursor.metric, /50 turns/);
     assert.match(byId.bigquery.metric, /search-485108/);
-    assert.match(byId.fleet.metric, /3 \/ 4/);
+    // VC-4: the fleet headline uses the shared collector vocabulary so the
+    // card, toolbar, and rail cannot disagree. Identity readiness moved to the
+    // detail line because it is a different operational dimension.
+    assert.match(byId.fleet.metric, /^\d+ registered/);
+    assert.match(byId.fleet.available, /3\/4 identities ready/);
     assert.match(byId.mcp.metric, /86 MCP/);
   });
 });

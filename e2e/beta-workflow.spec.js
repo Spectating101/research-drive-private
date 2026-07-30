@@ -78,7 +78,7 @@ test.describe("beta workflow @ live-desk", () => {
     await page.locator(".rd-v2-shell").waitFor({ timeout: 30_000 });
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Discover result summary" })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("region", { name: "Sources beyond your lab" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Sources beyond your Library" })).toBeVisible();
   });
 
   test("5 — resources desk connection", async ({ page }) => {

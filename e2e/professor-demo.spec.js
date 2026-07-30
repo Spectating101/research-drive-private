@@ -155,7 +155,7 @@ test.describe("professor demo @ live-desk", () => {
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
     const bestFit = page.getByRole("region", { name: "Best fit" });
     await expect(bestFit).toBeVisible();
-    await expect(bestFit).toContainText(/sources? beyond your lab|already in your lab/i);
+    await expect(bestFit).toContainText(/sources? beyond your Library|already in your lab/i);
     const candidates = page.getByRole("list", { name: "Discover candidates" });
     await expect(candidates.first().getByRole("button").first()).toBeVisible({ timeout: 30_000 });
     const candidateCount = await candidates.getByRole("button").count();

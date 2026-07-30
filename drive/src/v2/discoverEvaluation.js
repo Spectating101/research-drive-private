@@ -14,16 +14,16 @@ import { discoverCandidateUrl } from "./candidateKey.js";
 
 const DECISION = {
   "local-query-ready": {
-    headline: "In lab · Query ready",
+    headline: "In Library · Query ready",
     body: "You can query this dataset now.",
   },
   "local-connected": {
-    headline: "In lab · Connected",
-    body: "The asset is connected to the lab, but no instant query path is confirmed.",
+    headline: "In Library · Connected",
+    body: "The asset is connected to the Library, but no instant query path is confirmed.",
   },
   "local-metadata": {
-    headline: "In lab · Metadata only",
-    body: "The lab has a registry record, but no usable local data path is confirmed.",
+    headline: "In Library · Metadata only",
+    body: "The Library has a registry record, but no usable local data path is confirmed.",
   },
   "external-discoverable": {
     headline: "External · Available to inspect",
