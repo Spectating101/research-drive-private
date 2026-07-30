@@ -9,6 +9,7 @@ import {
   requestSynthesisExecution,
 } from "@/v2/api";
 import { handleEnterToSubmit } from "@/v2/enterToSubmit";
+import { buildStageDetail, executionTrack } from "@/v2/synthesisLifecycle";
 
 function text(value, fallback = "") {
   return String(value || "").trim() || fallback;
@@ -74,7 +75,7 @@ const SYNTHESIS_STAGES = [
   ["Define", "Research object"],
   ["Ground", "Library evidence"],
   ["Review", "Method decision"],
-  ["Build", "Approved execution"],
+  ["Build", "Execution record"],
   ["Reuse", "Library asset"],
 ];
 
@@ -91,13 +92,14 @@ function synthesisStageIndex(thread) {
 
 function SynthesisProgress({ thread }) {
   const active = synthesisStageIndex(thread);
+  const buildDetail = buildStageDetail(thread);
   return (
     <ol className="s04-steps" aria-label="Synthesis project stages">
       {SYNTHESIS_STAGES.map(([label, detail], index) => (
         <li key={label} className={index < active ? "done" : index === active ? "now" : ""}>
           <span>{index < active ? "✓" : index + 1}</span>
           <b>{label}</b>
-          <small>{detail}</small>
+          <small>{label === "Build" ? buildDetail : detail}</small>
         </li>
       ))}
     </ol>
@@ -366,36 +368,6 @@ function ProposalReview({ thread, busy, onDecide, onAsk }) {
   );
 }
 
-function executionTrack(status, registered) {
-  const normalized = text(status).toLowerCase().replace(/-/g, "_");
-  const approved = ["queued", "running", "registering", "archiving", "registered", "query_ready", "completed", "failed"].includes(normalized);
-  const workerDone = ["registering", "archiving", "registered", "query_ready", "completed"].includes(normalized);
-  const archiveDone = ["registered", "query_ready", "completed"].includes(normalized);
-  return [
-    { label: "Method accepted", detail: "Revision bound", state: "done" },
-    {
-      label: "Researcher approval",
-      detail: normalized === "pending_approval" ? "Decision required" : approved ? "Approved" : "Not requested",
-      state: normalized === "pending_approval" ? "now" : approved ? "done" : "",
-    },
-    {
-      label: "Worker build",
-      detail: normalized === "running" ? "Running" : normalized === "queued" ? "Queued" : workerDone ? "Completed" : normalized === "failed" ? "Failed" : "Waiting",
-      state: ["queued", "running", "failed"].includes(normalized) ? "now" : workerDone ? "done" : "",
-    },
-    {
-      label: "Archive + registry",
-      detail: ["registering", "archiving"].includes(normalized) ? "Verifying" : archiveDone ? "Verified" : "Waiting",
-      state: ["registering", "archiving"].includes(normalized) ? "now" : archiveDone ? "done" : "",
-    },
-    {
-      label: "Library handoff",
-      detail: registered ? "Reusable asset" : "Not registered",
-      state: registered ? "done" : "",
-    },
-  ];
-}
-
 function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDataset }) {
   const state = thread?.state || {};
   const execution = state.execution || {};
@@ -410,7 +382,7 @@ function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDatas
   const pendingApproval = rawStatus === "pending_approval";
   const active = ["queued", "running", "registering", "archiving"].includes(rawStatus);
   const hasSpec = Boolean(spec.input_dataset_id && spec.output_dataset_id);
-  const track = executionTrack(rawStatus, registered);
+  const track = executionTrack(rawStatus, registered, queryReady);
 
   return (
     <section className="s04-card" data-testid={queryReady ? "synthesis-query-ready-state" : registered ? "synthesis-registered-state" : failed ? "synthesis-failed-state" : "synthesis-execution-state"}>

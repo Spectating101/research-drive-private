@@ -205,21 +205,30 @@ test.describe("Discover adaptive Explore", () => {
     expect(rowBox.x).toBeGreaterThanOrEqual(0);
     expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(390);
 
-    const resourcesBox = await page.getByRole("button", { name: "Resources", exact: true }).boundingBox();
-    const profileButton = page.getByRole("button", { name: "Profile", exact: true });
-    const settingsButton = page.getByRole("button", { name: "Settings", exact: true });
-    const profileBox = await profileButton.boundingBox();
-    const settingsBox = await settingsButton.boundingBox();
-    const profileIconBox = await profileButton.locator("svg").boundingBox();
-    const settingsIconBox = await settingsButton.locator("svg").boundingBox();
-    expect(resourcesBox).not.toBeNull();
-    expect(profileBox).not.toBeNull();
-    expect(settingsBox).not.toBeNull();
-    expect(profileIconBox).not.toBeNull();
-    expect(settingsIconBox).not.toBeNull();
-    expect(resourcesBox.x + resourcesBox.width).toBeLessThanOrEqual(profileBox.x + 1);
-    expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(settingsBox.x + 1);
-    expect(profileIconBox.x + profileIconBox.width).toBeLessThanOrEqual(settingsIconBox.x);
+    // Frozen platform shell: exactly five primary mobile destinations, laid out
+    // left-to-right without overlap. Profile and Settings are NOT bottom-bar
+    // destinations — they live under the persistent account menu — so the
+    // Profile/Settings foot navigation must stay out of the mobile bar.
+    const primary = ["Home", "Library", "Discover", "Synthesis", "Resources"];
+    const boxes = [];
+    for (const name of primary) {
+      const box = await page.getByRole("button", { name, exact: true }).boundingBox();
+      expect(box, `${name} must be a visible mobile destination`).not.toBeNull();
+      boxes.push({ name, box });
+    }
+    for (let i = 1; i < boxes.length; i += 1) {
+      const previous = boxes[i - 1];
+      const current = boxes[i];
+      expect(
+        previous.box.x + previous.box.width,
+        `${previous.name} must not overlap ${current.name}`,
+      ).toBeLessThanOrEqual(current.box.x + 1);
+    }
+    const lastPrimary = boxes[boxes.length - 1].box;
+    expect(lastPrimary.x + lastPrimary.width).toBeLessThanOrEqual(390);
+
+    const footNavVisible = await page.locator(".rd-v2-sidebar-foot-nav").isVisible().catch(() => false);
+    expect(footNavVisible, "Profile/Settings foot navigation must not crowd the mobile bar").toBe(false);
 
     const dimensions = await page.evaluate(() => ({
       viewport: window.innerWidth,

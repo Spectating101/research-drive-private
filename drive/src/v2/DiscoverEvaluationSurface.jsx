@@ -377,7 +377,7 @@ export function DiscoverEvaluationSurface({
                       {sufficiencyDimensionLabel(difference.dimension)}
                     </span>
                     <span className="rd-v2-eval-sufficiency-side">
-                      <small>In lab</small>
+                      <small>In Library</small>
                       <strong>{difference.local || "Not described"}</strong>
                     </span>
                     <span className="rd-v2-eval-sufficiency-arrow" aria-hidden="true">
