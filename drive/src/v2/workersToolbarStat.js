@@ -84,11 +84,39 @@ export function workersToolbarFieldsFromRollup(rollup) {
     fields.stale = deskPools.stale ?? hero.stale;
   }
   if (hasExplicit(hero.fresh)) fields.fresh = hero.fresh;
+  if (hasExplicit(hero.idle) || hasExplicit(wl.idle)) fields.idle = hero.idle ?? wl.idle;
   // Never promote "available" when stale membership is already reported.
   if (hasExplicit(hero.available) && !hasExplicit(fields.stale)) {
     fields.available = hero.available;
   }
   return fields;
+}
+
+/**
+ * Canonical collector-state vocabulary (VC-4).
+ *
+ * The Resources toolbar, capability card, and rail must describe collectors
+ * with the same nouns and the same denominator. Previously each site ran its
+ * own `available ?? online ?? joined ?? busy ?? total` fallback chain, so one
+ * screen could show three different numbers for the same pool.
+ *
+ * Only dimensions the backend actually reported are rendered — nothing is
+ * inferred, summed, or back-filled. With no reported dimension the caller gets
+ * an explicit "Not reported".
+ */
+export function formatCollectorState(workers) {
+  if (!workers || typeof workers !== "object") return "Not reported";
+  const parts = [];
+  const add = (value, noun) => {
+    if (hasExplicit(value)) parts.push(`${value} ${noun}`);
+  };
+  add(workers.total, "registered");
+  // "Connected" is live presence when reported, otherwise declared membership.
+  add(hasExplicit(workers.online) ? workers.online : workers.joined, "connected");
+  add(workers.idle, "idle");
+  add(workers.busy, "running");
+  add(workers.stale, "stale");
+  return parts.length ? parts.join(" · ") : "Not reported";
 }
 
 /**

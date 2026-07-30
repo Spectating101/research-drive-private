@@ -548,6 +548,7 @@ function NewThread({ objective, setObjective, busy, profiles, onCreate, onStartB
                 key={profile.id}
                 disabled={busy}
                 onClick={() => onStartBlueprint?.(profile)}
+                title={text(profile.title, profile.id)}
               >
                 <strong>{text(profile.title, profile.id)}</strong>
                 <span>{text(profile.description, "Registered construction recipe")}</span>
@@ -557,8 +558,21 @@ function NewThread({ objective, setObjective, busy, profiles, onCreate, onStartB
         </div>
       ) : null}
       <footer>
-        <span>Creates a durable project, then opens Ask with this exact objective attached.</span>
-        <button type="button" className="rd-v2-btn primary" disabled={busy || !objective.trim()} onClick={onCreate}>Start project in Ask</button>
+        {/* VC-6: a disabled primary action must say why it is unavailable. */}
+        <span>
+          {objective.trim()
+            ? "Creates a durable project, then opens Ask with this exact objective attached."
+            : "Enter an objective to continue. Creates a durable project, then opens Ask with it attached."}
+        </span>
+        <button
+          type="button"
+          className="rd-v2-btn primary"
+          disabled={busy || !objective.trim()}
+          onClick={onCreate}
+          title={objective.trim() ? undefined : "Enter an objective to continue"}
+        >
+          Start project in Ask
+        </button>
       </footer>
     </section>
   );

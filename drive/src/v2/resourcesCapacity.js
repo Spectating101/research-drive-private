@@ -4,6 +4,7 @@
  */
 
 import { identifyProviderMarkId } from "./providerMarkIds.js";
+import { formatCollectorState, workersToolbarFieldsFromRollup } from "./workersToolbarStat.js";
 
 function pctOf(used, cap) {
   const u = Number(used);
@@ -177,17 +178,17 @@ export function buildCapacityAccessPairs(rollup) {
       id: "fleet",
       markId: "fleet",
       name: "Lab fleet",
-      metric:
-        identitiesTotal > 0
-          ? `${identitiesReady} / ${identitiesTotal} collectors`
-          : "Fleet pending",
+      // VC-4: the headline uses the shared collector vocabulary so the card,
+      // toolbar, and rail cannot disagree. Identity readiness is a different
+      // operational dimension, so it is named explicitly in the detail line
+      // instead of competing for the same "collectors" noun.
+      metric: formatCollectorState(workersToolbarFieldsFromRollup(rollup)),
       pct: identitiesTotal > 0 ? pctOf(identitiesReady, identitiesTotal) : null,
       available:
-        hostsJoined > 0 || workers.idle != null
+        identitiesTotal > 0 || hostsJoined > 0
           ? [
+              identitiesTotal > 0 ? `${identitiesReady}/${identitiesTotal} identities ready` : null,
               hostsJoined > 0 ? `${hostsJoined} hosts joined` : null,
-              workers.idle != null ? `${workers.idle ?? 0} idle` : null,
-              workers.busy != null ? `${workers.busy ?? 0} busy` : null,
             ]
               .filter(Boolean)
               .join(" · ")

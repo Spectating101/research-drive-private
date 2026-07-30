@@ -168,10 +168,14 @@ const PAGE_RAIL_COPY = {
   synthesis: {
     title: "Synthesis studio",
     desc: "Build a reusable research output from owned Library assets.",
+    // VC-6: the rail describes the objective-first construction lifecycle, not
+    // the retired blueprint/custom-pair picker.
     fields: [
-      ["Use this page", "Choose a blueprint or custom pair"],
-      ["Review", "Join path, grain, time overlap, and readiness"],
-      ["Output", "Run the synthesis and confirm registration"],
+      ["Start", "Describe the construct you need"],
+      ["Ask", "Clarifies meaning and required evidence"],
+      ["Ground", "Checks Library inputs and defensible proxies"],
+      ["Review", "You approve the method before execution"],
+      ["Output", "Archive, registration, and readiness remain separate"],
     ],
   },
   profile: {

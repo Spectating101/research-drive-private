@@ -37,7 +37,10 @@ test.describe("v2 Resources tab", () => {
     await expect(sourceLedger(page)).toContainText("Licensed / institutional");
     await expect(sourceLedger(page)).toContainText("Public market & filings");
     await expect(sourceLedger(page)).toContainText("Research & open data");
-    await expect(main).toContainText("3/12 joined");
+    // VC-4: one collector vocabulary and denominator across toolbar, card, and rail.
+    await expect(main).toContainText("12 registered · 3 connected · 2 running");
+    await expect(main).not.toContainText("joined");
+    await expect(main).not.toContainText("collectors available");
     await expect(main.getByText("Current status")).toHaveCount(0);
     await expect(main.getByText("Ask / model turns")).toHaveCount(0);
     await expect(main.getByText("Metered APIs")).toHaveCount(0);

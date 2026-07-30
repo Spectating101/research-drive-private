@@ -11,7 +11,7 @@ import { resolveProviderMark } from "@/v2/providerMarks";
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
 import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
 import {
-  formatWorkersToolbarStat,
+  formatCollectorState,
   workersToolbarFieldsFromRollup,
 } from "@/v2/workersToolbarStat";
 import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
@@ -405,8 +405,8 @@ function ActivityFilterBar({ value, onChange }) {
 /** Terra donor: never invent schedulable capacity from joined/stale membership. */
 function WorkersToolbarStat({ rollup }) {
   const fields = workersToolbarFieldsFromRollup(rollup);
-  const value = formatWorkersToolbarStat(fields);
-  if (!value) return null;
+  const value = formatCollectorState(fields);
+  if (!value || value === "Not reported") return null;
   const title = [
     fields.online != null ? `online ${fields.online}` : null,
     fields.stale != null ? `stale ${fields.stale}` : null,
@@ -688,14 +688,8 @@ function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
   const partitions = platform.professor_partitions ?? catalogSummary?.partitions;
   const routeCount = buildPinnedSourceRows(panels.providers || [], panels.layers || []).length;
   const workers = rollup?.hero?.workers || {};
-  const collectorCount =
-    workers.available ?? workers.online ?? workers.joined ?? workers.busy ?? workers.total;
-  const collectorLabel =
-    workers.total != null && collectorCount != null
-      ? `${collectorCount}/${workers.total} collectors available`
-      : collectorCount != null
-        ? `${collectorCount} collectors available`
-        : "Collector state pending";
+  // VC-4: one shared collector field set and vocabulary across toolbar, card, and rail.
+  const collectorLabel = formatCollectorState(workersToolbarFieldsFromRollup(rollup));
   const collectorDetail =
     workers.online != null || workers.idle != null
       ? `Online ${workers.online ?? 0} · idle ${workers.idle ?? 0}${

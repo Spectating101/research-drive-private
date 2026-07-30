@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  formatCollectorState,
   formatWorkersToolbarStat,
   workersToolbarFieldsFromRollup,
 } from "./workersToolbarStat.js";
@@ -80,4 +81,46 @@ test("runtime stale wins over hero stale:0 and drops conflicting available", () 
 test("online/total preserved when joined/stale are absent", () => {
   assert.equal(formatWorkersToolbarStat({ online: 0, total: 4 }), "0/4 online");
   assert.equal(formatWorkersToolbarStat({ online: 2, total: 4 }), "2/4 online");
+});
+
+/* ── VC-4: canonical collector vocabulary ─────────────────────────────── */
+
+test("collector state uses one vocabulary and one denominator", () => {
+  assert.equal(
+    formatCollectorState({ total: 12, online: 3, idle: 2, busy: 1 }),
+    "12 registered · 3 connected · 2 idle · 1 running",
+  );
+});
+
+test("collector state omits dimensions the backend did not report", () => {
+  assert.equal(formatCollectorState({ total: 12, busy: 2 }), "12 registered · 2 running");
+  assert.equal(formatCollectorState({ total: 4 }), "4 registered");
+});
+
+test("collector state never infers a missing dimension", () => {
+  // online + idle must not be summed into an invented "available" count.
+  const out = formatCollectorState({ total: 12, online: 3, idle: 2 });
+  assert.doesNotMatch(out, /available/i);
+  assert.equal(out, "12 registered · 3 connected · 2 idle");
+});
+
+test("declared membership stands in for connected only when presence is absent", () => {
+  assert.equal(formatCollectorState({ total: 12, joined: 3 }), "12 registered · 3 connected");
+  // Live presence wins over declared membership.
+  assert.equal(
+    formatCollectorState({ total: 12, joined: 9, online: 3 }),
+    "12 registered · 3 connected",
+  );
+});
+
+test("collector state reports absence explicitly", () => {
+  assert.equal(formatCollectorState({}), "Not reported");
+  assert.equal(formatCollectorState(null), "Not reported");
+});
+
+test("stale membership remains visible rather than silently dropped", () => {
+  assert.equal(
+    formatCollectorState({ total: 4, joined: 3, stale: 3 }),
+    "4 registered · 3 connected · 3 stale",
+  );
 });

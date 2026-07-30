@@ -14,6 +14,19 @@ import { PageShell, StatementRow, StatementSection } from "@/v2/ui";
 import { V2_TABS } from "@/v2/nav-config.jsx";
 import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 
+/**
+ * Explicit demo mode (`?demo=1`). The EXAMPLE faculty binding is a
+ * demonstration affordance, not a production control, so it stays out of the
+ * default presentation.
+ */
+function isDemoMode() {
+  try {
+    return new URLSearchParams(window.location.search).get("demo") === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
 function deskAccessStatus(health) {
   const desk = health?.desk || {};
   if (hasDeskToken()) return { ok: true, label: "Connected", detail: "Session fallback" };
@@ -105,6 +118,7 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
   const [tokenDraft, setTokenDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const desk = health?.desk || {};
+  const demoMode = isDemoMode();
   const access = deskAccessStatus(health);
   const archive = archiveStatus(desk);
   const assistant = assistantStatus(health);
@@ -211,9 +225,11 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
             <button type="button" className="rd-v2-btn sm primary" onClick={saveEmail}>
               Save identity
             </button>
-            <button type="button" className="rd-v2-btn sm" onClick={bindPilot}>
-              Use EXAMPLE (Kong)
-            </button>
+            {demoMode ? (
+              <button type="button" className="rd-v2-btn sm ghost" onClick={bindPilot}>
+                Use EXAMPLE (Kong)
+              </button>
+            ) : null}
           </div>
           <p id="rd-settings-email-hint" className="rd-v2-settings-hint">
             Loads Memory / Works / Lab from the faculty registry. Unbound desks preview EXAMPLE only until an email is saved.
@@ -228,13 +244,24 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
             detail={access.ok ? "OK" : "NEED"}
             warn={!access.ok}
           />
+          {/* Actions must agree with state: a connected desk is not offered a
+              primary "Connect" action. Reconnect stays quiet; Disconnect stays
+              secondary and reads as destructive. */}
           <div className="rd-v2-settings-row stack">
-            <button type="button" className="rd-v2-btn sm primary" disabled={busy} onClick={connectSession}>
-              Connect browser
-            </button>
-            <button type="button" className="rd-v2-btn sm" disabled={busy} onClick={disconnect}>
-              Disconnect
-            </button>
+            {access.ok ? (
+              <>
+                <button type="button" className="rd-v2-btn sm ghost" disabled={busy} onClick={connectSession}>
+                  Reconnect
+                </button>
+                <button type="button" className="rd-v2-btn sm danger" disabled={busy} onClick={disconnect}>
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <button type="button" className="rd-v2-btn sm primary" disabled={busy} onClick={connectSession}>
+                Connect browser
+              </button>
+            )}
           </div>
           <p id="rd-settings-access-hint" className="rd-v2-settings-hint">
             Authorized internal entry connects automatically. Fallback token is only for browsers that cannot mint a session cookie.

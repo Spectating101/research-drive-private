@@ -10,6 +10,7 @@ import {
   resourcesOpsPill,
   resourcesOpsPosture,
 } from "@/v2/attentionModel";
+import { formatCollectorState, workersToolbarFieldsFromRollup } from "@/v2/workersToolbarStat";
 
 export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
   const workers = rollup?.hero?.workers || {};
@@ -21,14 +22,8 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
     jobs,
   });
   const sourceCount = rollup?.connect?.source_count;
-  const collectorCount =
-    workers.available ?? workers.online ?? workers.joined ?? workers.busy ?? workers.total;
-  const collectorState =
-    workers.total != null && collectorCount != null
-      ? `${collectorCount}/${workers.total} available`
-      : collectorCount != null
-        ? `${collectorCount} available`
-        : "State pending";
+  // VC-4: identical field set, vocabulary, and denominator as the toolbar/card.
+  const collectorState = formatCollectorState(workersToolbarFieldsFromRollup(rollup));
   const vaultState = vault.used_tb != null
     ? `${vault.used_tb}/${vault.cap_tb ?? "?"} TB`
     : vault.cap_tb != null

@@ -2077,6 +2077,17 @@
   color: var(--rd-link);
 }
 
+/* Secondary but clearly destructive — used for Disconnect and equivalents. */
+.rd-v2-btn.danger {
+  background: transparent;
+  border-color: var(--rd-danger-border, #e7c4bf);
+  color: var(--rd-danger-fg, #b42318);
+}
+.rd-v2-btn.danger:hover {
+  background: var(--rd-danger-bg, #fdf3f2);
+  border-color: var(--rd-danger-fg, #b42318);
+}
+
 /* ── 9. Inspector rail (Zone D) ──────────────────────────────── */
 .yzu-inspector {
   background: #101823;
