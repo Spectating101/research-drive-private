@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { deskStatusBadge, visibleIntegrationChips } from "@/v2/deskStatusBadge";
 
 /** v2 header — brand · research context · resting status (no global search/Ask pill) */
 
@@ -45,6 +46,8 @@ export function V2DeskHeader({
       : `${datasetCount} datasets`;
   const fresh = freshnessLabel(refreshedAt);
   const chips = Array.isArray(integrationChips) ? integrationChips : [];
+
+  const statusBadge = deskStatusBadge(deskStatus, usingSeed);
   const pageLabel = PAGE_LABELS[currentPage] || String(currentPage || "").toUpperCase();
 
   useEffect(() => {
@@ -89,21 +92,8 @@ export function V2DeskHeader({
 
       <div className="rd-v2-header-meta">
         <div className="rd-v2-trust-strip" aria-label="Desk status" data-testid="desk-integration-strip">
-          {deskStatus === "ok" ? (
-            <span className="rd-v2-trust-badge ok">Live registry</span>
-          ) : deskStatus === "syncing" ? (
-            <span className="rd-v2-trust-badge muted">Syncing…</span>
-          ) : deskStatus === "empty" ? (
-            <span className="rd-v2-trust-badge warn">Empty registry</span>
-          ) : usingSeed || deskStatus === "demo" ? (
-            <span className="rd-v2-trust-badge warn">Demo catalog</span>
-          ) : deskStatus === "degraded" ? (
-            <span className="rd-v2-trust-badge warn">Desk degraded</span>
-          ) : (
-            <span className="rd-v2-trust-badge warn">Desk API offline</span>
-          )}
-          {chips
-            .filter((chip) => ["warn", "error", "danger", "bad"].includes(chip.tone))
+          <span className={`rd-v2-trust-badge ${statusBadge.tone}`}>{statusBadge.label}</span>
+          {visibleIntegrationChips(chips, statusBadge.label)
             .map((chip) => (
               <span
                 key={chip.id}
