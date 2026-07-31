@@ -357,17 +357,17 @@ export function DiscoverEvaluationSurface({
         {sufficiency ? (
           <section
             className={`rd-v2-eval-sufficiency rd-v2-eval-sufficiency-${sufficiency.state}`}
-            aria-label="Lab coverage"
+            aria-label="Library coverage"
             data-testid="discover-lab-coverage"
           >
             <div className="rd-v2-eval-sufficiency-copy">
-              <p className="rd-v2-eval-section-label">Lab coverage</p>
+              <p className="rd-v2-eval-section-label">Library coverage</p>
               <p className="rd-v2-eval-decision-headline">{sufficiency.focusHeadline}</p>
               <p className="rd-v2-eval-decision-body">{sufficiency.focusBody}</p>
             </div>
 
             {sufficiencyDifferences.length ? (
-              <div className="rd-v2-eval-sufficiency-compare" aria-label="Lab coverage comparison">
+              <div className="rd-v2-eval-sufficiency-compare" aria-label="Library coverage comparison">
                 {sufficiencyDifferences.map((difference) => (
                   <div
                     key={`${difference.dimension}-${difference.local}-${difference.candidate}`}

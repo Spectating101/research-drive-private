@@ -177,7 +177,9 @@ export function buildCapacityAccessPairs(rollup) {
     meter({
       id: "fleet",
       markId: "fleet",
-      name: "Lab fleet",
+      // "Collector", not "Library": this is the worker pool, not the data
+      // estate. It matches the toolbar chip and the rail's COLLECTORS row.
+      name: "Collector fleet",
       // VC-4: the headline uses the shared collector vocabulary so the card,
       // toolbar, and rail cannot disagree. Identity readiness is a different
       // operational dimension, so it is named explicitly in the detail line

@@ -198,7 +198,7 @@ test.describe("professor demo @ live-desk", () => {
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByRole("region", { name: "Can I use this" })).toBeVisible();
-    await expect(rail.getByRole("region", { name: "Lab coverage" })).toBeVisible();
+    await expect(rail.getByRole("region", { name: "Library coverage" })).toBeVisible();
     await expect(page.locator(".rd-v2-discover-candidate.selected .rd-v2-discover-possession")).toBeVisible();
 
     const primaryBtn = rail.getByTestId("discover-eval-actions").getByRole("button", { name: /Add to lab|Open in Library/ });

@@ -232,7 +232,7 @@ export function SettingsPage({ health, resourcesRollup, onProfileRefresh, onToas
             ) : null}
           </div>
           <p id="rd-settings-email-hint" className="rd-v2-settings-hint">
-            Loads Memory / Works / Lab from the faculty registry. Unbound desks preview EXAMPLE only until an email is saved.
+            Loads Memory / Works / Library from the faculty registry. Unbound desks preview EXAMPLE only until an email is saved.
           </p>
         </StatementSection>
 

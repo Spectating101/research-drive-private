@@ -46,7 +46,7 @@ const MARKS = {
   fleet: {
     id: "fleet",
     src: clusterJobsMark,
-    alt: "Lab fleet",
+    alt: "Collector fleet",
     title: "Lab collector fleet",
   },
 };
