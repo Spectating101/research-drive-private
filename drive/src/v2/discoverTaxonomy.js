@@ -228,12 +228,30 @@ function connectorSupportsCollection(connector) {
 }
 
 /**
+ * Catalogue placeholder rather than a live route — the backend's way of saying
+ * "here is an example of the kind of API you would craft a plan against".
+ * Distinct from procurement_catalog / live_connector, which can be genuinely
+ * acquirable.
+ */
+export function isReferenceOnly(row) {
+  if (!row || typeof row !== "object") return false;
+  return lower(row.access_mode) === "catalog_reference" || lower(row.status) === "example_reference";
+}
+
+/**
  * Explicit collection route — not a bare URL, not a generic connector id.
  * Gap: if a connector can collect but only exposes an id with no capability list,
  * we classify conservatively (not acquirable) until the contract carries capabilities.
+ *
+ * A catalogue reference is never an acquisition route. Without this guard an
+ * example row with collect_via reads as "External · Acquisition available",
+ * indistinguishable from a real one — inventing acquisition, which the taxonomy
+ * contract above forbids. Reference-only wins over an explicit
+ * acquisition_available flag: overclaiming is the worse failure.
  */
 export function hasAcquisitionRoute(row) {
   if (!row || typeof row !== "object") return false;
+  if (isReferenceOnly(row)) return false;
   if (row.acquisition_available === true || row.collectable === true) return true;
   if (trim(row.collect_via) || trim(row.source_route)) return true;
   if (connectorSupportsCollection(row.connector)) return true;

@@ -257,3 +257,38 @@ describe("discover taxonomy (D1 / D1.1)", () => {
     );
   });
 });
+
+describe("catalogue references never read as live acquisition routes", () => {
+  it("a catalog_reference with a collect route is not acquirable", () => {
+    const c = classifyDiscoverResult(
+      { candidate_key: "c1", access_mode: "catalog_reference", collect_via: "http" },
+      new Set(),
+    );
+    assert.equal(c.key, "external-discoverable");
+    assert.equal(c.readiness, "Available to inspect");
+  });
+
+  it("an example_reference status is not acquirable", () => {
+    const c = classifyDiscoverResult(
+      { candidate_key: "c2", status: "example_reference", collect_via: "http" },
+      new Set(),
+    );
+    assert.equal(c.key, "external-discoverable");
+  });
+
+  it("reference-only outranks an explicit acquisition_available flag", () => {
+    // Overclaiming acquisition is the worse failure, so the catalogue marker wins.
+    const c = classifyDiscoverResult(
+      { candidate_key: "c3", access_mode: "catalog_reference", acquisition_available: true },
+      new Set(),
+    );
+    assert.equal(c.key, "external-discoverable");
+  });
+
+  it("procurement_catalog and live_connector remain acquirable", () => {
+    for (const access_mode of ["procurement_catalog", "live_connector"]) {
+      const c = classifyDiscoverResult({ candidate_key: "k", access_mode, collect_via: "http" }, new Set());
+      assert.equal(c.key, "external-acquirable", `${access_mode} must stay acquirable`);
+    }
+  });
+});
