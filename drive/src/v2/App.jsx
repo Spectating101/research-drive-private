@@ -560,10 +560,15 @@ export function V2App() {
           : nextTab === "browse"
             ? discoverSearchQuery.trim()
             : "";
+      // Only Home/Discover/Library carry a selected dataset in the URL. Resources,
+      // Profile, Synthesis, Settings and Cluster don't read it, and letting it ride
+      // along leaks a stale selection into deep links for pages it means nothing on.
+      // Allow-list rather than deny-list so a new tab defaults to not carrying it.
+      const datasetOwnsTab = nextTab === "home" || nextTab === "browse" || nextTab === "library";
       const next = {
         tab: nextTab,
         folder: patch.folder ?? folderId,
-        dataset: patch.dataset ?? selectedId,
+        dataset: datasetOwnsTab ? (patch.dataset ?? selectedId) : "",
         preview: patch.preview ?? previewOpen,
         q: nextQ,
         mode: patch.mode !== undefined ? patch.mode : discoverMode,

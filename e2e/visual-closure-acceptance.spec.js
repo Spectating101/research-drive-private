@@ -147,3 +147,19 @@ test("Mobile Home and Profile stay within the viewport", async ({ page }) => {
     await shot(page, name);
   }
 });
+
+test("a selected dataset does not leak into deep links for pages that ignore it", async ({ page }) => {
+  // Ported from origin-lineage work: syncUrl carried `dataset` onto every tab,
+  // so navigating away from Library produced a Resources/Settings deep link
+  // pinned to a dataset those pages never read. Sharing that URL restored a
+  // stale selection. Only Home/Discover/Library own a dataset.
+  await open(page, "/?tab=library&dataset=gdelt_asia_daily_country_panel");
+  await expect(page).toHaveURL(/dataset=gdelt_asia_daily_country_panel/);
+
+  await page.getByRole("button", { name: "Resources", exact: true }).click();
+  await expect(page).toHaveURL(/tab=resources/);
+  await expect(page).not.toHaveURL(/dataset=/);
+
+  await page.getByRole("button", { name: "Library", exact: true }).click();
+  await expect(page).toHaveURL(/tab=library/);
+});
