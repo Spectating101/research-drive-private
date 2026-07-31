@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   sourceResultToCandidate,
+  sourcesResponseToRows,
   durableHistoryToEvents,
   normalizeDiscoverMode,
 } from "../src/v2/discoverAdapters.js";
@@ -88,4 +89,58 @@ test("normalizeDiscoverMode maps legacy Search/Activity to Explore/History", () 
   assert.equal(normalizeDiscoverMode("history"), "history");
   assert.equal(normalizeDiscoverMode("explore"), "explore");
   assert.equal(normalizeDiscoverMode(""), "explore");
+});
+
+test("sourceResultToCandidate strips catalogue markup out of descriptions", () => {
+  const row = sourceResultToCandidate({
+    source_id: "openalex",
+    description: "<p>Daily <b>events</b>&nbsp;coverage &amp; tone</p>",
+  });
+  assert.equal(row.description, "Daily events coverage & tone");
+});
+
+test("sourceResultToCandidate falls back when description is markup-only", () => {
+  const row = sourceResultToCandidate({
+    source_id: "x",
+    description: "<p>  </p>",
+    access_mode: "open_api",
+    capabilities: ["bulk"],
+  });
+  // Stripping must not manufacture an empty description — the access/capability
+  // summary is the documented fallback.
+  assert.equal(row.description, "open_api · bulk");
+});
+
+test("sourcesResponseToRows collapses duplicate sources on identity", () => {
+  const rows = sourcesResponseToRows({
+    results: [
+      { source_id: "gdelt", title: "GDELT", capabilities: ["a"] },
+      { source_id: "gdelt", title: "GDELT", capabilities: ["b"] },
+      { source_id: "openalex", title: "OpenAlex" },
+    ],
+  });
+  assert.equal(rows.length, 2);
+  assert.deepEqual(
+    rows.map((r) => r.source_id),
+    ["gdelt", "openalex"],
+  );
+});
+
+test("sourcesResponseToRows keeps rows that carry no identity at all", () => {
+  // An empty dedupe key must not collapse distinct unidentified rows into one.
+  const rows = sourcesResponseToRows({ results: [{}, {}] });
+  assert.equal(rows.length, 2);
+});
+
+test("sourcesResponseToRows still attaches search metadata after dedupe", () => {
+  const rows = sourcesResponseToRows({
+    results: [{ source_id: "gdelt" }, { source_id: "gdelt" }],
+    search_mode: "semantic",
+    query: "tone",
+    cached: true,
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].search_meta.search_mode, "semantic");
+  assert.equal(rows[0]._search_meta.query, "tone");
+  assert.equal(rows[0].cached, true);
 });

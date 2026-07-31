@@ -19,6 +19,20 @@ export function normalizeDiscoverMode(raw = "") {
   return "explore";
 }
 
+/** Catalogue text (e.g. OpenAlex abstracts) often carries raw markup — strip it before it reaches the UI. */
+function cleanDescription(value) {
+  return String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function endpointToUrl(endpoint) {
   const text = String(endpoint || "").trim();
   if (!text) return "";
@@ -40,7 +54,7 @@ export function sourceResultToCandidate(row = {}) {
     source: row.provider || row.source || row.label,
     publisher: row.provider || row.publisher || row.source,
     description:
-      row.description ||
+      cleanDescription(row.description) ||
       [row.access_mode, ...caps.slice(0, 3)].filter(Boolean).join(" · "),
     access_mode: row.access_mode || row.access || "",
     collect_via: collect[0] || row.collect_via || "",
@@ -53,6 +67,26 @@ export function sourceResultToCandidate(row = {}) {
   };
 }
 
+/**
+ * Identity for de-duplication. Deliberately reads the *raw* row for the title
+ * rather than the mapped candidate: sourceResultToCandidate defaults title to
+ * "External source", and keying on that would make every identity-less row look
+ * like the same row and silently drop all but one. No identity → no dedupe.
+ */
+function candidateDedupeKey(candidate, row = {}) {
+  return String(
+    candidate.candidate_key ||
+      candidate.source_id ||
+      candidate.url ||
+      row.title ||
+      row.label ||
+      row.name ||
+      "",
+  )
+    .trim()
+    .toLowerCase();
+}
+
 export function sourcesResponseToRows(data) {
   const results = Array.isArray(data?.results) ? data.results : [];
   const searchMeta = {
@@ -62,12 +96,25 @@ export function sourcesResponseToRows(data) {
     cached: data?.cached ?? null,
     freshness: data?.freshness || data?.as_of || null,
   };
-  return results.map((row) => ({
-    ...sourceResultToCandidate(row),
-    _search_meta: searchMeta,
-    search_meta: searchMeta,
-    cached: row.cached ?? data?.cached,
-  }));
+  // Catalogue federation can return the same source twice (e.g. one hit per
+  // capability). Collapse on identity so Explore doesn't show visual duplicates
+  // that would each queue a separate collection job. First occurrence wins —
+  // later copies carry no extra information.
+  const seen = new Set();
+  const out = [];
+  for (const row of results) {
+    const candidate = sourceResultToCandidate(row);
+    const key = candidateDedupeKey(candidate, row);
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push({
+      ...candidate,
+      _search_meta: searchMeta,
+      search_meta: searchMeta,
+      cached: row.cached ?? data?.cached,
+    });
+  }
+  return out;
 }
 
 /**
