@@ -112,18 +112,27 @@ if [[ "${YZU_ALLOW_DIRTY_PUBLIC:-0}" != "1" ]] && [[ -n "$(git -C "${public_root
   exit 1
 fi
 
-static_dir="${YZU_DESK_STATIC_DIR:-${public_root}/dist}"
+# Building stages a release; it does not publish one.
+#
+# This used to write straight into the served directory, so any build -- including
+# an incidental one -- went live on a public tunnel with no confirmation step.
+# Output now lands in releases/<public_sha>/ and stays there until
+# promote_front_door.sh re-points the live symlink at it.
+releases_dir="${public_root}/releases"
+release_dir="${releases_dir}/${actual_sha}"
+live_link="${YZU_DESK_STATIC_DIR:-${public_root}/dist}"
+mkdir -p "${releases_dir}"
 
 if [[ "${identity_only}" != "1" ]]; then
   (
     cd "${public_root}"
     npm ci
-    YZU_PAGES=false npm run build
+    YZU_PAGES=false npm run build -- --outDir "${release_dir}" --emptyOutDir
   )
 fi
 
-[[ -f "${static_dir}/index.html" ]] || {
-  echo "Vite build did not create ${static_dir}/index.html" >&2
+[[ -f "${release_dir}/index.html" ]] || {
+  echo "Vite build did not create ${release_dir}/index.html" >&2
   if [[ "${identity_only}" == "1" ]]; then
     echo "run a full front-door build before --identity-only" >&2
   fi
@@ -131,8 +140,21 @@ fi
 }
 
 private_sha="$(git -C "${private_root}" rev-parse HEAD 2>/dev/null || printf unknown)"
-write_build_identity "${static_dir}" "${actual_sha}" "${private_sha}"
+write_build_identity "${release_dir}" "${actual_sha}" "${private_sha}"
 
-printf 'front_door_static_dir=%s\n' "${static_dir}"
+live_sha="unlinked"
+if [[ -L "${live_link}" ]]; then
+  live_sha="$(basename "$(readlink -f "${live_link}")")"
+fi
+
+printf 'staged_release_dir=%s\n' "${release_dir}"
 printf 'public_sha=%s\n' "${actual_sha}"
 printf 'private_sha=%s\n' "${private_sha}"
+printf 'currently_live=%s\n' "${live_sha}"
+if [[ "${live_sha}" == "${actual_sha}" ]]; then
+  printf 'status=already live\n'
+else
+  printf 'status=STAGED, NOT LIVE\n'
+  printf 'promote_with=YZU_PUBLIC_REPO=%s bash %s/promote_front_door.sh %s\n' \
+    "${public_root}" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" "${actual_sha}"
+fi

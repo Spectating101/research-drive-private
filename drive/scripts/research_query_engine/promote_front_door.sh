@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Promote a staged front-door release to live.
+#
+# Building no longer publishes. build_optiplex_front_door.sh writes a complete
+# release into releases/<public_sha>/ and stops. This script is the only thing
+# that changes what users see, by re-pointing the `dist` symlink.
+#
+# The swap is atomic (mv -T over a symlink), so there is no window where the
+# served bundle is half-old and half-new, and rollback is the same operation
+# pointed at an earlier sha.
+#
+#   promote_front_door.sh <public_sha>     promote that release
+#   promote_front_door.sh --list           show staged releases and which is live
+#   promote_front_door.sh --current        print the live sha
+set -euo pipefail
+
+public_root="${YZU_PUBLIC_REPO:?set YZU_PUBLIC_REPO to the public yzu-cluster checkout}"
+public_root="$(cd "${public_root}" && pwd)"
+releases_dir="${public_root}/releases"
+live_link="${YZU_DESK_STATIC_DIR:-${public_root}/dist}"
+
+current_sha() {
+  [[ -L "${live_link}" ]] || { printf 'unlinked\n'; return; }
+  basename "$(readlink -f "${live_link}")"
+}
+
+case "${1:-}" in
+  --current)
+    current_sha
+    exit 0
+    ;;
+  --list)
+    live="$(current_sha)"
+    if [[ ! -d "${releases_dir}" ]]; then
+      echo "no releases staged yet: ${releases_dir}" >&2
+      exit 1
+    fi
+    for d in "${releases_dir}"/*/; do
+      [[ -d "${d}" ]] || continue
+      sha="$(basename "${d}")"
+      built="$(python3 -c "
+import json,sys
+try: print(json.load(open('${d}research-drive-build.json'))['built_at_utc'])
+except Exception: print('?')" 2>/dev/null || echo '?')"
+      marker="        "
+      [[ "${sha}" == "${live}" ]] && marker=" << LIVE"
+      printf '  %s  %s%s\n' "${sha:0:12}" "${built}" "${marker}"
+    done
+    exit 0
+    ;;
+  "")
+    echo "usage: promote_front_door.sh <public_sha> | --list | --current" >&2
+    exit 2
+    ;;
+esac
+
+target_sha="$1"
+target_dir="${releases_dir}/${target_sha}"
+
+[[ -d "${target_dir}" ]] || {
+  echo "no staged release for ${target_sha}" >&2
+  echo "stage one first: YZU_PUBLIC_SHA=${target_sha} build_optiplex_front_door.sh" >&2
+  exit 1
+}
+[[ -f "${target_dir}/index.html" ]] || {
+  echo "staged release is incomplete (no index.html): ${target_dir}" >&2
+  exit 1
+}
+[[ -f "${target_dir}/research-drive-build.json" ]] || {
+  echo "staged release has no build identity: ${target_dir}" >&2
+  exit 1
+}
+
+# The identity must describe the release it sits in, or the desk server's own
+# SHA gate will reject it after promotion.
+python3 - "${target_dir}/research-drive-build.json" "${target_sha}" <<'PY'
+import json, sys
+payload = json.loads(open(sys.argv[1], encoding="utf-8").read())
+if str(payload.get("public_sha") or "") != sys.argv[2]:
+    raise SystemExit(
+        f"staged identity public_sha {payload.get('public_sha')} != release dir {sys.argv[2]}"
+    )
+print("staged_identity_ok")
+PY
+
+previous="$(current_sha)"
+
+if [[ -e "${live_link}" && ! -L "${live_link}" ]]; then
+  echo "refusing to replace a real directory at ${live_link}" >&2
+  echo "run migrate_front_door_releases.sh once to convert it to a symlink" >&2
+  exit 1
+fi
+
+# Atomic: build the new link beside the old one, then rename over it.
+tmp_link="${live_link}.promoting.$$"
+ln -s "${target_dir}" "${tmp_link}"
+mv -Tf "${tmp_link}" "${live_link}"
+
+printf 'promoted=%s\n' "${target_sha}"
+printf 'previous=%s\n' "${previous}"
+printf 'rollback=promote_front_door.sh %s\n' "${previous}"
