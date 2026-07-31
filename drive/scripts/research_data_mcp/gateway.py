@@ -28,7 +28,12 @@ class ResearchDataGateway:
         jobs: JobService | None = None,
     ):
         self.repo_root = Path(repo_root).resolve()
-        registry = Path(registry_path) if registry_path else self.repo_root / "config/research_query_registry.json"
+        if registry_path:
+            registry = Path(registry_path)
+        else:
+            from scripts.research_data_mcp.bootstrap import default_registry_path
+
+            registry = default_registry_path(self.repo_root)
         if not registry.is_absolute():
             registry = (self.repo_root / registry).resolve()
         self.registry_path = registry
@@ -1098,7 +1103,7 @@ class ResearchDataGateway:
         import shutil
 
         from scripts.research_data_mcp.desk_auth import access_token_required
-        from scripts.research_data_mcp.desk_brain import composer_runtime_status
+        from scripts.research_data_mcp.desk_brain import cursor_composer_available, desk_brain_mode
         from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
         from scripts.research_data_mcp.llm_client import llm_configured as legacy_llm_configured
         from scripts.research_data_mcp.procurement_constants import (
@@ -1108,17 +1113,29 @@ class ResearchDataGateway:
         )
         from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES
 
-        composer = composer_runtime_status(self.repo_root)
-        composer_ok = bool(composer["composer_configured"])
+        brain = desk_brain_mode(self.repo_root)
+        composer_ok = cursor_composer_available()
+        from scripts.research_data_mcp.desk_composer_health import (
+            composer_runtime_status,
+        )
+
+        composer_runtime = composer_runtime_status(configured=composer_ok)
+        from scripts.research_data_mcp.desk_synthesis_fallback import (
+            synthesis_fallback_runtime_status,
+        )
+
+        synthesis_fallback_runtime = synthesis_fallback_runtime_status()
         stats = self.orchestrator.stats()
         out: dict[str, Any] = {
             "status": "ok",
             "service": "research_library_api",
             "desk": {
-                "brain": composer["brain"],
+                "brain": brain,
                 "composer_configured": composer_ok,
-                "composer_status": composer["composer_status"],
+                "composer_status": composer_runtime["status"],
+                "composer_runtime": composer_runtime,
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
+                "synthesis_fallback": synthesis_fallback_runtime,
                 "chat_timeout_seconds": chat_timeout_seconds(),
                 "llm_configured": composer_ok,
                 "legacy_llm_configured": legacy_llm_configured(),
@@ -1134,7 +1151,6 @@ class ResearchDataGateway:
                 "desk_session_cookie": bool(access_token_required()),
             },
         }
-        storage = getattr(self.orchestrator, "cfg", {}).get("storage") or {}
         from scripts.research_data_mcp.storage_tiers import storage_tiers_status
 
         tiers = storage_tiers_status(self.repo_root)
@@ -1250,6 +1266,17 @@ class ResearchDataGateway:
         hot = (out.get("desk") or {}).get("storage_tiers", {}).get("hot") or {}
         jobs = (out.get("desk") or {}).get("jobs") or {}
         warnings: list[str] = []
+        if composer_runtime.get("status") in {"degraded", "stale", "unverified"}:
+            warnings.append(
+                "composer_runtime="
+                f"{composer_runtime.get('error_category') or composer_runtime.get('status')}"
+            )
+            out["status"] = "degraded"
+        if synthesis_fallback_runtime.get("status") in {"degraded", "stale"}:
+            warnings.append(
+                "synthesis_fallback="
+                f"{synthesis_fallback_runtime.get('error_category') or 'provider_error'}"
+            )
         if hot.get("headroom_ok") is False:
             warnings.append(
                 f"nvme_headroom: {hot.get('free_gb')} GB free < min {hot.get('required_min_gb')} GB"
@@ -2014,6 +2041,12 @@ class ResearchDataGateway:
             "title": f"Synthesis: {thread.get('title') or spec['output_dataset_id']}",
             "job_type": "synthesis_execute",
             "thread_id": thread_id,
+            "objective": str(thread.get("objective") or ""),
+            "grain": str(
+                state.get("required_grain")
+                or (state.get("spec") or {}).get("grain")
+                or ""
+            ),
             "execution_spec": spec,
             "accepted_spec_hash": accepted_hash,
             "dataset_id": spec["output_dataset_id"],
@@ -2024,6 +2057,7 @@ class ResearchDataGateway:
             plan["title"],
             plan,
             {
+                "_ops_internal": True,
                 "thread_id": thread_id,
                 "objective": thread.get("objective") or "",
                 "search_goal": thread.get("objective") or "",

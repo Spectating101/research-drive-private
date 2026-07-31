@@ -308,7 +308,18 @@ def test_synthesis_approval_boundaries(stack):
     incomplete = stack.orchestrator.store.create(
         "Synthesis approval boundary",
         {},
-        {"job_type": "synthesis_execute", "launchable": True, "title": "Synthesis boundary"},
+        {
+    "job_type": "synthesis_execute",
+    "launchable": True,
+    "title": "Synthesis boundary",
+    "execution_spec": {
+        "input_dataset_id": "google_trends_stablecoin_weekly",
+        "output_dataset_id": "",
+        "group_by": [],
+        "metrics": [{"function": "count", "as": "row_count"}],
+        "transforms": [],
+    },
+},
         status="pending_approval",
     )
     with pytest.raises(ValueError, match="cannot approve non-launchable plan"):
@@ -336,6 +347,74 @@ def test_synthesis_approval_boundaries(stack):
     assert isinstance(approved, dict)
     got = stack.gateway.jobs.get(job["id"])
     assert got.get("status") in {"queued", "running", "completed"}
+
+
+def test_synthesis_submit_uses_server_internal_scope_but_never_auto_approves(
+    stack, tmp_path: Path, monkeypatch
+):
+    from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore
+
+    isolated = SynthesisThreadStore(tmp_path / "submit_threads.sqlite3")
+    monkeypatch.setattr(stack.gateway, "_synthesis_threads_store", isolated, raising=False)
+    thread = isolated.create(
+        objective="Exercise the synthesis approval boundary.",
+        title="Approval boundary",
+        required_grain="country_week",
+        state={
+            "proposal": {
+                "id": "approval-boundary",
+                "title": "Approval boundary",
+                "operations": [
+                    {"op": "append_activity", "message": "Execution proposed."}
+                ],
+                "execution_spec": {
+                    "input_dataset_id": "google_trends_stablecoin_weekly",
+                    "output_dataset_id": "synthesis_approval_boundary_probe",
+                    "group_by": [],
+                    "metrics": [{"function": "count", "as": "row_count"}],
+                    "transforms": [],
+                },
+            }
+        },
+    )
+    proposal = isolated.get(thread["id"])["state"]["proposal"]
+    isolated.apply_patch_decision(
+        thread["id"],
+        decision="accept",
+        proposal_id=proposal["id"],
+        proposal_hash=proposal["proposal_hash"],
+    )
+
+    observed = {}
+
+    def submit(title, plan, request, *, auto_approve):
+        observed.update(
+            {
+                "title": title,
+                "plan": plan,
+                "request": request,
+                "auto_approve": auto_approve,
+            }
+        )
+        return {
+            "job": {
+                "id": "job-approval-boundary",
+                "status": "pending_approval",
+                "plan": plan,
+            }
+        }
+
+    monkeypatch.setattr(stack.gateway.jobs, "submit", submit)
+    result = stack.gateway.synthesis_thread_submit_execution(thread["id"])
+
+    assert observed["request"]["_ops_internal"] is True
+    assert observed["auto_approve"] is False
+    assert observed["plan"]["job_type"] == "synthesis_execute"
+    assert observed["plan"]["grain"] == "country_week"
+    assert observed["plan"]["objective"] == "Exercise the synthesis approval boundary."
+    assert result["job"]["status"] == "pending_approval"
+    refreshed = isolated.get(thread["id"])
+    assert refreshed["state"]["execution"]["status"] == "pending_approval"
 
 
 def test_discover_handoff_preserves_identities_only(store):

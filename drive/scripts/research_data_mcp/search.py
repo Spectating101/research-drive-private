@@ -317,9 +317,32 @@ class SearchService:
                     "loaded query catalog; reconcile the registry row and prove a query smoke before query_ready"
                 )
         ds = self.engine.datasets.get(dataset_id)
-        if ds and self._requires_explicit_hydration(ds, params):
+        hydrate_requested = str(params.get("hydrate") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        hydrate: dict[str, Any] = {}
+        if ds:
+            from scripts.research_data_mcp.registry_hydrate import ensure_registry_local_bytes
+
+            try:
+                # Every query performs a cheap hydration preflight. Ordinary
+                # queries remain non-mutating; hydrate=1 authorizes the pull.
+                hydrate = ensure_registry_local_bytes(
+                    self.repo_root,
+                    ds,
+                    dry_run=not hydrate_requested,
+                )
+            except Exception as exc:
+                hydrate = {"ok": False, "error": str(exc)[:200]}
+            if hydrate.get("ok"):
+                self.reload_registry()
+                ds = self.engine.datasets.get(dataset_id)
+
+        if ds and self._requires_explicit_hydration(ds, params) and not hydrate.get("ok"):
             # Preview path: sample local/remote bytes instead of returning an empty hydrate stub.
-            if want_preview and str(params.get("hydrate") or "").strip().lower() not in {"1", "true", "yes"}:
+            if want_preview and not hydrate_requested:
                 sample = _preview(ds)
                 if sample.get("rows"):
                     return sample
@@ -333,7 +356,8 @@ class SearchService:
                     "source_of_truth": ds.get("source_of_truth"),
                     "canonical_remote": ds.get("canonical_remote") or (ds.get("lineage") or {}).get("canonical_remote"),
                     "message": "This registered asset has metadata only on the desk. Hydrate it before querying rows.",
-                    "hydrate_requested": str(params.get("hydrate") or "").strip().lower() in {"1", "true", "yes"},
+                    "hydrate_requested": hydrate_requested,
+                    "hydrate": hydrate,
                     "params": params,
                 },
                 "rows": [],

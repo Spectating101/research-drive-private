@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-07-30T01:30:00+08:00",
+  "scope": "isolated_loopback_acceptance",
+  "production_mutation": false,
+  "provider": "cursor_composer",
+  "execution_source_commit": "acb99dd",
+  "case": {
+    "id": "provider_synthesis_closure",
+    "objective": "Construct a reviewed country-week ASEAN stress proxy from held evidence.",
+    "input_dataset_id": "synthesis_acceptance_input",
+    "output_dataset_id": "synthesis_provider_closure_v1",
+    "thread_id": "e23e77f83f9849f4",
+    "session_id": "71dbf83cc3d64117"
+  },
+  "provider_contract": {
+    "turns": 2,
+    "thread_linked_before_first_turn": true,
+    "first_turn_grounded": true,
+    "one_clarification": true,
+    "follow_up_grounded": true,
+    "agent_originated_proposal": true,
+    "proposal_id": "provider-closure-v1-aggregate",
+    "execution_spec_preflight": "passed",
+    "submission_status": "pending_approval",
+    "auto_approved": false,
+    "original_report_outcome": "contract_failed",
+    "original_report_false_negative": "The grader required an internal dataset id although the provider used its human title.",
+    "regraded_after_lexical_normalization": "passed"
+  },
+  "researcher_approval_and_execution": {
+    "job_id": "c32842c8dc2e",
+    "job_type": "synthesis_execute",
+    "final_status": "completed",
+    "runtime_stage": "registered",
+    "rows": 6,
+    "manifest_id": "synthesis_manifest_c32842c8dc2e",
+    "archive_ok": true,
+    "archive_verified": true,
+    "registry_readback": true,
+    "analysis_readiness": "query_ready",
+    "query_readback_rows": 6
+  },
+  "registered_asset": {
+    "dataset_id": "synthesis_provider_closure_v1",
+    "grain": "country_week",
+    "join_keys": [
+      "country_iso3",
+      "week"
+    ],
+    "lineage_inputs": [
+      "synthesis_acceptance_input"
+    ],
+    "thread_materialisation": "registered"
+  },
+  "repeatability": {
+    "second_provider_run": true,
+    "second_agent_originated_proposal": true,
+    "second_submission_status": "pending_approval",
+    "all_substantive_phases_regraded": "passed"
+  },
+  "limitations": [
+    "This proves the product contract in an isolated runtime with a local rclone vault, not the production Google Drive remote.",
+    "The six-row acceptance input is deliberately small and does not establish scientific validity for an ASEAN stress construct.",
+    "The second proposal was left pending approval and was not executed."
+  ]
+}

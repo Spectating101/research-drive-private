@@ -61,12 +61,31 @@ Sharpe-Renaissance/
 
 # Local generated installs
 sharpe_rust/
+node_modules/
+.tmp-pw/
+test-results/
+playwright-report/
 
 # Generated local project state
 .codex
 .codex/
 config/generated/
 scripts/data_lake/
+
+# Host-local front-door links created by link_front_door_host_config.sh
+config/collection_partitions.json
+config/collection_semantic.json
+config/data_collection_queue.json
+config/databank_access_scope.json
+config/databank_coverage_proxies.json
+config/databank_source_map.json
+config/desk_demo_catalog.json
+config/desk_sources.json
+config/procurement_governance.json
+config/procurement_registry_map.json
+config/research_query_registry.json
+config/storage_tiers.json
+config/synthesis_profiles.json
 
 # Generated large local catalogs
 reports/asset_catalog.json

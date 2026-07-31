@@ -34,9 +34,7 @@ def _write_runtime_config(root: Path) -> None:
     )
 
 
-def test_local_completion_renews_lease_through_authoritative_finalization(
-    tmp_path: Path, public_fixture_network_policy
-) -> None:
+def test_local_completion_renews_lease_through_authoritative_finalization(tmp_path: Path) -> None:
     _write_runtime_config(tmp_path)
     orchestrator = YzuOrchestrator(tmp_path)
     orchestrator.executor.execute = lambda _job_id, _plan: {"outputs": ["local-output"]}
@@ -44,10 +42,10 @@ def test_local_completion_renews_lease_through_authoritative_finalization(
         "Local finalization",
         {
             "job_type": "http_manifest",
-            "items": [{"url": "https://example.test/data.csv"}],
+            "items": [{"url": "https://8.8.8.8/data.csv"}],
             "outputs": ["local-output"],
         },
-        {"idempotency_key": "local-finalization", "_ops_internal": True},
+        {"_ops_internal": True, "idempotency_key": "local-finalization"},
         auto_approve=True,
     )
 
@@ -127,7 +125,7 @@ with zipfile.ZipFile(args.artifact, 'w') as archive:
         "worker_id": "windows-01",
         "plan": {
             "job_type": "http_manifest",
-            "items": [{"url": "https://example.test/data.csv", "name": "data.csv"}],
+            "items": [{"url": "https://8.8.8.8/data.csv", "name": "data.csv"}],
             "timeout_seconds": 30,
         },
     }

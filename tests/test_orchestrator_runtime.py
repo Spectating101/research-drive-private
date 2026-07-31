@@ -24,7 +24,7 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
                     "status_root": "data/status",
                 },
                 "operations": {"disable_local_http_collect": False, **(operations or {})},
-                "agent": {"allowed_job_types": ["http_manifest", "scraper_run"]},
+                "agent": {"allowed_job_types": ["http_manifest", "scraper_run", "source_probe"]},
                 "worker_pools": {},
                 "storage": {},
             }
@@ -34,10 +34,25 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
     return YzuOrchestrator(tmp_path)
 
 
+def test_faculty_acquisition_requires_explicit_approval(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+
+    submitted = orchestrator.submit(
+        "Probe example",
+        {"job_type": "http_manifest", "url": "https://8.8.8.8"},
+        {"idempotency_key": "faculty-probe"},
+        auto_approve=True,
+    )
+
+    assert submitted["status"] == "pending_approval"
+    assert submitted["plan"]["execution_policy"]["scope"] == "faculty"
+    assert submitted["plan"]["execution_policy"]["auto_approve_allowed"] is False
+
+
 def test_orchestrator_projects_idempotent_runtime_jobs(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path)
-    plan = {"job_type": "http_manifest", "url": "https://example.test"}
-    request = {"idempotency_key": "probe-example"}
+    plan = {"job_type": "http_manifest", "url": "https://8.8.8.8"}
+    request = {"_ops_internal": True, "idempotency_key": "probe-example"}
 
     submitted = orchestrator.submit("Probe example", plan, request, auto_approve=True)
     replay = orchestrator.submit("Probe example", plan, request, auto_approve=True)
@@ -53,8 +68,8 @@ def test_orchestrator_executes_only_a_claimed_compatible_job(tmp_path: Path) -> 
     orchestrator.executor.execute = lambda _job_id, _plan: {"outputs": ["probe-output"]}  # type: ignore[method-assign]
     job = orchestrator.submit(
         "Probe example",
-        {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["probe-output"]},
-        {"idempotency_key": "probe-execute"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8", "outputs": ["probe-output"]},
+        {"_ops_internal": True, "idempotency_key": "probe-execute"},
         auto_approve=True,
     )
 
@@ -66,11 +81,11 @@ def test_orchestrator_executes_only_a_claimed_compatible_job(tmp_path: Path) -> 
 
 
 def test_browser_job_stays_queued_without_a_live_browser_worker(tmp_path: Path) -> None:
-    orchestrator = _orchestrator(tmp_path)
+    orchestrator = _orchestrator(tmp_path, operations={"disable_local_scrape": True})
     job = orchestrator.submit(
         "Scrape example",
-        {"job_type": "scraper_run", "script_key": "generic_url_scrape", "url": "https://example.test"},
-        {"idempotency_key": "browser-queued"},
+        {"job_type": "scraper_run", "script_key": "generic_url_scrape", "url": "https://8.8.8.8"},
+        {"_ops_internal": True, "idempotency_key": "browser-queued"},
         auto_approve=True,
     )
 
@@ -93,8 +108,8 @@ def test_controller_yields_http_run_to_fresh_windows_worker(tmp_path: Path) -> N
     )
     job = orchestrator.submit(
         "Windows-first HTTP procurement",
-        {"job_type": "http_manifest", "url": "https://example.test/data.csv"},
-        {"idempotency_key": "windows-first-http"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8/data.csv"},
+        {"_ops_internal": True, "idempotency_key": "windows-first-http"},
         auto_approve=True,
     )
 
@@ -102,7 +117,10 @@ def test_controller_yields_http_run_to_fresh_windows_worker(tmp_path: Path) -> N
     assert orchestrator.runtime.snapshot(job["id"])["status"] == "queued"
     claim = control.claim({"worker_id": "windows-01"})
     assert claim is not None
-    assert claim["plan"]["items"] == [{"url": "https://example.test/data.csv"}]
+    item = claim["plan"]["items"][0]
+    assert item["url"] == "https://8.8.8.8/data.csv"
+    assert item["network_evidence"]["resolved_addresses"] == ["8.8.8.8"]
+    assert item["network_evidence"]["host"] == "8.8.8.8"
 
 
 def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_path: Path) -> None:
@@ -119,12 +137,10 @@ def test_controller_still_claims_non_http_work_with_windows_worker_present(tmp_p
     orchestrator.executor.execute = lambda _job_id, _plan: {"outputs": ["controller-output"]}  # type: ignore[method-assign]
     job = orchestrator.submit(
         "Controller-owned probe",
-        {"job_type": "source_probe", "url": "https://example.test"},
-        {"idempotency_key": "controller-probe-with-windows"},
+        {"job_type": "source_probe", "url": "https://8.8.8.8"},
+        {"_ops_internal": True, "idempotency_key": "controller-probe-with-windows"},
         auto_approve=True,
     )
-    orchestrator.approve(job["id"])
-
     completed = orchestrator.worker_tick()
     assert completed is not None
     assert completed["id"] == job["id"]
@@ -135,8 +151,8 @@ def test_runtime_lease_recovery_reconciles_legacy_running_job(tmp_path: Path) ->
     orchestrator = _orchestrator(tmp_path)
     job = orchestrator.submit(
         "Probe example",
-        {"job_type": "http_manifest", "url": "https://example.test"},
-        {"idempotency_key": "lease-reconcile"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8"},
+        {"_ops_internal": True, "idempotency_key": "lease-reconcile"},
         auto_approve=True,
     )
     claim = orchestrator.runtime.claim_job(job["id"], lease_seconds=1)
@@ -164,8 +180,8 @@ def test_blocking_execution_renews_lease_before_concurrent_reaper(tmp_path: Path
     orchestrator.executor.execute = slow_execute  # type: ignore[method-assign]
     job = orchestrator.submit(
         "Slow probe",
-        {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["slow-output"]},
-        {"idempotency_key": "slow-probe"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8", "outputs": ["slow-output"]},
+        {"_ops_internal": True, "idempotency_key": "slow-probe"},
         auto_approve=True,
     )
     reaped: list[object] = []
@@ -186,8 +202,8 @@ def test_blocking_execution_renews_lease_before_concurrent_reaper(tmp_path: Path
 
 def test_concurrent_identical_submission_returns_one_legacy_job(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path)
-    plan = {"job_type": "http_manifest", "url": "https://example.test"}
-    request = {"idempotency_key": "concurrent-probe"}
+    plan = {"job_type": "http_manifest", "url": "https://8.8.8.8"}
+    request = {"_ops_internal": True, "idempotency_key": "concurrent-probe"}
     barrier = threading.Barrier(2)
     results: list[dict] = []
     errors: list[Exception] = []
@@ -238,8 +254,8 @@ def test_post_registration_failure_does_not_fail_registered_run(tmp_path: Path) 
     )
     job = orchestrator.submit(
         "Probe example",
-        {"job_type": "http_manifest", "url": "https://example.test", "outputs": ["probe-output"]},
-        {"idempotency_key": "post-registration"},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8", "outputs": ["probe-output"]},
+        {"_ops_internal": True, "idempotency_key": "post-registration"},
         auto_approve=True,
     )
 
@@ -288,7 +304,7 @@ def test_http_manifest_does_not_hide_windows_failure_with_local_retry(
     with pytest.raises(RuntimeError, match="provider rejected request"):
         executor._http_manifest(
             "windows-source-failure",
-            {"job_type": "http_manifest", "url": "https://example.test", "items": [{"url": "https://example.test"}]},
+            {"job_type": "http_manifest", "url": "https://8.8.8.8", "items": [{"url": "https://8.8.8.8"}]},
         )
 
     assert local_calls == []
@@ -312,7 +328,7 @@ def test_http_manifest_uses_optiplex_only_when_windows_pool_is_unavailable(
 
     result = executor._http_manifest(
         "windows-pool-offline",
-        {"job_type": "http_manifest", "url": "https://example.test", "items": [{"url": "https://example.test"}]},
+        {"job_type": "http_manifest", "url": "https://8.8.8.8", "items": [{"url": "https://8.8.8.8"}]},
     )
 
     assert result["collect_mode"] == "local_fallback"

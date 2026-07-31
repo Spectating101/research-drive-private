@@ -66,7 +66,8 @@ def test_partial_requirement_reports_one_precise_gap():
     req = requirement(unit="firm_day", geography="Taiwan", event_type="earnings")
     row = supported_row(unit="firm_day", geography="Taiwan")
     out = assess_held_evidence(Gateway([row]), question="Taiwan earnings", requirement=req)
-    assert out["verdict"] == "partially_covered"
+    assert out["verdict"] is None
+    assert out["assessment_status"] == "insufficient_metadata"
     assert out["gap"]["dimension"] == "event_type"
     assert out["gap"]["status"] == "unknown"
 
@@ -76,6 +77,7 @@ def test_no_material_held_support_is_not_covered():
     row = supported_row(event_type="earnings", geography="Taiwan")
     out = assess_held_evidence(Gateway([row]), question="Japan earthquakes", requirement=req)
     assert out["verdict"] == "not_covered"
+    assert out["assessment_status"] == "assessed"
     assert out["held_evidence"] == []
     assert out["gap"]["dimension"] == "universe/geography"
 
@@ -85,7 +87,8 @@ def test_conflicting_legacy_readiness_is_preserved():
     row["evidence_coverage"] = {"unit": "security_day"}
     row["field_coverage"] = "query-ready"
     out = assess_held_evidence(Gateway([row]), question="firm panel", requirement=requirement(unit="firm_day"))
-    assert out["verdict"] == "not_covered"
+    assert out["verdict"] is None
+    assert out["assessment_status"] == "insufficient_metadata"
     state = out["assessment_basis"]["dimension_status"]
     assert state["unit"] == "conflicting"
     record = out["held_evidence"][0]
@@ -137,7 +140,8 @@ def test_query_ready_declaration_is_not_observed_query_proof():
     }
     assert evidence_state(row)["materialization"]["status"] == "query_ready_declared"
     out = assess_held_evidence(Gateway([row]), question="firm panel", requirement=requirement(unit="firm_day"))
-    assert out["verdict"] == "not_covered"
+    assert out["verdict"] is None
+    assert out["assessment_status"] == "insufficient_metadata"
     assert out["assessment_basis"]["dimension_status"]["unit"] == "unverified"
     assert out["held_evidence"][0]["dataset_id"] == "declared_only"
     assert "usability is unverified" in out["held_evidence"][0]["contribution"]
@@ -154,13 +158,63 @@ def test_coverage_mismatch_is_not_mislabeled_as_unverified():
     assert out["held_evidence"] == []
 
 
-def test_distributed_support_is_partial_until_compatibility_is_proven():
+def test_distributed_support_is_neutral_until_compatibility_is_proven():
     req = requirement(unit="firm_day", event_type="earnings")
     rows = [supported_row(unit="firm_day"), supported_row(event_type="earnings")]
     out = assess_held_evidence(Gateway(rows), question="firm earnings", requirement=req)
-    assert out["verdict"] == "partially_covered"
+    assert out["verdict"] is None
+    assert out["assessment_status"] == "insufficient_metadata"
     assert out["gap"]["dimension"] == "assembly"
     assert out["assessment_basis"]["assembly_status"] == "unknown"
+
+
+def test_promoter_query_smoke_is_observed_query_proof():
+    row = {
+        "dataset_id": "promoted_panel",
+        "analysis_readiness": "query_ready",
+        "source_access_mode": "materialized_query_ready",
+        "query_smoke": {"ok": True, "rows": 3},
+        "coverage_metadata": {"unit": "firm_day"},
+    }
+    state = evidence_state(row)
+    assert state["materialization"]["status"] == "verified"
+
+    out = assess_held_evidence(
+        Gateway([row]),
+        question="firm panel",
+        requirement=requirement(unit="firm_day"),
+    )
+    assert out["assessment_status"] == "assessed"
+    assert out["verdict"] == "covered"
+
+
+def test_time_ranges_compare_real_boundaries_not_lexical_strings():
+    row = supported_row(
+        time_range={"start": "2020-01-01", "end": "2022-12-31"}
+    )
+    out = assess_held_evidence(
+        Gateway([row]),
+        question="firm panel 2020-2022",
+        requirement=requirement(
+            time_range={"start": "2020", "end": "2022"}
+        ),
+    )
+    assert out["verdict"] == "covered"
+
+
+def test_equivalent_field_order_does_not_create_a_conflict():
+    row = supported_row(fields=["return", "volume"])
+    row["evidence_coverage"] = {"fields": ["volume", "return"]}
+    out = assess_held_evidence(
+        Gateway([row]),
+        question="returns and volume",
+        requirement=requirement(fields=["return", "volume"]),
+    )
+    assert out["verdict"] == "covered"
+    assert (
+        out["held_evidence"][0]["evidence_state"]["coverage"]["status"]
+        == "documented"
+    )
 
 
 def test_http_route_contract(monkeypatch):

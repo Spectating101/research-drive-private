@@ -197,10 +197,21 @@ class ProcurementChatOrchestrator:
         sid = session["id"]
         state = dict(session.get("state") or {})
         self._bind_faculty_profile(state, user_email)
-        if isinstance(rail_context, dict) and rail_context:
-            from scripts.research_data_mcp.desk_asset_grounding import resolve_and_enrich_rail_context
+        if isinstance(rail_context, dict):
+            if rail_context:
+                from scripts.research_data_mcp.desk_asset_grounding import (
+                    resolve_and_enrich_rail_context,
+                )
 
-            state["rail_context"] = resolve_and_enrich_rail_context(gateway, rail_context)
+                state["rail_context"] = resolve_and_enrich_rail_context(
+                    gateway, rail_context
+                )
+            else:
+                state.pop("rail_context", None)
+            # Warm-up reloads session state in a background worker. Persist the
+            # UI scope first so a Synthesis turn cannot be downgraded to the
+            # generic procurement contract during that reload.
+            self.sessions.update_state(sid, state)
 
         from pathlib import Path as _Path
 
@@ -213,7 +224,7 @@ class ProcurementChatOrchestrator:
         )
         from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
 
-        rail = rail_context if isinstance(rail_context, dict) else state.get("rail_context")
+        rail = state.get("rail_context")
         rail_dict = rail if isinstance(rail, dict) else None
         skip_composer_priming = is_direct_equipment_message(message, rail_dict)
         direct_probe = is_direct_probe_message(message, rail_dict)
@@ -489,6 +500,7 @@ class ProcurementChatOrchestrator:
             "composer_timeout": "Composer timed out…",
             "contextual": "Reading selected-object facts…",
             "composer_pending": "Composer still working in the background…",
+            "synthesis_reasoning": "Reasoning from verified Library context…",
             "desk_session": "Searching vault and preparing your answer…",
             "search": "Searching the lab registry…",
             "discover_search": "Searching Discover catalog…",

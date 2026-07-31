@@ -1,0 +1,52 @@
+{
+  "name": "yzu-cluster",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:legacy": "vite --host 127.0.0.1 --open /index-legacy.html",
+    "test:v2-parity": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js",
+    "test:v2": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-cluster.spec.js e2e/v2-resources.spec.js e2e/v2-home.spec.js e2e/v2-library.spec.js",
+    "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-resources.spec.js e2e/v2-synthesis.spec.js",
+    "test:discover-loop": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-discover-loop.spec.js --retries=0",
+    "audit:discover-loop": "node scripts/discover_loop_audit.mjs",
+    "test:beta-workflow": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/beta-workflow.spec.js",
+    "test:golden-procure": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/procurement-golden-path.spec.js",
+    "test:v2-synthesis": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-synthesis.spec.js",
+    "test:professor-demo": "mkdir -p .tmp-pw docs/status/generated && TMPDIR=$PWD/.tmp-pw playwright test e2e/professor-demo.spec.js",
+    "desk:integration": "python3 scripts/ops/desk_integration_check.py",
+    "desk:golden-procure": "bash scripts/ops/run_golden_procure_path.sh --execute",
+    "desk:capture": "bash scripts/yzu_cluster_github/capture_desk_screenshots.sh",
+    "desk:capture:live": "YZU_REQUIRE_LIVE=1 bash scripts/yzu_cluster_github/capture_desk_screenshots.sh",
+    "desk:start": "bash scripts/run_yzu_cluster.sh",
+    "build": "vite build",
+    "build:faculty": "bash scripts/build_faculty_ui.sh",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:ui-contract": "playwright test e2e/ui-contract.spec.js",
+    "preview:desk": "node scripts/rd_preview_page.mjs",
+    "sync:yzu-cluster": "bash scripts/sync_yzu_cluster_github.sh"
+  },
+  "dependencies": {
+    "@radix-ui/react-separator": "^1.1.10",
+    "@radix-ui/react-slot": "^1.3.0",
+    "@radix-ui/react-tabs": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.10",
+    "@tailwindcss/vite": "^4.3.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.21.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.1",
+    "tailwindcss-animate": "^1.0.7",
+    "vite": "^6.3.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

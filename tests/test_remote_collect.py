@@ -5,14 +5,41 @@ import threading
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 
 import pytest
 
+from scripts.cluster_agent import remote_collect
 from scripts.cluster_agent.remote_collect import collect_manifest
 
 
 @pytest.fixture
-def http_origin():
+def http_origin(monkeypatch):
+    """Local collector origin with an explicitly test-scoped network adapter.
+
+    Production collection must reject loopback targets. These tests exercise the
+    downloader, partial-artifact, and checksum contracts against a local fixture,
+    so they replace only the module's network adapter for the fixture lifetime.
+    """
+
+    def validate_fixture_url(url: str) -> dict:
+        parsed = urlsplit(str(url or ""))
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("item URL must use http or https")
+        return {
+            "url": parsed.geturl(),
+            "scheme": parsed.scheme,
+            "host": parsed.hostname,
+            "resolved_addresses": ["127.0.0.1"],
+        }
+
+    def open_fixture_url(url: str, *, headers: dict[str, str], timeout: int):
+        return urlopen(Request(url, headers=headers, method="GET"), timeout=timeout)
+
+    monkeypatch.setattr(remote_collect, "_validate_url", validate_fixture_url)
+    monkeypatch.setattr(remote_collect, "open_pinned_public_url", open_fixture_url)
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
             if self.path == "/data.csv":

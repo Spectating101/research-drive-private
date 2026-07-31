@@ -14,6 +14,7 @@ misrepresent an absence of data as a checked-and-failed result.
 from __future__ import annotations
 
 import re
+from datetime import date
 from typing import Any
 
 
@@ -179,7 +180,7 @@ def _coverage(row: dict[str, Any]) -> dict[str, Any]:
 def _coverage_conflicts(row: dict[str, Any]) -> dict[str, list[Any]]:
     conflicts: dict[str, list[Any]] = {}
     for dimension, values in _coverage_claims(row).items():
-        distinct = {_fold(value) for value in values}
+        distinct = {_canonical_claim(value, dimension) for value in values}
         if len(distinct) > 1:
             conflicts[dimension] = values
     return conflicts
@@ -188,6 +189,7 @@ def _coverage_conflicts(row: dict[str, Any]) -> dict[str, list[Any]]:
 def evidence_state(row: dict[str, Any]) -> dict[str, Any]:
     """Preserve legacy readiness signals while expressing their ambiguity."""
     materialization = row.get("materialization") if isinstance(row.get("materialization"), dict) else {}
+    query_smoke = row.get("query_smoke") if isinstance(row.get("query_smoke"), dict) else {}
     readiness = _clean(row.get("analysis_readiness") or row.get("readiness"))
     materialized_ready = materialization.get("query_ready")
     legacy = {
@@ -197,6 +199,8 @@ def evidence_state(row: dict[str, Any]) -> dict[str, Any]:
     }
     if materialized_ready is not None:
         legacy["materialization.query_ready"] = materialized_ready
+    if query_smoke.get("ok") is not None:
+        legacy["query_smoke.ok"] = query_smoke.get("ok")
 
     coverage = _coverage(row)
     conflicts = _coverage_conflicts(row)
@@ -215,7 +219,11 @@ def evidence_state(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "materialization": (
             {"status": "verified", "basis": "observed query proof"}
-            if materialization.get("query_verified") is True or materialization.get("query_smoke_passed") is True
+            if (
+                materialization.get("query_verified") is True
+                or materialization.get("query_smoke_passed") is True
+                or query_smoke.get("ok") is True
+            )
             else {"status": "query_ready_declared", "basis": "materialization.query_ready"}
             if materialized_ready is True
             else {"status": "unavailable", "basis": "materialization.query_ready is false"}
@@ -240,6 +248,40 @@ def _fold(value: Any) -> str:
     return " ".join(str(value or "").casefold().replace("_", " ").replace("-", " ").split())
 
 
+def _canonical_claim(value: Any, dimension: str) -> Any:
+    if dimension == "fields":
+        values = value if isinstance(value, list) else [value]
+        return tuple(sorted({_fold(item) for item in values}))
+    if dimension == "time_range" and isinstance(value, dict):
+        return (
+            _date_boundary(value.get("start"), end=False),
+            _date_boundary(value.get("end"), end=True),
+        )
+    if isinstance(value, dict):
+        return tuple(
+            sorted(
+                (str(key), _canonical_claim(item, dimension))
+                for key, item in value.items()
+            )
+        )
+    if isinstance(value, list):
+        return tuple(sorted(_fold(item) for item in value))
+    return _fold(value)
+
+
+def _date_boundary(value: Any, *, end: bool) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if re.fullmatch(r"(?:19|20)\d{2}", text):
+        year = int(text)
+        return date(year, 12, 31) if end else date(year, 1, 1)
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
 def _matches(required: Any, held: Any, dimension: str) -> bool:
     if dimension == "fields":
         required_values = required if isinstance(required, list) else [required]
@@ -247,11 +289,18 @@ def _matches(required: Any, held: Any, dimension: str) -> bool:
         held_folded = {_fold(item) for item in held_values}
         return all(_fold(item) in held_folded for item in required_values)
     if dimension == "time_range" and isinstance(required, dict) and isinstance(held, dict):
-        requested_start = str(required.get("start") or "")
-        requested_end = str(required.get("end") or "")
-        held_start = str(held.get("start") or "")
-        held_end = str(held.get("end") or "")
-        return bool(held_start and held_end and (not requested_start or held_start <= requested_start) and (not requested_end or held_end >= requested_end))
+        requested_start = _date_boundary(required.get("start"), end=False)
+        requested_end = _date_boundary(required.get("end"), end=True)
+        held_start = _date_boundary(held.get("start"), end=False)
+        held_end = _date_boundary(held.get("end"), end=True)
+        if held_start is None or held_end is None or held_start > held_end:
+            return False
+        if requested_start and requested_end and requested_start > requested_end:
+            return False
+        return bool(
+            (requested_start is None or held_start <= requested_start)
+            and (requested_end is None or held_end >= requested_end)
+        )
     required_values = required if isinstance(required, list) else [required]
     held_values = held if isinstance(held, list) else [held]
     return all(any(_fold(want) == _fold(got) for got in held_values) for want in required_values)
@@ -365,6 +414,10 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
         if requested and all(per_dimension.get(dimension) == "supported" for dimension in requested)
     ]
     distributed_support = bool(requested and supported_count == len(requested) and not compatible_records)
+    uncertain_states = {"unknown", "conflicting", "unverified"}
+    has_uncertainty = any(
+        state in uncertain_states for state in dimension_status.values()
+    )
     # A dimension can fail to match for two different reasons, and conflating them
     # produces a dishonest verdict: either (a) some candidate explicitly declared
     # coverage and it didn't satisfy the requirement (a real negative finding), or
@@ -378,7 +431,7 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     if not requested:
         assessment_status = "insufficient_requirement"
         verdict = None
-    elif all_dimensions_undeclared:
+    elif all_dimensions_undeclared or has_uncertainty or distributed_support:
         assessment_status = "insufficient_metadata"
         verdict = None
     elif compatible_records:
@@ -426,7 +479,18 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     # requested dimension — these are the specific rows a curator could fix, as
     # opposed to a vague instruction to "collect more evidence".
     uncovered_candidate_ids = (
-        sorted({record.get("dataset_id") for record, _ in assessed if record.get("dataset_id")})
+        sorted(
+            {
+                record.get("dataset_id")
+                for record, per_dimension in assessed
+                if record.get("dataset_id")
+                and requested
+                and all(
+                    per_dimension.get(dimension, "unknown") == "unknown"
+                    for dimension in requested
+                )
+            }
+        )
         if assessment_status == "insufficient_metadata"
         else []
     )
@@ -438,10 +502,27 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
     elif verdict == "partially_covered":
         because = "Held evidence supports some stated dimensions, but at least one dimension is missing, unknown, or conflicting."
     elif assessment_status == "insufficient_metadata":
-        because = (
-            "No catalog record considered declares coverage metadata for any requested dimension. "
-            "This is a gap in what the catalog records, not evidence that the requirement is unmet."
-        )
+        if distributed_support:
+            because = (
+                "Requested dimensions are documented across different held records, "
+                "but no single compatible assembled record has been verified."
+            )
+        elif "conflicting" in dimension_status.values():
+            because = (
+                "Explicit held-coverage declarations conflict, so the requirement "
+                "cannot be assessed until the catalog evidence is reconciled."
+            )
+        elif "unverified" in dimension_status.values():
+            because = (
+                "A held record declares a matching dimension, but observed query "
+                "proof is missing; this is not evidence that the requirement is unmet."
+            )
+        else:
+            because = (
+                "No catalog record considered declares coverage metadata for one or "
+                "more requested dimensions. This is a catalog evidence gap, not a "
+                "checked negative finding."
+            )
     else:
         because = "At least one held catalog record declares coverage for a requested dimension, and it does not satisfy the requirement."
     return {

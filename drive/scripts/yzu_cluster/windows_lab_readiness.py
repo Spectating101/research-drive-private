@@ -14,8 +14,13 @@ _ROOT = repo_root_from_file(__file__)
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from scripts.yzu_cluster.pools import ssh_run, windows_host_reachable, windows_target, windows_workers
-from scripts.yzu_cluster.windows_remote import windows_lab_paths
+from scripts.yzu_cluster.pools import (  # noqa: E402
+    ssh_run,
+    windows_host_reachable,
+    windows_target,
+    windows_workers,
+)
+from scripts.yzu_cluster.windows_remote import windows_lab_paths  # noqa: E402
 
 _CACHE: dict[str, Any] = {"ts": 0.0, "payload": {}}
 _CACHE_TTL = 300.0

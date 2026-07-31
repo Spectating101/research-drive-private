@@ -655,7 +655,7 @@ export function V2App() {
           const out = await submitDiscoverCollect(connectorId, {
             limit: 200,
             autoApprove: false,
-            destination: dest,
+            destination: discoverDestination,
             candidateKey: target?.candidate_key || "",
             sourceId: target?.source_id || "",
             url: discoverCandidateUrl(target) || target?.url || "",

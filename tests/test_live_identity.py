@@ -37,11 +37,10 @@ def test_live_identity_from_registered_job(tmp_path: Path) -> None:
         {
             "job_type": "http_manifest",
             "dataset_id": "identity_dataset",
-            # Literal public IP: SSRF gate validates without DNS or any fetch.
             "url": "https://8.8.8.8/data.csv",
             "outputs": ["identity_dataset"],
         },
-        {"idempotency_key": "identity-job-1", "_ops_internal": True},
+        {"_ops_internal": True, "idempotency_key": "identity-job-1"},
         auto_approve=True,
     )
     control.join(

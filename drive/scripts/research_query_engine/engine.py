@@ -262,8 +262,11 @@ class ResearchQueryEngine:
         for ds in self.list_datasets():
             if ds.get("backend") != "local_parquet_panel":
                 continue
-            if ds.get("analysis_readiness") != "instant":
-                continue
+            readiness = str(ds.get("analysis_readiness") or "metadata_search")
+            materialization = ds.get("materialization") or {}
+            query_ready = readiness in {"instant", "query_ready"} and materialization.get(
+                "query_ready"
+            ) is not False
             text = " ".join(
                 str(ds.get(k, ""))
                 for k in ["dataset_id", "name", "description", "recommended_use", "grain"]
@@ -279,12 +282,16 @@ class ResearchQueryEngine:
                 "description": ds.get("description", ""),
                 "url": "",
                 "domain": "local_derived_tables",
-                "access_mode": "query_local",
-                "analysis_readiness": ds.get("analysis_readiness", "instant"),
-                "recommended_action": "query_dataset",
-                "promotion_score": 95,
-                "promotion_tier": "ready_now",
-                "promotion_reasons": "instant local parquet panel; no download required",
+                "access_mode": "query_local" if query_ready else "local_materialization_required",
+                "analysis_readiness": readiness,
+                "recommended_action": "query_dataset" if query_ready else "hydrate_or_build",
+                "promotion_score": 95 if query_ready else 80,
+                "promotion_tier": "ready_now" if query_ready else "materialize_first",
+                "promotion_reasons": (
+                    "instant local parquet panel; no download required"
+                    if query_ready
+                    else "registered local panel matches the construct; hydrate or build before query"
+                ),
                 "license": "internal",
                 "tags": [ds.get("grain", ""), ds.get("backend", "")],
                 "matched_query": prompt,

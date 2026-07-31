@@ -249,8 +249,11 @@ def _flatten_tree(node: dict[str, Any], out: list[dict[str, Any]] | None = None)
     out = out or []
     out.append({k: v for k, v in node.items() if k != "children"})
     for child in (node.get("children") or {}).values():
-        if child.get("kind") == "folder":
+        kind = child.get("kind")
+        if kind == "folder":
             _flatten_tree(child, out)
+        else:
+            out.append({k: v for k, v in child.items() if k != "children"})
     return out
 
 

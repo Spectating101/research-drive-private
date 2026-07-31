@@ -157,24 +157,24 @@ test.describe("v2 Discover tab", () => {
     await expect(rail.getByTestId("discover-compare-alt")).toHaveCount(0);
   });
 
-  // MIXED: sticky Detail approve is current; mode=activity / discover-activity is LEGACY.
-  // docs/DISCOVER_E2E_AUTHORITY_AUDIT.md §7
+  // Current authority: pending work opens the Explore queue and approval remains
+  // owned by the selected request's Detail rail.
   test("awaiting approval uses sticky approve in rail footer", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     await page.getByTestId("header-pending-link").click();
-    await expect(page).toHaveURL(/mode=(approvals|activity)/);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await page.locator('.rd-v2-catalog button.row[data-state="awaiting"]').first().click();
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    const queue = page.getByTestId("discover-queue-strip");
+    await expect(queue).toBeVisible();
+    await queue.getByTestId("discover-queue-row").first().click();
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByTestId("discover-approve-sticky")).toBeVisible();
     await expect(rail.getByTestId("procurement-decision-card")).toBeVisible();
     await expect(rail.getByTestId("procurement-decision-card").getByRole("button", { name: "Approve collection" })).toHaveCount(0);
   });
 
-  // MIXED: not-Resources is current; Activity panel / mode=activity is LEGACY.
-  // Prefer Explore queue strip (discover-queue-strip) after rewrite.
+  // Current authority: approvals stay in Discover's Explore queue, not Resources.
   test("pending approvals open Discover Review queue, not Resources", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
@@ -182,25 +182,23 @@ test.describe("v2 Discover tab", () => {
     await expect(page.getByTestId("discover-empty")).toBeVisible();
     await expect(page.getByRole("button", { name: /Review queue/ })).toBeVisible();
     await page.getByTestId("header-pending-link").click();
-    await expect(page).toHaveURL(/mode=(approvals|activity)/);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await expect(page.getByTestId("discover-activity")).toContainText("Review queue");
-    await expect(page.getByTestId("discover-bulk-approve-safe")).toBeVisible();
-    await page.getByRole("tab", { name: "Explore" }).click();
-    await expect(page.getByTestId("discover-empty")).toBeVisible();
-    await expect(page).not.toHaveURL(/mode=(approvals|activity)/);
+    await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);
+    const queue = page.getByTestId("discover-queue-strip");
+    await expect(queue).toBeVisible();
+    await expect(queue).toContainText("Needs your review");
+    await expect(page.locator(".rd-v2-page-head h1", { hasText: "Resources" })).toHaveCount(0);
   });
 
-  // LEGACY EXPECTATION as written (mode=activity + discover-activity*).
-  // Rewrite to Explore strip / History + Detail. See DISCOVER_E2E_AUTHORITY_AUDIT.md §7.
-  test("Discover Review queue shows acquisition jobs separate from Resources", async ({ page }) => {
+  test("legacy Activity URL normalizes to the Explore review queue", async ({ page }) => {
     await mockV2Api(page);
     await page.goto("/?tab=browse&mode=activity", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    await expect(page.getByTestId("discover-activity")).toBeVisible();
-    await expect(page.getByTestId("discover-activity-filters")).toBeVisible();
-    await expect(page.getByTestId("discover-activity")).toContainText("Review queue");
-    await expect(page.getByTestId("discover-activity")).not.toContainText(/GiB|Ask usage|REMOTE TABLES/i);
+    await expect(page.getByRole("tab", { name: "Explore" })).toHaveAttribute("aria-selected", "true");
+    const queue = page.getByTestId("discover-queue-strip");
+    await expect(queue).toBeVisible();
+    await expect(queue).toContainText("Needs your review");
+    await expect(queue).not.toContainText(/GiB|Ask usage|REMOTE TABLES/i);
+    await expect(page.getByTestId("discover-activity")).toHaveCount(0);
   });
 
   test("Add to lab after probe queues collection job on Detail rail", async ({ page }) => {
@@ -267,7 +265,7 @@ test.describe("v2 Discover tab", () => {
     const modal = page.locator(".rd-v2-preview-modal");
     await expect(modal).toBeVisible();
     await expect(modal).toContainText("Publisher");
-    await expect(modal).toContainText("Row preview is available after Add to lab");
+    await expect(modal).toContainText("Bounded sample unavailable");
     await expect(modal.locator(".rd-v2-preview-foot").getByRole("button", { name: "Close" })).toBeVisible();
   });
   });

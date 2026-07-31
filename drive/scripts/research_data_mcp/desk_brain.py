@@ -19,6 +19,45 @@ from sharpe_kernel.paths import repo_root_from_file
 DeskEventSink: TypeAlias = Callable[[dict[str, Any]], None]
 
 
+class CursorSdkUnavailable(RuntimeError):
+    """Raised when the optional Cursor SDK runtime cannot be imported."""
+
+
+@dataclass(frozen=True)
+class _CursorSdkBindings:
+    agent: Any
+    agent_options: Any
+    model_selection: Any
+    send_options: Any
+    stdio_mcp_server_config: Any
+    local_agent_options: Any
+    cloud_agent_options: Any
+
+
+def _load_cursor_sdk_bindings() -> _CursorSdkBindings:
+    try:
+        from cursor_sdk import Agent
+        from cursor_sdk.types import (
+            AgentOptions,
+            CloudAgentOptions,
+            LocalAgentOptions,
+            ModelSelection,
+            SendOptions,
+            StdioMcpServerConfig,
+        )
+    except ImportError as exc:
+        raise CursorSdkUnavailable("cursor_sdk is not installed or is incomplete") from exc
+    return _CursorSdkBindings(
+        agent=Agent,
+        agent_options=AgentOptions,
+        model_selection=ModelSelection,
+        send_options=SendOptions,
+        stdio_mcp_server_config=StdioMcpServerConfig,
+        local_agent_options=LocalAgentOptions,
+        cloud_agent_options=CloudAgentOptions,
+    )
+
+
 @dataclass
 class AgentTurn:
     plan: dict[str, Any]
@@ -135,48 +174,23 @@ def cursor_composer_available() -> bool:
     Health used to report composer_configured from the key alone, which masked
     ModuleNotFoundError on Ask when the front door ran on system Python.
     """
+    # Operator/test override: force the unavailable path without unsetting a
+    # real key. Dropping this silently made the desk claim Composer was usable
+    # in situations where it provably was not.
     if os.getenv("DESK_COMPOSER_FORCE_UNAVAILABLE", "").strip().lower() in {"1", "true", "yes"}:
         return False
     if not os.getenv("CURSOR_API_KEY", "").strip():
         return False
     try:
-        import cursor_sdk  # noqa: F401
-    except ImportError:
+        _load_cursor_sdk_bindings()
+    except CursorSdkUnavailable:
         return False
     return True
 
 
 def desk_brain_mode(repo_root: Path | None = None) -> str:
-    """Honest Ask brain label for /health — never a static optimistic cursor_composer.
-
-    Returns:
-      cursor_composer — key + importable SDK (plausible invocation)
-      direct — Composer unavailable; equipment / contextual direct turns remain
-      unavailable — forced off via DESK_COMPOSER_FORCE_UNAVAILABLE
-    """
     _ = repo_root
-    if os.getenv("DESK_COMPOSER_FORCE_UNAVAILABLE", "").strip().lower() in {"1", "true", "yes"}:
-        return "unavailable"
-    if cursor_composer_available():
-        return "cursor_composer"
-    return "direct"
-
-
-def composer_runtime_status(repo_root: Path | None = None) -> dict[str, Any]:
-    """Single source of truth for desk health Composer readiness fields."""
-    mode = desk_brain_mode(repo_root)
-    available = mode == "cursor_composer" and cursor_composer_available()
-    if available:
-        status = "ready"
-    elif mode == "unavailable":
-        status = "unavailable"
-    else:
-        status = "direct"
-    return {
-        "brain": mode,
-        "composer_configured": bool(available),
-        "composer_status": status,
-    }
+    return "cursor_composer"
 
 
 def _repo_python(repo_root: Path) -> str:
@@ -199,17 +213,29 @@ def _desk_pythonpath(repo_root: Path) -> str:
     return os.pathsep.join(dict.fromkeys(parts))
 
 
-def _mcp_stdio_config(repo_root: Path, *, vault_primed: bool = False) -> dict[str, Any]:
-    from cursor_sdk.types import StdioMcpServerConfig
-
+def _mcp_stdio_config(
+    repo_root: Path,
+    *,
+    vault_primed: bool = False,
+    synthesis_read_only: bool = False,
+    sdk: _CursorSdkBindings | None = None,
+) -> dict[str, Any]:
+    bindings = sdk or _load_cursor_sdk_bindings()
     env = {k: v for k, v in os.environ.items() if isinstance(v, str)}
     env["PYTHONPATH"] = _desk_pythonpath(repo_root)
     env["SHARPE_REPO_ROOT"] = str(repo_root)
     env["RESEARCH_MCP_DESK"] = "1"
+    if synthesis_read_only:
+        env["RESEARCH_MCP_SYNTHESIS_READ_ONLY"] = "1"
     if vault_primed:
         env["RESEARCH_MCP_VAULT_PRIMED"] = "1"
+    server_name = (
+        "research_procurement_synthesis_read_only"
+        if synthesis_read_only
+        else "research_procurement"
+    )
     return {
-        "research_procurement": StdioMcpServerConfig(
+        server_name: bindings.stdio_mcp_server_config(
             command=_repo_python(repo_root),
             args=["-m", "scripts.research_data_mcp.server", "--transport", "stdio"],
             cwd=str(repo_root),
@@ -219,6 +245,13 @@ def _mcp_stdio_config(repo_root: Path, *, vault_primed: bool = False) -> dict[st
 
 
 def _faculty_starter_prompts(state: dict[str, Any]) -> list[str]:
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        is_synthesis_context,
+        synthesis_starter_prompts,
+    )
+
+    if is_synthesis_context(state):
+        return synthesis_starter_prompts()
     row = state.get("faculty_profile_row") or {}
     out: list[str] = []
     for item in row.get("starter_prompts") or []:
@@ -241,13 +274,14 @@ def _desk_setting_sources() -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
-def _desk_local_options(repo_root: Path) -> Any:
-    from cursor_sdk.types import LocalAgentOptions
-
+def _desk_local_options(
+    repo_root: Path, *, sdk: _CursorSdkBindings | None = None
+) -> Any:
+    bindings = sdk or _load_cursor_sdk_bindings()
     sources = _desk_setting_sources()
     if sources:
-        return LocalAgentOptions(cwd=str(repo_root), setting_sources=sources)
-    return LocalAgentOptions(cwd=str(repo_root))
+        return bindings.local_agent_options(cwd=str(repo_root), setting_sources=sources)
+    return bindings.local_agent_options(cwd=str(repo_root))
 
 
 def _desk_composer_models() -> list[str]:
@@ -259,13 +293,14 @@ def _desk_composer_models() -> list[str]:
     return models
 
 
-def _desk_agent_runtime_kwargs(repo_root: Path) -> dict[str, Any]:
+def _desk_agent_runtime_kwargs(
+    repo_root: Path, *, sdk: _CursorSdkBindings | None = None
+) -> dict[str, Any]:
     """Cloud agents use CURSOR_API_KEY only (headless desk). Local needs Cursor IDE bridge."""
+    bindings = sdk or _load_cursor_sdk_bindings()
     if os.getenv("DESK_COMPOSER_LOCAL", "").strip().lower() in {"1", "true", "yes"}:
-        return {"local": _desk_local_options(repo_root)}
-    from cursor_sdk.types import CloudAgentOptions
-
-    return {"cloud": CloudAgentOptions()}
+        return {"local": _desk_local_options(repo_root, sdk=bindings)}
+    return {"cloud": bindings.cloud_agent_options()}
 
 
 def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
@@ -481,6 +516,105 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     return rail_block + grounding
 
 
+def _prepare_synthesis_fallback_prompt(
+    gateway: Any,
+    message: str,
+    state: dict[str, Any],
+) -> tuple[str, bool]:
+    """Build the same grounded contract without requiring a Cursor session."""
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_first_turn,
+        synthesis_history_brief,
+        wrap_synthesis_request,
+    )
+    from scripts.research_data_mcp.desk_synthesis_grounding import (
+        build_synthesis_grounding_brief,
+    )
+
+    first_user_turn = synthesis_first_turn(state)
+    parts: list[str] = []
+    rail_prefix = _format_rail_context(state.get("rail_context") or {}).strip()
+    if rail_prefix:
+        parts.append(rail_prefix)
+    history = synthesis_history_brief(state)
+    if history:
+        parts.append(history)
+    if first_user_turn:
+        grounding = build_synthesis_grounding_brief(gateway, message)
+        state["synthesis_grounding_brief"] = grounding
+        parts.append(grounding)
+    parts.append(message.strip())
+    return (
+        wrap_synthesis_request(
+            "\n\n".join(part for part in parts if part),
+            first_user_turn=first_user_turn,
+        ),
+        first_user_turn,
+    )
+
+
+def _run_synthesis_reasoning_fallback(
+    prompt: str,
+    *,
+    raw_message: str,
+    state: dict[str, Any],
+    first_user_turn: bool,
+    event_sink: DeskEventSink | None,
+    fallback_from: str,
+) -> AgentTurn:
+    """Use a stateless read-only provider while preserving project continuity."""
+    from scripts.research_data_mcp.desk_reply_sanitize import sanitize_desk_reply
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        record_synthesis_turn,
+        synthesis_reply_violations,
+    )
+    from scripts.research_data_mcp.desk_synthesis_fallback import (
+        SynthesisFallbackError,
+        run_gemini_synthesis_turn,
+    )
+
+    _emit_event(
+        event_sink,
+        {"type": "activity", "text": "Reasoning from verified Library context…"},
+    )
+    reply, metadata = run_gemini_synthesis_turn(prompt)
+    reply = sanitize_desk_reply(reply, first_turn=first_user_turn)
+    violations = synthesis_reply_violations(
+        reply,
+        first_user_turn=first_user_turn,
+    )
+    if violations:
+        raise SynthesisFallbackError(
+            "contract_violation",
+            ", ".join(violations),
+        )
+
+    record_synthesis_turn(
+        state,
+        user=raw_message,
+        assistant=reply,
+        provider="gemini",
+    )
+    action_result = {
+        "action": "synthesis_reasoning",
+        "brain": "gemini_synthesis",
+        "mode": "synthesis",
+        "fallback_from": fallback_from,
+        **metadata,
+    }
+    return AgentTurn(
+        plan={
+            "action": "synthesis_reasoning",
+            "brain": "gemini_synthesis",
+            "read_only": True,
+        },
+        action_result=action_result,
+        reply=reply,
+        suggested_prompts=_faculty_starter_prompts(state),
+        tool_name="gemini_synthesis",
+    )
+
+
 def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: float) -> AgentTurn:
     return AgentTurn(
         plan={"action": "composer_timeout"},
@@ -504,11 +638,9 @@ def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: floa
 def _wait_run_bounded(run: Any, timeout_seconds: float) -> None:
     """Bound run.wait() so a stuck Composer cannot hang the desk forever.
 
-    Important: do not use ``with ThreadPoolExecutor(...)`` — on TimeoutError the
+    Important: do not use ``with ThreadPoolExecutor(...)`` -- on TimeoutError the
     context-manager ``shutdown(wait=True)`` waits for the stuck worker and the
     API hangs again. Shut down with wait=False so the caller returns promptly.
-    The orphaned wait thread stays non-daemon (executor default) until wait()
-    finishes; that is preferred over daemon threads for process safety.
     """
     wait = getattr(run, "wait", None)
     if not callable(wait):
@@ -532,60 +664,136 @@ def run_cursor_composer_turn(
     prime: bool = False,
 ) -> AgentTurn:
     """Composer chooses tools freely via procurement MCP."""
+    from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
+
+    turn_budget = chat_timeout_seconds()
+    turn_started = time.monotonic()
     repo_root = Path(gateway.repo_root).resolve()
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        first_turn_reply_is_acceptable,
+        is_synthesis_context,
+        record_synthesis_turn,
+        synthesis_first_turn,
+        synthesis_failure_reply,
+        wrap_synthesis_request,
+    )
+
+    synthesis_context = is_synthesis_context(state)
     api_key = os.getenv("CURSOR_API_KEY", "").strip()
-    if not api_key or not cursor_composer_available():
+    if not api_key:
+        if synthesis_context:
+            try:
+                fallback_prompt, first_user_turn = _prepare_synthesis_fallback_prompt(
+                    gateway,
+                    message,
+                    state,
+                )
+                return _run_synthesis_reasoning_fallback(
+                    fallback_prompt,
+                    raw_message=message,
+                    state=state,
+                    first_user_turn=first_user_turn,
+                    event_sink=event_sink,
+                    fallback_from="cursor_not_configured",
+                )
+            except Exception as exc:
+                from scripts.research_data_mcp.desk_synthesis_fallback import (
+                    SynthesisFallbackError,
+                )
+
+                category = (
+                    exc.category
+                    if isinstance(exc, SynthesisFallbackError)
+                    else "provider_error"
+                )
+                return AgentTurn(
+                    plan={"action": "composer_unavailable"},
+                    action_result={
+                        "action": "composer_unavailable",
+                        "error": "missing CURSOR_API_KEY",
+                        "mode": "synthesis",
+                        "fallback": "gemini_failed",
+                        "fallback_error_category": category,
+                    },
+                    reply=synthesis_failure_reply("agent_unavailable"),
+                    suggested_prompts=_faculty_starter_prompts(state),
+                    tool_name="",
+                )
         return AgentTurn(
             plan={"action": "composer_unavailable"},
             action_result={
                 "action": "composer_unavailable",
-                "error_type": "composer_unavailable",
-                "error": "composer_not_plausibly_available",
-                "brain": desk_brain_mode(repo_root),
+                "error": "missing CURSOR_API_KEY",
+                **({"mode": "synthesis", "fallback": "none"} if synthesis_context else {}),
             },
             reply=(
-                "Composer is not available on this desk (missing CURSOR_API_KEY or cursor_sdk). "
-                "Direct equipment paths (search, probe, status, selected-object facts) still work. "
-                "Ask the lab operator to configure Composer when planning turns are needed."
+                synthesis_failure_reply("agent_unavailable")
+                if synthesis_context
+                else (
+                    "The research desk runs on Cursor Composer with the procurement tool library. "
+                    "Ask the lab operator to set CURSOR_API_KEY in .env.local, then try again."
+                )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="",
         )
-    from cursor_sdk import Agent
-    from cursor_sdk.types import AgentOptions, ModelSelection, SendOptions
-
-    from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
-
-    model_candidates = _desk_composer_models()
-    agent_id = str(state.get("cursor_agent_id") or "").strip()
-    had_agent = bool(agent_id)
-    user_text = message.strip()
-    rail_prefix = _format_rail_context(state.get("rail_context") or {})
-    if rail_prefix and rail_prefix not in user_text:
-        user_text = rail_prefix + user_text
-    vault_primed_env = False
-    if prime:
-        pass
-    elif not had_agent and not state.get("desk_primed"):
-        from scripts.research_data_mcp.desk_vault_brief import build_vault_brief, wrap_first_turn_message
-
-        brief = str(state.get("vault_brief") or "").strip()
-        if not brief:
-            brief = build_vault_brief(repo_root, state.get("faculty_profile"))
-            state["vault_brief"] = brief
-        user_text = wrap_first_turn_message(brief, user_text)
-        vault_primed_env = True
-    mcp_servers = _mcp_stdio_config(repo_root, vault_primed=vault_primed_env)
-    turn_budget = chat_timeout_seconds()
-    turn_started = time.monotonic()
-
     try:
+        sdk = _load_cursor_sdk_bindings()
+        model_candidates = _desk_composer_models()
+        agent_id = str(state.get("cursor_agent_id") or "").strip()
+        composer_mode = "synthesis_read_only" if synthesis_context else "default"
+        if state.get("composer_context_mode") not in (None, composer_mode):
+            agent_id = ""
+            state.pop("cursor_agent_id", None)
+        state["composer_context_mode"] = composer_mode
+        had_agent = bool(agent_id)
+        first_synthesis_turn = synthesis_first_turn(state)
+        user_text = message.strip()
+        rail_prefix = _format_rail_context(state.get("rail_context") or {})
+        if rail_prefix and rail_prefix not in user_text:
+            user_text = rail_prefix + user_text
+        vault_primed_env = False
+        if prime:
+            pass
+        elif not had_agent and not state.get("desk_primed"):
+            from scripts.research_data_mcp.desk_vault_brief import (
+                build_vault_brief,
+                wrap_first_turn_message,
+            )
+
+            brief = str(state.get("vault_brief") or "").strip()
+            if not brief:
+                brief = build_vault_brief(repo_root, state.get("faculty_profile"))
+                state["vault_brief"] = brief
+            user_text = wrap_first_turn_message(brief, user_text)
+            vault_primed_env = True
+        if synthesis_context:
+            if first_synthesis_turn:
+                from scripts.research_data_mcp.desk_synthesis_grounding import (
+                    build_synthesis_grounding_brief,
+                )
+
+                grounding = build_synthesis_grounding_brief(gateway, message)
+                state["synthesis_grounding_brief"] = grounding
+                user_text = f"{grounding}\n\n{user_text}"
+            user_text = wrap_synthesis_request(
+                user_text,
+                first_user_turn=first_synthesis_turn,
+            )
+        mcp_servers = _mcp_stdio_config(
+            repo_root,
+            vault_primed=vault_primed_env,
+            synthesis_read_only=synthesis_context,
+            sdk=sdk,
+        )
         streamed: list[str] = []
         run = None
         reply = ""
         model_id = model_candidates[0]
+        tool_call_started = False
 
         def on_delta(update: Any) -> None:
+            nonlocal tool_call_started
             payload = _interaction_payload(update)
             typ = str(payload.get("type") or "")
             if typ == "text-delta":
@@ -595,80 +803,64 @@ def run_cursor_composer_turn(
                     _emit_event(event_sink, {"type": "delta", "text": chunk})
                 return
             if typ == "tool-call-started":
+                tool_call_started = True
                 tool_call = payload.get("tool_call") or {}
                 name = str(tool_call.get("name") or tool_call.get("toolName") or "")
                 label = _tool_activity_label(name)
                 if label:
                     _emit_event(event_sink, {"type": "activity", "text": label})
 
-        send_opts = SendOptions(mcp_servers=mcp_servers, on_delta=on_delta)
+        send_opts = sdk.send_options(mcp_servers=mcp_servers, on_delta=on_delta)
 
         for model_idx, model_id in enumerate(model_candidates):
-            remaining = turn_budget - (time.monotonic() - turn_started)
-            if remaining <= 0.5:
-                return _composer_timeout_turn(
-                    state,
-                    elapsed=time.monotonic() - turn_started,
-                    limit=turn_budget,
+            send_started = False
+            try:
+                agent_opts = sdk.agent_options(
+                    model=sdk.model_selection(id=model_id),
+                    api_key=api_key,
+                    name=f"research-desk-{session_id[:8] or 'anon'}",
+                    mcp_servers=mcp_servers,
+                    **_desk_agent_runtime_kwargs(repo_root, sdk=sdk),
                 )
-            agent_opts = AgentOptions(
-                model=ModelSelection(id=model_id),
-                api_key=api_key,
-                name=f"research-desk-{session_id[:8] or 'anon'}",
-                mcp_servers=mcp_servers,
-                **_desk_agent_runtime_kwargs(repo_root),
-            )
-            resume_id = agent_id if model_idx == 0 else ""
-            agent = None
-            if resume_id:
-                try:
-                    agent = Agent.resume(resume_id, agent_opts)
-                except Exception:
-                    # Dead/corrupt Composer agents poison the desk session — drop and recreate.
-                    state.pop("cursor_agent_id", None)
-                    agent_id = ""
-                    had_agent = False
-                    _emit_event(
-                        event_sink,
-                        {"type": "activity", "text": "Composer session expired — starting a fresh one…"},
-                    )
-            if agent is None:
-                agent = Agent.create(agent_opts)
-                state["cursor_agent_id"] = agent.agent_id
-                agent_id = agent.agent_id
+                resume_id = agent_id if model_idx == 0 else ""
+                if resume_id:
+                    agent = sdk.agent.resume(resume_id, agent_opts)
+                else:
+                    agent = sdk.agent.create(agent_opts)
+                    state["cursor_agent_id"] = agent.agent_id
+                    agent_id = agent.agent_id
 
-            with agent:
-                turn_text = user_text
-                for attempt in range(2):
-                    remaining = turn_budget - (time.monotonic() - turn_started)
-                    if remaining <= 0.5:
-                        return _composer_timeout_turn(
-                            state,
-                            elapsed=time.monotonic() - turn_started,
-                            limit=turn_budget,
+                with agent:
+                    turn_text = user_text
+                    for attempt in range(2):
+                        streamed.clear()
+                        send_started = True
+                        run = agent.send(turn_text, send_opts)
+                        _wait_run_bounded(run, turn_budget - (time.monotonic() - turn_started))
+                        reply = _reply_from_run(run, streamed)
+                        if (
+                            reply
+                            or prime
+                            or attempt == 1
+                            or tool_call_started
+                        ):
+                            break
+                        turn_text = (
+                            f"{user_text}\n\n"
+                            "(The previous attempt returned no final text. Answer now in plain prose.)"
                         )
-                    streamed.clear()
-                    run = agent.send(turn_text, send_opts)
-                    try:
-                        _wait_run_bounded(run, remaining)
-                    except TimeoutError:
-                        return _composer_timeout_turn(
-                            state,
-                            elapsed=time.monotonic() - turn_started,
-                            limit=turn_budget,
-                        )
-                    except Exception as wait_exc:
-                        if time.monotonic() - turn_started >= turn_budget:
-                            return _composer_timeout_turn(
-                                state,
-                                elapsed=time.monotonic() - turn_started,
-                                limit=turn_budget,
-                            )
-                        raise wait_exc
-                    reply = _reply_from_run(run, streamed)
-                    if reply or prime or attempt == 1:
-                        break
-                    turn_text = f"{message.strip()}\n\n(Please answer in plain prose for the faculty user.)"
+            except Exception:
+                can_retry_fresh = (
+                    model_idx < len(model_candidates) - 1
+                    and not send_started
+                )
+                if not can_retry_fresh:
+                    raise
+                agent_id = ""
+                state.pop("cursor_agent_id", None)
+                run = None
+                reply = ""
+                continue
 
             is_model_error = (
                 run is None
@@ -677,10 +869,7 @@ def run_cursor_composer_turn(
             )
             if not is_model_error or model_idx == len(model_candidates) - 1:
                 break
-            if had_agent:
-                break
-            agent_id = ""
-            state.pop("cursor_agent_id", None)
+            break
 
         if not reply:
             reply = EMPTY_REPLY_FALLBACK
@@ -690,13 +879,88 @@ def run_cursor_composer_turn(
             reply = sanitize_desk_reply(reply, first_turn=True)
 
         is_error = (run is None) or (getattr(run, "status", "") == "error") or (not reply) or (reply == EMPTY_REPLY_FALLBACK)
+        synthesis_violations: list[str] = []
+        if synthesis_context and not prime and not is_error:
+            from scripts.research_data_mcp.desk_synthesis_contract import (
+                synthesis_reply_violations,
+            )
+
+            synthesis_violations = synthesis_reply_violations(
+                reply,
+                first_user_turn=synthesis_first_turn,
+            )
+            is_error = bool(synthesis_violations)
+        from scripts.research_data_mcp.desk_composer_health import (
+            record_composer_failure,
+            record_composer_success,
+        )
+
+        if is_error:
+            record_composer_failure(
+                (
+                    f"contract_violation:{','.join(synthesis_violations)}"
+                    if synthesis_violations
+                    else str(getattr(run, "status", "") or "empty_reply")
+                ),
+                model=model_id,
+            )
+        else:
+            record_composer_success(model=model_id)
         if is_error and not prime:
             action_result = {
                 "action": "composer_error",
-                "error_type": "composer_error",
                 "status": str(getattr(run, "status", "") or "empty_reply"),
             }
-            if reply == EMPTY_REPLY_FALLBACK:
+            if synthesis_context:
+                try:
+                    fallback_prompt, fallback_first_turn = (
+                        _prepare_synthesis_fallback_prompt(
+                            gateway,
+                            message,
+                            state,
+                        )
+                    )
+                    return _run_synthesis_reasoning_fallback(
+                        fallback_prompt,
+                        raw_message=message,
+                        state=state,
+                        first_user_turn=fallback_first_turn,
+                        event_sink=event_sink,
+                        fallback_from="cursor_composer",
+                    )
+                except Exception as exc:
+                    from scripts.research_data_mcp.desk_synthesis_fallback import (
+                        SynthesisFallbackError,
+                    )
+
+                    category = (
+                        exc.category
+                        if isinstance(exc, SynthesisFallbackError)
+                        else "provider_error"
+                    )
+                    action_result.update(
+                        {
+                            "mode": "synthesis",
+                            "fallback": "gemini_failed",
+                            "fallback_error_category": category,
+                            "reason": (
+                                "composer_contract_violation"
+                                if synthesis_violations
+                                else "empty_or_failed_composer_reply"
+                            ),
+                            **(
+                                {"contract_violations": synthesis_violations}
+                                if synthesis_violations
+                                else {}
+                            ),
+                        }
+                    )
+                    reply = synthesis_failure_reply(
+                        "response_contract"
+                        if synthesis_violations
+                        else action_result["status"]
+                    )
+            elif reply == EMPTY_REPLY_FALLBACK:
                 from scripts.research_data_mcp.desk_catalog_fallback import try_inventory_fallback
 
                 brief = str(state.get("vault_brief") or "").strip()
@@ -724,6 +988,20 @@ def run_cursor_composer_turn(
             state.update(action_result["state_patch"])
         if prime and state.get("cursor_agent_id"):
             state["desk_primed"] = True
+        if synthesis_context and not prime and not is_error:
+            if first_synthesis_turn:
+                action_result["synthesis_contract_validated"] = (
+                    first_turn_reply_is_acceptable(reply)
+                )
+            if not first_synthesis_turn or action_result.get(
+                "synthesis_contract_validated"
+            ):
+                record_synthesis_turn(
+                    state,
+                    user=message,
+                    assistant=reply,
+                    provider="cursor_composer",
+                )
 
         from scripts.research_data_mcp.desk_asset_grounding import (
             grounding_from_rail,
@@ -748,32 +1026,118 @@ def run_cursor_composer_turn(
             tool_name="cursor_composer",
         )
     except TimeoutError:
+        # A stuck Composer must not hang the desk; report the bound honestly.
+        state.pop("cursor_agent_id", None)
         return _composer_timeout_turn(
-            state,
-            elapsed=time.monotonic() - turn_started,
-            limit=turn_budget,
+            state, elapsed=time.monotonic() - turn_started, limit=turn_budget
+        )
+    except CursorSdkUnavailable as exc:
+        if synthesis_context and not prime:
+            try:
+                fallback_prompt, fallback_first_turn = (
+                    _prepare_synthesis_fallback_prompt(
+                        gateway,
+                        message,
+                        state,
+                    )
+                )
+                return _run_synthesis_reasoning_fallback(
+                    fallback_prompt,
+                    raw_message=message,
+                    state=state,
+                    first_user_turn=fallback_first_turn,
+                    event_sink=event_sink,
+                    fallback_from="cursor_sdk_unavailable",
+                )
+            except Exception as fallback_exc:
+                from scripts.research_data_mcp.desk_synthesis_fallback import (
+                    SynthesisFallbackError,
+                )
+
+                fallback_category = (
+                    fallback_exc.category
+                    if isinstance(fallback_exc, SynthesisFallbackError)
+                    else "provider_error"
+                )
+                return AgentTurn(
+                    plan={"action": "composer_unavailable"},
+                    action_result={
+                        "action": "composer_unavailable",
+                        "error": str(exc),
+                        "mode": "synthesis",
+                        "fallback": "gemini_failed",
+                        "fallback_error_category": fallback_category,
+                    },
+                    reply=synthesis_failure_reply("agent_unavailable"),
+                    suggested_prompts=_faculty_starter_prompts(state),
+                    tool_name="",
+                )
+        return AgentTurn(
+            plan={"action": "composer_unavailable"},
+            action_result={"action": "composer_unavailable", "error": str(exc)},
+            reply=(
+                "Cursor Composer is configured, but cursor_sdk is unavailable on this host. "
+                "Ask the lab operator to install the Cursor SDK in the desk runtime."
+            ),
+            suggested_prompts=_faculty_starter_prompts(state),
+            tool_name="",
         )
     except Exception as exc:
-        # Do not keep a broken resume target — next Ask must be allowed to recreate.
-        state.pop("cursor_agent_id", None)
-        if "timeout" in str(exc).lower() or "timed out" in str(exc).lower():
-            return _composer_timeout_turn(
-                state,
-                elapsed=time.monotonic() - turn_started,
-                limit=turn_budget,
-            )
+        from scripts.research_data_mcp.desk_composer_health import record_composer_failure
+
+        record_composer_failure(exc, model=locals().get("model_id", ""))
+        synthesis_context = is_synthesis_context(state)
+        if synthesis_context and not prime:
+            try:
+                fallback_prompt, fallback_first_turn = (
+                    _prepare_synthesis_fallback_prompt(
+                        gateway,
+                        message,
+                        state,
+                    )
+                )
+                return _run_synthesis_reasoning_fallback(
+                    fallback_prompt,
+                    raw_message=message,
+                    state=state,
+                    first_user_turn=fallback_first_turn,
+                    event_sink=event_sink,
+                    fallback_from="cursor_composer",
+                )
+            except Exception as fallback_exc:
+                from scripts.research_data_mcp.desk_synthesis_fallback import (
+                    SynthesisFallbackError,
+                )
+
+                fallback_category = (
+                    fallback_exc.category
+                    if isinstance(fallback_exc, SynthesisFallbackError)
+                    else "provider_error"
+                )
+        else:
+            fallback_category = ""
         return AgentTurn(
             plan={"action": "composer_error"},
             action_result={
                 "action": "composer_error",
-                "error_type": "composer_error",
                 "error": str(exc)[:400],
-                "recoverable": True,
+                **(
+                    {
+                        "mode": "synthesis",
+                        "fallback": "gemini_failed",
+                        "fallback_error_category": fallback_category,
+                    }
+                    if synthesis_context
+                    else {}
+                ),
             },
             reply=(
-                "Composer could not complete that turn (connection or tool error). "
-                f"Detail: {str(exc)[:200]}\n\n"
-                "The desk cleared the stuck Composer session — send again to continue."
+                synthesis_failure_reply("connection_or_tool_error")
+                if synthesis_context
+                else (
+                    "Composer could not complete that turn (connection or tool error). "
+                    f"Detail: {str(exc)[:200]}"
+                )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="cursor_composer",
@@ -790,9 +1154,17 @@ def run_desk_agent_turn(
     event_sink: DeskEventSink | None = None,
 ) -> AgentTurn:
     _ = orchestrator, session_id
-    from scripts.research_data_mcp.desk_direct_turns import try_direct_equipment_turn
+    from scripts.research_data_mcp.desk_direct_turns import (
+        try_direct_equipment_turn,
+        try_direct_synthesis_read_turn,
+    )
+    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
 
-    direct = try_direct_equipment_turn(gateway, message, state)
+    direct = (
+        try_direct_synthesis_read_turn(gateway, message, state)
+        if synthesis_first_turn(state)
+        else try_direct_equipment_turn(gateway, message, state)
+    )
     if direct is not None:
         return direct
     return run_cursor_composer_turn(

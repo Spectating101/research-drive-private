@@ -235,7 +235,6 @@ def open_pinned_public_url(
     """
     import http.client
     import ssl
-    from email.message import Message
 
     evidence = validate_public_http_url(
         url,
@@ -270,8 +269,6 @@ def open_pinned_public_url(
         # isn't enough. Use server_hostname on context wrap by setting conn.host carefully.
         conn._tunnel_host = host  # type: ignore[attr-defined]
         # Preferred: pass server_hostname through ssl wrap by monkeypatching connect.
-        _orig_connect = conn.connect
-
         def _connect_with_sni() -> None:  # noqa: ANN202
             sock = socket.create_connection((pinned, port), timeout)
             conn.sock = context.wrap_socket(sock, server_hostname=host)
@@ -311,4 +308,3 @@ def open_pinned_public_url(
                 self._conn.close()
 
     return _PinnedResponse()
-

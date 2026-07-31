@@ -124,6 +124,39 @@ def _curated_connect_counts(repo_root: Path) -> tuple[int, int]:
         return 9, 9
 
 
+def _windows_lab_worker_rollup(nodes: list[dict[str, Any]] | None) -> dict[str, int]:
+    """Roll up Windows workers for Resources hero/compute.
+
+    Inventory membership (joined) is tracked separately by the caller. Available
+    counts only claimable labels: ``online`` / ``idle`` with non-stale freshness.
+    Runtime-stale agents are exposed as ``stale``, never as idle/available.
+    """
+    online = idle = stale = unseen = 0
+    for node in nodes or []:
+        if not isinstance(node, dict):
+            continue
+        freshness = node.get("freshness") if isinstance(node.get("freshness"), dict) else {}
+        fresh_state = str(freshness.get("state") or "").strip().lower()
+        st = str(node.get("status") or "").strip().lower()
+        if fresh_state == "stale" or st == "stale":
+            stale += 1
+        elif st == "online":
+            online += 1
+        elif st == "idle":
+            idle += 1
+        elif st in {"joined_unseen", "joined"}:
+            unseen += 1
+        elif fresh_state == "fresh":
+            # Fresh heartbeat with an unexpected honesty label is still schedulable.
+            online += 1
+    return {
+        "online": online,
+        "idle": idle,
+        "stale": stale,
+        "joined_unseen": unseen,
+        "available": online + idle,
+    }
+
 
 def _curated_connect_payload(repo_root: Path, *, gateway: Any | None = None) -> dict[str, Any]:
     """Honest Connect panel: curated desk sources + execution mode, not bare counts."""

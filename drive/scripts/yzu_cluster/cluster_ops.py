@@ -3,11 +3,47 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from scripts.yzu_cluster.pools import ssh_run
+
+
+MAX_OPS_HOST_ARGC = 256
+MAX_OPS_HOST_ARG_BYTES = 128 * 1024
+MAX_OPS_HOST_TIMEOUT_SECONDS = 24 * 60 * 60
+
+
+def _validated_argv(command: Sequence[str]) -> list[str]:
+    """Return a bounded argv, rejecting legacy shell-command strings."""
+    if isinstance(command, (str, bytes)):
+        raise TypeError("ops-host command must be an argv sequence, not a shell string")
+    argv = list(command)
+    if not argv:
+        raise ValueError("ops-host command argv must not be empty")
+    if len(argv) > MAX_OPS_HOST_ARGC:
+        raise ValueError(f"ops-host command exceeds {MAX_OPS_HOST_ARGC} arguments")
+    if any(not isinstance(arg, str) for arg in argv):
+        raise TypeError("every ops-host command argument must be a string")
+    if any("\x00" in arg for arg in argv):
+        raise ValueError("ops-host command arguments must not contain NUL bytes")
+    size = sum(len(arg.encode("utf-8")) + 1 for arg in argv)
+    if size > MAX_OPS_HOST_ARG_BYTES:
+        raise ValueError(f"ops-host command exceeds {MAX_OPS_HOST_ARG_BYTES} encoded bytes")
+    return argv
+
+
+def _validated_timeout(timeout: int) -> int:
+    if isinstance(timeout, bool) or not isinstance(timeout, int):
+        raise TypeError("ops-host timeout must be an integer number of seconds")
+    if not 1 <= timeout <= MAX_OPS_HOST_TIMEOUT_SECONDS:
+        raise ValueError(
+            f"ops-host timeout must be between 1 and {MAX_OPS_HOST_TIMEOUT_SECONDS} seconds"
+        )
+    return timeout
 
 
 def operations_cfg(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -146,22 +182,25 @@ def use_ops_host_for_pool(cfg: dict[str, Any], pool: str) -> bool:
 
 def run_on_ops_host(
     cfg: dict[str, Any],
-    command: str,
+    command: Sequence[str],
     *,
     log_path: Path | None = None,
     timeout: int = 3600,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a shell command on the cluster ops host (local controller or remote SSH)."""
+    """Run bounded argv on the local controller or a remote POSIX ops host."""
+    argv = _validated_argv(command)
+    timeout = _validated_timeout(timeout)
+    display_command = shlex.join(argv)
     host = ops_host(cfg)
     repo = Path(host["repo_root"]).expanduser().resolve()
     if host.get("mode") == "local":
         if log_path:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with log_path.open("w", encoding="utf-8") as log:
-                log.write(f"target=local\nrepo={repo}\n$ {command}\n\n")
+                log.write(f"target=local\nrepo={repo}\n$ {display_command}\n\n")
                 process = subprocess.run(
-                    command,
-                    shell=True,
+                    argv,
+                    shell=False,
                     cwd=repo,
                     stdout=log,
                     stderr=subprocess.STDOUT,
@@ -171,8 +210,8 @@ def run_on_ops_host(
                 )
             return process
         return subprocess.run(
-            command,
-            shell=True,
+            argv,
+            shell=False,
             cwd=repo,
             capture_output=True,
             text=True,
@@ -182,11 +221,14 @@ def run_on_ops_host(
 
     target = host["ssh_target"]
     key = host["ssh_key"]
-    remote = f"export PATH=$HOME/bin:$PATH; cd {repo} && {command}"
+    remote = (
+        f'export PATH="$HOME/bin:$PATH"; '
+        f"cd -- {shlex.quote(str(repo))} && exec {shlex.join(argv)}"
+    )
     if log_path:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("w", encoding="utf-8") as log:
-            log.write(f"target={target}\nrepo={repo}\n$ {command}\n\n")
+            log.write(f"target={target}\nrepo={repo}\n$ {display_command}\n\n")
             process = subprocess.run(
                 [
                     "ssh",
@@ -202,6 +244,7 @@ def run_on_ops_host(
                     target,
                     remote,
                 ],
+                shell=False,
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 text=True,
