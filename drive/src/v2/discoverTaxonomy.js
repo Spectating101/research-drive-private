@@ -233,7 +233,7 @@ function connectorSupportsCollection(connector) {
  * Distinct from procurement_catalog / live_connector, which can be genuinely
  * acquirable.
  */
-export function isReferenceOnly(row) {
+function isReferenceOnly(row) {
   if (!row || typeof row !== "object") return false;
   return lower(row.access_mode) === "catalog_reference" || lower(row.status) === "example_reference";
 }

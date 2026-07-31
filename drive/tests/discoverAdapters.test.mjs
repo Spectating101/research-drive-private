@@ -144,3 +144,16 @@ test("sourcesResponseToRows still attaches search metadata after dedupe", () => 
   assert.equal(rows[0]._search_meta.query, "tone");
   assert.equal(rows[0].cached, true);
 });
+
+test("cleanDescription strips tags without eating prose comparisons", () => {
+  const d = (s) => sourceResultToCandidate({ source_id: "s", description: s }).description;
+  assert.equal(d("<p>Real <b>markup</b></p>"), "Real markup");
+  // A naive /<[^>]*>/ collapsed this to "Firms where mktcap 1M".
+  assert.equal(
+    d("Firms where mktcap < 5B and volume > 1M"),
+    "Firms where mktcap < 5B and volume > 1M",
+  );
+  assert.equal(d("Temperature <10 degrees"), "Temperature <10 degrees");
+  assert.equal(d("a &amp; b &lt;tag&gt;"), "a & b <tag>");
+  assert.equal(d("<div class='x'>Nested <span>text</span></div>"), "Nested text");
+});

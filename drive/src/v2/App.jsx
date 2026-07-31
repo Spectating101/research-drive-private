@@ -106,11 +106,24 @@ function readParams() {
   };
 }
 
+/**
+ * Only Home/Discover/Library read a selected dataset. Resources, Profile,
+ * Synthesis, Settings and Cluster ignore it, so carrying it there produces a
+ * shareable deep link pinned to a dataset the page never uses — reopening it
+ * restores a stale selection. Allow-list, so a tab added later does not
+ * silently inherit the parameter.
+ */
+function tabOwnsDataset(tab) {
+  return tab === "home" || tab === "browse" || tab === "library";
+}
+
 function writeParams({ tab, dataset, folder, preview, q, mode }) {
   const p = new URLSearchParams();
   if (tab && tab !== "home") p.set("tab", tab);
   if (folder) p.set("folder", folder);
-  if (dataset) p.set("dataset", dataset);
+  // Enforced here rather than at call sites: writeParams is the single writer,
+  // so no caller can reintroduce the leak.
+  if (dataset && tabOwnsDataset(tab)) p.set("dataset", dataset);
   if (preview) p.set("preview", "1");
   if (q) p.set("q", q);
   const modeUrl = discoverModeToUrlState(mode || "explore");
@@ -560,15 +573,11 @@ export function V2App() {
           : nextTab === "browse"
             ? discoverSearchQuery.trim()
             : "";
-      // Only Home/Discover/Library carry a selected dataset in the URL. Resources,
-      // Profile, Synthesis, Settings and Cluster don't read it, and letting it ride
-      // along leaks a stale selection into deep links for pages it means nothing on.
-      // Allow-list rather than deny-list so a new tab defaults to not carrying it.
-      const datasetOwnsTab = nextTab === "home" || nextTab === "browse" || nextTab === "library";
       const next = {
         tab: nextTab,
         folder: patch.folder ?? folderId,
-        dataset: datasetOwnsTab ? (patch.dataset ?? selectedId) : "",
+        // writeParams drops this for tabs that don't own a dataset.
+        dataset: patch.dataset ?? selectedId,
         preview: patch.preview ?? previewOpen,
         q: nextQ,
         mode: patch.mode !== undefined ? patch.mode : discoverMode,

@@ -19,10 +19,19 @@ export function normalizeDiscoverMode(raw = "") {
   return "explore";
 }
 
-/** Catalogue text (e.g. OpenAlex abstracts) often carries raw markup — strip it before it reaches the UI. */
+/**
+ * Catalogue text (e.g. OpenAlex abstracts) often carries raw markup — strip it
+ * before it reaches the UI.
+ *
+ * Only sequences that actually look like tags are removed: `<` followed by an
+ * optional `/` and a letter. A naive /<[^>]*>/ also eats ordinary prose, and
+ * dataset descriptions on this platform legitimately contain comparisons —
+ * "mktcap < 5B and volume > 1M" would collapse to "mktcap 1M", silently
+ * changing what the description says.
+ */
 function cleanDescription(value) {
   return String(value || "")
-    .replace(/<[^>]*>/g, " ")
+    .replace(/<\/?[a-zA-Z][^<>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")

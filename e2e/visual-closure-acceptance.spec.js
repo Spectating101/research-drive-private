@@ -156,10 +156,14 @@ test("a selected dataset does not leak into deep links for pages that ignore it"
   await open(page, "/?tab=library&dataset=gdelt_asia_daily_country_panel");
   await expect(page).toHaveURL(/dataset=gdelt_asia_daily_country_panel/);
 
-  await page.getByRole("button", { name: "Resources", exact: true }).click();
-  await expect(page).toHaveURL(/tab=resources/);
-  await expect(page).not.toHaveURL(/dataset=/);
+  // Enforced inside writeParams, the single URL writer, so every navigation
+  // path is covered rather than the one that happened to be reported.
+  for (const tab of ["Resources", "Settings", "Profile"]) {
+    await page.getByRole("button", { name: tab, exact: true }).click();
+    await expect(page).not.toHaveURL(/dataset=/);
+  }
 
+  // Returning to a dataset-owning page must still work.
   await page.getByRole("button", { name: "Library", exact: true }).click();
   await expect(page).toHaveURL(/tab=library/);
 });
