@@ -49,7 +49,18 @@ class DeskAuthSessionTests(unittest.TestCase):
 
     def test_issue_session_requires_same_origin(self):
         token = "test-desk-token-please-rotate"
-        with patch.dict(os.environ, {"YZU_DESK_ACCESS_TOKEN": token}, clear=False):
+        # The internal desk host must now be opted in explicitly. Same-origin
+        # alone no longer mints a session: an anonymous visitor to a public desk
+        # is same-origin by definition, which is how an unauthenticated browser
+        # obtained a privileged session on the public tunnel.
+        with patch.dict(
+            os.environ,
+            {
+                "YZU_DESK_ACCESS_TOKEN": token,
+                "DESK_SESSION_BOOTSTRAP_HOSTS": "100.127.141.44",
+            },
+            clear=False,
+        ):
             bad = _FakeHandler(
                 {
                     "Host": "100.127.141.44:8765",
@@ -58,7 +69,7 @@ class DeskAuthSessionTests(unittest.TestCase):
             )
             ok, msg, cookie = desk_auth.issue_desk_session(bad)
             self.assertFalse(ok)
-            self.assertIn("same-origin", msg)
+            self.assertIn("not permitted", msg)
             self.assertIsNone(cookie)
 
             good = _FakeHandler(
@@ -85,7 +96,7 @@ class DeskAuthSessionTests(unittest.TestCase):
             bare = _FakeHandler({"Host": "100.127.141.44:8765"})
             ok, msg, cookie = desk_auth.issue_desk_session(bare)
             self.assertFalse(ok)
-            self.assertIn("same-origin", msg)
+            self.assertIn("not permitted", msg)
             self.assertIsNone(cookie)
 
     def test_mutating_library_posts_require_auth(self):
