@@ -237,7 +237,7 @@ test("capability document stays public and reports a locked browser", async () =
   globalThis.fetch = async (url, init = {}) => {
     fetchCalls.push({ url: String(url), method: init.method || "GET", init });
     return mockResponse({
-      version: 1,
+      version: 2,
       authenticated: false,
       access: "locked",
       permissions: { use_ask: false, approve_jobs: false },
@@ -250,6 +250,13 @@ test("capability document stays public and reports a locked browser", async () =
   assert.match(fetchCalls[0].url, /\/library\/desk\/capabilities$/);
 });
 
+test("authenticated v1 capability retains the former operator permission contract", async () => {
+  globalThis.fetch = async () => mockResponse({ version: 1, authenticated: true, access: "operator" });
+  const out = await deskCapabilities();
+  assert.equal(out.permissions.use_ask, true);
+  assert.equal(out.permissions.approve_jobs, true);
+});
+
 test("ensureDeskAccess rechecks capabilities after a successful mint", async () => {
   let capabilityCalls = 0;
   globalThis.fetch = async (url, init = {}) => {
@@ -258,9 +265,18 @@ test("ensureDeskAccess rechecks capabilities after a successful mint", async () 
     if (path.endsWith("/library/desk/capabilities")) {
       capabilityCalls += 1;
       return mockResponse({
-        version: 1,
+        version: 2,
         authenticated: capabilityCalls > 1,
         access: capabilityCalls > 1 ? "operator" : "locked",
+        principal: capabilityCalls > 1
+          ? {
+              id: "researcher-1",
+              email: "researcher@example.test",
+              display_name: "Researcher One",
+              role: "researcher",
+              default_workspace_id: "methods-lab",
+            }
+          : null,
       });
     }
     if (path.endsWith("/library/desk/session")) {
@@ -271,6 +287,8 @@ test("ensureDeskAccess rechecks capabilities after a successful mint", async () 
 
   const out = await ensureDeskAccess();
   assert.equal(out.authenticated, true);
+  assert.equal(out.principal.id, "researcher-1");
+  assert.equal(out.principal.default_workspace_id, "methods-lab");
   assert.equal(capabilityCalls, 2);
   assert.equal(fetchCalls.length, 3);
 });

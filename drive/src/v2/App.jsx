@@ -237,6 +237,10 @@ export function V2App() {
   const [activityFilter, setActivityFilter] = useState(null);
   const [pendingAsk, setPendingAsk] = useState("");
   const { toast, show: showToast, dismissIf: dismissToastIf } = useToast();
+  const authenticatedEmail = String(deskAccess?.principal?.email || "").trim();
+  const canUseAsk = Boolean(deskAccess?.permissions?.use_ask);
+  const canSubmitCollection = Boolean(deskAccess?.permissions?.submit_collection);
+  const canApproveJobs = Boolean(deskAccess?.permissions?.approve_jobs);
 
   const refreshDeskAccess = useCallback(async ({ force = false } = {}) => {
     setDeskAccessBusy(true);
@@ -252,7 +256,7 @@ export function V2App() {
   const reloadProfile = useCallback(() => {
     // Showcase soft-default: keep Kong bound when the browser has no faculty email yet
     // (or after a desk outage wiped the visible identity).
-    let email = loadUserEmail();
+    let email = authenticatedEmail || loadUserEmail();
     if (!email) email = saveUserEmail(PILOT_PREVIEW_EMAIL);
     facultyProfile(email)
       .then((data) => {
@@ -292,7 +296,7 @@ export function V2App() {
         }
         setProfile({ email, unknown: true });
       });
-  }, []);
+  }, [authenticatedEmail]);
 
   useEffect(() => {
     if (!deskAccess?.authenticated) return undefined;
@@ -458,12 +462,12 @@ export function V2App() {
     if (!deskAccess?.authenticated) return undefined;
     let cancelled = false;
     (async () => {
-      deskWarm({ userEmail: loadUserEmail(), background: true }).catch(() => {});
+      deskWarm({ userEmail: authenticatedEmail || loadUserEmail(), background: true }).catch(() => {});
     })();
     return () => {
       cancelled = true;
     };
-  }, [deskAccess?.authenticated]);
+  }, [authenticatedEmail, deskAccess?.authenticated]);
 
   const askFromPrompt = useCallback((prompt) => {
     if (!prompt) return;
@@ -846,7 +850,7 @@ export function V2App() {
           researchNeed,
           title: candidate.title,
           candidate,
-          userEmail: loadUserEmail(),
+          userEmail: authenticatedEmail || loadUserEmail(),
         });
         const declaredProposal = proposalFromDiscoverCandidate(candidate);
         if (declaredProposal) {
@@ -890,6 +894,7 @@ export function V2App() {
       discoverSearchQuery,
       setDiscoverModeSafe,
       goTab,
+      authenticatedEmail,
     ],
   );
 
@@ -1346,7 +1351,7 @@ export function V2App() {
           partitions={partitions}
           jobs={jobs}
           usingSeed={usingSeed}
-          onAskComposer={askFromPrompt}
+          onAskComposer={canUseAsk ? askFromPrompt : undefined}
           onGoTab={goTab}
           onOpenAttention={openHomeAttention}
           onSelectDataset={openLibraryDataset}
@@ -1613,14 +1618,22 @@ export function V2App() {
       <V2DeskHeader
         onBrandClick={() => goTab("home")}
         onRetry={refreshBackend}
-        headerInitials="YZ"
+        headerInitials={
+          String(deskAccess?.principal?.display_name || deskAccess?.principal?.email || "YZ")
+            .split(/[\s@._-]+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase())
+            .join("") || "YZ"
+        }
+        principal={deskAccess?.principal || null}
         datasetCount={headerDsCount}
         usingSeed={usingSeed}
         workCount={Math.max(
           Number(health?.desk?.jobs?.pending_approval ?? 0),
           pendingApprovalJobs(jobs).length,
         )}
-        onPendingClick={() => openDiscoverAwaiting()}
+        onPendingClick={canApproveJobs ? () => openDiscoverAwaiting() : undefined}
         deskStatus={
           health == null
             ? "syncing"
@@ -1703,7 +1716,7 @@ export function V2App() {
           setRailTab("detail");
         }}
         onSeeCluster={CLUSTER_NAV_DEFERRED ? undefined : () => goTab("cluster")}
-        onAddToLab={askAddToLab}
+        onAddToLab={canSubmitCollection ? askAddToLab : undefined}
         onProbeSource={probeDiscoverCandidate}
         probeState={browseProbeState}
         onOpenInLibrary={openInLibraryFromDiscover}
@@ -1717,16 +1730,16 @@ export function V2App() {
           if (job) reviewApprovalInResources(job);
         }}
         onPreviewExternal={() => browseRow && openPreviewExternal(browseRow)}
-        onApproveJob={handleApproveJob}
+        onApproveJob={canApproveJobs ? handleApproveJob : undefined}
         onRefresh={refreshBackend}
-        onStartLibraryUpload={(folder) => startLibraryIntake("upload", folder)}
-        onStartLibraryUrl={(folder) => startLibraryIntake("url", folder)}
-        onStartLibraryProcure={(folder) => startLibraryIntake("procure", folder)}
-        onSubmitLibraryUpload={submitLibraryUpload}
-        onSubmitLibraryUrl={submitLibraryUrl}
-        onSubmitLibraryProcure={submitLibraryProcure}
+        onStartLibraryUpload={canSubmitCollection ? (folder) => startLibraryIntake("upload", folder) : undefined}
+        onStartLibraryUrl={canSubmitCollection ? (folder) => startLibraryIntake("url", folder) : undefined}
+        onStartLibraryProcure={canSubmitCollection ? (folder) => startLibraryIntake("procure", folder) : undefined}
+        onSubmitLibraryUpload={canSubmitCollection ? submitLibraryUpload : undefined}
+        onSubmitLibraryUrl={canSubmitCollection ? submitLibraryUrl : undefined}
+        onSubmitLibraryProcure={canSubmitCollection ? submitLibraryProcure : undefined}
         askPanel={
-          <AskRail
+          canUseAsk ? <AskRail
             dataset={
               tab === "resources" && resourceRow
                 ? {
@@ -1776,10 +1789,15 @@ export function V2App() {
             pendingMessage={pendingAsk}
             onPendingConsumed={() => setPendingAsk("")}
             onCollected={refreshBackend}
-            onApproveJob={handleApproveJob}
+            onApproveJob={canApproveJobs ? handleApproveJob : undefined}
             onToast={showToast}
             railContext={railContext}
-          />
+          /> : (
+            <div className="rd-v2-permission-note" role="note">
+              <strong>Ask is not available for this role.</strong>
+              <span>Switch to a researcher workspace role to start or continue an AI session.</span>
+            </div>
+          )
         }
       />
       <Toast toast={toast} />

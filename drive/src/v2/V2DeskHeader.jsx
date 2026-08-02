@@ -36,6 +36,7 @@ export function V2DeskHeader({
   activeResearchTitle = "Active research",
   currentPage = "home",
   onAccountNavigate,
+  principal = null,
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef(null);
@@ -143,6 +144,14 @@ export function V2DeskHeader({
         </button>
         {accountOpen ? (
           <div className="rd-v2-account-menu" role="menu" aria-label="Account destinations">
+            {principal ? (
+              <div className="rd-v2-account-identity">
+                <strong>{principal.display_name || principal.email || "Research Drive user"}</strong>
+                <span>
+                  {principal.default_workspace_id || "personal"} · {principal.role || "viewer"}
+                </span>
+              </div>
+            ) : null}
             <button type="button" role="menuitem" onClick={() => openAccountPage("profile")}>
               <span>Profile</span>
               <small>Research memory</small>

@@ -335,9 +335,17 @@ export async function mockV2Api(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        version: 1,
+        version: 2,
         authenticated: true,
-        access: "operator",
+        access: "admin",
+        principal: {
+          id: "researcher-1",
+          email: "researcher@example.test",
+          display_name: "Researcher One",
+          role: "admin",
+          workspace_ids: ["methods-lab"],
+          default_workspace_id: "methods-lab",
+        },
         permissions: {
           view_research_data: true,
           view_faculty_profile: true,

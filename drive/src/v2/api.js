@@ -90,7 +90,25 @@ export async function ensureDeskSession({ force = false } = {}) {
 
 /** Public, non-sensitive contract describing what this browser may do. */
 export function deskCapabilities() {
-  return fetchJson("/library/desk/capabilities");
+  return fetchJson("/library/desk/capabilities").then((payload) => {
+    if (!payload?.authenticated || payload?.permissions || Number(payload?.version || 1) >= 2) {
+      return payload;
+    }
+    // Compatibility with the authenticated v1 pilot contract. Version 2+
+    // must always declare permissions and never receives optimistic defaults.
+    return {
+      ...payload,
+      permissions: {
+        view_research_data: true,
+        view_faculty_profile: true,
+        view_operations: true,
+        use_ask: true,
+        submit_collection: true,
+        approve_jobs: true,
+        manage_workspace: true,
+      },
+    };
+  });
 }
 
 /** Resolve internal bootstrap or a browser-local fallback token, then re-check. */
