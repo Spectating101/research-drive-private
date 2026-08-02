@@ -30,6 +30,20 @@ const MOCK_HEALTH = {
 };
 
 async function mockApi(page) {
+  await page.route("**/library/desk/capabilities", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ version: 1, authenticated: true, access: "operator" }),
+    }),
+  );
+  await page.route("**/library/desk/session", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, authorized: true }),
+    }),
+  );
   await page.route("**/datasets", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_DATASETS) }),
   );

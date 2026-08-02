@@ -330,6 +330,25 @@ export async function mockV2Api(
   };
   const liveIntents = new Map();
   let nextIntentId = 1;
+  await page.route("**/library/desk/capabilities", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        version: 1,
+        authenticated: true,
+        access: "operator",
+        permissions: {
+          view_research_data: true,
+          view_faculty_profile: true,
+          view_operations: true,
+          use_ask: true,
+          submit_collection: true,
+          approve_jobs: true,
+        },
+      }),
+    }),
+  );
   await page.route("**/library/desk/session", (route) =>
     route.fulfill({
       status: 200,

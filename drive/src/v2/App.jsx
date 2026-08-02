@@ -6,7 +6,7 @@ import {
   deskHealth,
   deskResources,
   deskWarm,
-  ensureDeskSession,
+  ensureDeskAccess,
   createDiscoverIntent,
   craftDiscoverIntentProposal,
   discoverHistory,
@@ -25,6 +25,7 @@ import {
   yzuClusterStatus,
 } from "@/v2/api";
 import { AskRail } from "@/v2/AskRail";
+import { DeskAccessGate } from "@/v2/DeskAccessGate";
 import {
   datasetObject,
   discoverHistoryObject,
@@ -216,6 +217,8 @@ export function V2App() {
   const [historyEvents, setHistoryEvents] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [loadError, setLoadError] = useState("");
+  const [deskAccess, setDeskAccess] = useState(null);
+  const [deskAccessBusy, setDeskAccessBusy] = useState(true);
   const [health, setHealth] = useState(null);
   const [deskRefreshedAt, setDeskRefreshedAt] = useState(null);
   const [acquisitions, setAcquisitions] = useState([]);
@@ -234,6 +237,17 @@ export function V2App() {
   const [activityFilter, setActivityFilter] = useState(null);
   const [pendingAsk, setPendingAsk] = useState("");
   const { toast, show: showToast, dismissIf: dismissToastIf } = useToast();
+
+  const refreshDeskAccess = useCallback(async ({ force = false } = {}) => {
+    setDeskAccessBusy(true);
+    try {
+      const access = await ensureDeskAccess({ force });
+      setDeskAccess(access || { authenticated: false });
+      return access;
+    } finally {
+      setDeskAccessBusy(false);
+    }
+  }, []);
 
   const reloadProfile = useCallback(() => {
     // Showcase soft-default: keep Kong bound when the browser has no faculty email yet
@@ -281,6 +295,7 @@ export function V2App() {
   }, []);
 
   useEffect(() => {
+    if (!deskAccess?.authenticated) return undefined;
     if (profile && !profile.unknown) {
       setPilotProfile(null);
       return undefined;
@@ -297,7 +312,7 @@ export function V2App() {
     return () => {
       cancelled = true;
     };
-  }, [profile]);
+  }, [profile, deskAccess?.authenticated]);
 
   const applyCatalog = useCallback((rows, errMsg = "") => {
     const { catalog, usingSeed: seed } = resolveCatalog(rows);
@@ -432,20 +447,23 @@ export function V2App() {
   );
 
   useEffect(() => {
-    refreshBackend();
-  }, [refreshBackend]);
+    refreshDeskAccess();
+  }, [refreshDeskAccess]);
 
   useEffect(() => {
+    if (deskAccess?.authenticated) refreshBackend();
+  }, [refreshBackend, deskAccess?.authenticated]);
+
+  useEffect(() => {
+    if (!deskAccess?.authenticated) return undefined;
     let cancelled = false;
     (async () => {
-      await ensureDeskSession().catch(() => ({ ok: false }));
-      if (cancelled) return;
       deskWarm({ userEmail: loadUserEmail(), background: true }).catch(() => {});
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [deskAccess?.authenticated]);
 
   const askFromPrompt = useCallback((prompt) => {
     if (!prompt) return;
@@ -1579,6 +1597,16 @@ export function V2App() {
       })),
     [datasets, recentEpoch],
   );
+
+  if (!deskAccess?.authenticated) {
+    return (
+      <DeskAccessGate
+        access={deskAccess}
+        busy={deskAccessBusy}
+        onRetry={({ force = true } = {}) => refreshDeskAccess({ force })}
+      />
+    );
+  }
 
   return (
     <div className={`yzu-shell with-inspector rd-theme-light rd-v2-shell${hideRail ? " no-rail" : ""}`}>

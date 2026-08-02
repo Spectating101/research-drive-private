@@ -24,7 +24,16 @@ export async function fetchJson(path, init = {}) {
   if (requestAbort.signal) options.signal = requestAbort.signal;
 
   try {
-    const r = await fetch(`${API}${path}`, options);
+    let r = await fetch(`${API}${path}`, options);
+    const mayBootstrap =
+      path !== "/library/desk/session" && path !== "/library/desk/capabilities";
+    if (r.status === 401 && mayBootstrap) {
+      // A rotated token or v1-cookie revocation can leave sessionStorage stale.
+      // Clear the optimistic marker and let concurrent callers share one mint.
+      markDeskSessionBootstrapped(false);
+      const session = await ensureDeskSession();
+      if (session?.ok) r = await fetch(`${API}${path}`, options);
+    }
     const raw = await r.text();
     let data = {};
     if (raw) {
@@ -77,6 +86,28 @@ export async function ensureDeskSession({ force = false } = {}) {
       ensureDeskSessionInflight = null;
     }
   }
+}
+
+/** Public, non-sensitive contract describing what this browser may do. */
+export function deskCapabilities() {
+  return fetchJson("/library/desk/capabilities");
+}
+
+/** Resolve internal bootstrap or a browser-local fallback token, then re-check. */
+export async function ensureDeskAccess({ force = false } = {}) {
+  const current = await deskCapabilities().catch((error) => ({
+    authenticated: false,
+    server_configured: null,
+    error: String(error?.message || error),
+  }));
+  if (current?.authenticated && !force) return current;
+  const session = await ensureDeskSession({ force: true });
+  if (!session?.ok) return { ...current, authenticated: false, bootstrap: session };
+  return deskCapabilities().catch((error) => ({
+    ...current,
+    authenticated: false,
+    error: String(error?.message || error),
+  }));
 }
 
 export async function clearDeskSession() {

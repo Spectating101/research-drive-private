@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test, { afterEach, beforeEach } from "node:test";
 
-import { clearDeskSession, deskWarm, ensureDeskSession } from "./api.js";
+import {
+  clearDeskSession,
+  deskCapabilities,
+  deskWarm,
+  ensureDeskAccess,
+  ensureDeskSession,
+  fetchJson,
+} from "./api.js";
 import { deskSessionBootstrapped, markDeskSessionBootstrapped } from "./deskSession.js";
 
 function installMemorySessionStorage() {
@@ -194,4 +201,76 @@ test("reused bootstrapped session does not re-POST /library/desk/session before 
   assert.equal(out.ok, true);
   assert.equal(fetchCalls.length, 1);
   assert.match(fetchCalls[0].url, /\/library\/desk\/warm$/);
+});
+
+test("protected GET retries once after transparent session bootstrap", async () => {
+  let datasetsCalls = 0;
+  globalThis.fetch = async (url, init = {}) => {
+    const path = String(url);
+    fetchCalls.push({ url: path, method: init.method || "GET", init });
+    if (path.endsWith("/datasets")) {
+      datasetsCalls += 1;
+      if (datasetsCalls === 1) {
+        return mockResponse(
+          { error: "Unauthorized", message: "Desk access token required" },
+          { ok: false, status: 401 },
+        );
+      }
+      return mockResponse({ datasets: [{ dataset_id: "private-panel" }] });
+    }
+    if (path.endsWith("/library/desk/session")) {
+      return mockResponse({ ok: true, authorized: true });
+    }
+    throw new Error(`unexpected request ${path}`);
+  };
+
+  const out = await fetchJson("/datasets");
+  assert.equal(out.datasets[0].dataset_id, "private-panel");
+  assert.deepEqual(
+    fetchCalls.map((call) => call.url.replace(/^.*(?=\/)/, "")),
+    ["/datasets", "/session", "/datasets"],
+  );
+  assert.equal(deskSessionBootstrapped(), true);
+});
+
+test("capability document stays public and reports a locked browser", async () => {
+  globalThis.fetch = async (url, init = {}) => {
+    fetchCalls.push({ url: String(url), method: init.method || "GET", init });
+    return mockResponse({
+      version: 1,
+      authenticated: false,
+      access: "locked",
+      permissions: { use_ask: false, approve_jobs: false },
+    });
+  };
+
+  const out = await deskCapabilities();
+  assert.equal(out.authenticated, false);
+  assert.equal(fetchCalls.length, 1);
+  assert.match(fetchCalls[0].url, /\/library\/desk\/capabilities$/);
+});
+
+test("ensureDeskAccess rechecks capabilities after a successful mint", async () => {
+  let capabilityCalls = 0;
+  globalThis.fetch = async (url, init = {}) => {
+    const path = String(url);
+    fetchCalls.push({ url: path, method: init.method || "GET", init });
+    if (path.endsWith("/library/desk/capabilities")) {
+      capabilityCalls += 1;
+      return mockResponse({
+        version: 1,
+        authenticated: capabilityCalls > 1,
+        access: capabilityCalls > 1 ? "operator" : "locked",
+      });
+    }
+    if (path.endsWith("/library/desk/session")) {
+      return mockResponse({ ok: true, authorized: true });
+    }
+    throw new Error(`unexpected request ${path}`);
+  };
+
+  const out = await ensureDeskAccess();
+  assert.equal(out.authenticated, true);
+  assert.equal(capabilityCalls, 2);
+  assert.equal(fetchCalls.length, 3);
 });
