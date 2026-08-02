@@ -44,13 +44,12 @@ def test_desk_brain_mode_not_optimistic_without_composer(desk_brain, monkeypatch
 
 def test_desk_brain_mode_composer_only_when_plausibly_invocable(desk_brain, monkeypatch):
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
-    monkeypatch.setitem(sys.modules, "cursor_sdk", SimpleNamespace())
-    importlib.reload(desk_brain)
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: SimpleNamespace())
     assert desk_brain.cursor_composer_available() is True
     assert desk_brain.desk_brain_mode() == "cursor_composer"
     status = desk_brain.composer_runtime_status()
     assert status["composer_configured"] is True
-    assert status["composer_status"] == "ready"
+    assert status["composer_status"] == "unverified"
     assert status["brain"] == "cursor_composer"
 
 

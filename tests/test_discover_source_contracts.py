@@ -312,11 +312,11 @@ def test_source_search_live_federates_hf_and_datacite_with_monkeypatch(stack, mo
             [
                 mod._normalize_live_candidate(
                     provider="DataCite",
-                    title="Example Dataset",
+                    title="Climate Example Dataset",
                     url="https://doi.org/10.1234/example",
                     doi="10.1234/example",
                     external_id="10.1234/example",
-                    capabilities=["doi_metadata"],
+                    capabilities=["doi_metadata", "climate"],
                     availability="public_datacite",
                 )
             ],

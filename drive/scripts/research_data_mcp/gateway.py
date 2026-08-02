@@ -1103,7 +1103,7 @@ class ResearchDataGateway:
         import shutil
 
         from scripts.research_data_mcp.desk_auth import access_token_required
-        from scripts.research_data_mcp.desk_brain import cursor_composer_available, desk_brain_mode
+        from scripts.research_data_mcp.desk_brain import composer_runtime_status
         from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
         from scripts.research_data_mcp.llm_client import llm_configured as legacy_llm_configured
         from scripts.research_data_mcp.procurement_constants import (
@@ -1113,13 +1113,9 @@ class ResearchDataGateway:
         )
         from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES
 
-        brain = desk_brain_mode(self.repo_root)
-        composer_ok = cursor_composer_available()
-        from scripts.research_data_mcp.desk_composer_health import (
-            composer_runtime_status,
-        )
-
-        composer_runtime = composer_runtime_status(configured=composer_ok)
+        composer_runtime = composer_runtime_status(self.repo_root)
+        brain = str(composer_runtime.get("brain") or "unavailable")
+        composer_ok = bool(composer_runtime.get("composer_configured"))
         from scripts.research_data_mcp.desk_synthesis_fallback import (
             synthesis_fallback_runtime_status,
         )
@@ -1132,7 +1128,11 @@ class ResearchDataGateway:
             "desk": {
                 "brain": brain,
                 "composer_configured": composer_ok,
-                "composer_status": composer_runtime["status"],
+                "composer_status": (
+                    composer_runtime.get("status")
+                    or composer_runtime.get("composer_status")
+                    or "unavailable"
+                ),
                 "composer_runtime": composer_runtime,
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
                 "synthesis_fallback": synthesis_fallback_runtime,

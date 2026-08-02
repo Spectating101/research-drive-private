@@ -231,7 +231,7 @@ _SUPPORTED_CONCEPTS: tuple[dict[str, Any], ...] = (
     {
         "id": "gdelt_news",
         "label": "GDELT news shocks",
-        "match_any": frozenset({"gdelt"}),
+        "match_any": frozenset({"gdelt", "media"}),
         "match_all_groups": (
             frozenset({"gdelt"}),
             frozenset({"news", "gkg", "shock", "shocks"}),
@@ -365,14 +365,23 @@ def source_evidence_score(row: dict[str, Any], query: str) -> tuple[float, dict[
     # Live / unknown external hits are inspect-only; keep only with distinctive overlap.
     if kind == "live_candidate" or bool(row.get("live_hit")):
         lex = source_query_relevance(row, q)
-        if lex <= 0:
+        declared_hits = sorted(caps & _distinctive_query_tokens(q))
+        score = lex + (0.5 if declared_hits else 0.0)
+        if score <= 0:
             return 0.0, {
                 "evidence": [],
                 "reject_reason": "live_without_distinctive_overlap",
                 "inspect_only": True,
             }
-        return lex, {
-            "evidence": [{"type": "distinctive_token_overlap", "score": round(lex, 2)}],
+        evidence = []
+        if lex > 0:
+            evidence.append({"type": "distinctive_token_overlap", "score": round(lex, 2)})
+        if declared_hits:
+            evidence.append(
+                {"type": "declared_capability_token", "capabilities": declared_hits}
+            )
+        return score, {
+            "evidence": evidence,
             "inspect_only": True,
             "trust_tier": "inspect_only",
         }
@@ -585,7 +594,6 @@ def apply_source_relevance_gate(
         key=lambda r: (
             -float(r.get("query_relevance") or 0),
             -float((r.get("rank_signals") or {}).get("hybrid_score") or r.get("score") or 0),
-            str(r.get("label") or r.get("source_id") or ""),
         )
     )
     if not distinctive and not concepts:

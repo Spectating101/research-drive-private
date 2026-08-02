@@ -190,7 +190,25 @@ def cursor_composer_available() -> bool:
 
 def desk_brain_mode(repo_root: Path | None = None) -> str:
     _ = repo_root
-    return "cursor_composer"
+    return "cursor_composer" if cursor_composer_available() else "unavailable"
+
+
+def composer_runtime_status(repo_root: Path | None = None) -> dict[str, Any]:
+    """Project provider observations together with the brain users can invoke."""
+    from scripts.research_data_mcp.desk_composer_health import (
+        composer_runtime_status as provider_runtime_status,
+    )
+
+    configured = cursor_composer_available()
+    runtime = dict(provider_runtime_status(configured=configured))
+    runtime.update(
+        {
+            "brain": desk_brain_mode(repo_root),
+            "composer_configured": configured,
+            "composer_status": runtime.get("status") or "unavailable",
+        }
+    )
+    return runtime
 
 
 def _repo_python(repo_root: Path) -> str:
