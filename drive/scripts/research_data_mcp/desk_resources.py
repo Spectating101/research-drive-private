@@ -57,6 +57,15 @@ def _gb(n: int | float | None) -> float | None:
         return None
 
 
+def _query_engine_up(health: dict[str, Any] | None) -> bool:
+    """Keep service reachability separate from desk-wide degradation."""
+    payload = health or {}
+    return (
+        payload.get("service") == "research_library_api"
+        and payload.get("status") in {"ok", "demo", "degraded"}
+    )
+
+
 def _count_tavily_keys() -> int:
     keys = set()
     for env_key, val in os.environ.items():
@@ -578,7 +587,7 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
                 "legacy_configured": legacy_ok,
             },
             "mcp_tools": mcp.get("total"),
-            "query_engine": {"port": 8765, "up": health.get("status") in {"ok", "demo"}},
+            "query_engine": {"port": 8765, "up": _query_engine_up(health)},
             "workers": {
                 "busy": worker_busy,
                 "total": worker_total,
