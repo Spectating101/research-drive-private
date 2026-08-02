@@ -32,6 +32,13 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "DESK_PUBLIC_ORIGINS",
         "DESK_SESSION_BOOTSTRAP_HOSTS",
         "DESK_SESSION_MAX_AGE_SECONDS",
+        "YZU_DESK_SESSION_SIGNING_SECRET",
+        "DESK_PRINCIPALS_FILE",
+        "DESK_DEFAULT_USER_ID",
+        "DESK_DEFAULT_USER_EMAIL",
+        "DESK_DEFAULT_USER_NAME",
+        "DESK_DEFAULT_USER_ROLE",
+        "DESK_DEFAULT_WORKSPACE_ID",
     ):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("YZU_DESK_ACCESS_TOKEN", TOKEN)
@@ -183,3 +190,5 @@ def test_capability_document_never_exposes_secrets_and_tracks_access():
     )
     assert authenticated["authenticated"] is True
     assert authenticated["permissions"]["approve_jobs"] is True
+    assert authenticated["principal"]["role"] == "admin"
+    assert authenticated["tenancy"]["multi_user_ready"] is False

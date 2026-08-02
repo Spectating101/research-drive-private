@@ -108,7 +108,7 @@ def test_session_bootstrap_requires_configured_token_and_same_origin(
     ok, message, cookie = issue_desk_session(same_origin)
     assert (ok, message) == (True, "")
     assert cookie is not None
-    assert cookie.startswith(f"{DESK_SESSION_COOKIE}=v2.")
+    assert cookie.startswith(f"{DESK_SESSION_COOKIE}=v3.")
     assert "Path=/" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=Strict" in cookie

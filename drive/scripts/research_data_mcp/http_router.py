@@ -277,6 +277,18 @@ def _resolve(path: str, method: str) -> tuple[str | None, dict[str, str]]:
 
 
 def _handlers() -> dict[str, Handler]:
+    def _actor_email(requested: Any = "") -> str:
+        from scripts.research_data_mcp.desk_auth import current_desk_principal
+
+        principal = current_desk_principal()
+        if principal and principal.email:
+            return principal.email
+        # Shared pilot admin remains able to preview another faculty profile
+        # until an identity provider supplies its own authoritative email.
+        if principal and principal.role != "admin":
+            return ""
+        return str(requested or "").strip()
+
     def _activity(stack, action: str, target: str, **kwargs: Any) -> None:
         try:
             from scripts.research_data_mcp.desk_activity import record_activity
@@ -325,7 +337,7 @@ def _handlers() -> dict[str, Handler]:
 
     def library_unified_search(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "")
-        email = str(query.get("email") or "")
+        email = _actor_email(query.get("email") or "")
         limit = int(query.get("limit", 12))
         return stack.gateway.unified_search_with_profile(
             q,
@@ -579,7 +591,7 @@ def _handlers() -> dict[str, Handler]:
             title=str(payload.get("title") or ""),
             candidate=candidate if isinstance(candidate, dict) else None,
             session_id=str(payload.get("session_id") or ""),
-            user_email=str(payload.get("user_email") or payload.get("email") or ""),
+            user_email=_actor_email(payload.get("user_email") or payload.get("email") or ""),
         )
 
     def library_discover_intent_get(stack, query, payload, params):
@@ -870,7 +882,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.procurement_chat(
             str(payload.get("message", "")),
             session_id=str(payload.get("session_id") or "") or None,
-            user_email=str(payload.get("user_email") or payload.get("email") or "") or None,
+            user_email=_actor_email(payload.get("user_email") or payload.get("email") or "") or None,
             rail_context=rail if isinstance(rail, dict) else None,
         )
 
@@ -881,7 +893,7 @@ def _handlers() -> dict[str, Handler]:
             "events": stack.gateway.procurement_chat_stream(
                 str(payload.get("message", "")),
                 session_id=str(payload.get("session_id") or "") or None,
-                user_email=str(payload.get("user_email") or payload.get("email") or "") or None,
+                user_email=_actor_email(payload.get("user_email") or payload.get("email") or "") or None,
                 rail_context=rail if isinstance(rail, dict) else None,
             ),
         }
@@ -1011,20 +1023,22 @@ def _handlers() -> dict[str, Handler]:
 
     def library_faculty_profile(stack, query, payload, params):
         return stack.gateway.faculty_profile(
-            email=str(query.get("email") or ""),
+            email=_actor_email(query.get("email") or ""),
             slug=str(query.get("slug") or ""),
             default=str(query.get("default") or "").lower() in {"1", "true", "yes"},
         )
 
     def library_desk_brief(stack, query, payload, params):
-        return stack.gateway.desk_vault_brief(email=str(query.get("email") or ""))
+        return stack.gateway.desk_vault_brief(email=_actor_email(query.get("email") or ""))
 
     def library_desk_resources(stack, query, payload, params):
         return stack.gateway.desk_resources(live=_live_flag(query))
 
     def library_desk_warm(stack, query, payload, params):
         return stack.gateway.desk_warm_session(
-            user_email=str(payload.get("user_email") or payload.get("email") or query.get("email") or ""),
+            user_email=_actor_email(
+                payload.get("user_email") or payload.get("email") or query.get("email") or ""
+            ),
             session_id=str(payload.get("session_id") or ""),
             background=bool(payload.get("background", True)),
         )

@@ -273,7 +273,11 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             return
         ok, msg = authorize(self, path, method="GET")
         if not ok:
-            self._send_json({"error": "Unauthorized", "message": msg}, status=401)
+            forbidden = "lacks permission" in msg
+            self._send_json(
+                {"error": "Forbidden" if forbidden else "Unauthorized", "message": msg},
+                status=403 if forbidden else 401,
+            )
             return
         qs = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
         result = handle_get(path, qs, self.stack)
@@ -343,9 +347,10 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             return
         ok, msg = authorize(self, path, method="POST")
         if not ok:
+            forbidden = "lacks permission" in msg
             self._send_json(
-                {"error": "Unauthorized", "message": msg},
-                status=401,
+                {"error": "Forbidden" if forbidden else "Unauthorized", "message": msg},
+                status=403 if forbidden else 401,
                 close_connection=True,
             )
             return

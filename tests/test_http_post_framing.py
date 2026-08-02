@@ -86,7 +86,7 @@ class UnauthorizedPostFramingTests(unittest.TestCase):
             health_raw = health.read().decode("utf-8")
             self.assertEqual(health.status, 200, health_raw)
             health_payload = json.loads(health_raw)
-            self.assertEqual(health_payload.get("version"), 1)
+            self.assertEqual(health_payload.get("version"), 2)
             self.assertFalse(health_payload.get("authenticated"))
         finally:
             conn.close()
