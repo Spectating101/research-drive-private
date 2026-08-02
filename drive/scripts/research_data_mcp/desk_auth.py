@@ -6,12 +6,24 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import secrets
+import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
 DESK_SESSION_COOKIE = "rd_desk_session"
 _SESSION_MSG = b"research-drive-desk-session-v1"
+_SESSION_VERSION = "v2"
+_CLOCK_SKEW_SECONDS = 300
+
+_PUBLIC_PATHS = {
+    "/",
+    "/healthz",
+    "/library/desk/session",
+    "/library/desk/capabilities",
+}
+_PROTECTED_API_PREFIXES = ("/health", "/datasets", "/query", "/library", "/yzu")
 
 
 def access_token_required() -> str | None:
@@ -19,64 +31,44 @@ def access_token_required() -> str | None:
 
 
 def path_requires_auth(path: str, method: str = "GET") -> bool:
+    # Callers normally pass a normalized path, but keeping the policy correct
+    # for direct unit/tool use prevents /api from becoming a second boundary.
+    if path == "/api":
+        path = "/"
+    elif path.startswith("/api/"):
+        path = path[4:]
     method_u = (method or "GET").upper()
-    if path == "/library/desk/session":
+    if path in _PUBLIC_PATHS:
         return False
-    if path in {"/healthz", "/api/health", "/"}:
+    is_api = any(path == prefix or path.startswith(f"{prefix}/") for prefix in _PROTECTED_API_PREFIXES)
+    if not is_api:
         return False
-    # Fail-closed: every mutating desk/cluster route needs the desk token.
-    if method_u in {"POST", "PUT", "PATCH", "DELETE"} and (
-        path.startswith("/library/") or path.startswith("/yzu/")
-    ):
-        return True
-    if path in {
-        "/library/chat",
-        "/library/chat/stream",
-        "/library/jobs",
-        "/library/jobs/approve-safe",
-        "/library/discover/collect",
-        "/library/discover/sources/preview",
-        "/library/archive",
-        "/library/desk/warm",
-        "/library/datacite/collect",
-        "/library/datacite/enrich",
-        "/library/synthesis/run",
-        "/library/synthesis/pair",
-        "/yzu/jobs",
-        "/yzu/jobs/approve-safe",
-    }:
-        return True
-    if path.startswith("/library/discover/intents"):
-        return True
-    if path.startswith("/library/discover/subscriptions"):
-        return True
-    if path.startswith("/library/synthesis/threads/") and path.rsplit("/", 1)[-1] in {
-        "patches",
-        "proposal",
-        "execute",
-        "conversation",
-    }:
-        return True
-    if path.startswith("/library/licenses/"):
-        return True
-    if path.startswith("/library/jobs/") and path.rsplit("/", 1)[-1] in {"approve", "cancel"}:
-        return True
-    if path.startswith("/yzu/schedules/") and path.endswith("/run"):
-        return True
-    if path.startswith("/yzu/jobs/") and path.rsplit("/", 1)[-1] in {"approve", "cancel"}:
-        return True
-    if path.startswith("/library/campaigns/") and path.rsplit("/", 1)[-1] in {
-        "approve-collect",
-        "resume",
-        "add-datacite",
-    }:
+    # The pilot desk is private-by-default: catalog/query data, faculty memory,
+    # synthesis threads, credentials metadata and cluster topology are all
+    # research/operations data. Static UI is served before this policy runs.
+    if method_u in {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}:
         return True
     return False
 
 
-def session_cookie_value(token: str) -> str:
-    digest = hmac.new(token.encode("utf-8"), _SESSION_MSG, hashlib.sha256).hexdigest()
-    return f"v1.{digest}"
+def _session_signature(token: str, payload: str) -> str:
+    message = _SESSION_MSG + b"\0" + payload.encode("utf-8")
+    return hmac.new(token.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+
+def session_cookie_value(
+    token: str, *, issued_at: int | None = None, nonce: str | None = None
+) -> str:
+    """Mint a non-deterministic, server-expiring desk session.
+
+    v1 was a permanent HMAC of a constant, so every browser shared the same
+    replayable cookie and browser Max-Age could not revoke it. v2 signs an issue
+    time plus nonce; validation enforces the configured lifetime server-side.
+    """
+    issued = int(time.time()) if issued_at is None else int(issued_at)
+    entropy = nonce or secrets.token_urlsafe(18)
+    payload = f"{_SESSION_VERSION}.{issued}.{entropy}"
+    return f"{payload}.{_session_signature(token, payload)}"
 
 
 def request_is_https(handler: BaseHTTPRequestHandler | None) -> bool:
@@ -134,15 +126,27 @@ def desk_session_cookie_valid(handler: BaseHTTPRequestHandler, token: str) -> bo
     got = read_desk_session_cookie(handler)
     if not got or not token:
         return False
-    return _token_matches(got, session_cookie_value(token))
+    parts = got.split(".")
+    if len(parts) != 4 or parts[0] != _SESSION_VERSION:
+        # Reject every deterministic v1 cookie immediately on deployment.
+        return False
+    version, issued_raw, nonce, provided_signature = parts
+    if not nonce or len(nonce) > 128:
+        return False
+    try:
+        issued = int(issued_raw)
+    except (TypeError, ValueError):
+        return False
+    age = int(time.time()) - issued
+    if age < -_CLOCK_SKEW_SECONDS or age > _session_max_age():
+        return False
+    payload = f"{version}.{issued}.{nonce}"
+    expected_signature = _session_signature(token, payload)
+    return hmac.compare_digest(provided_signature, expected_signature)
 
 
 def _public_desk_origins() -> set[str]:
-    """Browser origins (comma-separated) that may mint desk sessions.
-
-    Defaults to EMPTY. It previously defaulted to a public hostname, which meant
-    an unconfigured deploy handed privileged sessions to a public origin.
-    """
+    """Deprecated compatibility reader; public origins never grant authority."""
     raw = (os.getenv("DESK_PUBLIC_ORIGINS") or "").strip()
     out: set[str] = set()
     for part in raw.split(","):
@@ -182,8 +186,7 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
     turned any visitor into an authorized session. Minting now requires one of:
 
       * possession of the desk token, or
-      * an explicitly allow-listed Host (DESK_SESSION_BOOTSTRAP_HOSTS), or
-      * an explicitly allow-listed Origin (DESK_PUBLIC_ORIGINS),
+      * an explicitly allow-listed internal Host (DESK_SESSION_BOOTSTRAP_HOSTS),
 
     and in the last two cases the request must still look like a browser call
     to this same desk.
@@ -193,11 +196,10 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
 
     host = str(handler.headers.get("Host") or "").strip().lower()
     host_only = host.split(":")[0]
-    allowed_origins = _public_desk_origins()
     hosts = _bootstrap_hosts()
     host_allowed = bool(host) and (host in hosts or host_only in hosts)
 
-    if not allowed_origins and not host_allowed:
+    if not host_allowed:
         # Nothing is configured to mint anonymously — refuse.
         return False
 
@@ -207,17 +209,13 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
 
     if origin:
         o = origin.rstrip("/").lower()
-        if o in allowed_origins:
-            return True
-        return host_allowed and o in same_origin_values
+        return o in same_origin_values
     if referer:
         parsed = urlparse(referer)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return False
         r = f"{parsed.scheme}://{parsed.netloc}".lower()
-        if r in allowed_origins:
-            return True
-        return host_allowed and r in same_origin_values
+        return r in same_origin_values
     # No Origin/Referer → refuse bootstrap (blocks curl/script session minting).
     return False
 
@@ -228,6 +226,42 @@ def _token_matches(provided: str, expected: str) -> bool:
     provided_digest = hashlib.sha256(provided.encode("utf-8")).digest()
     expected_digest = hashlib.sha256(expected.encode("utf-8")).digest()
     return hmac.compare_digest(provided_digest, expected_digest)
+
+
+def request_has_desk_access(handler: BaseHTTPRequestHandler) -> bool:
+    """Whether this request already carries a valid token or v2 session."""
+    token = access_token_required()
+    if not token:
+        return False
+    if request_presents_desk_token(handler):
+        return True
+    return desk_session_cookie_valid(handler, token)
+
+
+def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, object]:
+    """Public, non-sensitive access contract for capability-aware clients."""
+    configured = bool(access_token_required())
+    authenticated = request_has_desk_access(handler)
+    return {
+        "version": 1,
+        "authenticated": authenticated,
+        "server_configured": configured,
+        "access": "operator" if authenticated else "locked",
+        "permissions": {
+            "view_static_ui": True,
+            "view_research_data": authenticated,
+            "view_faculty_profile": authenticated,
+            "view_operations": authenticated,
+            "use_ask": authenticated,
+            "submit_collection": authenticated,
+            "approve_jobs": authenticated,
+        },
+        "session": {
+            "cookie_version": _SESSION_VERSION,
+            "max_age_seconds": _session_max_age(),
+            "bootstrap_available": bool(_bootstrap_hosts()) or request_presents_desk_token(handler),
+        },
+    }
 
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
@@ -256,15 +290,6 @@ def authorize(handler: BaseHTTPRequestHandler, path: str, method: str = "GET") -
         return True, ""
     if not token:
         return False, "Desk access token is not configured on this host"
-    auth = str(handler.headers.get("Authorization") or "")
-    header = str(handler.headers.get("X-Desk-Token") or "")
-    provided = ""
-    if auth.startswith("Bearer "):
-        provided = auth[7:].strip()
-    elif header.strip():
-        provided = header.strip()
-    if provided and _token_matches(provided, token):
-        return True, ""
-    if desk_session_cookie_valid(handler, token):
+    if request_has_desk_access(handler):
         return True, ""
     return False, "Desk access token required (set Authorization: Bearer or X-Desk-Token)"

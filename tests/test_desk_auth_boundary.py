@@ -156,3 +156,30 @@ def test_valid_session_cookie_authorizes():
     handler = FakeHandler(Host="d.example", Cookie=f"{desk_auth.DESK_SESSION_COOKIE}={value}")
     ok, _ = desk_auth.authorize(handler, "/library/jobs/approve-safe", method="POST")
     assert ok is True
+
+
+def test_v1_session_cookie_is_revoked_by_the_v2_boundary():
+    handler = FakeHandler(
+        Host="d.example",
+        Cookie=f"{desk_auth.DESK_SESSION_COOKIE}=v1.{'0' * 64}",
+    )
+    assert desk_auth.desk_session_cookie_valid(handler, TOKEN) is False
+
+
+def test_expired_v2_session_is_rejected():
+    value = desk_auth.session_cookie_value(TOKEN, issued_at=1, nonce="expired-session")
+    handler = FakeHandler(Host="d.example", Cookie=f"{desk_auth.DESK_SESSION_COOKIE}={value}")
+    assert desk_auth.desk_session_cookie_valid(handler, TOKEN) is False
+
+
+def test_capability_document_never_exposes_secrets_and_tracks_access():
+    locked = desk_auth.desk_capability_document(FakeHandler(Host="d.example"))
+    assert locked["authenticated"] is False
+    assert locked["permissions"]["view_faculty_profile"] is False
+    assert TOKEN not in repr(locked)
+
+    authenticated = desk_auth.desk_capability_document(
+        FakeHandler(Host="d.example", X_Desk_Token=TOKEN)
+    )
+    assert authenticated["authenticated"] is True
+    assert authenticated["permissions"]["approve_jobs"] is True

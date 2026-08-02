@@ -411,7 +411,7 @@ def test_post_source_preview_requires_desk_auth_policy():
 
     assert path_requires_auth("/library/discover/sources/preview") is True
     # Read-only discover sources list stays open.
-    assert path_requires_auth("/library/discover/sources") is False
+    assert path_requires_auth("/library/discover/sources") is True
 
 
 def test_refresh_subscription_response_never_claims_auto_refresh(stack, tmp_path, monkeypatch):

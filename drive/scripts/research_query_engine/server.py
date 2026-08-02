@@ -15,6 +15,7 @@ from scripts.research_data_mcp.bootstrap import ResearchLibraryStack, create_sta
 from scripts.research_data_mcp.desk_auth import (
     authorize,
     clear_desk_session,
+    desk_capability_document,
     issue_desk_session,
 )
 from scripts.research_data_mcp.http_router import handle_get, handle_post
@@ -266,6 +267,9 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = normalize_api_path(parsed.path)
         if self._serve_static(path):
+            return
+        if path == "/library/desk/capabilities":
+            self._send_json(desk_capability_document(self), status=200)
             return
         ok, msg = authorize(self, path, method="GET")
         if not ok:

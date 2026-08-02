@@ -24,7 +24,12 @@ The public repository remains the researcher-facing UI authority. The private re
 
 - Bind `:8765` to the Optiplex Tailscale IP, never `0.0.0.0` for this release.
 - Keep the existing controller `:8780` Tailscale-only.
-- Set `YZU_DESK_ACCESS_TOKEN`; material POST routes require `X-Desk-Token` or Bearer auth.
+- Set `YZU_DESK_ACCESS_TOKEN`; every research-data and operations API requires
+  a valid v2 browser session, `X-Desk-Token`, or Bearer token.
+- Set `DESK_SESSION_BOOTSTRAP_HOSTS` only to the exact Tailscale desk host.
+  Same-origin and public Origin headers are not authentication.
+- Keep public tunnels disabled. A reviewer uses an authenticated build or a
+  static fixture surface, never the private live API anonymously.
 - Store secrets in `~/.config/research-drive/front-door.env`, mode `0600`, outside git.
 - No public reverse proxy, tunnel, TLS termination or CORS expansion is part of this release.
 
@@ -96,8 +101,10 @@ Required claims:
 3. The known smoke asset returns real `dataset_id`, `registry_id`, `manifest_id`, `job_id`, `run_id`, `attempt`, `worker_id` and `readiness` where available.
 4. `registered` remains distinct from `query_ready`.
 5. Browser network requests do not target GitHub Pages, localhost on the client, or a second mock API.
-6. An invalid desk token is rejected for a protected POST route.
-7. The service restarts successfully and remains bound only to the Tailscale address.
+6. Anonymous GETs for faculty, credentials, datasets and workers return `401`.
+7. An invalid desk token is rejected for protected GET and POST routes.
+8. A deterministic legacy `v1` session cookie returns `401`.
+9. The service restarts successfully and remains bound only to the Tailscale address.
 
 ## Grok evidence package
 

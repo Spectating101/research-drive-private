@@ -22,9 +22,13 @@ def _clean_desk_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("YZU_DESK_ACCESS_TOKEN", raising=False)
     monkeypatch.delenv("DESK_ACCESS_TOKEN", raising=False)
     monkeypatch.delenv("DESK_PUBLIC_ORIGINS", raising=False)
+    monkeypatch.delenv("DESK_SESSION_BOOTSTRAP_HOSTS", raising=False)
 
 
-@pytest.mark.parametrize("path", ["/", "/healthz", "/api/health", "/library/desk/session"])
+@pytest.mark.parametrize(
+    "path",
+    ["/", "/healthz", "/library/desk/session", "/library/desk/capabilities"],
+)
 def test_explicit_public_paths_remain_public_without_token(path: str) -> None:
     assert path_requires_auth(path, method="POST") is False
     assert authorize(_handler(), path, method="POST") == (True, "")
@@ -34,6 +38,12 @@ def test_explicit_public_paths_remain_public_without_token(path: str) -> None:
     ("path", "method"),
     [
         ("/library/chat", "GET"),
+        ("/api/health", "GET"),
+        ("/datasets", "GET"),
+        ("/query/private-panel", "GET"),
+        ("/library/faculty/profile", "GET"),
+        ("/library/credentials/profiles", "GET"),
+        ("/yzu/workers", "GET"),
         ("/library/jobs", "POST"),
         ("/library/future-write-route", "POST"),
         ("/yzu/future-write-route", "DELETE"),
@@ -84,25 +94,34 @@ def test_session_bootstrap_requires_configured_token_and_same_origin(
     )
 
     monkeypatch.setenv("DESK_ACCESS_TOKEN", "secret-token")
-    assert issue_desk_session(_handler(Host="desk.internal", Origin="https://evil.example")) == (
-        False,
-        "Desk session bootstrap requires a same-origin browser request",
-        None,
-    )
-    assert issue_desk_session(_handler(Host="desk.internal")) == (
-        False,
-        "Desk session bootstrap requires a same-origin browser request",
-        None,
-    )
+    for refused in (
+        _handler(Host="desk.internal", Origin="https://evil.example"),
+        _handler(Host="desk.internal"),
+        same_origin,
+    ):
+        ok, message, cookie = issue_desk_session(refused)
+        assert ok is False
+        assert message == "Desk session bootstrap is not permitted for this request"
+        assert cookie is None
 
+    monkeypatch.setenv("DESK_SESSION_BOOTSTRAP_HOSTS", "desk.internal")
     ok, message, cookie = issue_desk_session(same_origin)
     assert (ok, message) == (True, "")
     assert cookie is not None
-    assert cookie.startswith(f"{DESK_SESSION_COOKIE}={session_cookie_value('secret-token')};")
+    assert cookie.startswith(f"{DESK_SESSION_COOKIE}=v2.")
     assert "Path=/" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=Strict" in cookie
     assert "Domain=" not in cookie
+
+
+def test_public_origin_configuration_never_grants_session_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DESK_ACCESS_TOKEN", "secret-token")
+    monkeypatch.setenv("DESK_PUBLIC_ORIGINS", "https://review.example.test")
+    handler = _handler(Host="review.example.test", Origin="https://review.example.test")
+    assert issue_desk_session(handler)[0] is False
 
 
 def test_session_cookie_authorizes_and_token_rotation_invalidates_it(

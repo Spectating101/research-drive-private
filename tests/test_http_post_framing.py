@@ -81,13 +81,13 @@ class UnauthorizedPostFramingTests(unittest.TestCase):
                 conn.close()
                 conn = http.client.HTTPConnection(self.host, self.port, timeout=5)
 
-            conn.request("GET", "/health", headers={"Connection": "keep-alive"})
+            conn.request("GET", "/library/desk/capabilities", headers={"Connection": "keep-alive"})
             health = conn.getresponse()
             health_raw = health.read().decode("utf-8")
             self.assertEqual(health.status, 200, health_raw)
             health_payload = json.loads(health_raw)
-            self.assertEqual(health_payload.get("status"), "ok")
-            self.assertEqual(health_payload.get("service"), "research_library_api")
+            self.assertEqual(health_payload.get("version"), 1)
+            self.assertFalse(health_payload.get("authenticated"))
         finally:
             conn.close()
 
