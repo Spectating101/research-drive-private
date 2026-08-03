@@ -356,9 +356,9 @@ def local_search(
         _add(cand)
 
     datacite_sources: list[str] = []
-    from scripts.research_data_mcp.procurement_search import _tokens, relevance_score
+    from scripts.research_data_mcp.procurement_search import query_topic_tokens, relevance_score
 
-    query_tokens = _tokens(query)
+    query_tokens = query_topic_tokens(query)
     for cand in raw:
         cand.setdefault("query_relevance", round(relevance_score(cand, query_tokens), 2))
 
@@ -415,17 +415,19 @@ def local_search(
         looks_like_index_miss,
         min_relevance_threshold,
         query_geography_ok,
+        query_topic_tokens,
         relevance_score,
     )
 
-    query_tokens = _tokens(query)
+    all_query_tokens = _tokens(query)
+    query_tokens = query_topic_tokens(query)
     for cand in raw:
         cand["query_relevance"] = round(relevance_score(cand, query_tokens), 2)
 
     # Availability is never a substitute for relevance. For a substantive query,
     # omit candidates with no distinctive lexical support instead of allowing a
     # local/readiness boost to turn an unrelated source into a recommendation.
-    if query_tokens:
+    if all_query_tokens:
         threshold = min_relevance_threshold(query)
         raw = [
             cand for cand in raw

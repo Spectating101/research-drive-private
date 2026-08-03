@@ -37,11 +37,13 @@ def filter_query_relevant_rows(rows: list[dict[str, Any]], query: str) -> list[d
         _tokens,
         min_relevance_threshold,
         query_geography_ok,
+        query_topic_tokens,
         relevance_score,
     )
 
-    tokens = _tokens(query)
-    if not tokens:
+    all_tokens = _tokens(query)
+    tokens = query_topic_tokens(query)
+    if not all_tokens:
         return list(rows)
     kept: list[dict[str, Any]] = []
     threshold = min_relevance_threshold(query)
