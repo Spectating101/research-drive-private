@@ -1,13 +1,6 @@
 name: Publish Research Drive RC2
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/rc2-publish.yml"
-      - "scripts/verify_rc2_release.mjs"
-      - "scripts/package_rc2_release.sh"
-      - ".github/workflows/rc2-release.yml"
   workflow_dispatch:
 
 permissions:
