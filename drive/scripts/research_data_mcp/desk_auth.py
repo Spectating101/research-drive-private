@@ -108,6 +108,10 @@ def required_permission(path: str, method: str = "GET") -> str:
         if path.startswith("/library/faculty"):
             return "view_faculty_profile"
         return "view_research_data"
+    # Creating a review-gated job is the member submission boundary. Approval,
+    # cancellation, bulk sweeps, and job visibility remain operator-only.
+    if method_u == "POST" and path.rstrip("/") == "/library/jobs":
+        return "submit_collection"
     if path.startswith("/yzu") or path.startswith(
         ("/library/jobs", "/library/campaigns", "/library/credentials")
     ):
