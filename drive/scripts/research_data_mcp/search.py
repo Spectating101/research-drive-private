@@ -464,12 +464,22 @@ class SearchService:
 
     @staticmethod
     def _requires_explicit_hydration(ds: dict[str, Any], params: dict[str, Any]) -> bool:
-        """Keep raw registered trees from triggering an unbounded GDrive read."""
+        """Keep registered remote assets from triggering an implicit GDrive read."""
         backend = str(ds.get("backend") or "").strip()
         readiness = str(ds.get("analysis_readiness") or "").strip().lower()
-        if backend != "local_file" or readiness in {"instant", "query_ready"}:
+        if backend not in {
+            "local_file",
+            "local_csv_file",
+            "local_csv_glob",
+            "local_json_file",
+            "local_json_glob",
+            "local_parquet_panel",
+        }:
             return False
-        return True
+        remote = str(ds.get("canonical_remote") or (ds.get("lineage") or {}).get("canonical_remote") or "").strip()
+        if not remote:
+            return backend == "local_file" and readiness not in {"instant", "query_ready"}
+        return bool(ds.get("hydrate_required") or ds.get("runtime_readiness_reason") == "local_bytes_missing")
 
     def plan_sources(self, q: str, limit: int = 25) -> dict[str, Any]:
         if not q.strip():

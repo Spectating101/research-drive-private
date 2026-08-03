@@ -45,30 +45,65 @@ class ResearchQueryEngine:
         return list(self.datasets.values())
 
     def _reconcile_local_panel_readiness(self) -> None:
-        """Remove stale query-ready claims when a local panel is not materialized."""
+        """Remove stale query-ready claims when local bytes are not materialized.
+
+        Registry readiness records that a bounded query smoke succeeded at
+        promotion time.  That is not durable proof that this desk still has the
+        bytes: Drive-first assets may later need hydration from their canonical
+        archive.  Keep the registry immutable here, but expose the effective
+        runtime state to every list/describe/query consumer.
+        """
         for dataset in self.datasets.values():
-            if dataset.get("backend") != "local_parquet_panel":
+            backend = str(dataset.get("backend") or "")
+            readiness = str(dataset.get("analysis_readiness") or "").lower()
+            if backend not in {
+                "local_parquet_panel",
+                "local_csv_file",
+                "local_csv_glob",
+                "local_json_file",
+                "local_json_glob",
+                "local_file",
+            }:
                 continue
-            if dataset.get("analysis_readiness") != "instant":
+            if readiness not in {"instant", "query_ready"}:
                 continue
-            try:
-                self._resolve_panel_path(dataset, {})
-            except (FileNotFoundError, KeyError, TypeError, ValueError):
-                materialization = dict(dataset.get("materialization") or {})
-                resolved_path = materialization.pop("resolved_path", None)
-                if resolved_path:
-                    materialization["expected_path"] = resolved_path
-                materialization.update(
-                    {
-                        "query_ready": False,
-                        "skipped": "local_panel_missing_at_runtime",
-                    }
-                )
-                dataset["materialization"] = materialization
-                dataset["analysis_readiness"] = "metadata_search"
-                dataset["collection_status"] = "metadata_only"
-                dataset["field_coverage"] = "metadata-only"
-                dataset["runtime_readiness_reason"] = "local_panel_missing"
+            local_path = str(dataset.get("local_path") or "").strip()
+            if backend == "local_parquet_panel" and not local_path:
+                root = str(dataset.get("local_root") or "").rstrip("/")
+                name = str(dataset.get("local_file") or "").lstrip("/")
+                local_path = f"{root}/{name}" if root and name else ""
+            if not local_path:
+                continue
+            resolved = self._resolve(local_path)
+            if "*" in local_path:
+                present = bool(globmod.glob(str(resolved)))
+            else:
+                present = resolved.is_file() and resolved.stat().st_size > 0
+                if backend == "local_file":
+                    present = present or (resolved.is_dir() and any(resolved.iterdir()))
+            if present:
+                continue
+
+            materialization = dict(dataset.get("materialization") or {})
+            resolved_path = materialization.pop("resolved_path", None)
+            if resolved_path:
+                materialization["expected_path"] = resolved_path
+            materialization.update(
+                {
+                    "query_ready": False,
+                    "skipped": "local_bytes_missing_at_runtime",
+                }
+            )
+            dataset["materialization"] = materialization
+            has_archive = bool(
+                dataset.get("canonical_remote")
+                or (dataset.get("lineage") or {}).get("canonical_remote")
+            )
+            dataset["analysis_readiness"] = "registered" if has_archive else "metadata_search"
+            dataset["collection_status"] = "registered" if has_archive else "metadata_only"
+            dataset["field_coverage"] = "metadata-only"
+            dataset["runtime_readiness_reason"] = "local_bytes_missing"
+            dataset["hydrate_required"] = has_archive
 
     def describe(self, dataset_id: str) -> dict[str, Any]:
         if dataset_id not in self.datasets:
