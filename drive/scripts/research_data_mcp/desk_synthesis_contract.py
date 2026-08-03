@@ -165,6 +165,17 @@ def synthesis_failure_reply(status: str = "") -> str:
     )
 
 
+def synthesis_proposal_recorded_reply(title: str = "") -> str:
+    """Truthful fallback when a tool persisted a proposal before prose failed."""
+    named = f" “{str(title).strip()}”" if str(title).strip() else ""
+    return (
+        f"A review proposal{named} was recorded, but the agent explanation did not "
+        "pass the response contract. Review the exact change set in the Synthesis "
+        "canvas before accepting or rejecting it. Nothing was executed, materialised, "
+        "or registered."
+    )
+
+
 def synthesis_reply_violations(text: str, *, first_user_turn: bool) -> list[str]:
     """Return contract violations that make a model reply unsafe to surface."""
     reply = str(text or "").strip()

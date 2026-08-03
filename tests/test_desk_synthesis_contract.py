@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import types
 
@@ -67,6 +68,18 @@ def test_synthesis_failure_never_claims_inventory_or_progress():
     assert "have not inferred a construct" in reply
     assert "vault" not in reply.lower()
     assert "ready now" not in reply.lower()
+
+
+def test_recorded_proposal_failure_copy_acknowledges_durable_change():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_proposal_recorded_reply,
+    )
+
+    reply = synthesis_proposal_recorded_reply("Review acceleration method")
+    assert "was recorded" in reply
+    assert "exact change set" in reply
+    assert "Nothing was executed" in reply
+    assert "changed the project" not in reply
 
 
 def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
@@ -153,6 +166,110 @@ def _install_empty_cursor(monkeypatch):
     cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
     monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
     monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
+
+
+def _install_proposal_then_invalid_reply_cursor(monkeypatch):
+    proposal = {
+        "id": "proposal-1",
+        "title": "Review acceleration method",
+        "summary": "Review-only proposed construction.",
+        "operations": [{"op": "update_spec", "value": {"grain": "month"}}],
+    }
+
+    class ProposalRun:
+        status = "success"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "I collected the final panel."
+
+        def conversation(self):
+            message = types.SimpleNamespace(
+                type="tool_call",
+                name="research_synthesis_propose_state",
+                result=json.dumps(
+                    {
+                        "thread_id": "thread-a",
+                        "synthesis_proposal": proposal,
+                    }
+                ),
+            )
+            return [types.SimpleNamespace(steps=[types.SimpleNamespace(message=message)])]
+
+    class ProposalAgent:
+        agent_id = "agent-proposal"
+
+        @classmethod
+        def create(cls, _opts):
+            return cls()
+
+        @classmethod
+        def resume(cls, _agent_id, _opts):
+            return cls()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, _text, _opts):
+            return ProposalRun()
+
+    cursor_sdk = types.ModuleType("cursor_sdk")
+    cursor_sdk.Agent = ProposalAgent
+    cursor_types = types.ModuleType("cursor_sdk.types")
+    cursor_types.AgentOptions = lambda **kwargs: kwargs
+    cursor_types.ModelSelection = lambda **kwargs: kwargs
+    cursor_types.SendOptions = lambda **kwargs: kwargs
+    cursor_types.StdioMcpServerConfig = lambda **kwargs: kwargs
+    cursor_types.LocalAgentOptions = lambda **kwargs: kwargs
+    cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
+    monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
+
+
+def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+
+    _install_proposal_then_invalid_reply_cursor(monkeypatch)
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
+    )
+    monkeypatch.setattr(
+        desk_synthesis_fallback,
+        "run_gemini_synthesis_turn",
+        lambda _prompt: (_ for _ in ()).throw(
+            AssertionError("a recorded proposal must not be hidden by fallback prose")
+        ),
+    )
+
+    state = {
+        "desk_primed": True,
+        "rail_context": {
+            "tab": "synthesis",
+            "mode": "define",
+            "thread_id": "thread-a",
+            "entity": {"kind": "synthesis_thread", "id": "thread-a"},
+        },
+    }
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path),
+        "Persist the review proposal.",
+        state,
+    )
+
+    assert turn.action_result["action"] == "synthesis_proposal_recorded_response_error"
+    assert turn.action_result["proposal_recorded"] is True
+    assert turn.action_result["synthesis_thread_id"] == "thread-a"
+    assert turn.action_result["synthesis_proposal"]["id"] == "proposal-1"
+    assert "was recorded" in turn.reply
+    assert "Nothing was executed" in turn.reply
 
 
 def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_path):
