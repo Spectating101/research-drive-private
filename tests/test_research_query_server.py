@@ -171,6 +171,61 @@ def test_optiplex_launcher_accepts_exact_public_and_private_authorities(tmp_path
     assert str(static_dir) in args
 
 
+def test_optiplex_launcher_accepts_named_principals_without_shared_token(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    private_sha = _git(repo_root, "rev-parse", "HEAD")
+    public, public_sha = _public_authority(tmp_path)
+    static_dir = public / "dist"
+    static_dir.mkdir()
+    (static_dir / "index.html").write_text("<main>Research Drive</main>", encoding="utf-8")
+    (static_dir / "research-drive-build.json").write_text(
+        json.dumps({"public_sha": public_sha, "private_sha": private_sha}),
+        encoding="utf-8",
+    )
+    principals = tmp_path / "principals.json"
+    principals.write_text('{"principals": []}', encoding="utf-8")
+    fake_python, capture = _fake_python(tmp_path)
+    env = _launcher_environment(repo_root, public, public_sha, fake_python, capture)
+    env.pop("YZU_DESK_ACCESS_TOKEN")
+    env["DESK_PRINCIPALS_FILE"] = str(principals)
+    env["YZU_DESK_SESSION_SIGNING_SECRET"] = "independent-signing-secret"
+
+    result = subprocess.run(
+        ["bash", str(repo_root / "drive/scripts/research_query_engine/run_optiplex_front_door.sh")],
+        cwd=repo_root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture.exists()
+
+
+def test_optiplex_launcher_rejects_missing_auth_configuration(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    public, public_sha = _public_authority(tmp_path)
+    fake_python, capture = _fake_python(tmp_path)
+    env = _launcher_environment(repo_root, public, public_sha, fake_python, capture)
+    env.pop("YZU_DESK_ACCESS_TOKEN")
+    env.pop("DESK_PRINCIPALS_FILE", None)
+    env.pop("YZU_DESK_SESSION_SIGNING_SECRET", None)
+
+    result = subprocess.run(
+        ["bash", str(repo_root / "drive/scripts/research_query_engine/run_optiplex_front_door.sh")],
+        cwd=repo_root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "DESK_PRINCIPALS_FILE" in result.stderr
+    assert not capture.exists()
+
+
 def test_optiplex_launcher_rejects_stale_private_build_identity(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     public, public_sha = _public_authority(tmp_path)
