@@ -44,6 +44,7 @@ def test_two_letter_us_constraint_drops_irish_polling():
     rows = [
         {"title": "Irish Polling Indicator"},
         {"title": "American National Election Studies polling data"},
+        {"title": "US SP500 daily market data"},
     ]
     assert [row["title"] for row in filter_query_relevant_rows(rows, "US polling data")] == [
         "American National Election Studies polling data"
@@ -102,3 +103,17 @@ def test_real_registry_federation_obeys_compound_and_geography_constraints(
     titles = " ".join(str(row.get("title") or "") for row in (out.get("rows") or [])).lower()
     assert all(term in titles for term in required), (query, titles)
     assert not any(term in titles for term in forbidden), (query, titles)
+
+
+def test_real_registry_instant_index_requires_topic_beside_geography() -> None:
+    from scripts.research_data_mcp.gateway import ResearchDataGateway
+
+    gateway = ResearchDataGateway(REPO / "drive")
+    out = gateway.discover_search("US polling data", limit=12)
+    titles = " ".join(
+        str(row.get("title") or "")
+        for section in (out.get("sections") or [])
+        for row in (section.get("rows") or [])
+    ).lower()
+    assert "sp500" not in titles
+    assert "news shock" not in titles

@@ -28,11 +28,11 @@ MIN_TOP_RELEVANCE = 1.0
 
 def min_relevance_threshold(query: str) -> float:
     """Compound queries need more than one accidental token hit."""
-    tokens = _tokens(query)
-    geography = {token for rule in _query_geography_rules(query) for token in rule[4]}
-    n = len(tokens - geography)
+    n = len(query_topic_tokens(query))
     if n >= 2:
         return 2.0
+    if n == 0 and _query_geography_rules(query):
+        return 0.0
     return MIN_TOP_RELEVANCE
 
 
@@ -126,6 +126,12 @@ def _query_geography_rules(query: str) -> list[GeographyRule]:
     return [rule for rule in GEOGRAPHY_RULES if rule[0].search(query) or (rule[1] and rule[1].search(query))]
 
 
+def query_topic_tokens(query: str) -> set[str]:
+    """Distinctive need terms, excluding geography enforced separately."""
+    geography = {token for rule in _query_geography_rules(query) for token in rule[4]}
+    return _tokens(query) - geography
+
+
 def query_geography_ok(row: dict[str, Any], query: str) -> bool:
     """A named geography is a requirement, not an optional ranking boost."""
     required = _query_geography_rules(query)
@@ -169,7 +175,7 @@ def relevance_score(row: dict[str, Any], query_tokens: set[str]) -> float:
 def top_query_relevance(query: str, candidate: dict[str, Any] | None) -> float:
     if not candidate:
         return 0.0
-    return relevance_score(candidate, _tokens(query))
+    return relevance_score(candidate, query_topic_tokens(query))
 
 
 def relevance_weak_miss(query: str, candidates: list[dict[str, Any]]) -> bool:
