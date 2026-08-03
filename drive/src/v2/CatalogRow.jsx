@@ -1,4 +1,5 @@
 import { statusPill, displayName, rowSubtitle } from "@/v2/datasetMeta";
+import { datasetBrowsePathLabel, folderBrowseSummary } from "@/v2/folderBrowseSummary";
 import { StatusPill } from "@/v2/StatusPill";
 import { SourceRibbon } from "@/v2/ui";
 
@@ -35,9 +36,14 @@ export function CatalogRow({
   const isFolder = item.kind === "folder";
   const dataset = item.row || item;
   const title = isFolder ? item.name : displayName(dataset);
-  const sub = isFolder ? null : rowSubtitle(dataset);
-  const desc = isFolder || compact ? null : datasetDescription(dataset);
-  const childCount = isFolder ? Object.keys(item.children || {}).length : 0;
+  const folderSummary = isFolder ? folderBrowseSummary(item) : null;
+  const pathLabel = !isFolder ? datasetBrowsePathLabel(item) : "";
+  const sub = isFolder ? folderSummary.sub : rowSubtitle(dataset);
+  const desc = isFolder
+    ? folderSummary.desc
+    : compact
+      ? null
+      : datasetDescription(dataset);
   const state = !isFolder && rowState ? rowState(dataset) : null;
   const kind = isFolder ? "folder" : external ? "external" : "dataset";
 
@@ -63,18 +69,18 @@ export function CatalogRow({
         </span>
         <span className="text">
           <span className="row-title">{title}</span>
+          {pathLabel ? <span className="row-desc rd-v2-row-path">{pathLabel}</span> : null}
           {desc ? <span className="row-desc">{desc}</span> : null}
-          {!isFolder && sub ? <span className="row-sub">{sub}</span> : null}
-          {isFolder ? (
-            <span className="row-sub">{childCount} item{childCount !== 1 ? "s" : ""}</span>
-          ) : null}
+          {sub ? <span className="row-sub">{sub}</span> : null}
         </span>
         {!isFolder && state ? (
           <span className={`rd-v2-pill ${state.className}`}>{state.label}</span>
         ) : null}
         {!isFolder && !state ? <StatusPill dataset={dataset} label={statusPill(dataset)} /> : null}
         {isFolder ? (
-          <span className="rd-v2-pill muted">{childCount}</span>
+          <span className="rd-v2-pill muted" title="Datasets in this branch">
+            {folderSummary.pill}
+          </span>
         ) : null}
       </button>
     </li>

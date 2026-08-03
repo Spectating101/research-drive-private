@@ -13,6 +13,7 @@ import {
   RailStickyFooter,
 } from "@/v2/RailFrame";
 import { DetailPanel } from "@/v2/DetailPanel";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
 
 function fmtGiB(gib) {
   if (gib == null) return "—";
@@ -147,7 +148,7 @@ const RAIL_ACTION_LABELS = {
 const PAGE_RAIL_COPY = {
   home: {
     title: "Research Drive",
-    desc: "Start from the lab vault, missing-data search, or resource safety checks.",
+    desc: "Start from the Library, missing-data search, or resource safety checks.",
     fields: [
       ["Use this page", "See what needs attention now"],
       ["Primary move", "Open Library or Discover"],
@@ -156,9 +157,9 @@ const PAGE_RAIL_COPY = {
   },
   library: {
     title: "Library guide",
-    desc: "The lab’s working data vault: folders, registered datasets, query readiness, and procurement memory.",
+    desc: "Your working data vault: folders, registered datasets, query readiness, and procurement memory.",
     fields: [
-      ["Use this page", "Find data the lab already has"],
+      ["Use this page", "Find data you already have"],
       ["Primary move", "Select a dataset or branch"],
       ["When missing", "Add URL / DOI or procure missing data"],
       ["Trust cue", "Rows should show readiness, source, and destination"],
@@ -167,10 +168,14 @@ const PAGE_RAIL_COPY = {
   synthesis: {
     title: "Synthesis studio",
     desc: "Build a reusable research output from owned Library assets.",
+    // VC-6: the rail describes the objective-first construction lifecycle, not
+    // the retired blueprint/custom-pair picker.
     fields: [
-      ["Use this page", "Choose a blueprint or custom pair"],
-      ["Review", "Join path, grain, time overlap, and readiness"],
-      ["Output", "Run the synthesis and confirm registration"],
+      ["Start", "Describe the construct you need"],
+      ["Ask", "Clarifies meaning and required evidence"],
+      ["Ground", "Checks Library inputs and defensible proxies"],
+      ["Review", "You approve the method before execution"],
+      ["Output", "Archive, registration, and readiness remain separate"],
     ],
   },
   profile: {
@@ -204,7 +209,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
   const [target, setTarget] = useState("");
   const names = files.map((file) => file.name).filter(Boolean);
   const mode = object?.mode || "upload";
-  const destination = object?.destination || "Lab root";
+  const destination = object?.destination || "Library root";
 
   const chooseFiles = () => inputRef.current?.click();
   const setPickedFiles = (picked) => setFiles(Array.from(picked || []));
@@ -231,7 +236,13 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
               value={target}
               onChange={(event) => setTarget(event.target.value)}
               placeholder="https://doi.org/10.1234/example&#10;https://data.example.org/dataset"
+              onKeyDown={(event) => {
+                handleEnterToSubmit(event, () => {
+                  if (target.trim()) onSubmitUrl?.(target.trim(), object);
+                });
+              }}
             />
+            <p className="rd-v2-ask-send-hint">Enter to send · ⇧↵ newline</p>
           </div>
         </div>
         <RailStickyFooter>
@@ -352,7 +363,7 @@ export function LibraryObjectRailPanel({
   const counts = folder.counts || {};
   const root = !folder.folderId;
   const desc = root
-    ? "The lab's owned data estate and acquisition memory."
+    ? "Your owned data estate and acquisition memory."
     : folder.note || "Datasets and research assets organized in this collection.";
 
   return (
@@ -360,7 +371,7 @@ export function LibraryObjectRailPanel({
       <RailEntityHeader
         title={folder.title}
         description={desc}
-        pills={<span className="rd-v2-pill lab">{root ? "Lab library" : "Collection"}</span>}
+        pills={<span className="rd-v2-pill lab">{root ? "Library" : "Collection"}</span>}
       />
       <div className="rd-v2-rail-scroll rd-v2-library-folder-inspector">
         <section className="rd-v2-library-folder-summary">

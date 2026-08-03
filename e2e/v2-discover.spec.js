@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import {
   MOCK_DISCOVER_HIT,
   mockV2Api,
-  v2Nav,
   waitForShell,
 } from "./fixtures/v2MockApi.js";
 
@@ -12,6 +11,12 @@ import {
  * Classify via docs/DISCOVER_E2E_AUTHORITY_AUDIT.md before product fixes.
  */
 
+async function searchDiscover(page, query = "MOPS") {
+  await page.getByLabel("Search or describe a research need").fill(query);
+  await page.getByRole("button", { name: "Explore", exact: true }).click();
+  await expect(page.getByTestId("discover-result-summary")).toBeVisible();
+}
+
 test.describe("v2 Discover tab", () => {
   test.beforeEach(async ({ page }) => {
     await mockV2Api(page);
@@ -20,26 +25,39 @@ test.describe("v2 Discover tab", () => {
     await waitForShell(page);
   });
 
-  test("empty state shows suggestions before search", async ({ page }) => {
+  test("empty state offers one adaptive entrance and quiet intake", async ({ page }) => {
     await expect(page.getByTestId("discover-empty")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Discover external datasets" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "TWSE governance" })).toBeVisible();
+    await expect(page.getByLabel("Search or describe a research need")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Explore", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /mode/i })).toHaveCount(0);
+    await expect(page.getByLabel("Public URL or DOI")).toBeVisible();
+    // VC-5: two compact examples teach the one-composer behaviour, and the
+    // curated-source block collapses to a single quiet line when it has no
+    // routes rather than filling the canvas with an empty section.
+    const examples = page.getByTestId("discover-composer-examples");
+    await expect(examples).toBeVisible();
+    await expect(examples.getByText("Try a keyword")).toBeVisible();
+    await expect(examples.getByText("Ask a research need")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Sources the desk already knows how to investigate" }),
+    ).toHaveCount(0);
+    await expect(page.getByText("No curated source routes yet")).toBeVisible();
   });
 
-  test("suggestion chip fills header search and shows demo results", async ({ page }) => {
-    await page.getByRole("button", { name: "TWSE governance" }).click();
-    await expect(page.locator(".rd-v2-search-pill input")).toHaveValue("TWSE governance");
+  test("keyword search renders the external result composition", async ({ page }) => {
+    await searchDiscover(page, "TWSE governance");
     await expect(page.locator('button.rd-v2-discover-candidate').first()).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('button.rd-v2-discover-candidate')).not.toHaveCount(0);
-    await expect(page.locator(".rd-v2-discover-browse-groups")).toContainText(/TWSE Open\s*API/i);
-    await expect(page.getByTestId("discover-result-summary")).toContainText(/\d+ result/i);
+    await expect(page.getByTestId("discover-best-fit")).toContainText(/TWSE Open\s*API|TWSE|MOPS|candidate/i);
+    await expect(page.getByTestId("discover-interpreting")).toBeVisible();
+    await expect(page.getByLabel("Discover next actions")).toContainText(/\d+ result/i);
+    await expect(page.getByTestId("discover-rank-foot")).toContainText(/Ranked using active research/i);
     await expect(page.getByTestId("discover-filter-menu")).toBeVisible();
     await expect(page.getByTestId("discover-browse-mode")).not.toContainText(/process overview/i);
   });
 
   test("selecting a discover row keeps Explore visible and updates the Detail rail", async ({ page }) => {
-    await page.locator(".rd-v2-search-pill input").fill("MOPS");
-    await page.locator(".rd-v2-search-pill input").press("Enter");
+    await searchDiscover(page);
     await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate').first().click();
     const surface = page.locator("aside.rd-v2-rail").getByTestId("discover-eval-surface");
     await expect(surface).toBeVisible();
@@ -52,7 +70,11 @@ test.describe("v2 Discover tab", () => {
     await expect(surface).toContainText("Still unknown");
     await expect(surface.locator(".rd-v2-eval-tech")).toBeVisible();
     await expect(surface.locator(".rd-v2-eval-tech")).not.toHaveAttribute("open");
-    await expect(page.locator('[data-testid="discover-eval-actions"] .rd-v2-btn.primary', { hasText: "Add to lab" })).toBeVisible();
+    await expect(
+      page.locator('[data-testid="discover-eval-actions"] .rd-v2-btn.primary', {
+        hasText: /Request this evidence|Open in Library/,
+      }),
+    ).toBeVisible();
     await expect(surface).not.toContainText("What we know");
     await expect(surface).not.toContainText("Possession");
   });
@@ -62,7 +84,7 @@ test.describe("v2 Discover tab", () => {
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await searchDiscover(page, "mops");
     await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" }).click();
 
     const shell = page.locator(".rd-v2-shell");
@@ -83,7 +105,7 @@ test.describe("v2 Discover tab", () => {
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await searchDiscover(page, "mops");
     await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" }).click();
 
     const rail = page.locator("aside.rd-v2-rail");
@@ -99,7 +121,7 @@ test.describe("v2 Discover tab", () => {
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    await page.locator(".rd-v2-search-pill input").fill("mops");
+    await searchDiscover(page, "mops");
     await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" }).click();
     await page.locator('[data-testid="discover-eval-actions"]').getByRole("button", { name: "Probe source" }).click();
     const surface = page.locator("aside.rd-v2-rail").getByTestId("discover-eval-surface");

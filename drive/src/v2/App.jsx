@@ -6,7 +6,9 @@ import {
   deskHealth,
   deskResources,
   deskWarm,
-  ensureDeskSession,
+  ensureDeskAccess,
+  createDiscoverIntent,
+  craftDiscoverIntentProposal,
   discoverHistory,
   facultyProfile,
   libraryOps,
@@ -14,13 +16,16 @@ import {
   listAcquisitions,
   listDatasets,
   listJobs,
-  listPartitions,
+  listLibraryNav,
   probePublicSource,
   procurementCatalogSummary,
-  submitDiscoverCollect,
+  setDiscoverIntentProposal,
+  submitLibraryJob,
+  craftCollectPlan,
   yzuClusterStatus,
 } from "@/v2/api";
 import { AskRail } from "@/v2/AskRail";
+import { DeskAccessGate } from "@/v2/DeskAccessGate";
 import {
   datasetObject,
   discoverHistoryObject,
@@ -33,7 +38,9 @@ import {
 import { BrowsePage } from "@/v2/BrowsePage";
 import { ClusterPage } from "@/v2/ClusterPage";
 import { computeDatasetOverlap } from "@/v2/clusterOverlap";
-import { loadUserEmail } from "@/v2/deskSession";
+import { loadUserEmail, saveUserEmail } from "@/v2/deskSession";
+import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
+import { normalizeReleaseTab } from "@/v2/releaseVisibility";
 import { HomePage } from "@/v2/HomePage";
 import { InspectorRail } from "@/v2/InspectorRail";
 import { LibraryPage } from "@/v2/LibraryPage";
@@ -49,8 +56,11 @@ import {
 } from "@/v2/discoverLifecycle";
 import { Toast, useToast } from "@/v2/toast";
 import { V2Sidebar } from "@/v2/V2Sidebar";
-import { touchRecent } from "@/v2/recent";
+import { recentDatasets, touchRecent } from "@/v2/recent";
+import { displayName, isQueryReadyReadiness } from "@/v2/datasetMeta";
+import { buildLab, PILOT_PREVIEW_EMAIL } from "@/v2/profileViewModel";
 import { mergeHealth, resolveCatalog } from "@/v2/deskSeed";
+import { projectRollupFromHealth } from "@/v2/homeIteration10";
 import { buildDeskIntegrationChips } from "@/v2/deskIntegration";
 import { loadSettings } from "@/v2/settingsStore";
 import { CLUSTER_NAV_DEFERRED } from "@/v2/nav-config.jsx";
@@ -60,18 +70,27 @@ import {
   discoverCandidateUrl,
 } from "@/v2/discoverActions";
 import { candidateKey } from "@/v2/candidateKey";
-import { durableHistoryToEvents, mergeHistoryEvents } from "@/v2/discoverAdapters";
+import {
+  discoverIntentCandidate,
+  proposalFromDiscoverCandidate,
+} from "@/v2/discoverIntent";
+import {
+  durableHistoryToEvents,
+  enrichHistoryEventsFromJobs,
+  mergeHistoryEvents,
+} from "@/v2/discoverAdapters";
 import { discoverModeFromLegacy, discoverModeToUrlState } from "@/v2/discoverMode";
 import { jobToDiscoverHistoryEvent, pendingApprovalJobs } from "@/v2/procurementJobs";
 import { discoverCandidateState } from "@/v2/browseMeta";
 import { buildRailContext } from "@/v2/railContext";
+import { holdingIdsFromCatalog } from "@/v2/discoverTaxonomy";
 
 function readParams() {
   const p = new URLSearchParams(window.location.search);
   const rawTab = p.get("tab") || loadSettings().defaultTab || "home";
   const folder = p.get("folder") || "";
   const q = p.get("q") || "";
-  let tab = rawTab === "discover" ? "browse" : rawTab;
+  let tab = normalizeReleaseTab(rawTab === "discover" ? "browse" : rawTab);
   // Library deep links: folder+dataset without a Discover query belong on Library.
   if (tab === "browse" && folder && !q) {
     tab = "library";
@@ -88,11 +107,24 @@ function readParams() {
   };
 }
 
+/**
+ * Only Home/Discover/Library read a selected dataset. Resources, Profile,
+ * Synthesis, Settings and Cluster ignore it, so carrying it there produces a
+ * shareable deep link pinned to a dataset the page never uses — reopening it
+ * restores a stale selection. Allow-list, so a tab added later does not
+ * silently inherit the parameter.
+ */
+function tabOwnsDataset(tab) {
+  return tab === "home" || tab === "browse" || tab === "library";
+}
+
 function writeParams({ tab, dataset, folder, preview, q, mode }) {
   const p = new URLSearchParams();
   if (tab && tab !== "home") p.set("tab", tab);
   if (folder) p.set("folder", folder);
-  if (dataset) p.set("dataset", dataset);
+  // Enforced here rather than at call sites: writeParams is the single writer,
+  // so no caller can reintroduce the leak.
+  if (dataset && tabOwnsDataset(tab)) p.set("dataset", dataset);
   if (preview) p.set("preview", "1");
   if (q) p.set("q", q);
   const modeUrl = discoverModeToUrlState(mode || "explore");
@@ -162,34 +194,129 @@ export function V2App() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [profile, setProfile] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(() => readParams().q);
+  /** Unbound desk still binds sidebar Active research from EXAMPLE pilot (same as Profile). */
+  const [pilotProfile, setPilotProfile] = useState(null);
+  /** Bump when touchRecent runs so sidebar Recent recomputes (localStorage alone does not). */
+  const [recentEpoch, setRecentEpoch] = useState(0);
+  /** Library header filter only — never shared with Discover. */
+  const [librarySearchQuery, setLibrarySearchQuery] = useState("");
+  /** Discover page search only — never driven by the header catalog pill. */
+  const [discoverSearchQuery, setDiscoverSearchQuery] = useState(() => readParams().q);
   const [discoverMode, setDiscoverMode] = useState(() => readParams().discoverMode || "explore");
   const [discoverFocusAwaiting, setDiscoverFocusAwaiting] = useState(() => Boolean(readParams().discoverFocusAwaiting));
+  /** Temporary full-canvas intent review inside Discover Explore; never a permanent mode. */
+  const [discoverIntentRecord, setDiscoverIntentRecord] = useState(null);
+  /** Coverage assessment lives in the Discover Detail rail and never replaces results. */
+  const [discoverAssessment, setDiscoverAssessment] = useState({
+    active: false,
+    question: "",
+    result: null,
+  });
+  /** One-shot: Explore should hit live source adapters (Search wider / Ask handoff). */
+  const [discoverPreferLive, setDiscoverPreferLive] = useState(false);
   const [historyEvents, setHistoryEvents] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [loadError, setLoadError] = useState("");
+  const [deskAccess, setDeskAccess] = useState(null);
+  const [deskAccessBusy, setDeskAccessBusy] = useState(true);
   const [health, setHealth] = useState(null);
   const [deskRefreshedAt, setDeskRefreshedAt] = useState(null);
   const [acquisitions, setAcquisitions] = useState([]);
   const [partitions, setPartitions] = useState([]);
+  const [shelves, setShelves] = useState([]);
+  const [libraryGuide, setLibraryGuide] = useState(null);
   const [ops, setOps] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [overview, setOverview] = useState(null);
   const [catalogSummary, setCatalogSummary] = useState(null);
   const [cluster, setCluster] = useState(null);
-  const [resourcesRollup, setResourcesRollup] = useState(undefined);
+  // Cache-first (same as Resources page) so Home headroom is not blocked on /desk/resources.
+  const [resourcesRollup, setResourcesRollup] = useState(() => readResourcesRollupCache() ?? undefined);
   const [resourcesRefreshedAt, setResourcesRefreshedAt] = useState(null);
-  const [resourceMode, setResourceMode] = useState("spending");
+  const [resourceMode, setResourceMode] = useState("sources");
   const [activityFilter, setActivityFilter] = useState(null);
   const [pendingAsk, setPendingAsk] = useState("");
   const { toast, show: showToast, dismissIf: dismissToastIf } = useToast();
+  const authenticatedEmail = String(deskAccess?.principal?.email || "").trim();
+  const canUseAsk = Boolean(deskAccess?.permissions?.use_ask);
+  const canSubmitCollection = Boolean(deskAccess?.permissions?.submit_collection);
+  const canApproveJobs = Boolean(deskAccess?.permissions?.approve_jobs);
+
+  const refreshDeskAccess = useCallback(async ({ force = false } = {}) => {
+    setDeskAccessBusy(true);
+    try {
+      const access = await ensureDeskAccess({ force });
+      setDeskAccess(access || { authenticated: false });
+      return access;
+    } finally {
+      setDeskAccessBusy(false);
+    }
+  }, []);
 
   const reloadProfile = useCallback(() => {
-    const email = loadUserEmail();
+    // Showcase soft-default: keep Kong bound when the browser has no faculty email yet
+    // (or after a desk outage wiped the visible identity).
+    let email = authenticatedEmail || loadUserEmail();
+    if (!email) email = saveUserEmail(PILOT_PREVIEW_EMAIL);
     facultyProfile(email)
-      .then((data) => setProfile(data?.found ? data.profile : { email, unknown: true }))
-      .catch(() => setProfile({ email, unknown: true }));
-  }, []);
+      .then((data) => {
+        if (!data?.found || !data.profile || data.profile.unknown) {
+          // Fall back to pilot bind rather than leaving the desk looking empty.
+          if (email !== PILOT_PREVIEW_EMAIL) {
+            saveUserEmail(PILOT_PREVIEW_EMAIL);
+            facultyProfile(PILOT_PREVIEW_EMAIL)
+              .then((pilot) => {
+                if (pilot?.found && pilot.profile && !pilot.profile.unknown) {
+                  setProfile(pilot.profile);
+                } else {
+                  setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true });
+                }
+              })
+              .catch(() => setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true }));
+            return;
+          }
+          setProfile({ email, unknown: true });
+          return;
+        }
+        setProfile(data.profile);
+      })
+      .catch(() => {
+        if (email !== PILOT_PREVIEW_EMAIL) {
+          saveUserEmail(PILOT_PREVIEW_EMAIL);
+          facultyProfile(PILOT_PREVIEW_EMAIL)
+            .then((pilot) => {
+              if (pilot?.found && pilot.profile && !pilot.profile.unknown) {
+                setProfile(pilot.profile);
+              } else {
+                setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true });
+              }
+            })
+            .catch(() => setProfile({ email: PILOT_PREVIEW_EMAIL, unknown: true }));
+          return;
+        }
+        setProfile({ email, unknown: true });
+      });
+  }, [authenticatedEmail]);
+
+  useEffect(() => {
+    if (!deskAccess?.authenticated) return undefined;
+    if (profile && !profile.unknown) {
+      setPilotProfile(null);
+      return undefined;
+    }
+    let cancelled = false;
+    facultyProfile(PILOT_PREVIEW_EMAIL)
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.found && data.profile && !data.profile.unknown) setPilotProfile(data.profile);
+      })
+      .catch(() => {
+        if (!cancelled) setPilotProfile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile, deskAccess?.authenticated]);
 
   const applyCatalog = useCallback((rows, errMsg = "") => {
     const { catalog, usingSeed: seed } = resolveCatalog(rows);
@@ -223,15 +350,53 @@ export function V2App() {
         }
         applyCatalog([], err.message);
       });
+    deskHealth(false)
+      .then((h) => {
+        const merged = mergeHealth(h);
+        setHealth(merged);
+        setDeskRefreshedAt(Date.now());
+        // Paint Home headroom from /health immediately; full /desk/resources hydrates after.
+        setResourcesRollup((cur) => {
+          if (cur && typeof cur === "object" && cur.status === "ok") return cur;
+          if (cur && cur.usage?.vault?.used_tb != null) return cur;
+          return projectRollupFromHealth(merged) || cur;
+        });
+      })
+      .catch(() =>
+        deskHealth(false)
+          .then((h) => {
+            const merged = mergeHealth(h);
+            setHealth(merged);
+            setDeskRefreshedAt(Date.now());
+            setResourcesRollup((cur) => {
+              if (cur && typeof cur === "object" && cur.status === "ok") return cur;
+              if (cur && cur.usage?.vault?.used_tb != null) return cur;
+              return projectRollupFromHealth(merged) || cur;
+            });
+          })
+          .catch(() => setHealth(mergeHealth(null))),
+      );
+    // Optional live probe — never blank the fast health if it times out.
     deskHealth(true)
-      .then((h) => setHealth(mergeHealth(h)))
-      .catch(() => deskHealth().then((h) => setHealth(mergeHealth(h))).catch(() => setHealth(mergeHealth(null))));
+      .then((h) => {
+        setHealth(mergeHealth(h));
+        setDeskRefreshedAt(Date.now());
+      })
+      .catch(() => {});
     listAcquisitions(true)
       .then((d) => setAcquisitions(d.acquisitions || []))
       .catch(() => setAcquisitions([]));
-    listPartitions()
-      .then((rows) => setPartitions(Array.isArray(rows) ? rows : []))
-      .catch(() => setPartitions([]));
+    listLibraryNav()
+      .then((payload) => {
+        setPartitions(Array.isArray(payload?.partitions) ? payload.partitions : []);
+        setShelves(Array.isArray(payload?.shelves) ? payload.shelves : []);
+        setLibraryGuide(payload?.guide && typeof payload.guide === "object" ? payload.guide : null);
+      })
+      .catch(() => {
+        setPartitions([]);
+        setShelves([]);
+        setLibraryGuide(null);
+      });
     libraryOps()
       .then(setOps)
       .catch(() => setOps(null));
@@ -259,6 +424,7 @@ export function V2App() {
       .catch(() => setCluster(null));
     deskResources(false)
       .then((payload) => {
+        writeResourcesRollupCache(payload);
         setResourcesRollup(payload);
         setResourcesRefreshedAt(Date.now());
       })
@@ -285,20 +451,23 @@ export function V2App() {
   );
 
   useEffect(() => {
-    refreshBackend();
-  }, [refreshBackend]);
+    refreshDeskAccess();
+  }, [refreshDeskAccess]);
 
   useEffect(() => {
+    if (deskAccess?.authenticated) refreshBackend();
+  }, [refreshBackend, deskAccess?.authenticated]);
+
+  useEffect(() => {
+    if (!deskAccess?.authenticated) return undefined;
     let cancelled = false;
     (async () => {
-      await ensureDeskSession().catch(() => ({ ok: false }));
-      if (cancelled) return;
-      deskWarm({ userEmail: loadUserEmail(), background: true }).catch(() => {});
+      deskWarm({ userEmail: authenticatedEmail || loadUserEmail(), background: true }).catch(() => {});
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authenticatedEmail, deskAccess?.authenticated]);
 
   const askFromPrompt = useCallback((prompt) => {
     if (!prompt) return;
@@ -321,7 +490,7 @@ export function V2App() {
         folder: folderId,
         dataset: selectedId,
         preview: previewOpen,
-        q: tab === "browse" ? searchQuery.trim() : "",
+        q: tab === "browse" ? discoverSearchQuery.trim() : "",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot URL normalize on mount
@@ -339,7 +508,11 @@ export function V2App() {
 
   const catalog = datasets;
 
-  const labIds = useMemo(() => new Set(catalog.map((d) => d.dataset_id)), [catalog]);
+  const pageSearchQuery = tab === "browse" ? discoverSearchQuery : tab === "library" ? librarySearchQuery : "";
+
+  // `/datasets` is the registry authority, not a possession list: it includes
+  // held assets, catalogue references, connectors, and procurement candidates.
+  const labIds = useMemo(() => holdingIdsFromCatalog(catalog), [catalog]);
 
   const selectedFromList = useMemo(
     () => catalog.find((d) => d.dataset_id === selectedId) || null,
@@ -364,8 +537,9 @@ export function V2App() {
   const browseTarget = browseRow;
   const browseSelectedId = browseRow ? candidateKey(browseRow) : "";
   const historyItems = useMemo(() => {
+    const enriched = enrichHistoryEventsFromJobs(historyEvents, jobs);
     const durableJobIds = new Set(
-      historyEvents
+      enriched
         .map((event) => event?.meta?.job_id || event?.job_id)
         .filter(Boolean),
     );
@@ -373,7 +547,7 @@ export function V2App() {
       .filter((job) => job?.id && !durableJobIds.has(job.id))
       .map(jobToDiscoverHistoryEvent)
       .filter(Boolean);
-    return mergeHistoryEvents(historyEvents, jobEvents);
+    return mergeHistoryEvents(enriched, jobEvents);
   }, [historyEvents, jobs]);
   const selectedHistoryEvent = useMemo(
     () => historyItems.find((event) => event?.id === selectedHistoryId) || null,
@@ -404,12 +578,12 @@ export function V2App() {
         mode: railTab,
         dataset: detail,
         activeObject,
-        searchQuery,
+        searchQuery: pageSearchQuery,
         folderId,
         clusterContext,
         profileEmail: profile?.email || loadUserEmail(),
       }),
-    [tab, railTab, detail, activeObject, searchQuery, folderId, clusterContext, profile],
+    [tab, railTab, detail, activeObject, pageSearchQuery, folderId, clusterContext, profile],
   );
 
   const syncUrl = useCallback(
@@ -419,11 +593,12 @@ export function V2App() {
         patch.q !== undefined
           ? patch.q
           : nextTab === "browse"
-            ? searchQuery.trim()
+            ? discoverSearchQuery.trim()
             : "";
       const next = {
         tab: nextTab,
         folder: patch.folder ?? folderId,
+        // writeParams drops this for tabs that don't own a dataset.
         dataset: patch.dataset ?? selectedId,
         preview: patch.preview ?? previewOpen,
         q: nextQ,
@@ -431,7 +606,7 @@ export function V2App() {
       };
       writeParams(next);
     },
-    [tab, folderId, selectedId, previewOpen, searchQuery, discoverMode],
+    [tab, folderId, selectedId, previewOpen, discoverSearchQuery, discoverMode],
   );
 
   const setDiscoverModeSafe = useCallback(
@@ -447,9 +622,9 @@ export function V2App() {
         setSelectedHistoryId("");
         setActiveObject((current) => (current?.kind === "discover_history" ? null : current));
       }
-      syncUrl({ tab: "browse", q: searchQuery.trim(), mode: nextState.mode });
+      syncUrl({ tab: "browse", q: discoverSearchQuery.trim(), mode: nextState.mode });
     },
-    [searchQuery, syncUrl],
+    [discoverSearchQuery, syncUrl],
   );
 
   const openDiscoverAwaiting = useCallback(
@@ -458,7 +633,7 @@ export function V2App() {
       setDiscoverFocusAwaiting(false);
       setTab("browse");
       setRailTab("detail");
-      syncUrl({ tab: "browse", q: searchQuery.trim(), mode: "history" });
+      syncUrl({ tab: "browse", q: discoverSearchQuery.trim(), mode: "history" });
       const targetJob =
         (job?.id ? jobs.find((j) => j.id === job.id) : null) ||
         job ||
@@ -474,7 +649,7 @@ export function V2App() {
         setActiveObject(null);
       }
     },
-    [jobs, syncUrl, searchQuery],
+    [jobs, syncUrl, discoverSearchQuery],
   );
 
   // Durable Discover History (optional endpoint — ignore failures).
@@ -496,35 +671,65 @@ export function V2App() {
 
 
   const goTab = useCallback(
-    (id) => {
-      if (id === "library") {
-        setTab(id);
+    (id, opts = {}) => {
+      const next = normalizeReleaseTab(id);
+      if (next === "library") {
+        setTab(next);
+        setRailTab("detail");
+        if (opts.keepSelection) {
+          syncUrl({ tab: next, preview: false });
+          return;
+        }
         setSelectedId("");
         setDetail(null);
         setPreviewOpen(false);
         setPreviewTarget(null);
         setActiveObject(null);
-        setRailTab("detail");
-        syncUrl({ tab: id, dataset: "", preview: false });
+        syncUrl({ tab: next, dataset: "", preview: false });
         return;
       }
-      setTab(id);
-      syncUrl({ tab: id });
+      setTab(next);
+      syncUrl({ tab: next });
     },
     [syncUrl],
   );
 
   const selectDataset = useCallback(
     (row) => {
-      const id = row.dataset_id || row.id;
+      const id = row?.dataset_id || row?.id;
+      if (!id) return;
       setSelectedId(id);
+      setDetail(row);
       setActiveObject(datasetObject(row));
       touchRecent(id);
+      setRecentEpoch((n) => n + 1);
       setRailTab(loadSettings().onSelect === "ask" ? "ask" : "detail");
       syncUrl({ dataset: id, preview: false });
       setPreviewOpen(false);
     },
     [syncUrl],
+  );
+
+  /** Home Continue / Recent — land Library with asset rail in one write (no clear-then-select race). */
+  const openLibraryDataset = useCallback(
+    (row) => {
+      const id = row?.dataset_id || row?.id;
+      if (!id) {
+        goTab("library");
+        return;
+      }
+      setTab("library");
+      setSelectedId(id);
+      setDetail(row);
+      setActiveObject(datasetObject(row));
+      setPreviewOpen(false);
+      setPreviewTarget(null);
+      touchRecent(id);
+      setRecentEpoch((n) => n + 1);
+      setRailTab(loadSettings().onSelect === "ask" ? "ask" : "detail");
+      syncUrl({ tab: "library", dataset: id, preview: false });
+    },
+    [goTab, syncUrl],
   );
 
   const openPreview = useCallback(
@@ -536,6 +741,7 @@ export function V2App() {
       setSelectedId(id);
       setActiveObject(datasetObject(row || selectedFromList || { dataset_id: id }));
       touchRecent(id);
+      setRecentEpoch((n) => n + 1);
       setPreviewOpen(true);
       setRailTab("detail");
       syncUrl({ dataset: id, preview: true });
@@ -554,29 +760,58 @@ export function V2App() {
     setRailTab("detail");
   }, []);
 
-  const askFromSearch = useCallback(() => {
-    const q = searchQuery.trim();
-    if (q) {
+  const searchDiscoverWider = useCallback(
+    (query) => {
+      const q = String(query || discoverSearchQuery || "").trim();
+      if (!q) return;
+      // Wider discovery is deliberate. It does not silently start an Ask turn.
+      setDiscoverPreferLive(true);
+      setDiscoverSearchQuery(q);
       goTab("browse");
       syncUrl({ tab: "browse", q });
-      setPendingAsk(`Find datasets for: ${q}`);
-    }
-    setRailTab("ask");
-  }, [searchQuery, goTab, syncUrl]);
+    },
+    [discoverSearchQuery, goTab, syncUrl],
+  );
 
-  const askSearchWeb = useCallback(
-    (query) => {
-      const q = String(query || searchQuery || "").trim();
+  const askDiscoverQuery = useCallback(
+    (query, context = {}) => {
+      const q = String(query || discoverSearchQuery || "").trim();
       if (!q) return;
+      const resultNames = Array.isArray(context?.rows)
+        ? context.rows.slice(0, 6).map((row) => row?.title || row?.name || row?.dataset_id).filter(Boolean)
+        : [];
+      const prompt = String(context?.prompt || "").trim() || (
+        context?.kind === "results"
+          ? `Continue this Discover investigation: ${q}. Current index candidates: ${resultNames.join("; ") || "none named"}. Help refine the evidence requirement, explain what is known versus unknown, and identify the next valid action. Do not submit procurement without explicit approval.`
+          : `Investigate this evidence need: ${q}. Begin with held evidence, ask for missing requirement details when needed, and use wider discovery only when it adds value. Keep procurement approval-gated.`
+      );
+      setDiscoverSearchQuery(q);
+      setActiveObject({
+        kind: "discover_investigation",
+        title: q,
+        question: q,
+        search_query: q,
+      });
       goTab("browse");
       syncUrl({ tab: "browse", q });
       setRailTab("ask");
-      setPendingAsk(
-        `Find external datasets for: ${q}. Start with open-web discovery, probe promising sources, and propose the safest acquisition plan for this lab.`,
-      );
+      setPendingAsk({ prompt, displayText: q });
     },
-    [searchQuery, goTab, syncUrl],
+    [discoverSearchQuery, goTab, syncUrl],
   );
+
+  const openDiscoverAssessment = useCallback((query) => {
+    const q = String(query || discoverSearchQuery || "").trim();
+    if (!q) return;
+    setDiscoverAssessment({ active: true, question: q, result: null });
+    setActiveObject({
+      kind: "discover_investigation",
+      title: q,
+      question: q,
+      search_query: q,
+    });
+    setRailTab("detail");
+  }, [discoverSearchQuery]);
 
   const askAddToLab = useCallback(
     async (target) => {
@@ -588,8 +823,10 @@ export function V2App() {
         setTab("library");
         const row = catalog.find((d) => d.dataset_id === id) || { dataset_id: id, ...target };
         setSelectedId(id);
+        setDetail(row);
         setActiveObject(datasetObject(row));
         touchRecent(id);
+        setRecentEpoch((n) => n + 1);
         setRailTab("detail");
         syncUrl({ tab: "library", dataset: id, preview: false, q: "" });
         showToast("Opened in Library");
@@ -604,59 +841,111 @@ export function V2App() {
       browseSelectedKeyRef.current = key;
 
       const probeResult = browseProbe.candidateKey === key ? browseProbe.result : null;
-      const connectorId = probeResult?.connector?.connector_id || probeResult?.connector?.id;
-
-      if (connectorId) {
-        setCollectSubmittingKey(key);
-        setRailTab("detail");
-        try {
-          const out = await submitDiscoverCollect(connectorId, {
-            limit: 200,
-            autoApprove: false,
-            candidateKey: key,
-            sourceIdentity: target?.source || target?.collect_via || "",
-            datasetId: target?.dataset_id || "",
-            doi: target?.doi || "",
-            url: discoverCandidateUrl(target) || "",
+      const candidate = discoverIntentCandidate(target, probeResult);
+      const researchNeed = discoverSearchQuery.trim() || `Evaluate and acquire ${candidate.title}`;
+      setCollectSubmittingKey(key);
+      setRailTab("detail");
+      try {
+        let intent = await createDiscoverIntent({
+          researchNeed,
+          title: candidate.title,
+          candidate,
+          userEmail: authenticatedEmail || loadUserEmail(),
+        });
+        const declaredProposal = proposalFromDiscoverCandidate(candidate);
+        if (declaredProposal) {
+          intent = await setDiscoverIntentProposal(intent.id, declaredProposal);
+        } else if (candidate.url) {
+          const crafted = await craftDiscoverIntentProposal({
+            intentId: intent.id,
+            researchNeed,
+            url: candidate.url,
+            title: candidate.title,
           });
-          const job = out?.job;
-          if (job) {
-            setJobs((prev) => {
-              const others = (Array.isArray(prev) ? prev : []).filter((j) => j?.id !== job.id);
-              return [job, ...others];
-            });
-          }
-          setLifecycleRefreshFailed(false);
-          // Refresh catalog/ops, but preserve the exact submitted job if listJobs
-          // has not indexed it yet (common race right after collect).
-          refreshBackend({ preserveJob: job || null });
-          setRailTab("detail");
-          showToast(
-            job?.status === "pending_approval"
-              ? "Collection submitted — approval required"
-              : "Collection job queued — track it in Resources",
-          );
-        } catch (err) {
-          setRailTab("ask");
-          setPendingAsk({
-            prompt: buildAddToLabPrompt(target, probeResult),
-            displayText: buildAddToLabDisplayText(target, probeResult),
-          });
-          showToast(err?.message || "Collect failed — queued Ask instead");
-        } finally {
-          setCollectSubmittingKey("");
+          intent = crafted?.intent || intent;
         }
-        return;
+        setDiscoverIntentRecord({
+          intent,
+          candidate,
+          target,
+          researchNeed,
+        });
+        setDiscoverModeSafe("explore");
+        goTab("browse");
+        showToast("Acquisition review opened — collection has not started");
+      } catch (err) {
+        setRailTab("ask");
+        setPendingAsk({
+          prompt: buildAddToLabPrompt(target, probeResult),
+          displayText: buildAddToLabDisplayText(target, probeResult),
+        });
+        showToast(err?.message || "Intent creation failed — opened Ask instead");
+      } finally {
+        setCollectSubmittingKey("");
       }
-
-      setRailTab("ask");
-      setPendingAsk({
-        prompt: buildAddToLabPrompt(target, probeResult),
-        displayText: buildAddToLabDisplayText(target, probeResult),
-      });
-      showToast("Queued Ask — Add to lab");
     },
-    [labIds, browseProbe, catalog, syncUrl, showToast, refreshBackend, collectSubmittingKey],
+    [
+      labIds,
+      browseProbe,
+      catalog,
+      syncUrl,
+      showToast,
+      collectSubmittingKey,
+      discoverSearchQuery,
+      setDiscoverModeSafe,
+      goTab,
+      authenticatedEmail,
+    ],
+  );
+
+  const craftPublicUrlPlan = useCallback(
+    async (url) => {
+      const target = String(url || "").trim();
+      if (!target) return;
+      try {
+        const crafted = await craftCollectPlan({
+          researchNeed: `Craft a generic collect plan for ${target}`,
+          url: target,
+        });
+        const plan = crafted?.plan || crafted;
+        if (!plan || typeof plan !== "object") {
+          throw new Error("Craft returned no collect plan");
+        }
+        const out = await submitLibraryJob({
+          title: plan.title || `Craft collect · ${target}`,
+          plan,
+          autoApprove: false,
+          request: {
+            craft: true,
+            url: target,
+            rationale: crafted?.rationale,
+          },
+        });
+        const job = out?.job || out;
+        if (job?.id) {
+          setJobs((prev) => {
+            const others = (Array.isArray(prev) ? prev : []).filter((j) => j?.id !== job.id);
+            return [job, ...others];
+          });
+        }
+        refreshBackend({ preserveJob: job || null });
+        setDiscoverModeSafe("history");
+        goTab("browse");
+        showToast(
+          job?.status === "pending_approval"
+            ? "Crafted collect plan — approval required"
+            : "Crafted collect plan queued",
+        );
+      } catch (err) {
+        setRailTab("ask");
+        setPendingAsk({
+          prompt: `Craft a generic collect plan for this public URL (HTTP or scrape — not a named vendor module): ${target}`,
+          displayText: `Craft collect for ${target}`,
+        });
+        showToast(err?.message || "Craft failed — opened Ask instead");
+      }
+    },
+    [refreshBackend, showToast, setDiscoverModeSafe, goTab],
   );
 
   const probeDiscoverCandidate = useCallback(async (target) => {
@@ -731,10 +1020,10 @@ export function V2App() {
       const row = resourceRowForJob(job);
       if (!row) {
         goTab("resources");
-        setResourceMode("spending");
+        setResourceMode("sources");
         return;
       }
-      setResourceMode("spending");
+      setResourceMode("sources");
       setActivityFilter(null);
       setResourceRow(row);
       setActiveObject(resourceObject(row));
@@ -796,8 +1085,10 @@ export function V2App() {
       setTab("library");
       const row = catalog.find((d) => d.dataset_id === id) || { dataset_id: id, ...target };
       setSelectedId(id);
+      setDetail(row);
       setActiveObject(datasetObject(row));
       touchRecent(id);
+      setRecentEpoch((n) => n + 1);
       setRailTab("detail");
       syncUrl({ tab: "library", dataset: id, preview: false, q: "" });
     },
@@ -874,12 +1165,15 @@ export function V2App() {
     setProbeSnapshots({});
     setActiveObject((current) => (current?.kind === "external_candidate" ? null : current));
     dismissToastIf((t) => t.scope === "discover-probe");
-  }, [searchQuery, dismissToastIf]);
+  }, [discoverSearchQuery, dismissToastIf]);
 
   const focusLibraryFolder = useCallback((object) => {
-    if (activeObject?.kind === "library_intake") return;
-    setActiveObject(object);
-  }, [activeObject?.kind]);
+    setActiveObject((current) => {
+      if (current?.kind === "library_intake") return current;
+      if (current?.kind === "dataset") return current;
+      return object;
+    });
+  }, []);
 
   const changeLibraryFolder = useCallback(
     (id) => {
@@ -920,7 +1214,7 @@ export function V2App() {
   const submitLibraryUpload = useCallback(
     (files, intake) => {
       const names = Array.from(files || []).map((file) => file.name).filter(Boolean);
-      const destination = intake?.destination || "Lab root";
+      const destination = intake?.destination || "Library root";
       const filePart = names.length ? ` Files: ${names.join(", ")}.` : " No files selected yet.";
       queueLibraryAsk(
         `Upload files to ${destination}.${filePart} Confirm destination, ingestion, schema detection, and vault archival.`,
@@ -931,7 +1225,7 @@ export function V2App() {
 
   const submitLibraryUrl = useCallback(
     (value, intake) => {
-      const destination = intake?.destination || "Lab root";
+      const destination = intake?.destination || "Library root";
       const targets = String(value || "").trim().replace(/\s+/g, " ");
       queueLibraryAsk(
         `Add URL or DOI to ${destination}. Targets: ${targets}. Probe source, collect metadata, and procure if missing.`,
@@ -942,7 +1236,7 @@ export function V2App() {
 
   const submitLibraryProcure = useCallback(
     (intake) => {
-      const destination = intake?.destination || "Lab root";
+      const destination = intake?.destination || "Library root";
       queueLibraryAsk(
         `Procure datasets for ${destination}. Search faculty sources, check the local catalog, probe public sources, and propose acquisition steps.`,
       );
@@ -962,8 +1256,14 @@ export function V2App() {
 
   const openHomeAttention = useCallback(
     (item) => {
+      if (item?.tab === "browse" || item?.discoverMode === "history") {
+        setDiscoverModeSafe("history");
+        goTab("browse");
+        setRailTab("detail");
+        return;
+      }
       if (item?.tab === "resources" && item.resourceRow) {
-        setResourceMode("spending");
+        setResourceMode("sources");
         setActivityFilter(null);
         setResourceRow(item.resourceRow);
         setActiveObject(resourceObject(item.resourceRow));
@@ -973,22 +1273,69 @@ export function V2App() {
       }
       goTab(item?.tab || "home");
     },
-    [goTab],
+    [goTab, setDiscoverModeSafe],
   );
 
+  const libraryNavHaystack = useMemo(() => {
+    const byDataset = new Map();
+    const shelfById = new Map((shelves || []).map((s) => [String(s.id || ""), s]));
+    for (const lane of partitions || []) {
+      const sid = String(lane.shelf_id || "");
+      const shelf = shelfById.get(sid);
+      const nav = [
+        shelf?.label,
+        shelf?.blurb,
+        lane.professor_label,
+        lane.subtitle,
+        lane.name,
+        lane.professor_blurb,
+        lane.scope,
+        lane.partition_id,
+        lane.detail?.partition_id,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const ids = lane.detail?.registry_dataset_ids || lane.registry_dataset_ids || [];
+      for (const id of ids) {
+        const key = String(id || "");
+        if (!key) continue;
+        byDataset.set(key, `${byDataset.get(key) || ""} ${nav}`);
+      }
+    }
+    return byDataset;
+  }, [partitions, shelves]);
+
   const filteredDatasets = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = librarySearchQuery.trim().toLowerCase();
     if (!q) return catalog;
+    const shelfHitIds = new Set();
+    const laneByPid = new Map(
+      (partitions || []).map((lane) => [
+        String(lane.partition_id || lane.detail?.partition_id || ""),
+        lane,
+      ]),
+    );
+    for (const shelf of shelves || []) {
+      const blob = `${shelf.label || ""} ${shelf.blurb || ""} ${shelf.id || ""}`.toLowerCase();
+      if (!blob.includes(q)) continue;
+      for (const pid of shelf.partition_ids || []) {
+        const lane = laneByPid.get(String(pid));
+        for (const id of lane?.detail?.registry_dataset_ids || lane?.registry_dataset_ids || []) {
+          if (id) shelfHitIds.add(String(id));
+        }
+      }
+    }
     return catalog.filter((d) => {
-      const text = `${d.dataset_id} ${d.name} ${d.grain} ${d.description || ""}`.toLowerCase();
+      const did = String(d.dataset_id || "");
+      if (shelfHitIds.has(did)) return true;
+      const nav = libraryNavHaystack.get(did) || "";
+      const text = `${did} ${d.name} ${d.display_name || ""} ${d.grain} ${d.description || ""} ${d.one_line || ""} ${d.partition_id || ""} ${nav}`.toLowerCase();
       return text.includes(q);
     });
-  }, [catalog, searchQuery]);
+  }, [catalog, libraryNavHaystack, librarySearchQuery, partitions, shelves]);
 
   const headerDsCount = catalog.length || Number(health?.datasets) || 0;
-  const headerConnected = catalog.filter((d) =>
-    /instant|query/i.test(String(d.analysis_readiness || "")),
-  ).length;
+  const headerConnected = catalog.filter((d) => isQueryReadyReadiness(d.analysis_readiness)).length;
 
   let main;
   switch (tab) {
@@ -998,17 +1345,22 @@ export function V2App() {
           datasets={catalog}
           health={health}
           cluster={health?.cluster}
-          profile={profile}
+          profile={profile && !profile.unknown ? profile : pilotProfile || profile}
+          resourcesRollup={resourcesRollup}
           acquisitions={acquisitions}
           partitions={partitions}
           jobs={jobs}
           usingSeed={usingSeed}
-          onAskComposer={askFromPrompt}
+          onAskComposer={canUseAsk ? askFromPrompt : undefined}
           onGoTab={goTab}
           onOpenAttention={openHomeAttention}
-          onSelectDataset={selectDataset}
+          onSelectDataset={openLibraryDataset}
           onPreviewDataset={openPreview}
           onAskAttention={askHomeAttention}
+          onSuggestSearch={(q) => {
+            setDiscoverSearchQuery(q);
+            goTab("browse");
+          }}
         />
       );
       break;
@@ -1017,6 +1369,8 @@ export function V2App() {
         <LibraryPage
           datasets={filteredDatasets}
           partitions={partitions}
+          shelves={shelves}
+          guide={libraryGuide}
           cluster={health?.cluster}
           folderId={folderId}
           onFolderChange={changeLibraryFolder}
@@ -1028,6 +1382,8 @@ export function V2App() {
           onStartUpload={(folder) => startLibraryIntake("upload", folder)}
           onStartUrl={(folder) => startLibraryIntake("url", folder)}
           onStartProcure={(folder) => startLibraryIntake("procure", folder)}
+          searchQuery={librarySearchQuery}
+          onSearchChange={setLibrarySearchQuery}
         />
       );
       break;
@@ -1048,7 +1404,10 @@ export function V2App() {
           labIds={labIds}
           catalog={catalog}
           selectedId={browseSelectedId}
-          searchQuery={searchQuery}
+          searchQuery={discoverSearchQuery}
+          onSearchChange={setDiscoverSearchQuery}
+          preferLiveSources={discoverPreferLive}
+          onLiveSourcesConsumed={setDiscoverPreferLive}
           jobs={jobs}
           usingSeed={usingSeed}
           probeSnapshots={probeSnapshots}
@@ -1057,17 +1416,50 @@ export function V2App() {
           onDiscoverModeChange={setDiscoverModeSafe}
           historyEvents={historyItems}
           selectedHistoryId={selectedHistoryId}
+          intentRecord={discoverIntentRecord}
+          onIntentChange={setDiscoverIntentRecord}
+          onCloseIntent={() => setDiscoverIntentRecord(null)}
+          onIntentSubmitted={(job, record) => {
+            if (job?.id) {
+              setJobs((previous) => {
+                const others = (Array.isArray(previous) ? previous : []).filter((item) => item?.id !== job.id);
+                return [job, ...others];
+              });
+            }
+            setDiscoverIntentRecord(record);
+            setLifecycleRefreshFailed(false);
+            refreshBackend({ preserveJob: job || null });
+            showToast(
+              job?.status === "pending_approval"
+                ? "Intent submitted — approval required"
+                : "Intent submitted — open History for lifecycle state",
+            );
+          }}
+          onOpenIntentHistory={(record) => {
+            const job = record?.job || record?.intent?.job || null;
+            setDiscoverIntentRecord(null);
+            openDiscoverHistory(job, { focusAwaiting: job?.status === "pending_approval" });
+          }}
           onSelectHistoryEvent={(event) => {
             setSelectedHistoryId(event?.id || "");
             setActiveObject(discoverHistoryObject(event));
             setRailTab("detail");
           }}
           onSuggestSearch={(q) => {
-            setSearchQuery(q);
+            setDiscoverIntentRecord(null);
+            setDiscoverAssessment({ active: false, question: "", result: null });
+            setDiscoverSearchQuery(q);
             goTab("browse");
           }}
-          onSearchWeb={askSearchWeb}
+          onCraftUrl={craftPublicUrlPlan}
+          onSearchWeb={searchDiscoverWider}
+          onAskQuery={askDiscoverQuery}
+          onReviewAcquisition={askAddToLab}
+          assessmentActive={discoverAssessment.active}
+          assessmentResult={discoverAssessment.result}
+          onOpenAssessment={openDiscoverAssessment}
           onSelectRow={(row) => {
+            setDiscoverAssessment((current) => ({ ...current, active: false }));
             const nextKey = candidateKey(row);
             browseSelectedKeyRef.current = nextKey;
             dismissToastIf(
@@ -1100,9 +1492,16 @@ export function V2App() {
           onAskComposer={askFromPrompt}
           onGoTab={goTab}
           onOpenDataset={openInLibraryFromDiscover}
+          onReviewExecution={(execution) => {
+            const jobId = execution?.job_id || "";
+            openDiscoverAwaiting({ job: jobId ? { id: jobId, status: "pending_approval" } : null });
+          }}
           onSelectThread={(thread) => {
             setActiveObject(synthesisThreadObject(thread));
-            setRailTab("detail");
+          }}
+          onBeginNew={() => {
+            setActiveObject(null);
+            setRailTab("ask");
           }}
         />
       );
@@ -1137,6 +1536,7 @@ export function V2App() {
         <ProfilePage
           profile={profile}
           onGoTab={goTab}
+          onProfileRefresh={reloadProfile}
           onSuggestSearch={(q) => {
             setSearchQuery(q);
             setTab("browse");
@@ -1146,46 +1546,122 @@ export function V2App() {
       );
       break;
     case "settings":
-      main = <SettingsPage health={health} onProfileRefresh={reloadProfile} onToast={showToast} />;
+      main = (
+        <SettingsPage
+          health={health}
+          resourcesRollup={resourcesRollup}
+          onProfileRefresh={reloadProfile}
+          onToast={showToast}
+        />
+      );
       break;
     default:
       main = null;
   }
 
-  const hideRail = tab === "browse" && !browseTarget && !selectedHistoryEvent;
+  // Keep Detail/Ask rail on Discover Explore empty state — same shell as other pages.
+  // (Hiding it via no-rail made Explore look broken; BrowseRailPanel already owns the empty copy.)
+  const hideRail = false;
+
+  const activeResearch = useMemo(() => {
+    const source = profile && !profile.unknown ? profile : pilotProfile;
+    const lab = buildLab(source || null);
+    const primaryTrack =
+      Array.isArray(source?.research_tracks) && source.research_tracks.length
+        ? source.research_tracks.find((t) => t?.phase === "active_grant") || source.research_tracks[0]
+        : null;
+    const trackTitle =
+      typeof primaryTrack === "string"
+        ? primaryTrack
+        : primaryTrack?.title || primaryTrack?.name || "";
+    const title =
+      (source &&
+        (trackTitle ||
+          source.research_direction ||
+          source.current_research ||
+          source.name_en)) ||
+      "Active research";
+    const emphases = [
+      ...(Array.isArray(source?.specialties) ? source.specialties : []),
+      ...(Array.isArray(source?.research_emphases) ? source.research_emphases : []),
+      ...(Array.isArray(lab?.themes) ? lab.themes : []),
+      ...(Array.isArray(source?.themes) ? source.themes : []),
+    ]
+      .map((item) => (typeof item === "string" ? item : item?.label || item?.name))
+      .filter(Boolean)
+      .slice(0, 3);
+    return { title: String(title).slice(0, 96), emphases };
+  }, [profile, pilotProfile]);
+
+  const sidebarRecent = useMemo(
+    () =>
+      recentDatasets(datasets, 4).map((ds) => ({
+        id: ds.dataset_id,
+        title: displayName(ds),
+        dataset: ds,
+      })),
+    [datasets, recentEpoch],
+  );
+
+  if (!deskAccess?.authenticated) {
+    return (
+      <DeskAccessGate
+        access={deskAccess}
+        busy={deskAccessBusy}
+        onRetry={({ force = true } = {}) => refreshDeskAccess({ force })}
+      />
+    );
+  }
 
   return (
     <div className={`yzu-shell with-inspector rd-theme-light rd-v2-shell${hideRail ? " no-rail" : ""}`}>
       <V2DeskHeader
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onSearchSubmit={askFromSearch}
-        onAskFromSearch={askFromSearch}
         onBrandClick={() => goTab("home")}
         onRetry={refreshBackend}
-        headerInitials="YZ"
+        headerInitials={
+          String(deskAccess?.principal?.display_name || deskAccess?.principal?.email || "YZ")
+            .split(/[\s@._-]+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase())
+            .join("") || "YZ"
+        }
+        principal={deskAccess?.principal || null}
         datasetCount={headerDsCount}
         usingSeed={usingSeed}
         workCount={Math.max(
           Number(health?.desk?.jobs?.pending_approval ?? 0),
           pendingApprovalJobs(jobs).length,
         )}
-        onPendingClick={() => openDiscoverAwaiting()}
+        onPendingClick={canApproveJobs ? () => openDiscoverAwaiting() : undefined}
         deskStatus={
-          usingSeed
-            ? health?.status === "ok"
-              ? "empty"
-              : "demo"
-            : health?.status === "degraded"
-              ? "degraded"
-              : health?.status === "ok" || datasets.length > 0
-                ? "ok"
-                : health?.status || "unknown"
+          health == null
+            ? "syncing"
+            : usingSeed
+              ? health?.status === "ok"
+                ? "empty"
+                : "demo"
+              : health?.status === "degraded"
+                ? "degraded"
+                : health?.status === "ok" || datasets.length > 0
+                  ? "ok"
+                  : health?.status || "unknown"
         }
         refreshedAt={deskRefreshedAt}
         integrationChips={usingSeed ? [] : buildDeskIntegrationChips(health)}
+        activeResearchTitle={activeResearch.title}
+        currentPage={tab}
+        onAccountNavigate={goTab}
       />
-      <V2Sidebar tab={tab} onTabChange={goTab} />
+      <V2Sidebar
+        tab={tab}
+        onTabChange={goTab}
+        activeResearch={activeResearch}
+        recentItems={sidebarRecent}
+        onOpenRecent={(item) => {
+          if (item?.dataset) openLibraryDataset(item.dataset);
+        }}
+      />
       <main className="yzu-main rd-v2-shell-main">
         {main}
         <PreviewModal
@@ -1212,6 +1688,22 @@ export function V2App() {
         browseTarget={browseTarget}
         historyEvent={selectedHistoryEvent}
         historyJob={selectedHistoryJob}
+        discoverIntentRecord={discoverIntentRecord}
+        discoverAssessment={discoverAssessment}
+        discoverCatalog={catalog}
+        onDiscoverAssessmentChange={(result) => {
+          setDiscoverAssessment((current) => ({ ...current, active: true, result }));
+        }}
+        onDiscoverAssessmentActive={(active) => {
+          setDiscoverAssessment((current) => ({ ...current, active }));
+        }}
+        onCloseDiscoverAssessment={() => {
+          setDiscoverAssessment({ active: false, question: "", result: null });
+        }}
+        onSuggestDiscoverSearch={(query) => {
+          setDiscoverSearchQuery(query);
+          goTab("browse");
+        }}
         resourceRow={resourceRow}
         resourcesRollup={resourcesRollup}
         activeObject={activeObject}
@@ -1219,12 +1711,12 @@ export function V2App() {
         onPreview={() => detail && openPreview(detail)}
         onAskAbout={askAboutSelection}
         onViewActivity={(filter) => {
-          setResourceMode("activity");
+          setResourceMode("usage");
           setActivityFilter(filter);
           setRailTab("detail");
         }}
         onSeeCluster={CLUSTER_NAV_DEFERRED ? undefined : () => goTab("cluster")}
-        onAddToLab={askAddToLab}
+        onAddToLab={canSubmitCollection ? askAddToLab : undefined}
         onProbeSource={probeDiscoverCandidate}
         probeState={browseProbeState}
         onOpenInLibrary={openInLibraryFromDiscover}
@@ -1238,25 +1730,32 @@ export function V2App() {
           if (job) reviewApprovalInResources(job);
         }}
         onPreviewExternal={() => browseRow && openPreviewExternal(browseRow)}
-        onApproveJob={handleApproveJob}
+        onApproveJob={canApproveJobs ? handleApproveJob : undefined}
         onRefresh={refreshBackend}
-        onStartLibraryUpload={(folder) => startLibraryIntake("upload", folder)}
-        onStartLibraryUrl={(folder) => startLibraryIntake("url", folder)}
-        onStartLibraryProcure={(folder) => startLibraryIntake("procure", folder)}
-        onSubmitLibraryUpload={submitLibraryUpload}
-        onSubmitLibraryUrl={submitLibraryUrl}
-        onSubmitLibraryProcure={submitLibraryProcure}
+        onStartLibraryUpload={canSubmitCollection ? (folder) => startLibraryIntake("upload", folder) : undefined}
+        onStartLibraryUrl={canSubmitCollection ? (folder) => startLibraryIntake("url", folder) : undefined}
+        onStartLibraryProcure={canSubmitCollection ? (folder) => startLibraryIntake("procure", folder) : undefined}
+        onSubmitLibraryUpload={canSubmitCollection ? submitLibraryUpload : undefined}
+        onSubmitLibraryUrl={canSubmitCollection ? submitLibraryUrl : undefined}
+        onSubmitLibraryProcure={canSubmitCollection ? submitLibraryProcure : undefined}
         askPanel={
-          <AskRail
+          canUseAsk ? <AskRail
             dataset={
               tab === "resources" && resourceRow
                 ? {
                     title: `Resources · ${resourceRow.label}`,
                   }
                 : tab === "browse"
-                  ? selectedHistoryEvent
+                  ? discoverIntentRecord
+                    ? {
+                        title: discoverIntentRecord.intent?.title || discoverIntentRecord.candidate?.title || "Acquisition review",
+                        kind: "discover_intent",
+                        intent_id: discoverIntentRecord.intent?.id,
+                        research_need: discoverIntentRecord.intent?.research_need || discoverIntentRecord.researchNeed,
+                      }
+                    : selectedHistoryEvent
                     ? { ...selectedHistoryEvent, title: selectedHistoryEvent.target || selectedHistoryEvent.title, kind: "discover_history" }
-                    : browseTarget
+                    : browseTarget || (activeObject?.kind === "discover_investigation" ? activeObject : null)
                 : tab === "home" && activeObject?.kind === "home_attention"
                   ? {
                       title: `Home · ${activeObject.title}`,
@@ -1267,7 +1766,12 @@ export function V2App() {
                     }
                 : tab === "synthesis"
                   ? activeObject?.kind === "synthesis_thread"
-                    ? { title: activeObject.title, kind: "synthesis_thread" }
+                    ? {
+                        title: activeObject.title,
+                        kind: "synthesis_thread",
+                        thread_id: activeObject.id,
+                        session_id: activeObject.thread?.session_id || "",
+                      }
                     : { title: "Synthesis studio", kind: "synthesis_thread" }
                 : tab === "profile"
                   ? {
@@ -1281,14 +1785,19 @@ export function V2App() {
                 : detail
             }
             mainTab={tab}
-            searchQuery={searchQuery}
+            searchQuery={pageSearchQuery}
             pendingMessage={pendingAsk}
             onPendingConsumed={() => setPendingAsk("")}
             onCollected={refreshBackend}
-            onApproveJob={handleApproveJob}
+            onApproveJob={canApproveJobs ? handleApproveJob : undefined}
             onToast={showToast}
             railContext={railContext}
-          />
+          /> : (
+            <div className="rd-v2-permission-note" role="note">
+              <strong>Ask is not available for this account.</strong>
+              <span>Contact the Research Drive operator if you need access.</span>
+            </div>
+          )
         }
       />
       <Toast toast={toast} />

@@ -10,7 +10,17 @@ async function waitForHomeEvidence(page) {
   const continuation = page.getByTestId("home-continue");
   await expect(continuation.locator("h2")).toBeVisible();
   await expect(continuation.getByRole("button", { name: "Continue" })).toBeVisible();
-  await expect(page.locator(".rd-v2-home-recent .rd-v2-catalog button.row").first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Recent trail" })).toBeVisible();
+}
+
+async function selectFirstLibraryDataset(page) {
+  await page.goto("/?tab=library", { waitUntil: "domcontentloaded" });
+  await waitForShell(page);
+  await page.getByTestId("library-directory").waitFor({ state: "visible" });
+  await page.getByRole("textbox", { name: "Search library holdings" }).fill("Asia");
+  const row = page.locator('.rd-v2-catalog-list button[data-kind="dataset"]').first();
+  await expect(row).toBeVisible();
+  await row.click();
 }
 
 test.describe("Research Drive release visual contract", () => {
@@ -30,7 +40,8 @@ test.describe("Research Drive release visual contract", () => {
     const rail = page.locator("aside.rd-v2-rail");
 
     await expect(header.getByText("Research Drive", { exact: true })).toBeVisible();
-    await expect(header.getByRole("textbox", { name: "Search Research Drive" })).toBeVisible();
+    await expect(header.getByLabel("Active research context")).toBeVisible();
+    await expect(header.getByTestId("header-page-label")).toHaveText("HOME");
     await expect(sidebar.getByRole("button")).toHaveCount(7);
     await expect(main).toBeVisible();
     await expect(rail.getByRole("tab", { name: "Detail" })).toBeVisible();
@@ -57,37 +68,34 @@ test.describe("Research Drive release visual contract", () => {
     expect(geometry.rail).toBeGreaterThanOrEqual(370);
   });
 
-  test("Home follows resume then entrances then attention then recent evidence", async ({ page }) => {
+  test("Home follows Iteration 10: Pick Up · Headroom · Trail (Recommended when grounded)", async ({ page }) => {
     const pageRoot = page.locator(".rd-v2-home-page");
     const continuation = page.getByTestId("home-continue");
-    const actions = page.locator(".rd-v2-home-actions");
-    const attention = page.getByRole("region", { name: "Attention queue" });
-    const recent = page.getByRole("region", { name: "Recent research assets" });
+    const headroom = page.getByRole("region", { name: "Resource headroom" });
+    const trail = page.getByRole("region", { name: "Recent trail" });
 
     await waitForHomeEvidence(page);
-    await expect(actions.getByRole("button", { name: /Search the lab/i })).toBeVisible();
-    await expect(actions.getByRole("button", { name: /Discover data/i })).toBeVisible();
-    await expect(actions.getByRole("button", { name: /Ask the assistant/i })).toBeVisible();
-    await expect(attention).toBeVisible();
-    await expect(recent).toBeVisible();
+    await expect(page.locator(".rd-v2-home-actions")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Attention queue" })).toHaveCount(0);
+    await expect(headroom).toBeVisible();
+    await expect(trail).toBeVisible();
 
     const order = await pageRoot.evaluate((root) => {
       const selectors = [
         "[data-testid='home-continue']",
-        ".rd-v2-home-actions",
-        ".rd-v2-home-attention",
-        ".rd-v2-home-recent",
+        ".rd-v2-home-headroom",
+        ".rd-v2-home-trail",
       ];
       return selectors.map((selector) => root.querySelector(selector)?.getBoundingClientRect().top || 0);
     });
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    await expect(continuation).toBeVisible();
+    await expect(continuation).toContainText(/Pick up/i);
   });
 
   test("all faculty pages remain implemented with context-sensitive rail behavior", async ({ page }) => {
     const destinations = [
       { tab: "Library", title: "Library", rail: true },
-      { tab: "Discover", title: "Discover", rail: false },
+      { tab: "Discover", title: "Discover", rail: true },
       { tab: "Synthesis", title: "Synthesis", rail: true },
       { tab: "Resources", title: "Resources", rail: true },
       { tab: "Profile", title: "Profile", rail: true },
@@ -111,26 +119,23 @@ test.describe("Research Drive release visual contract", () => {
     await openTab(page, "Settings");
 
     const summary = page.getByRole("region", { name: "Research desk status" });
-    await expect(summary).toContainText("Browser access");
+    await expect(summary).toContainText("Desk API");
     await expect(summary).toContainText("Research assistant");
-    await expect(summary).toContainText("Archive");
+    await expect(summary).toContainText("Jobs");
     await expect(page.getByText("Research services", { exact: true })).toBeVisible();
+    await expect(page.getByText("Browser access", { exact: true })).toBeVisible();
+    await expect(page.getByText("Research archive", { exact: true }).first()).toBeVisible();
 
     const advanced = page.locator("details.rd-v2-settings-advanced");
     await expect(advanced).not.toHaveAttribute("open", "");
     await expect(page.getByText(":8765", { exact: true })).not.toBeVisible();
     await advanced.locator("summary").click();
     await expect(page.getByText(":8765", { exact: true })).toBeVisible();
-    await expect(page.getByText(":5178", { exact: true })).toBeVisible();
+    await expect(page.getByText("Assistant runtime", { exact: true })).toBeVisible();
   });
 
   test("long research identities wrap instead of breaking the visible Detail pane", async ({ page }) => {
-    await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "domcontentloaded" });
-    await waitForShell(page);
-
-    const firstDataset = page.locator('.rd-v2-library-asset[data-kind="dataset"]').first();
-    await expect(firstDataset).toBeVisible();
-    await firstDataset.click();
+    await selectFirstLibraryDataset(page);
 
     const rail = page.locator("aside.rd-v2-rail");
     const detailPane = rail.locator('[data-testid="rail-pane-detail"]');
@@ -179,21 +184,18 @@ test.describe("Research Drive mobile composition", () => {
     await expect(page.locator("main.yzu-main")).toBeVisible();
     const continuation = page.getByTestId("home-continue");
     const continueButton = continuation.getByRole("button", { name: "Continue" });
-    const libraryButton = continuation.getByRole("button", { name: "Open in Library" });
     await expect(continuation.locator("h2")).toBeVisible();
     await expect(continueButton).toBeVisible();
-    await expect(libraryButton).toBeVisible();
-    await expect(page.locator(".rd-v2-home-actions").getByRole("button", { name: /Search the lab/i })).toBeVisible();
+    await expect(page.locator(".rd-v2-home-actions")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Resource headroom" })).toBeVisible();
 
     const boxes = await Promise.all([
       continuation.boundingBox(),
-      libraryButton.boundingBox(),
-      page.locator(".rd-v2-home-actions").boundingBox(),
+      continueButton.boundingBox(),
     ]);
-    const [cardBox, libraryBox, actionsBox] = boxes;
-    expect(cardBox && libraryBox && actionsBox).toBeTruthy();
-    expect(libraryBox.y + libraryBox.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 1);
-    expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(actionsBox.y + 1);
+    const [cardBox, continueBox] = boxes;
+    expect(cardBox && continueBox).toBeTruthy();
+    expect(continueBox.y + continueBox.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 2);
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByRole("button", { name: /Show Detail · Ask|Hide panel/ })).toBeVisible();

@@ -17,7 +17,7 @@ export function PageShell({ title, lead, headExtra, toolbar, footer, children, n
   );
 }
 
-export function Chip({ active, warn, children, onClick, className = "" }) {
+export function Chip({ active, warn, children, onClick, className = "", ...rest }) {
   const cls = [
     "rd-v2-chip",
     active ? "on" : "",
@@ -29,12 +29,12 @@ export function Chip({ active, warn, children, onClick, className = "" }) {
     .join(" ");
   if (onClick) {
     return (
-      <button type="button" className={cls} onClick={onClick}>
+      <button type="button" className={cls} onClick={onClick} {...rest}>
         {children}
       </button>
     );
   }
-  return <span className={cls}>{children}</span>;
+  return <span className={cls} {...rest}>{children}</span>;
 }
 
 export function SectionTitle({ title, actionLabel, onAction }) {

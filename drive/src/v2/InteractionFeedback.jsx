@@ -3,7 +3,7 @@ import { Check, LoaderCircle } from "lucide-react";
 
 const DEFAULT_ASK_STEPS = [
   "Preparing the active research context",
-  "Searching lab holdings and connected evidence",
+  "Searching Library holdings and connected evidence",
   "Checking provenance, readiness, and uncertainty",
   "Composing a grounded response",
 ];
@@ -108,8 +108,10 @@ export function ProgressSteps({
             data-state={step.state}
             aria-current={step.state === "active" ? "step" : undefined}
           >
+            {/* VC-7: finished work reads as an explicit check, the current step
+                is accented, and future steps stay quiet. */}
             <span className="rd-v2-progress-marker" aria-hidden="true">
-              {stepIndex + 1}
+              {step.state === "past" ? <Check /> : step.state === "active" ? "●" : "○"}
             </span>
             <span>{step.text}</span>
           </li>

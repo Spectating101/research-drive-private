@@ -1,6 +1,6 @@
 const GENERIC_PROMPTS = [
   "What query-ready datasets do we already hold for my research?",
-  "Find missing public datasets we should collect into the lab vault.",
+  "Find missing public datasets we should collect into the Library.",
   "Summarize what is in the Research panels folder.",
   "What procurement approvals or jobs need attention right now?",
 ];

@@ -7,7 +7,7 @@ import {
   classifyDiscoverResult,
   isLocalHolding,
   taxonomyStageCounts,
-} from "@/v2/discoverTaxonomy";
+} from "./discoverTaxonomy.js";
 
 export {
   classifyDiscoverResult,
@@ -15,7 +15,7 @@ export {
   orderDiscoverResults,
   taxonomyMatchesFilter,
   taxonomyStageCounts,
-} from "@/v2/discoverTaxonomy";
+} from "./discoverTaxonomy.js";
 
 /**
  * Presentation state for pills and rail actions.
@@ -120,6 +120,32 @@ export function descriptiveLine(row) {
   }
   if (text.length <= 160) return text;
   return `${text.slice(0, 159).trim()}…`;
+}
+
+const DISCOVER_TERM_LABELS = Object.freeze({
+  materialized_instant: "Direct collection",
+  materialized_bulk: "Bulk archive route",
+  procurement_catalog: "Procurement route",
+  live_connector: "Connected route",
+  governance_regulatory: "governance and regulatory records",
+  daily_prices: "daily market prices",
+  index_pit_survivorship: "point-in-time index membership",
+  estimates_revisions: "estimates and revisions",
+  onchain_crypto: "on-chain market data",
+  scholarly_works: "scholarly works",
+  social_sentiment: "social sentiment",
+});
+
+/** Convert connector metadata into readable research language without changing its meaning. */
+export function humanizeDiscoverDescription(value) {
+  return String(value || "")
+    .split(" · ")
+    .map((part) => {
+      const normalized = part.trim().toLowerCase();
+      if (DISCOVER_TERM_LABELS[normalized]) return DISCOVER_TERM_LABELS[normalized];
+      return part.replace(/_/g, " ");
+    })
+    .join(" · ");
 }
 
 export function isLabOwned(row, labIds) {

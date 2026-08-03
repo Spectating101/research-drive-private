@@ -6,7 +6,7 @@ function compactText(value, fallback = "") {
 }
 
 function folderPath(trail = []) {
-  return trail.map((crumb) => crumb.name).filter(Boolean).join(" / ") || "Lab";
+  return trail.map((crumb) => crumb.name).filter(Boolean).join(" / ") || "Library";
 }
 
 export function datasetObject(row) {
@@ -67,7 +67,7 @@ export function libraryFolderObject({
   itemCount = 0,
 } = {}) {
   const root = !folderId;
-  const title = root ? "Lab" : compactText(trail[trail.length - 1]?.name, "Library collection");
+  const title = root ? "Library" : compactText(trail[trail.length - 1]?.name, "Library collection");
   return {
     kind: "library_folder",
     id: folderId || "lab-root",
@@ -102,8 +102,8 @@ export function libraryIntakeObject(mode, folder) {
     id: `${mode}:${base.id}`,
     title,
     folderId: base.folderId || "",
-    path: base.path || "Lab",
-    destination: base.destination || base.title || "Lab",
+    path: base.path || "Library",
+    destination: base.destination || base.title || "Library",
     counts: base.counts || {},
   };
 }

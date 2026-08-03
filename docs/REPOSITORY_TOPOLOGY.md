@@ -1,5 +1,10 @@
 # Research Drive repository topology
 
+> **Current Discover authority (2026-07-28):**
+> [DISCOVER_RELEASE_TOPOLOGY.md](./DISCOVER_RELEASE_TOPOLOGY.md) is the canonical branch,
+> PR, worktree, and promotion map for the active Discover redesign. Release coordinates
+> below are retained as historical context where they differ.
+
 This document is the repository authority for Research Drive. It separates the intentional public/private boundary from accidental branch and package duplication.
 
 ## Three layers

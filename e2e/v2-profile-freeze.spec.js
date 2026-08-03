@@ -57,7 +57,7 @@ test.describe("Profile freeze showcase", () => {
     const memory = page.getByTestId("profile-memory");
     await expect(memory).toBeVisible();
     await expect(memory.locator(".rd-v2-profile-memory-card").first()).toContainText(/Asset Pricing|FinTech|Finance/i);
-    await expect(memory).toContainText(/Current:/i);
+    await expect(memory).toContainText(/Current research direction/i);
     await expect(memory).toContainText(/Taiwan equity momentum/i);
     await expect(memory).toContainText(/machine learning/i);
 

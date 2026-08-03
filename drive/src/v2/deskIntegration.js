@@ -3,11 +3,6 @@
  * Not an ops console: only surfaces faculty-relevant estate truth.
  */
 
-function tierLabel(tier) {
-  if (!tier || typeof tier !== "object") return null;
-  return String(tier.label || tier.role || "").trim() || null;
-}
-
 function formatAge(ts) {
   if (!ts) return null;
   const ms = typeof ts === "number" ? ts : Date.parse(String(ts));
@@ -20,27 +15,23 @@ function formatAge(ts) {
 }
 
 /**
- * Compact header chips from live /health — only when something is notable.
- * @returns {{ id: string, label: string, tone: 'ok'|'warn'|'muted'|'bad' }[]}
+ * Compact header chips from live /health — faculty chrome only.
+ * Emit warn/bad only (ok/muted estate detail belongs on Resources).
+ * @returns {{ id: string, label: string, tone: 'warn'|'bad' }[]}
  */
 export function buildDeskIntegrationChips(health) {
   if (!health?.desk) return [];
   const desk = health.desk;
   const chips = [];
-  const status = String(health.status || "").toLowerCase();
 
-  if (status === "degraded") {
+  // Desk status badge already lives in the header — only chip when degraded.
+  if (String(health.status || "").toLowerCase() === "degraded") {
     chips.push({ id: "desk", label: "Desk degraded", tone: "warn" });
-  } else if (status === "ok") {
-    chips.push({ id: "desk", label: "Desk online", tone: "ok" });
   }
 
   const gdrive = desk.gdrive;
   if (gdrive && gdrive.ok === false) {
     chips.push({ id: "gdrive", label: "Vault unreachable", tone: "bad" });
-  } else if (gdrive && gdrive.ok === true) {
-    const label = tierLabel(desk.storage_tiers?.canonical) || "GDrive vault";
-    chips.push({ id: "gdrive", label, tone: "ok" });
   }
 
   const hot = desk.storage_tiers?.hot;
@@ -52,22 +43,6 @@ export function buildDeskIntegrationChips(health) {
   const cache = desk.storage_tiers?.cache;
   if (cache?.mounted === false) {
     chips.push({ id: "cache", label: "Cache unmounted", tone: "warn" });
-  } else if (cache?.mounted === true && cache.label) {
-    chips.push({ id: "cache", label: String(cache.label).slice(0, 22), tone: "muted" });
-  }
-
-  const mcp = desk.mcp_tools?.total;
-  if (mcp != null && Number(mcp) > 0) {
-    chips.push({ id: "mcp", label: `${mcp} agent tools`, tone: "muted" });
-  }
-
-  const brain = desk.brain || desk.composer_model;
-  if (brain) {
-    chips.push({
-      id: "brain",
-      label: String(brain).replace(/_/g, " ").slice(0, 24),
-      tone: "muted",
-    });
   }
 
   const pending = Number(desk.jobs?.pending_approval ?? 0);
@@ -80,11 +55,10 @@ export function buildDeskIntegrationChips(health) {
     });
   }
 
-  // Cap: keep header quiet — prefer warn/bad, then ok/muted.
-  const priority = { bad: 0, warn: 1, ok: 2, muted: 3 };
+  const priority = { bad: 0, warn: 1 };
   return chips
     .sort((a, b) => (priority[a.tone] ?? 9) - (priority[b.tone] ?? 9))
-    .slice(0, 5);
+    .slice(0, 3);
 }
 
 /**
@@ -138,7 +112,12 @@ export function buildObjectEstateCrumb(object, { probeState = null, searchMeta =
   if (object.kind === "external_candidate" || object.external || object.source_id) {
     authority = searchMeta?.search_mode === "live" ? "Live connector" : "Source registry";
   } else if (object.dataset_id) {
-    authority = object.analysis_readiness === "query_ready" ? "Query-ready registry" : "Lab registry";
+    const ready =
+      object.analysis_readiness === "query_ready" ||
+      object.analysis_readiness === "instant" ||
+      object.analysis_readiness === "instant_or_minutes" ||
+      object.analysis_readiness === "queryable";
+    authority = ready ? "Query-ready registry" : "Library registry";
   }
   if (object.cached === true) authority = (authority ? `${authority} · ` : "") + "Cached";
   if (object.demo || object._demo) authority = "Demo fixture — verify source";

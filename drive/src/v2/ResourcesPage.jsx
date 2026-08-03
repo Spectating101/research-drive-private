@@ -1,11 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buildAccountSummaryRows,
   buildActionRows,
   buildActivityRows,
   spendingPeriodLabel,
 } from "@/v2/resourcesSpending";
+import { resolveCapacityMark } from "@/v2/capacityMarks";
+import { buildCapacityAccessPairs, groupSourceCapabilities } from "@/v2/resourcesCapacity";
+import { resolveProviderMark } from "@/v2/providerMarks";
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
+import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
+import {
+  formatCollectorState,
+  workersToolbarFieldsFromRollup,
+} from "@/v2/workersToolbarStat";
 import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
 
 const PLACEHOLDER_ROLLUP = {
@@ -135,7 +143,7 @@ function facultyOpsLabel(label, key) {
   const map = {
     "Ask / model turns": "Ask usage",
     Workers: "Collection workers",
-    Vault: "Lab vault",
+    Vault: "Library vault",
     "Query engine": "Desk connection",
   };
   return map[label] || label;
@@ -147,12 +155,126 @@ function facultyOpsSub(label, key, sub) {
   return sub;
 }
 
+function CapacityAccessGrid({ rollup, selectedKey, onSelect }) {
+  const pairs = buildCapacityAccessPairs(rollup);
+  return (
+    <div className="rd-v2-res-capacity-pairs" data-testid="resources-capacity-grid" aria-label="Capacity and access">
+      {pairs.map((pair) => (
+        <section key={pair.id} className="rd-v2-res-capacity-pair" aria-label={pair.title}>
+          <header className="rd-v2-res-capacity-pair-head">
+            <span>{pair.title}</span>
+          </header>
+          <div className="rd-v2-res-capacity-pair-grid">
+            {pair.meters.map((meter) => {
+              const key = `capacity-${meter.id}`;
+              const pct = meter.pct;
+              const mark = resolveCapacityMark(meter.markId || meter.id);
+              return (
+                <button
+                  key={meter.id}
+                  type="button"
+                  className={`rd-v2-res-capacity-meter${selectedKey === key ? " on" : ""}${meter.warn ? " warn" : ""}`}
+                  onClick={() =>
+                    onSelect?.({
+                      key,
+                      label: meter.name,
+                      metric: meter.metric,
+                      kind: "usage",
+                      section: pair.id,
+                      progress: pct,
+                      warn: meter.warn,
+                    })
+                  }
+                >
+                  <span className="rd-v2-res-capacity-meter-name">
+                    {mark ? (
+                      <span className="rd-v2-res-capacity-mark" aria-hidden>
+                        <img src={mark.src} alt="" title={mark.title || mark.alt} width={18} height={18} />
+                      </span>
+                    ) : null}
+                    {meter.name}
+                  </span>
+                  <strong>{meter.metric}</strong>
+                  {pct != null ? (
+                    <span className="rd-v2-res-capacity-meter-bar" aria-hidden>
+                      <i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+                    </span>
+                  ) : (
+                    <span className="rd-v2-res-capacity-meter-bar empty" aria-hidden />
+                  )}
+                  <em>
+                    {meter.available || (pct != null ? `${pct}%` : "—")}
+                    {meter.action ? ` · ${meter.action}` : ""}
+                  </em>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function SourceCapabilityLedger({ panels, selectedKey, onSelect }) {
+  const families = groupSourceCapabilities([
+    { rows: panels?.providers || [] },
+    { rows: panels?.layers || [] },
+  ]);
+  if (!families.length) {
+    return <p className="rd-v2-res-idle">Source capability rows appear when the desk reports routes.</p>;
+  }
+  return (
+    <div className="rd-v2-res-source-ledger" data-testid="resources-source-ledger">
+      <header className="rd-v2-res-source-ledger-head">
+        <span>Source</span>
+        <span>Access</span>
+        <span>Authority</span>
+      </header>
+      {families.map((family) => (
+        <section key={family.id} className="rd-v2-res-source-family" aria-label={family.title}>
+          <h3>{family.title}</h3>
+          {family.rows.map((row) => {
+            const mark = resolveProviderMark(row.row || row);
+            return (
+              <button
+                key={row.id}
+                type="button"
+                className={`rd-v2-res-source-row${selectedKey === row.id || selectedKey === row.row?.key ? " on" : ""}`}
+                onClick={() => onSelect?.(row.row || row)}
+              >
+                <span className="rd-v2-res-source-identity">
+                  <span
+                    className={`rd-v2-res-source-mark${mark.wide ? " is-wide" : ""}${mark.generic ? " is-generic" : ""}`}
+                  >
+                    <img
+                      src={mark.src}
+                      alt={mark.alt || ""}
+                      title={mark.title || mark.alt || row.name}
+                      width={20}
+                      height={20}
+                    />
+                  </span>
+                  <strong>{row.name}</strong>
+                </span>
+                <span>{row.access}</span>
+                <em data-authority={row.authority}>{row.authority}</em>
+              </button>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function StatusStripCell({ label, value, sub, tone = "" }) {
+  const subId = sub ? `rd-res-cell-${label.replace(/\s+/g, "-").toLowerCase()}-sub` : undefined;
   return (
     <div className={`rd-v2-res-status-cell${tone ? ` ${tone}` : ""}`}>
       <span>{label}</span>
-      <strong>{value}</strong>
-      <em>{sub}</em>
+      <strong aria-describedby={subId}>{value}</strong>
+      {sub ? <em id={subId}>{sub}</em> : null}
     </div>
   );
 }
@@ -203,7 +325,11 @@ function ActivityUsageSummary({ rollup }) {
 
 function ActivityLog({ rows, selectedKey, onSelectRow }) {
   if (!rows.length) {
-    return <p className="rd-v2-res-idle">No log entries for this view.</p>;
+    return (
+      <p className="rd-v2-res-idle" role="status">
+        No runs in this filter. Switch filters above, or open Discover History to review collection decisions.
+      </p>
+    );
   }
   const sections = groupActivityRows(rows);
   return (
@@ -261,9 +387,14 @@ function ActivityFilterBar({ value, onChange }) {
     ["metered", "Metered"],
   ];
   return (
-    <div className="rd-v2-res-filterbar">
+    <div className="rd-v2-res-filterbar" role="tablist" aria-label="Usage activity filters">
       {filters.map(([id, label]) => (
-        <Chip key={id} active={value === id} onClick={() => onChange(id)}>
+        <Chip
+          key={id}
+          active={value === id}
+          onClick={() => onChange(id)}
+          aria-label={`Filter usage: ${label}`}
+        >
           {label}
         </Chip>
       ))}
@@ -271,18 +402,21 @@ function ActivityFilterBar({ value, onChange }) {
   );
 }
 
-function WorkersToolbarStat({ workers }) {
-  const online = workers?.online ?? workers?.joined;
-  const busy = workers?.busy;
-  const total = workers?.total;
-  if (online == null && busy == null && total == null) return null;
-
-  const count = online ?? busy ?? total;
-  const qualifier = online != null ? "online" : busy != null ? "busy" : "configured";
-  const value = total != null && count !== total ? `${count}/${total} ${qualifier}` : `${count} ${qualifier}`;
+/** Terra donor: never invent schedulable capacity from joined/stale membership. */
+function WorkersToolbarStat({ rollup }) {
+  const fields = workersToolbarFieldsFromRollup(rollup);
+  const value = formatCollectorState(fields);
+  if (!value || value === "Not reported") return null;
+  const title = [
+    fields.online != null ? `online ${fields.online}` : null,
+    fields.stale != null ? `stale ${fields.stale}` : null,
+    fields.busy != null ? `busy ${fields.busy}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <span className="rd-v2-toolbar-stat" aria-label={`Collection workers ${value}`}>
+    <span className="rd-v2-toolbar-stat" aria-label={`Collection workers ${value}`} title={title || undefined}>
       <span>Collectors</span>
       <strong>{value}</strong>
     </span>
@@ -333,9 +467,9 @@ function buildPinnedSourceRows(providers = [], layers = []) {
       keys: ["source-sec_edgar", "source-twse", "source-mops", "source-yfinance", "source-coingecko"],
       key: "source-market-filings",
       label: "Market data & filings",
-      endpoint: "SEC · TWSE · MOPS · Yahoo · CoinGecko",
-      metric: "Official filings, market series, crypto prices",
-      detail: "Structured public finance routes",
+      endpoint: "SEC · TWSE · MOPS · Yahoo Finance · public crypto prices",
+      metric: "Official filings, market series, public price APIs",
+      detail: "Structured public finance routes — craft a URL when the connector is missing",
     }),
     sourceGroupRow({
       rows: providers,
@@ -359,10 +493,10 @@ function buildPinnedSourceRows(providers = [], layers = []) {
       rows: providers,
       keys: ["source-web_generic"],
       key: "source-public-web",
-      label: "Public web",
-      endpoint: "Public URL",
-      metric: "Probe, then collect",
-      detail: "One-off URLs and pages",
+      label: "Public web (craft)",
+      endpoint: "Any public URL → generic collect plan",
+      metric: "Probe, craft plan, approve, then collect",
+      detail: "AI identify + custom HTTP/scrape — not a named vendor downloader",
     }),
     sourceGroupRow({
       rows: providers,
@@ -554,12 +688,14 @@ function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
   const partitions = platform.professor_partitions ?? catalogSummary?.partitions;
   const routeCount = buildPinnedSourceRows(panels.providers || [], panels.layers || []).length;
   const workers = rollup?.hero?.workers || {};
-  const collectorCount = workers.online ?? workers.joined ?? workers.busy ?? workers.total;
-  const collectorLabel = workers.total != null && collectorCount != null
-    ? `${collectorCount}/${workers.total} collectors available`
-    : collectorCount != null
-      ? `${collectorCount} collectors available`
-      : "Collector state pending";
+  // VC-4: one shared collector field set and vocabulary across toolbar, card, and rail.
+  const collectorLabel = formatCollectorState(workersToolbarFieldsFromRollup(rollup));
+  const collectorDetail =
+    workers.online != null || workers.idle != null
+      ? `Online ${workers.online ?? 0} · idle ${workers.idle ?? 0}${
+          workers.busy != null ? ` · busy ${workers.busy}` : ""
+        }. Discover can probe and collect within access rules.`
+      : "Discover can probe and collect within the available access rules.";
   const bigQuery = (panels.metered || []).find((row) => row.key === "bigquery");
 
   return (
@@ -577,12 +713,18 @@ function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
             {registry != null ? `${registry} registered assets` : "Registered estate available"}
             {instant != null ? ` · ${instant} query ready` : ""}
           </strong>
-          <em>{partitions != null ? `${partitions} organized collections available in Library.` : "Registered assets remain available in Library."}</em>
+          <em>
+            {partitions != null
+              ? `${partitions} organized collections available in Library.`
+              : "Registered assets remain available in Library."}
+          </em>
         </div>
         <div>
           <span>Evidence acquisition reach</span>
           <strong>{routeCount || "Configured"} source routes</strong>
-          <em>{collectorLabel}. Discover can probe and collect within the available access rules.</em>
+          <em>
+            {collectorLabel}. {collectorDetail}
+          </em>
         </div>
         <div>
           <span>Guarded remote analysis</span>
@@ -690,20 +832,33 @@ export function ResourcesPage({
   onSelectRow,
 }) {
   const [activityKind, setActivityKind] = useState("all");
-  const isInitialLoading = rollupLoading && rollup === undefined;
-  const viewRollup = isInitialLoading ? null : rollup || PLACEHOLDER_ROLLUP;
+  const [cachedRollup, setCachedRollup] = useState(() => readResourcesRollupCache());
+
+  useEffect(() => {
+    if (rollup && typeof rollup === "object") {
+      writeResourcesRollupCache(rollup);
+      setCachedRollup(rollup);
+    }
+  }, [rollup]);
+
+  // Sources have a stable local capability manifest. Live telemetry hydrates it
+  // without blocking the workspace or fabricating unknown capacity.
+  const syncing = Boolean(rollupLoading) || rollup === undefined;
+  const lastKnownRollup = rollup ?? cachedRollup ?? null;
+  const viewRollup =
+    rollup != null ? rollup : rollup === undefined ? cachedRollup || {} : PLACEHOLDER_ROLLUP;
   const panels = useMemo(
     () =>
       buildResourcesPanels({
-        rollup,
-        rollupLoading,
+        rollup: lastKnownRollup,
+        rollupLoading: syncing && !lastKnownRollup,
         health,
         ops,
         jobs,
         catalogSummary,
         cluster,
       }),
-    [rollup, rollupLoading, health, ops, jobs, catalogSummary, cluster],
+    [lastKnownRollup, syncing, health, ops, jobs, catalogSummary, cluster],
   );
   const effectiveActivityFilter = useMemo(() => {
     if (activityFilter) return activityFilter;
@@ -725,19 +880,6 @@ export function ResourcesPage({
     () => actionRows.filter((row) => row.issue?.section === "motion" || String(row.issue?.key || "").includes("jobs")),
     [actionRows],
   );
-  const inventorySections = useMemo(() => buildResourceInventorySections(panels), [panels]);
-  const showActivityAttention = reviewRows.length > 0 && !activityFilter;
-
-  const selectIssue = (issue) =>
-    onSelectRow?.({
-      key: issue.key,
-      label: issue.label,
-      metric: "Action required",
-      kind: "active",
-      section: issue.section,
-      warn: true,
-      ok: false,
-    });
 
   const freshness =
     refreshedAt != null ? `${Math.max(0, Math.round((Date.now() - refreshedAt) / 1000))}s ago` : null;
@@ -754,26 +896,45 @@ export function ResourcesPage({
   return (
     <PageShell
       title="Resources"
-      lead="Capacity, usage, and research capability across the lab."
+      lead="Capacity, licensed routes, and the usage ledger for this period."
       toolbar={
         <>
-          <Chip active={mode === "spending"} onClick={() => onModeChange?.("spending")}>
-            Overview
+          <Chip
+            active={mode === "sources" || mode === "spending"}
+            onClick={() => onModeChange?.("sources")}
+          >
+            Sources
           </Chip>
-          <Chip active={mode === "activity"} onClick={() => onModeChange?.("activity")}>
-            Activity
+          <Chip
+            active={mode === "usage" || mode === "activity"}
+            onClick={() => onModeChange?.("usage")}
+          >
+            Usage
           </Chip>
-          <WorkersToolbarStat workers={viewRollup?.hero?.workers} />
-          {mode === "spending" ? (
+          <Chip active={mode === "method"} onClick={() => onModeChange?.("method")}>
+            Method
+          </Chip>
+          <WorkersToolbarStat rollup={viewRollup} />
+          {(mode === "sources" || mode === "spending") && periodLabel ? (
             <span className="rd-v2-toolbar-meta">{periodLabel}</span>
           ) : filterLabel ? (
             <Chip active onClick={() => onClearActivityFilter?.()}>
               {filterLabel} ×
             </Chip>
           ) : null}
-          {freshness ? <span className="rd-v2-toolbar-meta">Updated {freshness}</span> : null}
-          {rollupLoading ? <span className="rd-v2-toolbar-meta">Syncing…</span> : null}
-          <Chip onClick={() => onRefresh?.()}>Refresh</Chip>
+          {freshness ? (
+            <span className="rd-v2-toolbar-meta" data-testid="resources-refreshed-at">
+              Updated {freshness}
+            </span>
+          ) : null}
+          {syncing ? (
+            <span className="rd-v2-toolbar-meta" role="status" data-testid="resources-syncing">
+              Syncing…
+            </span>
+          ) : null}
+          <Chip onClick={() => onRefresh?.()} aria-label="Refresh resources">
+            Refresh
+          </Chip>
         </>
       }
     >
@@ -783,56 +944,87 @@ export function ResourcesPage({
         </p>
       ) : null}
 
-      {mode === "spending" ? (
-        isInitialLoading ? (
-          <p className="rd-v2-res-loading" role="status">
-            Loading resources…
-          </p>
-        ) : (
-          <>
-            <ResourcesStatusStrip rollup={viewRollup} />
+      {mode === "sources" || mode === "spending" ? (
+        <>
+          <section className="rd-v2-res-wire-band" aria-label="Sources overview">
+            <h2 className="rd-v2-res-wire-title">Capacity &amp; access</h2>
+            <CapacityAccessGrid
+              rollup={viewRollup}
+              selectedKey={selectedKey}
+              onSelect={onSelectRow}
+            />
+          </section>
+          <section className="rd-v2-res-wire-band" aria-label="Source capabilities">
+            <h2 className="rd-v2-res-wire-title">Source capabilities</h2>
+            <SourceCapabilityLedger
+              panels={panels}
+              selectedKey={selectedKey}
+              onSelect={onSelectRow}
+            />
             <ResearchCapability
               cluster={health?.cluster || cluster}
               panels={panels}
               rollup={viewRollup}
               catalogSummary={catalogSummary}
             />
-            <ResourceInventory
-              sections={inventorySections}
-              selectedKey={selectedKey}
-              onSelect={onSelectRow}
-            />
-          </>
-        )
+          </section>
+        </>
+      ) : mode === "method" ? (
+        <section className="rd-v2-res-method-wire" data-testid="resources-method" aria-label="Evidence movement method">
+          <h2 className="rd-v2-res-wire-title">Evidence movement</h2>
+          <ol className="rd-v2-res-method-map">
+            <li>
+              <strong>Find</strong>
+              <span>Discover ranks candidate evidence against the research need.</span>
+            </li>
+            <li>
+              <strong>Acquire</strong>
+              <span>Approved requests become durable collection jobs.</span>
+            </li>
+            <li>
+              <strong>Execute</strong>
+              <span>Workers run the chosen route under dry-run protection.</span>
+            </li>
+            <li>
+              <strong>Promote</strong>
+              <span>Archive + registry read-back yields a Library asset.</span>
+            </li>
+          </ol>
+          <div className="rd-v2-res-method-progress">
+            <h3>Current method progress</h3>
+            <ol className="rd-v2-res-method-stages">
+              <li className={reviewRows.length ? "pending" : "idle"}>Find</li>
+              <li className={reviewRows.length ? "active" : "idle"}>Acquire</li>
+              <li className="idle">Execute</li>
+              <li className="idle">Promote</li>
+            </ol>
+            <p>
+              {reviewRows.length
+                ? `${reviewRows.length} item${reviewRows.length === 1 ? "" : "s"} need researcher review on Discover History before collection continues.`
+                : "No method decisions waiting. Active routes appear here when collection is in flight."}
+            </p>
+          </div>
+        </section>
       ) : (
         <>
-          <ActivityFilterBar
-            value={activityFilter ? null : activityKind}
-            onChange={(next) => {
-              onClearActivityFilter?.();
-              setActivityKind(next);
-            }}
-          />
-          <ActivityUsageSummary rollup={viewRollup} />
-          {showActivityAttention ? (
-            <StatementSection title="Review queue">
-              {reviewRows.map((r) => {
-                const { key, issue, ...rowProps } = r;
-                return (
-                  <StatementRow
-                    key={key}
-                    {...rowProps}
-                    active={selectedKey === key}
-                    onClick={() => issue ? selectIssue(issue) : onSelectRow?.(r)}
-                  />
-                );
-              })}
-            </StatementSection>
-          ) : null}
+          <section className="rd-v2-res-wire-band" aria-label="Usage">
+            <h2 className="rd-v2-res-wire-title">Recorded expenditure</h2>
+            <p className="rd-v2-res-usage-hierarchy muted small">
+              Period totals → daily history → attribution. Approvals stay on Discover History / Needs you — not here.
+            </p>
+            <ActivityFilterBar
+              value={activityFilter ? null : activityKind}
+              onChange={(next) => {
+                onClearActivityFilter?.();
+                setActivityKind(next);
+              }}
+            />
+            <ActivityUsageSummary rollup={viewRollup} />
+          </section>
           {showActivityFeed ? (
             <ActivityLog rows={activity} selectedKey={selectedKey} onSelectRow={onSelectRow} />
-          ) : reviewRows.length ? null : (
-            <p className="rd-v2-res-idle">No review items right now.</p>
+          ) : (
+            <p className="rd-v2-res-idle">No usage rows in this period.</p>
           )}
         </>
       )}

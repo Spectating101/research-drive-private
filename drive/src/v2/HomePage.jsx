@@ -1,279 +1,347 @@
-import { useMemo } from "react";
-import { CatalogList } from "@/v2/CatalogList";
-import { DeskLanesStrip } from "@/v2/DeskLanesStrip";
+import { useEffect, useMemo, useState } from "react";
+import { resolveCapacityMark } from "@/v2/capacityMarks";
 import { GuidedState, Skeleton } from "@/v2/InteractionFeedback";
-import { recentDatasets } from "@/v2/recent";
-import { PageShell, SectionTitle } from "@/v2/ui";
-import { displayName, statusPill } from "@/v2/datasetMeta";
+import { HomeSuggestedAsks } from "@/v2/HomeSuggestedAsks";
+import { readResourcesRollupCache, writeResourcesRollupCache } from "@/v2/resourcesRollupCache";
+import { PageShell } from "@/v2/ui";
+import {
+  buildPickUp,
+  buildRecentTrail,
+  buildRecommendedEvidence,
+  buildResourceHeadroom,
+  projectRollupFromHealth,
+} from "@/v2/homeIteration10";
 
-function datasetListItem(row) {
-  return {
-    kind: "dataset",
-    id: row.dataset_id,
-    name: row.name,
-    row,
-  };
-}
+/**
+ * Home — Iteration 10 freeze
+ * docs/HOME_FULL_SCALE_FREEZE_2026-07-16.md
+ *
+ * TOP: Pick Up (~65%) | Resource Headroom (~35%)
+ * MIDDLE: Recommended Evidence (≤2)
+ * BOTTOM: Recent Trail (≤3)
+ * No desktop page scroll. No three-lane action strip.
+ */
 
-function jobTitle(job) {
+function HeadroomBar({ pct, warn }) {
+  if (pct == null || !Number.isFinite(pct)) return null;
+  const width = Math.max(0, Math.min(100, pct));
   return (
-    job?.plan?.title ||
-    job?.title ||
-    job?.name ||
-    job?.dataset_id ||
-    job?.type ||
-    "Procurement job"
-  );
-}
-
-function purposeLine(ds) {
-  return (
-    ds?.summary ||
-    ds?.description ||
-    ds?.purpose ||
-    [ds?.source, ds?.coverage, ds?.grain].filter(Boolean).join(" · ") ||
-    "Research dataset in the lab vault"
-  );
-}
-
-function lastActivityLine(ds) {
-  const stamp = ds?.updated_at || ds?.last_accessed || ds?.last_activity || ds?.as_of;
-  if (stamp) return `Last activity · ${stamp}`;
-  if (ds?.coverage) return `Coverage · ${ds.coverage}`;
-  return "Available in the lab vault";
-}
-
-function HomeAttentionRow({ item, onOpen }) {
-  const actionName = `${item.label}: ${item.title}`;
-  return (
-    <article
-      className={`rd-v2-home-attention-row${item.warn ? " warn" : ""}`}
-      data-kind={item.kind}
-      aria-label={`${item.label}: ${item.title}`}
-    >
-      <span className="rd-v2-home-attention-label">{item.label}</span>
-      <div className="rd-v2-home-attention-main">
-        <strong>{item.title}</strong>
-        <span>{item.detail}</span>
-        <small>{item.next}</small>
-      </div>
-      <span className="rd-v2-home-attention-metric">{item.metric}</span>
-      <div className="rd-v2-home-attention-actions">
-        <button
-          type="button"
-          className="rd-v2-btn sm"
-          aria-label={`Review ${actionName}`}
-          onClick={() => onOpen(item)}
-        >
-          Review
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function HomeContinueSkeleton() {
-  return (
-    <div className="rd-v2-home-loading-copy" data-testid="home-loading-state">
-      <span>Restoring research context</span>
-      <Skeleton lines={3} label="Loading the most recent research asset" />
-      <div className="rd-v2-home-loading-meta">
-        <Skeleton lines={1} label="Loading readiness" />
-        <Skeleton lines={1} label="Loading activity" />
-      </div>
+    <div className={`rd-v2-home-headroom-bar${warn ? " warn" : ""}`} aria-hidden>
+      <span style={{ width: `${width}%` }} />
     </div>
   );
 }
 
+function HomeHeadroomMark({ markId }) {
+  const mark = resolveCapacityMark(markId);
+  if (!mark) return null;
+  return (
+    <span className="rd-v2-home-headroom-mark" aria-hidden>
+      <img src={mark.src} alt="" title={mark.title || mark.alt} width={16} height={16} />
+    </span>
+  );
+}
+
+function PickUpCard({ point, loading, onContinue, onReview }) {
+  if (loading) {
+    return (
+      <div className="rd-v2-home-pickup-card" data-testid="home-continue" aria-busy="true">
+        <span className="rd-v2-home-eyebrow">Pick up</span>
+        <Skeleton lines={3} label="Loading resume point" />
+      </div>
+    );
+  }
+  if (!point) {
+    return (
+      <div className="rd-v2-home-pickup-card" data-testid="home-continue">
+        <span className="rd-v2-home-eyebrow">Pick up</span>
+        <GuidedState
+          eyebrow="No resume point"
+          title="Open the vault or find missing evidence"
+          detail="Home has no typed resume object in this session yet."
+          checks={["Library holds registered assets", "Discover searches beyond holdings"]}
+        />
+      </div>
+    );
+  }
+  return (
+    <article
+      className={`rd-v2-home-pickup-card${point.warn ? " warn" : ""}`}
+      data-testid="home-continue"
+      data-kind={point.kind}
+      aria-label={`Pick up: ${point.title}`}
+    >
+      <span className="rd-v2-home-eyebrow">Pick up</span>
+      <h2>{point.title}</h2>
+      <p className="rd-v2-home-pickup-state">{point.stateSummary}</p>
+      <div className="rd-v2-home-pickup-foot">
+        <div>
+          {point.pill ? <span className="rd-v2-pill">{point.pill}</span> : null}
+          <span className="rd-v2-home-pickup-loc">{point.location}</span>
+        </div>
+        {point.action === "review" ? (
+          <button type="button" className="rd-v2-btn sm primary" onClick={() => onReview?.(point)}>
+            Review
+          </button>
+        ) : (
+          <button type="button" className="rd-v2-btn sm primary" onClick={() => onContinue?.(point)}>
+            Continue
+          </button>
+        )}
+      </div>
+      {point.dataset?.dataset_id ? (
+        <p className="rd-v2-home-continue-id mono">{point.dataset.dataset_id}</p>
+      ) : null}
+    </article>
+  );
+}
+
 export function HomePage({
-  datasets,
+  datasets = [],
   health,
   jobs = [],
-  onAskComposer,
+  profile,
+  acquisitions = [],
+  resourcesRollup,
   onGoTab,
   onOpenAttention,
   onSelectDataset,
   onPreviewDataset,
+  onSuggestSearch,
+  onAskComposer,
 }) {
-  const recent = useMemo(() => recentDatasets(datasets, 3), [datasets]);
-  const continueDs = recent[0] || datasets[0] || null;
   const loading = health == null && datasets.length === 0;
-  const healthJobs = health?.desk?.jobs || {};
-  const pendingJobs = useMemo(
-    () => jobs.filter((job) => /pending|approval|hold/i.test(String(job.status || job.state || ""))),
-    [jobs],
+  // Mirror Resources cache-first: never block Home headroom on a cold /desk/resources round-trip.
+  const [cachedRollup, setCachedRollup] = useState(() => readResourcesRollupCache());
+  useEffect(() => {
+    if (resourcesRollup && typeof resourcesRollup === "object") {
+      writeResourcesRollupCache(resourcesRollup);
+      setCachedRollup(resourcesRollup);
+    }
+  }, [resourcesRollup]);
+  const headroomRollup = useMemo(() => {
+    if (resourcesRollup && typeof resourcesRollup === "object") return resourcesRollup;
+    if (cachedRollup) return cachedRollup;
+    return projectRollupFromHealth(health);
+  }, [resourcesRollup, cachedRollup, health]);
+  const headroomLoading = headroomRollup == null && resourcesRollup === undefined && health == null;
+  const pickUp = useMemo(
+    () => buildPickUp({ datasets, jobs, health, acquisitions, profile }),
+    [datasets, jobs, health, acquisitions, profile],
   );
-  const pending = healthJobs.pending_approval ?? pendingJobs.length;
-  const recentRows = recent.length ? recent : datasets.slice(0, 3);
-  const firstPendingJob = pendingJobs[0];
+  const headroom = useMemo(
+    () => buildResourceHeadroom(headroomRollup),
+    [headroomRollup],
+  );
+  const recommended = useMemo(
+    () => buildRecommendedEvidence(profile, { limit: 2 }),
+    [profile],
+  );
+  const trail = useMemo(
+    () => buildRecentTrail({ jobs, datasets, limit: 3 }),
+    [jobs, datasets],
+  );
 
-  const attentionItems = useMemo(() => {
-    const items = [];
-    if (pending > 0) {
-      const title = firstPendingJob ? jobTitle(firstPendingJob) : "Procurement approval waiting";
-      const jobId = firstPendingJob?.id;
-      items.push({
-        id: "approval",
+  const continuePrimary = (point) => {
+    if (!point?.dataset) {
+      onGoTab(point?.tab || "library");
+      return;
+    }
+    // Home is a resume surface, not a second Library. Keep the researcher
+    // oriented here while exposing the dataset preview and grounded rail.
+    if (onPreviewDataset) {
+      onPreviewDataset(point.dataset);
+      return;
+    }
+    onSelectDataset?.(point.dataset);
+  };
+
+  const reviewDecision = (point) => {
+    // Freeze: approvals / Needs you live on Discover History, not Resources Usage.
+    if (onOpenAttention) {
+      onOpenAttention({
+        id: point.id,
         kind: "approval",
-        label: "Approval",
-        title,
-        metric: `${pending} pending`,
-        detail: "Decision required before collection can continue.",
-        next: "Review source, cost, destination",
-        tab: "resources",
-        warn: true,
+        tab: "browse",
+        discoverMode: "history",
+        title: point.title,
         resourceRow: {
           kind: "active",
-          key: jobId ? `job-${jobId}` : "jobs-pending",
-          label: title,
-          metric: firstPendingJob?.status
-            ? String(firstPendingJob.status).replace(/_/g, " ")
-            : `${pending} job(s) pending`,
+          key: point.job?.id ? `job-${point.job.id}` : "jobs-pending",
+          label: point.title,
+          metric: point.pill,
           section: "active",
           warn: true,
           ok: false,
-          job: firstPendingJob,
+          job: point.job,
         },
-        prompt: `Review the pending procurement approval for ${title}${jobId ? ` (job ${jobId})` : ""}. Check source fit, access terms, expected cost, vault destination, and whether this should be approved now.`,
       });
-    }
-    return items;
-  }, [firstPendingJob, pending]);
-
-  const openAttention = (item) => {
-    if (item.tab === "resources" && item.resourceRow && onOpenAttention) {
-      onOpenAttention(item);
       return;
     }
-    onGoTab(item.tab);
-  };
-
-  const continueWork = () => {
-    if (!continueDs) {
-      onGoTab("library");
-      return;
-    }
-    onSelectDataset?.(continueDs);
-    onPreviewDataset?.(continueDs);
-  };
-
-  const openContinueInLibrary = () => {
-    if (continueDs) onSelectDataset?.(continueDs);
-    onGoTab("library");
+    onGoTab("browse");
   };
 
   return (
     <PageShell
-      className="rd-v2-home-page"
+      className="rd-v2-home-page rd-v2-home-i10"
       title="Home"
-      lead="Resume a research context or address the one decision that needs you."
+      lead="Resume · headroom · durable consequences"
       footer={null}
     >
-      <section
-        className="rd-v2-home-continue-card"
-        aria-label="Continue working"
-        aria-busy={loading}
-        data-testid="home-continue"
-      >
-        <div className="rd-v2-home-continue-copy">
-          {loading ? (
-            <HomeContinueSkeleton />
+      <div className="rd-v2-home-topband">
+        <section className="rd-v2-home-pickup" aria-label="Pick up">
+          <PickUpCard
+            point={pickUp.primary}
+            loading={loading}
+            onContinue={continuePrimary}
+            onReview={reviewDecision}
+          />
+          {pickUp.secondary ? (
+            <button
+              type="button"
+              className={`rd-v2-home-pickup-secondary${pickUp.secondary.warn ? " warn" : ""}`}
+              onClick={() =>
+                pickUp.secondary.action === "review"
+                  ? reviewDecision(pickUp.secondary)
+                  : continuePrimary(pickUp.secondary)
+              }
+            >
+              <strong>{pickUp.secondary.title}</strong>
+              <span>{pickUp.secondary.stateSummary}</span>
+              <em>
+                {pickUp.secondary.location}
+                {pickUp.secondary.action === "review" ? " · Review" : " · Continue →"}
+              </em>
+            </button>
+          ) : null}
+        </section>
+
+        <section className="rd-v2-home-headroom" aria-label="Resource headroom">
+          <div className="rd-v2-home-headroom-head">
+            <span className="rd-v2-home-eyebrow">Resource headroom</span>
+            <button type="button" className="rd-v2-linkish" onClick={() => onGoTab("resources")}>
+              Resources →
+            </button>
+          </div>
+          {loading || headroomLoading ? (
+            <Skeleton lines={3} label="Loading headroom" />
+          ) : headroom.length ? (
+            <ul className="rd-v2-home-headroom-list">
+              {headroom.map((slot) => (
+                <li key={slot.id} className={slot.warn ? "warn" : undefined}>
+                  <div className="rd-v2-home-headroom-row">
+                    <strong>
+                      {slot.markId ? <HomeHeadroomMark markId={slot.markId} /> : null}
+                      {slot.name}
+                    </strong>
+                    <span>{slot.metric}</span>
+                  </div>
+                  <HeadroomBar pct={slot.pct} warn={slot.warn} />
+                  <div className="rd-v2-home-headroom-meta">
+                    <span>{slot.headroom}</span>
+                    <button
+                      type="button"
+                      className="rd-v2-linkish"
+                      onClick={() => onGoTab("resources")}
+                    >
+                      {slot.action === "check" ? "Check →" : "Resources →"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <>
-              <span>Continue working</span>
-              {continueDs ? (
-                <>
-                  <h2>{displayName(continueDs)}</h2>
-                  <p className="rd-v2-home-continue-purpose">{purposeLine(continueDs)}</p>
-                  <p className="rd-v2-home-continue-meta">
-                    <span className="rd-v2-pill">{statusPill(continueDs)}</span>
-                    <span>{lastActivityLine(continueDs)}</span>
-                  </p>
-                  <p className="rd-v2-home-continue-id mono">{continueDs.dataset_id}</p>
-                </>
-              ) : (
-                <GuidedState
-                  eyebrow="No recent asset"
-                  title="Open the vault or find missing data"
-                  detail="Research Drive has no recent dataset to resume in this browser yet."
-                  checks={["Library holds registered assets", "Discover searches beyond current holdings"]}
-                />
-              )}
-            </>
+            <p className="rd-v2-home-headroom-empty">Capacity signals load with Resources.</p>
           )}
-        </div>
-        <div className="rd-v2-home-continue-actions">
-          {loading ? (
-            <Skeleton className="rd-v2-home-action-skeleton" lines={2} label="Loading actions" />
-          ) : (
-            <>
-              <button type="button" className="rd-v2-btn sm primary" onClick={continueWork}>
-                Continue
-              </button>
-              {continueDs ? (
-                <button type="button" className="rd-v2-btn sm" onClick={openContinueInLibrary}>
-                  Open in Library
+        </section>
+      </div>
+
+      {recommended.length ? (
+        <section className="rd-v2-home-recommended" aria-label="Recommended evidence">
+          <div className="rd-v2-home-section-head">
+            <h2>Recommended evidence</h2>
+          </div>
+          <ul className="rd-v2-home-recommended-list">
+            {recommended.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className="rd-v2-home-recommended-row"
+                  onClick={() => {
+                    if (item.action === "library" && item.datasetId) {
+                      onGoTab("library");
+                      return;
+                    }
+                    if (item.query && onSuggestSearch) {
+                      onSuggestSearch(item.query);
+                      return;
+                    }
+                    onGoTab("browse");
+                  }}
+                >
+                  <div>
+                    <strong>{item.title}</strong>
+                    <span>{item.reason}</span>
+                  </div>
+                  <em>{item.badge}</em>
+                  <span className="rd-v2-home-recommended-go">
+                    {item.action === "library" ? "Library →" : "Explore →"}
+                  </span>
                 </button>
-              ) : (
-                <button type="button" className="rd-v2-btn sm" onClick={() => onGoTab("browse")}>
-                  Discover data
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="rd-v2-home-trail" aria-label="Recent trail">
+        <div className="rd-v2-home-section-head">
+          <h2>Recent trail</h2>
+          <button
+            type="button"
+            className="rd-v2-linkish"
+            onClick={() => onGoTab("browse")}
+          >
+            View all →
+          </button>
+        </div>
+        {trail.length ? (
+          <ul className="rd-v2-home-trail-list">
+            {trail.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className="rd-v2-home-trail-row"
+                  onClick={() => {
+                    if (item.dataset) {
+                      onSelectDataset?.(item.dataset);
+                      return;
+                    }
+                    if (item.dest === "history") {
+                      onGoTab("browse");
+                      return;
+                    }
+                    onGoTab(item.dest === "library" ? "library" : "browse");
+                  }}
+                >
+                  <span className="rd-v2-home-trail-kind">{item.kind}</span>
+                  <strong>{item.title}</strong>
+                  <span>{item.summary}</span>
+                  <em>{item.dest === "library" ? "Library →" : "History →"}</em>
                 </button>
-              )}
-            </>
-          )}
-        </div>
-      </section>
-
-      {loading ? (
-        <div className="rd-v2-home-lanes-loading" aria-label="Loading research entrances">
-          <Skeleton lines={2} />
-          <Skeleton lines={2} />
-          <Skeleton lines={2} />
-        </div>
-      ) : (
-        <DeskLanesStrip holdings={datasets.length} onGoTab={onGoTab} onAskComposer={onAskComposer} />
-      )}
-
-      <section className="rd-v2-home-attention" aria-label="Attention queue" aria-busy={loading}>
-        <div className="rd-v2-home-attention-head">
-          <h2>Attention</h2>
-          <span>{loading ? "Checking" : attentionItems.length ? `${attentionItems.length} needing action` : "Clear"}</span>
-        </div>
-        <div className="rd-v2-home-attention-body">
-          {loading ? (
-            <Skeleton className="rd-v2-home-attention-skeleton" lines={2} label="Checking the attention queue" />
-          ) : attentionItems.length ? (
-            attentionItems.map((item) => (
-              <HomeAttentionRow
-                key={item.id}
-                item={item}
-                onOpen={openAttention}
-              />
-            ))
-          ) : (
-            <p className="rd-v2-home-attention-empty">Nothing needs a decision right now.</p>
-          )}
-        </div>
-      </section>
-
-      <section className="rd-v2-home-recent" aria-label="Recent research assets" aria-busy={loading}>
-        <SectionTitle title="Recent research assets" actionLabel="Open Library →" onAction={() => onGoTab("library")} />
-        <div className="rd-v2-home-list-panel">
-          {loading ? (
-            <div className="rd-v2-home-list-skeletons">
-              <Skeleton lines={2} label="Loading recent research assets" />
-              <Skeleton lines={2} />
-              <Skeleton lines={2} />
-            </div>
-          ) : (
-            <CatalogList
-              rows={recentRows.map(datasetListItem)}
-              onSelectDataset={onSelectDataset}
-              onDoubleClick={onPreviewDataset}
-              compact
-            />
-          )}
-        </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          // VC-8: a sparse trail offers the existing profile-aware suggested
+          // questions rather than a dead line of system language.
+          <div className="rd-v2-home-section-empty-actions">
+            <p className="rd-v2-home-section-empty">
+              Nothing durable yet — recent work will collect here.
+            </p>
+            <HomeSuggestedAsks profile={profile} onAskComposer={onAskComposer || onSuggestSearch} />
+          </div>
+        )}
       </section>
     </PageShell>
   );

@@ -32,10 +32,12 @@ test.describe("Research Drive interaction guidance", () => {
 
   test("rich context help opens by tap and remains inside the mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/?tab=library", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
+    await page.getByRole("textbox", { name: "Search library holdings" }).fill("Asia");
 
     const help = page.getByRole("button", { name: /^Explain / }).first();
+    await expect(help).toBeVisible();
     await help.click();
     const popover = page.getByTestId("rich-context-popover");
     await expect(popover).toBeVisible();

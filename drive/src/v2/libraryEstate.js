@@ -82,16 +82,27 @@ export function libraryAssetCounts(rows = []) {
   const counts = {
     total: rows.length,
     queryReady: 0,
+    registered: 0,
     connected: 0,
     metadataOnly: 0,
     unknown: 0,
   };
   for (const row of rows) {
     const kind = statusPillKind(row).kind;
-    if (kind === "query-ready") counts.queryReady += 1;
-    else if (kind === "connected") counts.connected += 1;
-    else if (kind === "remote") counts.metadataOnly += 1;
-    else if (kind === "unknown") counts.unknown += 1;
+    if (kind === "query-ready") {
+      counts.queryReady += 1;
+      counts.registered += 1;
+    } else if (kind === "connected") {
+      counts.connected += 1;
+      counts.registered += 1;
+    } else if (kind === "remote") {
+      counts.metadataOnly += 1;
+    } else if (kind === "unknown") {
+      counts.unknown += 1;
+      counts.metadataOnly += 1;
+    } else {
+      counts.registered += 1;
+    }
   }
   return counts;
 }
@@ -144,5 +155,5 @@ export function assetTypeLabel(row) {
   if (domain === "procured" || path.includes("procured")) return "Acquired asset";
   if (path.includes("research_panels") || domain === "derived") return "Derived panel";
   if (readiness === "remote") return "Catalog record";
-  return "Lab dataset";
+  return "Library dataset";
 }

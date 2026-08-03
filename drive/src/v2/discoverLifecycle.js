@@ -225,7 +225,7 @@ export function classifyJobLifecycle(job, { catalog = [], labIds = null } = {}) 
         state: LIFECYCLE.COMPLETED_UNREGISTERED,
         label: "Collection complete · Registration pending",
         explanation:
-          "Collection finished, but the output is not yet registered as a reusable lab dataset.",
+          "Collection finished, but the output is not yet registered as a reusable Library dataset.",
         primaryAction: { id: "track_resources", label: "Track in Resources" },
         secondaryActions: [],
         evidence: [],
@@ -243,8 +243,8 @@ export function classifyJobLifecycle(job, { catalog = [], labIds = null } = {}) 
     if (ready || resultReady) {
       return {
         state: LIFECYCLE.QUERY_READY,
-        label: "In lab · Query ready",
-        explanation: "The collected output is registered and can be queried in the lab.",
+        label: "In Library · Query ready",
+        explanation: "The collected output is registered and can be queried in the Library.",
         primaryAction: { id: "open_library", label: "Open in Library" },
         secondaryActions: [{ id: "track_resources", label: "Track in Resources" }],
         evidence: [{ label: "Dataset", value: regId }],
@@ -255,7 +255,7 @@ export function classifyJobLifecycle(job, { catalog = [], labIds = null } = {}) 
     }
     return {
       state: LIFECYCLE.REGISTERED,
-      label: "Registered in lab",
+      label: "Registered in Library",
       explanation: "The collected output now has a Library dataset record.",
       primaryAction: { id: "open_library", label: "Open in Library" },
       secondaryActions: [{ id: "track_resources", label: "Track in Resources" }],
@@ -391,7 +391,7 @@ export function projectDiscoverCandidateLifecycle(row, lifecycle) {
       discover_taxonomy: {
         ...base,
         key: "local-query-ready",
-        label: "In lab · Query ready",
+        label: "In Library · Query ready",
         lifecycle_projected: true,
       },
     };
@@ -451,9 +451,9 @@ export function applyLifecycleToEvaluation(evaluation, lifecycle) {
     return {
       ...evaluation,
       taxonomyKey: "local-query-ready",
-      taxonomyLabel: "In lab · Query ready",
+      taxonomyLabel: "In Library · Query ready",
       decision: {
-        headline: "In lab · Query ready",
+        headline: "In Library · Query ready",
         body: "You can query this dataset now.",
       },
       unknowns: lifecycleHandoffUnknowns(LIFECYCLE.QUERY_READY),
@@ -465,7 +465,7 @@ export function applyLifecycleToEvaluation(evaluation, lifecycle) {
       taxonomyKey: "local-connected",
       taxonomyLabel: "In lab · Registered",
       decision: {
-        headline: "Registered in lab",
+        headline: "Registered in Library",
         body: "A Library dataset record exists. Instant query access is not confirmed.",
       },
       unknowns: lifecycleHandoffUnknowns(LIFECYCLE.REGISTERED),

@@ -15,14 +15,21 @@ function usefulFor(dataset) {
 }
 
 function unknowns(dataset, fields) {
+  // Terra donor (33f7288): judgment caveats as short strings — no invented readiness scores.
   const out = [];
+  if (!dataset?.analysis_readiness) out.push("Readiness not reported by registry");
+  if (!fields.coverage && !dataset?.coverage && !dataset?.date_range) out.push("Coverage not reported");
+  if (!dataset?.grain) out.push("Grain not reported");
+  if (!fields.source && !dataset?.source && !dataset?.source_system && !dataset?.provenance) {
+    out.push("Provenance not reported beyond registry");
+  }
   if (!dataset?.updated_at && !dataset?.last_modified && !dataset?.as_of) {
     out.push("Freshness / last refresh not described");
   }
-  if (!dataset?.limitations && !dataset?.caveats) out.push("Known caveats not described");
   if (!fields.joinKeys?.length) out.push("Join keys / schema relationship not described");
-  if (!fields.coverage && !dataset?.coverage && !dataset?.date_range) out.push("Coverage not described");
-  if (!fields.source && !dataset?.source && !dataset?.source_system) out.push("Source provenance not described");
+  const limitations = dataset?.limitations || dataset?.caveats || fields.limitations;
+  if (limitations) out.push(String(limitations).slice(0, 160));
+  else out.push("Known caveats not described");
   return out;
 }
 
@@ -45,6 +52,49 @@ function JoinKeys({ keys }) {
   );
 }
 
+function sourceAuthorityLine(dataset, fields) {
+  if (dataset?.self_provided || dataset?.upload) return "Self-provided";
+  if (fields.source || dataset?.source || dataset?.source_system) {
+    return fields.source || dataset.source || dataset.source_system;
+  }
+  if (dataset?.collect_via || dataset?.backend) return dataset.collect_via || dataset.backend;
+  return "Source authority absent";
+}
+
+function verificationBlock(dataset) {
+  const kind = statusPillKind(dataset).kind;
+  if (kind === "query-ready") {
+    return {
+      headline: "Matched",
+      body: "Archive and registry correspondence supports query use.",
+      checks: ["Identifiers present", "Registry readiness declared", "Local query path available"],
+      unknowns: [],
+    };
+  }
+  if (dataset?.archive_verified === true) {
+    return {
+      headline: "Archived",
+      body: "Vault archive confirmed. Query readiness may still be pending.",
+      checks: ["Archive verified"],
+      unknowns: ["Query readiness not confirmed"],
+    };
+  }
+  if (kind === "connected") {
+    return {
+      headline: "Connected",
+      body: "Source route is connected. Full verification is not complete.",
+      checks: ["Route connected"],
+      unknowns: ["Row-level correspondence not established"],
+    };
+  }
+  return {
+    headline: "Unverified",
+    body: "Verification record is not established for this asset.",
+    checks: [],
+    unknowns: ["Source match", "Coverage correspondence", "Query readiness"],
+  };
+}
+
 export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
   if (!dataset) return null;
   const fields = detailFields(dataset);
@@ -56,6 +106,7 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
   const updated = dataset.updated_at || dataset.last_modified || dataset.as_of;
   const route = dataset.collect_via || dataset.backend;
   const canPreview = state.kind === "query-ready";
+  const verification = verificationBlock(dataset);
 
   return (
     <RailFrame>
@@ -72,6 +123,36 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
       </section>
 
       <div className="rd-v2-rail-scroll rd-v2-library-inspector-scroll">
+        <section className="rd-v2-library-inspector-block" aria-label="Source" data-testid="library-rail-source">
+          <p className="rd-v2-rail-section-label">Source</p>
+          <h3 className="rd-v2-library-rail-module-title">{sourceAuthorityLine(dataset, fields)}</h3>
+          <div className="rd-v2-library-inspector-facts">
+            <Fact label="Route" value={route} />
+            <Fact label="Vault" value={fields.vault ? "Archived in Library" : "Local archive not confirmed"} />
+            <Fact label="Updated" value={updated} />
+          </div>
+        </section>
+
+        <section className="rd-v2-library-inspector-block" aria-label="Verification" data-testid="library-rail-verification">
+          <p className="rd-v2-rail-section-label">Verification</p>
+          <h3 className="rd-v2-library-rail-module-title">{verification.headline}</h3>
+          <p className="rd-v2-library-inspector-prose">{verification.body}</p>
+          {verification.checks.length ? (
+            <ul className="rd-v2-library-verify-list known">
+              {verification.checks.map((item) => (
+                <li key={item}><span aria-hidden>✓</span>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+          {verification.unknowns.length ? (
+            <ul className="rd-v2-library-verify-list unknown">
+              {verification.unknowns.map((item) => (
+                <li key={item}><span aria-hidden>?</span>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+
         <section className="rd-v2-library-inspector-block" aria-label="Useful for">
           <p className="rd-v2-rail-section-label">Useful for</p>
           <p className="rd-v2-library-inspector-prose">{usefulFor(dataset)}</p>
@@ -95,16 +176,6 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
             <JoinKeys keys={fields.joinKeys} />
           </section>
         ) : null}
-
-        <section className="rd-v2-library-inspector-block" aria-label="Provenance">
-          <p className="rd-v2-rail-section-label">Provenance</p>
-          <div className="rd-v2-library-inspector-facts">
-            <Fact label="Source" value={fields.source || dataset.source_system} />
-            <Fact label="Route" value={route} />
-            <Fact label="Vault state" value={fields.vault ? "Archived in lab" : "Local archive not confirmed"} />
-            <Fact label="Updated" value={updated} />
-          </div>
-        </section>
 
         {missing.length ? (
           <section className="rd-v2-library-inspector-block rd-v2-library-inspector-unknown" aria-label="Still unknown">

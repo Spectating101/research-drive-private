@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { facultyProfile } from "@/v2/api";
+import { saveUserEmail } from "@/v2/deskSession";
 import {
   PILOT_PREVIEW_EMAIL,
   buildDeskRead,
@@ -13,26 +14,42 @@ function memoryText(card, prefix) {
   return String(card?.text || "").replace(new RegExp(`^${prefix}:\\s*`, "i"), "");
 }
 
+function memoryLabel(card) {
+  if (card?.id === "focus") return "Research focus";
+  if (card?.id === "methods") return "Methods";
+  if (card?.id === "also") return "Research context";
+  if (card?.id === "current") return "Current research direction";
+  return "Research memory";
+}
+
 /**
- * Profile — Memory · Works · Lab (organic from faculty registry).
- * Unbound shows pilot preview so the page demonstrates itself.
+ * Profile — Memory · Works · Lab (PROFILE_GROUNDED_FREEZE).
+ * Unbound desk shows labelled EXAMPLE pilot from faculty registry.
  */
-export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
+export function ProfilePage({ profile, onGoTab, onSuggestSearch, onProfileRefresh }) {
   const bound = Boolean(profile && !profile.unknown);
   const [pilot, setPilot] = useState(null);
+  const [pilotLoading, setPilotLoading] = useState(!bound);
 
   useEffect(() => {
     if (bound) {
       setPilot(null);
+      setPilotLoading(false);
       return undefined;
     }
     let cancelled = false;
+    setPilotLoading(true);
     facultyProfile(PILOT_PREVIEW_EMAIL)
       .then((data) => {
-        if (!cancelled && data?.found && data.profile) setPilot(data.profile);
+        if (cancelled) return;
+        if (data?.found && data.profile && !data.profile.unknown) setPilot(data.profile);
+        else setPilot(null);
       })
       .catch(() => {
         if (!cancelled) setPilot(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPilotLoading(false);
       });
     return () => {
       cancelled = true;
@@ -50,6 +67,7 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
   const lab = buildLab(active);
   const currentMemory = memory.find((card) => card.id === "current") || null;
   const savedMemory = memory.filter((card) => card.id !== "current");
+  const savedCount = memory.length;
 
   const runQuery = (q) => {
     const query = String(q || "").trim();
@@ -62,7 +80,7 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
 
   return (
     <PageShell
-      className={`rd-v2-profile-page${previewing ? " is-preview" : ""}`}
+      className={`rd-v2-profile-page rd-v2-profile-grounded${previewing ? " is-preview" : ""}`}
       title="Profile"
       lead="Research memory carried into Discover and Ask"
     >
@@ -85,52 +103,111 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
                 <em>indexed works</em>
               </span>
             ) : null}
-            {memory.length ? (
+            {savedCount ? (
               <span>
-                <strong>{memory.length}</strong>
+                <strong>{savedCount}</strong>
                 <em>saved contexts</em>
               </span>
             ) : null}
           </div>
-          {bound ? null : (
+          {previewing ? (
+            <button
+              type="button"
+              className="rd-v2-btn sm primary"
+              onClick={() => {
+                saveUserEmail(PILOT_PREVIEW_EMAIL);
+                onProfileRefresh?.();
+              }}
+            >
+              Bind example identity
+            </button>
+          ) : !bound ? (
             <button type="button" className="rd-v2-btn sm primary" onClick={() => onGoTab?.("settings")}>
               Use my email
             </button>
-          )}
+          ) : null}
         </div>
       </section>
 
+      {pilotLoading && !bound ? (
+        <p className="rd-v2-profile-loading" data-testid="profile-know-empty">
+          Loading example profile…
+        </p>
+      ) : null}
+
       {(bound || previewing) && memory.length ? (
-        <section className="rd-v2-profile-section rd-v2-profile-memory-section" data-testid="profile-memory" aria-labelledby="profile-memory-title">
+        <section
+          className="rd-v2-profile-section rd-v2-profile-memory-section"
+          data-testid="profile-memory"
+          aria-labelledby="profile-memory-title"
+        >
+          {/* VC-1: research memory stays editable — it drives Discover ranking,
+              Ask context, and Synthesis constraints. No completion score. */}
           <header className="rd-v2-profile-section-head">
             <div>
-              <h2 id="profile-memory-title">Memory</h2>
-              <p>Context Research Drive should remember while finding and evaluating data.</p>
+              <h2 id="profile-memory-title">Research memory</h2>
+              <p>
+                Context Research Drive should remember while finding and evaluating evidence.
+                It shapes Discover ranking, Ask context, and Synthesis constraints.
+              </p>
             </div>
-            <span>{memory.length} saved</span>
+            <button type="button" className="rd-v2-btn sm" onClick={() => onGoTab?.("settings")}>
+              Edit research memory
+            </button>
           </header>
           <div className="rd-v2-profile-memory-layout">
             <ul className="rd-v2-profile-memory">
               {savedMemory.map((card) => (
-                <li key={card.id} className="rd-v2-profile-memory-card">
-                  <span>{card.id === "focus" ? "Research focus" : card.id === "methods" ? "Methods" : "Research context"}</span>
-                  <strong>{memoryText(card, card.id === "also" ? "Also" : card.id === "methods" ? "Methods" : "Focus")}</strong>
+                <li key={card.id} className="rd-v2-profile-memory-card" data-memory={card.id}>
+                  <span>{memoryLabel(card)}</span>
+                  <strong>
+                    {memoryText(
+                      card,
+                      card.id === "also" ? "Also" : card.id === "methods" ? "Methods" : "Focus",
+                    )}
+                  </strong>
                 </li>
               ))}
             </ul>
             {currentMemory ? (
-              <article className="rd-v2-profile-memory-anchor">
+              <article className="rd-v2-profile-memory-anchor" data-memory="current">
                 <span>Current research direction</span>
-                <strong>{currentMemory.text}</strong>
-                <p>Used as live context when Research Drive ranks sources, explains fit, and carries a question into Ask.</p>
+                <strong>{memoryText(currentMemory, "Current")}</strong>
+                <p>Used when finding and evaluating evidence.</p>
               </article>
             ) : null}
+          </div>
+        </section>
+      ) : (bound || previewing) && !memory.length ? (
+        <section className="rd-v2-profile-section" data-testid="profile-memory-thin" aria-label="Research memory">
+          {/* VC-1: an empty research memory must offer a way to improve it —
+              it changes Discover ranking, Ask context, and Synthesis
+              constraints, so a dead read-only record is not enough. */}
+          <header className="rd-v2-profile-section-head">
+            <div>
+              <h2>Research memory</h2>
+              <p>Thin faculty profiles keep this empty rather than inventing research context.</p>
+            </div>
+          </header>
+          <p className="rd-v2-empty-inline">No research direction saved.</p>
+          <p className="rd-v2-profile-memory-effect">
+            Research memory shapes Discover ranking, the context Ask carries, and the
+            constraints Synthesis applies.
+          </p>
+          <div className="rd-v2-profile-memory-actions">
+            <button type="button" className="rd-v2-btn sm primary" onClick={() => onGoTab?.("settings")}>
+              Add research focus
+            </button>
           </div>
         </section>
       ) : null}
 
       {(bound || previewing) && (works.items.length || works.paperCount) ? (
-        <section className="rd-v2-profile-section rd-v2-profile-works-section" data-testid="profile-works" aria-labelledby="profile-works-title">
+        <section
+          className="rd-v2-profile-section rd-v2-profile-works-section"
+          data-testid="profile-works"
+          aria-labelledby="profile-works-title"
+        >
           <header className="rd-v2-profile-section-head">
             <div>
               <h2 id="profile-works-title">Works</h2>
@@ -144,21 +221,26 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
                 <li key={work.raw}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
                   <strong>{work.title}</strong>
+                  <em aria-hidden>→</em>
                 </li>
               ))}
             </ol>
           ) : (
-            <p className="rd-v2-empty-inline">—</p>
+            <p className="rd-v2-empty-inline">Indexed count on file; highlights not listed.</p>
           )}
         </section>
       ) : null}
 
-      {(bound || previewing) ? (
-        <section className="rd-v2-profile-section rd-v2-profile-lab-section" data-testid="profile-lab" aria-labelledby="profile-lab-title">
+      {bound || previewing ? (
+        <section
+          className="rd-v2-profile-section rd-v2-profile-lab-section"
+          data-testid="profile-lab"
+          aria-labelledby="profile-lab-title"
+        >
           <header className="rd-v2-profile-section-head">
             <div>
-              <h2 id="profile-lab-title">Lab</h2>
-              <p>Data relationships already attached to this research context and useful next connections.</p>
+              <h2 id="profile-lab-title">Library connections</h2>
+              <p>Library evidence already attached to this research context, and useful next connections.</p>
             </div>
             <span>Linked · next</span>
           </header>
@@ -184,9 +266,16 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
                   ))}
                 </ul>
               ) : (
-                <p className="rd-v2-empty-inline" data-testid="profile-lab-linked-empty">
-                  None yet
-                </p>
+                <div data-testid="profile-lab-linked-empty">
+                  <p className="rd-v2-empty-inline">No evidence linked to this profile.</p>
+                  <button
+                    type="button"
+                    className="rd-v2-btn sm"
+                    onClick={() => onGoTab?.("library")}
+                  >
+                    Find relevant Library assets
+                  </button>
+                </div>
               )}
             </div>
 
@@ -211,16 +300,18 @@ export function ProfilePage({ profile, onGoTab, onSuggestSearch }) {
                   ))}
                 </ul>
               ) : (
-                <p className="rd-v2-empty-inline">—</p>
+                <p className="rd-v2-empty-inline">
+                  Suggestions appear after a research focus is saved.
+                </p>
               )}
             </div>
           </div>
         </section>
-      ) : (
+      ) : !pilotLoading ? (
         <p className="rd-v2-profile-loading" data-testid="profile-know-empty">
-          Loading example profile…
+          Bind a YZU faculty email in Settings, or load the example research memory.
         </p>
-      )}
+      ) : null}
     </PageShell>
   );
 }
@@ -238,7 +329,7 @@ export function ProfileDetailPanel({ profile }) {
     let cancelled = false;
     facultyProfile(PILOT_PREVIEW_EMAIL)
       .then((data) => {
-        if (!cancelled && data?.found && data.profile) setPilot(data.profile);
+        if (!cancelled && data?.found && data.profile && !data.profile.unknown) setPilot(data.profile);
       })
       .catch(() => {
         if (!cancelled) setPilot(null);

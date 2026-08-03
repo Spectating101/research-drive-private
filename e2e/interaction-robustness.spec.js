@@ -44,7 +44,7 @@ function capturePageErrors(page) {
 }
 
 test.describe("Research Drive interaction robustness", () => {
-  test("same-tick Ask activation submits once and survives navigation", async ({ page }) => {
+  test("same-tick Ask activation submits once and resolves after navigation", async ({ page }) => {
     const pageErrors = capturePageErrors(page);
     await mockV2Api(page);
     await page.unroute("**/api/library/chat/stream");
@@ -88,9 +88,10 @@ test.describe("Research Drive interaction robustness", () => {
     await expect(rail).toContainText("The single request completed after navigation.", { timeout: 10_000 });
 
     expect(chatRequests).toBe(1);
-    await expect(
-      rail.locator(".rd-v2-ask-bubble", { hasText: "You: Explain the stability envelope." }),
-    ).toHaveCount(1);
+    await expect(rail.getByTestId("ask-agent-card")).toHaveCount(1);
+    await expect(rail.getByTestId("ask-agent-card")).toContainText(
+      "The single request completed after navigation.",
+    );
     await expect(rail.getByTestId("interaction-progress")).toHaveCount(0);
     await expect(rail.getByTestId("ask-composer")).toBeEnabled();
     expect(pageErrors).toEqual([]);
@@ -177,7 +178,9 @@ test.describe("Research Drive interaction robustness", () => {
 
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    await page.locator(".rd-v2-search-pill input").fill("filings");
+    const search = page.getByRole("textbox", { name: "Search or describe a research need" });
+    await search.fill("filings");
+    await search.press("Enter");
 
     const mops = page.locator("button.rd-v2-discover-candidate", { hasText: "MOPS financial statements" });
     const sec = page.locator("button.rd-v2-discover-candidate", { hasText: "SEC company facts" });

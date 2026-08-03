@@ -25,7 +25,7 @@ const LABELS = Object.freeze({
   [SUFFICIENCY.EXACT_LOCAL]: "Exact local match",
   [SUFFICIENCY.LIKELY_EQUIVALENT]: "Likely equivalent",
   [SUFFICIENCY.PARTIAL_LOCAL]: "Partial local coverage",
-  [SUFFICIENCY.RELATED_LOCAL]: "Related lab asset",
+  [SUFFICIENCY.RELATED_LOCAL]: "Related Library asset",
   [SUFFICIENCY.NO_LOCAL_ALTERNATIVE]: "No local alternative found",
   [SUFFICIENCY.COMPARISON_UNKNOWN]: "Local comparison unavailable",
 });
@@ -110,7 +110,7 @@ function noneResult() {
   return {
     state: SUFFICIENCY.NO_LOCAL_ALTERNATIVE,
     label: LABELS[SUFFICIENCY.NO_LOCAL_ALTERNATIVE],
-    summary: "The completed local comparison found no qualifying lab asset.",
+    summary: "The completed local comparison found no qualifying Library asset.",
     localMatches: [],
     bestLocal: null,
     basis: [],
@@ -118,7 +118,7 @@ function noneResult() {
     comparisonComplete: true,
     browseLine: LABELS[SUFFICIENCY.NO_LOCAL_ALTERNATIVE],
     focusHeadline: LABELS[SUFFICIENCY.NO_LOCAL_ALTERNATIVE],
-    focusBody: "The completed local comparison found no qualifying lab asset.",
+    focusBody: "The completed local comparison found no qualifying Library asset.",
     primaryActionHint: null,
     secondaryActionHint: null,
   };
@@ -131,8 +131,8 @@ function exactMatch(lab) {
     state: SUFFICIENCY.EXACT_LOCAL,
     label: LABELS[SUFFICIENCY.EXACT_LOCAL],
     summary: ready
-      ? "A query-ready dataset with the same canonical identity is already in your lab."
-      : "A dataset with the same canonical identity is already in your lab.",
+      ? "A query-ready dataset with the same canonical identity is already in your Library."
+      : "A dataset with the same canonical identity is already in your Library.",
     localMatches: [lab],
     bestLocal: lab,
     basis: [{ dimension: "canonical_identity", relation: "same" }],
@@ -141,8 +141,8 @@ function exactMatch(lab) {
     browseLine: `${LABELS[SUFFICIENCY.EXACT_LOCAL]} · ${title}`,
     focusHeadline: LABELS[SUFFICIENCY.EXACT_LOCAL],
     focusBody: ready
-      ? "A query-ready dataset with the same canonical identity is already in your lab."
-      : "A dataset with the same canonical identity is already in your lab.",
+      ? "A query-ready dataset with the same canonical identity is already in your Library."
+      : "A dataset with the same canonical identity is already in your Library.",
     primaryActionHint: { id: "open_local", label: "Open local dataset" },
     secondaryActionHint: null,
   };
@@ -182,9 +182,9 @@ function relatedOrPartial(lab, candidate, basis) {
     const gapLine = diffs.map((d) => d.summary).join("; ");
     const shortGap =
       diffs[0].dimension === "temporal_coverage"
-        ? `In lab ${diffs[0].local} · Candidate ${diffs[0].candidate}`
+        ? `In Library ${diffs[0].local} · Candidate ${diffs[0].candidate}`
         : diffs[0].dimension === "grain"
-          ? `In lab ${diffs[0].local} · Candidate ${diffs[0].candidate}`
+          ? `In Library ${diffs[0].local} · Candidate ${diffs[0].candidate}`
           : diffs[0].summary;
     return {
       state: SUFFICIENCY.PARTIAL_LOCAL,
@@ -197,7 +197,7 @@ function relatedOrPartial(lab, candidate, basis) {
       comparisonComplete: true,
       browseLine: `${LABELS[SUFFICIENCY.PARTIAL_LOCAL]} · ${shortGap}`,
       focusHeadline: LABELS[SUFFICIENCY.PARTIAL_LOCAL],
-      focusBody: "Your lab covers part of this need. The known difference is shown below.",
+      focusBody: "Your Library covers part of this need. The known difference is shown below.",
       gapLines: diffs.map((d) => d.summary),
       primaryActionHint: null,
       secondaryActionHint: { id: "open_local", label: "Open local dataset" },
@@ -213,7 +213,7 @@ function relatedOrPartial(lab, candidate, basis) {
   return {
     state: SUFFICIENCY.RELATED_LOCAL,
     label: LABELS[SUFFICIENCY.RELATED_LOCAL],
-    summary: `The lab has a dataset for the same research object, but equivalence is not established.`,
+    summary: `The Library has a dataset for the same research object, but equivalence is not established.`,
     localMatches: [lab],
     bestLocal: lab,
     basis,
@@ -221,7 +221,7 @@ function relatedOrPartial(lab, candidate, basis) {
     comparisonComplete: true,
     browseLine: `${LABELS[SUFFICIENCY.RELATED_LOCAL]} · ${basisNote}`,
     focusHeadline: LABELS[SUFFICIENCY.RELATED_LOCAL],
-    focusBody: "The lab has a related dataset for the same research object. Equivalence is not established.",
+    focusBody: "The Library has a related dataset for the same research object. Equivalence is not established.",
     primaryActionHint: null,
     secondaryActionHint: { id: "inspect_related", label: "Inspect related lab asset" },
   };
@@ -423,7 +423,7 @@ export function assessLocalSufficiency(candidate, catalog = [], opts = {}) {
 
   const labs = Array.isArray(catalog) ? catalog.filter(Boolean) : [];
   if (!labs.length) {
-    return unknownResult({ reason: "Lab catalog is unavailable for comparison." });
+    return unknownResult({ reason: "Library catalog is unavailable for comparison." });
   }
 
   const exact = findExact(candidate, labs);
@@ -550,7 +550,7 @@ export function sufficiencyAskPrompts(sufficiency, title) {
       {
         id: "confirm_none",
         label: "What did the local comparison check?",
-        prompt: `What did the completed local comparison check for ${label}, and why was no qualifying lab asset found?`,
+        prompt: `What did the completed local comparison check for ${label}, and why was no qualifying Library asset found?`,
       },
     ];
   }

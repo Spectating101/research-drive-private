@@ -34,6 +34,7 @@ const ALLOWED_RELEASE_CHANGES = [
 const SHA_RE = /^[0-9a-f]{40}$/;
 const failures = [];
 const notes = [];
+const closedReleaseOnly = process.argv.includes("--closed-release");
 
 function assert(condition, message) {
   if (!condition) failures.push(message);
@@ -122,6 +123,19 @@ const packageJson = readJson(path.join(ROOT, "package.json"));
 assert(packageJson.researchDriveRelease === "rc2", "package.json must declare researchDriveRelease=rc2");
 for (const script of ["release:verify", "release:test", "release:package"]) {
   assert(Boolean(packageJson.scripts?.[script]), `package.json script is missing: ${script}`);
+}
+
+if (closedReleaseOnly) {
+  const head = currentHead();
+  const accepted = manifest?.pins?.public_product_sha || "";
+  assert(SHA_RE.test(head), "current git HEAD is unavailable");
+  if (manifest && SHA_RE.test(accepted)) {
+    const ancestry = git(["merge-base", "--is-ancestor", accepted, "HEAD"], { allowFailure: true });
+    assert(ancestry.status === 0, `closed RC2 public SHA ${accepted} is not an ancestor of HEAD`);
+  }
+  notes.push("validated the immutable RC2 manifest without packaging this post-RC2 product candidate");
+  exitWithResult();
+  process.exit(0);
 }
 
 let ancestryVerified = false;

@@ -8,10 +8,13 @@ import {
   loadUserEmail,
   markDeskSessionBootstrapped,
   saveChatSessionId,
-} from "@/v2/deskSession";
+} from "./deskSession.js";
 import { createRequestAbort, decodeNdjson, normalizeApiError } from "./transportContract.js";
 
-export const API = import.meta.env.DEV ? "/api" : "";
+export const API = import.meta.env?.DEV ? "/api" : "";
+
+/** In-flight bootstrap shared by concurrent callers (App + useAskChat warm). */
+let ensureDeskSessionInflight = null;
 
 export async function fetchJson(path, init = {}) {
   const options = deskFetchInit(init || {});
@@ -21,7 +24,16 @@ export async function fetchJson(path, init = {}) {
   if (requestAbort.signal) options.signal = requestAbort.signal;
 
   try {
-    const r = await fetch(`${API}${path}`, options);
+    let r = await fetch(`${API}${path}`, options);
+    const mayBootstrap =
+      path !== "/library/desk/session" && path !== "/library/desk/capabilities";
+    if (r.status === 401 && mayBootstrap) {
+      // A rotated token or v1-cookie revocation can leave sessionStorage stale.
+      // Clear the optimistic marker and let concurrent callers share one mint.
+      markDeskSessionBootstrapped(false);
+      const session = await ensureDeskSession();
+      if (session?.ok) r = await fetch(`${API}${path}`, options);
+    }
     const raw = await r.text();
     let data = {};
     if (raw) {
@@ -41,11 +53,7 @@ export async function fetchJson(path, init = {}) {
   }
 }
 
-/** Same-origin HttpOnly desk session — no DevTools token injection required. */
-export async function ensureDeskSession({ force = false } = {}) {
-  if (!force && deskSessionBootstrapped()) {
-    return { ok: true, bootstrapped: true, reused: true };
-  }
+async function postDeskSessionBootstrap() {
   try {
     const data = await fetchJson("/library/desk/session", {
       method: "POST",
@@ -60,7 +68,67 @@ export async function ensureDeskSession({ force = false } = {}) {
   }
 }
 
+/** Same-origin HttpOnly desk session — no DevTools token injection required. */
+export async function ensureDeskSession({ force = false } = {}) {
+  if (!force && deskSessionBootstrapped()) {
+    return { ok: true, bootstrapped: true, reused: true };
+  }
+  if (!force && ensureDeskSessionInflight) {
+    return ensureDeskSessionInflight;
+  }
+
+  const task = postDeskSessionBootstrap();
+  ensureDeskSessionInflight = task;
+  try {
+    return await task;
+  } finally {
+    if (ensureDeskSessionInflight === task) {
+      ensureDeskSessionInflight = null;
+    }
+  }
+}
+
+/** Public, non-sensitive contract describing what this browser may do. */
+export function deskCapabilities() {
+  return fetchJson("/library/desk/capabilities").then((payload) => {
+    if (!payload?.authenticated || payload?.permissions || Number(payload?.version || 1) >= 2) {
+      return payload;
+    }
+    // Compatibility with the authenticated v1 pilot contract. Version 2+
+    // must always declare permissions and never receives optimistic defaults.
+    return {
+      ...payload,
+      permissions: {
+        view_research_data: true,
+        view_faculty_profile: true,
+        view_operations: true,
+        use_ask: true,
+        submit_collection: true,
+        approve_jobs: true,
+      },
+    };
+  });
+}
+
+/** Resolve internal bootstrap or a browser-local fallback token, then re-check. */
+export async function ensureDeskAccess({ force = false } = {}) {
+  const current = await deskCapabilities().catch((error) => ({
+    authenticated: false,
+    server_configured: null,
+    error: String(error?.message || error),
+  }));
+  if (current?.authenticated && !force) return current;
+  const session = await ensureDeskSession({ force: true });
+  if (!session?.ok) return { ...current, authenticated: false, bootstrap: session };
+  return deskCapabilities().catch((error) => ({
+    ...current,
+    authenticated: false,
+    error: String(error?.message || error),
+  }));
+}
+
 export async function clearDeskSession() {
+  ensureDeskSessionInflight = null;
   markDeskSessionBootstrapped(false);
   try {
     return await fetchJson("/library/desk/session", {
@@ -91,7 +159,8 @@ export function queryDataset(datasetId, limit = 50) {
 
 export function deskHealth(live = false) {
   const q = live ? "?live=1" : "";
-  return fetchJson(`/health${q}`);
+  // live=1 can stall ~30s on cluster probes — UI chrome must not wait.
+  return fetchJson(`/health${q}`, { timeoutMs: live ? 8000 : 6000 });
 }
 
 export function deskResources(live = true) {
@@ -112,11 +181,119 @@ export function webDiscover(query = "", limit = 8, tavilyLive = true) {
 }
 
 /** Explore source catalogue — preferred Discover search contract when backend supports it. */
-export function discoverSources(query = "", { limit = 12, live = false, prefer = "" } = {}) {
+export function discoverSources(
+  query = "",
+  { limit = 12, live = false, prefer = "", semantic = false } = {},
+) {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   if (live) params.set("live", "1");
+  if (semantic) params.set("semantic", "1");
   if (prefer) params.set("prefer", prefer);
-  return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: 10000 });
+  // Live adapters (DataCite / HF / …) need more patience than local catalog.
+  return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: live ? 45000 : 12000 });
+}
+
+/**
+ * Deliberate evidence-need assessment. This is intentionally separate from
+ * catalogue search: typing a question must not start a live assessment.
+ */
+export function assessDiscoverEvidence({ question, requirement } = {}) {
+  return fetchJson("/library/discover/assessment", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      question: String(question || "").trim(),
+      ...(requirement ? { requirement } : {}),
+    }),
+    timeoutMs: 20000,
+  });
+}
+
+/** Durable Discover sourcing intent — reviewed before any collection job exists. */
+export function createDiscoverIntent({
+  researchNeed,
+  title = "",
+  candidate = null,
+  sessionId = "",
+  userEmail = "",
+} = {}) {
+  return fetchJson("/library/discover/intents", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      research_need: String(researchNeed || "").trim(),
+      title: String(title || "").trim(),
+      candidate: candidate && typeof candidate === "object" ? candidate : undefined,
+      session_id: String(sessionId || "").trim(),
+      user_email: String(userEmail || "").trim(),
+    }),
+  });
+}
+
+export function getDiscoverIntent(intentId) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}`);
+}
+
+export function setDiscoverIntentProposal(intentId, proposal) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/proposal`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ proposal }),
+  });
+}
+
+export function reviewDiscoverIntentProposal(intentId, {
+  decision,
+  proposalId,
+  proposalHash,
+} = {}) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/review`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      decision,
+      proposal_id: proposalId,
+      proposal_hash: proposalHash,
+    }),
+  });
+}
+
+export function selectDiscoverIntentRoute(intentId, routeId) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/route`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ route_id: routeId }),
+  });
+}
+
+export function submitDiscoverIntent(intentId, { limit = 200 } = {}) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/submit`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ limit }),
+  });
+}
+
+/** Build and persist a bounded generic proposal for a concrete public URL. */
+export function craftDiscoverIntentProposal({
+  intentId,
+  researchNeed,
+  url = "",
+  title = "",
+  mode = "",
+} = {}) {
+  return fetchJson("/library/craft/discover-proposal", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      intent_id: String(intentId || "").trim(),
+      research_need: String(researchNeed || "").trim(),
+      url: String(url || "").trim(),
+      title: String(title || "").trim(),
+      mode: String(mode || "").trim(),
+    }),
+    timeoutMs: 20000,
+  });
 }
 
 /** Durable Discover history (intents / subscriptions / collection runs). */
@@ -203,6 +380,22 @@ export function submitLibraryJob({ title, plan, autoApprove = false, request = {
   });
 }
 
+/** Craft a generic collect plan for a public URL (HTTP / scrape — not a named vendor module). */
+export function craftCollectPlan({ researchNeed = "", url = "", title = "", mode = "", datasetId = "" } = {}) {
+  return fetchJson("/library/craft/collect-plan", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      research_need: researchNeed || (url ? `Craft collect for ${url}` : ""),
+      url: url || undefined,
+      title: title || undefined,
+      mode: mode || undefined,
+      dataset_id: datasetId || undefined,
+    }),
+    timeoutMs: 20000,
+  });
+}
+
 export function unifiedSearch(query = "", limit = 12, email = "") {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   if (email) params.set("email", email);
@@ -223,8 +416,12 @@ export function libraryOverview() {
   return fetchJson("/library/overview");
 }
 
+export function listLibraryNav() {
+  return fetchJson("/library/partitions");
+}
+
 export function listPartitions() {
-  return fetchJson("/library/partitions").then((d) => d.partitions || []);
+  return listLibraryNav().then((d) => d.partitions || []);
 }
 
 export function procurementCatalogSummary() {
@@ -277,7 +474,21 @@ export function approveJob(jobId) {
   });
 }
 
-export function deskWarm({ sessionId, userEmail, background = true } = {}) {
+/**
+ * Warm desk caches. Always waits for a deduplicated successful ensureDeskSession
+ * before POSTing /library/desk/warm — callers (App, useAskChat) must not race the cookie.
+ * Does not recurse: ensureDeskSession only hits /library/desk/session.
+ */
+export async function deskWarm({ sessionId, userEmail, background = true } = {}) {
+  const session = await ensureDeskSession();
+  if (!session?.ok) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "desk_session_unavailable",
+      error: session?.error || "desk session bootstrap failed",
+    };
+  }
   return fetchJson("/library/desk/warm", {
     method: "POST",
     headers: deskHeaders(),
@@ -295,7 +506,6 @@ export function libraryConsolidated(live = false) {
 }
 
 export function listSynthesisProfiles() {
-  /** MCP/Composer equipment — not a faculty UI surface. */
   return fetchJson("/library/synthesis/profiles");
 }
 
@@ -310,6 +520,17 @@ export function getSynthesisThread(threadId) {
   return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}`);
 }
 
+export function linkSynthesisThreadConversation(threadId, { sessionId, conversationId = "" } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/conversation`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      session_id: sessionId,
+      conversation_id: conversationId || undefined,
+    }),
+  });
+}
+
 export function createSynthesisThread({ objective, title = "", requiredGrain = "", sessionId = "" } = {}) {
   return fetchJson("/library/synthesis/threads", {
     method: "POST",
@@ -321,6 +542,11 @@ export function createSynthesisThread({ objective, title = "", requiredGrain = "
       session_id: sessionId || loadChatSessionId() || undefined,
     }),
   });
+}
+
+export function getChatSession(sessionId) {
+  if (!sessionId) return Promise.resolve(null);
+  return fetchJson(`/library/chat/${encodeURIComponent(sessionId)}`);
 }
 
 export function decideSynthesisProposal(threadId, { decision, proposalId, proposalHash } = {}) {
@@ -427,6 +653,56 @@ export async function sendChatMessage(
     if (event.type === "complete") state.result = event.result || null;
   };
 
+  const sendNonStream = async () => {
+    // Local progress — Cloudflare / proxies often hold NDJSON until nearly complete,
+    // so the Ask rail looks frozen if we only wait on stream events.
+    const started = Date.now();
+    const tick = setInterval(() => {
+      const elapsed = Math.round((Date.now() - started) / 1000);
+      const text =
+        elapsed < 4
+          ? "Understanding your request…"
+          : elapsed < 12
+            ? "Preparing the Composer research session…"
+            : "Composer is working with the research tools…";
+      onActivity?.({ text, elapsed_seconds: elapsed });
+    }, 1500);
+    try {
+      let fallback;
+      let payload = {};
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        fallback = await fetch(
+          `${API}/library/chat`,
+          deskFetchInit({
+            method: "POST",
+            body,
+          }),
+        );
+        payload = await fallback.json().catch(() => ({}));
+        if (fallback.ok) break;
+        // Transient proxy blips while Composer is busy / service restarts.
+        if (![502, 503, 504].includes(fallback.status) || attempt === 1) {
+          throw new Error(normalizeApiError(payload, fallback.status, "/library/chat"));
+        }
+        onActivity?.({ text: "Desk reconnecting…", elapsed_seconds: Math.round((Date.now() - started) / 1000) });
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+      if (payload.session_id) saveChatSessionId(payload.session_id);
+      if (payload.reply) onDelta?.(String(payload.reply));
+      return payload;
+    } finally {
+      clearInterval(tick);
+    }
+  };
+
+  // Production previous.easycamp.tech sits behind Cloudflare, which buffers NDJSON
+  // (~20s TTFB). Prefer the reliable non-stream path unless explicitly opted in.
+  const preferStream =
+    Boolean(import.meta.env.DEV) || String(import.meta.env.VITE_ASK_STREAM || "").trim() === "1";
+  if (!preferStream) {
+    return sendNonStream();
+  }
+
   const streamRes = await fetch(`${API}/library/chat/stream`, deskFetchInit({
     method: "POST",
     body,
@@ -463,14 +739,7 @@ export async function sendChatMessage(
     throw new Error(normalizeApiError(streamError, streamRes.status, "/library/chat/stream"));
   }
 
-  const fallback = await fetch(`${API}/library/chat`, deskFetchInit({
-    method: "POST",
-    body,
-  }));
-  const payload = await fallback.json().catch(() => ({}));
-  if (!fallback.ok) throw new Error(normalizeApiError(payload, fallback.status, "/library/chat"));
-  if (payload.session_id) saveChatSessionId(payload.session_id);
-  return payload;
+  return sendNonStream();
 }
 
 export function openQueryInNewTab(datasetId, limit = 50) {

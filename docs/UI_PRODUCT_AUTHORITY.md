@@ -1,18 +1,20 @@
 # Research Drive UI Product Authority
 
 **Status:** CURRENT UX IMPLEMENTATION AUTHORITY  
-**Date:** 2026-07-15  
+**Date:** 2026-07-30
 **Applies to:** `drive/src/v2/*` and every faculty-facing Research Drive route  
 **Implementation owner:** frontend and backend workers executing this document  
 **Acceptance owner:** rendered workflow and pixel review  
 
 This is the sole top-level authority for Research Drive product composition, navigation, interaction grammar, visual direction, responsive behavior, and acceptance. No historical UX document, screenshot packet, runbook, component, test, backend directory shape, fixture, or backend capability overrides this document.
 
-For Discover, [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) is the normative full-scale visual and interaction appendix incorporated by reference into this authority. Its complete CLI wireframes are implementation authority, not examples.
+For Discover, [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the current normative visual and interaction appendix incorporated by reference into this authority. It supersedes the July 15 Explore entry, selected-candidate composition, and procurement-review composition. The July 15 History and lifecycle truth rules remain incorporated where they do not conflict.
 
 For Library, [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the normative full-scale visual and interaction appendix incorporated by reference into this authority. Its complete CLI wireframes are implementation authority, not examples.
 
-A Discover or Library composition change must amend this document and the corresponding full-scale appendix before implementation.
+For cross-product visual completion, [`RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md`](RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md) is the current normative finishing appendix incorporated by reference into this authority. It preserves the settled page compositions and authorizes only the bounded visual-closure work listed there.
+
+A page-composition change must amend this document and the corresponding page authority before implementation. Visual-closure work must conform to the July 30 finishing appendix.
 
 ## 1. Product promise
 
@@ -599,48 +601,35 @@ Discover has exactly two internal modes:
 Explore | History
 ```
 
-The complete binding composition and state family are in [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md).
+The complete binding composition and state family are in [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md).
 
 ### 8.1 Explore
 
-Explore accepts a short query, question, research description, coverage gap, or evidence requirement through one evidence-need surface. There are no Keyword, Semantic, AI, Advanced Search, Browse, or Source Finder modes.
+Explore accepts a short query, question, research description, coverage gap, or evidence requirement through one automatic evidence-need surface. There is no Search / Ask toggle and there are no Keyword, Semantic, AI, Advanced Search, Browse, or Source Finder modes.
 
 Visible composition:
 
 ```text
-WHAT EVIDENCE ARE YOU LOOKING FOR?
+[ search datasets or describe what you are trying to study ]
 
-[ natural-language / short-query evidence input ]
+[ Available · N ] [ Library evidence · N ] [ Web context · N ]
 
-INTERPRETING
+compact external offerings
 
-signal · signal · signal · +N
+conditional Custom strategy chrome
 
-Refine evidence need ▾
-
-BEST FIT
-when ranking authority supports a strong first result
-
-OTHER MATCHES
-compact source rows
+right-rail Ask opens automatically for a research question
 ```
 
 Unselected rows contain only source identity, provider, proven evidence shape, proven access state, compact match signals, local relationship, and optional coverage/preview truth. Unknown candidate facts are omitted or conservatively degraded; Composer prose does not create source authority.
 
-Selection leaves the ranked result list in place and drives Detail. The selected marker is a narrow `▌`. Do not use full-row cobalt fill, cards, checkboxes, radios, or a centre-scoped Focused Evaluation takeover.
+Library evidence is a bounded popover/sheet opened from compact result chrome; it is not a permanent result section. External offerings remain the centre priority.
 
-Detail owns:
+Rows provide normalized description, evidence shape, access/route truth, and a small `Add to collection` action. A dedicated selected-candidate centre state is not required. Optional selection or Preview must leave the ranked result list in place.
 
-```text
-why relevant
-local sufficiency
-verified facts
-unknowns
-one primary next action
-up to two secondary actions
-```
+For a research question, Ask receives the exact question, current result snapshot, held-evidence assessment, named offerings, and explicit unknowns automatically. Ask gathers only context that changes the sourcing decision. It cannot silently rewrite search or submit procurement.
 
-Ask receives the same selected `external_candidate` identity and evidence scope. It may investigate and operate supported platform equipment. A durable mutation returns a compact receipt and becomes visible in product state.
+Custom strategy is compact toolbar chrome with assessing, needs-context, ready, and recorded states. Ready opens a visual modal over preserved results. Acquisition review is likewise temporary modal decision support, not a page or mode.
 
 ### 8.2 Local sufficiency
 
@@ -1100,13 +1089,14 @@ No later implementation worker may reinterpret frozen composition because curren
 ## 19. Documentation hierarchy
 
 1. This file is the sole top-level current UX/product authority.
-2. [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) is the incorporated normative full-scale visual and interaction appendix for Discover. Its CLI wireframes are binding.
-3. [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the incorporated normative full-scale visual and interaction appendix for Library. Its CLI wireframes are binding.
-4. `UI_IMPLEMENTATION_PROGRAM.md` is the execution plan derived from this authority and the incorporated appendices.
-5. `RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md` is a subordinate typed rail/backend contract.
-6. `DISCOVER_ACQUISITION.md` is a subordinate operational runbook.
-7. `DISCOVER_E2E_AUTHORITY_AUDIT.md` is the subordinate Discover Playwright classification and clean-audit contract. It does not amend product composition; it governs how E2E reds are interpreted and requires git SHA / Vite root identity on every report.
-8. `RESEARCH_DRIVE_UI_CANON.md`, `RESEARCH_DRIVE_UI_V2.md`, `RESEARCH_DRIVE_UX_HANDOFF_2026-07-14.md`, and `design/DISCOVER_LOOP_ANCHOR.md` are historical redirects only.
-9. `RESEARCH_DRIVE_UI_CONTRACT.md` is legacy-only until its legacy UI and tests are retired.
+2. [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the incorporated normative visual and interaction appendix for Discover. Its interaction rules and CLI wireframes are binding.
+3. [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) remains historical Explore authority and current History/lifecycle authority only where the adaptive freeze does not conflict.
+4. [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the incorporated normative full-scale visual and interaction appendix for Library. Its CLI wireframes are binding.
+5. `UI_IMPLEMENTATION_PROGRAM.md` is the execution plan derived from this authority and the incorporated appendices.
+6. `RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md` is a subordinate typed rail/backend contract.
+7. `DISCOVER_ACQUISITION.md` is a subordinate operational runbook.
+8. `DISCOVER_E2E_AUTHORITY_AUDIT.md` is the subordinate Discover Playwright classification and clean-audit contract. It does not amend product composition; it governs how E2E reds are interpreted and requires git SHA / Vite root identity on every report.
+9. `RESEARCH_DRIVE_UI_CANON.md`, `RESEARCH_DRIVE_UI_V2.md`, `RESEARCH_DRIVE_UX_HANDOFF_2026-07-14.md`, and `design/DISCOVER_LOOP_ANCHOR.md` are historical redirects only.
+10. `RESEARCH_DRIVE_UI_CONTRACT.md` is legacy-only until its legacy UI and tests are retired.
 
 Any proposed interface change must amend this document first. A Discover or Library composition change must amend the corresponding full-scale appendix in the same change, then update the implementation program and subordinate contracts. Discover E2E rewrites must stay consistent with both the top-level authority and Discover appendix and update `DISCOVER_E2E_AUTHORITY_AUDIT.md` classification tables in the same change.

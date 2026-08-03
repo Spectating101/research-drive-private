@@ -18,6 +18,7 @@ const API = process.env.YZU_API_URL || "http://127.0.0.1:8765";
 const FACULTY_EMAIL = process.env.DESK_TEST_EMAIL || "drkong@saturn.yzu.edu.tw";
 const SEARCH_QUERY = process.env.DEMO_SEARCH_QUERY || "TWSE";
 const KNOWN_DATASET = process.env.DEMO_KNOWN_DATASET || "gdelt_asia_daily_country_panel";
+const KNOWN_DATASET_FOLDER = process.env.DEMO_KNOWN_DATASET_FOLDER || "news_events/news.gdelt-asia";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_JSON = path.join(ROOT, "docs/status/generated/professor_demo_report.json");
@@ -101,17 +102,12 @@ test.describe("professor demo @ live-desk", () => {
 
     const cont = page.getByTestId("home-continue");
     await expect(cont).toBeVisible();
-    await expect(cont).toContainText("Continue working");
+    await expect(cont).toContainText(/Pick up|Continue working/);
     await expect(cont.getByRole("button", { name: "Continue" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Search the lab/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Discover data/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Ask the assistant/i })).toBeVisible();
-    await expect(page.locator(".rd-v2-home-attention")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent research assets" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Pick up" })).toBeVisible();
+    await expect(page.locator("main.yzu-main")).toContainText(/Recommended evidence|Resource headroom|Recent trail/);
 
-    const holdingsText = await page.locator(".rd-v2-home-action", { hasText: "Search the lab" }).innerText();
-    const holdingsMatch = holdingsText.match(/(\d+)\s+holdings/i);
-    const holdings = holdingsMatch ? parseInt(holdingsMatch[1], 10) : datasetCount;
+    const holdings = datasetCount;
     const attentionCount = await page.locator(".rd-v2-home-attention article").count();
 
     record("home_command", "Home continuation surface + attention queue", true, {
@@ -122,14 +118,14 @@ test.describe("professor demo @ live-desk", () => {
   });
 
   test("scenario 2 — Library vault: holdings and query-ready dataset", async ({ page }) => {
-    await page.goto("/?tab=library&folder=research_panels/gdelt", { waitUntil: "load" });
+    await page.goto(`/?tab=library&folder=${encodeURIComponent(KNOWN_DATASET_FOLDER)}`, { waitUntil: "load" });
     await waitLive(page);
 
-    const rows = page.locator('.rd-v2-library-asset[data-kind="dataset"]');
+    const rows = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]');
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const rowCount = await rows.count();
 
-    const known = page.locator('.rd-v2-library-asset[data-kind="dataset"]', {
+    const known = page.locator('.rd-v2-catalog button.row[data-kind="dataset"]', {
       hasText: KNOWN_DATASET,
     });
     if (await known.count()) {
@@ -146,7 +142,7 @@ test.describe("professor demo @ live-desk", () => {
       KNOWN_DATASET;
 
     record("library_vault", "Library vault drill-in + query-ready detail", true, {
-      folder: "research_panels/gdelt",
+      folder: KNOWN_DATASET_FOLDER,
       visible_datasets: rowCount,
       selected_dataset: String(datasetId).trim().slice(0, 80),
     });
@@ -157,17 +153,16 @@ test.describe("professor demo @ live-desk", () => {
     await waitLive(page);
 
     await expect(page.locator(".rd-v2-page-head h1", { hasText: "Discover" })).toBeVisible();
-    const summary = page.getByRole("region", { name: "Discover result summary" });
-    await expect(summary).toBeVisible();
-    await expect(summary).toContainText(/results for/i);
-    await expect(page.getByRole("region", { name: "Sources beyond your lab" })).toBeVisible();
+    const bestFit = page.getByRole("region", { name: "Best fit" });
+    await expect(bestFit).toBeVisible();
+    await expect(bestFit).toContainText(/sources? beyond your Library|already in your lab/i);
+    const candidates = page.getByRole("list", { name: "Discover candidates" });
+    await expect(candidates.first().getByRole("button").first()).toBeVisible({ timeout: 30_000 });
+    const candidateCount = await candidates.getByRole("button").count();
 
-    const candidates = page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate');
-    await expect(candidates.first()).toBeVisible({ timeout: 30_000 });
-    const candidateCount = await candidates.count();
-
-    const firstTitle = await candidates.first().locator("strong").innerText();
-    const sourceLabel = await candidates.first().locator(".rd-v2-discover-candidate-source").innerText();
+    const firstCandidate = bestFit.getByRole("button").first();
+    const firstTitle = await firstCandidate.locator("strong").innerText();
+    const sourceLabel = (await firstCandidate.innerText()).split("\n").slice(-1)[0];
 
     record("discover_search", "Discover search + evidence evaluation", true, {
       query: SEARCH_QUERY,
@@ -203,7 +198,7 @@ test.describe("professor demo @ live-desk", () => {
 
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail.getByRole("region", { name: "Can I use this" })).toBeVisible();
-    await expect(rail.getByRole("region", { name: "Lab coverage" })).toBeVisible();
+    await expect(rail.getByRole("region", { name: "Library coverage" })).toBeVisible();
     await expect(page.locator(".rd-v2-discover-candidate.selected .rd-v2-discover-possession")).toBeVisible();
 
     const primaryBtn = rail.getByTestId("discover-eval-actions").getByRole("button", { name: /Add to lab|Open in Library/ });
@@ -324,7 +319,7 @@ test.describe("professor demo @ live-desk", () => {
 
   test("scenario 8 — Library: preview rows on registered dataset", async ({ page }) => {
     await page.goto(
-      `/?tab=library&folder=research_panels/gdelt&dataset=${encodeURIComponent(KNOWN_DATASET)}`,
+      `/?tab=library&folder=${encodeURIComponent(KNOWN_DATASET_FOLDER)}&dataset=${encodeURIComponent(KNOWN_DATASET)}`,
       { waitUntil: "load" },
     );
     await waitLive(page);

@@ -22,7 +22,7 @@ test("render Resources capacity, routes, activity, and mobile review states", as
   await expect(page.locator('.rd-v2-res-inventory-row[data-kind="source"]')).toHaveCount(5);
   await page.screenshot({ path: `${OUT}/02-desktop-routes-open.png`, fullPage: false });
 
-  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await page.getByRole("button", { name: "Usage", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run log" })).toBeVisible();
   await page.screenshot({ path: `${OUT}/03-desktop-activity.png`, fullPage: false });
 

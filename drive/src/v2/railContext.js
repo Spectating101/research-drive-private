@@ -1,4 +1,4 @@
-import { displayName } from "@/v2/datasetMeta";
+import { displayName, isQueryReadyReadiness } from "@/v2/datasetMeta";
 import { candidateKey } from "@/v2/candidateKey";
 import { assetAuthorityContext } from "@/v2/assetAuthority";
 import { connectorContext } from "@/v2/connectorContract";
@@ -7,7 +7,8 @@ import { normalizeSynthesisExecution } from "@/v2/executionLifecycle";
 function readinessLabel(dataset) {
   const raw = String(dataset?.analysis_readiness || "").trim();
   if (!raw) return "";
-  if (/instant|ready|query/i.test(raw)) return "Query-ready";
+  // Exact tokens only — `/ready|query/` falsely labels not_ready / metadata_search.
+  if (isQueryReadyReadiness(raw)) return "Query-ready";
   return raw.replace(/_/g, " ");
 }
 

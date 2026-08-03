@@ -3,6 +3,7 @@
  */
 
 import { classifyDiscoverResult } from "./discoverTaxonomy.js";
+import { humanizeDiscoverDescription } from "./browseMeta.js";
 import {
   boundProbeResult,
   classifyProbeEvidence,
@@ -13,16 +14,16 @@ import { discoverCandidateUrl } from "./candidateKey.js";
 
 const DECISION = {
   "local-query-ready": {
-    headline: "In lab · Query ready",
+    headline: "In Library · Query ready",
     body: "You can query this dataset now.",
   },
   "local-connected": {
-    headline: "In lab · Connected",
-    body: "The asset is connected to the lab, but no instant query path is confirmed.",
+    headline: "In Library · Connected",
+    body: "The asset is connected to the Library, but no instant query path is confirmed.",
   },
   "local-metadata": {
-    headline: "In lab · Metadata only",
-    body: "The lab has a registry record, but no usable local data path is confirmed.",
+    headline: "In Library · Metadata only",
+    body: "The Library has a registry record, but no usable local data path is confirmed.",
   },
   "external-discoverable": {
     headline: "External · Available to inspect",
@@ -158,7 +159,7 @@ export function evaluationActions(row, taxonomy, { queued = false, hasProbeUrl =
   }
   if (key === "external-acquirable") {
     return {
-      primary: { id: "add_lab", label: "Add to lab" },
+      primary: { id: "add_lab", label: "Request this evidence" },
       secondary: [
         hasProbeUrl && !probed ? { id: "probe", label: "Probe source" } : null,
         { id: "preview", label: "Preview source" },
@@ -170,7 +171,7 @@ export function evaluationActions(row, taxonomy, { queued = false, hasProbeUrl =
     return {
       primary: { id: "preview", label: "Preview source" },
       secondary: [
-        { id: "add_lab", label: "Add to lab" },
+        { id: "add_lab", label: "Request this evidence" },
         hasProbeUrl ? { id: "probe", label: "Probe again" } : null,
         { id: "ask", label: "Ask about this source" },
       ].filter(Boolean),
@@ -182,7 +183,7 @@ export function evaluationActions(row, taxonomy, { queued = false, hasProbeUrl =
       ? { id: "probe", label: "Probe source" }
       : { id: "preview", label: "Preview source" },
     secondary: [
-      { id: "add_lab", label: "Add to lab" },
+      { id: "add_lab", label: "Request this evidence" },
       { id: "ask", label: "Ask about this source" },
       hasProbeUrl ? { id: "preview", label: "Preview source" } : null,
     ].filter(Boolean),
@@ -213,7 +214,7 @@ export function buildDiscoverEvaluation(row, labIds, probeState) {
     ? classifyProbeEvidence(row, probe)
     : { verified: [], inferred: [], model: [], technical: [] };
   const decision = decisionCopy(taxonomy);
-  const usefulFor = usefulForLine(row);
+  const usefulFor = humanizeDiscoverDescription(usefulForLine(row));
   const coverage = coverageParts(row);
   const verified = primaryVerifiedFacts(classified);
   const unknowns = deriveUnknowns(row, taxonomy, classified, hasProbe);

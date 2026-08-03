@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { GuidedState, ProgressSteps } from "@/v2/InteractionFeedback";
 import { useAskChat } from "@/v2/useAskChat";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
+import { formatAskText } from "@/v2/askText.jsx";
+import { AskAgentCard } from "@/v2/AskAgentCard.jsx";
+import { displayName } from "@/v2/datasetMeta";
 
 export function AskRail({
   dataset,
@@ -54,20 +58,26 @@ export function AskRail({
 
   const ctxParts = [contextLabel, mainTab, searchQuery ? `search: ${searchQuery}` : ""].filter(Boolean);
   const isProfile = mainTab === "profile";
+  const isSettings = mainTab === "settings";
   const isDiscover = mainTab === "browse";
   const isDiscoverHistory = isDiscover && dataset?.kind === "discover_history";
+  const isDiscoverInvestigation = isDiscover && dataset?.kind === "discover_investigation";
   const isSynthesis = mainTab === "synthesis";
   const profileContext = dataset?.title || "Profile";
   const synthesisContext =
     dataset?.title && dataset.title !== "Synthesis studio"
       ? dataset.title
-      : "Historical stablecoin attention";
+      : "Synthesis studio";
   const hasThread = messages.length > 0;
   const discoverTitle = dataset?.title || dataset?.dataset_id || "";
   const railTitle = isProfile
     ? "Ask"
+    : isSettings
+      ? "Ask · desk setup"
     : isDiscoverHistory
       ? "Ask · lifecycle item"
+      : isDiscoverInvestigation
+        ? "Ask · investigation"
       : isDiscover
         ? "Ask · selected source"
         : isSynthesis
@@ -77,8 +87,14 @@ export function AskRail({
     ? hasThread
       ? `Continuing · context → ${profileContext}`
       : `Context · ${profileContext}`
+    : isSettings
+      ? "Context · desk preferences and connection state"
     : isDiscoverHistory && discoverTitle
       ? `Lifecycle context · ${discoverTitle}`
+      : isDiscoverInvestigation && discoverTitle
+        ? hasThread
+          ? `Continuing · investigation → ${discoverTitle}`
+          : `Investigation · ${discoverTitle}`
       : isDiscover && discoverTitle && hasThread
         ? `Selected context · ${discoverTitle}`
         : isDiscover && discoverTitle
@@ -91,16 +107,57 @@ export function AskRail({
               ? ctxParts.join(" · ")
               : "Select a dataset for grounded answers";
 
+  const askEntityTitle =
+    (dataset?.dataset_id || dataset?.title
+      ? displayName(dataset) || dataset?.title || dataset?.dataset_id
+      : "") ||
+    (isProfile ? profileContext : isSynthesis ? synthesisContext : "");
+
   return (
     <div className="rd-v2-ask-shell">
       <header className="rd-v2-ask-head">
-        <strong>{railTitle}</strong>
+        <p className="rd-v2-ask-head-eyebrow">{railTitle}</p>
+        <strong>{askEntityTitle || "Ask"}</strong>
         <p className="rd-v2-ask-ctx">{railSubtitle}</p>
       </header>
       <div className="rd-v2-ask-messages" data-testid="ask-messages" aria-busy={busy}>
         {messages.length === 0 ? (
           isProfile ? (
-            <p className="rd-v2-ask-placeholder rd-v2-ask-placeholder-quiet" />
+            <div className="rd-v2-ask-placeholder">
+              <p>
+                Ask how the saved research memory shapes Discover and Synthesis, or correct context that the desk
+                should stop carrying forward.
+              </p>
+              <div className="rd-v2-chips-row rd-v2-ask-chips">
+                {[
+                  "What research context do you remember?",
+                  "How does this profile affect Discover?",
+                  "Which assumptions should I correct?",
+                ].map((p) => (
+                  <button key={p} type="button" className="rd-v2-chip clickable" disabled={busy} onClick={() => send(p)}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : isSettings ? (
+            <div className="rd-v2-ask-placeholder">
+              <p>
+                Ask what the current desk settings change, which connections are available, and where approval or
+                readiness boundaries still apply.
+              </p>
+              <div className="rd-v2-chips-row rd-v2-ask-chips">
+                {[
+                  "Explain the current desk setup.",
+                  "Which settings affect approvals?",
+                  "What remains unconnected?",
+                ].map((p) => (
+                  <button key={p} type="button" className="rd-v2-chip clickable" disabled={busy} onClick={() => send(p)}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : isDiscoverHistory && discoverTitle ? (
             <div className="rd-v2-ask-placeholder">
               <p>
@@ -129,7 +186,7 @@ export function AskRail({
                 {[
                   `Assess this source: ${discoverTitle}`,
                   `What are the main risks of ${discoverTitle}?`,
-                  `Compare ${discoverTitle} with my lab holdings`,
+                  `Compare ${discoverTitle} with my Library holdings`,
                   `What should I probe next for ${discoverTitle}?`,
                 ].map((p) => (
                   <button
@@ -197,73 +254,37 @@ export function AskRail({
               </p>
             ) : null}
             {messages.map((m, i) => {
-              if (m.streaming && !m.text) return null;
+              if (m.streaming && !m.text) {
+                return (
+                  <AskAgentCard
+                    key={`assistant-stream-${i}`}
+                    message={m}
+                    busy={busy}
+                  />
+                );
+              }
               const approval = m.pendingJobId ? approvalState[m.pendingJobId]?.status : "";
+              if (m.role === "assistant") {
+                return (
+                  <AskAgentCard
+                    key={`assistant-${i}`}
+                    message={m}
+                    busy={busy}
+                    approval={approval}
+                    onSend={send}
+                    onApprove={requestApproval}
+                  />
+                );
+              }
               return (
                 <div
                   key={`${m.role}-${i}`}
-                  className={`rd-v2-ask-bubble${m.role === "assistant" ? " agent" : ""}${m.role === "error" ? " error" : ""}`}
+                  className={`rd-v2-ask-bubble${m.role === "error" ? " error" : ""}${m.role === "notice" ? " notice" : ""}`}
                 >
-                  {m.role === "user" ? (
-                    <>
-                      <strong>You:</strong> {m.text}
-                    </>
-                  ) : m.role === "error" ? (
-                    m.text
-                  ) : (
-                    <>
-                      {!m.streaming && m.activityLog?.length ? (
-                        <ol className="rd-v2-ask-phases" data-testid="ask-tool-phases" aria-label="Agent tool activity">
-                          {m.activityLog.map((step, si) => (
-                            <li key={`${step.phase}-${si}`} data-phase={step.phase}>
-                              <span className="rd-v2-ask-phase-label">{step.phase}</span>
-                              <span className="rd-v2-ask-phase-text">{step.text}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      ) : !m.streaming && m.activity ? (
-                        <p className="muted small">{m.activity}</p>
-                      ) : null}
-                      <strong>Agent:</strong> {m.text}
-                      {m.action || m.toolName ? (
-                        <p className="rd-v2-ask-action-meta muted small">
-                          {[m.toolName, m.action].filter(Boolean).join(" · ")}
-                        </p>
-                      ) : null}
-                      {m.pendingJobId && m.jobStatus === "pending_approval" ? (
-                        <div className="rd-v2-ask-actions">
-                          <button
-                            type="button"
-                            className="rd-v2-btn sm primary"
-                            disabled={busy || approval === "working"}
-                            aria-busy={approval === "working"}
-                            onClick={() => requestApproval(m.pendingJobId)}
-                          >
-                            {approval === "working" ? (
-                              <><LoaderCircle className="rd-v2-inline-spinner" aria-hidden="true" /> Approving…</>
-                            ) : (
-                              "Approve job"
-                            )}
-                          </button>
-                        </div>
-                      ) : null}
-                      {m.suggestedPrompts?.length ? (
-                        <div className="rd-v2-chips-row rd-v2-ask-chips">
-                          {m.suggestedPrompts.slice(0, 3).map((p) => (
-                            <button
-                              key={p}
-                              type="button"
-                              className="rd-v2-chip clickable"
-                              disabled={busy}
-                              onClick={() => send(p)}
-                            >
-                              {String(p).slice(0, 40)}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                  <span className="rd-v2-ask-bubble-role">
+                    {m.role === "error" ? "Error" : m.role === "notice" ? "Read-only review" : "You"}
+                  </span>
+                  <div className="rd-v2-ask-bubble-text">{formatAskText(m.text)}</div>
                 </div>
               );
             })}
@@ -279,7 +300,9 @@ export function AskRail({
           rows={3}
           placeholder={
             isProfile
-              ? "Message…"
+              ? "Correct the research memory or ask how it is used…"
+              : isSettings
+                ? "Ask about desk behavior, access, or approvals…"
               : isSynthesis
                 ? "Correct the interpretation, add a constraint, or ask…"
                 : isDiscoverHistory
@@ -290,14 +313,13 @@ export function AskRail({
           data-testid="ask-composer"
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              send();
-            }
+            handleEnterToSubmit(e, () => {
+              if (!busy && input.trim()) send();
+            });
           }}
         />
         <div className="rd-v2-ask-send-row">
-          <span className="rd-v2-ask-send-hint">⌘↵ to send</span>
+          <span className="rd-v2-ask-send-hint">Enter to send · ⇧↵ newline</span>
           <button
             type="button"
             className="rd-v2-btn sm primary"

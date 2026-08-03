@@ -29,6 +29,14 @@ export function buildHeroFromRollup(rollup, { health, catalogSummary, cluster } 
   const vault = h.vault || {};
   const workers = h.workers || {};
   const chips = h.chips || {};
+  const online = workers.online ?? null;
+  const idle = workers.idle ?? null;
+  const available =
+    workers.available != null
+      ? workers.available
+      : online != null || idle != null
+        ? Number(online || 0) + Number(idle || 0)
+        : null;
   return {
     composer: h.composer || {},
     mcp: rollup.ai?.mcp_tools?.total ?? null,
@@ -36,6 +44,11 @@ export function buildHeroFromRollup(rollup, { health, catalogSummary, cluster } 
     workers: {
       busy: workers.busy ?? 0,
       total: workers.total ?? "—",
+      online,
+      idle,
+      stale: workers.stale ?? null,
+      joined: workers.joined ?? null,
+      available,
     },
     vault: {
       used: vault.used_tb,
@@ -304,6 +317,27 @@ export function buildMotionRowsFromRollup(rollup, jobs = []) {
     );
   }
 
+  const actionable = jobStats.actionable && typeof jobStats.actionable === "object" ? jobStats.actionable : {};
+  const failedActionable = Number(
+    jobStats.failed_actionable ?? actionable.failed_actionable ?? 0,
+  );
+  if (failedActionable > 0) {
+    const days = Number(jobStats.recent_days ?? actionable.failed_recent_days ?? 7);
+    extra.push(
+      rowBase({
+        section: "Motion",
+        kind: "motion",
+        key: "jobs-failed-actionable",
+        label: "Actionable failures",
+        metric: `${failedActionable} in last ${days}d`,
+        ok: false,
+        warn: true,
+        showStatus: true,
+        priority: 0,
+      }),
+    );
+  }
+
   if (motion.campaigns_active > 0) {
     extra.push(
       rowBase({
@@ -346,13 +380,36 @@ export function buildComputeRowsFromRollup(rollup) {
   if (!rollup?.compute) return [];
   const c = rollup.compute;
   const wl = c.windows_lab || {};
+  const heroWorkers = rollup?.hero?.workers || {};
   const q = c.queue || {};
-  const busy = wl.busy ?? wl.joined;
-  const total = wl.total;
+  const online = heroWorkers.online ?? wl.online ?? null;
+  const idle = heroWorkers.idle ?? wl.idle ?? null;
+  const available =
+    heroWorkers.available != null
+      ? heroWorkers.available
+      : online != null || idle != null
+        ? Number(online || 0) + Number(idle || 0)
+        : null;
+  const busy = heroWorkers.busy ?? wl.busy ?? null;
+  const joined = heroWorkers.joined ?? wl.joined ?? null;
+  const total = heroWorkers.total ?? wl.total;
   const loadPct =
     typeof busy === "number" && typeof total === "number" && total > 0
       ? Math.round((busy / total) * 100)
       : null;
+  const availability =
+    available != null && total != null
+      ? `${available}/${total} available`
+      : joined != null && total != null
+        ? `${joined}/${total} joined`
+        : busy != null && total != null
+          ? `${busy}/${total} busy`
+          : "—";
+  const detailParts = [];
+  if (online != null || idle != null) {
+    detailParts.push(`online ${online ?? 0} · idle ${idle ?? 0}`);
+  }
+  if (wl.max_parallel) detailParts.push(`max parallel ${wl.max_parallel}`);
 
   return [
     rowBase({
@@ -367,9 +424,9 @@ export function buildComputeRowsFromRollup(rollup) {
       kind: "compute",
       key: "workers",
       label: "windows_lab",
-      metric: `${busy ?? "—"}/${total ?? "—"} busy`,
+      metric: availability,
       progress: loadPct,
-      detail: wl.max_parallel ? `max parallel ${wl.max_parallel}` : null,
+      detail: detailParts.length ? detailParts.join(" · ") : null,
     }),
     rowBase({
       section: "Compute",
@@ -492,23 +549,26 @@ export function buildResourcesPanels({
   queryUp = true,
 }) {
   const ctx = { health, ops, jobs, catalogSummary, cluster, queryUp };
-  if (rollupLoading) {
-    return {
-      hero: null,
-      ai: [],
-      metered: [],
-      usage: [],
-      motion: [],
-      compute: [],
-      providers: [],
-      layers: [],
-      connect: { source_count: 0, layer_count: 0 },
-      issuesCount: 0,
-      issuesFromRollup: [],
-      offline: false,
-    };
-  }
+  const providers = buildProviderRows({ health, ops, catalogSummary });
+  const layers = buildLayerRows({ health, queryUp });
   if (!rollup) {
+    if (rollupLoading) {
+      return {
+        hero: null,
+        ai: [],
+        metered: [],
+        usage: [],
+        motion: [],
+        compute: [],
+        providers,
+        layers,
+        connect: { source_count: providers.length, layer_count: layers.length },
+        issuesCount: 0,
+        issuesFromRollup: [],
+        offline: false,
+        syncing: true,
+      };
+    }
     return buildFallbackPanels(ctx);
   }
 
@@ -517,9 +577,6 @@ export function buildResourcesPanels({
   const usage = buildUsageRowsFromRollup(rollup);
   const motion = buildMotionRowsFromRollup(rollup, jobs);
   const compute = buildComputeRowsFromRollup(rollup);
-  const providers = buildProviderRows({ health, ops, catalogSummary });
-  const layers = buildLayerRows({ health, queryUp });
-
   const issuesFromRollup = rollup?.issues || [];
   const issuesCount = rollup?.issues_count ?? issuesFromRollup.length;
 
@@ -539,6 +596,7 @@ export function buildResourcesPanels({
     issuesCount,
     issuesFromRollup,
     offline: false,
+    syncing: Boolean(rollupLoading),
   };
 }
 

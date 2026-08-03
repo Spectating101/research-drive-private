@@ -4,7 +4,7 @@
  * this is presentation only.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { applyLifecycleToEvaluation, LIFECYCLE } from "@/v2/discoverLifecycle";
 import { buildDiscoverEvaluation } from "@/v2/discoverEvaluation";
 import {
@@ -83,6 +83,11 @@ export function DiscoverEvaluationSurface({
     }
     return buildDiscoverEvaluation(sufficiency.bestLocal, labIds, null);
   }, [lifecycle, sufficiency, labIds]);
+  const [requestConfirm, setRequestConfirm] = useState(false);
+
+  useEffect(() => {
+    setRequestConfirm(false);
+  }, [target]);
 
   if (!target || !evaluation) {
     if (variant === "workspace") return null;
@@ -225,7 +230,7 @@ export function DiscoverEvaluationSurface({
         ? {
             prompt: [
               `Assess this Discover source for research use: ${label}.`,
-              "Summarize what is verified, what remains unknown, access/acquisition constraints, local lab coverage, and the safest next action.",
+              "Summarize what is verified, what remains unknown, access/acquisition constraints, Library coverage, and the safest next action.",
               "Do not invent legal clearance, query readiness, or equivalence.",
               "",
               "Local comparison (structured):",
@@ -242,12 +247,18 @@ export function DiscoverEvaluationSurface({
     else if (id === "open_library" || id === "inspect_record") {
       const datasetId = lifecycle?.registeredDatasetId || target?.dataset_id;
       onOpenInLibrary?.(datasetId ? { ...target, dataset_id: datasetId } : target);
-    } else if (id === "add_lab") onAddToLab?.(target);
-    else if (id === "probe") onProbeSource?.(target);
+    } else if (id === "add_lab") {
+      setRequestConfirm(true);
+    } else if (id === "probe") onProbeSource?.(target);
     else if (id === "preview") onPreviewExternal?.();
     else if (id === "review_approval") onReviewApproval?.(lifecycle?.job || target);
     else if (id === "track_resources") onTrackResources?.(lifecycle?.job || target);
     else if (id === "ask" || id === "review_access") askWithSufficiency();
+  };
+
+  const confirmRequestEvidence = () => {
+    setRequestConfirm(false);
+    onAddToLab?.(target);
   };
 
   const reachedStages = new Set(lifecycle?.stages || []);
@@ -346,17 +357,17 @@ export function DiscoverEvaluationSurface({
         {sufficiency ? (
           <section
             className={`rd-v2-eval-sufficiency rd-v2-eval-sufficiency-${sufficiency.state}`}
-            aria-label="Lab coverage"
+            aria-label="Library coverage"
             data-testid="discover-lab-coverage"
           >
             <div className="rd-v2-eval-sufficiency-copy">
-              <p className="rd-v2-eval-section-label">Lab coverage</p>
+              <p className="rd-v2-eval-section-label">Library coverage</p>
               <p className="rd-v2-eval-decision-headline">{sufficiency.focusHeadline}</p>
               <p className="rd-v2-eval-decision-body">{sufficiency.focusBody}</p>
             </div>
 
             {sufficiencyDifferences.length ? (
-              <div className="rd-v2-eval-sufficiency-compare" aria-label="Lab coverage comparison">
+              <div className="rd-v2-eval-sufficiency-compare" aria-label="Library coverage comparison">
                 {sufficiencyDifferences.map((difference) => (
                   <div
                     key={`${difference.dimension}-${difference.local}-${difference.candidate}`}
@@ -366,7 +377,7 @@ export function DiscoverEvaluationSurface({
                       {sufficiencyDimensionLabel(difference.dimension)}
                     </span>
                     <span className="rd-v2-eval-sufficiency-side">
-                      <small>In lab</small>
+                      <small>In Library</small>
                       <strong>{difference.local || "Not described"}</strong>
                     </span>
                     <span className="rd-v2-eval-sufficiency-arrow" aria-hidden="true">
@@ -518,14 +529,28 @@ export function DiscoverEvaluationSurface({
           <p className="rd-v2-eval-action-status">{submitting ? "Submitting…" : "Probing source…"}</p>
         ) : null}
 
-        <button
-          type="button"
-          className="rd-v2-btn primary rd-v2-eval-primary-action"
-          disabled={probeLoading || submitting}
-          onClick={() => runAction(primary.id)}
-        >
-          {primary.label}
-        </button>
+        {requestConfirm ? (
+          <div className="rd-v2-eval-confirm" data-testid="discover-request-confirm">
+            <p>Open a durable acquisition intent for review? No collection starts from this action.</p>
+            <div className="rd-v2-eval-confirm-actions">
+              <button type="button" className="rd-v2-btn primary" disabled={probeLoading || submitting} onClick={confirmRequestEvidence}>
+                Open acquisition review
+              </button>
+              <button type="button" className="rd-v2-btn" onClick={() => setRequestConfirm(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="rd-v2-btn primary rd-v2-eval-primary-action"
+            disabled={probeLoading || submitting}
+            onClick={() => runAction(primary.id)}
+          >
+            {primary.label}
+          </button>
+        )}
 
         <div className="rd-v2-eval-actions-wide" aria-label="Additional candidate actions">
           {footerSecondary.map((action) => (
@@ -533,7 +558,7 @@ export function DiscoverEvaluationSurface({
               key={action.id}
               type="button"
               className="rd-v2-btn"
-              disabled={probeLoading || submitting}
+              disabled={probeLoading || submitting || requestConfirm}
               onClick={() => runAction(action.id)}
             >
               {action.label}

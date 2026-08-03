@@ -4,9 +4,12 @@ import {
   createSynthesisThread,
   decideSynthesisProposal,
   getSynthesisThread,
+  listSynthesisProfiles,
   listSynthesisThreads,
   requestSynthesisExecution,
 } from "@/v2/api";
+import { handleEnterToSubmit } from "@/v2/enterToSubmit";
+import { buildStageDetail, executionTrack } from "@/v2/synthesisLifecycle";
 
 function text(value, fallback = "") {
   return String(value || "").trim() || fallback;
@@ -66,6 +69,41 @@ function threadStatus(thread) {
 function threadOutput(thread) {
   const state = thread?.state || {};
   return state.execution?.output_dataset_id || state.execution_spec?.output_dataset_id || "";
+}
+
+const SYNTHESIS_STAGES = [
+  ["Define", "Research object"],
+  ["Ground", "Library evidence"],
+  ["Review", "Method decision"],
+  ["Build", "Execution record"],
+  ["Reuse", "Library asset"],
+];
+
+function synthesisStageIndex(thread) {
+  const state = thread?.state || {};
+  const execution = state.execution || {};
+  const mode = stateFor(thread);
+  if (mode === "registered" || mode === "query_ready") return 4;
+  if (execution.status || state.execution_spec) return 3;
+  if (state.proposal) return 2;
+  if ((state.nodes || []).length) return 1;
+  return 0;
+}
+
+function SynthesisProgress({ thread }) {
+  const active = synthesisStageIndex(thread);
+  const buildDetail = buildStageDetail(thread);
+  return (
+    <ol className="s04-steps" aria-label="Synthesis project stages">
+      {SYNTHESIS_STAGES.map(([label, detail], index) => (
+        <li key={label} className={index < active ? "done" : index === active ? "now" : ""}>
+          <span>{index < active ? "✓" : index + 1}</span>
+          <b>{label}</b>
+          <small>{label === "Build" ? buildDetail : detail}</small>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 function ThreadList({ threads, selectedId, loading, onSelect, onNew }) {
@@ -144,6 +182,7 @@ function ThreadHeader({ thread }) {
           {text(state.required_grain || state.spec?.grain, "Not specified")}
         </span>
       </div>
+      <SynthesisProgress thread={thread} />
     </>
   );
 }
@@ -163,8 +202,6 @@ function EvidenceMap({ thread, onAsk }) {
         <em className="neutral">{evidence.length ? `${evidence.length} mapped inputs` : "No inputs mapped"}</em>
       </header>
       <div className="s04-map" role="img" aria-label="The current Synthesis evidence map">
-        <strong className="target">{text(target?.label, text(thread?.objective, "Research objective"))}</strong>
-        <b>↓</b>
         <div className="sources">
           {evidence.length ? (
             evidence.slice(0, 6).map((node) => (
@@ -182,12 +219,14 @@ function EvidenceMap({ thread, onAsk }) {
             </article>
           )}
         </div>
+        <b>↓</b>
         {state.spec?.summary || state.spec?.method ? (
           <>
-            <b>↓</b>
             <span className="process">{text(state.spec.summary || state.spec.method, "Method detail not reported")}</span>
+            <b>↓</b>
           </>
         ) : null}
+        <strong className="target">{text(target?.label, text(thread?.objective, "Research objective"))}</strong>
       </div>
       <div className="s04-pairs">
         <article>
@@ -214,41 +253,107 @@ function EvidenceMap({ thread, onAsk }) {
   );
 }
 
+function metricLabel(metric) {
+  const fn = text(metric?.function || metric?.aggregate, "metric");
+  const column = text(metric?.column || metric?.field);
+  const alias = text(metric?.as || metric?.name);
+  const expression = column ? `${fn}(${column})` : fn;
+  return alias && alias !== expression ? `${alias} ← ${expression}` : expression;
+}
+
+function softIdentifier(value, fallback = "Not reported") {
+  return text(value, fallback).replace(/([_/.-])/g, "$1\u200b");
+}
+
 function ProposalReview({ thread, busy, onDecide, onAsk }) {
-  const proposal = thread?.state?.proposal || {};
+  const state = thread?.state || {};
+  const proposal = state.proposal || {};
+  const spec = proposal.execution_spec || {};
   const operations = Array.isArray(proposal.operations) ? proposal.operations : [];
+  const metrics = Array.isArray(spec.metrics) ? spec.metrics : [];
+  const groupBy = Array.isArray(spec.group_by) ? spec.group_by : [];
+  const limitations = (
+    Array.isArray(state.spec?.limitations)
+      ? state.spec.limitations
+      : Array.isArray(state.limitations)
+        ? state.limitations
+        : []
+  ).filter(Boolean);
+  const unknowns = (
+    Array.isArray(state.spec?.unavailable)
+      ? state.spec.unavailable
+      : Array.isArray(state.unavailable)
+        ? state.unavailable
+        : []
+  ).filter(Boolean);
   const canDecide = Boolean(proposal.id && proposal.proposal_hash);
   return (
-    <section className="s04-card" data-testid="synthesis-proposal-state">
+    <section className="s04-card s04-proposal-card" data-testid="synthesis-proposal-state">
       <header className="s04-title">
         <div>
           <small>Review proposed change</small>
           <h2>{text(proposal.title, "Untitled proposal")}</h2>
         </div>
-        <em className="warn">Review required</em>
+        <em className={proposal.execution_preflight?.ok ? "success" : "warn"}>
+          {proposal.execution_preflight?.ok ? "Preflight passed · review required" : "Review required"}
+        </em>
       </header>
-      <div className="s04-resolved-list">
-        <strong>{text(proposal.summary, "The agent proposed a change to this durable construction.")}</strong>
-        <ul>
-          {operations.length ? (
-            operations.slice(0, 8).map((operation, index) => (
-              <li key={`${operation.op || operation.type || "change"}-${index}`}>
-                {text(operation.summary || operation.label || operation.path || operation.op || operation.type, "Structured state change")}
-              </li>
-            ))
-          ) : (
-            <li>No operation summary was returned. Inspect this proposal with Ask before deciding.</li>
-          )}
-        </ul>
-      </div>
+      <p className="s04-proposal-summary">
+        {text(proposal.summary, "The agent proposed a change to this durable construction.")}
+      </p>
       {proposal.execution_spec ? (
-        <div className="s04-method">
-          <div><dt>Input</dt><dd>{text(proposal.execution_spec.input_dataset_id, "Not reported")}</dd></div>
-          <div><dt>Output</dt><dd>{text(proposal.execution_spec.output_dataset_id, "Not reported")}</dd></div>
-          <div><dt>Grouping</dt><dd>{Array.isArray(proposal.execution_spec.group_by) ? proposal.execution_spec.group_by.join(" · ") : "Not reported"}</dd></div>
-          <div><dt>Metrics</dt><dd>{Array.isArray(proposal.execution_spec.metrics) ? proposal.execution_spec.metrics.length : "Not reported"}</dd></div>
+        <div className="s04-method-flow" aria-label="Proposed construction pipeline">
+          <article>
+            <small>Held input</small>
+            <strong>{softIdentifier(spec.input_dataset_id)}</strong>
+            <span>Registered Library evidence</span>
+          </article>
+          <b aria-hidden="true">→</b>
+          <article className="transform">
+            <small>Construction</small>
+            <strong>{groupBy.length ? `Group by ${groupBy.join(" + ")}` : "Aggregate all rows"}</strong>
+            <div>
+              {metrics.length
+                ? metrics.slice(0, 5).map((metric, index) => <span key={`${metricLabel(metric)}-${index}`}>{metricLabel(metric)}</span>)
+                : <span>Metric detail not reported</span>}
+            </div>
+          </article>
+          <b aria-hidden="true">→</b>
+          <article className="output">
+            <small>Proposed output</small>
+            <strong>{softIdentifier(spec.output_dataset_id)}</strong>
+            <span>Nothing is materialised yet</span>
+          </article>
         </div>
       ) : null}
+      <div className="s04-review-grid">
+        <section className="s04-resolved-list">
+          <small>Exact change set</small>
+          <ul>
+            {operations.length ? (
+              operations.slice(0, 8).map((operation, index) => (
+                <li key={`${operation.op || operation.type || "change"}-${index}`}>
+                  {text(operation.summary || operation.label || operation.path || operation.op || operation.type, "Structured state change")}
+                </li>
+              ))
+            ) : (
+              <li>No operation summary was returned. Inspect this proposal with Ask before deciding.</li>
+            )}
+          </ul>
+        </section>
+        <section className="s04-review-risks">
+          <small>Still not established</small>
+          {limitations.length || unknowns.length ? (
+            <ul>
+              {[...limitations, ...unknowns].slice(0, 5).map((item, index) => (
+                <li key={`${text(item)}-${index}`}>{text(item)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No additional limitation was recorded. Ask should still challenge construct validity before acceptance.</p>
+          )}
+        </section>
+      </div>
       {!canDecide ? <p className="s04-fixture">This proposal has no revision hash, so it cannot be accepted from the desk. Refresh it through Ask.</p> : null}
       <footer className="s04-actions">
         <p>
@@ -263,34 +368,51 @@ function ProposalReview({ thread, busy, onDecide, onAsk }) {
   );
 }
 
-function ExecutionRecord({ thread, busy, onRequest, onAsk, onOpenDataset }) {
+function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDataset }) {
   const state = thread?.state || {};
   const execution = state.execution || {};
   const spec = state.execution_spec || {};
+  const rawStatus = text(execution.status).toLowerCase().replace(/-/g, "_");
   const status = text(execution.status, "not requested").replace(/_/g, " ");
   const outputId = threadOutput(thread);
   const mode = stateFor(thread);
   const queryReady = mode === "query_ready";
   const registered = mode === "registered" || queryReady;
   const failed = execution.status === "failed";
+  const pendingApproval = rawStatus === "pending_approval";
+  const active = ["queued", "running", "registering", "archiving"].includes(rawStatus);
   const hasSpec = Boolean(spec.input_dataset_id && spec.output_dataset_id);
+  const track = executionTrack(rawStatus, registered, queryReady);
 
   return (
     <section className="s04-card" data-testid={queryReady ? "synthesis-query-ready-state" : registered ? "synthesis-registered-state" : failed ? "synthesis-failed-state" : "synthesis-execution-state"}>
       <header className="s04-title">
         <div>
           <small>{queryReady ? "Query-ready research asset" : registered ? "Registered research asset" : failed ? "Execution failed" : "Execution record"}</small>
-          <h2>{registered ? text(outputId, "Registered output") : text(spec.output_dataset_id, "No execution requested")}</h2>
+          <h2>{registered ? softIdentifier(outputId, "Registered output") : softIdentifier(spec.output_dataset_id, "No execution requested")}</h2>
         </div>
         <em className={registered ? "success" : failed ? "warn" : "neutral"}>{queryReady ? "Query ready" : registered ? "Registered" : status}</em>
       </header>
       {hasSpec ? (
         <dl className="s04-method">
-          <div><dt>Input</dt><dd>{text(spec.input_dataset_id)}</dd></div>
-          <div><dt>Output</dt><dd>{text(spec.output_dataset_id)}</dd></div>
+          <div><dt>Input</dt><dd>{softIdentifier(spec.input_dataset_id)}</dd></div>
+          <div><dt>Output</dt><dd>{softIdentifier(spec.output_dataset_id)}</dd></div>
           <div><dt>Group by</dt><dd>{Array.isArray(spec.group_by) ? spec.group_by.join(" · ") : "Not reported"}</dd></div>
           <div><dt>Metrics</dt><dd>{Array.isArray(spec.metrics) ? `${spec.metrics.length} defined` : "Not reported"}</dd></div>
         </dl>
+      ) : null}
+      {hasSpec ? (
+        <ol className="s04-exec-track" aria-label="Synthesis execution lifecycle">
+          {track.map((step, index) => (
+            <li key={step.label} className={step.state}>
+              <b>{step.state === "done" ? "✓" : index + 1}</b>
+              <span>
+                <strong>{step.label}</strong>
+                <small>{step.detail}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
       ) : null}
       <div className="s04-proof">
         <section>
@@ -306,7 +428,7 @@ function ExecutionRecord({ thread, busy, onRequest, onAsk, onOpenDataset }) {
           <dl>
             <div><dt>Archive</dt><dd>{execution.drive_verified ? "Reported verified" : "Not reported"}</dd></div>
             <div><dt>Registry</dt><dd>{queryReady ? "Query-ready output reported" : registered ? "Registered output reported" : "Not claimed"}</dd></div>
-            <div><dt>Output</dt><dd>{text(outputId, "Not registered")}</dd></div>
+            <div><dt>Output</dt><dd>{softIdentifier(outputId, "Not registered")}</dd></div>
           </dl>
         </section>
       </div>
@@ -324,43 +446,197 @@ function ExecutionRecord({ thread, busy, onRequest, onAsk, onOpenDataset }) {
                 ? "Requesting execution creates a durable job. Registration remains a separate verified outcome."
                 : "An accepted execution specification is required before this thread can request a build."}
         </p>
-        {registered ? <button type="button" className="rd-v2-btn primary" onClick={() => onOpenDataset?.({ dataset_id: outputId, name: outputId, analysis_readiness: "instant" })}>Open in Library</button> : null}
-        {!registered && hasSpec ? <button type="button" className="rd-v2-btn primary" disabled={busy || Boolean(execution.status)} onClick={onRequest}>Request execution</button> : null}
+        {registered ? (
+          <button
+            type="button"
+            className="rd-v2-btn primary"
+            onClick={() => onOpenDataset?.({
+              dataset_id: outputId,
+              name: outputId,
+              analysis_readiness: queryReady ? "query_ready" : "registered",
+            })}
+          >
+            Open in Library
+          </button>
+        ) : null}
+        {!registered && hasSpec && !rawStatus ? <button type="button" className="rd-v2-btn primary" disabled={busy} onClick={onRequest}>Request execution</button> : null}
+        {pendingApproval ? <button type="button" className="rd-v2-btn primary" onClick={() => onReview?.(execution)}>Review approval</button> : null}
+        {active ? <span className="s04-live-note">This thread refreshes automatically.</span> : null}
         <button type="button" className="rd-v2-btn" onClick={() => onAsk("Explain the exact execution state and which evidence is still missing before this output can be trusted.")}>Ask about execution</button>
       </footer>
     </section>
   );
 }
 
-function NewThread({ objective, setObjective, busy, onCreate, onAsk }) {
+function DraftCanvas({ thread, onAsk }) {
+  const state = thread?.state || {};
   return (
-    <section className="s04-intent" data-testid="synthesis-intent-state">
-      <small>New research construction</small>
-      <h2>What reusable research asset do you need?</h2>
-      <p>Start with the research object. Ask can reason with the thread, but no method, execution, or Library asset is created until separately reviewed.</p>
-      <textarea rows={7} value={objective} onChange={(event) => setObjective(event.target.value)} placeholder="Describe the research object, coverage, grain, and constraints…" />
-      <footer>
-        <span>A new durable thread is created before the conversation continues.</span>
-        <button type="button" className="rd-v2-btn primary" disabled={busy || !objective.trim()} onClick={onCreate}>Create thread &amp; discuss</button>
-        <button type="button" className="rd-v2-btn" disabled={!objective.trim()} onClick={() => onAsk(objective)}>Ask first</button>
+    <section className="s04-card s04-draft" data-testid="synthesis-draft-state">
+      <header className="s04-title">
+        <div>
+          <small>AI construction workspace</small>
+          <h2>Interpretation in progress</h2>
+        </div>
+        <em className="neutral">Grounding Library evidence</em>
+      </header>
+      <div className="s04-draft-flow" role="img" aria-label="The first Synthesis reasoning steps">
+        <strong>{text(thread?.objective || state.objective, "Research objective")}</strong>
+        <b>↓</b>
+        <div>
+          <article>
+            <small>1 · Interpret</small>
+            <span>Define the latent construct</span>
+          </article>
+          <article>
+            <small>2 · Ground</small>
+            <span>Map relevant Library evidence</span>
+          </article>
+          <article>
+            <small>3 · Challenge</small>
+            <span>Name the decisive validity risk</span>
+          </article>
+        </div>
+      </div>
+      <footer className="s04-actions">
+        <p>
+          <small>Working agreement</small>
+          Ask clarifies the construct one decision at a time. Nothing is executed or registered from this state.
+        </p>
+        <button
+          type="button"
+          className="rd-v2-btn primary"
+          onClick={() => onAsk("Continue interpreting this construct. Show what is supported, proposed, and unresolved, then ask the one highest-value question.")}
+        >
+          Continue in Ask
+        </button>
       </footer>
     </section>
   );
 }
 
-function EmptyWorkspace({ onNew }) {
+function NewThread({ objective, setObjective, busy, profiles, onCreate, onStartBlueprint }) {
+  const startingPoints = (Array.isArray(profiles) ? profiles : []).slice(0, 3);
   return (
-    <section className="s04-intent" data-testid="synthesis-empty-state">
-      <small>Synthesis</small>
-      <h2>Start a research construction</h2>
-      <p>No persisted Synthesis thread is available in this desk session. Create one from a research objective; the thread becomes the shared context for Detail and Ask.</p>
-      <footer><span>No local sample is substituted for missing work.</span><button type="button" className="rd-v2-btn primary" onClick={onNew}>New synthesis</button></footer>
+    <section className="s04-intent" data-testid="synthesis-intent-state">
+      <small>New Synthesis project</small>
+      <h2>Describe the dataset you wish existed.</h2>
+      <p>Give the research purpose in ordinary language. Ask will clarify the construct, ground it in your Library, and expose every proxy choice before a method can be reviewed.</p>
+      <textarea
+        rows={7}
+        value={objective}
+        onChange={(event) => setObjective(event.target.value)}
+        placeholder="Example: Build a weekly measure of stablecoin trust deterioration that separates security incidents, liquidity stress, and public attention…"
+        onKeyDown={(event) => {
+          handleEnterToSubmit(event, () => {
+            if (!busy && objective.trim()) onCreate();
+          });
+        }}
+      />
+      <div className="s04-intent-contract" aria-label="What Synthesis does next">
+        <span><b>1</b> Interpret</span>
+        <span><b>2</b> Ground in Library</span>
+        <span><b>3</b> Challenge proxies</span>
+        <span><b>4</b> Review method</span>
+      </div>
+      {startingPoints.length ? (
+        <div className="s04-intent-starts">
+          <small>Or start from a registered method</small>
+          <div>
+            {startingPoints.map((profile) => (
+              <button
+                type="button"
+                key={profile.id}
+                disabled={busy}
+                onClick={() => onStartBlueprint?.(profile)}
+                title={text(profile.title, profile.id)}
+              >
+                <strong>{text(profile.title, profile.id)}</strong>
+                <span>{text(profile.description, "Registered construction recipe")}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <footer>
+        {/* VC-6: a disabled primary action must say why it is unavailable. */}
+        <span>
+          {objective.trim()
+            ? "Creates a durable project, then opens Ask with this exact objective attached."
+            : "Enter an objective to continue. Creates a durable project, then opens Ask with it attached."}
+        </span>
+        <button
+          type="button"
+          className="rd-v2-btn primary"
+          disabled={busy || !objective.trim()}
+          onClick={onCreate}
+          title={objective.trim() ? undefined : "Enter an objective to continue"}
+        >
+          Start project in Ask
+        </button>
+      </footer>
     </section>
   );
 }
 
-export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) {
+function EmptyWorkspace({ profiles, profilesLoading, profilesError, onStartBlueprint, onNew }) {
+  const list = Array.isArray(profiles) ? profiles : [];
+  return (
+    <section className="s04-intent s04-intent-quiet s04-exploration-ready" data-testid="synthesis-empty-state">
+      <small>Exploration ready</small>
+      <h2>Choose a blueprint or start a custom construction</h2>
+      <p>
+        Synthesis is blueprint/recipe oriented: owned Library inputs → defined method → verified output.
+        Blueprints below come from the lab registry — not invented UI copy.
+      </p>
+      {profilesLoading ? <p className="s04-fixture">Loading registered blueprints…</p> : null}
+      {profilesError ? <p className="s04-fixture">{profilesError}</p> : null}
+      {!profilesLoading && !profilesError && !list.length ? (
+        <p className="s04-fixture">No synthesis blueprints are registered on this desk yet.</p>
+      ) : null}
+      {list.length ? (
+        <ul className="s04-blueprint-recipes" aria-label="Registered synthesis blueprints" data-testid="synthesis-blueprints">
+          {list.map((profile) => {
+            const sources = Array.isArray(profile.sources) ? profile.sources : [];
+            const joins = Array.isArray(profile.join_keys) ? profile.join_keys : [];
+            const body =
+              text(profile.description) ||
+              (sources.length
+                ? `Inputs: ${sources.map((s) => s.label || s.id).filter(Boolean).join(" · ")}`
+                : "Registered construction recipe");
+            return (
+              <li key={profile.id}>
+                <button
+                  type="button"
+                  className="s04-blueprint-recipe"
+                  data-testid="synthesis-blueprint"
+                  onClick={() => onStartBlueprint?.(profile)}
+                >
+                  <strong>{text(profile.title, profile.id)}</strong>
+                  <span>
+                    {body}
+                    {joins.length ? ` · join ${joins.join(", ")}` : ""}
+                  </span>
+                  <em>Start →</em>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <footer>
+        <button type="button" className="rd-v2-btn" onClick={onNew}>
+          Custom objective…
+        </button>
+      </footer>
+    </section>
+  );
+}
+
+export function SynthesisPage({ onAskComposer, onOpenDataset, onReviewExecution, onSelectThread, onBeginNew }) {
   const [threads, setThreads] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profilesError, setProfilesError] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -389,6 +665,7 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
         const familiar = next.find((thread) => /stablecoin attention/i.test(titleFor(thread)));
         return familiar?.id || next[0]?.id || "";
       });
+      if (!next.length) setNewMode(true);
     } catch (cause) {
       setError(text(cause?.message, "Synthesis threads could not be loaded."));
     } finally {
@@ -399,6 +676,29 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
   useEffect(() => {
     refreshThreads();
   }, [refreshThreads]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProfilesLoading(true);
+    setProfilesError("");
+    listSynthesisProfiles()
+      .then((result) => {
+        if (cancelled) return;
+        const next = Array.isArray(result?.profiles) ? result.profiles : [];
+        setProfiles(next);
+      })
+      .catch((cause) => {
+        if (cancelled) return;
+        setProfiles([]);
+        setProfilesError(text(cause?.message, "Registered blueprints could not be loaded."));
+      })
+      .finally(() => {
+        if (!cancelled) setProfilesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selected = useMemo(() => threads.find((thread) => thread.id === selectedId) || null, [threads, selectedId]);
 
@@ -438,11 +738,20 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
     }
   };
 
-  const ask = (prompt) => {
-    const context = selected
-      ? `\n\nSynthesis thread: ${titleFor(selected)}\nObjective: ${text(selected.objective || selected.state?.objective)}\nDurable status: ${stageLabel(selected)}.`
+  const ask = (prompt, thread = selected) => {
+    const context = thread
+      ? `\n\nSynthesis thread: ${titleFor(thread)}\nObjective: ${text(thread.objective || thread.state?.objective)}\nDurable status: ${stageLabel(thread)}.`
       : "\n\nSynthesis workspace context.";
     onAskComposer?.({ prompt: `${text(prompt)}${context}`, displayText: text(prompt, "Discuss this synthesis") });
+  };
+
+  const beginNew = () => {
+    setSelectedId("");
+    setNewMode(true);
+    setObjective("");
+    setError("");
+    onSelectThread?.(null);
+    onBeginNew?.();
   };
 
   const createThread = async () => {
@@ -457,9 +766,51 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
       setNewMode(false);
       setObjective("");
       onSelectThread?.(created);
-      ask(`Interpret this research objective and propose the smallest defensible construction: ${nextObjective}`);
+      ask(
+        `Interpret this research objective. Separate supported evidence, proposed proxy choices, and unresolved limitations, then ask the one highest-value clarification question: ${nextObjective}`,
+        created,
+      );
     } catch (cause) {
       setError(text(cause?.message, "The Synthesis thread could not be created."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startBlueprint = async (profile) => {
+    if (!profile?.id) return;
+    const title = text(profile.title, profile.id);
+    const sources = Array.isArray(profile.sources)
+      ? profile.sources.map((s) => s.label || s.id).filter(Boolean).join("; ")
+      : "";
+    const questions = Array.isArray(profile.research_questions) ? profile.research_questions.filter(Boolean) : [];
+    const objectiveText = [
+      `Blueprint: ${title}`,
+      text(profile.description),
+      sources ? `Registered inputs: ${sources}` : "",
+      questions[0] ? `Lead question: ${questions[0]}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    setBusy(true);
+    setError("");
+    try {
+      const created = await createSynthesisThread({
+        objective: objectiveText,
+        title,
+        requiredGrain: Array.isArray(profile.join_keys) ? profile.join_keys.join(", ") : "",
+      });
+      replaceThread(created);
+      setSelectedId(created.id);
+      setNewMode(false);
+      setObjective("");
+      onSelectThread?.(created);
+      ask(
+        `Use registered blueprint ${profile.id} (${title}). Propose the smallest defensible construction from owned Library inputs. Do not invent missing sources.`,
+        created,
+      );
+    } catch (cause) {
+      setError(text(cause?.message, "Could not start this blueprint as a Synthesis thread."));
     } finally {
       setBusy(false);
     }
@@ -509,26 +860,52 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onSelectThread }) 
   const showExecution = Boolean(selected && (mode === "execution" || mode === "registered" || mode === "failed" || selected.state?.execution_spec));
 
   return (
-    <PageShell className="rd-v2-synthesis-page" title="Synthesis" lead="Construct reusable research assets from registered evidence, with decisions and execution state kept durable.">
+    <PageShell className="rd-v2-synthesis-page" title="Synthesis" lead="Reason from Library evidence to a reviewable research construct, then preserve the method and its proof.">
       <div className="s04-shell" data-testid="synthesis-studio">
         <ThreadList
           threads={threads}
           selectedId={selectedId}
           loading={loading}
           onSelect={selectThread}
-          onNew={() => { setNewMode(true); setObjective(""); }}
+          onNew={beginNew}
         />
         <main className="s04-main">
           {error ? <p className="s04-fixture" role="alert">{error}</p> : null}
-          {newMode ? <NewThread objective={objective} setObjective={setObjective} busy={busy} onCreate={createThread} onAsk={ask} /> : null}
-          {!newMode && !loading && !selected ? <EmptyWorkspace onNew={() => setNewMode(true)} /> : null}
+          {newMode ? (
+            <NewThread
+              objective={objective}
+              setObjective={setObjective}
+              busy={busy}
+              profiles={profiles}
+              onCreate={createThread}
+              onStartBlueprint={startBlueprint}
+            />
+          ) : null}
+          {!newMode && !loading && !selected ? (
+            <EmptyWorkspace
+              profiles={profiles}
+              profilesLoading={profilesLoading}
+              profilesError={profilesError}
+              onStartBlueprint={startBlueprint}
+              onNew={beginNew}
+            />
+          ) : null}
           {!newMode && selected ? (
             <>
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
-              {showExecution ? <ExecutionRecord thread={selected} busy={busy} onRequest={requestExecution} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
+              {showExecution ? (
+                <ExecutionRecord
+                  thread={selected}
+                  busy={busy}
+                  onRequest={requestExecution}
+                  onReview={onReviewExecution}
+                  onAsk={ask}
+                  onOpenDataset={onOpenDataset}
+                />
+              ) : null}
               {mode === "explore" ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
-              {mode === "draft" ? <EmptyWorkspace onNew={() => setNewMode(true)} /> : null}
+              {mode === "draft" ? <DraftCanvas thread={selected} onAsk={ask} /> : null}
             </>
           ) : null}
         </main>

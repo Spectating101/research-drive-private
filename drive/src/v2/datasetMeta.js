@@ -1,14 +1,46 @@
 /** Map registry rows → frozen UI labels (Detail + StatusPill). */
 
+/** Exact readiness tokens that mean smoke-proven / instant local query — never fuzzy `/query|ready/`. */
+export function isQueryReadyReadiness(value) {
+  const readiness = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return (
+    readiness === "query_ready" ||
+    readiness === "instant" ||
+    readiness === "instant_or_minutes" ||
+    readiness === "queryable"
+  );
+}
+
+/**
+ * Receipt-recovery catalog rows — registered in a receipt only, not a reusable query holding.
+ * Terra donor (6769b75 / datasetMeta honesty).
+ */
+export function isReceiptOnlyAsset(dataset) {
+  const state = String(dataset?.catalog_reconciliation?.state || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return state === "receipt_only";
+}
+
 export function statusPillKind(dataset) {
   if (dataset?.live_identity_badge?.kind && dataset?.live_identity_badge?.label) {
     return dataset.live_identity_badge;
   }
-  const readiness = String(dataset?.analysis_readiness || "").toLowerCase();
+  if (isReceiptOnlyAsset(dataset)) {
+    return { kind: "registered", label: "Registered · reconciliation pending" };
+  }
+  const readiness = String(dataset?.analysis_readiness || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   if (dataset?.external || dataset?.collect_via) {
     return { kind: "external", label: "External" };
   }
-  if (readiness === "query_ready" || readiness === "instant" || readiness === "instant_or_minutes") {
+  if (isQueryReadyReadiness(readiness)) {
     return { kind: "query-ready", label: "Query ready" };
   }
   if (readiness === "registered") {
@@ -73,7 +105,7 @@ export function canIUseDecision(dataset) {
   if (state.kind === "external") {
     return {
       headline: "External source",
-      body: "This source is not confirmed as a usable local lab asset.",
+      body: "This source is not confirmed as a usable Library asset.",
     };
   }
   if (state.kind === "registered") {

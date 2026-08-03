@@ -20,7 +20,27 @@ on:
       - "research-drive-rc2*"
 
 jobs:
+  closed-release-contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out full release ancestry
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify immutable RC2 manifest
+        run: npm run release:verify -- --closed-release
+
   clean-checkout-release:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -300,6 +300,22 @@ export function listFolderChildren(tree, folderId = "") {
   return [...folders, ...files];
 }
 
+/** Flatten every dataset under a folder (or Lab root) — used for Library search hit lists. */
+export function collectDatasetDescendants(tree, folderId = "") {
+  const root = tree?.root || tree;
+  const node = findFolder(root, folderId);
+  if (!node) return [];
+  const out = [];
+  const walk = (n) => {
+    for (const child of Object.values(n.children || {})) {
+      if (child?.kind === "folder") walk(child);
+      else if (child?.kind === "dataset") out.push(child);
+    }
+  };
+  walk(node);
+  return out.sort((a, b) => String(a.name || a.id || "").localeCompare(String(b.name || b.id || ""), undefined, { sensitivity: "base" }));
+}
+
 export function breadcrumbTrail(tree, folderId = "") {
   const root = tree?.root || tree;
   const rootLabel = root.name || driveRootName(tree.scope) || "Drive";

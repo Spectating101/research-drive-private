@@ -49,7 +49,8 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
     const announcement = progress.locator(".rd-v2-progress-announcement");
     const elapsedMeta = progress.locator(".rd-v2-progress-card-meta");
     await expect(progress).toBeVisible();
-    await expect(rail.locator(".rd-v2-ask-bubble.agent")).toHaveCount(0);
+    await expect(rail.getByTestId("ask-agent-card")).toHaveCount(1);
+    await expect(rail.getByTestId("ask-agent-card")).toContainText("Working");
     await expect(progress.locator("li")).toHaveCount(4);
     await expect(progress).toContainText(/Active · \d+s/);
     await expect(announcement).toHaveAttribute("role", "status");
@@ -78,14 +79,20 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
     const activeStep = Number(await progress.getAttribute("data-active-step"));
     expect(activeStep).toBeGreaterThanOrEqual(2);
     await expect(progress.locator('li[data-state="past"]')).not.toHaveCount(0);
-    await expect(progress.locator('li[data-state="past"] .rd-v2-progress-marker svg')).toHaveCount(0);
+    // VC-7: completed work carries an explicit check, and exactly one step is
+    // current, so working progress cannot read as disabled content.
+    await expect(
+      progress.locator('li[data-state="past"] .rd-v2-progress-marker svg').first(),
+    ).toBeVisible();
+    await expect(progress.locator('li[aria-current="step"]')).toHaveCount(1);
 
     ensureArtifactDir();
     await page.screenshot({ path: `${ARTIFACT_DIR}/decoration-ask-activity-1440x900.png`, fullPage: true });
 
     await expect(progress).toHaveCount(0, { timeout: 10_000 });
     await expect(rail).toContainText("grounded in the current Research Drive context");
-    await expect(rail.locator(".rd-v2-ask-bubble.agent")).toHaveCount(1);
+    await expect(rail.getByTestId("ask-agent-card")).toHaveCount(1);
+    await expect(rail.getByTestId("ask-agent-card")).toContainText("Grounded answer");
     await expect(rail.getByRole("progressbar")).toHaveCount(0);
   });
 
@@ -114,8 +121,9 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
     expect(pageMotion.duration).toBe("0.11s");
     expect(pageMotion.transform).toBe("none");
 
-    const search = page.locator(".rd-v2-search-pill input");
+    const search = page.getByRole("textbox", { name: "Search or describe a research need" });
     await search.fill("mops");
+    await search.press("Enter");
     const candidate = page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" });
     await expect(candidate).toBeVisible();
 
@@ -153,8 +161,9 @@ test.describe("Research Drive RC2.1 transient decoration layer", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForShell(page);
-    const reducedSearch = page.locator(".rd-v2-search-pill input");
+    const reducedSearch = page.getByRole("textbox", { name: "Search or describe a research need" });
     await reducedSearch.fill("mops");
+    await reducedSearch.press("Enter");
     const reducedCandidate = page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate', { hasText: "MOPS" });
     await reducedCandidate.hover();
 

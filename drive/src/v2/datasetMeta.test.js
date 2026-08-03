@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { statusPillKind } from "./datasetMeta.js";
+import { isQueryReadyReadiness, statusPillKind } from "./datasetMeta.js";
 
 test("unknown readiness is never promoted to query ready", () => {
   assert.deepEqual(statusPillKind({ dataset_id: "unknown" }), {
@@ -11,6 +11,14 @@ test("unknown readiness is never promoted to query ready", () => {
     kind: "unknown",
     label: "Readiness unknown",
   });
+});
+
+test("fuzzy readiness substrings must not claim query ready", () => {
+  assert.equal(isQueryReadyReadiness("not_ready"), false);
+  assert.equal(isQueryReadyReadiness("metadata_search"), false);
+  assert.equal(isQueryReadyReadiness("registered"), false);
+  assert.equal(isQueryReadyReadiness("query_ready"), true);
+  assert.equal(isQueryReadyReadiness("instant"), true);
 });
 
 test("dataset readiness labels preserve the explicit access contract", () => {

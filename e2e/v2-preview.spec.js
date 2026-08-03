@@ -10,9 +10,8 @@ test.describe("v2 adaptive Preview", () => {
   });
 
   test("owned datasets open as a bounded rows and fields viewer", async ({ page }) => {
-    await page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "Research panels" }).click();
-    await page.locator('[data-testid="library-collection"][data-kind="folder"]', { hasText: "gdelt" }).click();
-    await page.locator('.rd-v2-library-asset[data-kind="dataset"]', { hasText: "Asia daily news-risk panel" }).click();
+    await page.getByRole("textbox", { name: "Search library holdings" }).fill("Asia");
+    await page.locator('.rd-v2-catalog-list button[data-kind="dataset"]', { hasText: "Asia daily news-risk panel" }).click();
     await page.locator("aside.rd-v2-rail").getByRole("button", { name: "Preview rows" }).click();
 
     const preview = page.getByRole("dialog", { name: "Asia daily news-risk panel preview" });
