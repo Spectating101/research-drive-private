@@ -930,54 +930,78 @@ def run_cursor_composer_turn(
                 "status": str(getattr(run, "status", "") or "empty_reply"),
             }
             if synthesis_context:
-                try:
-                    fallback_prompt, fallback_first_turn = (
-                        _prepare_synthesis_fallback_prompt(
-                            gateway,
-                            message,
-                            state,
-                        )
-                    )
-                    return _run_synthesis_reasoning_fallback(
-                        fallback_prompt,
-                        raw_message=message,
-                        state=state,
-                        first_user_turn=fallback_first_turn,
-                        event_sink=event_sink,
-                        fallback_from="cursor_composer",
-                    )
-                except Exception as exc:
-                    from scripts.research_data_mcp.desk_synthesis_fallback import (
-                        SynthesisFallbackError,
+                # MCP proposal tools persist a review-only state before the model
+                # emits its final prose. If that prose then violates the response
+                # contract, a generic "nothing changed" fallback contradicts the
+                # durable canvas. Surface the recorded proposal instead of hiding
+                # the mutation behind another provider turn.
+                recorded = _artifacts_from_conversation(run) if run is not None else {}
+                proposal = recorded.get("synthesis_proposal")
+                if isinstance(proposal, dict):
+                    from scripts.research_data_mcp.desk_synthesis_contract import (
+                        synthesis_proposal_recorded_reply,
                     )
 
-                    category = (
-                        exc.category
-                        if isinstance(exc, SynthesisFallbackError)
-                        else "provider_error"
-                    )
+                    action_result.update(recorded)
                     action_result.update(
                         {
+                            "action": "synthesis_proposal_recorded_response_error",
                             "mode": "synthesis",
-                            "fallback": "gemini_failed",
-                            "fallback_error_category": category,
-                            "reason": (
-                                "composer_contract_violation"
-                                if synthesis_violations
-                                else "empty_or_failed_composer_reply"
-                            ),
-                            **(
-                                {"contract_violations": synthesis_violations}
-                                if synthesis_violations
-                                else {}
-                            ),
+                            "reason": "composer_contract_violation",
+                            "contract_violations": synthesis_violations,
+                            "proposal_recorded": True,
                         }
                     )
-                    reply = synthesis_failure_reply(
-                        "response_contract"
-                        if synthesis_violations
-                        else action_result["status"]
-                    )
+                    reply = synthesis_proposal_recorded_reply(proposal.get("title"))
+                else:
+                    try:
+                        fallback_prompt, fallback_first_turn = (
+                            _prepare_synthesis_fallback_prompt(
+                                gateway,
+                                message,
+                                state,
+                            )
+                        )
+                        return _run_synthesis_reasoning_fallback(
+                            fallback_prompt,
+                            raw_message=message,
+                            state=state,
+                            first_user_turn=fallback_first_turn,
+                            event_sink=event_sink,
+                            fallback_from="cursor_composer",
+                        )
+                    except Exception as exc:
+                        from scripts.research_data_mcp.desk_synthesis_fallback import (
+                            SynthesisFallbackError,
+                        )
+
+                        category = (
+                            exc.category
+                            if isinstance(exc, SynthesisFallbackError)
+                            else "provider_error"
+                        )
+                        action_result.update(
+                            {
+                                "mode": "synthesis",
+                                "fallback": "gemini_failed",
+                                "fallback_error_category": category,
+                                "reason": (
+                                    "composer_contract_violation"
+                                    if synthesis_violations
+                                    else "empty_or_failed_composer_reply"
+                                ),
+                                **(
+                                    {"contract_violations": synthesis_violations}
+                                    if synthesis_violations
+                                    else {}
+                                ),
+                            }
+                        )
+                        reply = synthesis_failure_reply(
+                            "response_contract"
+                            if synthesis_violations
+                            else action_result["status"]
+                        )
             elif reply == EMPTY_REPLY_FALLBACK:
                 from scripts.research_data_mcp.desk_catalog_fallback import try_inventory_fallback
 
