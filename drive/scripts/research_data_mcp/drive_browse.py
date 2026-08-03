@@ -95,12 +95,24 @@ def consumer_dataset_path(row: dict[str, Any], scope: str | None = None) -> list
                 return ["procured", *[_clean_segment(p) for p in tail.split("/") if p]]
         return ["procured", str(row.get("dataset_id") or "item")]
 
+    # Prefer professor shelf / partition placement over opaque "Apps & connections".
+    shelf = str(row.get("shelf_hint") or row.get("shelf_id") or "").strip()
+    partition = str(row.get("partition_id") or (row.get("collection") or {}).get("partition_id") or "").strip()
+    did = str(row.get("dataset_id") or "remote")
+    if shelf and partition:
+        return [shelf, partition.replace(".", "_"), did]
+    if partition:
+        domain = partition.split(".", 1)[0] if "." in partition else "vault"
+        return [domain, partition.replace(".", "_"), did]
+    if shelf:
+        return [shelf, did]
+
     if not raw:
         readiness = str(row.get("analysis_readiness") or "")
         backend = str(row.get("backend") or "")
         if readiness == "metadata_search" or "catalog" in backend or "jsonl" in backend:
-            return ["lab_pipelines", "catalogues", str(row.get("dataset_id") or "catalog")]
-        return ["connections", str(row.get("dataset_id") or "remote")]
+            return ["lab_pipelines", "catalogues", did]
+        return ["project_downloads", did]
 
     return ["other", _clean_segment(raw)]
 

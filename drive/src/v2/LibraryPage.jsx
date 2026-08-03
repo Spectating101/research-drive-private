@@ -1,55 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  DRIVE_LAB,
-  buildConsumerDriveTree,
   breadcrumbTrail,
-  consumerDatasetPath,
   listFolderChildren,
 } from "@/driveTree";
+import { buildProfessorVaultTree, datasetTitle, isOpsNoiseDataset } from "@/v2/professorVaultTree";
 import { libraryFolderObject } from "@/v2/activeObject";
 import { CatalogList } from "@/v2/CatalogList";
 import { statusPillKind } from "@/v2/datasetMeta";
 import { Chip, PageShell } from "@/v2/ui";
 
 function datasetListItem(row) {
+  const name = datasetTitle(row);
   return {
     kind: "dataset",
     id: row.dataset_id,
-    name: row.name,
-    row,
+    name,
+    row: { ...row, name },
   };
-}
-
-function normalizedPath(value) {
-  return String(value || "")
-    .replace(/^data_lake\//, "")
-    .replace(/^\/+|\/+$/g, "");
-}
-
-function datasetMatchesFolder(row, folderId) {
-  const folder = normalizedPath(folderId);
-  if (!folder) return false;
-  const treePath = consumerDatasetPath(row, DRIVE_LAB).join("/");
-  const rawPath = normalizedPath(row.local_path || row.local_root);
-  if (treePath === folder || treePath.startsWith(`${folder}/`)) return true;
-  if (rawPath === folder || rawPath.startsWith(`${folder}/`)) return true;
-
-  const leaf = folder.split("/").filter(Boolean).pop()?.toLowerCase();
-  if (!leaf || leaf.length < 3) return false;
-  const hay = [
-    row.dataset_id,
-    row.name,
-    row.source,
-    row.publisher,
-    row.backend,
-    row.domain,
-    row.local_root,
-    row.local_path,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return hay.includes(leaf);
 }
 
 function readinessCount(rows) {
@@ -217,6 +184,7 @@ function laneLabel(lane) {
 export function LibraryPage({
   datasets,
   partitions = [],
+  shelves = [],
   cluster,
   folderId,
   onFolderChange,
@@ -263,9 +231,14 @@ export function LibraryPage({
     });
   }, [cluster?.lanes, datasets, partitionFilter, partitions]);
 
-  const tree = useMemo(
-    () => buildConsumerDriveTree(scopedDatasets, { scope: DRIVE_LAB }),
+  const vaultDatasets = useMemo(
+    () => (scopedDatasets || []).filter((row) => !isOpsNoiseDataset(row)),
     [scopedDatasets],
+  );
+
+  const tree = useMemo(
+    () => buildProfessorVaultTree(vaultDatasets, partitions.length ? partitions : (cluster?.lanes || []), shelves),
+    [vaultDatasets, partitions, shelves, cluster?.lanes],
   );
 
   const trail = useMemo(() => {
@@ -293,8 +266,8 @@ export function LibraryPage({
   const currentFolderName = isRoot ? "Lab root" : trail[trail.length - 1]?.name || "Lab";
   const showingBranchFallback = !items.length && branchRows.length > 0;
   const branchDatasetRows = useMemo(
-    () => (isRoot ? scopedDatasets : branchRows.map(itemDataset)),
-    [branchRows, scopedDatasets, isRoot],
+    () => (isRoot ? vaultDatasets : branchRows.map(itemDataset)),
+    [branchRows, vaultDatasets, isRoot],
   );
   const readyCount = readinessCount(branchDatasetRows);
   const folderCount = visibleRows.filter((item) => item.kind === "folder").length;
@@ -352,7 +325,7 @@ export function LibraryPage({
     <PageShell
       className="rd-v2-library-page"
       title="Library"
-      lead="Faculty vault, query readiness, and procurement memory."
+      lead="Open a shelf first — news, stocks, crypto, panels — then the datasets inside."
       headExtra={
         <div className="rd-v2-library-headline">
           <LibraryBreadcrumb trail={trail} onFolderChange={onFolderChange} />

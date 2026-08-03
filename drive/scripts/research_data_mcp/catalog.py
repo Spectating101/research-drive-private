@@ -27,7 +27,12 @@ class CatalogService:
         self.procurement = procurement
 
     def procurement_catalog(self, q: str = "", limit: int = 50) -> dict[str, Any]:
-        registry_rows = self.search.list_datasets(q=q, limit=limit)["datasets"]
+        from scripts.research_data_mcp.catalog_index import ProcurementCatalogIndex
+        from scripts.research_data_mcp.inventory_authority import SCOPE_RETURNED_WINDOW, view_scope
+
+        listed = self.search.list_datasets(q=q, limit=limit)
+        registry_rows = listed["datasets"]
+        inventory = listed.get("inventory") or self.search.inventory_summary()
         queue_tasks = self.orchestrator.queue_tasks(runnable_only=False)
         if q.strip():
             tokens = set(re.findall(r"[a-z][a-z0-9_]{2,}", q.lower()))
@@ -40,8 +45,6 @@ class CatalogService:
             {"id": pid, "label": meta.get("label", pid), "pool": meta.get("pool", "optiplex")}
             for pid, meta in self.orchestrator.executor.pipelines().items()
         ]
-        from scripts.research_data_mcp.catalog_index import ProcurementCatalogIndex
-
         cat = ProcurementCatalogIndex(self.repo_root, self.orchestrator)
         spectator_scripts = cat.spectator_scripts()
         probe_connectors = self.procurement.store.list(min(limit, 50))
@@ -65,9 +68,14 @@ class CatalogService:
                 }
             )
         storage = load_storage_policy(self.repo_root)
+        registered_total = inventory["totals"]["registered"]
         return {
             "summary": {
-                "registry_datasets": len(registry_rows),
+                # Authority totals — never derive registry_datasets from the truncated window.
+                "registry_datasets": registered_total,
+                "visible_to_desk": inventory["totals"]["visible_to_desk"],
+                "excluded_operational_test": inventory["totals"]["excluded_operational_test"],
+                "returned_registry_rows": len(registry_rows),
                 "queue_tasks": len(queue_tasks),
                 "runnable_queue_tasks": sum(1 for t in queue_tasks if t.get("runnable")),
                 "pipelines": len(pipelines),
@@ -80,6 +88,18 @@ class CatalogService:
                 "auto_archive_procured": storage.get("auto_archive_procured", False),
                 "storage_policy": storage.get("policy_note", ""),
             },
+            "inventory": inventory,
+            "view_scope": view_scope(
+                scope_id=SCOPE_RETURNED_WINDOW if q.strip() else listed.get("view_scope", {}).get("scope") or "registry_all",
+                primary_total=registered_total if not q.strip() else listed.get("total", len(registry_rows)),
+                primary_total_field="registered" if not q.strip() else "returned_matching",
+                inventory=inventory,
+                filters={"q": q, "limit": limit},
+                note=(
+                    "summary.registry_datasets is inventory.totals.registered (full authority). "
+                    "summary.returned_registry_rows is the truncated window for this request."
+                ),
+            ),
             "registry": registry_rows,
             "queue_tasks": queue_tasks[:limit],
             "pipelines": pipelines,

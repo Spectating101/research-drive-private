@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -19,9 +20,26 @@ from sharpe_kernel.paths import repo_root_from_file
 
 ROOT = repo_root_from_file(__file__)
 
+_AUTH_HEADERS: dict[str, str] = {}
+
+
+def _configure_auth(*, token: str | None = None) -> None:
+    """Use the desk access token for protected audit HTTP checks."""
+    global _AUTH_HEADERS
+    resolved = (token or os.getenv("YZU_DESK_ACCESS_TOKEN") or os.getenv("DESK_ACCESS_TOKEN") or "").strip()
+    _AUTH_HEADERS = {"Authorization": f"Bearer {resolved}"} if resolved else {}
+
+
+def _request_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = dict(_AUTH_HEADERS)
+    if extra:
+        headers.update(extra)
+    return headers
+
 
 def _get(url: str, timeout: float = 15.0) -> dict[str, Any]:
-    with urllib.request.urlopen(url, timeout=timeout) as resp:
+    req = urllib.request.Request(url, headers=_request_headers(), method="GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -30,7 +48,7 @@ def _post(url: str, payload: dict, timeout: float = 30.0) -> dict[str, Any]:
     req = urllib.request.Request(
         url,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers=_request_headers({"Content-Type": "application/json"}),
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -103,12 +121,19 @@ def audit_config(result: AuditResult) -> None:
     else:
         result.warn("windows inventory", f"missing: {inv}")
 
-    shards = ROOT / "scripts/data_catalog/datacite_y2025_parallel_shards.list"
-    if shards.exists():
-        n = sum(1 for line in shards.read_text().splitlines() if line.strip() and not line.startswith("#"))
-        result.ok("datacite shard list", f"{n} shards defined")
+    # DataCite shard list file is no longer authoritative; cluster config owns harvest lanes.
+    pipelines = yzu.get("pipelines") or {}
+    if "datacite_harvest" in pipelines or "datacite_drive_pipeline" in pipelines:
+        result.ok(
+            "datacite harvest config",
+            "pipeline authority present in config/yzu_cluster.json",
+        )
     else:
-        result.fail("datacite shard list", "missing shards file")
+        result.warn("datacite harvest config", "no datacite_* pipeline entries in yzu_cluster.json")
+    legacy_shards = ROOT / "scripts/data_catalog/datacite_y2025_parallel_shards.list"
+    if legacy_shards.exists():
+        n = sum(1 for line in legacy_shards.read_text().splitlines() if line.strip() and not line.startswith("#"))
+        result.ok("legacy datacite shard list", f"{n} shards still present (optional)")
 
 
 def audit_api(base: str, result: AuditResult) -> None:
@@ -149,11 +174,25 @@ def audit_api(base: str, result: AuditResult) -> None:
     else:
         result.warn("API /yzu/acquisitions", "few acquisition rows")
 
-    library_jobs = _get(f"{base}/library/jobs?limit=5")
-    if isinstance(library_jobs.get("jobs"), list):
-        result.ok("library/jobs", f"{len(library_jobs['jobs'])} recent job(s)")
-    else:
-        result.warn("library/jobs", "unexpected response shape")
+    try:
+        library_jobs = _get(f"{base}/library/jobs?limit=5")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401 and not _AUTH_HEADERS:
+            result.warn(
+                "library/jobs",
+                "auth required — set YZU_DESK_ACCESS_TOKEN or pass --token for this check",
+            )
+            library_jobs = {}
+        else:
+            result.fail("library/jobs", f"HTTP {exc.code}")
+            library_jobs = {}
+    if library_jobs:
+        if isinstance(library_jobs.get("jobs"), list):
+            result.ok("library/jobs", f"{len(library_jobs['jobs'])} recent job(s)")
+        elif library_jobs.get("error") in {"Unauthorized", "Forbidden"}:
+            result.warn("library/jobs", "authenticated request still rejected")
+        else:
+            result.warn("library/jobs", "unexpected response shape")
 
 
 def audit_job_path(base: str, result: AuditResult, *, execute: bool) -> None:
@@ -202,16 +241,17 @@ def audit_job_path(base: str, result: AuditResult, *, execute: bool) -> None:
         else:
             result.fail("job collection_queue_batch dry_run", batch.get("error") or batch["status"])
 
-    # 3. harvest_shard status — local read-only, no restart
+    # 3. harvest_shard status — optional when a local shard authority still exists
     shards_file = ROOT / "scripts/data_catalog/datacite_y2025_parallel_shards.list"
     local_shard = None
-    for line in shards_file.read_text().splitlines():
-        if not line.strip() or line.startswith("#"):
-            continue
-        shard, host, *_ = line.split("|", 3)
-        if host == "local":
-            local_shard = shard
-            break
+    if shards_file.is_file():
+        for line in shards_file.read_text().splitlines():
+            if not line.strip() or line.startswith("#"):
+                continue
+            shard, host, *_ = line.split("|", 3)
+            if host == "local":
+                local_shard = shard
+                break
     if local_shard:
         hs = _post(
             f"{base}/yzu/jobs",
@@ -227,7 +267,10 @@ def audit_job_path(base: str, result: AuditResult, *, execute: bool) -> None:
         else:
             result.fail("job harvest_shard status", hs.get("error") or hs["status"])
     else:
-        result.warn("job harvest_shard status", "no local shard in list")
+        result.warn(
+            "job harvest_shard status",
+            "skipped — legacy shard list absent; DataCite authority is cluster pipeline config",
+        )
 
     # 4. plan validation only — scraper, pipeline, archive
     orch = subprocess.run(
@@ -333,10 +376,16 @@ def audit_job_path(base: str, result: AuditResult, *, execute: bool) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="YZU Cluster integration audit")
     parser.add_argument("--api", default="http://127.0.0.1:8765", help="API base URL")
+    parser.add_argument(
+        "--token",
+        default="",
+        help="Desk access token for protected routes (default: YZU_DESK_ACCESS_TOKEN)",
+    )
     parser.add_argument("--no-execute", action="store_true", help="Skip live job execution")
     parser.add_argument("--json", action="store_true", help="Print JSON report")
     args = parser.parse_args()
 
+    _configure_auth(token=args.token or None)
     result = AuditResult()
     audit_config(result)
     try:

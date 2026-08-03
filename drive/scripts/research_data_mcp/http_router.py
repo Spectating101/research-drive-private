@@ -68,7 +68,6 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/synthesis/profiles", "handler": "library_synthesis_profiles"},
     {"method": "GET", "path": "/library/synthesis/threads", "handler": "library_synthesis_threads_list"},
     {"method": "POST", "path": "/library/synthesis/threads", "handler": "library_synthesis_threads_create"},
-    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}", "handler": "library_synthesis_thread_get"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/patches", "handler": "library_synthesis_thread_patch"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/proposal", "handler": "library_synthesis_thread_set_proposal"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/conversation", "handler": "library_synthesis_thread_link_conversation"},
@@ -76,6 +75,8 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/collect-missing", "handler": "library_synthesis_thread_collect_missing"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
+    # Keep the greedy thread-id catch-all after nested thread actions.
+    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}", "handler": "library_synthesis_thread_get"},
     {"method": "GET", "path": "/library/synthesis/{id}", "handler": "library_synthesis_get"},
     {"method": "POST", "path": "/library/synthesis/run", "handler": "library_synthesis_run"},
     {"method": "POST", "path": "/library/synthesis/pair", "handler": "library_synthesis_pair"},
@@ -276,6 +277,18 @@ def _resolve(path: str, method: str) -> tuple[str | None, dict[str, str]]:
 
 
 def _handlers() -> dict[str, Handler]:
+    def _actor_email(requested: Any = "") -> str:
+        from scripts.research_data_mcp.desk_auth import current_desk_principal
+
+        principal = current_desk_principal()
+        if principal and principal.email:
+            return principal.email
+        # Shared pilot operator remains able to preview another faculty profile
+        # until an identity provider supplies its own authoritative email.
+        if principal and principal.role != "operator":
+            return ""
+        return str(requested or "").strip()
+
     def _activity(stack, action: str, target: str, **kwargs: Any) -> None:
         try:
             from scripts.research_data_mcp.desk_activity import record_activity
@@ -324,7 +337,7 @@ def _handlers() -> dict[str, Handler]:
 
     def library_unified_search(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "")
-        email = str(query.get("email") or "")
+        email = _actor_email(query.get("email") or "")
         limit = int(query.get("limit", 12))
         return stack.gateway.unified_search_with_profile(
             q,
@@ -387,16 +400,19 @@ def _handlers() -> dict[str, Handler]:
             url = str(hit.get("url") or "").strip()
             if not url:
                 continue
-            rows.append(
-                {
-                    "kind": "web_hit",
-                    "title": hit.get("title") or url,
-                    "url": url,
-                    "source": hit.get("source") or "web",
-                    "description": hit.get("snippet") or hit.get("content") or "",
-                    "publisher": hit.get("source") or "web",
-                }
-            )
+            row = {
+                "kind": "web_hit",
+                "title": hit.get("title") or url,
+                "url": url,
+                "source": hit.get("source") or "web",
+                "description": hit.get("snippet") or hit.get("content") or "",
+                "publisher": hit.get("source") or "web",
+                "inspect_only": True,
+                "trust_tier": "inspect_only",
+            }
+            if hit.get("query_relevance") is not None:
+                row["query_relevance"] = hit.get("query_relevance")
+            rows.append(row)
         rows = stamp_rows(rows)
         if q:
             _activity(stack, "discover", f"web:{q[:180]}", meta={"total": len(rows), "web": True})
@@ -405,7 +421,10 @@ def _handlers() -> dict[str, Handler]:
             "sections": [{"id": "web_discover", "label": "Open web", "rows": rows}] if rows else [],
             "total": len(rows),
             "index_miss": True,
+            "relevance_miss": not rows,
             "sources_tried": raw.get("sources_tried") or [],
+            "relevance": raw.get("relevance")
+            or {"rule": "distinctive_aspect_overlap", "note": "web hits are inspect-only"},
         }
 
     def library_discover_probe(stack, query, payload, params):
@@ -572,7 +591,7 @@ def _handlers() -> dict[str, Handler]:
             title=str(payload.get("title") or ""),
             candidate=candidate if isinstance(candidate, dict) else None,
             session_id=str(payload.get("session_id") or ""),
-            user_email=str(payload.get("user_email") or payload.get("email") or ""),
+            user_email=_actor_email(payload.get("user_email") or payload.get("email") or ""),
         )
 
     def library_discover_intent_get(stack, query, payload, params):
@@ -863,7 +882,7 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.procurement_chat(
             str(payload.get("message", "")),
             session_id=str(payload.get("session_id") or "") or None,
-            user_email=str(payload.get("user_email") or payload.get("email") or "") or None,
+            user_email=_actor_email(payload.get("user_email") or payload.get("email") or "") or None,
             rail_context=rail if isinstance(rail, dict) else None,
         )
 
@@ -874,7 +893,7 @@ def _handlers() -> dict[str, Handler]:
             "events": stack.gateway.procurement_chat_stream(
                 str(payload.get("message", "")),
                 session_id=str(payload.get("session_id") or "") or None,
-                user_email=str(payload.get("user_email") or payload.get("email") or "") or None,
+                user_email=_actor_email(payload.get("user_email") or payload.get("email") or "") or None,
                 rail_context=rail if isinstance(rail, dict) else None,
             ),
         }
@@ -1004,20 +1023,22 @@ def _handlers() -> dict[str, Handler]:
 
     def library_faculty_profile(stack, query, payload, params):
         return stack.gateway.faculty_profile(
-            email=str(query.get("email") or ""),
+            email=_actor_email(query.get("email") or ""),
             slug=str(query.get("slug") or ""),
             default=str(query.get("default") or "").lower() in {"1", "true", "yes"},
         )
 
     def library_desk_brief(stack, query, payload, params):
-        return stack.gateway.desk_vault_brief(email=str(query.get("email") or ""))
+        return stack.gateway.desk_vault_brief(email=_actor_email(query.get("email") or ""))
 
     def library_desk_resources(stack, query, payload, params):
         return stack.gateway.desk_resources(live=_live_flag(query))
 
     def library_desk_warm(stack, query, payload, params):
         return stack.gateway.desk_warm_session(
-            user_email=str(payload.get("user_email") or payload.get("email") or query.get("email") or ""),
+            user_email=_actor_email(
+                payload.get("user_email") or payload.get("email") or query.get("email") or ""
+            ),
             session_id=str(payload.get("session_id") or ""),
             background=bool(payload.get("background", True)),
         )

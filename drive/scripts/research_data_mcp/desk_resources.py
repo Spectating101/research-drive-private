@@ -14,6 +14,40 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _windows_lab_worker_rollup(nodes: list[dict[str, Any]] | None) -> dict[str, int]:
+    """Roll up Windows workers for Resources hero/compute.
+
+    Inventory membership (joined) is tracked separately by the caller. Available
+    counts only claimable labels: ``online`` / ``idle`` with non-stale freshness.
+    Runtime-stale agents are exposed as ``stale``, never as idle/available.
+    """
+    online = idle = stale = unseen = 0
+    for node in nodes or []:
+        if not isinstance(node, dict):
+            continue
+        freshness = node.get("freshness") if isinstance(node.get("freshness"), dict) else {}
+        fresh_state = str(freshness.get("state") or "").strip().lower()
+        st = str(node.get("status") or "").strip().lower()
+        if fresh_state == "stale" or st == "stale":
+            stale += 1
+        elif st == "online":
+            online += 1
+        elif st == "idle":
+            idle += 1
+        elif st in {"joined_unseen", "joined"}:
+            unseen += 1
+        elif fresh_state == "fresh":
+            # Fresh heartbeat with an unexpected honesty label is still schedulable.
+            online += 1
+    return {
+        "online": online,
+        "idle": idle,
+        "stale": stale,
+        "joined_unseen": unseen,
+        "available": online + idle,
+    }
+
+
 def _gb(n: int | float | None) -> float | None:
     if n is None:
         return None
@@ -21,6 +55,15 @@ def _gb(n: int | float | None) -> float | None:
         return round(float(n) / 1024**3, 2)
     except (TypeError, ValueError):
         return None
+
+
+def _query_engine_up(health: dict[str, Any] | None) -> bool:
+    """Keep service reachability separate from desk-wide degradation."""
+    payload = health or {}
+    return (
+        payload.get("service") == "research_library_api"
+        and payload.get("status") in {"ok", "demo", "degraded"}
+    )
 
 
 def _count_tavily_keys() -> int:
@@ -544,7 +587,7 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
                 "legacy_configured": legacy_ok,
             },
             "mcp_tools": mcp.get("total"),
-            "query_engine": {"port": 8765, "up": health.get("status") in {"ok", "demo"}},
+            "query_engine": {"port": 8765, "up": _query_engine_up(health)},
             "workers": {
                 "busy": worker_busy,
                 "total": worker_total,
@@ -687,6 +730,8 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
         },
         "issues": issues,
         "issues_count": len(issues),
+        "inventory": health.get("inventory") or cat.get("inventory"),
+        "view_scope": health.get("view_scope") or cat.get("view_scope"),
         "spending": {
             "period": period,
             "today": usage_today,

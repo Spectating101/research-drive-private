@@ -18,6 +18,10 @@ _REGISTERED = frozenset({"registered", "query_ready", "instant"})
 _DOI_COLLECT_RE = re.compile(
     r"(?i)\b(?:queue\s+)?doi\s+collect(?:ion)?\b|\bcollect\s+(?:via\s+)?doi\b|\bdatacite\s+collect\b"
 )
+_DOI_COLLECT_SENTENCE_RE = re.compile(
+    r"(?i)(?:\s*(?:you\s+could|next,?|then,?)?\s*"
+    r"(?:queue\s+)?doi\s+collect(?:ion)?[^.\n!?]*[.?!]?)"
+)
 _READINESS_UNKNOWN_RE = re.compile(
     r"(?i)\breadiness\s*(?:is|:)?\s*unknown\b|\breadiness\s*:\s*unknown\b|\bunknown\s+readiness\b"
 )
@@ -289,12 +293,14 @@ def sanitize_grounded_reply(text: str, readiness: Any, *, dataset_id: str = "") 
     kept: list[str] = []
     for line in out.splitlines():
         if _DOI_COLLECT_RE.search(line):
-            continue
+            line = _DOI_COLLECT_SENTENCE_RE.sub("", line).strip()
+            if not line:
+                continue
         kept.append(line)
     cleaned = "\n".join(kept)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
     _ = dataset_id
-    return cleaned or out.strip()
+    return cleaned or f"Selected asset readiness: {canonical}."
 
 
 def grounding_from_rail(rail_context: dict[str, Any] | None) -> dict[str, Any]:

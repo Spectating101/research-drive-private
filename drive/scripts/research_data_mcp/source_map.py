@@ -256,6 +256,11 @@ def build_source_map_audit(repo_root: Path) -> dict[str, Any]:
             "canonical_config": "drive/config/databank_source_map.json",
             "desk_connectors": "config/desk_sources.json",
             "regenerate": "python3 scripts/databank_source_map.py --json",
+            "inventory_authority": (
+                "Prefer the live inventory projection attached by /library/source-map "
+                "(inventory.registry_revision.fingerprint). summary.registry_datasets is the "
+                "source-map universe for this audit and may differ from desk-visible totals."
+            ),
         },
     }
 

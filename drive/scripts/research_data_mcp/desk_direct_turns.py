@@ -344,6 +344,7 @@ def is_direct_discovery_message(message: str, rail_context: dict[str, Any] | Non
         or is_direct_intent_message(message, rail_context)
         or is_direct_subscription_lifecycle_message(message, rail_context)
         or (parse_refresh_tick_request(message) is not None)
+        or is_direct_contextual_message(message, rail_context)
     )
 
 
@@ -1149,6 +1150,177 @@ def try_direct_scrape_turn(gateway: Any, message: str, state: dict[str, Any]) ->
     )
 
 
+_CONTEXTUAL_ASK = re.compile(
+    r"\b(what|tell\s+me|describe|explain|about|readiness|details?|summary|info|know)\b|"
+    r"^(who|which|where|when|how)\b",
+    re.I,
+)
+_CONTEXTUAL_SIDE_EFFECT = re.compile(
+    r"\b(collect|approve|probe|schedule|subscribe|scrape|queue|submit|"
+    r"create\s+intent|pause|resume|stop)\b",
+    re.I,
+)
+_CONTEXTUAL_KNOWN_KEYS = (
+    ("title", "title"),
+    ("dataset_id", "dataset_id"),
+    ("source_id", "source_id"),
+    ("connector_id", "connector_id"),
+    ("candidate_key", "candidate_key"),
+    ("doi", "doi"),
+    ("url", "url"),
+    ("endpoint", "endpoint"),
+    ("readiness", "readiness"),
+    ("vault_path", "vault_path"),
+    ("access_mode", "access_mode"),
+    ("kind", "kind"),
+)
+
+
+def _contextual_selected_bundle(rail_context: dict[str, Any] | None) -> dict[str, Any]:
+    rail = rail_context if isinstance(rail_context, dict) else {}
+    selected = _rail_selected(rail)
+    entity = rail.get("entity") if isinstance(rail.get("entity"), dict) else {}
+    bundle: dict[str, Any] = {}
+    for src in (rail, selected, entity):
+        if not isinstance(src, dict):
+            continue
+        for key in (
+            "title",
+            "dataset_id",
+            "source_id",
+            "connector_id",
+            "candidate_key",
+            "doi",
+            "url",
+            "endpoint",
+            "readiness",
+            "vault_path",
+            "access_mode",
+            "kind",
+            "id",
+        ):
+            val = src.get(key)
+            if val is not None and str(val).strip() and key not in bundle:
+                bundle[key] = val
+    if entity.get("kind") and "kind" not in bundle:
+        bundle["kind"] = entity.get("kind")
+    if entity.get("title") and "title" not in bundle:
+        bundle["title"] = entity.get("title")
+    if entity.get("id") and "dataset_id" not in bundle and not bundle.get("source_id"):
+        bundle.setdefault("id", entity.get("id"))
+    return bundle
+
+
+def _message_is_structured_describe_or_query(message: str) -> bool:
+    """True only when the *message text* is a describe/query command — ignore rail ids."""
+    text = (message or "").strip()
+    if not text:
+        return False
+    for pattern in _DESCRIBE_PATTERNS:
+        if pattern.match(text):
+            return True
+    for pattern in _QUERY_PATTERNS:
+        if pattern.match(text):
+            return True
+    return False
+
+
+def is_direct_contextual_message(message: str, rail_context: dict[str, Any] | None = None) -> bool:
+    """Read-only Ask about the selected object — never collect/approve."""
+    text = (message or "").strip()
+    if not text or len(text) > 400:
+        return False
+    if _CONTEXTUAL_SIDE_EFFECT.search(text[:220]):
+        return False
+    # Do not steal structured equipment phrases (message-shaped only).
+    # Note: is_direct_describe/query are rail-greedy when dataset_id is selected —
+    # they must not veto natural-language contextual asks.
+    if is_direct_status_message(text) or is_direct_probe_message(text, rail_context):
+        return False
+    if is_direct_search_message(text, rail_context) or is_direct_discover_search_message(text, rail_context):
+        return False
+    if _message_is_structured_describe_or_query(text):
+        return False
+    bundle = _contextual_selected_bundle(rail_context)
+    if not bundle:
+        return False
+    rail = rail_context if isinstance(rail_context, dict) else {}
+    actions = [str(a).lower() for a in (rail.get("actions") or [])]
+    if any(a in {"ask_about", "ask_about_overlap", "explain"} for a in actions):
+        return True
+    return bool(_CONTEXTUAL_ASK.search(text[:240]))
+
+
+def try_direct_contextual_turn(
+    gateway: Any,
+    message: str,
+    state: dict[str, Any],
+) -> AgentTurn | None:
+    """Answer from rail selected-object facts; preserve explicit unknowns; no side effects."""
+    _ = gateway
+    rail = state.get("rail_context") if isinstance(state.get("rail_context"), dict) else None
+    if not is_direct_contextual_message(message, rail):
+        return None
+    bundle = _contextual_selected_bundle(rail)
+    known: list[str] = []
+    unknowns: list[str] = []
+    title = str(bundle.get("title") or bundle.get("dataset_id") or bundle.get("source_id") or bundle.get("id") or "selected object")
+    for key, label in _CONTEXTUAL_KNOWN_KEYS:
+        val = bundle.get(key)
+        if val is not None and str(val).strip():
+            known.append(f"- {label}: `{val}`")
+        else:
+            # Only list unknowns that are relevant for the object kind.
+            if key in {"doi", "url", "endpoint", "connector_id", "candidate_key"} and not (
+                bundle.get("source_id") or bundle.get("dataset_id") or bundle.get("kind") == "external_candidate"
+            ):
+                continue
+            if key == "access_mode" and not bundle.get("source_id"):
+                continue
+            unknowns.append(label)
+    # Always surface vault_path / readiness unknowns when talking about a dataset.
+    for must in ("readiness", "vault_path"):
+        if must not in unknowns and not (bundle.get(must) and str(bundle.get(must)).strip()):
+            if must == "vault_path" and bundle.get("dataset_id"):
+                unknowns.append(must)
+            elif must == "readiness" and (bundle.get("dataset_id") or bundle.get("kind") == "dataset"):
+                unknowns.append(must)
+    # Deduplicate unknowns while preserving order
+    seen: set[str] = set()
+    uniq_unknowns: list[str] = []
+    for u in unknowns:
+        if u not in seen:
+            seen.add(u)
+            uniq_unknowns.append(u)
+    lines = [
+        f"Selected object facts for **{title}** (read-only — no collection or approval):",
+        *known[:12],
+    ]
+    if uniq_unknowns:
+        lines.append("Explicit unknowns (not inventing values):")
+        for u in uniq_unknowns[:8]:
+            lines.append(f"- {u}: unknown")
+    else:
+        lines.append("No additional required fields are unknown from the current rail context.")
+    return AgentTurn(
+        plan={"action": "contextual", "fast_path": True, "side_effects": False},
+        action_result={
+            "action": "contextual",
+            "fast_path": True,
+            "side_effects": False,
+            "selected": bundle,
+            "known_fields": [k for k, _ in _CONTEXTUAL_KNOWN_KEYS if bundle.get(k)],
+            "unknown_fields": uniq_unknowns,
+        },
+        reply="\n".join(lines),
+        suggested_prompts=[
+            f"Describe dataset {bundle.get('dataset_id')}" if bundle.get("dataset_id") else "Search vault for related datasets",
+            "Probe the selected source" if bundle.get("url") or bundle.get("endpoint") else "status",
+        ],
+        tool_name="desk_contextual",
+    )
+
+
 def try_direct_equipment_turn(
     gateway: Any,
     message: str,
@@ -1157,6 +1329,10 @@ def try_direct_equipment_turn(
     status = try_direct_status_turn(gateway, message, state)
     if status is not None:
         return status
+    # Read-only selected-object Ask before any mutating equipment path.
+    contextual = try_direct_contextual_turn(gateway, message, state)
+    if contextual is not None:
+        return contextual
     approve = try_direct_approve_job_turn(gateway, message, state)
     if approve is not None:
         return approve

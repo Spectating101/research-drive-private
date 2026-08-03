@@ -197,8 +197,12 @@ export function libraryOverview() {
   return fetchJson("/library/overview");
 }
 
+export function listLibraryNav() {
+  return fetchJson("/library/partitions");
+}
+
 export function listPartitions() {
-  return fetchJson("/library/partitions").then((d) => d.partitions || []);
+  return listLibraryNav().then((d) => d.partitions || []);
 }
 
 export function procurementCatalogSummary() {

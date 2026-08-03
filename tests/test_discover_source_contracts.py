@@ -312,11 +312,11 @@ def test_source_search_live_federates_hf_and_datacite_with_monkeypatch(stack, mo
             [
                 mod._normalize_live_candidate(
                     provider="DataCite",
-                    title="Example Dataset",
+                    title="Climate Example Dataset",
                     url="https://doi.org/10.1234/example",
                     doi="10.1234/example",
                     external_id="10.1234/example",
-                    capabilities=["doi_metadata"],
+                    capabilities=["doi_metadata", "climate"],
                     availability="public_datacite",
                 )
             ],
@@ -411,7 +411,7 @@ def test_post_source_preview_requires_desk_auth_policy():
 
     assert path_requires_auth("/library/discover/sources/preview") is True
     # Read-only discover sources list stays open.
-    assert path_requires_auth("/library/discover/sources") is False
+    assert path_requires_auth("/library/discover/sources") is True
 
 
 def test_refresh_subscription_response_never_claims_auto_refresh(stack, tmp_path, monkeypatch):

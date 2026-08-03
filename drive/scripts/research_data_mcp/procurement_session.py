@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Any
 
+from scripts.research_data_mcp.desk_ownership import owner_id_for_create, require_owner
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -28,9 +30,13 @@ class ProcurementSessionStore:
                     created_at TEXT,
                     updated_at TEXT,
                     title TEXT,
-                    state_json TEXT
+                    state_json TEXT,
+                    owner_id TEXT NOT NULL DEFAULT ''
                 )"""
             )
+            columns = {row[1] for row in db.execute("PRAGMA table_info(sessions)")}
+            if "owner_id" not in columns:
+                db.execute("ALTER TABLE sessions ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''")
             db.execute(
                 """CREATE TABLE IF NOT EXISTS messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,13 +67,15 @@ class ProcurementSessionStore:
         finally:
             db.close()
 
-    def create(self, *, title: str = "") -> dict[str, Any]:
+    def create(self, *, title: str = "", owner_id: str = "") -> dict[str, Any]:
         sid = uuid.uuid4().hex[:16]
         stamp = _now()
+        assigned_owner = owner_id_for_create(owner_id)
         with self._db() as db:
             db.execute(
-                "INSERT INTO sessions VALUES (?, ?, ?, ?, ?)",
-                (sid, stamp, stamp, title[:200], json.dumps(self._empty_state())),
+                "INSERT INTO sessions(id, created_at, updated_at, title, state_json, owner_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (sid, stamp, stamp, title[:200], json.dumps(self._empty_state()), assigned_owner),
             )
         return self.get(sid)
 
@@ -78,6 +86,7 @@ class ProcurementSessionStore:
         if not row:
             raise KeyError(session_id)
         item = dict(row)
+        require_owner(item.get("owner_id"), session_id)
         item["state"] = json.loads(item.pop("state_json") or "{}")
         return item
 
@@ -90,6 +99,7 @@ class ProcurementSessionStore:
         return self.create()
 
     def update_state(self, session_id: str, state: dict[str, Any], *, title: str = "") -> dict[str, Any]:
+        self.get(session_id)
         stamp = _now()
         with self._db() as db:
             if title:
@@ -112,6 +122,7 @@ class ProcurementSessionStore:
         *,
         artifacts: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        self.get(session_id)
         with self._db() as db:
             db.execute(
                 "INSERT INTO messages(session_id, created_at, role, content, artifacts_json) VALUES (?, ?, ?, ?, ?)",
@@ -121,6 +132,7 @@ class ProcurementSessionStore:
         return {"role": role, "content": content, "artifacts": artifacts or {}}
 
     def messages(self, session_id: str, *, limit: int = 40) -> list[dict[str, Any]]:
+        self.get(session_id)
         with self._db() as db:
             db.row_factory = sqlite3.Row
             rows = db.execute(

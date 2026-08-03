@@ -27,9 +27,10 @@ def _sdk_bindings(agent) -> desk_brain._CursorSdkBindings:
     )
 
 
-def test_desk_brain_mode_is_composer_by_default(monkeypatch) -> None:
+def test_desk_brain_mode_is_unavailable_without_composer(monkeypatch) -> None:
     monkeypatch.delenv("DESK_BRAIN", raising=False)
-    assert desk_brain_mode() == "cursor_composer"
+    monkeypatch.delenv("CURSOR_API_KEY", raising=False)
+    assert desk_brain_mode() == "unavailable"
 
 
 def test_missing_cursor_key_returns_clear_reply(monkeypatch) -> None:
