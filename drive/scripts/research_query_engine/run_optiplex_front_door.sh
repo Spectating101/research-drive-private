@@ -6,7 +6,18 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 : "${YZU_PUBLIC_REPO:?set YZU_PUBLIC_REPO to the public yzu-cluster checkout}"
 : "${YZU_PUBLIC_SHA:?set YZU_PUBLIC_SHA to the approved public authority commit}"
 : "${YZU_DESK_HOST:?set YZU_DESK_HOST to the Optiplex Tailscale IP}"
-: "${YZU_DESK_ACCESS_TOKEN:?set YZU_DESK_ACCESS_TOKEN to protect material desk writes}"
+
+# Support both the legacy single-operator token and the named-principal pilot.
+# Named-principal mode needs an independent signing secret because browser
+# sessions must remain verifiable without turning one shared token into a
+# second operator credential.
+if [[ -z "${YZU_DESK_ACCESS_TOKEN:-${DESK_ACCESS_TOKEN:-}}" ]]; then
+  [[ -n "${DESK_PRINCIPALS_FILE:-}" && -r "${DESK_PRINCIPALS_FILE}" ]] || {
+    echo "set YZU_DESK_ACCESS_TOKEN or a readable DESK_PRINCIPALS_FILE to protect the desk" >&2
+    exit 1
+  }
+  : "${YZU_DESK_SESSION_SIGNING_SECRET:?set YZU_DESK_SESSION_SIGNING_SECRET for named-principal sessions}"
+fi
 
 case "${YZU_DESK_HOST}" in
   0.0.0.0|::|"[::]")
