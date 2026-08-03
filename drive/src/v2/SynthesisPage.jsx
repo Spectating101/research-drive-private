@@ -632,7 +632,14 @@ function EmptyWorkspace({ profiles, profilesLoading, profilesError, onStartBluep
   );
 }
 
-export function SynthesisPage({ onAskComposer, onOpenDataset, onReviewExecution, onSelectThread, onBeginNew }) {
+export function SynthesisPage({
+  onAskComposer,
+  onOpenDataset,
+  onReviewExecution,
+  onSelectThread,
+  onBeginNew,
+  refreshVersion = 0,
+}) {
   const [threads, setThreads] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
@@ -716,6 +723,11 @@ export function SynthesisPage({ onAskComposer, onOpenDataset, onReviewExecution,
     replaceThread(next);
     return next;
   }, [replaceThread, selectedId]);
+
+  useEffect(() => {
+    if (!refreshVersion || !selectedId) return;
+    refreshThread(selectedId).catch(() => {});
+  }, [refreshThread, refreshVersion, selectedId]);
 
   useEffect(() => {
     const execution = selected?.state?.execution || {};

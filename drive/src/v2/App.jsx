@@ -236,6 +236,8 @@ export function V2App() {
   const [resourceMode, setResourceMode] = useState("sources");
   const [activityFilter, setActivityFilter] = useState(null);
   const [pendingAsk, setPendingAsk] = useState("");
+  /** Ask can persist a review proposal; refresh the canvas in the same turn. */
+  const [synthesisRefreshVersion, setSynthesisRefreshVersion] = useState(0);
   const { toast, show: showToast, dismissIf: dismissToastIf } = useToast();
   const authenticatedEmail = String(deskAccess?.principal?.email || "").trim();
   const canUseAsk = Boolean(deskAccess?.permissions?.use_ask);
@@ -1503,6 +1505,7 @@ export function V2App() {
             setActiveObject(null);
             setRailTab("ask");
           }}
+          refreshVersion={synthesisRefreshVersion}
         />
       );
       break;
@@ -1789,6 +1792,7 @@ export function V2App() {
             pendingMessage={pendingAsk}
             onPendingConsumed={() => setPendingAsk("")}
             onCollected={refreshBackend}
+            onSynthesisChanged={() => setSynthesisRefreshVersion((current) => current + 1)}
             onApproveJob={canApproveJobs ? handleApproveJob : undefined}
             onToast={showToast}
             railContext={railContext}

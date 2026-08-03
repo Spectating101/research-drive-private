@@ -35,7 +35,7 @@ function restoreMessage(row) {
   };
 }
 
-export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) {
+export function useAskChat({ dataset, railContext, onCollected, onSynthesisChanged, onToast } = {}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -190,6 +190,16 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         }
         const reply = out.reply || out.message || "Done.";
         const artifacts = out.artifacts || {};
+        const recordedProposal =
+          artifacts.synthesis_proposal ||
+          out.synthesis_proposal ||
+          (artifacts.proposal_recorded ? { recorded: true } : null);
+        if (synthesisThreadId && recordedProposal) {
+          onSynthesisChanged?.({
+            threadId: artifacts.synthesis_thread_id || synthesisThreadId,
+            proposal: recordedProposal,
+          });
+        }
         const statePatch = artifacts.state_patch || out.state_patch || {};
         // Stuck Composer resume targets poison the browser session — start fresh next send.
         const composerBroken =
@@ -305,6 +315,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
       contextPrefix,
       input,
       onCollected,
+      onSynthesisChanged,
       onToast,
       synthesisSessionId,
       synthesisThreadId,

@@ -14,6 +14,7 @@ export function AskRail({
   pendingMessage,
   onPendingConsumed,
   onCollected,
+  onSynthesisChanged,
   onApproveJob,
   onToast,
   railContext,
@@ -22,6 +23,7 @@ export function AskRail({
     dataset,
     railContext,
     onCollected,
+    onSynthesisChanged,
     onToast,
   });
   const pendingSentRef = useRef("");

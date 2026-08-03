@@ -320,6 +320,50 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await capture(page, "05-shared-ask-desktop");
   });
 
+  test("refreshes the canvas in the same Ask turn that records a proposal", async ({ page }) => {
+    const updated = structuredClone(EXPLORING_THREAD);
+    updated.updated_at = "2026-07-19T09:03:00+00:00";
+    updated.state.maturity = "review";
+    updated.state.maturityLabel = "Method review";
+    updated.state.proposal = structuredClone(PROPOSAL_THREAD.state.proposal);
+
+    await page.route("**/api/library/synthesis/threads/thread-attention", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(updated),
+      }),
+    );
+    const proposalReply = (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: "synthesis-session-attention",
+          reply: "A review proposal was recorded. Nothing was executed.",
+          artifacts: {
+            action: "synthesis_proposal_recorded_response_error",
+            proposal_recorded: true,
+            synthesis_thread_id: "thread-attention",
+            synthesis_proposal: updated.state.proposal,
+          },
+        }),
+      });
+    await page.route("**/api/library/chat/stream", proposalReply);
+    await page.route("**/api/library/chat", proposalReply);
+
+    await page.getByRole("button", { name: "Discuss construction in Ask" }).click();
+    await page.getByTestId("ask-composer").fill("Persist the review proposal.");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+
+    await expect(page.getByTestId("synthesis-proposal-state")).toContainText(
+      "Aggregate held weekly panel",
+    );
+    await expect(page.getByTestId("ask-agent-card").last()).toContainText(
+      "Nothing was executed",
+    );
+  });
+
   test("creates a durable thread before handing the objective to Ask", async ({ page }) => {
     await page.getByRole("button", { name: "+ New" }).click();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Synthesis studio");
