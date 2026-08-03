@@ -1,4 +1,11 @@
+from pathlib import Path
+
+import pytest
+
 from scripts.research_data_mcp.unified_search import filter_query_relevant_rows
+
+
+REPO = Path(__file__).resolve().parents[1]
 
 
 def test_unified_search_drops_available_but_unrelated_rows_for_keeling_curve():
@@ -41,3 +48,40 @@ def test_two_letter_us_constraint_drops_irish_polling():
     assert [row["title"] for row in filter_query_relevant_rows(rows, "US polling data")] == [
         "American National Election Studies polling data"
     ]
+
+
+@pytest.mark.parametrize(
+    "query,required,forbidden",
+    [
+        (
+            "infant growth measurements by month",
+            {"nhanes"},
+            {"stablecoin", "etherscan", "coingecko"},
+        ),
+        (
+            "MOPS Taiwan governance filings",
+            {"taiwan", "mops"},
+            {"sec edgar", "irish"},
+        ),
+        (
+            "What public monthly atmospheric CO₂ measurements can I use to illustrate the Keeling Curve?",
+            set(),
+            {"stablecoin", "etherscan", "coingecko", "bigquery"},
+        ),
+    ],
+)
+def test_real_registry_federation_obeys_compound_and_geography_constraints(
+    query: str, required: set[str], forbidden: set[str]
+) -> None:
+    from scripts.research_data_mcp.gateway import ResearchDataGateway
+
+    gateway = ResearchDataGateway(REPO / "drive")
+    out = gateway.unified_dataset_search(
+        query,
+        limit=12,
+        include_hf=False,
+        include_datacite=False,
+    )
+    titles = " ".join(str(row.get("title") or "") for row in (out.get("rows") or [])).lower()
+    assert all(term in titles for term in required), (query, titles)
+    assert not any(term in titles for term in forbidden), (query, titles)
