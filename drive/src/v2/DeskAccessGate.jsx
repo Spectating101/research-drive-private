@@ -43,7 +43,7 @@ export function DeskAccessGate({ access, busy = false, onRetry }) {
               autoComplete="current-password"
               value={token}
               onChange={(event) => setToken(event.target.value)}
-              placeholder="Paste a reviewer or operator token"
+              placeholder="Paste your desk access token"
             />
             <button type="submit" disabled={busy || !token.trim()}>
               {busy ? "Checking…" : "Connect"}
@@ -65,7 +65,7 @@ export function DeskAccessGate({ access, busy = false, onRetry }) {
             ? "This host has no desk credential configured; protected APIs fail closed."
             : access?.error
               ? "Secure access check is unavailable. The desk remains locked; retry after the service is restored."
-              : "Authorized Tailscale entry normally connects automatically."}
+            : "Use the token issued for your member or operator account."}
         </small>
       </section>
     </main>
