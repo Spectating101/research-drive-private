@@ -19,7 +19,7 @@ NOISE_REGISTRY_IDS = (
     "metadata_catalog",
 )
 
-TOKEN_RE = re.compile(r"[a-z][a-z0-9_]{2,}")
+TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_]{1,}")
 SUBSCRIPT_DIGITS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 
 # Minimum token overlap between query and top hit before we trust local_open / strong_local_hit.
@@ -27,12 +27,12 @@ MIN_TOP_RELEVANCE = 1.0
 
 
 def min_relevance_threshold(query: str) -> float:
-    """Long compound queries need more than one accidental token hit."""
-    n = len(_tokens(query))
-    if n >= 6:
+    """Compound queries need more than one accidental token hit."""
+    tokens = _tokens(query)
+    geography = {token for rule in _query_geography_rules(query) for token in rule[4]}
+    n = len(tokens - geography)
+    if n >= 2:
         return 2.0
-    if n >= 4:
-        return 1.5
     return MIN_TOP_RELEVANCE
 
 
@@ -43,6 +43,7 @@ PROCUREMENT_QUERY_STOPWORDS = frozenset(
         "does", "the", "and", "for", "from", "with", "use", "using", "need", "want", "find",
         "help", "illustrate", "measure", "measurement", "measurements", "public", "open",
         "daily", "weekly", "monthly", "quarterly", "annual", "yearly", "time", "series",
+        "my", "our", "we", "me", "of", "to", "in", "on", "at", "by", "as", "it", "are", "is", "do", "or",
     }
 )
 QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_selection
@@ -50,10 +51,91 @@ QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_s
 # When query contains domain anchor tokens, top hit must match same domain in blob.
 def _tokens(text: str) -> set[str]:
     normalized = str(text or "").translate(SUBSCRIPT_DIGITS).lower()
-    return {t for t in TOKEN_RE.findall(normalized) if len(t) > 2 and t not in PROCUREMENT_QUERY_STOPWORDS}
+    return {t for t in TOKEN_RE.findall(normalized) if len(t) > 1 and t not in PROCUREMENT_QUERY_STOPWORDS}
 
 
-def _row_blob(row: dict[str, Any]) -> str:
+GeographyRule = tuple[
+    re.Pattern[str],
+    re.Pattern[str] | None,
+    re.Pattern[str],
+    re.Pattern[str] | None,
+    frozenset[str],
+]
+
+GEOGRAPHY_RULES: tuple[GeographyRule, ...] = (
+    (
+        re.compile(r"\b(?:united states|america|american)\b", re.I),
+        re.compile(r"\b(?:US|USA)\b"),
+        re.compile(r"\b(?:united states|america|american)\b", re.I),
+        re.compile(r"\b(?:US|USA)\b"),
+        frozenset({"us", "usa", "united", "states", "america", "american"}),
+    ),
+    (
+        re.compile(r"\b(?:united kingdom|great britain|british|england|english)\b", re.I),
+        re.compile(r"\bUK\b"),
+        re.compile(r"\b(?:united kingdom|great britain|british|england|english)\b", re.I),
+        re.compile(r"\bUK\b"),
+        frozenset({"uk", "united", "kingdom", "great", "britain", "british", "england", "english"}),
+    ),
+    (
+        re.compile(r"\b(?:taiwan|taiwanese|taipei)\b", re.I),
+        re.compile(r"\bTW\b"),
+        re.compile(r"\b(?:taiwan|taiwanese|taipei)\b", re.I),
+        re.compile(r"\bTW\b"),
+        frozenset({"tw", "taiwan", "taiwanese", "taipei"}),
+    ),
+    (
+        re.compile(r"\b(?:indonesia|indonesian)\b", re.I),
+        None,
+        re.compile(r"\b(?:indonesia|indonesian)\b", re.I),
+        None,
+        frozenset({"indonesia", "indonesian"}),
+    ),
+    (
+        re.compile(r"\b(?:china|chinese)\b", re.I),
+        re.compile(r"\bCN\b"),
+        re.compile(r"\b(?:china|chinese)\b", re.I),
+        re.compile(r"\bCN\b"),
+        frozenset({"cn", "china", "chinese"}),
+    ),
+    (
+        re.compile(r"\b(?:japan|japanese)\b", re.I),
+        re.compile(r"\bJP\b"),
+        re.compile(r"\b(?:japan|japanese)\b", re.I),
+        re.compile(r"\bJP\b"),
+        frozenset({"jp", "japan", "japanese"}),
+    ),
+    (
+        re.compile(r"\b(?:south korea|korea|korean)\b", re.I),
+        re.compile(r"\bKR\b"),
+        re.compile(r"\b(?:south korea|korea|korean)\b", re.I),
+        re.compile(r"\bKR\b"),
+        frozenset({"kr", "south", "korea", "korean"}),
+    ),
+    (
+        re.compile(r"\b(?:european union|europe|european)\b", re.I),
+        re.compile(r"\bEU\b"),
+        re.compile(r"\b(?:european union|europe|european)\b", re.I),
+        re.compile(r"\bEU\b"),
+        frozenset({"eu", "european", "union", "europe"}),
+    ),
+)
+
+
+def _query_geography_rules(query: str) -> list[GeographyRule]:
+    return [rule for rule in GEOGRAPHY_RULES if rule[0].search(query) or (rule[1] and rule[1].search(query))]
+
+
+def query_geography_ok(row: dict[str, Any], query: str) -> bool:
+    """A named geography is a requirement, not an optional ranking boost."""
+    required = _query_geography_rules(query)
+    if not required:
+        return True
+    blob = _row_blob_raw(row).translate(SUBSCRIPT_DIGITS)
+    return all(bool(rule[2].search(blob) or (rule[3] and rule[3].search(blob))) for rule in required)
+
+
+def _row_blob_raw(row: dict[str, Any]) -> str:
     parts = [
         str(row.get("title") or row.get("name") or ""),
         str(row.get("dataset_id") or row.get("id") or ""),
@@ -66,7 +148,11 @@ def _row_blob(row: dict[str, Any]) -> str:
         str(row.get("recommended_use") or ""),
         " ".join(str(x) for x in (row.get("tags") or row.get("keywords") or [])),
     ]
-    return " ".join(parts).lower()
+    return " ".join(parts)
+
+
+def _row_blob(row: dict[str, Any]) -> str:
+    return _row_blob_raw(row).lower()
 
 
 def _token_in_blob(token: str, blob: str) -> bool:

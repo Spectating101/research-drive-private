@@ -33,15 +33,21 @@ DEFAULT_SEARCH_BUDGET_SECONDS = float(os.environ.get("DESK_UNIFIED_SEARCH_BUDGET
 
 def filter_query_relevant_rows(rows: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
     """Keep a federated layer honest when availability scores exceed topic fit."""
-    from scripts.research_data_mcp.procurement_search import _tokens, relevance_score
+    from scripts.research_data_mcp.procurement_search import (
+        _tokens,
+        min_relevance_threshold,
+        query_geography_ok,
+        relevance_score,
+    )
 
     tokens = _tokens(query)
     if not tokens:
         return list(rows)
     kept: list[dict[str, Any]] = []
+    threshold = min_relevance_threshold(query)
     for row in rows:
         relevance = relevance_score(row, tokens)
-        if relevance < 1.0:
+        if relevance < threshold or not query_geography_ok(row, query):
             continue
         item = dict(row)
         item["query_relevance"] = round(relevance, 2)

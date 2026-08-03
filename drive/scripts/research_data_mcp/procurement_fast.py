@@ -413,6 +413,8 @@ def local_search(
     from scripts.research_data_mcp.procurement_search import (
         _tokens,
         looks_like_index_miss,
+        min_relevance_threshold,
+        query_geography_ok,
         relevance_score,
     )
 
@@ -424,7 +426,12 @@ def local_search(
     # omit candidates with no distinctive lexical support instead of allowing a
     # local/readiness boost to turn an unrelated source into a recommendation.
     if query_tokens:
-        raw = [cand for cand in raw if float(cand.get("query_relevance") or 0) >= 1.0]
+        threshold = min_relevance_threshold(query)
+        raw = [
+            cand for cand in raw
+            if float(cand.get("query_relevance") or 0) >= threshold
+            and query_geography_ok(cand, query)
+        ]
 
     raw.sort(key=lambda c: float(c.get("score") or 0), reverse=True)
     candidates: list[dict[str, Any]] = []

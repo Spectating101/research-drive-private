@@ -339,6 +339,40 @@ def test_synthesis_timeout_reports_proposal_already_recorded(monkeypatch, tmp_pa
     assert "was recorded" in turn.reply
 
 
+def test_synthesis_timeout_reports_both_provider_failures_without_state_churn(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+
+    _install_empty_cursor(monkeypatch)
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {})
+    monkeypatch.setattr(
+        desk_brain,
+        "_wait_run_bounded",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
+    )
+    monkeypatch.setattr(
+        desk_synthesis_fallback,
+        "run_gemini_synthesis_turn",
+        lambda _prompt: (_ for _ in ()).throw(
+            desk_synthesis_fallback.SynthesisFallbackError("provider_timeout")
+        ),
+    )
+    state = {
+        "desk_primed": True,
+        "rail_context": {"tab": "synthesis", "mode": "define"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path), "Build a monthly proxy", state
+    )
+    assert turn.action_result["action"] == "composer_timeout"
+    assert turn.action_result["fallback"] == "gemini_failed"
+    assert turn.action_result["fallback_error_category"] == "provider_timeout"
+    assert state.get("synthesis_turn_history") is None
+    assert "No collection or approval was started" in turn.reply
+
+
 def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_path):
     from scripts.research_data_mcp import (
         desk_brain,
