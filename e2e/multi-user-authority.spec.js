@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mockV2Api, waitForShell } from "./fixtures/v2MockApi.js";
 
 
-test("account menu names the authenticated workspace and role", async ({ page }) => {
+test("account menu names the authenticated person and simple role", async ({ page }) => {
   await mockV2Api(page);
   await page.goto("/?tab=home", { waitUntil: "domcontentloaded" });
   await waitForShell(page);
@@ -10,11 +10,12 @@ test("account menu names the authenticated workspace and role", async ({ page })
   await page.getByRole("button", { name: "Account" }).click();
   const menu = page.getByRole("menu", { name: "Account destinations" });
   await expect(menu).toContainText("Researcher One");
-  await expect(menu).toContainText("methods-lab · admin");
+  await expect(menu).toContainText("Operator");
+  await expect(menu).not.toContainText("methods-lab");
 });
 
 
-test("viewer role receives a clear Ask boundary instead of active controls", async ({ page }) => {
+test("member can research but does not receive operator approval controls", async ({ page }) => {
   await mockV2Api(page);
   await page.route("**/library/desk/capabilities", (route) =>
     route.fulfill({
@@ -23,29 +24,29 @@ test("viewer role receives a clear Ask boundary instead of active controls", asy
       body: JSON.stringify({
         version: 2,
         authenticated: true,
-        access: "viewer",
+        access: "member",
         principal: {
-          id: "viewer-1",
-          email: "viewer@example.test",
-          display_name: "Library Viewer",
-          role: "viewer",
-          workspace_ids: ["methods-lab"],
-          default_workspace_id: "methods-lab",
+          id: "member-1",
+          email: "member@example.test",
+          display_name: "Research Member",
+          role: "member",
         },
         permissions: {
           view_research_data: true,
           view_faculty_profile: true,
           view_operations: false,
-          use_ask: false,
-          submit_collection: false,
+          use_ask: true,
+          submit_collection: true,
           approve_jobs: false,
-          manage_workspace: false,
         },
       }),
     }),
   );
   await page.goto("/?tab=home", { waitUntil: "domcontentloaded" });
   await waitForShell(page);
+  await expect(page.getByTestId("header-pending-link")).toHaveCount(0);
   await page.getByRole("button", { name: /^Ask/ }).click();
-  await expect(page.getByRole("note")).toContainText("Ask is not available for this role");
+  await expect(page.getByRole("note")).toHaveCount(0);
+  await page.getByRole("button", { name: "Account" }).click();
+  await expect(page.getByRole("menu", { name: "Account destinations" })).toContainText("Member");
 });

@@ -105,7 +105,6 @@ export function deskCapabilities() {
         use_ask: true,
         submit_collection: true,
         approve_jobs: true,
-        manage_workspace: true,
       },
     };
   });

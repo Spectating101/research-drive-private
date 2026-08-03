@@ -273,8 +273,7 @@ test("ensureDeskAccess rechecks capabilities after a successful mint", async () 
               id: "researcher-1",
               email: "researcher@example.test",
               display_name: "Researcher One",
-              role: "researcher",
-              default_workspace_id: "methods-lab",
+              role: "member",
             }
           : null,
       });
@@ -288,7 +287,7 @@ test("ensureDeskAccess rechecks capabilities after a successful mint", async () 
   const out = await ensureDeskAccess();
   assert.equal(out.authenticated, true);
   assert.equal(out.principal.id, "researcher-1");
-  assert.equal(out.principal.default_workspace_id, "methods-lab");
+  assert.equal(out.principal.role, "member");
   assert.equal(capabilityCalls, 2);
   assert.equal(fetchCalls.length, 3);
 });

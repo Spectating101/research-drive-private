@@ -337,14 +337,12 @@ export async function mockV2Api(
       body: JSON.stringify({
         version: 2,
         authenticated: true,
-        access: "admin",
+        access: "operator",
         principal: {
           id: "researcher-1",
           email: "researcher@example.test",
           display_name: "Researcher One",
-          role: "admin",
-          workspace_ids: ["methods-lab"],
-          default_workspace_id: "methods-lab",
+          role: "operator",
         },
         permissions: {
           view_research_data: true,
@@ -353,6 +351,14 @@ export async function mockV2Api(
           use_ask: true,
           submit_collection: true,
           approve_jobs: true,
+        },
+        tenancy: {
+          mode: "personal-work",
+          identity_aware: true,
+          personal_work_isolated: true,
+          shared_objects: ["source_catalog", "library", "workers"],
+          private_objects: ["ask_sessions", "discover_intents", "synthesis_threads"],
+          multi_user_ready: true,
         },
       }),
     }),

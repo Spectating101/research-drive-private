@@ -1794,8 +1794,8 @@ export function V2App() {
             railContext={railContext}
           /> : (
             <div className="rd-v2-permission-note" role="note">
-              <strong>Ask is not available for this role.</strong>
-              <span>Switch to a researcher workspace role to start or continue an AI session.</span>
+              <strong>Ask is not available for this account.</strong>
+              <span>Contact the Research Drive operator if you need access.</span>
             </div>
           )
         }

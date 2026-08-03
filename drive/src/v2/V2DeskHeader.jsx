@@ -40,9 +40,10 @@ export function V2DeskHeader({
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef(null);
+  const pendingVisible = workCount > 0 && Boolean(onPendingClick);
   const metaText = usingSeed
     ? `${datasetCount} datasets`
-    : workCount > 0
+    : pendingVisible
       ? `${datasetCount} datasets · ${workCount} pending`
       : `${datasetCount} datasets`;
   const fresh = freshnessLabel(refreshedAt);
@@ -109,7 +110,7 @@ export function V2DeskHeader({
           ) : null}
         </div>
         <span className="rd-v2-header-meta-count" title={metaText}>
-          {workCount > 0 && onPendingClick ? (
+          {pendingVisible ? (
             <>
               {`${datasetCount} datasets · `}
               <button
@@ -147,9 +148,7 @@ export function V2DeskHeader({
             {principal ? (
               <div className="rd-v2-account-identity">
                 <strong>{principal.display_name || principal.email || "Research Drive user"}</strong>
-                <span>
-                  {principal.default_workspace_id || "personal"} · {principal.role || "viewer"}
-                </span>
+                <span>{principal.role === "operator" ? "Operator" : "Member"}</span>
               </div>
             ) : null}
             <button type="button" role="menuitem" onClick={() => openAccountPage("profile")}>
