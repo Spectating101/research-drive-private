@@ -66,7 +66,10 @@ const PROPOSAL_THREAD = {
       title: "Aggregate held weekly panel",
       summary: "Aggregate the held evidence by week and preserve the input identity.",
       execution_preflight: { ok: true },
-      operations: [{ op: "update_spec", summary: "Use weekly aggregation and bounded metrics." }],
+      operations: [
+        { op: "add_node" },
+        { op: "update_spec", summary: "Use weekly aggregation and bounded metrics." },
+      ],
       execution_spec: {
         input_dataset_id: "stablecoin_trust_engagement_weekly",
         output_dataset_id: "stablecoin_attention_weekly",
@@ -162,10 +165,10 @@ async function installSynthesisThreadMock(page) {
         id,
         created_at: "2026-07-19T09:00:00+00:00",
         updated_at: "2026-07-19T09:00:00+00:00",
-        title: body.objective,
+        title: body.title || body.objective,
         objective: body.objective,
         materialisation: "not_materialised",
-        state: { title: body.objective, objective: body.objective, required_grain: body.required_grain || "", maturity: "exploring", maturityLabel: "Exploring", lastActivity: "Thread created.", nodes: [], edges: [], proposal: null },
+        state: { title: body.title || body.objective, objective: body.objective, required_grain: body.required_grain || "", maturity: "exploring", maturityLabel: "Exploring", lastActivity: "Thread created.", nodes: [], edges: [], proposal: null },
       };
       threads.set(id, thread);
       return respond(thread);
@@ -224,7 +227,7 @@ async function installSynthesisThreadMock(page) {
         messages: [
           {
             role: "user",
-            content: "Keep the primary horizon weekly.",
+            content: "[context: Historical stablecoin attention] Keep the primary horizon weekly.\n\nSynthesis thread: Historical stablecoin attention\nObjective: Construct a historical attention panel.\nDurable status: Evidence mapping.",
             artifacts: {},
           },
           {
@@ -265,6 +268,7 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(proposal).toContainText("Proposed output");
     await expect(proposal).toContainText("Nothing is materialised yet");
     await expect(proposal).toContainText("Still not established");
+    await expect(proposal).toContainText("Add evidence or a derived construct");
     await capture(page, "02-proposal-review-desktop");
     await page.getByRole("button", { name: "Accept proposal" }).click();
     await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
@@ -309,6 +313,8 @@ test.describe("v2 Synthesis durable thread surface", () => {
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Ask · synthesis thread");
     await expect(rail).toContainText("Keep the primary horizon weekly.");
+    await expect(rail).not.toContainText("[context:");
+    await expect(rail).not.toContainText("Durable status:");
     await expect(rail).toContainText("Provisionally, Historical stablecoin attention");
     await expect(rail).toContainText("construct validity and time alignment");
     await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
@@ -376,9 +382,12 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
     await page.getByRole("button", { name: "Start project in Ask" }).click();
     await expect(page.getByText(objective, { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Weekly issuer attention panel for Taiwan filings" })).toBeVisible();
     await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · synthesis thread");
-    await expect(page.locator("aside.rd-v2-rail")).toContainText(`Provisionally, ${objective}`);
+    await expect(page.locator("aside.rd-v2-rail")).toContainText(
+      "Provisionally, Weekly issuer attention panel for Taiwan filings",
+    );
     await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await page.waitForTimeout(250);
     await capture(page, "07-new-project-ask-desktop");

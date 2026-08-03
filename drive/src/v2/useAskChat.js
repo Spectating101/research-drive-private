@@ -20,11 +20,24 @@ function normalizeOutgoingMessage(value, fallback = "") {
   return { prompt, displayText: prompt };
 }
 
+function restoredDisplayText(row) {
+  let value = String(row?.content || row?.text || "");
+  if (row?.role !== "user") return value;
+
+  // Stored prompts retain the machine context that grounded the provider turn.
+  // The researcher already sees that context in the selected rail/canvas, so
+  // replay only the message they actually authored.
+  value = value.replace(/^\[context:[^\n]*?\]\s*/i, "");
+  value = value.split(/\n\nSynthesis thread:/i)[0];
+  value = value.split(/\n\nSynthesis workspace context\./i)[0];
+  return value.trim();
+}
+
 function restoreMessage(row) {
   const artifacts = row?.artifacts && typeof row.artifacts === "object" ? row.artifacts : {};
   return {
     role: row?.role === "assistant" ? "assistant" : row?.role === "error" ? "error" : "user",
-    text: String(row?.content || row?.text || ""),
+    text: restoredDisplayText(row),
     action: artifacts.action,
     toolName: artifacts.tool_name,
     candidates: Array.isArray(artifacts.candidates) ? artifacts.candidates : [],

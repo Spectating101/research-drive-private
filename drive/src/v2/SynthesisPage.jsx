@@ -19,6 +19,21 @@ function titleFor(thread) {
   return text(thread?.title || thread?.state?.title, "Untitled synthesis");
 }
 
+function titleFromObjective(value) {
+  const cleaned = text(value)
+    .replace(/\(dataset_id\s+[^)]+\)/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const construction = cleaned.match(
+    /\b(?:build|construct|create|derive|assemble)\s+(?:(?:a|an|the)\s+)?([^.!?]{8,96})/i,
+  );
+  let title = text(construction?.[1] || cleaned.split(/[.!?]/)[0], "Untitled synthesis")
+    .replace(/^(?:a|an|the)\s+/i, "")
+    .trim();
+  title = title.charAt(0).toUpperCase() + title.slice(1);
+  return title.length > 72 ? `${title.slice(0, 69).trimEnd()}…` : title;
+}
+
 function stateFor(thread) {
   const state = thread?.state || {};
   const execution = state.execution || {};
@@ -265,6 +280,23 @@ function softIdentifier(value, fallback = "Not reported") {
   return text(value, fallback).replace(/([_/.-])/g, "$1\u200b");
 }
 
+const PROPOSAL_OPERATION_LABELS = {
+  add_node: "Add evidence or a derived construct",
+  add_edge: "Link evidence to the research target",
+  update_spec: "Update the construction method",
+  append_activity: "Record this proposal in project history",
+  remove_node: "Remove mapped evidence or a construct",
+  remove_edge: "Remove an evidence relationship",
+};
+
+function proposalOperationLabel(operation) {
+  const kind = text(operation?.op || operation?.type).toLowerCase();
+  return text(
+    operation?.summary || operation?.label || PROPOSAL_OPERATION_LABELS[kind],
+    kind ? kind.replace(/_/g, " ") : "Structured state change",
+  );
+}
+
 function ProposalReview({ thread, busy, onDecide, onAsk }) {
   const state = thread?.state || {};
   const proposal = state.proposal || {};
@@ -333,7 +365,7 @@ function ProposalReview({ thread, busy, onDecide, onAsk }) {
             {operations.length ? (
               operations.slice(0, 8).map((operation, index) => (
                 <li key={`${operation.op || operation.type || "change"}-${index}`}>
-                  {text(operation.summary || operation.label || operation.path || operation.op || operation.type, "Structured state change")}
+                  {proposalOperationLabel(operation)}
                 </li>
               ))
             ) : (
@@ -772,7 +804,10 @@ export function SynthesisPage({
     setBusy(true);
     setError("");
     try {
-      const created = await createSynthesisThread({ objective: nextObjective });
+      const created = await createSynthesisThread({
+        objective: nextObjective,
+        title: titleFromObjective(nextObjective),
+      });
       replaceThread(created);
       setSelectedId(created.id);
       setNewMode(false);
