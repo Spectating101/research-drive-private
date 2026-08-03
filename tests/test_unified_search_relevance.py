@@ -50,6 +50,23 @@ def test_two_letter_us_constraint_drops_irish_polling():
     ]
 
 
+def test_identifier_abbreviation_is_not_mistaken_for_indonesia():
+    rows = [{"title": "Entity ID mapping crosswalk"}]
+    assert [row["title"] for row in filter_query_relevant_rows(rows, "dataset ID mapping")] == [
+        "Entity ID mapping crosswalk"
+    ]
+
+
+def test_united_kingdom_is_not_mistaken_for_united_states():
+    rows = [
+        {"title": "British Election Study polling"},
+        {"title": "United States election polling"},
+    ]
+    assert [row["title"] for row in filter_query_relevant_rows(rows, "United Kingdom election polling")] == [
+        "British Election Study polling"
+    ]
+
+
 @pytest.mark.parametrize(
     "query,required,forbidden",
     [

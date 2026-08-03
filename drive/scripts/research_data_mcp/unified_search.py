@@ -47,7 +47,7 @@ def filter_query_relevant_rows(rows: list[dict[str, Any]], query: str) -> list[d
     threshold = min_relevance_threshold(query)
     for row in rows:
         relevance = relevance_score(row, tokens)
-        if relevance < threshold or not query_geography_ok(row, tokens):
+        if relevance < threshold or not query_geography_ok(row, query):
             continue
         item = dict(row)
         item["query_relevance"] = round(relevance, 2)

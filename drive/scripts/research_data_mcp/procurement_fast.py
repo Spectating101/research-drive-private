@@ -430,7 +430,7 @@ def local_search(
         raw = [
             cand for cand in raw
             if float(cand.get("query_relevance") or 0) >= threshold
-            and query_geography_ok(cand, query_tokens)
+            and query_geography_ok(cand, query)
         ]
 
     raw.sort(key=lambda c: float(c.get("score") or 0), reverse=True)
