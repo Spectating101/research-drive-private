@@ -1,0 +1,41 @@
+{
+  "llm_services": {
+    "mistral": {
+      "api_key": "YOUR_API_KEY_HERE",
+      "enabled": true,
+      "priority": 1,
+      "models": {
+        "default": "mistral-medium",
+        "synthesis": "mistral-medium"
+      }
+    },
+    "cerebras": {
+      "api_key": "YOUR_API_KEY_HERE",
+      "enabled": true,
+      "priority": 2,
+      "models": {
+        "default": "llama-3.3-70b",
+        "synthesis": "llama-3.3-70b"
+      }
+    },
+    "cohere": {
+      "api_key": "YOUR_API_KEY_HERE",
+      "enabled": true,
+      "priority": 3,
+      "models": {
+        "default": "command-light",
+        "synthesis": "command"
+      }
+    },
+    "unpaywall": {
+      "email": "s1133958@mail.yzu.edu.tw"
+    },
+    "core": {
+      "api_key": "YOUR_API_KEY_HERE",
+      "expires": "2025-08-04"
+    },
+    "semantic_scholar": {
+      "api_key": "YOUR_API_KEY_HERE"
+    }
+  }
+}

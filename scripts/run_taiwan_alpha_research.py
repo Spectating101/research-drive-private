@@ -1,0 +1,1 @@
+../alpha/scripts/run_taiwan_alpha_research.py

@@ -1,8 +1,10 @@
 /**
  * Organic Profile view-model — derived only from faculty_profile / registry fields.
  * No hardcoded Kong copy; thin profiles simply yield fewer blocks.
+ * Pilot email is exported for explicit local tests only — never auto-bound.
  */
 
+/** @deprecated Prefer PROFILE_TEST_EMAIL from profilePresentation — explicit test identity only. */
 export const PILOT_PREVIEW_EMAIL = "drkong@saturn.yzu.edu.tw";
 
 const IN_LAB_ROUTES = new Set(["vault", "bigquery"]);
@@ -109,6 +111,7 @@ function recAlreadyLinked(rec, linked) {
 
 /**
  * Memory cards from specialties, tracks, methods — omit empty cards.
+ * Kept for compatibility; Profile centre prefers buildMemoryBrief.
  */
 export function buildMemoryCards(profile) {
   if (!profile || profile.unknown) return [];
@@ -140,13 +143,72 @@ export function buildMemoryCards(profile) {
   return cards;
 }
 
+/**
+ * Single research-context brief for Profile Memory — statement + ≤3 descriptors.
+ * No raw ledger rows; no editable fields (persistence is Settings-only / browser-local).
+ */
+export function buildMemoryBrief(profile) {
+  if (!profile || profile.unknown) {
+    return { statement: "", descriptors: [] };
+  }
+
+  const tracks = profile.research_tracks || [];
+  const primary = primaryTrack(tracks);
+  const currentTitle = trackTitle(primary);
+  const focus = formatSpecialtyList(profile.specialties);
+  const methods = (profile.method_tags || []).map(humanTag).filter(Boolean);
+  const others = tracks
+    .filter((t) => t !== primary && trackId(t) !== trackId(primary))
+    .map((t) => shortTheme(trackTitle(t)))
+    .filter(Boolean);
+
+  let statement = "";
+  if (currentTitle) {
+    statement = `Present research centres on ${currentTitle.replace(/\.$/, "")}.`;
+  } else if (focus) {
+    statement = `Research focus spans ${focus}.`;
+  } else if (profile.discipline) {
+    statement = `${profile.discipline} research context is bound on this browser.`;
+  }
+
+  const descriptors = [];
+  if (focus) descriptors.push({ id: "focus", label: "Focus", text: focus });
+  if (methods.length) {
+    descriptors.push({
+      id: "methods",
+      label: "Methods",
+      text: methods.map((m) => m.toLowerCase()).join(", "),
+    });
+  }
+  if (others.length) {
+    descriptors.push({
+      id: "also",
+      label: "Also",
+      text: others.slice(0, 2).join(" · "),
+    });
+  }
+
+  return {
+    statement,
+    descriptors: descriptors.slice(0, 3),
+  };
+}
+
+/** Representative works for Profile scan — three titles; paperCount stays secondary. */
 export function buildWorks(profile) {
   const highlights = profile?.publication_highlights || [];
   const paperCount = profile?.paper_count_parsed || profile?.paper_count || null;
+  const primary = primaryTrack(profile?.research_tracks || []);
+  const relation = shortTheme(trackTitle(primary)) || "Research output";
   const items = highlights
-    .map((h) => ({ raw: h, title: workTitleFromHighlight(h) }))
+    .map((h) => ({
+      raw: h,
+      title: workTitleFromHighlight(h),
+      type: "Publication",
+      relationship: relation,
+    }))
     .filter((w) => w.title)
-    .slice(0, 2);
+    .slice(0, 3);
   return { paperCount, items };
 }
 
@@ -198,11 +260,194 @@ export function buildLab(profile) {
     });
   }
 
-  // Prefer Link rows before Search rows; cap at 4
+  // Prefer Link rows before Search rows; compress for Profile Lab summary
   suggested.sort((a, b) => Number(b.action === "link") - Number(a.action === "link"));
+  const linkedTotal = linked.length;
+  const gapTotal = suggested.length;
   return {
-    linked,
-    suggested: suggested.slice(0, 4),
+    linked: linked.slice(0, 3),
+    suggested: suggested.slice(0, 2),
+    linkedTotal,
+    gapTotal,
+    exploreQuery: suggested[0]?.query || suggested[0]?.label || "",
+  };
+}
+
+/**
+ * Deterministic research-understanding block for bound Profile.
+ * Uses only resolved specialties, tracks, works, lab stack, and gap recs.
+ * Separates facts / interpretation / unknowns — never invents certainty or LLM prose.
+ */
+export function buildResearchUnderstanding(profile) {
+  if (!profile || profile.unknown) {
+    return {
+      synthesis: "",
+      threads: [],
+      held: null,
+      missing: null,
+      provenance: [],
+      facts: [],
+      unknowns: ["Faculty identity", "Research memory", "Lab links"],
+      askContext: null,
+    };
+  }
+
+  const specialties = (profile.specialties || []).map((s) => String(s).trim()).filter(Boolean);
+  const tracks = (profile.research_tracks || []).filter(
+    (t) => t && (typeof t === "string" || t.title || t.name),
+  );
+  const primary = primaryTrack(tracks);
+  const methods = (profile.method_tags || []).map(humanTag).filter(Boolean);
+  const works = buildWorks(profile);
+  const lab = buildLab(profile);
+
+  const facts = [];
+  if (specialties.length) {
+    facts.push(`Saved focus · ${formatSpecialtyList(specialties)}`);
+  }
+  if (primary && trackTitle(primary)) {
+    facts.push(`Primary track · ${trackTitle(primary)}`);
+  }
+  if (methods.length) {
+    facts.push(`Methods on file · ${methods.map((m) => m.toLowerCase()).join(", ")}`);
+  }
+  if (works.paperCount) {
+    facts.push(`Works indexed · ${works.paperCount}`);
+  }
+  if (lab.linkedTotal) {
+    facts.push(`Linked lab holdings · ${lab.linkedTotal}`);
+  }
+  if (lab.gapTotal) {
+    facts.push(`Open evidence gaps · ${lab.gapTotal}`);
+  }
+
+  const threads = [];
+  const seenThread = new Set();
+  const pushThread = (id, label, source) => {
+    const key = String(label || "").toLowerCase();
+    if (!key || seenThread.has(key)) return;
+    seenThread.add(key);
+    threads.push({ id, label: shortTheme(label) || label, source });
+  };
+
+  if (specialties.length) {
+    pushThread("focus", formatSpecialtyList(specialties.slice(0, 3)), "saved specialties");
+  }
+  for (const track of [primary, ...tracks.filter((t) => t !== primary)].filter(Boolean)) {
+    if (threads.length >= 3) break;
+    const title = trackTitle(track);
+    if (title) pushThread(trackId(track) || `track-${threads.length}`, title, "research tracks");
+  }
+  if (threads.length < 2 && works.items[0]?.title) {
+    pushThread("work-0", works.items[0].title, "publication highlights");
+  }
+
+  const heldCandidates = lab.linked.length ? lab.linked : [];
+  let held = null;
+  if (heldCandidates.length) {
+    const primaryBlob = `${trackTitle(primary)} ${specialties.join(" ")}`.toLowerCase();
+    const ranked = [...heldCandidates].sort((a, b) => {
+      const score = (row) => {
+        const blob = String(row.label || "").toLowerCase();
+        let n = 0;
+        if (/crypto|nft|opensea|coingecko|token|usdt|ethereum|fintech/.test(blob)) n += 2;
+        if (primaryBlob && /token|on.?chain|nft|fintech/.test(primaryBlob) && /crypto|nft|token|coingecko|usdt/.test(blob)) {
+          n += 2;
+        }
+        if (row.route === "bigquery") n += 1;
+        return n;
+      };
+      return score(b) - score(a);
+    });
+    const top = ranked[0];
+    held = {
+      label: top.label,
+      detail: `${top.routeLabel} holding from lab stack`,
+      id: top.id,
+    };
+  }
+
+  let missing = null;
+  if (lab.suggested.length) {
+    const preferred = lab.suggested.find((s) =>
+      /taiwan|twse|mops|equity|momentum|misconduct|governance/i.test(`${s.label} ${s.query}`),
+    ) || lab.suggested[0];
+    missing = {
+      label: preferred.label,
+      detail: preferred.reason,
+      query: preferred.query || preferred.label,
+    };
+  }
+
+  const provenance = [];
+  if (specialties.length) provenance.push({ kind: "memory", label: "Saved research focus" });
+  if (tracks.length) provenance.push({ kind: "tracks", label: "Research tracks on file" });
+  if (works.items.length) provenance.push({ kind: "works", label: "Publication highlights" });
+  if (lab.linkedTotal) provenance.push({ kind: "lab", label: "Linked lab evidence" });
+  if (lab.gapTotal) provenance.push({ kind: "gaps", label: "Procurement gap recommendations" });
+
+  const unknowns = [];
+  if (!specialties.length && !tracks.length) unknowns.push("Primary research focus");
+  if (!works.items.length && !works.paperCount) unknowns.push("Publication record");
+  if (!lab.linkedTotal) unknowns.push("Linked lab evidence");
+  if (!lab.gapTotal) unknowns.push("Named evidence gaps");
+
+  const discipline = String(profile.discipline || "").trim();
+  const focusBit = specialties.length
+    ? formatSpecialtyList(specialties.slice(0, 3))
+    : trackTitle(primary) || "";
+  const threadBit = threads
+    .slice(0, 3)
+    .map((t) => t.label)
+    .filter((t) => t && t.toLowerCase() !== String(focusBit).toLowerCase())
+    .slice(0, 2);
+  const parts = [];
+  if (focusBit) {
+    parts.push(
+      discipline
+        ? `Research Drive reads this ${discipline.toLowerCase()} program as centred on ${focusBit}`
+        : `Research Drive reads this program as centred on ${focusBit}`,
+    );
+  } else if (discipline) {
+    parts.push(`Research Drive has a ${discipline.toLowerCase()} faculty profile on file`);
+  } else {
+    parts.push("Research Drive has a bound faculty profile with limited structured fields");
+  }
+  if (threadBit.length) {
+    parts.push(`with active threads in ${threadBit.join(" and ")}`);
+  }
+  if (held) {
+    parts.push(`Held evidence most aligned so far includes ${held.label}`);
+  }
+  if (missing) {
+    parts.push(`while ${missing.label} remains an open gap`);
+  }
+  let synthesis = `${parts.join(", ")}.`;
+  synthesis = synthesis.replace(/, while/, "; while").replace(/\.\.$/, ".");
+  synthesis += " This is a structured reading of saved context — not a verified research claim.";
+
+  const askContext = {
+    kind: "profile_context",
+    name: profile.name_en || profile.name || "",
+    email: profile.email || "",
+    synthesis,
+    threads: threads.map((t) => t.label),
+    held: held ? held.label : null,
+    missing: missing ? missing.label : null,
+    provenance: provenance.map((p) => p.label),
+    facts,
+    unknowns,
+  };
+
+  return {
+    synthesis,
+    threads: threads.slice(0, 3),
+    held,
+    missing,
+    provenance,
+    facts: facts.slice(0, 5),
+    unknowns: unknowns.slice(0, 3),
+    askContext,
   };
 }
 

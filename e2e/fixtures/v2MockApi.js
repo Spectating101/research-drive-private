@@ -153,6 +153,7 @@ export async function mockV2Api(
     chatComplete = null,
     synthesisProfiles = { profiles: [], latest: {}, count: 0 },
     synthesisDetail = { found: false },
+    profileBody = null,
   } = {},
 ) {
   await page.route("**/datasets", (route) =>
@@ -322,34 +323,36 @@ export async function mockV2Api(
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        found: true,
-        profile: {
-          name_en: "Test Prof",
-          email: "test@saturn.yzu.edu.tw",
-          discipline: "YZU FinTech",
-          title: "Assistant Professor",
-          specialties: ["FinTech", "Asset Pricing"],
-          method_tags: ["empirical_secondary"],
-          research_tracks: [
-            { id: "t1", phase: "active_grant", title: "Token taxonomy pilot", weight: 1 },
-          ],
-          publication_highlights: [
-            "Test, A. (2023). Sample paper on FinTech panels. SSRN 1.",
-          ],
-          paper_count_parsed: 3,
-          lab_fintech_stack: [
-            { id: "cg", label: "CoinGecko daily archive", route: "vault" },
-          ],
-          procurement_recommendations: [
-            { dataset: "MOPS filings", search_query: "MOPS financial statements", source_route: "twse_openapi" },
-            { dataset: "TWSE governance", search_query: "TWSE OpenAPI", source_route: "twse_openapi" },
-          ],
-          default_search_query: "MOPS financial statements",
-          preferred_destination: "collection/",
-          domain_tags: ["stablecoin"],
+      body: JSON.stringify(
+        profileBody || {
+          found: true,
+          profile: {
+            name_en: "Test Prof",
+            email: "test@saturn.yzu.edu.tw",
+            discipline: "YZU FinTech",
+            title: "Assistant Professor",
+            specialties: ["FinTech", "Asset Pricing"],
+            method_tags: ["empirical_secondary"],
+            research_tracks: [
+              { id: "t1", phase: "active_grant", title: "Token taxonomy pilot", weight: 1 },
+            ],
+            publication_highlights: [
+              "Test, A. (2023). Sample paper on FinTech panels. SSRN 1.",
+            ],
+            paper_count_parsed: 3,
+            lab_fintech_stack: [
+              { id: "cg", label: "CoinGecko daily archive", route: "vault" },
+            ],
+            procurement_recommendations: [
+              { dataset: "MOPS filings", search_query: "MOPS financial statements", source_route: "twse_openapi" },
+              { dataset: "TWSE governance", search_query: "TWSE OpenAPI", source_route: "twse_openapi" },
+            ],
+            default_search_query: "MOPS financial statements",
+            preferred_destination: "collection/",
+            domain_tags: ["stablecoin"],
+          },
         },
-      }),
+      ),
     }),
   );
   await page.route("**/query/*", (route) =>

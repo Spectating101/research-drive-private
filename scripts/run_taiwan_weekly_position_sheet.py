@@ -1,0 +1,1 @@
+../alpha/scripts/run_taiwan_weekly_position_sheet.py

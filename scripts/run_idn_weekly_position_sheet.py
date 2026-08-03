@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_weekly_position_sheet.py
