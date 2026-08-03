@@ -385,6 +385,7 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page.getByRole("heading", { name: "Weekly issuer attention panel for Taiwan filings" })).toBeVisible();
     await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · synthesis thread");
+    await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Interpret this research objective");
     await expect(page.locator("aside.rd-v2-rail")).toContainText(
       "Provisionally, Weekly issuer attention panel for Taiwan filings",
     );

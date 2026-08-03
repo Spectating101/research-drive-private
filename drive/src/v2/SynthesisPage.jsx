@@ -782,11 +782,14 @@ export function SynthesisPage({
     }
   };
 
-  const ask = (prompt, thread = selected) => {
+  const ask = (prompt, thread = selected, displayText = prompt) => {
     const context = thread
       ? `\n\nSynthesis thread: ${titleFor(thread)}\nObjective: ${text(thread.objective || thread.state?.objective)}\nDurable status: ${stageLabel(thread)}.`
       : "\n\nSynthesis workspace context.";
-    onAskComposer?.({ prompt: `${text(prompt)}${context}`, displayText: text(prompt, "Discuss this synthesis") });
+    onAskComposer?.({
+      prompt: `${text(prompt)}${context}`,
+      displayText: text(displayText, "Discuss this synthesis"),
+    });
   };
 
   const beginNew = () => {
@@ -816,6 +819,7 @@ export function SynthesisPage({
       ask(
         `Interpret this research objective. Separate supported evidence, proposed proxy choices, and unresolved limitations, then ask the one highest-value clarification question: ${nextObjective}`,
         created,
+        nextObjective,
       );
     } catch (cause) {
       setError(text(cause?.message, "The Synthesis thread could not be created."));
@@ -855,6 +859,7 @@ export function SynthesisPage({
       ask(
         `Use registered blueprint ${profile.id} (${title}). Propose the smallest defensible construction from owned Library inputs. Do not invent missing sources.`,
         created,
+        `Start from the registered blueprint: ${title}`,
       );
     } catch (cause) {
       setError(text(cause?.message, "Could not start this blueprint as a Synthesis thread."));
