@@ -5,6 +5,11 @@ import {
   interpretEvidenceNeed,
   splitBestFitAndOthers,
 } from "./discoverComposition.js";
+import {
+  hasSpecificDiscoverRoute,
+  meaningfulDiscoverTerms,
+  normalizeDiscoverText,
+} from "./discoverQuerySpecificity.js";
 
 describe("groupDiscoverBrowseRows", () => {
   it("buckets by taxonomy group into lab / external / needs access", () => {
@@ -32,6 +37,31 @@ describe("interpretEvidenceNeed", () => {
     assert.ok(chips.length <= 4);
     assert.ok(chips.some((c) => /stablecoin/i.test(c)));
     assert.ok(overflow >= 0);
+  });
+});
+
+describe("Discover query specificity", () => {
+  it("normalizes CO₂ and drops question filler from route evidence", () => {
+    assert.equal(normalizeDiscoverText("CO₂"), "co2");
+    assert.deepEqual(
+      meaningfulDiscoverTerms([
+        "What", "Public", "Monthly", "Atmospheric", "CO₂", "Measurements",
+        "Can", "I", "Use", "Illustrate", "Keeling", "Curve",
+      ]),
+      ["atmospheric", "co2", "keeling", "curve"],
+    );
+  });
+
+  it("does not treat generic crypto offerings as a Keeling Curve route", () => {
+    const tokens = ["What", "Public", "Monthly", "Atmospheric", "CO₂", "Measurements", "Keeling", "Curve"];
+    assert.equal(hasSpecificDiscoverRoute([
+      { title: "Google BigQuery on-chain transfers", description: "Public cryptocurrency transaction data" },
+      { title: "CoinGecko market archive", description: "Daily crypto asset prices" },
+      { title: "OpenAlex", description: "Open research graph" },
+    ], tokens), false);
+    assert.equal(hasSpecificDiscoverRoute([
+      { title: "NOAA Mauna Loa atmospheric CO2", description: "Monthly Keeling Curve measurements" },
+    ], tokens), true);
   });
 });
 

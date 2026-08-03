@@ -45,6 +45,7 @@ test.describe("Discover adaptive Explore", () => {
   test("an index miss stays local until Search wider is explicit", async ({ page }) => {
     let deepCalls = 0;
     let webCalls = 0;
+    let unifiedCalls = 0;
     page.on("request", (request) => {
       const url = new URL(request.url());
       if (
@@ -52,6 +53,7 @@ test.describe("Discover adaptive Explore", () => {
         && (url.searchParams.get("live") === "1" || url.searchParams.get("semantic") === "1")
       ) deepCalls += 1;
       if (request.url().includes("/library/discover/web")) webCalls += 1;
+      if (url.pathname.endsWith("/library/search")) unifiedCalls += 1;
     });
     await mockV2Api(page);
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
@@ -60,6 +62,7 @@ test.describe("Discover adaptive Explore", () => {
     await expect(page.getByText(/No matches for/)).toBeVisible();
     expect(deepCalls).toBe(0);
     expect(webCalls).toBe(0);
+    expect(unifiedCalls).toBe(0);
 
     await page.getByRole("button", { name: "Search wider", exact: true }).click();
     await expect.poll(() => deepCalls).toBeGreaterThan(0);
