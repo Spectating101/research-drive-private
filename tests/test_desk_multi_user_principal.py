@@ -122,8 +122,13 @@ def test_roles_are_enforced_server_side(tmp_path, monkeypatch):
 
     assert desk_auth.authorize(member, "/datasets", "GET")[0] is True
     assert desk_auth.authorize(member, "/library/chat", "POST")[0] is True
+    assert desk_auth.authorize(member, "/library/jobs", "POST")[0] is True
     allowed, message = desk_auth.authorize(
         member, "/library/jobs/approve-safe", "POST"
+    )
+    assert allowed is False and "approve_jobs" in message
+    allowed, message = desk_auth.authorize(
+        member, "/library/jobs/example/approve", "POST"
     )
     assert allowed is False and "approve_jobs" in message
     assert desk_auth.authorize(operator, "/library/jobs/approve-safe", "POST")[0] is True
