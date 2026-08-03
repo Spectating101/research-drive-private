@@ -10,6 +10,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,6 +44,43 @@ class ResearchQueryEngine:
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
+
+    @staticmethod
+    def _csv_shape_observation(path: Path, *, sample_rows: int = 50) -> dict[str, Any]:
+        """Bounded structural check; never guesses labels for surplus columns."""
+        widths: Counter[int] = Counter()
+        header_width = 0
+        sampled = 0
+        try:
+            with path.open(newline="", encoding="utf-8-sig", errors="replace") as handle:
+                reader = csv.reader(handle)
+                header = next(reader, [])
+                header_width = len(header)
+                for row in reader:
+                    if not row or not any(str(cell).strip() for cell in row):
+                        continue
+                    widths[len(row)] += 1
+                    sampled += 1
+                    if sampled >= max(1, sample_rows):
+                        break
+        except (OSError, csv.Error) as exc:
+            return {
+                "valid": False,
+                "reason": "csv_read_error",
+                "error_type": type(exc).__name__,
+                "header_columns": header_width,
+                "sampled_rows": sampled,
+                "observed_widths": sorted(widths),
+            }
+        valid = bool(header_width) and sampled > 0 and set(widths) == {header_width}
+        return {
+            "valid": valid,
+            "reason": "ok" if valid else "column_count_mismatch",
+            "header_columns": header_width,
+            "sampled_rows": sampled,
+            "observed_widths": sorted(widths),
+            "width_counts": {str(width): count for width, count in sorted(widths.items())},
+        }
 
     def _reconcile_local_panel_readiness(self) -> None:
         """Remove stale query-ready claims when local bytes are not materialized.
@@ -82,6 +120,37 @@ class ResearchQueryEngine:
                 if backend == "local_file":
                     present = present or (resolved.is_dir() and any(resolved.iterdir()))
             if present:
+                if backend in {"local_csv_file", "local_csv_glob"}:
+                    if "*" in local_path:
+                        matches = sorted(Path(p) for p in globmod.glob(str(resolved)))
+                        csv_path = next(
+                            (path for path in matches if path.suffix.lower() == ".csv"),
+                            matches[0] if matches else None,
+                        )
+                    else:
+                        csv_path = resolved
+                    observation = (
+                        self._csv_shape_observation(Path(csv_path)) if csv_path else {"valid": False}
+                    )
+                    if not observation.get("valid"):
+                        materialization = dict(dataset.get("materialization") or {})
+                        materialization.update(
+                            {
+                                "query_ready": False,
+                                "skipped": "csv_schema_mismatch_at_runtime",
+                            }
+                        )
+                        dataset["materialization"] = materialization
+                        has_archive = bool(
+                            dataset.get("canonical_remote")
+                            or (dataset.get("lineage") or {}).get("canonical_remote")
+                        )
+                        dataset["analysis_readiness"] = "registered" if has_archive else "metadata_search"
+                        dataset["collection_status"] = "registered" if has_archive else "metadata_only"
+                        dataset["field_coverage"] = "metadata-only"
+                        dataset["runtime_readiness_reason"] = "csv_schema_mismatch"
+                        dataset["schema_review_required"] = True
+                        dataset["schema_observation"] = observation
                 continue
 
             materialization = dict(dataset.get("materialization") or {})
@@ -784,6 +853,20 @@ class ResearchQueryEngine:
         if not path or not Path(path).is_file():
             return QueryResult(ds["dataset_id"], [], {"error": f"missing csv: {pattern}", "params": params})
         path = Path(path)
+        observation = self._csv_shape_observation(path)
+        if not observation.get("valid"):
+            return QueryResult(
+                ds["dataset_id"],
+                [],
+                {
+                    "error": "schema_mismatch",
+                    "queryable": False,
+                    "required_action": "review_schema",
+                    "schema_observation": observation,
+                    "message": "CSV column counts do not match the declared header; review the schema before querying.",
+                    "params": params,
+                },
+            )
         df = pd.read_csv(path, nrows=limit)
         rows = json.loads(df.to_json(orient="records"))
         return QueryResult(

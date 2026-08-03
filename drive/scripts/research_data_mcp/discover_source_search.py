@@ -18,6 +18,7 @@ from scripts.research_data_mcp.candidate_key import stamp_rows, with_candidate_k
 from scripts.research_data_mcp.source_map import load_desk_connectors, load_source_map
 
 _TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_\-]{1,}", re.I)
+_SUBSCRIPT_DIGITS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 
 # Lab-only / non-Explore default kinds — never emit as registry datasets here.
 _SKIP_SOURCE_IDS = frozenset({"derived_research_panels"})
@@ -71,7 +72,8 @@ _ONCHAIN_SOURCE_HINTS = frozenset(
 
 
 def _tokens(text: str) -> set[str]:
-    return {t.lower() for t in _TOKEN_RE.findall(text or "") if len(t) > 1}
+    normalized = str(text or "").translate(_SUBSCRIPT_DIGITS)
+    return {t.lower() for t in _TOKEN_RE.findall(normalized) if len(t) > 1}
 
 
 def _expand_blob_tokens(text: str) -> set[str]:
@@ -178,6 +180,32 @@ _SOURCE_GENERIC_TOKENS = frozenset(
         "time",
         "series",
         "history",
+        "what",
+        "which",
+        "where",
+        "when",
+        "why",
+        "how",
+        "can",
+        "could",
+        "should",
+        "would",
+        "does",
+        "the",
+        "and",
+        "for",
+        "from",
+        "with",
+        "use",
+        "using",
+        "need",
+        "want",
+        "find",
+        "help",
+        "illustrate",
+        "measure",
+        "measurement",
+        "measurements",
         "historical",
         "index",
         "incident",

@@ -20,6 +20,7 @@ NOISE_REGISTRY_IDS = (
 )
 
 TOKEN_RE = re.compile(r"[a-z][a-z0-9_]{2,}")
+SUBSCRIPT_DIGITS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 
 # Minimum token overlap between query and top hit before we trust local_open / strong_local_hit.
 MIN_TOP_RELEVANCE = 1.0
@@ -35,12 +36,21 @@ def min_relevance_threshold(query: str) -> float:
     return MIN_TOP_RELEVANCE
 
 
-PROCUREMENT_QUERY_STOPWORDS = frozenset({"dataset", "data", "panel", "research", "study", "metadata", "graph"})
+PROCUREMENT_QUERY_STOPWORDS = frozenset(
+    {
+        "dataset", "datasets", "data", "panel", "research", "study", "metadata", "graph",
+        "what", "which", "where", "when", "why", "how", "can", "could", "should", "would",
+        "does", "the", "and", "for", "from", "with", "use", "using", "need", "want", "find",
+        "help", "illustrate", "measure", "measurement", "measurements", "public", "open",
+        "daily", "weekly", "monthly", "quarterly", "annual", "yearly", "time", "series",
+    }
+)
 QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_selection
 
 # When query contains domain anchor tokens, top hit must match same domain in blob.
 def _tokens(text: str) -> set[str]:
-    return {t for t in TOKEN_RE.findall(text.lower()) if len(t) > 2 and t not in PROCUREMENT_QUERY_STOPWORDS}
+    normalized = str(text or "").translate(SUBSCRIPT_DIGITS).lower()
+    return {t for t in TOKEN_RE.findall(normalized) if len(t) > 2 and t not in PROCUREMENT_QUERY_STOPWORDS}
 
 
 def _row_blob(row: dict[str, Any]) -> str:
@@ -51,7 +61,9 @@ def _row_blob(row: dict[str, Any]) -> str:
         str(row.get("publisher") or ""),
         str(row.get("domain") or ""),
         str(row.get("url") or ""),
+        str(row.get("local_path") or ""),
         str(row.get("description") or ""),
+        str(row.get("recommended_use") or ""),
         " ".join(str(x) for x in (row.get("tags") or row.get("keywords") or [])),
     ]
     return " ".join(parts).lower()

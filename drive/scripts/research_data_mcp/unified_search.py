@@ -31,6 +31,24 @@ REPO_HINTS = (
 DEFAULT_SEARCH_BUDGET_SECONDS = float(os.environ.get("DESK_UNIFIED_SEARCH_BUDGET", "8"))
 
 
+def filter_query_relevant_rows(rows: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+    """Keep a federated layer honest when availability scores exceed topic fit."""
+    from scripts.research_data_mcp.procurement_search import _tokens, relevance_score
+
+    tokens = _tokens(query)
+    if not tokens:
+        return list(rows)
+    kept: list[dict[str, Any]] = []
+    for row in rows:
+        relevance = relevance_score(row, tokens)
+        if relevance < 1.0:
+            continue
+        item = dict(row)
+        item["query_relevance"] = round(relevance, 2)
+        kept.append(item)
+    return kept
+
+
 def search_budget_seconds() -> float:
     from scripts.research_data_mcp.desk_scale import search_budget_multiplier
 
@@ -365,6 +383,9 @@ def unified_search(
             "source": "registry",
             "dataset_id": row.get("dataset_id"),
             "domain": row.get("domain"),
+            "description": row.get("description"),
+            "recommended_use": row.get("recommended_use"),
+            "local_path": row.get("local_path"),
             "analysis_readiness": row.get("analysis_readiness"),
             "procureability": proc,
             "open_handle": f"dataset:{row.get('dataset_id')}",
@@ -384,6 +405,10 @@ def unified_search(
                 "title": row.get("title") or row.get("name"),
                 "source": row.get("source") or "catalog",
                 "access_mode": row.get("access_mode"),
+                "description": row.get("description"),
+                "recommended_use": row.get("recommended_use"),
+                "url": row.get("url"),
+                "tags": row.get("tags"),
                 "procureability": {
                     "badges": ["catalog"],
                     "status": "catalog",
@@ -410,6 +435,22 @@ def unified_search(
     )
     merged.extend(remote_rows)
     sections.extend(remote_sections)
+
+    merged = filter_query_relevant_rows(merged, q)
+    relevant_keys = {
+        str(row.get("candidate_key") or row.get("dataset_id") or row.get("doi") or row.get("id") or row.get("title") or "")
+        for row in merged
+    }
+    filtered_sections: list[dict[str, Any]] = []
+    for section in sections:
+        rows = filter_query_relevant_rows(list(section.get("rows") or []), q)
+        rows = [
+            row for row in rows
+            if str(row.get("candidate_key") or row.get("dataset_id") or row.get("doi") or row.get("id") or row.get("title") or "") in relevant_keys
+        ]
+        if rows:
+            filtered_sections.append({**section, "count": len(rows), "rows": rows})
+    sections = filtered_sections
 
     top_score = 0.0
     for row in merged:
