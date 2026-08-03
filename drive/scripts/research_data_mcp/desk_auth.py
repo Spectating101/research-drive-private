@@ -102,14 +102,19 @@ def required_permission(path: str, method: str = "GET") -> str:
     method_u = str(method or "GET").upper()
     if method_u in {"GET", "HEAD"}:
         if path.startswith("/yzu") or path.startswith(
-            ("/library/jobs", "/library/ops", "/library/credentials", "/library/campaigns")
+            ("/library/ops", "/library/credentials", "/library/campaigns")
         ):
             return "view_operations"
+        if path.startswith("/library/jobs"):
+            # JobService enforces owner isolation. Members need read access to
+            # follow their own submitted acquisition through History.
+            return "view_research_data"
         if path.startswith("/library/faculty"):
             return "view_faculty_profile"
         return "view_research_data"
     # Creating a review-gated job is the member submission boundary. Approval,
-    # cancellation, bulk sweeps, and job visibility remain operator-only.
+    # cancellation and bulk sweeps remain operator-only. Read visibility is
+    # owner-filtered by JobService.
     if method_u == "POST" and path.rstrip("/") == "/library/jobs":
         return "submit_collection"
     if path.startswith("/yzu") or path.startswith(

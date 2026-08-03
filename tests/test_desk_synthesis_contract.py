@@ -272,6 +272,73 @@ def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatc
     assert "Nothing was executed" in turn.reply
 
 
+def test_synthesis_timeout_continues_through_grounded_fallback(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+
+    _install_empty_cursor(monkeypatch)
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {})
+    monkeypatch.setattr(
+        desk_brain,
+        "_wait_run_bounded",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
+    )
+    monkeypatch.setattr(
+        desk_synthesis_fallback,
+        "run_gemini_synthesis_turn",
+        lambda _prompt: (
+            "A provisional monthly proxy could combine the verified Library inputs while keeping the missing construct explicit. Which validation horizon matters most?",
+            {"provider": "gemini-test"},
+        ),
+    )
+    state = {
+        "desk_primed": True,
+        "rail_context": {"tab": "synthesis", "mode": "define"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path), "Build a monthly proxy", state
+    )
+    assert turn.action_result["brain"] == "gemini_synthesis"
+    assert turn.action_result["fallback_from"] == "cursor_composer_timeout"
+    assert "provisional monthly proxy" in turn.reply
+    assert state["synthesis_turn_history"][-1]["provider"] == "gemini"
+
+
+def test_synthesis_timeout_reports_proposal_already_recorded(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+
+    _install_proposal_then_invalid_reply_cursor(monkeypatch)
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {})
+    monkeypatch.setattr(
+        desk_brain,
+        "_wait_run_bounded",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
+    )
+    monkeypatch.setattr(
+        desk_synthesis_fallback,
+        "run_gemini_synthesis_turn",
+        lambda _prompt: (_ for _ in ()).throw(
+            AssertionError("recorded proposal must not be replaced")
+        ),
+    )
+    state = {
+        "desk_primed": True,
+        "rail_context": {"tab": "synthesis", "mode": "define", "thread_id": "thread-a"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path), "Persist the review proposal", state
+    )
+    assert turn.action_result["reason"] == "composer_timeout"
+    assert turn.action_result["proposal_recorded"] is True
+    assert turn.action_result["synthesis_proposal"]["id"] == "proposal-1"
+    assert "was recorded" in turn.reply
+
+
 def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_path):
     from scripts.research_data_mcp import (
         desk_brain,

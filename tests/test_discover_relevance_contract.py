@@ -61,6 +61,44 @@ def test_us_polling_does_not_propose_finance_providers(repo_root: Path, semantic
 
 
 @pytest.mark.parametrize("semantic", [True, False])
+def test_keeling_curve_query_does_not_propose_unrelated_catalogs(
+    repo_root: Path, semantic: bool
+) -> None:
+    from scripts.research_data_mcp.discover_source_search import (
+        _distinctive_query_tokens,
+        search_discover_sources,
+    )
+
+    query = "What public monthly atmospheric CO₂ measurements can I use to illustrate the Keeling Curve?"
+    tokens = _distinctive_query_tokens(query)
+    assert "co2" in tokens
+    assert {"atmospheric", "keeling", "curve"}.issubset(tokens)
+    assert not ({"what", "can", "use", "the", "illustrate", "measurements"} & tokens)
+
+    out = search_discover_sources(
+        repo_root,
+        query,
+        limit=12,
+        semantic=semantic,
+        prefer_embeddings=False,
+        live=False,
+    )
+    ids = _ids(out)
+    assert not ({"bigquery_public", "coingecko", "openalex"} & ids), out
+    assert out.get("relevance_miss") is True or out.get("no_supported_route") is True
+
+
+def test_procurement_tokens_preserve_co2_and_drop_question_filler() -> None:
+    from scripts.research_data_mcp.procurement_search import _tokens
+
+    tokens = _tokens(
+        "What public monthly atmospheric CO₂ measurements can I use to illustrate the Keeling Curve?"
+    )
+    assert {"co2", "atmospheric", "keeling", "curve"}.issubset(tokens)
+    assert not ({"what", "public", "monthly", "measurements", "can", "use", "illustrate", "the"} & tokens)
+
+
+@pytest.mark.parametrize("semantic", [True, False])
 def test_stablecoin_incidents_evidence_or_explicit_no_route(repo_root: Path, semantic: bool) -> None:
     from scripts.research_data_mcp.discover_source_search import search_discover_sources
 

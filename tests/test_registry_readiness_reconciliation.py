@@ -136,3 +136,62 @@ def test_remote_query_requires_explicit_hydration_then_returns_rows(
     hydrated = service.query_dataset("remote_csv", {"limit": 5, "hydrate": "1"})
     assert hydrated["rows"] == [{"date": "2026-01", "value": 1}]
     assert service.describe_dataset("remote_csv")["analysis_readiness"] == "query_ready"
+
+
+def test_malformed_csv_is_registered_for_schema_review_not_query_ready(tmp_path: Path) -> None:
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    canonical = {
+        "dataset_id": "co2_csv",
+        "backend": "local_csv_file",
+        "analysis_readiness": "query_ready",
+        "local_path": "data_lake/procured/co2.csv",
+        "canonical_remote": "gdrive:archive/co2_csv",
+        "materialization": {"query_ready": True},
+    }
+    registry.write_text(json.dumps({"datasets": [canonical]}), encoding="utf-8")
+    local = tmp_path / canonical["local_path"]
+    local.parent.mkdir(parents=True)
+    local.write_text(
+        "Date,Decimal Date,Average,Interpolated,Trend,Number of Days\n"
+        "1958-03,1958.2027,315.71,314.44,-01,-9.99,-0.99\n",
+        encoding="utf-8",
+    )
+
+    engine = ResearchQueryEngine(registry, repo_root=tmp_path)
+    effective = engine.describe("co2_csv")
+    assert effective["analysis_readiness"] == "registered"
+    assert effective["materialization"]["query_ready"] is False
+    assert effective["materialization"]["skipped"] == "csv_schema_mismatch_at_runtime"
+    assert effective["runtime_readiness_reason"] == "csv_schema_mismatch"
+    assert effective["schema_review_required"] is True
+    assert effective["schema_observation"]["header_columns"] == 6
+    assert effective["schema_observation"]["observed_widths"] == [7]
+
+    result = engine.query("co2_csv", limit=5).to_dict()
+    assert result["rows"] == []
+    assert result["meta"]["error"] == "schema_mismatch"
+    assert result["meta"]["required_action"] == "review_schema"
+    # Runtime reconciliation never rewrites the canonical registry claim.
+    assert json.loads(registry.read_text(encoding="utf-8"))["datasets"][0]["analysis_readiness"] == "query_ready"
+
+
+def test_well_formed_csv_remains_query_ready(tmp_path: Path) -> None:
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    registry.write_text(
+        json.dumps({"datasets": [{
+            "dataset_id": "valid_csv",
+            "backend": "local_csv_file",
+            "analysis_readiness": "query_ready",
+            "local_path": "data_lake/procured/valid.csv",
+            "materialization": {"query_ready": True},
+        }]}),
+        encoding="utf-8",
+    )
+    local = tmp_path / "data_lake/procured/valid.csv"
+    local.parent.mkdir(parents=True)
+    local.write_text("date,value\n2026-01,1\n", encoding="utf-8")
+    engine = ResearchQueryEngine(registry, repo_root=tmp_path)
+    assert engine.describe("valid_csv")["analysis_readiness"] == "query_ready"
+    assert engine.query("valid_csv", limit=5).rows == [{"date": "2026-01", "value": 1}]

@@ -1068,8 +1068,67 @@ def run_cursor_composer_turn(
             tool_name="cursor_composer",
         )
     except TimeoutError:
-        # A stuck Composer must not hang the desk; report the bound honestly.
+        # A stuck Composer must not hang the desk. In Synthesis, preserve any
+        # proposal the timed-out run already recorded; otherwise continue the
+        # same grounded turn through the read-only fallback provider.
         state.pop("cursor_agent_id", None)
+        if synthesis_context and not prime:
+            recorded = _artifacts_from_conversation(run) if run is not None else {}
+            proposal = recorded.get("synthesis_proposal")
+            if isinstance(proposal, dict):
+                from scripts.research_data_mcp.desk_synthesis_contract import (
+                    synthesis_proposal_recorded_reply,
+                )
+
+                return AgentTurn(
+                    plan={"action": "synthesis_proposal_recorded_response_error"},
+                    action_result={
+                        **recorded,
+                        "action": "synthesis_proposal_recorded_response_error",
+                        "mode": "synthesis",
+                        "reason": "composer_timeout",
+                        "proposal_recorded": True,
+                        "brain": "cursor_composer",
+                    },
+                    reply=synthesis_proposal_recorded_reply(proposal.get("title")),
+                    suggested_prompts=_faculty_starter_prompts(state),
+                    tool_name="cursor_composer",
+                )
+            try:
+                fallback_prompt, fallback_first_turn = _prepare_synthesis_fallback_prompt(
+                    gateway,
+                    message,
+                    state,
+                )
+                return _run_synthesis_reasoning_fallback(
+                    fallback_prompt,
+                    raw_message=message,
+                    state=state,
+                    first_user_turn=fallback_first_turn,
+                    event_sink=event_sink,
+                    fallback_from="cursor_composer_timeout",
+                )
+            except Exception as exc:
+                from scripts.research_data_mcp.desk_synthesis_fallback import (
+                    SynthesisFallbackError,
+                )
+
+                category = (
+                    exc.category
+                    if isinstance(exc, SynthesisFallbackError)
+                    else "provider_error"
+                )
+                turn = _composer_timeout_turn(
+                    state, elapsed=time.monotonic() - turn_started, limit=turn_budget
+                )
+                turn.action_result.update(
+                    {
+                        "mode": "synthesis",
+                        "fallback": "gemini_failed",
+                        "fallback_error_category": category,
+                    }
+                )
+                return turn
         return _composer_timeout_turn(
             state, elapsed=time.monotonic() - turn_started, limit=turn_budget
         )

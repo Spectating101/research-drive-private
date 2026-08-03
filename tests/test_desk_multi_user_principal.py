@@ -121,6 +121,7 @@ def test_roles_are_enforced_server_side(tmp_path, monkeypatch):
     operator = FakeHandler(Authorization=f"Bearer {tokens['operator']}")
 
     assert desk_auth.authorize(member, "/datasets", "GET")[0] is True
+    assert desk_auth.authorize(member, "/library/jobs", "GET")[0] is True
     assert desk_auth.authorize(member, "/library/chat", "POST")[0] is True
     assert desk_auth.authorize(member, "/library/jobs", "POST")[0] is True
     allowed, message = desk_auth.authorize(

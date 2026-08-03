@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from scripts.research_data_mcp.job_identity import enrich_job_identity, enrich_jobs_payload
+from scripts.research_data_mcp.desk_ownership import can_access_owner, owner_id_for_create, require_owner
 from scripts.yzu_cluster.orchestrator import YzuOrchestrator
 
 
@@ -32,6 +33,9 @@ class JobService:
 
         # Keep original request for orchestrator (single source of truth for _ops_internal).
         request = dict(request or {})
+        owner_id = owner_id_for_create()
+        if owner_id:
+            request.setdefault("owner_id", owner_id)
         plan, auto_approve = enforce_execution_submit(plan, dict(request), auto_approve=auto_approve)
         validated = self.validate(plan)
         if not validated.get("launchable", True):
@@ -50,10 +54,22 @@ class JobService:
         return enrich_job_identity(self.orchestrator.cancel(job_id)) or {}
 
     def get(self, job_id: str) -> dict[str, Any]:
-        return enrich_job_identity(self.orchestrator.get_job(job_id)) or {}
+        job = self.orchestrator.get_job(job_id)
+        if not job:
+            return {}
+        require_owner((job.get("request") or {}).get("owner_id"), job_id)
+        return enrich_job_identity(job) or {}
 
     def list(self, limit: int = 30, status: str = "") -> dict[str, Any]:
-        payload = {"jobs": self.orchestrator.list_jobs(min(max(limit, 1), 200), status=status)}
+        requested = min(max(limit, 1), 200)
+        # Filter after a bounded superset so another member's newer jobs cannot
+        # crowd the caller's own History out of a small page.
+        jobs = self.orchestrator.list_jobs(200, status=status)
+        jobs = [
+            job for job in jobs
+            if can_access_owner((job.get("request") or {}).get("owner_id"))
+        ][:requested]
+        payload = {"jobs": jobs}
         return enrich_jobs_payload(payload) or payload
 
     def run_schedule(self, schedule_id: str, *, dry_run: bool = False) -> dict[str, Any]:

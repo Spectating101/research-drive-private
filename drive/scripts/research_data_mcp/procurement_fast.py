@@ -420,6 +420,12 @@ def local_search(
     for cand in raw:
         cand["query_relevance"] = round(relevance_score(cand, query_tokens), 2)
 
+    # Availability is never a substitute for relevance. For a substantive query,
+    # omit candidates with no distinctive lexical support instead of allowing a
+    # local/readiness boost to turn an unrelated source into a recommendation.
+    if query_tokens:
+        raw = [cand for cand in raw if float(cand.get("query_relevance") or 0) >= 1.0]
+
     raw.sort(key=lambda c: float(c.get("score") or 0), reverse=True)
     candidates: list[dict[str, Any]] = []
     for i, cand in enumerate(raw[:limit], 1):
