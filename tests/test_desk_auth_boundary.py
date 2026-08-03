@@ -190,5 +190,6 @@ def test_capability_document_never_exposes_secrets_and_tracks_access():
     )
     assert authenticated["authenticated"] is True
     assert authenticated["permissions"]["approve_jobs"] is True
-    assert authenticated["principal"]["role"] == "admin"
-    assert authenticated["tenancy"]["multi_user_ready"] is False
+    assert authenticated["principal"]["role"] == "operator"
+    assert authenticated["tenancy"]["multi_user_ready"] is True
+    assert authenticated["tenancy"]["personal_work_isolated"] is True

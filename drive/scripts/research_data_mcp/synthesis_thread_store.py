@@ -21,6 +21,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Any
 
+from scripts.research_data_mcp.desk_ownership import (
+    owner_filter,
+    owner_id_for_create,
+    require_owner,
+)
+
 
 ALLOWED_PATCH_OPS = frozenset(
     {
@@ -436,9 +442,15 @@ class SynthesisThreadStore:
                     session_id TEXT,
                     conversation_id TEXT,
                     materialisation TEXT NOT NULL,
-                    state_json TEXT NOT NULL
+                    state_json TEXT NOT NULL,
+                    owner_id TEXT NOT NULL DEFAULT ''
                 )"""
             )
+            columns = {row[1] for row in db.execute("PRAGMA table_info(synthesis_threads)")}
+            if "owner_id" not in columns:
+                db.execute(
+                    "ALTER TABLE synthesis_threads ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''"
+                )
             db.execute(
                 """CREATE TABLE IF NOT EXISTS synthesis_thread_patches (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -484,6 +496,7 @@ class SynthesisThreadStore:
         conversation_id: str = "",
         required_grain: str = "",
         state: dict[str, Any] | None = None,
+        owner_id: str = "",
     ) -> dict[str, Any]:
         objective = str(objective or "").strip()
         if not objective:
@@ -491,6 +504,7 @@ class SynthesisThreadStore:
         tid = uuid.uuid4().hex[:16]
         stamp = _now()
         title = str(title or "").strip() or objective[:120]
+        assigned_owner = owner_id_for_create(owner_id)
         body = empty_construction_state(
             objective=objective,
             title=title,
@@ -518,7 +532,10 @@ class SynthesisThreadStore:
             body["materialisation"] = materialisation
         with self._db() as db:
             db.execute(
-                "INSERT INTO synthesis_threads VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO synthesis_threads("
+                "id, created_at, updated_at, title, objective, session_id, "
+                "conversation_id, materialisation, state_json, owner_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     tid,
                     stamp,
@@ -529,6 +546,7 @@ class SynthesisThreadStore:
                     str(conversation_id or "")[:64],
                     materialisation,
                     json.dumps(body),
+                    assigned_owner,
                 ),
             )
         return self.get(tid)
@@ -543,20 +561,42 @@ class SynthesisThreadStore:
         if not row:
             raise KeyError(thread_id)
         item = dict(row)
+        require_owner(item.get("owner_id"), thread_id)
         item["state"] = json.loads(item.pop("state_json") or "{}")
         item["execution_recorded"] = bool((item["state"].get("execution") or {}).get("job_id"))
         return item
 
     def list(self, *, limit: int = 30, session_id: str = "") -> list[dict[str, Any]]:
         limit = max(1, min(int(limit or 30), 200))
+        owner_clause, owner_args = owner_filter()
         with self._db() as db:
-            if session_id:
+            if session_id and owner_clause:
+                ids = [
+                    r[0]
+                    for r in db.execute(
+                        "SELECT id FROM synthesis_threads WHERE session_id = ? AND "
+                        + owner_clause
+                        + " ORDER BY updated_at DESC LIMIT ?",
+                        (session_id, *owner_args, limit),
+                    )
+                ]
+            elif session_id:
                 ids = [
                     r[0]
                     for r in db.execute(
                         "SELECT id FROM synthesis_threads WHERE session_id = ? "
                         "ORDER BY updated_at DESC LIMIT ?",
                         (session_id, limit),
+                    )
+                ]
+            elif owner_clause:
+                ids = [
+                    r[0]
+                    for r in db.execute(
+                        "SELECT id FROM synthesis_threads WHERE "
+                        + owner_clause
+                        + " ORDER BY updated_at DESC LIMIT ?",
+                        (*owner_args, limit),
                     )
                 ]
             else:

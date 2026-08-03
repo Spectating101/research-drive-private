@@ -18,8 +18,7 @@ from typing import Any
 
 
 _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
-    "viewer": frozenset({"view_research_data", "view_faculty_profile"}),
-    "researcher": frozenset(
+    "member": frozenset(
         {
             "view_research_data",
             "view_faculty_profile",
@@ -27,17 +26,7 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "submit_collection",
         }
     ),
-    "steward": frozenset(
-        {
-            "view_research_data",
-            "view_faculty_profile",
-            "view_operations",
-            "use_ask",
-            "submit_collection",
-            "approve_jobs",
-        }
-    ),
-    "admin": frozenset(
+    "operator": frozenset(
         {
             "view_research_data",
             "view_faculty_profile",
@@ -45,9 +34,15 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "use_ask",
             "submit_collection",
             "approve_jobs",
-            "manage_workspace",
         }
     ),
+}
+
+_ROLE_ALIASES = {
+    "viewer": "member",
+    "researcher": "member",
+    "steward": "operator",
+    "admin": "operator",
 }
 
 
@@ -57,12 +52,10 @@ class DeskPrincipal:
     email: str
     display_name: str
     role: str
-    workspace_ids: tuple[str, ...]
-    default_workspace_id: str
 
     @property
     def permissions(self) -> frozenset[str]:
-        return _ROLE_PERMISSIONS.get(self.role, _ROLE_PERMISSIONS["viewer"])
+        return _ROLE_PERMISSIONS.get(self.role, _ROLE_PERMISSIONS["member"])
 
     def public_dict(self) -> dict[str, Any]:
         return {
@@ -70,8 +63,6 @@ class DeskPrincipal:
             "email": self.email or None,
             "display_name": self.display_name or None,
             "role": self.role,
-            "workspace_ids": list(self.workspace_ids),
-            "default_workspace_id": self.default_workspace_id,
         }
 
 
@@ -84,29 +75,15 @@ def _clean_id(value: Any, *, fallback: str) -> str:
 
 def _normalize_principal(row: dict[str, Any], *, fallback_id: str) -> DeskPrincipal:
     principal_id = _clean_id(row.get("id") or row.get("principal_id"), fallback=fallback_id)
-    role = str(row.get("role") or "viewer").strip().lower()
+    role = str(row.get("role") or "member").strip().lower()
+    role = _ROLE_ALIASES.get(role, role)
     if role not in _ROLE_PERMISSIONS:
-        role = "viewer"
-    workspace_ids = tuple(
-        dict.fromkeys(
-            _clean_id(value, fallback="")
-            for value in (row.get("workspace_ids") or [])
-            if _clean_id(value, fallback="")
-        )
-    )
-    default_workspace_id = _clean_id(
-        row.get("default_workspace_id") or (workspace_ids[0] if workspace_ids else "personal"),
-        fallback="personal",
-    )
-    if default_workspace_id not in workspace_ids:
-        workspace_ids = (default_workspace_id, *workspace_ids)
+        role = "member"
     return DeskPrincipal(
         principal_id=principal_id,
         email=str(row.get("email") or "").strip().lower()[:320],
         display_name=str(row.get("display_name") or row.get("name") or "").strip()[:160],
         role=role,
-        workspace_ids=workspace_ids,
-        default_workspace_id=default_workspace_id,
     )
 
 
@@ -116,9 +93,7 @@ def default_principal() -> DeskPrincipal:
             "id": os.getenv("DESK_DEFAULT_USER_ID") or "desk-operator",
             "email": os.getenv("DESK_DEFAULT_USER_EMAIL") or "",
             "display_name": os.getenv("DESK_DEFAULT_USER_NAME") or "Desk operator",
-            "role": os.getenv("DESK_DEFAULT_USER_ROLE") or "admin",
-            "workspace_ids": [os.getenv("DESK_DEFAULT_WORKSPACE_ID") or "research-drive"],
-            "default_workspace_id": os.getenv("DESK_DEFAULT_WORKSPACE_ID") or "research-drive",
+            "role": os.getenv("DESK_DEFAULT_USER_ROLE") or "operator",
         },
         fallback_id="desk-operator",
     )
@@ -177,5 +152,4 @@ def permissions_document(principal: DeskPrincipal | None) -> dict[str, bool]:
         "use_ask": "use_ask" in permissions,
         "submit_collection": "submit_collection" in permissions,
         "approve_jobs": "approve_jobs" in permissions,
-        "manage_workspace": "manage_workspace" in permissions,
     }

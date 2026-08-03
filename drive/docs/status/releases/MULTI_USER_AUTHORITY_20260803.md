@@ -2,7 +2,7 @@
 
 ## Boundary
 
-Research Drive is upstream data infrastructure. Researchers, laboratories and
+Research Drive is upstream data infrastructure. Researchers and
 external analysis systems may consume governed Library assets; Research Drive
 does not inspect or depend on their models, strategies, portfolios or results.
 
@@ -11,66 +11,62 @@ does not inspect or depend on their models, strategies, portfolios or results.
 The desk now has a provider-neutral principal contract:
 
 - stable principal id, institutional email and display name;
-- role: `viewer`, `researcher`, `steward` or `admin`;
-- one or more workspace ids and an explicit default workspace;
+- role: `member` or `operator`;
 - server-derived permissions returned by `/library/desk/capabilities`;
-- `v3` signed browser sessions carrying only subject/workspace identifiers;
+- `v3` signed browser sessions carrying only the subject identifier;
 - optional `DESK_PRINCIPALS_FILE` entries authenticated by SHA-256 token digest;
-- the legacy shared pilot token maps to one configurable admin principal;
+- the legacy shared pilot token maps to one configurable operator principal;
 - browser-supplied faculty email no longer overrides an authenticated user's
   institutional email.
 
-Roles are enforced at the HTTP boundary. Read-only viewers cannot use Ask or
-mutate the desk; researchers cannot approve jobs or access operations; stewards
-can operate collection workflows; admins retain the pilot's complete authority.
+Roles are enforced at the HTTP boundary. Members can research, use Ask and
+submit collection requests, but cannot inspect operations or approve jobs.
+Operators retain the pilot's operational authority.
 
 ## Honest readiness state
 
-Identity and roles are necessary but not sufficient for multi-user service.
-The capability document therefore reports:
+The lean multi-user boundary is now complete for private researcher work. The
+capability document reports:
 
 ```json
 {
   "tenancy": {
+    "mode": "personal-work",
     "identity_aware": true,
-    "object_isolation": false,
-    "multi_user_ready": false
+    "personal_work_isolated": true,
+    "multi_user_ready": true
   }
 }
 ```
 
-Do not enable external multi-user access while `object_isolation` is false.
-Chat sessions, Discover intents, Synthesis threads, pins, campaigns and job
-views still need persisted `owner_id` / `workspace_id` fields plus authorization
-checks on every get, list and mutation operation.
+Ask sessions, Discover intents and Synthesis threads persist `owner_id` and
+enforce it on every get, list and mutation operation. A guessed id is treated as
+not found. Legacy ownerless records remain visible only to operators. Catalog,
+Library and worker capacity remain shared platform objects.
 
 ## Required next slice
 
-1. Choose the production identity provider (OIDC/SAML or an authenticated
-   institutional reverse proxy). The token-digest file is a deployment-neutral
-   bridge, not the final sign-in UX.
-2. Add a workspace and membership store with immutable ids and role grants.
-3. Migrate stateful records with `owner_id`, `workspace_id`, and sharing policy.
-4. Enforce ownership in storage methods, not only frontend filters.
-5. Separate shared catalog records from workspace Library possession.
-6. Add cross-user negative tests proving that guessed object ids return 404/403.
-7. Add audit events containing actor, workspace, action, object and decision.
+1. Replace token-digest sign-in with an identity provider when the pilot needs
+   self-service accounts. The persisted principal id remains the ownership key.
+2. Add explicit sharing only when real use requires collaboration on a private
+   Ask session, Discover intent or Synthesis thread.
+3. Add per-user audit views if operational review shows the existing platform
+   activity stream is insufficient.
 
 ## Scale model
 
-The intended tenancy hierarchy is:
+The intended scale model is deliberately small:
 
 ```text
-institution
-  └── workspace / laboratory
-        ├── members + roles
-        ├── Library possession and derived assets
-        ├── Discover intents and acquisition decisions
-        ├── Synthesis threads and approvals
-        └── usage, quota and audit history
+Research Drive
+  ├── shared source catalog + Library + worker capacity
+  └── authenticated person
+        ├── private Ask sessions
+        ├── private Discover intents + collection requests
+        └── private Synthesis threads
 ```
 
-Catalog/source metadata may be globally readable after authentication. Library
-possession, licensed entitlements, conversations, drafts, job authority and
-derived outputs are workspace-scoped by default. Explicit sharing must be a
-grant, never an inference from knowing an object id.
+Catalog/source metadata and registered Library assets are shared after
+authentication. Conversations and drafts are private by default. Job approval
+is an operator action. Future sharing must be an explicit grant, never an
+inference from knowing an object id.

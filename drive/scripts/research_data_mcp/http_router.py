@@ -283,9 +283,9 @@ def _handlers() -> dict[str, Handler]:
         principal = current_desk_principal()
         if principal and principal.email:
             return principal.email
-        # Shared pilot admin remains able to preview another faculty profile
+        # Shared pilot operator remains able to preview another faculty profile
         # until an identity provider supplies its own authoritative email.
-        if principal and principal.role != "admin":
+        if principal and principal.role != "operator":
             return ""
         return str(requested or "").strip()
 

@@ -18,6 +18,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Any
 
+from scripts.research_data_mcp.desk_ownership import (
+    owner_filter,
+    owner_id_for_create,
+    require_owner,
+)
+
 
 def discover_intent_store_path(repo_root: str | Path) -> Path:
     return Path(repo_root).resolve() / "data_lake/procurement_memory/discover_intents.sqlite3"
@@ -115,9 +121,15 @@ class DiscoverIntentStore:
                     research_need TEXT NOT NULL,
                     session_id TEXT,
                     user_email TEXT,
-                    state_json TEXT NOT NULL
+                    state_json TEXT NOT NULL,
+                    owner_id TEXT NOT NULL DEFAULT ''
                 )"""
             )
+            columns = {row[1] for row in db.execute("PRAGMA table_info(discover_intents)")}
+            if "owner_id" not in columns:
+                db.execute(
+                    "ALTER TABLE discover_intents ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''"
+                )
             db.execute(
                 """CREATE TABLE IF NOT EXISTS discover_intent_events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +168,7 @@ class DiscoverIntentStore:
         candidate: dict[str, Any] | None = None,
         session_id: str = "",
         user_email: str = "",
+        owner_id: str = "",
     ) -> dict[str, Any]:
         need = str(research_need or "").strip()
         if not need:
@@ -163,6 +176,7 @@ class DiscoverIntentStore:
         intent_id = uuid.uuid4().hex[:16]
         stamp = _now()
         name = str(title or "").strip() or need[:120]
+        assigned_owner = owner_id_for_create(owner_id)
         state = {
             "status": "draft",
             "candidate": _clone(candidate) if isinstance(candidate, dict) else {},
@@ -173,8 +187,20 @@ class DiscoverIntentStore:
         }
         with self._db() as db:
             db.execute(
-                "INSERT INTO discover_intents VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (intent_id, stamp, stamp, name[:200], need[:4000], str(session_id or "")[:64], str(user_email or "")[:320], json.dumps(state)),
+                "INSERT INTO discover_intents("
+                "id, created_at, updated_at, title, research_need, session_id, "
+                "user_email, state_json, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    intent_id,
+                    stamp,
+                    stamp,
+                    name[:200],
+                    need[:4000],
+                    str(session_id or "")[:64],
+                    str(user_email or "")[:320],
+                    json.dumps(state),
+                    assigned_owner,
+                ),
             )
         self._event(intent_id, "created", {"candidate_key": state["candidate"].get("candidate_key")})
         return self.get(intent_id)
@@ -186,16 +212,24 @@ class DiscoverIntentStore:
         if not row:
             raise KeyError(intent_id)
         item = dict(row)
+        require_owner(item.get("owner_id"), intent_id)
         item["state"] = json.loads(item.pop("state_json") or "{}")
         return item
 
     def list(self, *, limit: int = 30, session_id: str = "") -> list[dict[str, Any]]:
         limit = max(1, min(int(limit or 30), 200))
         sql = "SELECT id FROM discover_intents"
+        clauses: list[str] = []
         args: tuple[Any, ...] = ()
+        owner_clause, owner_args = owner_filter()
+        if owner_clause:
+            clauses.append(owner_clause)
+            args += owner_args
         if session_id:
-            sql += " WHERE session_id = ?"
-            args = (session_id,)
+            clauses.append("session_id = ?")
+            args += (session_id,)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY updated_at DESC LIMIT ?"
         args += (limit,)
         with self._db() as db:

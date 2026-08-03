@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import time
+from contextlib import contextmanager
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
@@ -59,6 +60,16 @@ def desk_auth_configured() -> bool:
 
 def current_desk_principal() -> DeskPrincipal | None:
     return _CURRENT_PRINCIPAL.get()
+
+
+@contextmanager
+def desk_principal_context(principal: DeskPrincipal | None):
+    """Temporarily bind an authenticated principal for storage-level checks."""
+    token = _CURRENT_PRINCIPAL.set(principal)
+    try:
+        yield principal
+    finally:
+        _CURRENT_PRINCIPAL.reset(token)
 
 
 def path_requires_auth(path: str, method: str = "GET") -> bool:
@@ -135,7 +146,6 @@ def session_cookie_value(
         json.dumps(
             {
                 "sub": actor.principal_id,
-                "workspace": actor.default_workspace_id,
             },
             separators=(",", ":"),
         ).encode("utf-8")
@@ -356,10 +366,12 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
         "principal": principal.public_dict() if principal else None,
         "permissions": permissions_document(principal),
         "tenancy": {
+            "mode": "personal-work",
             "identity_aware": True,
-            "object_isolation": False,
-            "multi_user_ready": False,
-            "note": "Identity and roles are authoritative; per-object workspace isolation is not yet complete.",
+            "personal_work_isolated": True,
+            "shared_objects": ["source_catalog", "library", "workers"],
+            "private_objects": ["ask_sessions", "discover_intents", "synthesis_threads"],
+            "multi_user_ready": True,
         },
         "session": {
             "cookie_version": _SESSION_VERSION,
