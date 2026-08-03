@@ -19,7 +19,7 @@ NOISE_REGISTRY_IDS = (
     "metadata_catalog",
 )
 
-TOKEN_RE = re.compile(r"[a-z][a-z0-9_]{2,}")
+TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_]{1,}")
 SUBSCRIPT_DIGITS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 
 # Minimum token overlap between query and top hit before we trust local_open / strong_local_hit.
@@ -27,12 +27,12 @@ MIN_TOP_RELEVANCE = 1.0
 
 
 def min_relevance_threshold(query: str) -> float:
-    """Long compound queries need more than one accidental token hit."""
-    n = len(_tokens(query))
-    if n >= 6:
+    """Compound queries need more than one accidental token hit."""
+    tokens = _tokens(query)
+    geography = set().union(*GEOGRAPHY_ALIASES)
+    n = len(tokens - geography)
+    if n >= 2:
         return 2.0
-    if n >= 4:
-        return 1.5
     return MIN_TOP_RELEVANCE
 
 
@@ -43,6 +43,7 @@ PROCUREMENT_QUERY_STOPWORDS = frozenset(
         "does", "the", "and", "for", "from", "with", "use", "using", "need", "want", "find",
         "help", "illustrate", "measure", "measurement", "measurements", "public", "open",
         "daily", "weekly", "monthly", "quarterly", "annual", "yearly", "time", "series",
+        "my", "our", "we", "me", "of", "to", "in", "on", "at", "by", "as", "it", "are", "is", "do", "or",
     }
 )
 QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_selection
@@ -50,7 +51,32 @@ QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_s
 # When query contains domain anchor tokens, top hit must match same domain in blob.
 def _tokens(text: str) -> set[str]:
     normalized = str(text or "").translate(SUBSCRIPT_DIGITS).lower()
-    return {t for t in TOKEN_RE.findall(normalized) if len(t) > 2 and t not in PROCUREMENT_QUERY_STOPWORDS}
+    return {t for t in TOKEN_RE.findall(normalized) if len(t) > 1 and t not in PROCUREMENT_QUERY_STOPWORDS}
+
+
+GEOGRAPHY_ALIASES = (
+    frozenset({"us", "usa", "united", "states", "america", "american"}),
+    frozenset({"uk", "britain", "british", "england", "english"}),
+    frozenset({"tw", "taiwan", "taiwanese", "taipei"}),
+    frozenset({"id", "indonesia", "indonesian"}),
+    frozenset({"cn", "china", "chinese"}),
+    frozenset({"jp", "japan", "japanese"}),
+    frozenset({"kr", "korea", "korean"}),
+    frozenset({"eu", "europe", "european"}),
+)
+
+
+def query_geography_ok(row: dict[str, Any], query_tokens: set[str]) -> bool:
+    """A named geography is a requirement, not an optional ranking boost."""
+    required = [aliases for aliases in GEOGRAPHY_ALIASES if query_tokens & aliases]
+    if not required:
+        return True
+    blob_tokens = {
+        token.lower()
+        for token in TOKEN_RE.findall(_row_blob(row).translate(SUBSCRIPT_DIGITS))
+        if len(token) > 1
+    }
+    return all(bool(blob_tokens & aliases) for aliases in required)
 
 
 def _row_blob(row: dict[str, Any]) -> str:

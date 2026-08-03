@@ -201,3 +201,43 @@ def test_well_formed_csv_remains_query_ready(tmp_path: Path) -> None:
     engine = ResearchQueryEngine(registry, repo_root=tmp_path)
     assert engine.describe("valid_csv")["analysis_readiness"] == "query_ready"
     assert engine.query("valid_csv", limit=5).rows == [{"date": "2026-01", "value": 1}]
+
+
+@pytest.mark.parametrize(
+    "content,expected_rows",
+    [
+        ("\ufeffdate,value\n2026-01,1\n", 1),
+        ('date,note\n2026-01,"value, with comma"\n', 1),
+        ('date,note\n2026-01,"line one\nline two"\n', 1),
+        ("date,value\n\n2026-01,1\n\n2026-02,2\n", 2),
+    ],
+)
+def test_csv_shape_accepts_valid_quoting_bom_and_blank_lines(
+    tmp_path: Path, content: str, expected_rows: int
+) -> None:
+    path = tmp_path / "valid.csv"
+    path.write_text(content, encoding="utf-8")
+    observation = ResearchQueryEngine._csv_shape_observation(path)
+    assert observation["valid"] is True
+    assert observation["sampled_rows"] == expected_rows
+    assert observation["observed_widths"] == [2]
+
+
+@pytest.mark.parametrize(
+    "content,observed_widths",
+    [
+        ("a,b,c\n1,2\n", [2]),
+        ("a,b\n1,2,3\n", [3]),
+        ("a,b\n1,2\n3,4,5\n", [2, 3]),
+        ("a,b\n", []),
+    ],
+)
+def test_csv_shape_rejects_short_wide_mixed_and_header_only_files(
+    tmp_path: Path, content: str, observed_widths: list[int]
+) -> None:
+    path = tmp_path / "invalid.csv"
+    path.write_text(content, encoding="utf-8")
+    observation = ResearchQueryEngine._csv_shape_observation(path)
+    assert observation["valid"] is False
+    assert observation["reason"] == "column_count_mismatch"
+    assert observation["observed_widths"] == observed_widths
