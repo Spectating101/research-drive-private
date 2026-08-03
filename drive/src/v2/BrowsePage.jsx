@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { discoverSearch, discoverSources, unifiedSearch, webDiscover } from "@/v2/api";
+import { discoverSearch, discoverSources, webDiscover } from "@/v2/api";
 import { sourcesResponseToRows } from "@/v2/discoverAdapters";
 import { DiscoverHistoryPanel } from "@/v2/DiscoverHistoryPanel";
 import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
@@ -25,6 +25,10 @@ import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverIntentWorkspace } from "@/v2/DiscoverIntentWorkspace";
 import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
+import {
+  candidateSpecificityText,
+  hasSpecificDiscoverRoute,
+} from "@/v2/discoverQuerySpecificity";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
 const FILTERS = [
@@ -121,27 +125,11 @@ function meaningfulQueryTerms(query) {
 }
 
 function candidateSearchText(row) {
-  return [
-    row?.title,
-    row?.name,
-    row?.source,
-    row?.publisher,
-    row?.description,
-    row?.recommended_use,
-    ...(Array.isArray(row?.capabilities) ? row.capabilities : []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+  return candidateSpecificityText(row);
 }
 
 function hasSpecificSourceRoute(rows, query) {
-  const terms = meaningfulQueryTerms(query);
-  if (!terms.length) return true;
-  return (rows || []).some((row) => {
-    const text = candidateSearchText(row);
-    return terms.some((term) => text.includes(term));
-  });
+  return hasSpecificDiscoverRoute(rows || [], interpretEvidenceNeed(query).tokens);
 }
 
 function rankExternalCatalogueRows(rows, query) {
@@ -755,26 +743,9 @@ export function BrowsePage({
           knownSourcesResult.status === "fulfilled"
             ? sourcesResponseToRows(knownSourcesResult.value)
             : [];
-        const needsUnified =
-          discoverRows.length === 0 && knownSourceRows.length === 0
-            || Boolean(discover.index_miss || discover.weak_match);
         let mergedRows = dedupeRows([...knownSourceRows, ...discoverRows]);
         let label = mergedRows.length ? "index" : "";
-        let miss = Boolean(discover.index_miss) && discoverRows.length === 0;
-
-        if (needsUnified) {
-          const search = await unifiedSearch(q, 12, email);
-          const searchRows = flattenRows(search);
-          if (searchRows.length) {
-            mergedRows = dedupeRows([...knownSourceRows, ...discoverRows, ...searchRows]);
-            label = knownSourceRows.length || discoverRows.length ? "index" : "search";
-          }
-          if (!discoverRows.length) {
-            miss = Boolean(
-              discover.index_miss || search.index_miss || search.discover_index_miss || !searchRows.length,
-            );
-          }
-        }
+        let miss = Boolean(discover.index_miss || discover.weak_match) && discoverRows.length === 0;
 
         const hasAcquireCandidate = mergedRows.some((r) => {
           const tax = classifyDiscoverResult(r, labIds);
