@@ -388,6 +388,15 @@ class SearchService:
         try:
             out = self.engine.query(dataset_id, **params).to_dict()
             rows = out.get("rows") or []
+            meta = out.get("meta") or {}
+            if (
+                meta.get("required_action") == "review_schema"
+                or meta.get("error") == "schema_mismatch"
+                or (ds and ds.get("schema_review_required"))
+            ):
+                # A preview sampler must not bypass the query engine's schema
+                # integrity decision and make malformed bytes look usable.
+                return out
             if want_preview and ds and (not rows or _is_status_card(rows)):
                 if ds.get("backend") == "usdt_bigquery_catalogue":
                     sample_params = dict(params)

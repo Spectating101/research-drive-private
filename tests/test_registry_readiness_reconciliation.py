@@ -172,6 +172,12 @@ def test_malformed_csv_is_registered_for_schema_review_not_query_ready(tmp_path:
     assert result["rows"] == []
     assert result["meta"]["error"] == "schema_mismatch"
     assert result["meta"]["required_action"] == "review_schema"
+
+    service = SearchService(engine, registry, tmp_path)
+    preview = service.query_dataset("co2_csv", {"limit": 3})
+    assert preview["rows"] == []
+    assert preview["meta"]["error"] == "schema_mismatch"
+    assert preview["meta"]["required_action"] == "review_schema"
     # Runtime reconciliation never rewrites the canonical registry claim.
     assert json.loads(registry.read_text(encoding="utf-8"))["datasets"][0]["analysis_readiness"] == "query_ready"
 
