@@ -17,6 +17,16 @@ import re
 from datetime import date
 from typing import Any
 
+from scripts.research_data_mcp.requirement_vocabulary import (
+    build_vocabulary,
+    resolve_domains,
+    resolve_fields,
+    resolve_frequency,
+    resolve_geography,
+    resolve_time_range,
+    resolve_unit,
+)
+
 
 DIMENSIONS = ("unit", "universe/geography", "time_range", "frequency", "fields", "event_type")
 _COVERAGE_KEYS = ("coverage_metadata", "evidence_coverage", "coverage", "dimensions")
@@ -60,10 +70,14 @@ def _display(value: Any) -> str:
     return str(value).replace("_", " ")
 
 
-def normalize_requirement(requirement: Any) -> dict[str, dict[str, Any]]:
-    """Normalize caller input and fill only explicit, deterministic question drafts."""
+def normalize_requirement(requirement: Any, datasets: Any = None) -> dict[str, dict[str, Any]]:
+    """Normalize caller input and fill only explicit, deterministic question drafts.
+
+    ``datasets`` supplies the corpus the drafting vocabulary is derived from.
+    Caller-provided values always win; drafts only fill what the caller left open.
+    """
     source = requirement if isinstance(requirement, dict) else {}
-    drafted = draft_requirement_from_question(str(source.get("question") or ""))
+    drafted = draft_requirement_from_question(str(source.get("question") or ""), datasets)
     normalized: dict[str, dict[str, Any]] = {}
     for dimension in DIMENSIONS:
         incoming = next(
@@ -87,70 +101,63 @@ def normalize_requirement(requirement: Any) -> dict[str, dict[str, Any]]:
     return normalized
 
 
-def draft_requirement_from_question(question: str) -> dict[str, dict[str, Any]]:
-    """Draft only unambiguous requirement clues; this is not semantic extraction."""
+def draft_requirement_from_question(
+    question: str, datasets: Any = None
+) -> dict[str, dict[str, Any]]:
+    """Draft requirement dimensions using vocabulary derived from the corpus.
+
+    Previously this carried a fixed table of six geographies, four units and four
+    field terms, and stopped at the first match per dimension.  Six of ten
+    realistic questions for this faculty drafted nothing -- including their own
+    declared domains -- and "Taiwan and Japan" silently lost Japan.  Because an
+    undrafted dimension becomes ``unspecified`` and is never checked, those
+    misses could yield ``covered`` for a question whose geography constraint was
+    quietly discarded.
+
+    Vocabulary now comes from the registry (units, entity keys, tags) and from
+    observed coverage (real ISO3 codes), so it grows with the corpus rather than
+    requiring a code change per country.  Still fully deterministic: no model
+    call and no external request, which also keeps research questions inside the
+    institution.
+
+    ``datasets`` is optional; without it, resolution falls back to the static
+    ISO3/cadence reference and generic entity-cadence patterns.
+    """
     text = str(question or "")
+    vocabulary = build_vocabulary(datasets) if datasets else {}
     draft: dict[str, dict[str, Any]] = {}
 
-    year_range = re.search(r"\b((?:19|20)\d{2})\s*(?:-|–|to)\s*((?:19|20)\d{2})\b", text, flags=re.IGNORECASE)
-    if year_range:
-        draft["time_range"] = {
-            "value": {"start": year_range.group(1), "end": year_range.group(2)},
-            "provenance": "drafted",
-        }
+    def _set(dimension: str, value: Any) -> None:
+        if value not in (None, "", [], {}):
+            draft[dimension] = {"value": value, "provenance": "drafted"}
 
-    frequency = re.search(r"\b(daily|weekly|monthly|quarterly|annual|yearly)\b", text, flags=re.IGNORECASE)
-    if frequency:
-        draft["frequency"] = {"value": frequency.group(1).casefold(), "provenance": "drafted"}
-
-    geographies = (
-        (r"\bTaiwan(?:ese)?\b", "Taiwan"),
-        (r"\bJapan(?:ese)?\b", "Japan"),
-        (r"\b(?:China|Chinese)\b", "China"),
-        (r"\bAsia(?:n)?\b", "Asia"),
-        (r"\bUnited States\b|\bU\.S\.\b|\bUS equities\b", "United States"),
-        (r"\bS&P\s*500\b", "S&P 500"),
-    )
-    for pattern, value in geographies:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            draft["universe/geography"] = {"value": value, "provenance": "drafted"}
-            break
-
-    units = (
-        (r"\bfirm[ -]day\b", "firm_day"),
-        (r"\bexchange[ -]day\b", "exchange_day"),
-        (r"\bcountry[ -]day\b", "country_day"),
-        (r"\btransaction(?:-level)?\b", "transaction"),
-    )
-    for pattern, value in units:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            draft["unit"] = {"value": value, "provenance": "drafted"}
-            break
-
-    field_terms = (
-        (r"\breturns?\b", "return"),
-        (r"\bvolume\b", "volume"),
-        (r"\bmarket[ -]?cap(?:italization)?\b", "market_cap"),
-        (r"\bprices?\b", "price"),
-    )
-    fields = [value for pattern, value in field_terms if re.search(pattern, text, flags=re.IGNORECASE)]
-    if fields:
-        draft["fields"] = {"value": fields, "provenance": "drafted"}
-
-    event_terms = (
-        (r"\bde-?pegs?\b", "stablecoin_depeg"),
-        (r"\bearnings?\b", "earnings"),
-        (r"\bfilings?\b", "filing"),
-        (r"\bdividends?\b", "dividend"),
-        (r"\bmergers?(?:\s+and\s+acquisitions)?\b|\bM&A\b", "merger"),
-        (r"\bearthquakes?\b", "earthquake"),
-        (r"\bnews shock\b", "news_shock"),
-    )
-    for pattern, value in event_terms:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            draft["event_type"] = {"value": value, "provenance": "drafted"}
-            break
+    _set("time_range", resolve_time_range(text))
+    _set("frequency", resolve_frequency(text))
+    _set("universe/geography", resolve_geography(text, vocabulary))
+    _set("unit", resolve_unit(text, vocabulary))
+    _set("fields", resolve_fields(text, vocabulary))
+    _set("event_type", resolve_domains(text, vocabulary))
     return draft
+
+
+def _unwrap_claim(claim: Any) -> Any:
+    """Return the asserted coverage value from an evidence-carrying declaration.
+
+    Reviewed and migrated labels legitimately record *why* a dimension is
+    claimed, e.g. ``{"value": "weekly", "basis": "observed_from_file",
+    "evidence": "median gap 7d between consecutive dates"}``.  Comparing that
+    envelope against the requirement instead of the asserted value made an exact
+    match read as ``not_supported`` -- a false clean negative, which is strictly
+    worse than ``insufficient_metadata`` because it asserts a check was performed
+    and failed when the declaration in fact satisfies the requirement.
+
+    Only envelopes are unwrapped.  A dimension whose value is genuinely a mapping
+    (``time_range`` is ``{"start": ..., "end": ...}``) carries no ``value`` key
+    and is returned untouched.
+    """
+    if isinstance(claim, dict) and "value" in claim:
+        return claim["value"]
+    return claim
 
 
 def _coverage_claims(row: dict[str, Any]) -> dict[str, list[Any]]:
@@ -163,13 +170,17 @@ def _coverage_claims(row: dict[str, Any]) -> dict[str, list[Any]]:
         for dimension in DIMENSIONS:
             for key in _DIMENSION_ALIASES.get(dimension, (dimension,)):
                 if key in candidate and candidate[key] not in (None, "", [], {}):
-                    claims.setdefault(dimension, []).append(_clean(candidate[key]))
+                    value = _clean(_unwrap_claim(candidate[key]))
+                    if value not in (None, "", [], {}):
+                        claims.setdefault(dimension, []).append(value)
     # These row-level fields are structured catalog metadata, unlike a free-text
     # description or a broad `field_coverage: query-ready` label.
     for dimension in DIMENSIONS:
         for key in _DIMENSION_ALIASES.get(dimension, (dimension,)):
             if key in row and row[key] not in (None, "", [], {}):
-                claims.setdefault(dimension, []).append(_clean(row[key]))
+                value = _clean(_unwrap_claim(row[key]))
+                if value not in (None, "", [], {}):
+                    claims.setdefault(dimension, []).append(value)
     return claims
 
 
@@ -381,11 +392,16 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
         raise ValueError("question is required")
     # The question is deliberately supplied to the narrow draft helper only;
     # caller-provided values remain authoritative in `normalize_requirement`.
-    normalized = normalize_requirement({**(requirement if isinstance(requirement, dict) else {}), "question": question})
+    # Candidates are fetched first so the drafting vocabulary can be derived from
+    # the corpus actually under assessment rather than a hardcoded table.
     result = gateway.list_datasets(q=question, limit=max(1, min(int(limit or 100), 200)))
     rows = result.get("datasets") if isinstance(result, dict) else []
     if not isinstance(rows, list):
         rows = []
+
+    normalized = normalize_requirement(
+        {**(requirement if isinstance(requirement, dict) else {}), "question": question}, rows
+    )
 
     requested = {dim: item for dim, item in normalized.items() if item["value"] is not None}
     assessed: list[tuple[dict[str, Any], dict[str, str]]] = []
