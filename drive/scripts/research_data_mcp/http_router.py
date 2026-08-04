@@ -27,6 +27,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/search", "handler": "library_unified_search"},
     {"method": "GET", "path": "/library/discover", "handler": "library_discover"},
     {"method": "POST", "path": "/library/discover/assessment", "handler": "library_discover_assessment"},
+    {"method": "POST", "path": "/library/discover/routes", "handler": "library_discover_routes"},
     {"method": "POST", "path": "/library/discover/semantic", "handler": "library_discover_semantic"},
     {"method": "GET", "path": "/library/discover/web", "handler": "library_discover_web"},
     {"method": "POST", "path": "/library/discover/probe", "handler": "library_discover_probe"},
@@ -371,6 +372,33 @@ def _handlers() -> dict[str, Handler]:
             limit=int(payload.get("limit") or 100),
         )
         _activity(stack, "discover_assessment", str(payload.get("question") or "")[:200], meta={"verdict": out.get("verdict")})
+        return out
+
+    def library_discover_routes(stack, query, payload, params):
+        """Answer "we are missing X" with "here is where to get X".
+
+        Assessment names the unmet dimensions; collect acquires from a named
+        source; nothing joined them, so a researcher was told what they lacked
+        and left to guess which of the declared sources supplies it.
+
+        The assessment can be supplied by a caller that already has one, so the
+        UI does not pay for it twice on the same question.
+        """
+        from scripts.research_data_mcp.gap_routes import routes_for_gaps
+
+        question = str(payload.get("question") or "").strip()
+        if not question:
+            raise ValueError("question is required")
+        assessment = payload.get("assessment")
+        if not isinstance(assessment, dict):
+            assessment = stack.gateway.discover_assessment(
+                question, limit=int(payload.get("limit") or 100)
+            )
+        out = routes_for_gaps(question, assessment, stack.gateway.repo_root)
+        out["verdict"] = assessment.get("verdict")
+        out["assessment_status"] = assessment.get("assessment_status")
+        _activity(stack, "discover_routes", question[:200],
+                  meta={"gaps": len(out.get("gaps") or []), "routes": len(out.get("routes") or [])})
         return out
 
     def library_discover_semantic(stack, query, payload, params):
