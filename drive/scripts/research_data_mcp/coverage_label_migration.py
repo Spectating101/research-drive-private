@@ -1,8 +1,8 @@
 """Build an auditable candidate registry from reviewed coverage labels.
 
-The input registry is never edited in place. Labels are classified as exact,
-alias, orphaned, conflicting, already present, invalid, or changed. Optional
-candidate and patch files make a small reviewed migration reversible.
+The input registry is never edited in place. Labels are aggregated by dataset,
+classified against every explicit coverage authority surface, and written only
+to a reversible candidate registry.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 DIMENSIONS = (
     "unit",
@@ -51,6 +51,10 @@ def _clean(value: Any) -> Any:
 
 def _canonical(value: Any) -> str:
     return json.dumps(_clean(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _json_sha256(value: Any) -> str:
+    return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
 
 
 def _dataset_id(record: Mapping[str, Any]) -> str | None:
@@ -99,46 +103,104 @@ def _iter_records(payload: Any) -> Iterator[Mapping[str, Any]]:
             yield row
 
 
+def _put_claim(
+    coverage: dict[str, Any],
+    dimension: str | None,
+    value: Any,
+    *,
+    source: str,
+    errors: list[str],
+) -> None:
+    cleaned = _clean(value)
+    if not dimension:
+        errors.append(f"{source} has an unsupported dimension")
+    elif cleaned is None:
+        errors.append(f"{source} has no value")
+    elif dimension in coverage and _canonical(coverage[dimension]) != _canonical(cleaned):
+        errors.append(f"{source} conflicts with {dimension}")
+    else:
+        coverage[dimension] = cleaned
+
+
 def _coverage(record: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
     coverage: dict[str, Any] = {}
     errors: list[str] = []
+
     for container_key in CONTAINER_KEYS:
         container = record.get(container_key)
         if isinstance(container, Mapping):
             for key, value in container.items():
                 dimension = _dimension(key)
-                cleaned = _clean(value)
-                if dimension and cleaned is not None:
-                    coverage[dimension] = cleaned
+                if dimension:
+                    _put_claim(
+                        coverage,
+                        dimension,
+                        value,
+                        source=f"{container_key}.{key}",
+                        errors=errors,
+                    )
+
     for key, value in record.items():
         dimension = _dimension(key)
-        cleaned = _clean(value)
-        if dimension and cleaned is not None:
-            coverage[dimension] = cleaned
+        if dimension:
+            _put_claim(coverage, dimension, value, source=key, errors=errors)
+
+    if "dimension" in record or "value" in record:
+        _put_claim(
+            coverage,
+            _dimension(record.get("dimension") or record.get("key") or record.get("name")),
+            record.get("value"),
+            source="record claim",
+            errors=errors,
+        )
+
     claims = record.get("claims")
     if isinstance(claims, list):
         for index, claim in enumerate(claims):
             if not isinstance(claim, Mapping):
                 errors.append(f"claims[{index}] is not an object")
                 continue
-            dimension = _dimension(claim.get("dimension") or claim.get("key") or claim.get("name"))
-            value = _clean(claim.get("value"))
-            if not dimension:
-                errors.append(f"claims[{index}] has an unsupported dimension")
-            elif value is None:
-                errors.append(f"claims[{index}] has no value")
-            elif dimension in coverage and _canonical(coverage[dimension]) != _canonical(value):
-                errors.append(f"claims[{index}] conflicts with {dimension}")
-            else:
-                coverage[dimension] = value
+            _put_claim(
+                coverage,
+                _dimension(claim.get("dimension") or claim.get("key") or claim.get("name")),
+                claim.get("value"),
+                source=f"claims[{index}]",
+                errors=errors,
+            )
+
     if not coverage:
         errors.append("no supported coverage dimensions")
     return coverage, errors
 
 
+def _record_provenance(record: Mapping[str, Any]) -> dict[str, Any]:
+    provenance: dict[str, Any] = {}
+    for key in ("provenance", "label_provenance", "review", "evidence"):
+        value = record.get(key)
+        if isinstance(value, Mapping):
+            provenance.update(_clean(dict(value)))
+    return provenance
+
+
+def _merge_provenance(target: dict[str, Any], incoming: Mapping[str, Any]) -> None:
+    for key, value in incoming.items():
+        if key not in target:
+            target[key] = copy.deepcopy(value)
+            continue
+        if _canonical(target[key]) == _canonical(value):
+            continue
+        merged = target.setdefault("_merged_values", {})
+        alternatives = merged.setdefault(key, [copy.deepcopy(target[key])])
+        if all(_canonical(existing) != _canonical(value) for existing in alternatives):
+            alternatives.append(copy.deepcopy(value))
+
+
 def normalize_labels(payload: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    labels: list[dict[str, Any]] = []
+    """Aggregate reviewed records into one non-contradictory label per dataset."""
+
+    grouped: dict[str, dict[str, Any]] = {}
     rejected: list[dict[str, Any]] = []
+
     for index, record in enumerate(_iter_records(payload)):
         source_id = _dataset_id(record)
         coverage, errors = _coverage(record)
@@ -147,19 +209,60 @@ def normalize_labels(payload: Any) -> tuple[list[dict[str, Any]], list[dict[str,
         if errors:
             rejected.append({"index": index, "dataset_id": source_id, "reasons": errors})
             continue
-        provenance: dict[str, Any] = {}
-        for key in ("provenance", "label_provenance", "review", "evidence"):
-            value = record.get(key)
-            if isinstance(value, Mapping):
-                provenance.update(_clean(dict(value)))
+
+        group = grouped.setdefault(
+            source_id,
+            {
+                "source_id": source_id,
+                "coverage": {},
+                "provenance": {},
+                "aliases": set(),
+                "source_record_indices": [],
+                "conflicts": [],
+            },
+        )
+        group["source_record_indices"].append(index)
+        group["aliases"].update(_aliases(record))
+        _merge_provenance(group["provenance"], _record_provenance(record))
+
+        for dimension, value in coverage.items():
+            existing = group["coverage"].get(dimension)
+            if existing is not None and _canonical(existing) != _canonical(value):
+                group["conflicts"].append(
+                    {
+                        "dimension": dimension,
+                        "existing": copy.deepcopy(existing),
+                        "incoming": copy.deepcopy(value),
+                        "record_index": index,
+                    }
+                )
+            else:
+                group["coverage"][dimension] = copy.deepcopy(value)
+
+    labels: list[dict[str, Any]] = []
+    for source_id, group in grouped.items():
+        if group["conflicts"]:
+            rejected.append(
+                {
+                    "dataset_id": source_id,
+                    "source_record_indices": group["source_record_indices"],
+                    "reasons": ["duplicate records disagree on coverage"],
+                    "conflicts": group["conflicts"],
+                }
+            )
+            continue
+        provenance = group["provenance"]
+        provenance.setdefault("source_record_indices", group["source_record_indices"])
         labels.append(
             {
                 "source_id": source_id,
-                "coverage": coverage,
+                "coverage": group["coverage"],
                 "provenance": provenance,
-                "aliases": list(_aliases(record)),
+                "aliases": sorted(group["aliases"]),
+                "source_record_indices": group["source_record_indices"],
             }
         )
+
     return labels, rejected
 
 
@@ -180,15 +283,44 @@ def _registry_rows(document: Mapping[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def _existing(row: Mapping[str, Any]) -> dict[str, Any]:
-    container = row.get("coverage_metadata")
-    if not isinstance(container, Mapping):
-        return {}
-    return {
-        dimension: _clean(container[dimension])
-        for dimension in DIMENSIONS
-        if dimension in container and _clean(container[dimension]) is not None
-    }
+def _explicit_claims(row: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    claims: dict[str, list[dict[str, Any]]] = {}
+
+    for container_key in CONTAINER_KEYS:
+        container = row.get(container_key)
+        if not isinstance(container, Mapping):
+            continue
+        for key, value in container.items():
+            dimension = _dimension(key)
+            cleaned = _clean(value)
+            if dimension and cleaned is not None:
+                claims.setdefault(dimension, []).append(
+                    {"surface": f"{container_key}.{key}", "value": cleaned}
+                )
+
+    for key, value in row.items():
+        dimension = _dimension(key)
+        cleaned = _clean(value)
+        if dimension and cleaned is not None:
+            claims.setdefault(dimension, []).append({"surface": key, "value": cleaned})
+
+    return claims
+
+
+def _existing_state(row: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, list[dict[str, Any]]]]:
+    existing: dict[str, Any] = {}
+    conflicts: dict[str, list[dict[str, Any]]] = {}
+
+    for dimension, declarations in _explicit_claims(row).items():
+        distinct: dict[str, Any] = {}
+        for declaration in declarations:
+            distinct.setdefault(_canonical(declaration["value"]), declaration["value"])
+        if len(distinct) > 1:
+            conflicts[dimension] = declarations
+        else:
+            existing[dimension] = next(iter(distinct.values()))
+
+    return existing, conflicts
 
 
 def migrate(
@@ -199,10 +331,12 @@ def migrate(
     selected_ids: set[str] | None = None,
     max_changes: int | None = None,
 ) -> dict[str, Any]:
-    candidate = copy.deepcopy(dict(registry))
+    input_registry = copy.deepcopy(dict(registry))
+    candidate = copy.deepcopy(input_registry)
     rows = _registry_rows(candidate)
     by_id = {_dataset_id(row): row for row in rows}
     alias_index: dict[str, set[str]] = {}
+
     for row in rows:
         target = _dataset_id(row)
         for alias in _aliases(row):
@@ -219,6 +353,7 @@ def migrate(
         if selected_ids and source_id not in selected_ids:
             details.append({"source_dataset_id": source_id, "classification": "not_selected"})
             continue
+
         target: str | None = source_id if source_id in by_id else None
         match_type = "exact_match" if target else None
         if not target:
@@ -240,6 +375,7 @@ def migrate(
                     }
                 )
                 continue
+
         if not target:
             details.append(
                 {
@@ -251,13 +387,26 @@ def migrate(
             continue
 
         row = by_id[target]
-        existing = _existing(row)
-        conflicts = {
+        existing, existing_conflicts = _existing_state(row)
+        if existing_conflicts:
+            details.append(
+                {
+                    "source_dataset_id": source_id,
+                    "target_dataset_id": target,
+                    "match_type": match_type,
+                    "classification": "conflict",
+                    "reason": "registry row already contains contradictory explicit coverage",
+                    "conflicts": existing_conflicts,
+                }
+            )
+            continue
+
+        incoming_conflicts = {
             dimension: {"existing": existing[dimension], "incoming": incoming}
             for dimension, incoming in label["coverage"].items()
             if dimension in existing and _canonical(existing[dimension]) != _canonical(incoming)
         }
-        if conflicts:
+        if incoming_conflicts:
             details.append(
                 {
                     "source_dataset_id": source_id,
@@ -265,10 +414,11 @@ def migrate(
                     "match_type": match_type,
                     "classification": "conflict",
                     "reason": "incoming coverage contradicts existing explicit coverage",
-                    "conflicts": conflicts,
+                    "conflicts": incoming_conflicts,
                 }
             )
             continue
+
         if all(
             dimension in existing and _canonical(existing[dimension]) == _canonical(incoming)
             for dimension, incoming in label["coverage"].items()
@@ -282,6 +432,7 @@ def migrate(
                 }
             )
             continue
+
         if max_changes is not None and changed >= max_changes:
             details.append(
                 {
@@ -297,8 +448,12 @@ def migrate(
         before = copy.deepcopy(row.get("coverage_metadata"))
         after = copy.deepcopy(before) if isinstance(before, Mapping) else {}
         after.update(copy.deepcopy(label["coverage"]))
-        provenance = copy.deepcopy(after.get("provenance")) if isinstance(after.get("provenance"), Mapping) else {}
-        provenance.update(copy.deepcopy(label["provenance"]))
+        provenance = (
+            copy.deepcopy(after.get("provenance"))
+            if isinstance(after.get("provenance"), Mapping)
+            else {}
+        )
+        _merge_provenance(provenance, label["provenance"])
         provenance.setdefault("method", "reviewed_label_migration")
         provenance.setdefault("source_dataset_id", source_id)
         if source_sha256:
@@ -306,6 +461,7 @@ def migrate(
         after["provenance"] = provenance
         row["coverage_metadata"] = after
         changed += 1
+
         details.append(
             {
                 "source_dataset_id": source_id,
@@ -313,24 +469,40 @@ def migrate(
                 "match_type": match_type,
                 "classification": "changed",
                 "coverage_dimensions": sorted(label["coverage"]),
+                "source_record_count": len(label["source_record_indices"]),
             }
         )
-        forward.append({"dataset_id": target, "field": "coverage_metadata", "before": before, "after": after})
-        rollback.append({"dataset_id": target, "field": "coverage_metadata", "before": after, "after": before})
+        forward.append(
+            {"dataset_id": target, "field": "coverage_metadata", "before": before, "after": after}
+        )
+        rollback.append(
+            {"dataset_id": target, "field": "coverage_metadata", "before": after, "after": before}
+        )
 
     counts: dict[str, int] = {}
     for item in details:
         key = item["classification"]
         counts[key] = counts.get(key, 0) + 1
     counts["rejected_invalid"] = len(rejected)
+
+    input_registry_sha256 = _json_sha256(input_registry)
+    candidate_registry_sha256 = _json_sha256(candidate)
+    input_label_record_count = sum(len(label["source_record_indices"]) for label in labels) + sum(
+        1 for item in rejected if "index" in item
+    )
+
     return {
         "candidate_registry": candidate,
         "report": {
-            "schema_version": 1,
+            "schema_version": 2,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "registry_dataset_count": len(rows),
-            "normalized_label_count": len(labels),
+            "input_label_record_count": input_label_record_count,
+            "normalized_dataset_label_count": len(labels),
             "source_label_sha256": source_sha256,
+            "input_registry_sha256": input_registry_sha256,
+            "candidate_registry_sha256": candidate_registry_sha256,
+            "registry_changed": input_registry_sha256 != candidate_registry_sha256,
             "counts": counts,
             "details": details,
             "rejected": rejected,
@@ -363,9 +535,20 @@ def _write(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def _safe(inputs: Iterable[Path], output: Path | None) -> None:
-    if output and any(output.resolve() == item.resolve() for item in inputs):
-        raise MigrationError(f"refusing to overwrite input file: {output}")
+def _validate_paths(inputs: Sequence[Path], outputs: Sequence[Path | None]) -> None:
+    input_paths = {path.resolve() for path in inputs}
+    seen_outputs: dict[Path, Path] = {}
+    for output in outputs:
+        if output is None:
+            continue
+        resolved = output.resolve()
+        if resolved in input_paths:
+            raise MigrationError(f"refusing to overwrite input file: {output}")
+        if resolved in seen_outputs:
+            raise MigrationError(
+                f"output paths must be unique: {seen_outputs[resolved]} and {output}"
+            )
+        seen_outputs[resolved] = output
 
 
 def parser() -> argparse.ArgumentParser:
@@ -385,9 +568,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.max_changes is not None and args.max_changes < 0:
         raise MigrationError("--max-changes must be non-negative")
+
     inputs = (args.registry, args.labels)
-    for output in (args.report, args.candidate, args.forward_patch, args.rollback_patch):
-        _safe(inputs, output)
+    outputs = (args.report, args.candidate, args.forward_patch, args.rollback_patch)
+    _validate_paths(inputs, outputs)
+
     result = migrate(
         _load(args.registry),
         _load(args.labels),
