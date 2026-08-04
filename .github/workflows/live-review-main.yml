@@ -1,0 +1,69 @@
+name: Research Drive live review
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/live-review-main-20260804
+    paths:
+      - ".github/workflows/live-review-main.yml"
+      - "playwright.live-review.config.js"
+      - "e2e/live-review.spec.js"
+      - "package.json"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/live-review-main.yml"
+      - "playwright.live-review.config.js"
+      - "e2e/live-review.spec.js"
+      - "package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-drive-live-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Mutation-blocked Chromium review
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      YZU_DESK_URL: https://previous.easycamp.tech
+      LIVE_REVIEW_QUERY: stablecoin
+    steps:
+      - name: Checkout current review branch
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Confirm review endpoint
+        run: curl --fail --show-error --location --max-time 30 "$YZU_DESK_URL/" >/dev/null
+
+      - name: Run mutation-blocked live review
+        run: npm run test:live-review
+
+      - name: Upload live-review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-drive-live-review-${{ github.run_id }}
+          path: |
+            artifacts/live-review/
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
