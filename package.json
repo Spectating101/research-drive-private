@@ -13,6 +13,7 @@
     "test:v2-mock": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/v2-home.spec.js e2e/v2-parity.spec.js e2e/release-visual-convergence.spec.js e2e/interaction-guidance.spec.js e2e/interaction-feedback.spec.js e2e/v2-discover.spec.js e2e/v2-library.spec.js e2e/v2-synthesis.spec.js e2e/v2-resources.spec.js",
     "test:beta-workflow": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/beta-workflow.spec.js",
     "test:professor-demo": "mkdir -p .tmp-pw docs/status/generated && TMPDIR=$PWD/.tmp-pw playwright test e2e/professor-demo.spec.js",
+    "test:live-review": "playwright test -c playwright.live-review.config.js e2e/live-review.spec.js",
     "desk:integration": "node scripts/desk_verify_live.mjs",
     "desk:capture": "bash scripts/capture_desk_screenshots.sh",
     "desk:capture:live": "YZU_REQUIRE_LIVE=1 bash scripts/capture_desk_screenshots.sh",
