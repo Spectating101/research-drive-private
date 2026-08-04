@@ -59,6 +59,28 @@ def _has_bytes(path: Path, *, max_entries: int = 2000) -> bool:
     return False
 
 
+def _prove_smoke(repo_root: Path, ds: dict[str, Any]) -> dict[str, Any] | None:
+    """Bounded read proving the dataset actually parses and returns rows.
+
+    Reuses the promotion path's prover rather than inventing a second notion of
+    proof, so "verified" means the same thing however a dataset arrived.
+    Returns None when the backend has no smoke path, leaving the row at its
+    honest query_ready_declared state rather than asserting a proof that was
+    never obtained.
+    """
+    try:
+        from scripts.yzu_cluster.acquisitions import prove_query_smoke
+    except ImportError:
+        return None
+    try:
+        smoke = prove_query_smoke(Path(repo_root), dict(ds), limit=3)
+    except Exception as exc:  # noqa: BLE001 - a failed proof must not fail the sync
+        return {"ok": False, "error": str(exc)[:200]}
+    if isinstance(smoke, dict) and str(smoke.get("error") or "").startswith("unsupported smoke backend"):
+        return None
+    return smoke if isinstance(smoke, dict) else None
+
+
 def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
     did = str(ds.get("dataset_id") or "")
     backend = str(ds.get("backend") or "")
@@ -165,6 +187,18 @@ def sync_registry(*, dry_run: bool = False, repo_root: Path | None = None) -> di
                         break
 
         probe = _probe_dataset(engine, ds)
+        if probe.get("query_ready"):
+            # query_ready only says bytes exist at the resolved path. The
+            # assessment engine will not treat any dimension as verified without
+            # "observed query proof", and nothing previously produced that for
+            # rows already in the registry -- prove_query_smoke ran only on the
+            # promotion path for newly acquired datasets. Without it every
+            # dimension caps at "unverified" and a verdict of "covered" is
+            # unreachable no matter how good the coverage metadata is.
+            smoke = _prove_smoke(root, ds)
+            if smoke is not None:
+                probe["query_smoke"] = smoke
+                probe["query_verified"] = bool(smoke.get("ok"))
         ds["materialization"] = {
             "query_ready": bool(probe.get("query_ready")),
             "probed_at": _stamp(),

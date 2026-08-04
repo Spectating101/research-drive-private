@@ -32,6 +32,7 @@ positives (each verified to resolve to a path carrying bytes).
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -159,3 +160,45 @@ def test_directory_walk_is_bounded(tmp_path):
     for i in range(50):
         (deep / f"empty_{i}.json").write_text("", encoding="utf-8")
     assert not _has_bytes(deep, max_entries=10)
+
+
+# --- query proof ---------------------------------------------------------------
+#
+# The assessment engine only treats a dimension as verified given "observed query
+# proof" (materialization.query_verified / query_smoke.ok). Nothing produced that
+# for rows already in the registry -- prove_query_smoke ran only on the promotion
+# path for newly acquired datasets -- so every dimension capped at "unverified"
+# and a verdict of "covered" was unreachable by construction, independent of
+# coverage metadata quality.
+
+def test_unsupported_smoke_backend_yields_no_false_proof(monkeypatch):
+    """No smoke path must leave the row honest, not assert a proof never obtained."""
+    import scripts.sync_materialized_registry as m
+
+    monkeypatch.setattr(
+        "scripts.yzu_cluster.acquisitions.prove_query_smoke",
+        lambda *a, **k: {"ok": False, "error": "unsupported smoke backend weird"},
+    )
+    assert m._prove_smoke(Path("/tmp"), {"dataset_id": "a", "backend": "weird"}) is None
+
+
+def test_smoke_failure_does_not_break_the_sync(monkeypatch):
+    """A prover that raises must not take the whole registry sync down with it."""
+    import scripts.sync_materialized_registry as m
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("parser exploded")
+
+    monkeypatch.setattr("scripts.yzu_cluster.acquisitions.prove_query_smoke", _boom)
+    result = m._prove_smoke(Path("/tmp"), {"dataset_id": "a", "backend": "local_csv_file"})
+    assert result == {"ok": False, "error": "parser exploded"}
+
+
+def test_successful_smoke_is_passed_through(monkeypatch):
+    import scripts.sync_materialized_registry as m
+
+    monkeypatch.setattr(
+        "scripts.yzu_cluster.acquisitions.prove_query_smoke",
+        lambda *a, **k: {"ok": True, "rows": 3},
+    )
+    assert m._prove_smoke(Path("/tmp"), {"dataset_id": "a", "backend": "local_csv_file"})["ok"] is True
