@@ -271,12 +271,39 @@ class CollectionFlywheel:
         _write_json(index_path, doc)
 
     def rebuild_search_index(self) -> dict[str, Any] | None:
+        """Refresh both indexes a curated row can be found through.
+
+        These are two separate indexes and rebuilding one does not touch the
+        other.  ``build_index`` refreshes the collection/procurement index,
+        while topic and category search reads a SQLite FTS built by
+        ``build_curated_topic_fts``.  Only the first was rebuilt here, so every
+        curated row the flywheel appended stayed invisible to topic search: the
+        FTS held 0 rows for days while curated rows accumulated, and the
+        flywheel reported a successful index rebuild each time.
+
+        Failing to build either index must not fail the collect that triggered
+        it -- the bytes are on disk and the registry already records them, so a
+        stale index is recoverable where a failed promotion is not.
+        """
+        out: dict[str, Any] | None = None
         try:
             from scripts.research_data_mcp.collection_index import build_index
 
-            return build_index(self.repo_root)
+            out = build_index(self.repo_root)
         except Exception:
-            return None
+            out = None
+        try:
+            from scripts.data_catalog.build_curated_topic_fts import build_curated_topic_fts
+
+            topic = build_curated_topic_fts(self.repo_root)
+            if isinstance(out, dict):
+                out["curated_topic_fts"] = topic
+            else:
+                out = {"curated_topic_fts": topic}
+        except Exception as exc:  # noqa: BLE001 - index refresh is best effort
+            if isinstance(out, dict):
+                out["curated_topic_fts_error"] = str(exc)[:200]
+        return out
 
     def _clear_prefetch_caches(self) -> None:
         try:
