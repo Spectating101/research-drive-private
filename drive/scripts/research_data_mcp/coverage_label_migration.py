@@ -11,7 +11,7 @@ import argparse
 import copy
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 
@@ -53,8 +53,50 @@ def _canonical(value: Any) -> str:
     return json.dumps(_clean(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _raw_canonical(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
 def _json_sha256(value: Any) -> str:
-    return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+    return hashlib.sha256(_raw_canonical(value).encode("utf-8")).hexdigest()
+
+
+def _fold(value: Any) -> str:
+    return " ".join(str(value or "").casefold().replace("_", " ").replace("-", " ").split())
+
+
+def _date_boundary(value: Any, *, end: bool) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if len(text) == 4 and text.isdigit() and text.startswith(("19", "20")):
+        year = int(text)
+        return date(year, 12, 31) if end else date(year, 1, 1)
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def _canonical_claim(value: Any, dimension: str) -> Any:
+    if dimension == "fields":
+        values = value if isinstance(value, list) else [value]
+        return tuple(sorted({_fold(item) for item in values}))
+    if dimension == "time_range" and isinstance(value, dict):
+        return (
+            _date_boundary(value.get("start"), end=False),
+            _date_boundary(value.get("end"), end=True),
+        )
+    if isinstance(value, dict):
+        return tuple(
+            sorted(
+                (str(key), _canonical_claim(item, dimension))
+                for key, item in value.items()
+            )
+        )
+    if isinstance(value, list):
+        return tuple(sorted(_fold(item) for item in value))
+    return _fold(value)
 
 
 def _dataset_id(record: Mapping[str, Any]) -> str | None:
@@ -116,7 +158,7 @@ def _put_claim(
         errors.append(f"{source} has an unsupported dimension")
     elif cleaned is None:
         errors.append(f"{source} has no value")
-    elif dimension in coverage and _canonical(coverage[dimension]) != _canonical(cleaned):
+    elif dimension in coverage and _canonical_claim(coverage[dimension], dimension) != _canonical_claim(cleaned, dimension):
         errors.append(f"{source} conflicts with {dimension}")
     else:
         coverage[dimension] = cleaned
@@ -230,7 +272,7 @@ def normalize_labels(payload: Any) -> tuple[list[dict[str, Any]], list[dict[str,
 
         for dimension, value in coverage.items():
             existing = group["coverage"].get(dimension)
-            if existing is not None and _canonical(existing) != _canonical(value):
+            if existing is not None and _canonical_claim(existing, dimension) != _canonical_claim(value, dimension):
                 group["conflicts"].append(
                     {
                         "dimension": dimension,
@@ -317,9 +359,9 @@ def _existing_state(row: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, l
     conflicts: dict[str, list[dict[str, Any]]] = {}
 
     for dimension, declarations in _explicit_claims(row).items():
-        distinct: dict[str, Any] = {}
+        distinct: dict[Any, Any] = {}
         for declaration in declarations:
-            distinct.setdefault(_canonical(declaration["value"]), declaration["value"])
+            distinct.setdefault(_canonical_claim(declaration["value"], dimension), declaration["value"])
         if len(distinct) > 1:
             conflicts[dimension] = declarations
         else:
@@ -410,7 +452,7 @@ def migrate(
         incoming_conflicts = {
             dimension: {"existing": existing[dimension], "incoming": incoming}
             for dimension, incoming in label["coverage"].items()
-            if dimension in existing and _canonical(existing[dimension]) != _canonical(incoming)
+            if dimension in existing and _canonical_claim(existing[dimension], dimension) != _canonical_claim(incoming, dimension)
         }
         if incoming_conflicts:
             details.append(
@@ -426,7 +468,7 @@ def migrate(
             continue
 
         if all(
-            dimension in existing and _canonical(existing[dimension]) == _canonical(incoming)
+            dimension in existing and _canonical_claim(existing[dimension], dimension) == _canonical_claim(incoming, dimension)
             for dimension, incoming in label["coverage"].items()
         ):
             details.append(
