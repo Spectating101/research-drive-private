@@ -40,13 +40,55 @@ def test_fully_supported_requirement_is_covered():
 
 
 def test_question_drafts_only_explicit_requirement_patterns():
+    """Geography resolves to ISO3 so it can be compared against observed coverage.
+
+    Coverage declarations carry ISO3 codes profiled from stored files, so a
+    drafted display name like "Taiwan" could never match one. Drafting the code
+    is what makes the comparison meaningful instead of guaranteed to fail.
+    """
     normalized = normalize_requirement({"question": "Daily Taiwan firm-day returns and volume, 2020-2022 earnings"})
     assert normalized["unit"] == {"value": "firm_day", "provenance": "drafted"}
-    assert normalized["universe/geography"] == {"value": "Taiwan", "provenance": "drafted"}
+    assert normalized["universe/geography"] == {"value": ["TWN"], "provenance": "drafted"}
     assert normalized["time_range"] == {"value": {"start": "2020", "end": "2022"}, "provenance": "drafted"}
     assert normalized["frequency"] == {"value": "daily", "provenance": "drafted"}
     assert normalized["fields"] == {"value": ["return", "volume"], "provenance": "drafted"}
-    assert normalized["event_type"] == {"value": "earnings", "provenance": "drafted"}
+    assert normalized["event_type"] == {"value": ["earnings"], "provenance": "drafted"}
+
+
+def test_every_named_geography_is_kept_not_just_the_first():
+    """A second constraint must not be silently discarded.
+
+    The previous drafter broke on first match, so "Taiwan and Japan" constrained
+    only on Taiwan. The dropped constraint was never checked, which can yield
+    `covered` for evidence satisfying neither.
+    """
+    normalized = normalize_requirement({"question": "Taiwan and Japan governance disclosures"})
+    assert normalized["universe/geography"]["value"] == ["JPN", "TWN"]
+    assert "governance_disclosure" in normalized["event_type"]["value"]
+
+
+def test_geographies_outside_the_old_hardcoded_table_resolve():
+    """Korea and Indonesia are in this faculty's declared domains but drafted nothing before."""
+    assert normalize_requirement(
+        {"question": "Korean chaebol firm returns"})["universe/geography"]["value"] == ["KOR"]
+    assert normalize_requirement(
+        {"question": "Indonesian IDX listed firms"})["universe/geography"]["value"] == ["IDN"]
+
+
+def test_region_expands_to_member_codes_present_in_the_corpus():
+    """A region becomes codes, narrowed to what the corpus actually holds."""
+    rows = [{
+        "dataset_id": "panel",
+        "coverage_metadata": {"universe/geography": {"value": ["JPN", "TWN"], "evidence": "observed"}},
+    }]
+    normalized = normalize_requirement({"question": "Asia country data"}, rows)
+    assert normalized["universe/geography"]["value"] == ["JPN", "TWN"]
+
+
+def test_units_come_from_registry_grains_not_a_fixed_table():
+    rows = [{"dataset_id": "p", "grain": "issuer_quarter"}]
+    normalized = normalize_requirement({"question": "issuer quarter governance data"}, rows)
+    assert normalized["unit"]["value"] == "issuer_quarter"
 
 
 def test_ambiguous_question_dimensions_remain_unspecified():
@@ -228,3 +270,60 @@ def test_http_route_contract(monkeypatch):
     assert captured["question"] == "Need a panel"
     assert captured["requirement"]["unit"]["value"] == "firm_day"
     assert any(row["path"] == "/library/discover/assessment" and row["method"] == "POST" for row in ROUTE_CATALOG)
+
+
+def test_evidence_wrapped_claim_is_not_a_false_negative():
+    """An evidence-carrying declaration must be read by its asserted value.
+
+    Reviewed/migrated labels record why a dimension is claimed
+    ({"value": ..., "basis": ..., "evidence": ...}). Comparing that envelope
+    instead of the value turned an exact match into `not_supported` -- a false
+    clean negative, worse than `insufficient_metadata` because it asserts a
+    check ran and failed when the declaration actually satisfies the need.
+    """
+    row = {
+        "dataset_id": "wrapped",
+        "materialization": {"query_ready": True, "query_verified": True},
+        "coverage_metadata": {
+            "frequency": {"value": "weekly", "basis": "observed_from_file",
+                          "evidence": "median gap 7d between consecutive dates"},
+            "time_range": {"value": {"start": "2018", "end": "2026"},
+                           "basis": "observed_from_file", "evidence": "week_end spans 2018..2026"},
+        },
+    }
+    req = requirement(frequency="weekly", time_range={"start": "2018", "end": "2026"})
+    out = assess_held_evidence(Gateway([row]), question="weekly 2018-2026", requirement=req)
+    assert out["verdict"] == "covered"
+    assert out["assessment_basis"]["dimension_status"]["frequency"] == "supported"
+    assert out["assessment_basis"]["dimension_status"]["time_range"] == "supported"
+
+
+def test_wrapped_and_bare_claims_agree():
+    """The envelope must not change the verdict relative to a bare value."""
+    req = requirement(frequency="weekly")
+    mat = {"query_ready": True, "query_verified": True}
+    bare = {"dataset_id": "bare", "materialization": mat,
+            "coverage_metadata": {"frequency": "weekly"}}
+    wrapped = {"dataset_id": "wrapped", "materialization": mat,
+               "coverage_metadata": {"frequency": {"value": "weekly", "evidence": "e"}}}
+    a = assess_held_evidence(Gateway([bare]), question="weekly", requirement=req)
+    b = assess_held_evidence(Gateway([wrapped]), question="weekly", requirement=req)
+    assert a["verdict"] == b["verdict"] == "covered"
+
+
+def test_time_range_mapping_is_not_mistaken_for_an_envelope():
+    """time_range is genuinely a mapping; it has no `value` key and must survive."""
+    row = {"dataset_id": "tr", "materialization": {"query_ready": True, "query_verified": True},
+           "coverage_metadata": {"time_range": {"start": "2010", "end": "2030"}}}
+    out = assess_held_evidence(Gateway([row]), question="range",
+                               requirement=requirement(time_range={"start": "2018", "end": "2026"}))
+    assert out["assessment_basis"]["dimension_status"]["time_range"] == "supported"
+
+
+def test_wrapped_mismatch_still_reports_not_supported():
+    """Unwrapping must not turn a genuine mismatch into a pass."""
+    row = {"dataset_id": "wrong", "materialization": {"query_ready": True, "query_verified": True},
+           "coverage_metadata": {"frequency": {"value": "monthly", "evidence": "e"}}}
+    out = assess_held_evidence(Gateway([row]), question="weekly",
+                               requirement=requirement(frequency="weekly"))
+    assert out["assessment_basis"]["dimension_status"]["frequency"] == "not_supported"
