@@ -64,6 +64,15 @@ def test_duplicate_dataset_disagreement_is_rejected_before_migration() -> None:
     assert rejected[0]["reasons"] == ["duplicate records disagree on coverage"]
 
 
+def test_any_invalid_record_blocks_partial_dataset_migration() -> None:
+    labels, rejected = normalize_labels([
+        {"dataset_id": "asset-a", "frequency": "daily"},
+        {"dataset_id": "asset-a", "dimension": "frequency"},
+    ])
+    assert labels == []
+    assert rejected[0]["dataset_id"] == "asset-a"
+
+
 def test_orphan_is_expected() -> None:
     result = migrate(
         registry({"dataset_id": "asset-a"}),
