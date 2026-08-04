@@ -133,12 +133,39 @@ def query_topic_tokens(query: str) -> set[str]:
 
 
 def query_geography_ok(row: dict[str, Any], query: str) -> bool:
-    """A named geography is a requirement, not an optional ranking boost."""
+    """A named geography is a requirement, but naming two is not a demand for both.
+
+    This stays a filter rather than a ranking boost: a Korea question should not
+    return Taiwan panels.  It requires *any* named geography rather than all of
+    them, because requiring all made every multi-country question unanswerable.
+
+    Measured against the live registry, ``all()`` returned zero rows for "Taiwan
+    and Japan" -- each country matches datasets on its own, but no single row
+    mentions both -- and zero was the answer for five of ten realistic faculty
+    questions.  A dataset covering Taiwan is a legitimate partial answer to a
+    Taiwan-and-Japan question; reporting which part is missing is the coverage
+    assessment's job, and it can say nothing about rows retrieval already threw
+    away.
+    """
     required = _query_geography_rules(query)
     if not required:
         return True
     blob = _row_blob_raw(row).translate(SUBSCRIPT_DIGITS)
-    return all(bool(rule[2].search(blob) or (rule[3] and rule[3].search(blob))) for rule in required)
+    return any(bool(rule[2].search(blob) or (rule[3] and rule[3].search(blob))) for rule in required)
+
+
+def query_geography_match_count(row: dict[str, Any], query: str) -> int:
+    """How many named geographies a row satisfies, for ranking above the filter.
+
+    Preserves the precision intent of demanding geography evidence: a row
+    matching both Taiwan and Japan should outrank one matching only Taiwan,
+    without the single-match row being deleted from the results entirely.
+    """
+    required = _query_geography_rules(query)
+    if not required:
+        return 0
+    blob = _row_blob_raw(row).translate(SUBSCRIPT_DIGITS)
+    return sum(bool(rule[2].search(blob) or (rule[3] and rule[3].search(blob))) for rule in required)
 
 
 def _row_blob_raw(row: dict[str, Any]) -> str:

@@ -202,3 +202,104 @@ def test_successful_smoke_is_passed_through(monkeypatch):
         lambda *a, **k: {"ok": True, "rows": 3},
     )
     assert m._prove_smoke(Path("/tmp"), {"dataset_id": "a", "backend": "local_csv_file"})["ok"] is True
+
+
+# --- retrieval: named geography is a filter, not a conjunction -----------------
+#
+# dd8ad72 made a named geography a hard requirement to stop a Korea question
+# returning Taiwan panels. Correct intent, but it required ALL named
+# geographies, so "Taiwan and Japan" demanded one row mentioning both. Measured
+# on the live registry that returned 0 rows, and 5 of 10 realistic faculty
+# questions returned nothing at all. Retrieval returning zero also silences the
+# coverage assessment, which can only report on rows it is given.
+
+def _geo_row(text: str) -> dict:
+    return {"name": text, "dataset_id": "x", "description": text}
+
+
+def test_multiple_named_geographies_do_not_require_one_row_to_have_both():
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    row = _geo_row("Taiwan listed company governance panel")
+    assert query_geography_ok(row, "governance data for Taiwan and Japan")
+
+
+def test_unrelated_geography_is_still_excluded():
+    """The precision win dd8ad72 bought must survive."""
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    row = _geo_row("Taiwan listed company governance panel")
+    assert not query_geography_ok(row, "Korean chaebol ownership structure")
+
+
+def test_single_named_geography_behaviour_is_unchanged():
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    row = _geo_row("Taiwan listed company governance panel")
+    assert query_geography_ok(row, "Taiwan governance disclosures")
+
+
+def test_query_without_geography_matches_everything():
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    assert query_geography_ok(_geo_row("anything at all"), "daily returns panel")
+
+
+def test_row_matching_more_geographies_ranks_higher():
+    """Requiring both is wrong; preferring both is right."""
+    from scripts.research_data_mcp.procurement_search import query_geography_match_count
+
+    q = "news shocks for Taiwan and Japan"
+    both = _geo_row("Asia panel covering Taiwan and Japan equities")
+    one = _geo_row("Taiwan only equity panel")
+    assert query_geography_match_count(both, q) > query_geography_match_count(one, q)
+
+
+# --- retrieval: named geography is a filter, not a conjunction -----------------
+#
+# dd8ad72 made a named geography a hard requirement so a Korea question would not
+# return Taiwan panels. Right intent, but it required ALL named geographies, so
+# "Taiwan and Japan" demanded a single row mentioning both. On the live registry
+# that returned 0 rows, and 5 of 10 realistic faculty questions returned nothing.
+# Zero retrieval also silences the coverage assessment, which can only report on
+# rows it is handed.
+
+def _geo_row(text: str) -> dict:
+    return {"name": text, "dataset_id": "x", "description": text}
+
+
+def test_multiple_named_geographies_do_not_require_one_row_to_have_both():
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    assert query_geography_ok(_geo_row("Taiwan listed company governance panel"),
+                              "governance data for Taiwan and Japan")
+
+
+def test_unrelated_geography_is_still_excluded():
+    """The precision win dd8ad72 bought must survive."""
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    assert not query_geography_ok(_geo_row("Taiwan listed company governance panel"),
+                                  "Korean chaebol ownership structure")
+
+
+def test_single_named_geography_behaviour_is_unchanged():
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    assert query_geography_ok(_geo_row("Taiwan listed company governance panel"),
+                              "Taiwan governance disclosures")
+
+
+def test_query_without_geography_matches_everything():
+    from scripts.research_data_mcp.procurement_search import query_geography_ok
+
+    assert query_geography_ok(_geo_row("anything at all"), "daily returns panel")
+
+
+def test_row_matching_more_geographies_ranks_higher():
+    """Requiring both is wrong; preferring both is right."""
+    from scripts.research_data_mcp.procurement_search import query_geography_match_count
+
+    q = "news shocks for Taiwan and Japan"
+    assert (query_geography_match_count(_geo_row("Asia panel covering Taiwan and Japan equities"), q)
+            > query_geography_match_count(_geo_row("Taiwan only equity panel"), q))
