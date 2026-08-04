@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from pathlib import Path
@@ -60,6 +61,60 @@ def bulk_data_lake_root() -> Path | None:
 
 def local_data_lake_root(repo_root: Path) -> Path:
     return (repo_root / "data_lake").resolve()
+
+
+def _configured_data_roots(repo_root: Path) -> list[str]:
+    """Extra repo roots declared in ``config/storage_tiers.json``.
+
+    Read with plain ``json`` rather than importing ``storage_tiers``, which
+    imports this module.
+    """
+    path = repo_root / "config" / "storage_tiers.json"
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    roots = ((cfg.get("tiers") or {}).get("hot") or {}).get("data_roots") or []
+    return [str(r) for r in roots if r]
+
+
+def data_lake_search_roots(repo_root: Path) -> list[Path]:
+    """Repo roots to search for an existing ``data_lake`` tree, in priority order.
+
+    Several checkouts share one registry by symlink -- the front door, the
+    security checkout and the runtime-integration checkout all resolve
+    ``config/research_query_registry.json`` to the same file -- while each keeps
+    its own ``data_lake``.  Registry paths are relative, so they resolved against
+    whichever checkout happened to be serving, and the serving checkout holds a
+    near-empty stub.  The result was that a dataset's bytes existed on disk and
+    the probe still reported it unavailable.
+
+    ``repo_root`` is always first, so anything that resolves today keeps
+    resolving to exactly the same file and no currently-working path changes.
+    Additional roots are consulted only when the repo-local path does not exist.
+    """
+    roots: list[Path] = [Path(repo_root)]
+    env = (os.environ.get("RESEARCH_DATA_ROOTS") or os.environ.get("RESEARCH_DATA_ROOT") or "").strip()
+    raw = [part for part in env.split(os.pathsep) if part.strip()]
+    raw.extend(_configured_data_roots(repo_root))
+    for entry in raw:
+        candidate = Path(entry).expanduser()
+        if not candidate.is_absolute():
+            candidate = (repo_root / candidate)
+        roots.append(candidate)
+    seen: set[str] = set()
+    ordered: list[Path] = []
+    for root in roots:
+        try:
+            resolved = root.resolve()
+        except OSError:
+            continue
+        key = str(resolved)
+        if key in seen or not resolved.is_dir():
+            continue
+        seen.add(key)
+        ordered.append(resolved)
+    return ordered
 
 
 def resolve_data_path(repo_root: Path, value: str | Path) -> Path:

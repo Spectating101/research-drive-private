@@ -25,7 +25,11 @@
         "data_lake/analytics_pack",
         "data_lake/prediction_markets",
         "data_lake/research_panels"
-      ]
+      ],
+      "data_roots": [
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance"
+      ],
+      "data_roots_note": "Additional repo roots searched when a registry path does not exist under the serving checkout. Several checkouts share one registry by symlink but keep separate data_lake trees, so relative paths resolved against whichever checkout was serving and reported held data as missing. The serving checkout is always searched first, so nothing that already resolves changes, and writes still land locally. Override or extend with RESEARCH_DATA_ROOTS (os.pathsep-separated)."
     },
     "canonical": {
       "label": "Google Drive vault",

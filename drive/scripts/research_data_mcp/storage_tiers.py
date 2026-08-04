@@ -13,6 +13,7 @@ from scripts.research_data_mcp.data_paths import (
     MARKER,
     bulk_data_lake_root,
     bulk_storage_root,
+    data_lake_search_roots,
     local_data_lake_root,
 )
 
@@ -85,32 +86,71 @@ def gdelt_normalized_drive_roots(repo_root: Path) -> list[str]:
     return []
 
 
+_GLOB_CHARS = ("*", "?", "[")
+
+
+def _existence_target(candidate: Path) -> Path:
+    """The path whose existence decides whether a candidate root holds this data.
+
+    Registry entries for glob backends carry patterns (``data_lake/opensea/*``),
+    and a pattern never exists as a literal path -- so testing it directly makes
+    every glob dataset fall through to the repo-local root no matter which root
+    actually holds the bytes.  Testing the longest wildcard-free prefix asks the
+    real question: does this root contain the directory the pattern reaches into?
+    """
+    parts = candidate.parts
+    for index, part in enumerate(parts):
+        if any(char in part for char in _GLOB_CHARS):
+            return Path(*parts[:index]) if index else candidate
+    return candidate
+
+
 def resolve_data_path_tiered(repo_root: Path, value: str | Path) -> Path:
-    """Resolve registry paths: hot → NVMe; bulk → cache when mounted and present; else NVMe."""
+    """Resolve registry paths: hot → NVMe; bulk → cache when mounted and present; else NVMe.
+
+    Reads search sibling data roots when the repo-local path does not exist.
+    Checkouts share one registry by symlink but keep separate ``data_lake``
+    trees, so a relative registry path resolved against whichever checkout was
+    serving -- and the serving checkout holds a stub.  Datasets whose bytes were
+    present on disk were reported unavailable purely because of which directory
+    the process started in.
+
+    ``repo_root`` stays first in the search order and an unmatched path still
+    resolves repo-local, so every path that resolves today resolves identically
+    and writes continue to land in the running checkout.  This only adds a
+    fallback where the previous answer was a file that does not exist.
+    """
     p = Path(value)
     if p.is_absolute():
         return p.resolve()
 
     rel = _norm_rel(p)
     local_target = (repo_root / rel).resolve()
-    if is_hot_path(repo_root, rel):
-        return local_target
+    hot = is_hot_path(repo_root, rel)
 
+    candidates: list[Path] = []
+    cache_target: Path | None = None
+    suffix = ""
     if rel == "data_lake" or rel.startswith("data_lake/"):
         suffix = rel.removeprefix("data_lake/").removeprefix("data_lake")
         bulk = bulk_data_lake_root()
         cfg = load_storage_tiers(repo_root)
         prefer_cache = bool((cfg.get("rules") or {}).get("prefer_cache_for_bulk_reads", True))
-        if bulk is not None and prefer_cache and is_bulk_cache_path(repo_root, rel):
+        if bulk is not None and prefer_cache and not hot and is_bulk_cache_path(repo_root, rel):
             cache_target = (bulk / suffix).resolve() if suffix else bulk
-            if cache_target.exists():
-                return cache_target
-            # USB mounted but tree missing — fall back to NVMe mirror/stub
-            if local_target.exists():
-                return local_target
-            parent = cache_target.parent
-            if suffix and parent.is_dir() and any(parent.iterdir()):
-                return cache_target
+            candidates.append(cache_target)
+
+    candidates.extend((root / rel).resolve() for root in data_lake_search_roots(repo_root))
+    for candidate in candidates:
+        if _existence_target(candidate).exists():
+            return candidate
+
+    # USB mounted with a partially hydrated tree: keep pointing at the cache slot
+    # so a hydrating writer lands beside its siblings rather than on NVMe.
+    if cache_target is not None and suffix:
+        parent = cache_target.parent
+        if parent.is_dir() and any(parent.iterdir()):
+            return cache_target
     return local_target
 
 

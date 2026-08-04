@@ -29,6 +29,36 @@ def _stamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _has_bytes(path: Path, *, max_entries: int = 2000) -> bool:
+    """Whether a glob match represents real materialized data.
+
+    Many collections are written as timestamped run directories, so the pattern
+    ``data_lake/entity_mapping/asia/*`` matches directories rather than files.
+    Counting only ``is_file()`` scored those datasets as unmaterialized while
+    their bytes sat one level down -- reporting "not held" for data the desk
+    does hold, which is the failure this probe exists to prevent.
+
+    The walk stops at the first non-empty file, and is bounded so a pathological
+    tree cannot stall a registry sync.
+    """
+    try:
+        if path.is_file():
+            return path.stat().st_size > 0
+        if not path.is_dir():
+            return False
+        for index, child in enumerate(path.rglob("*")):
+            if index >= max_entries:
+                break
+            try:
+                if child.is_file() and child.stat().st_size > 0:
+                    return True
+            except OSError:
+                continue
+    except OSError:
+        return False
+    return False
+
+
 def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
     did = str(ds.get("dataset_id") or "")
     backend = str(ds.get("backend") or "")
@@ -81,7 +111,7 @@ def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
                 out["error"] = "missing local_path glob pattern"
                 return out
             matches = [Path(p) for p in globmod.glob(str(engine._resolve(pattern)))]
-            usable = [p for p in matches if p.is_file() and p.stat().st_size > 0]
+            usable = [p for p in matches if _has_bytes(p)]
             out.update(
                 {
                     "query_ready": len(usable) > 0,
