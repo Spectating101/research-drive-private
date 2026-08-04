@@ -1408,6 +1408,7 @@ def _handlers() -> dict[str, Handler]:
         "library_unified_search": library_unified_search,
         "library_discover": library_discover,
         "library_discover_assessment": library_discover_assessment,
+        "library_discover_routes": library_discover_routes,
         "library_discover_semantic": library_discover_semantic,
         "library_discover_web": library_discover_web,
         "library_discover_probe": library_discover_probe,
