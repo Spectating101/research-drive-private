@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 import re
 from pathlib import Path
@@ -14,6 +16,9 @@ from scripts.research_data_mcp.search import SearchService
 from scripts.research_query_engine.agent import AgentOrchestrator
 from scripts.research_query_engine.engine import ResearchQueryEngine
 from scripts.yzu_cluster.api import YzuClusterAPI
+
+
+_LOG = logging.getLogger(__name__)
 
 
 class ResearchDataGateway:
@@ -615,6 +620,61 @@ class ResearchDataGateway:
             out["routed_via"] = "unified_dataset_search+discover_profile"
         return out
 
+    def _augment_with_catalog_reader(
+        self, query: str, candidates: list[dict[str, Any]], *, limit: int = 12
+    ) -> list[dict[str, Any]]:
+        """Add datasets the lexical path missed, by reading the whole catalog.
+
+        Measured on 16 questions: reading the catalog answered 10/10 real
+        questions while the lexical path answered 2/6 -- and its failures were
+        empty results, not wrong ones, because the index, relevance threshold
+        and geography rules each filter independently and any one returning
+        nothing ends the query.
+
+        This augments rather than replaces. Lexical hits keep their order and
+        scores, so nothing that works today changes; the reader only appends
+        datasets the lexical path did not find. Keyword queries never reach it
+        (they already return instantly), and any failure leaves the lexical
+        result exactly as it was -- a slow or unreachable model should cost
+        recall, not the search.
+        """
+        from scripts.research_data_mcp import catalog_select
+
+        if not catalog_select.enabled() or not catalog_select.is_question_like(query):
+            return candidates
+        try:
+            rows = [
+                d for d in (self.engine.list_datasets() or [])
+                if isinstance(d, dict) and d.get("professor_visible")
+            ]
+            if not rows:
+                return candidates
+            picked = catalog_select.select(query, rows, top=limit)
+            by_id = {str(d.get("dataset_id")): d for d in rows}
+            seen = {str(c.get("dataset_id") or "") for c in candidates}
+            for sel in picked.get("selected") or []:
+                dataset_id = sel.get("dataset_id") or ""
+                row = by_id.get(dataset_id)
+                if not row or dataset_id in seen:
+                    continue
+                seen.add(dataset_id)
+                materialization = row.get("materialization") or {}
+                candidates.append({
+                    "kind": "dataset",
+                    "dataset_id": dataset_id,
+                    "title": row.get("name") or dataset_id,
+                    "source": row.get("source_system") or "registry",
+                    "collect_via": "local_open" if materialization.get("query_ready") else "",
+                    "local_path": row.get("local_path") or row.get("local_root") or "",
+                    "local_ready": bool(materialization.get("query_ready")),
+                    "score": 0.0,
+                    "selected_by": "catalog_reader",
+                    "selection_reason": sel.get("reason") or "",
+                })
+        except Exception:  # noqa: BLE001 - never fail a search on the reader
+            _LOG.debug("catalog reader augmentation failed", exc_info=True)
+        return candidates[:limit] if limit else candidates
+
     def discover_search(
         self,
         query: str,
@@ -634,6 +694,7 @@ class ResearchDataGateway:
         profile = resolve_profile(email=normalize_email(email)) if email else None
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
+        candidates = self._augment_with_catalog_reader(query, candidates, limit=limit)
         sections: list[dict[str, Any]] = []
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
