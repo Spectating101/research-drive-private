@@ -377,6 +377,7 @@ def migrate(
     source_sha256: str | None = None,
     selected_ids: set[str] | None = None,
     max_changes: int | None = None,
+    exclude_dimensions: set[str] | None = None,
 ) -> dict[str, Any]:
     input_registry = copy.deepcopy(dict(registry))
     candidate = copy.deepcopy(input_registry)
@@ -391,6 +392,25 @@ def migrate(
 
     input_label_record_count = sum(1 for _ in _iter_records(label_payload))
     labels, rejected = normalize_labels(label_payload)
+    withheld = {DIMENSION_ALIASES.get(d, d) for d in (exclude_dimensions or set())}
+    withheld_counts: dict[str, int] = {}
+    if withheld:
+        # A dimension may be reviewed yet not fit to compare against: the label
+        # corpus records geography as prose ("Asia (country-level)") while the
+        # matcher resolves ISO3 codes, so migrating it would assert a constraint
+        # that can never match and turn held data into a confident negative.
+        # Withholding is recorded in the report so the omission is auditable
+        # rather than silent.
+        kept: list[dict[str, Any]] = []
+        for label in labels:
+            coverage = label.get("coverage") or {}
+            for dimension in list(coverage):
+                if dimension in withheld:
+                    coverage.pop(dimension)
+                    withheld_counts[dimension] = withheld_counts.get(dimension, 0) + 1
+            if coverage:
+                kept.append(label)
+        labels = kept
     details: list[dict[str, Any]] = []
     forward: list[dict[str, Any]] = []
     rollback: list[dict[str, Any]] = []
@@ -549,6 +569,7 @@ def migrate(
             "candidate_registry_sha256": candidate_registry_sha256,
             "registry_changed": input_registry_sha256 != candidate_registry_sha256,
             "counts": counts,
+            "withheld_dimensions": dict(sorted(withheld_counts.items())),
             "details": details,
             "rejected": rejected,
             "changed_dataset_ids": [item["dataset_id"] for item in forward],
@@ -606,6 +627,12 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--rollback-patch", type=Path)
     result.add_argument("--dataset-id", action="append", dest="dataset_ids")
     result.add_argument("--max-changes", type=int)
+    result.add_argument(
+        "--exclude-dimension",
+        action="append",
+        dest="exclude_dimensions",
+        help="Withhold a reviewed dimension from migration (repeatable). Recorded in the report.",
+    )
     return result
 
 
@@ -624,6 +651,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_sha256=_hash(args.labels),
         selected_ids=set(args.dataset_ids or ()) or None,
         max_changes=args.max_changes,
+        exclude_dimensions=set(args.exclude_dimensions or ()) or None,
     )
     _write(args.report, result["report"])
     if args.candidate:

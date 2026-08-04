@@ -216,3 +216,70 @@ def test_cli_refuses_output_path_collisions(tmp_path: Path) -> None:
             "--report", str(output_path),
             "--candidate", str(output_path),
         ])
+
+
+# --- withholding a reviewed-but-unusable dimension ----------------------------
+#
+# All 60 geography values in the reviewed label corpus are prose ("Asia
+# (country-level)", "country-level", "Sepolia testnet") while the matcher
+# resolves ISO 3166-1 alpha-3 codes. Migrating them would assert a constraint
+# that can never match, turning held data into a confident negative -- the same
+# false-clean-negative class the assessment engine exists to prevent.
+
+def test_excluded_dimension_is_not_written() -> None:
+    result = migrate(
+        registry({"dataset_id": "asset-a", "name": "A"}),
+        [{"dataset_id": "asset-a",
+          "coverage_metadata": {"unit": "firm_day", "geography": ["Asia (country-level)"]}}],
+        source_sha256="abc",
+        exclude_dimensions={"universe/geography"},
+    )
+    coverage = result["candidate_registry"]["datasets"][0]["coverage_metadata"]
+    assert "universe/geography" not in coverage
+    assert coverage["unit"] == "firm_day"
+
+
+def test_exclusion_accepts_the_label_side_alias() -> None:
+    """Labels say "geography"; the registry says "universe/geography"."""
+    result = migrate(
+        registry({"dataset_id": "asset-a"}),
+        [{"dataset_id": "asset-a",
+          "coverage_metadata": {"unit": "firm_day", "geography": ["TWN"]}}],
+        source_sha256="abc",
+        exclude_dimensions={"geography"},
+    )
+    assert "universe/geography" not in result["candidate_registry"]["datasets"][0]["coverage_metadata"]
+
+
+def test_withholding_is_reported_not_silent() -> None:
+    result = migrate(
+        registry({"dataset_id": "asset-a"}),
+        [{"dataset_id": "asset-a",
+          "coverage_metadata": {"unit": "firm_day", "geography": ["Asia"]}}],
+        source_sha256="abc",
+        exclude_dimensions={"universe/geography"},
+    )
+    assert result["report"]["withheld_dimensions"] == {"universe/geography": 1}
+
+
+def test_row_whose_only_dimension_is_withheld_is_not_changed() -> None:
+    """Withholding must not write an empty coverage block."""
+    result = migrate(
+        registry({"dataset_id": "asset-a", "name": "A"}),
+        [{"dataset_id": "asset-a", "coverage_metadata": {"geography": ["Asia"]}}],
+        source_sha256="abc",
+        exclude_dimensions={"universe/geography"},
+    )
+    assert result["report"]["counts"].get("changed", 0) == 0
+    assert "coverage_metadata" not in result["candidate_registry"]["datasets"][0]
+
+
+def test_no_exclusion_still_migrates_geography() -> None:
+    result = migrate(
+        registry({"dataset_id": "asset-a"}),
+        [{"dataset_id": "asset-a", "coverage_metadata": {"geography": ["TWN"]}}],
+        source_sha256="abc",
+    )
+    coverage = result["candidate_registry"]["datasets"][0]["coverage_metadata"]
+    assert coverage["universe/geography"] == ["TWN"]
+    assert result["report"]["withheld_dimensions"] == {}
