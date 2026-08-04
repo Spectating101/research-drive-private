@@ -82,3 +82,36 @@ def test_licensed_sources_are_offered_as_a_request_not_a_click(tmp_path, monkeyp
     by = {r["source_id"]: r for r in out["routes"]}
     assert by["crsp_moveit"]["action"] == "collect"
     assert by["wrds_crsp_compustat"]["action"] == "request_access"
+
+
+def test_unassessed_question_is_not_reported_as_nothing_missing(tmp_path):
+    """Not knowing and having everything must not share an answer.
+
+    "patent citation networks for innovation research" returned no gaps against
+    a catalog holding no patent data, because the requirement was never
+    established. That reads to a researcher as "you have this".
+    """
+    from scripts.research_data_mcp.gap_routes import routes_for_gaps
+
+    root = _repo(tmp_path, {"gdelt": {"access_mode": "materialized_bulk"}})
+    out = routes_for_gaps(
+        "patent citation networks",
+        {"assessment_status": "insufficient_requirement", "verdict": None},
+        root,
+    )
+    assert out["reason"] == "requirement_not_established"
+    assert out["routes"] == []
+    assert "not a statement that the data is held" in out["detail"]
+
+
+def test_genuinely_complete_coverage_still_reports_nothing_missing(tmp_path):
+    from scripts.research_data_mcp.gap_routes import routes_for_gaps
+
+    root = _repo(tmp_path, {"gdelt": {"access_mode": "materialized_bulk"}})
+    out = routes_for_gaps(
+        "covered question",
+        {"assessment_status": "assessed", "verdict": "covered",
+         "assessment_basis": {"dimension_status": {"unit": "supported"}}},
+        root,
+    )
+    assert out["reason"] == "nothing_missing"

@@ -133,6 +133,22 @@ def routes_for_gaps(
     """Propose a collection route per unmet requirement."""
     gaps = unmet_dimensions(assessment)
     sources = load_sources(repo_root)
+    status = str((assessment or {}).get("assessment_status") or "")
+    if status and status != "assessed":
+        # No requirement could be established, so no dimension was ever checked.
+        # Reporting "nothing_missing" here would tell a researcher their library
+        # covers data the desk does not hold -- "patent citation networks"
+        # returned no gaps against a catalog with no patent data at all. Not
+        # knowing and having everything must not share an answer.
+        return {
+            "gaps": [],
+            "routes": [],
+            "reason": "requirement_not_established",
+            "detail": (
+                "The question did not yield a checkable requirement, so coverage "
+                "was never assessed. This is not a statement that the data is held."
+            ),
+        }
     if not gaps:
         return {"gaps": [], "routes": [], "reason": "nothing_missing"}
     if not sources:
