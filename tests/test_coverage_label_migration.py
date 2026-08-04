@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.research_data_mcp.coverage_label_migration import MigrationError, main, migrate, normalize_labels
+from scripts.research_data_mcp.coverage_label_migration import MigrationError, _json_sha256, main, migrate, normalize_labels
 
 
 def registry(*rows: dict) -> dict:
@@ -164,6 +164,28 @@ def test_unchanged_candidate_has_equal_fingerprints() -> None:
     )
     assert result["report"]["input_registry_sha256"] == result["report"]["candidate_registry_sha256"]
     assert result["report"]["registry_changed"] is False
+
+
+def test_semantically_equivalent_claim_order_and_case_are_not_conflicts() -> None:
+    result = migrate(
+        registry({
+            "dataset_id": "asset-a",
+            "evidence_coverage": {
+                "fields": ["Volume", "Price"],
+                "geography": ["Taiwan", "Japan"],
+            },
+        }),
+        [{
+            "dataset_id": "asset-a",
+            "fields": ["price", "volume"],
+            "universe/geography": ["japan", "taiwan"],
+        }],
+    )
+    assert result["report"]["counts"] == {"already_present": 1, "rejected_invalid": 0}
+
+
+def test_registry_fingerprint_preserves_empty_structural_drift() -> None:
+    assert _json_sha256({"datasets": [], "note": ""}) != _json_sha256({"datasets": []})
 
 
 def test_cli_refuses_in_place_registry_write(tmp_path: Path) -> None:
