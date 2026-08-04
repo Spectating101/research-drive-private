@@ -31,9 +31,11 @@ genuinely need retrieval; only the internal catalog is small enough to read.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import time
 from typing import Any, Iterable, Sequence
 
 DEFAULT_MODEL = "composer-2.5"
@@ -120,6 +122,59 @@ def parse_selection(text: str, valid_ids: set[str]) -> list[dict[str, str]]:
     return out
 
 
+CACHE_REL = "data_lake/procurement_memory/catalog_select_cache.json"
+CACHE_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _cache_key(question: str, catalog: str) -> str:
+    """Key on the question and the catalog it was answered against.
+
+    Including the catalog digest means a cached answer is invalidated the moment
+    the catalog changes -- a stale recommendation that omits a newly procured
+    dataset is exactly the failure a procurement desk cannot afford.
+    """
+    norm = " ".join(str(question or "").lower().split())
+    digest = hashlib.sha256(catalog.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(f"{norm}::{digest}".encode("utf-8")).hexdigest()[:32]
+
+
+def _cache_path(repo_root: Any) -> Any:
+    from pathlib import Path
+
+    return Path(repo_root) / CACHE_REL
+
+
+def _cache_get(repo_root: Any, key: str) -> list[dict[str, str]] | None:
+    try:
+        doc = json.loads(_cache_path(repo_root).read_text(encoding="utf-8"))
+        entry = (doc.get("entries") or {}).get(key)
+        if not entry:
+            return None
+        if time.time() - float(entry.get("at") or 0) > CACHE_TTL_SECONDS:
+            return None
+        return entry.get("selected") or []
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _cache_put(repo_root: Any, key: str, selected: list[dict[str, str]]) -> None:
+    try:
+        path = _cache_path(repo_root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            doc = {}
+        entries = doc.setdefault("entries", {})
+        entries[key] = {"at": time.time(), "selected": selected}
+        if len(entries) > 500:
+            for stale in sorted(entries, key=lambda k: entries[k].get("at", 0))[:100]:
+                entries.pop(stale, None)
+        path.write_text(json.dumps(doc), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def select(
     question: str,
     datasets: Sequence[dict[str, Any]],
@@ -127,6 +182,7 @@ def select(
     top: int = 6,
     model: str | None = None,
     timeout: float = 120.0,
+    repo_root: Any | None = None,
 ) -> dict[str, Any]:
     """Pick the datasets that answer ``question`` by reading the whole catalog."""
     valid_ids = {str(d.get("dataset_id") or "") for d in datasets if isinstance(d, dict)}
@@ -134,6 +190,13 @@ def select(
     catalog = build_catalog_text(datasets)
     if not catalog:
         return {"selected": [], "reason": "empty_catalog"}
+
+    key = _cache_key(question, catalog)
+    if repo_root is not None:
+        cached = _cache_get(repo_root, key)
+        if cached is not None:
+            return {"selected": cached[:top], "catalog_rows": len(catalog.splitlines()),
+                    "reason": "cache_hit"}
 
     from scripts.research_data_mcp.requirement_extraction import (
         ExtractionUnavailable,
@@ -147,6 +210,8 @@ def select(
         return {"selected": [], "reason": f"backend_unavailable: {exc}"}
 
     selected = parse_selection(raw, valid_ids)
+    if repo_root is not None and selected:
+        _cache_put(repo_root, key, selected)
     return {
         "selected": selected[:top],
         "catalog_rows": len(catalog.splitlines()),

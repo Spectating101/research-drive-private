@@ -71,3 +71,40 @@ def test_keyword_queries_stay_on_the_fast_lexical_path():
 
 def test_disabled_by_default():
     assert not enabled()
+
+
+# --- caching: repeats must not pay the model latency twice ---------------------
+
+def test_cache_key_changes_when_the_catalog_changes(tmp_path):
+    """A cached answer that omits a newly procured dataset is the one failure
+    a procurement desk cannot afford, so the key includes the catalog digest."""
+    from scripts.research_data_mcp.catalog_select import _cache_key
+
+    a = _cache_key("taiwan news shocks", "a | g | one")
+    b = _cache_key("taiwan news shocks", "a | g | one\nb | g | two")
+    assert a != b
+
+
+def test_cache_key_ignores_casing_and_spacing():
+    from scripts.research_data_mcp.catalog_select import _cache_key
+
+    assert _cache_key("Taiwan  News Shocks", "cat") == _cache_key("taiwan news shocks", "cat")
+
+
+def test_cache_round_trip_and_expiry(tmp_path):
+    from scripts.research_data_mcp.catalog_select import _cache_get, _cache_put, _cache_path
+    import json as _json
+
+    _cache_put(tmp_path, "k", [{"dataset_id": "a", "reason": "r"}])
+    assert _cache_get(tmp_path, "k") == [{"dataset_id": "a", "reason": "r"}]
+
+    doc = _json.loads(_cache_path(tmp_path).read_text())
+    doc["entries"]["k"]["at"] = 0          # older than the TTL
+    _cache_path(tmp_path).write_text(_json.dumps(doc))
+    assert _cache_get(tmp_path, "k") is None
+
+
+def test_missing_cache_file_is_not_an_error(tmp_path):
+    from scripts.research_data_mcp.catalog_select import _cache_get
+
+    assert _cache_get(tmp_path / "nope", "k") is None

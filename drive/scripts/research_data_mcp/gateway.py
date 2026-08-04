@@ -649,7 +649,7 @@ class ResearchDataGateway:
             ]
             if not rows:
                 return candidates
-            picked = catalog_select.select(query, rows, top=limit)
+            picked = catalog_select.select(query, rows, top=limit, repo_root=self.repo_root)
             by_id = {str(d.get("dataset_id")): d for d in rows}
             seen = {str(c.get("dataset_id") or "") for c in candidates}
             for sel in picked.get("selected") or []:
