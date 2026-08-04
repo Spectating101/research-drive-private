@@ -145,7 +145,7 @@ def _coverage(record: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
         if dimension:
             _put_claim(coverage, dimension, value, source=key, errors=errors)
 
-    if "dimension" in record or "value" in record:
+    if "dimension" in record:
         _put_claim(
             coverage,
             _dimension(record.get("dimension") or record.get("key") or record.get("name")),
@@ -200,6 +200,7 @@ def normalize_labels(payload: Any) -> tuple[list[dict[str, Any]], list[dict[str,
 
     grouped: dict[str, dict[str, Any]] = {}
     rejected: list[dict[str, Any]] = []
+    invalid_sources: set[str] = set()
 
     for index, record in enumerate(_iter_records(payload)):
         source_id = _dataset_id(record)
@@ -208,6 +209,8 @@ def normalize_labels(payload: Any) -> tuple[list[dict[str, Any]], list[dict[str,
             errors.append("missing dataset_id")
         if errors:
             rejected.append({"index": index, "dataset_id": source_id, "reasons": errors})
+            if source_id:
+                invalid_sources.add(source_id)
             continue
 
         group = grouped.setdefault(
@@ -241,6 +244,8 @@ def normalize_labels(payload: Any) -> tuple[list[dict[str, Any]], list[dict[str,
 
     labels: list[dict[str, Any]] = []
     for source_id, group in grouped.items():
+        if source_id in invalid_sources:
+            continue
         if group["conflicts"]:
             rejected.append(
                 {
@@ -342,6 +347,7 @@ def migrate(
         for alias in _aliases(row):
             alias_index.setdefault(alias, set()).add(target)
 
+    input_label_record_count = sum(1 for _ in _iter_records(label_payload))
     labels, rejected = normalize_labels(label_payload)
     details: list[dict[str, Any]] = []
     forward: list[dict[str, Any]] = []
@@ -487,9 +493,6 @@ def migrate(
 
     input_registry_sha256 = _json_sha256(input_registry)
     candidate_registry_sha256 = _json_sha256(candidate)
-    input_label_record_count = sum(len(label["source_record_indices"]) for label in labels) + sum(
-        1 for item in rejected if "index" in item
-    )
 
     return {
         "candidate_registry": candidate,
