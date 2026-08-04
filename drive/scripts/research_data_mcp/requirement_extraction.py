@@ -164,6 +164,33 @@ def _cursor_key() -> str:
     return ""
 
 
+def run_cursor_prompt(prompt: str, model: str, timeout: float) -> str:
+    """Send an already-composed prompt to cursor-agent.
+
+    Callers that build their own prompt must use this rather than ``_run_cursor``,
+    which wraps its argument in the requirement-extraction template -- passing a
+    finished prompt there nests it inside another instruction set and the model
+    answers the wrong question.
+    """
+    binary = shutil.which("cursor-agent") or os.path.expanduser("~/.local/bin/cursor-agent")
+    if not os.path.exists(binary):
+        raise ExtractionUnavailable("cursor-agent not installed")
+    key = _cursor_key()
+    if not key:
+        raise ExtractionUnavailable("CURSOR_API_KEY is empty")
+    env = {**os.environ, "CURSOR_API_KEY": key}
+    try:
+        done = subprocess.run(
+            [binary, "-p", prompt, "--model", model, "--output-format", "text", "--trust"],
+            capture_output=True, text=True, timeout=timeout, env=env, cwd="/tmp",
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ExtractionUnavailable(f"cursor-agent timed out after {timeout}s") from exc
+    if done.returncode != 0:
+        raise ExtractionUnavailable(f"cursor-agent failed: {done.stderr[:200]}")
+    return done.stdout
+
+
 def _run_cursor(question: str, model: str, timeout: float) -> str:
     binary = shutil.which("cursor-agent") or os.path.expanduser("~/.local/bin/cursor-agent")
     if not os.path.exists(binary):
