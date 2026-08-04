@@ -13,10 +13,12 @@ misrepresent an absence of data as a checked-and-failed result.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 from typing import Any
 
+from scripts.research_data_mcp import requirement_extraction
 from scripts.research_data_mcp.requirement_vocabulary import (
     build_vocabulary,
     resolve_domains,
@@ -26,6 +28,8 @@ from scripts.research_data_mcp.requirement_vocabulary import (
     resolve_time_range,
     resolve_unit,
 )
+
+_LOG = logging.getLogger(__name__)
 
 
 DIMENSIONS = ("unit", "universe/geography", "time_range", "frequency", "fields", "event_type")
@@ -116,14 +120,38 @@ def draft_requirement_from_question(
 
     Vocabulary now comes from the registry (units, entity keys, tags) and from
     observed coverage (real ISO3 codes), so it grows with the corpus rather than
-    requiring a code change per country.  Still fully deterministic: no model
-    call and no external request, which also keeps research questions inside the
-    institution.
+    requiring a code change per country.
+
+    When ``RD_MODEL_DRAFTING`` is on, a model backend supplies the dimensions
+    the corpus layer could not resolve.  The corpus layer takes precedence where
+    it does resolve, because it emits canonical registry tokens -- real ``grain``
+    values and observed ISO3 codes -- which the comparison can actually match,
+    whereas a model returns descriptive prose (``"exchange-level turnover"``)
+    that matches nothing.  The model's value is reach into vocabulary no table
+    anticipates, not better tokens.
+
+    Model output is not trusted blindly: it passes a grounding check that drops
+    values the question does not textually support.  The observed failure mode of
+    weaker models was asserting a cadence or date range nobody wrote, and because
+    a requirement dimension is a *filter*, that silently narrows the search and
+    then reports a confident negative.
+
+    Model drafting degrades to the corpus layer on any backend failure rather
+    than raising: a slow or unreachable provider should cost vocabulary reach,
+    not the whole assessment.
 
     ``datasets`` is optional; without it, resolution falls back to the static
     ISO3/cadence reference and generic entity-cadence patterns.
     """
     text = str(question or "")
+    drafted: dict[str, dict[str, Any]] = {}
+    if requirement_extraction.enabled():
+        try:
+            drafted = requirement_extraction.extract_requirement(text)
+        except requirement_extraction.ExtractionUnavailable as exc:
+            _LOG.warning("model drafting unavailable, using corpus vocabulary: %s", exc)
+        except Exception:  # noqa: BLE001 - never let drafting break assessment
+            _LOG.exception("model drafting failed, using corpus vocabulary")
     vocabulary = build_vocabulary(datasets) if datasets else {}
     draft: dict[str, dict[str, Any]] = {}
 
@@ -137,6 +165,11 @@ def draft_requirement_from_question(
     _set("unit", resolve_unit(text, vocabulary))
     _set("fields", resolve_fields(text, vocabulary))
     _set("event_type", resolve_domains(text, vocabulary))
+
+    # Model drafting only reaches dimensions the corpus vocabulary left empty.
+    for dimension, entry in drafted.items():
+        if dimension in DIMENSIONS and dimension not in draft:
+            draft[dimension] = entry
     return draft
 
 

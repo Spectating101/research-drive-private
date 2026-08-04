@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from scripts.research_data_mcp.discover_assessment import assess_held_evidence, evidence_state, normalize_requirement
+from scripts.research_data_mcp import requirement_extraction
+from scripts.research_data_mcp.requirement_extraction import ground_check
+from scripts.research_data_mcp.discover_assessment import (
+    assess_held_evidence,
+    draft_requirement_from_question,
+    evidence_state,
+    normalize_requirement,
+)
 
 
 class Gateway:
@@ -327,3 +334,106 @@ def test_wrapped_mismatch_still_reports_not_supported():
     out = assess_held_evidence(Gateway([row]), question="weekly",
                                requirement=requirement(frequency="weekly"))
     assert out["assessment_basis"]["dimension_status"]["frequency"] == "not_supported"
+
+
+# --- Grounding floor over model drafting -------------------------------------
+#
+# Small local models invented dimensions the question never stated: a 3B emitted
+# time_range 2020-2022 for a question naming no years, a 7B emitted
+# frequency "daily" for three questions naming no cadence.  Frontier backends
+# (composer-2.5, grok-4.5, the copilot council) did not.  The check below runs
+# regardless of backend, because "we used a capable model" is a claim about the
+# model, not evidence about this particular answer.
+
+def test_invented_time_range_is_dropped():
+    """A year the question never states cannot be allowed to filter the search."""
+    out = ground_check(
+        "Korean chaebol firm returns",
+        {"time_range": {"value": {"start": "2020", "end": "2022"}, "provenance": "drafted"}},
+    )
+    assert "time_range" not in out
+
+
+def test_stated_time_range_survives():
+    out = ground_check(
+        "Korean chaebol firm returns 2020 to 2022",
+        {"time_range": {"value": {"start": "2020", "end": "2022"}, "provenance": "drafted"}},
+    )
+    assert out["time_range"]["value"] == {"start": "2020", "end": "2022"}
+
+
+def test_partially_grounded_time_range_is_dropped():
+    """Both endpoints must be stated; one invented bound still narrows the search."""
+    out = ground_check(
+        "exchange turnover since 2020",
+        {"time_range": {"value": {"start": "2020", "end": "2022"}, "provenance": "drafted"}},
+    )
+    assert "time_range" not in out
+
+
+def test_invented_frequency_is_dropped():
+    """The exact fabrication a 7B model produced three times out of five."""
+    out = ground_check(
+        "Hong Kong and Singapore exchange turnover",
+        {"frequency": {"value": "daily", "provenance": "drafted"}},
+    )
+    assert "frequency" not in out
+
+
+def test_stated_frequency_survives():
+    out = ground_check(
+        "Hong Kong daily exchange turnover",
+        {"frequency": {"value": "daily", "provenance": "drafted"}},
+    )
+    assert out["frequency"]["value"] == "daily"
+
+
+def test_frequency_grounded_by_word_root_not_exact_spelling():
+    """"by issuer quarter" justifies quarterly; both frontier models emitted it."""
+    out = ground_check(
+        "stablecoin de-peg events by issuer quarter",
+        {"frequency": {"value": "quarterly", "provenance": "drafted"}},
+    )
+    assert out["frequency"]["value"] == "quarterly"
+
+
+def test_grounding_leaves_unchecked_dimensions_alone():
+    """Only the two observed failure modes are policed; the rest pass through."""
+    draft = {
+        "universe/geography": {"value": ["HKG", "SGP"], "provenance": "drafted"},
+        "event_type": {"value": ["wash_trading"], "provenance": "drafted"},
+    }
+    assert ground_check("Hong Kong and Singapore exchange turnover", draft) == draft
+
+
+def test_drafting_is_off_unless_explicitly_enabled():
+    """Assessment must not acquire a network dependency by default."""
+    assert not requirement_extraction.enabled()
+
+
+def test_backend_failure_degrades_to_corpus_vocabulary(monkeypatch):
+    """A slow or unreachable provider costs vocabulary reach, not the assessment."""
+    monkeypatch.setattr(requirement_extraction, "enabled", lambda: True)
+
+    def _explode(*_args, **_kwargs):
+        raise requirement_extraction.ExtractionUnavailable("provider down")
+
+    monkeypatch.setattr(requirement_extraction, "extract_requirement", _explode)
+    draft = draft_requirement_from_question("Taiwan and Japan firm day returns 2020 to 2022")
+    assert draft["universe/geography"]["value"] == ["JPN", "TWN"]
+    assert draft["time_range"]["value"] == {"start": "2020", "end": "2022"}
+
+
+def test_corpus_tokens_win_over_model_prose(monkeypatch):
+    """The corpus emits registry-matchable tokens; the model emits description."""
+    monkeypatch.setattr(requirement_extraction, "enabled", lambda: True)
+    monkeypatch.setattr(
+        requirement_extraction, "extract_requirement",
+        lambda *_a, **_k: {
+            "unit": {"value": "exchange-level turnover", "provenance": "drafted"},
+            "event_type": {"value": ["market_activity"], "provenance": "drafted"},
+        },
+    )
+    draft = draft_requirement_from_question("Taiwan firm day returns")
+    assert draft["unit"]["value"] == "firm_day"          # corpus token, not prose
+    assert draft["event_type"]["value"] == ["market_activity"]  # model filled the gap
