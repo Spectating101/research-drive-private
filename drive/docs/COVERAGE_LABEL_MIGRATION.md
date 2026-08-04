@@ -38,8 +38,8 @@ PYTHONPATH=drive:kernel python \
   --max-changes 10
 ```
 
-The input registry is never edited in place. The command refuses output paths
-that equal either input path.
+The input registry is never edited in place. All output paths must be distinct
+from both inputs and from one another.
 
 ## Accepted label shapes
 
@@ -51,7 +51,12 @@ The tool accepts:
 - dimension values under `coverage_metadata`, `evidence_coverage`, `coverage`,
   or `dimensions`;
 - direct dimension fields;
-- a `claims` array containing `dimension` and `value`.
+- a `claims` array containing `dimension` and `value`;
+- claim-per-record rows containing `dataset_id`, `dimension`, and `value`.
+
+Repeated records are aggregated by dataset id before the change bound is applied.
+Duplicate declarations for the same dataset and dimension must agree exactly;
+disagreements are rejected rather than resolved by ordering.
 
 Supported dimensions are:
 
@@ -64,23 +69,48 @@ fields
 event_type
 ```
 
-## Classification contract
+## Authority and conflict contract
 
-Every normalized label is classified as one of:
+The migration checks the same explicit coverage surfaces used by Discover:
+
+- `coverage_metadata`;
+- `evidence_coverage`;
+- `coverage`;
+- `dimensions`;
+- direct row-level coverage dimensions.
+
+Existing cross-surface contradictions block migration for that dataset. Incoming
+claims never overwrite a contradictory explicit declaration.
+
+Every normalized dataset label is classified as one of:
 
 - `changed` — safely applied to the candidate;
 - `already_present` — the same explicit coverage already exists;
 - `orphaned` — no current registry target exists;
 - `alias_match` — reported through `match_type` when one unique legacy id maps;
-- `conflict` — an alias is ambiguous or incoming coverage contradicts existing
-  explicit coverage;
-- `change_deferred` — a sample bound such as `--max-changes` was reached;
+- `conflict` — an alias is ambiguous, the registry is already contradictory, or
+  incoming coverage contradicts existing explicit coverage;
+- `change_deferred` — a dataset-level bound such as `--max-changes` was reached;
 - `not_selected` — excluded by repeated `--dataset-id` filters;
-- `rejected_invalid` — missing identity, unsupported dimensions, or malformed
-  claims.
+- `rejected_invalid` — missing identity, unsupported dimensions, malformed
+  claims, or duplicate records that disagree.
 
 Orphaned labels are evidence of registry drift, not an automatic migration
 failure. They stay in the report and are never attached to a guessed target.
+
+## Drift evidence
+
+Every report records:
+
+- the raw label-file SHA-256;
+- a deterministic input-registry SHA-256;
+- a deterministic candidate-registry SHA-256;
+- whether the candidate differs from the reviewed input;
+- input claim-record count;
+- normalized dataset-label count;
+- changed dataset ids and reversible patches.
+
+The input-registry fingerprint must still match immediately before promotion.
 
 ## Review sequence
 
@@ -91,10 +121,11 @@ failure. They stay in the report and are never attached to a guessed target.
 5. Create a candidate limited to five to ten reviewed datasets.
 6. Compare assessment outputs before and after using a fixed research-question
    matrix.
-7. Inspect the forward and rollback patches.
+7. Inspect the fingerprints and forward and rollback patches.
 8. Run registry, Discover-assessment, and release-contract tests.
-9. Promote only through the registry's transactional authority path.
-10. Preserve the report, hashes, candidate, patches, test output, and decision.
+9. Confirm the authoritative registry fingerprint has not drifted.
+10. Promote only through the registry's transactional authority path.
+11. Preserve the report, hashes, candidate, patches, test output, and decision.
 
 ## Non-negotiable rules
 
