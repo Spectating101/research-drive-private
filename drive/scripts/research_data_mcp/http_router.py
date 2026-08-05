@@ -62,6 +62,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/advise", "handler": "library_advise"},
     {"method": "GET", "path": "/library/platform/state", "handler": "library_platform_state"},
     {"method": "GET", "path": "/library/source-map", "handler": "library_source_map"},
+    {"method": "GET", "path": "/library/capabilities", "handler": "library_capabilities"},
     {"method": "GET", "path": "/library/access-scope", "handler": "library_access_scope"},
     {"method": "GET", "path": "/library/dataset-coverage", "handler": "library_dataset_coverage"},
     {"method": "GET", "path": "/library/consolidated", "handler": "library_consolidated"},
@@ -1043,6 +1044,25 @@ def _handlers() -> dict[str, Handler]:
         live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
         return stack.gateway.source_map_audit(live=live)
 
+    def library_capabilities(stack, query, payload, params):
+        from scripts.research_data_mcp.source_capabilities import capability_matrix
+
+        result = capability_matrix(stack.gateway.repo_root)
+        capability = str(query.get("capability") or "").strip()
+        if capability:
+            result["capabilities"] = [
+                c for c in result["capabilities"] if c["capability"] == capability
+            ]
+        geography = str(query.get("geography") or "").strip()
+        if geography:
+            # Filter by declared coverage, keeping suppliers that state no
+            # geography at all: an unstated scope is unknown, not excluded.
+            result["capabilities"] = [
+                c for c in result["capabilities"]
+                if not c["geographies"] or geography in c["geographies"]
+            ]
+        return result
+
     def library_access_scope(stack, query, payload, params):
         live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
         return stack.gateway.access_scope_audit(live=live)
@@ -1465,6 +1485,7 @@ def _handlers() -> dict[str, Handler]:
         "library_synthesis_pair": library_synthesis_pair,
         "library_platform_state": library_platform_state,
         "library_source_map": library_source_map,
+        "library_capabilities": library_capabilities,
         "library_access_scope": library_access_scope,
         "library_dataset_coverage": library_dataset_coverage,
         "library_consolidated": library_consolidated,
