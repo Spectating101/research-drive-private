@@ -213,7 +213,7 @@ export function discoverSources(
  */
 export function discoverCollectRoutes(query = "") {
   const params = new URLSearchParams({ q: query });
-  return fetchJson(`/library/discover/collect-routes?${params}`, { timeoutMs: 45000 });
+  return fetchJson(`/library/discover/collect-routes?${params}`, { timeoutMs: 90000 });
 }
 
 /**

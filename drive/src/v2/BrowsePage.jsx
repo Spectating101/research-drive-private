@@ -535,6 +535,65 @@ function DiscoverRouteComparison({
   );
 }
 
+const LIBRARY_PAGE = 7;
+
+/**
+ * Held datasets as a dense, scannable list — the approved layout's hero.
+ *
+ * These rows were previously buried in a collapsed "Library evidence" dropdown
+ * capped at four entries, so a query matching thirty held datasets showed four
+ * of them behind a disclosure triangle while external routes took the page.
+ * That inverted the thing a research desk is for: what you already hold is the
+ * first answer, and external collection is the fallback.
+ *
+ * One line per dataset, columns aligned, because at twenty to a hundred results
+ * a card is the wrong primitive — six cards fill the fold and nothing can be
+ * compared across rows.
+ */
+function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? rows : rows.slice(0, LIBRARY_PAGE);
+  const rest = rows.length - shown.length;
+  return (
+    <>
+      <ul className="rd-v2-library-rows" aria-label="Datasets in your Library">
+        {shown.map((row) => {
+          const key = candidateKey(row);
+          const ready = Boolean(row.local_ready);
+          const geo = Number(row.geography_count || 0);
+          return (
+            <li key={key} className={selectedId === key ? "rd-v2-row-on" : undefined}>
+              <button type="button" className="rd-v2-library-row" onClick={() => onSelectRow?.(row)}>
+                {/* Query-ready is the distinction that decides whether the
+                    researcher can act now, so it leads the row. */}
+                <span className={`rd-v2-library-mark${ready ? " on" : ""}`} aria-hidden="true">
+                  {ready ? "✓" : "○"}
+                </span>
+                <span className="rd-v2-library-id">{row.dataset_id || row.title}</span>
+                <span className="rd-v2-library-col">{row.grain || "—"}</span>
+                <span className="rd-v2-library-col">{row.frequency || "—"}</span>
+                <span className="rd-v2-library-col">{row.time_range || "—"}</span>
+                <span className="rd-v2-library-col">{geo ? `${geo} ctry` : "—"}</span>
+                <span className="rd-v2-library-chev" aria-hidden="true">▸</span>
+              </button>
+              {row.selection_reason ? (
+                <span className="rd-v2-discover-why rd-v2-library-why">
+                  <b>why</b> {row.selection_reason}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {rest > 0 ? (
+        <button type="button" className="rd-v2-btn sm rd-v2-library-more" onClick={() => setExpanded(true)}>
+          … {rest} more — Show all
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 function DiscoverCandidateList({
   rows,
   labIds,
@@ -944,6 +1003,10 @@ export function BrowsePage({
     }
     return groups;
   }, [filtered, labIds]);
+  const readyCount = useMemo(
+    () => resultGroups.held.filter((r) => r.local_ready).length,
+    [resultGroups.held],
+  );
   const resultBreakdown = useMemo(
     () => [
       resultGroups.available.length
@@ -1044,6 +1107,7 @@ export function BrowsePage({
     const wanted = String(q || "").trim();
     if (!wanted || loading || error || filtered.length > 0) return undefined;
     let cancelled = false;
+    setMissRouteState({ query: wanted, routes: [], reason: "loading" });
     discoverCollectRoutes(wanted)
       .then((res) => {
         if (!cancelled) {
@@ -1313,6 +1377,36 @@ export function BrowsePage({
               ) : null}
             </section>
 
+            {resultGroups.held.length ? (
+              <section className="rd-v2-discover-library" aria-label="In your Library">
+                {/* Verdict first: one line stating where the answer stands,
+                    before any list. The page used to open with a filter bar and
+                    a count, so the researcher had to assemble the verdict from
+                    fragments scattered across three regions. */}
+                <p className="rd-v2-discover-verdict">
+                  <strong>
+                    {resultGroups.held.length} in Library
+                  </strong>
+                  {resultGroups.available.length || resultGroups.external.length
+                    ? ` · ${resultGroups.available.length + resultGroups.external.length} external`
+                    : ""}
+                  {readyCount ? ` · ${readyCount} query-ready now` : ""}
+                </p>
+                <div className="rd-v2-home-section-head">
+                  <div>
+                    <span className="rd-v2-eyebrow">In your Library</span>
+                  </div>
+                  <span className="muted">{plural(resultGroups.held.length, "dataset")}</span>
+                </div>
+                <LibraryResultList
+                  rows={resultGroups.held}
+                  labIds={labIds}
+                  selectedId={selectedId}
+                  onSelectRow={onSelectRow}
+                />
+              </section>
+            ) : null}
+
             {resultGroups.available.length ? (
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
                 {/* VC-5: the result header already states the offering count;
@@ -1435,6 +1529,8 @@ export function BrowsePage({
                       ))}
                     </ul>
                   </div>
+                ) : missRouteReason === "loading" ? (
+                  <p className="muted rd-v2-discover-no-route">Checking which sources could supply this…</p>
                 ) : missRouteReason === "no_route_found" ? (
                   /* Saying so is the answer. Four irrelevant offers -- the desk
                      proposing a market-price archive for opinion polling -- is
@@ -1443,6 +1539,10 @@ export function BrowsePage({
                   <p className="muted rd-v2-discover-no-route">
                     No source on this desk carries this kind of data. Paste a URL or DOI below to
                     have it assessed for collection.
+                  </p>
+                ) : missRouteReason === "unavailable" || String(missRouteReason).startsWith("backend_unavailable") ? (
+                  <p className="muted rd-v2-discover-no-route">
+                    Could not check collection routes right now. Try again, or paste a URL or DOI below.
                   </p>
                 ) : null}
               </div>
