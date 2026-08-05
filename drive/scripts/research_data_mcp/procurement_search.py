@@ -413,6 +413,10 @@ def candidate_from_row(row: dict[str, Any], index: int, *, score: float = 0.0) -
         "local_ready": local_ready,
         "local_path": row.get("local_path"),
     }
+    for key in ("tags", "description", "one_line", "recommended_use", "display_name"):
+        value = row.get(key)
+        if value:
+            card.setdefault(key, value)
     return enrich_candidate_card(card, row)
 
 
