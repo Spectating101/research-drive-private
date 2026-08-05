@@ -1012,6 +1012,36 @@ export function BrowsePage({
     [merged, labIds],
   );
 
+  // The desk's declared collection routes, loaded independently of the query.
+  //
+  // idleRecommendations derives from `merged`, the search result set, so it is
+  // empty exactly when a search misses -- which is the moment the routes are
+  // worth showing. Fetching the unfiltered source list separately means a miss
+  // can still answer "we don't hold this, here is what we can collect from".
+  const [declaredRoutes, setDeclaredRoutes] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    discoverSources("", { limit: 8, semantic: false, live: false })
+      .then((res) => {
+        if (!cancelled) setDeclaredRoutes(sourcesResponseToRows(res) || []);
+      })
+      .catch(() => {
+        // A desk that cannot list its own routes should simply not offer them;
+        // the miss message above still stands on its own.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const missRoutes = useMemo(
+    () => declaredRoutes
+      .filter((row) => !(row.discover_taxonomy || classifyDiscoverResult(row, labIds)).key.startsWith("local-"))
+      .filter((row) => String(row.result_type || row.kind || "").toLowerCase() !== "connector")
+      .slice(0, 4),
+    [declaredRoutes, labIds],
+  );
+
   const modeTabs = (
     <DiscoverModeTabs
       mode={showHistory ? "history" : "explore"}
@@ -1332,17 +1362,17 @@ export function BrowsePage({
                     answer is which routes could get it. These are the same
                     declared source routes the idle screen offers, so the miss
                     stops being a dead end without inventing a new surface. */}
-                {idleRecommendations.length ? (
+                {missRoutes.length ? (
                   <div className="rd-v2-discover-miss-routes">
                     <div className="rd-v2-home-section-head">
                       <div>
                         <span className="rd-v2-eyebrow">Not held — routes to get it</span>
                         <h3>Sources the desk can collect from</h3>
                       </div>
-                      <span className="muted">{plural(idleRecommendations.length, "collection route")}</span>
+                      <span className="muted">{plural(missRoutes.length, "collection route")}</span>
                     </div>
                     <DiscoverCandidateList
-                      rows={idleRecommendations}
+                      rows={missRoutes}
                       labIds={labIds}
                       selectedId={selectedId}
                       onSelectRow={onSelectRow}
