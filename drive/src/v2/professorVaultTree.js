@@ -68,6 +68,39 @@ function deriveShelves(partitions = [], shelves = []) {
  * Build a Lab tree compatible with listFolderChildren / breadcrumbTrail:
  *   {shelf_id} / {partition_id} / dataset
  */
+/**
+ * A shelf can hold datasets while owning no browsable folder, because a
+ * partition's `professor_visible` flag is an operator concern about a storage
+ * folder and says nothing about the datasets inside it. Crypto is the case that
+ * matters: `markets.crypto-coingecko` is an ops holding slot marked not-visible
+ * and carries 26 visible crypto datasets, so the shelf rendered "no holdings"
+ * while its datasets were silently swept into Other holdings under Project
+ * downloads -- inflating that shelf to 82 rows and hiding the desk's largest
+ * holding in the wrong place.
+ *
+ * Giving the shelf its own folder keeps those datasets where the researcher
+ * looked for them, without surfacing the operator-hidden partition itself.
+ */
+function ensureShelfHoldingsFolder(shelf, partNodes) {
+  const key = `shelf:${shelf.id}`;
+  if (partNodes.has(key)) return partNodes.get(key);
+  const folderId = `${shelf.id}/held`;
+  const folder = {
+    id: folderId,
+    kind: "folder",
+    name: String(shelf.name || shelf.id),
+    segment: "held",
+    path: [shelf.id, "held"],
+    partition_id: key,
+    sort: 500,
+    children: {},
+    registry_ids: new Set(),
+  };
+  shelf.children[folderId] = folder;
+  partNodes.set(key, folder);
+  return folder;
+}
+
 export function buildProfessorVaultTree(datasets = [], partitions = [], shelves = []) {
   const root = {
     id: "",
@@ -187,9 +220,10 @@ export function buildProfessorVaultTree(datasets = [], partitions = [], shelves 
     if (!folder) {
       const hint = String(row.shelf_hint || "").trim();
       if (hint && shelfNodes.has(hint)) {
-        // first partition folder under that shelf, or unfiled under project_downloads
         const shelf = shelfNodes.get(hint);
-        folder = Object.values(shelf.children || {}).find((c) => c.kind === "folder") || partNodes.get("unfiled");
+        folder =
+          Object.values(shelf.children || {}).find((c) => c.kind === "folder") ||
+          ensureShelfHoldingsFolder(shelf, partNodes);
       } else {
         folder = partNodes.get("unfiled");
       }
