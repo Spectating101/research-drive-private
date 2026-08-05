@@ -184,7 +184,23 @@ class ResearchQueryEngine:
         tokens = [t for t in re.split(r"\W+", ql) if len(t) > 2]
         scored: list[tuple[int, dict[str, Any]]] = []
         for ds in self.list_datasets():
-            text = " ".join(str(ds.get(k, "")) for k in ["dataset_id", "name", "description", "recommended_use", "limitations", "grain", "backend"]).lower()
+            fields = [
+                "dataset_id", "name", "display_name", "description", "one_line",
+                "recommended_use", "best_use", "limitations", "grain", "backend",
+                "source_system", "domain", "shelf_hint",
+            ]
+            parts = [str(ds.get(k, "")) for k in fields]
+            parts.append(" ".join(str(t) for t in (ds.get("tags") or [])))
+            parts.append(" ".join(str(c) for c in (ds.get("capabilities") or [])))
+            cov = ds.get("coverage_metadata") or {}
+            if isinstance(cov, dict):
+                for v in cov.values():
+                    val = v.get("value") if isinstance(v, dict) else v
+                    if isinstance(val, (list, tuple)):
+                        parts.append(" ".join(str(x) for x in val))
+                    elif val is not None:
+                        parts.append(str(val))
+            text = " ".join(parts).lower()
             if ql:
                 if ql in text:
                     score = 100
