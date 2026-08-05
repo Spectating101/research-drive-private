@@ -226,6 +226,17 @@ function DiscoverCandidateRow({
             </strong>
             <em className="rd-v2-discover-possession">{taxonomyLine}</em>
           </span>
+          {/* Why this row answers the question that was asked -- the one thing
+              the single-column CLI rendering had that this page did not. It is
+              the reader's own sentence, so it argues relevance ("On-chain USDT
+              transfer flows during peg stress events") where every other line
+              on the row only describes the dataset. Placed above the
+              description because it is the reason to keep reading. */}
+          {row?.selection_reason ? (
+            <span className="rd-v2-discover-why" data-testid="discover-why">
+              <b>why</b> {row.selection_reason}
+            </span>
+          ) : null}
           {evidenceLine ? <span className="rd-v2-discover-evidence">{evidenceLine}</span> : null}
           <span className="rd-v2-discover-offering-facts">
             {[

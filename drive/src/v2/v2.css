@@ -7106,6 +7106,27 @@
   white-space: nowrap;
 }
 
+/* The relevance argument, distinguished from the dataset's own description:
+   darker than the description so it reads first, with the label set in the
+   mono face the rest of the desk uses for machine-stated facts. */
+.rd-v2-discover-why {
+  display: block;
+  overflow: hidden;
+  color: var(--rd-ink, #202124);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rd-v2-discover-why b {
+  margin-right: 6px;
+  color: var(--rd-muted, #5f6368);
+  font-weight: 600;
+  font-size: 11px;
+  font-family: var(--rd-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .rd-v2-discover-evidence {
   display: -webkit-box;
   overflow: hidden;
