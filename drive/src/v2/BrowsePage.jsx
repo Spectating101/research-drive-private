@@ -1417,9 +1417,7 @@ export function BrowsePage({
   // centre section. Opus inverted that into "IN YOUR LIBRARY" as the primary
   // canvas; restore the freeze chrome so Available offerings stay primary.
   const offeringsCount = resultGroups.available.length + resultGroups.external.length;
-  const showLibraryChromeOpen = Boolean(
-    resultGroups.held.length && !offeringsCount && !loading,
-  );
+  const showLibraryChromeOpen = false;
   const libraryEvidenceMenu = resultGroups.held.length ? (
     <details
       className="rd-v2-discover-library-evidence"
