@@ -7150,6 +7150,22 @@
 }
 .rd-v2-library-disclosure[open] > summary::before { content: "▾"; }
 
+/* Landing: the box is the page. Everything else is opened on demand. */
+.rd-v2-discover-routes-disclosure > summary {
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12.5px;
+}
+.rd-v2-discover-routes-disclosure > summary::-webkit-details-marker { display: none; }
+.rd-v2-discover-routes-disclosure > summary::before {
+  content: "▸ ";
+  color: var(--rd-muted, #9aa0a6);
+  font-size: 11px;
+}
+.rd-v2-discover-routes-disclosure[open] > summary::before { content: "▾ "; }
+.rd-v2-discover-idle-held { margin-top: 10px; }
+
 .rd-v2-library-row {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) 14px;

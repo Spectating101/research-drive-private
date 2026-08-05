@@ -1270,15 +1270,24 @@ export function BrowsePage({
             <div className="rd-v2-discover-idle-held">
               {/* VC-5: with no known routes this collapses to one quiet line
                   instead of an oversized empty section. */}
+              {/* These are sources, not results, and they sat above the fold as
+                  four full cards before the researcher had asked for anything.
+                  "OpenAlex — Add to collection" is not an action anyone can
+                  take: add what from OpenAlex? They also wore dataset labels
+                  ("Access not verified", "Related Library asset") that mean
+                  nothing about a connector.
+
+                  A search landing shows the box and, at most, openable content
+                  — which is what Kaggle and HuggingFace put here. Until this
+                  can show real holdings, the honest version is one quiet line
+                  naming what the desk can reach, opened on demand. */}
               {idleRecommendations.length ? (
-                <>
-                  <div className="rd-v2-home-section-head">
-                    <div>
-                      <span className="rd-v2-eyebrow">Curated beyond your Library</span>
-                      <h3>Sources the desk already knows how to investigate</h3>
-                    </div>
-                    <span className="muted">{plural(merged.length, "known source route")}</span>
-                  </div>
+                <details className="rd-v2-discover-routes-disclosure">
+                  <summary>
+                    <span className="muted">
+                      {plural(merged.length, "source")} this desk can collect from
+                    </span>
+                  </summary>
                   <DiscoverCandidateList
                     rows={idleRecommendations}
                     labIds={labIds}
@@ -1286,17 +1295,7 @@ export function BrowsePage({
                     onSelectRow={onSelectRow}
                     onAdd={onReviewAcquisition}
                   />
-                </>
-              ) : (
-                <p className="muted">
-                  No curated source routes yet — search above, or paste a URL or DOI below.
-                </p>
-              )}
-              {idleHoldings.length ? (
-                <div className="rd-v2-discover-idle-library-note">
-                  Library evidence · {plural(labIds.size, "asset")}{" "}
-                  {labIds.size === 1 ? "is" : "are"} checked automatically after a research question.
-                </div>
+                </details>
               ) : null}
             </div>
             {onCraftUrl ? (
