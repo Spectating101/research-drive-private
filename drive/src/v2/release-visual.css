@@ -2001,9 +2001,13 @@
   gap: 4px;
 }
 
+/* 0.82rem resolved to 13.12px. v2.css already sets 13px on this element, so
+   the two sheets were fighting in different units and the fractional value
+   won. Same intended size, stated once in the same unit as the rest of the
+   row so the description and the facts line sit on one scale. */
 .rd-v2-discover-evidence {
   color: #58677c;
-  font-size: 0.82rem;
+  font-size: 13px;
 }
 
 .rd-v2-discover-route-gap {

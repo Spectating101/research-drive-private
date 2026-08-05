@@ -123,6 +123,47 @@ test.describe("Discover — required visual states", () => {
         const median = heights.sort((a, b) => a - b)[Math.floor(heights.length / 2)];
         expect(median, `median row height ${median}px reads as a card`).toBeLessThanOrEqual(110);
 
+        // Legibility and target size, measured rather than eyeballed.
+        const metrics = await page.evaluate(() => {
+          const lum = (r, g, b) => {
+            const f = (c) => {
+              c /= 255;
+              return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+            };
+            return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+          };
+          const rgb = (s) => s.match(/\d+/g).slice(0, 3).map(Number);
+          const contrast = (fg, bg) => {
+            const a = Math.max(lum(...fg), lum(...bg));
+            const b = Math.min(lum(...fg), lum(...bg));
+            return (a + 0.05) / (b + 0.05);
+          };
+          const row = document.querySelector(".rd-v2-discover-candidate");
+          const bg = rgb(getComputedStyle(row).backgroundColor);
+          const read = (sel) => {
+            const el = document.querySelector(sel);
+            const cs = getComputedStyle(el);
+            return {
+              size: parseFloat(cs.fontSize),
+              fractional: !Number.isInteger(parseFloat(cs.fontSize)),
+              contrast: contrast(rgb(cs.color), bg),
+            };
+          };
+          const add = document.querySelector(".rd-v2-discover-row-add");
+          return {
+            facts: read(".rd-v2-discover-offering-facts"),
+            description: read(".rd-v2-discover-evidence"),
+            addHeight: add.getBoundingClientRect().height,
+          };
+        });
+
+        expect(metrics.facts.size, "facts line is too small to read").toBeGreaterThanOrEqual(11);
+        expect(metrics.facts.contrast, "facts line contrast below AA").toBeGreaterThanOrEqual(4.5);
+        expect(metrics.description.contrast, "description contrast below AA").toBeGreaterThanOrEqual(4.5);
+        expect(metrics.description.fractional, "description uses a fractional font size").toBe(false);
+        expect(metrics.facts.fractional, "facts line uses a fractional font size").toBe(false);
+        expect(metrics.addHeight, "Add to collection is too small a target").toBeGreaterThanOrEqual(30);
+
         await shot(page, `discover-${String(count).padStart(2, "0")}-offerings-${label}`);
       });
     }

@@ -5420,15 +5420,23 @@
   position: absolute;
   z-index: 2;
   right: 14px;
-  top: 9px;
-  padding: 4px 8px;
+  top: 7px;
+  /* Measured 100x25px at 10.5px type. This is the primary action on every
+     offering and the entry point to the whole procurement lifecycle, and it
+     was the smallest interactive target on the page. 30px tall clears a
+     comfortable pointer target without turning the row back into a card. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 12px;
   border: 1px solid color-mix(in srgb, #3f6f5c 40%, var(--rd-border));
-  border-radius: 4px;
+  border-radius: 5px;
   background: var(--rd-surface);
   color: #35634f;
   cursor: pointer;
   font: inherit;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 680;
 }
 
@@ -5883,7 +5891,20 @@ aside.rd-v2-rail .rd-v2-eval-actions > .rd-v2-btn {
   color: var(--rd-muted);
   cursor: progress;
 }
-.rd-v2-discover-offering-facts { color: var(--rd-muted); font-size: 10.5px; letter-spacing: .01em; }
+/* Measured at 1440: this line was 10.5px at 4.57:1 contrast -- scraping past
+   WCAG AA only because the threshold is 4.5, and unreadably small for what it
+   carries. It is not decoration: it states the collection route and whether
+   the lab already holds an equivalent, which is what the researcher decides
+   on. 11.5px at 5.4:1 keeps it secondary to the description without making it
+   a squint. */
+.rd-v2-discover-offering-facts {
+  color: #59616f;
+  /* 12px, not 11.5: half-pixel type is the same drift as 13.12px, just
+     smaller. The row's hierarchy comes from colour and weight against the
+     13px description, not from a fractional size difference. */
+  font-size: 12px;
+  letter-spacing: .01em;
+}
 
 .rd-v2-discover-library-evidence {
   position: relative;
@@ -7408,6 +7429,8 @@ aside.rd-v2-rail .rd-v2-eval-actions > .rd-v2-btn {
   display: -webkit-box;
   overflow: hidden;
   color: #5f6368;
+  /* Was inheriting to 13.12px through a rem cascade. Fractional sizes are
+     drift, not a scale, and they render inconsistently across rows. */
   font-size: 13px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
