@@ -308,7 +308,10 @@ function DiscoverQueryComposer({
       <button type="submit" className="rd-v2-btn sm primary">
         Explore
       </button>
-      <p>
+      {/* Teaching copy earns its space before the first search and not after.
+          Once results are on screen it competes with them, and the researcher
+          has already demonstrated they know how to run a query. */}
+      <p hidden={!idle}>
         Keywords return fast results. A research question also starts a contextual Ask investigation automatically.
       </p>
       {/* VC-5: two compact examples teach the one-composer behaviour by
@@ -1227,7 +1230,18 @@ export function BrowsePage({
                 ) : null}
                 {filterMenu}
               </div>
-              <div className="rd-v2-discover-result-actions" aria-label="Discover next actions">
+              {/* On a miss this row said "0 results · index lookup" and offered
+                  "Search wider" -- both of which the miss block below states
+                  more clearly, next to the routes that actually help. Three
+                  restatements of "nothing found" (here, the miss line, and the
+                  rail's "No candidate selected") made the page feel like it was
+                  apologising rather than answering. Keep the count where it is
+                  informative: when there are results to count. */}
+              <div
+                className="rd-v2-discover-result-actions"
+                aria-label="Discover next actions"
+                hidden={!loading && !error && filtered.length === 0}
+              >
                 <div>
                   <strong>{plural(filtered.length, "result")}</strong>
                   <span>
@@ -1368,6 +1382,14 @@ export function BrowsePage({
                       <div>
                         <span className="rd-v2-eyebrow">Not held — routes to get it</span>
                         <h3>Sources the desk can collect from</h3>
+                        {/* These are the desk's standing routes, not routes
+                            matched to this query. Saying so is the difference
+                            between a useful offer and the earlier defect where
+                            an unrelated result was dressed up as a match. */}
+                        <p className="muted">
+                          Standing collection routes — not matched to “{q}”. Open one to check whether it
+                          carries this data.
+                        </p>
                       </div>
                       <span className="muted">{plural(missRoutes.length, "collection route")}</span>
                     </div>
