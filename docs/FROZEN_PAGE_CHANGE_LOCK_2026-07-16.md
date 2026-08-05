@@ -1,3 +1,5 @@
+> **Superseded (2026-08-05).** Dated 2026-07-16, this predates [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md) (2026-07-30) and is **not** in its §19 documentation hierarchy. Retained as history only. Its own `Status:` line below is stale — do not treat it as current authority.
+
 # Research Drive — Frozen Page Change Lock
 
 **Status:** ACTIVE CHANGE-CONTROL LOCK  

@@ -1097,6 +1097,10 @@ No later implementation worker may reinterpret frozen composition because curren
 7. `DISCOVER_ACQUISITION.md` is a subordinate operational runbook.
 8. `DISCOVER_E2E_AUTHORITY_AUDIT.md` is the subordinate Discover Playwright classification and clean-audit contract. It does not amend product composition; it governs how E2E reds are interpreted and requires git SHA / Vite root identity on every report.
 9. `RESEARCH_DRIVE_UI_CANON.md`, `RESEARCH_DRIVE_UI_V2.md`, `RESEARCH_DRIVE_UX_HANDOFF_2026-07-14.md`, and `design/DISCOVER_LOOP_ANCHOR.md` are historical redirects only.
-10. `RESEARCH_DRIVE_UI_CONTRACT.md` is legacy-only until its legacy UI and tests are retired.
+10. `RESEARCH_DRIVE_UI_CONTRACT.md` was legacy-only and is **deleted** (2026-08-05). Its
+    precondition was the `VITE_UI_V2` cutover, which has happened: `src/main.jsx` and
+    `e2e/ui-contract.spec.js` no longer exist. It described a shell layout as
+    "non-negotiable" that this authority does not prescribe, and was repeatedly mistaken
+    for current authority. History is in git.
 
 Any proposed interface change must amend this document first. A Discover or Library composition change must amend the corresponding full-scale appendix in the same change, then update the implementation program and subordinate contracts. Discover E2E rewrites must stay consistent with both the top-level authority and Discover appendix and update `DISCOVER_E2E_AUTHORITY_AUDIT.md` classification tables in the same change.

@@ -23,7 +23,6 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:ui-contract": "playwright test e2e/ui-contract.spec.js e2e/release-visual-convergence.spec.js e2e/interaction-guidance.spec.js e2e/interaction-feedback.spec.js",
     "test:e2e-extended": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/visual-closure-acceptance.spec.js e2e/v2-discover-evidence.spec.js e2e/interaction-robustness.spec.js e2e/approval-robustness.spec.js e2e/decoration-layer.spec.js e2e/toast-lifecycle.spec.js e2e/v2-preview.spec.js e2e/v2-profile-freeze.spec.js e2e/desk-access-gate.spec.js e2e/multi-user-authority.spec.js"
   },
   "dependencies": {

@@ -32,7 +32,6 @@
 | Doc | Status |
 |-----|--------|
 | [`RESEARCH_DRIVE_UI_CANON.md`](RESEARCH_DRIVE_UI_CANON.md) | Superseded 2026-07-11 by `UI_PRODUCT_AUTHORITY.md` |
-| [`RESEARCH_DRIVE_UI_CONTRACT.md`](RESEARCH_DRIVE_UI_CONTRACT.md) | Legacy `main.jsx` + Playwright only |
 | [`RESEARCH_DRIVE_UI_V2.md`](RESEARCH_DRIVE_UI_V2.md) | Archived stub → canon |
 | [`RESEARCH_DRIVE_UI_BLUEPRINT.md`](RESEARCH_DRIVE_UI_BLUEPRINT.md) | Archived stub → canon |
 
@@ -47,4 +46,4 @@
 
 ## Historical UX redirects
 
-`RESEARCH_DRIVE_UI_CANON.md`, `RESEARCH_DRIVE_UI_V2.md`, and `RESEARCH_DRIVE_UX_HANDOFF_2026-07-14.md` are retained only for old links and history. They never override `UI_PRODUCT_AUTHORITY.md`. `RESEARCH_DRIVE_UI_CONTRACT.md` is legacy-only until the legacy surface and its tests are retired.
+`RESEARCH_DRIVE_UI_CANON.md`, `RESEARCH_DRIVE_UI_V2.md`, and `RESEARCH_DRIVE_UX_HANDOFF_2026-07-14.md` are retained only for old links and history. They never override `UI_PRODUCT_AUTHORITY.md`. `RESEARCH_DRIVE_UI_CONTRACT.md` was deleted on 2026-08-05: the `VITE_UI_V2` cutover it was waiting on is complete.

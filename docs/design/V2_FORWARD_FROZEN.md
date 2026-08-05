@@ -22,7 +22,7 @@
 | 10 | [`UX_SPEC_MICRO.md`](UX_SPEC_MICRO.md) | Pixel + interaction detail |
 
 CLI sketches: `python3 scripts/rd_layout_preview.py list`  
-Legacy until cutover: `src/main.jsx` + [`RESEARCH_DRIVE_UI_CONTRACT.md`](../RESEARCH_DRIVE_UI_CONTRACT.md)
+Legacy (cutover complete 2026-08-05; `src/main.jsx` and its UI contract are deleted)
 
 ---
 
