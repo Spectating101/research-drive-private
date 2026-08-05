@@ -1856,6 +1856,27 @@ export function BrowsePage({
               </section>
             ) : null}
 
+            {resultGroups.held.length ? (
+              <section className="rd-v2-discover-other-matches" aria-label="In your Library" data-testid="discover-held-section">
+                <div className="rd-v2-home-section-head">
+                  <h3>
+                    In your Library
+                    <span className="rd-v2-section-count">{resultGroups.held.length}</span>
+                  </h3>
+                  <span className="muted">
+                    {readyCount ? `${readyCount} query-ready` : "already collected"}
+                  </span>
+                </div>
+                <DiscoverCandidateList
+                  rows={groupCatalogueVariants(resultGroups.held)}
+                  labIds={labIds}
+                  selectedId={selectedId}
+                  onSelectRow={onSelectRow}
+                  onAdd={onReviewAcquisition}
+                />
+              </section>
+            ) : null}
+
             {resultGroups.context.length ? (
               <section className="rd-v2-discover-other-matches" aria-label="References and web context">
                 <div className="rd-v2-home-section-head">
