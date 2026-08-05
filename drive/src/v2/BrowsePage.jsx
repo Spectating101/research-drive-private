@@ -81,7 +81,32 @@ function offeringType(row, taxonomy) {
   return "Dataset";
 }
 
-function accessLabel(taxonomy) {
+/** The declared collection route, named.
+ *
+ * Every acquirable offering said "Collection route declared", so the phrase
+ * repeated down the whole list and distinguished nothing -- the generic
+ * per-source string the adaptive freeze §13 tells us not to reintroduce.
+ * `collect_via` already records which route, so name it. Only the rendering
+ * changes; the claim ("a route is declared") is the same one. */
+const ROUTE_NAMES = {
+  bigquery: "BigQuery",
+  datacite: "DataCite",
+  http_manifest: "file manifest",
+  scrape_snapshot: "page snapshot",
+  catalog_harvest: "catalog harvest",
+  browser_extract: "browser extraction",
+  api_query: "API query",
+};
+
+function routeLabel(row) {
+  const raw = Array.isArray(row?.collect_via) ? row.collect_via[0] : row?.collect_via;
+  const key = String(raw || "").trim().toLowerCase();
+  if (!key) return "Collection route declared";
+  const named = ROUTE_NAMES[key] || key.replaceAll("_", " ");
+  return `Collect via ${named}`;
+}
+
+function accessLabel(taxonomy, row) {
   switch (taxonomy?.key) {
     case "local-query-ready":
       return "In your Library · Query-ready declared";
@@ -90,7 +115,7 @@ function accessLabel(taxonomy) {
     case "external-probed":
       return "Probe observed";
     case "external-acquirable":
-      return "Collection route declared";
+      return routeLabel(row);
     case "external-unavailable":
       return "No supported route";
     case "licensed-manual":
@@ -184,7 +209,7 @@ function DiscoverCandidateRow({
   const selected = selectedId === candidateKey(row);
   const ribbonSource =
     row.source || row.collect_via || row.source_route || row.publisher || row.backend || hostLabel(row.url);
-  const taxonomyLine = accessLabel(taxonomy);
+  const taxonomyLine = accessLabel(taxonomy, row);
   const exceptionPill = exceptionalRowPill(row, taxonomy, state);
   const showSufficiency =
     !externalCatalogue && Number(taxonomy.group) >= 3 && row.discover_sufficiency?.browseLine;

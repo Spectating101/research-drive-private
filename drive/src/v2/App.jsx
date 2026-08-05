@@ -1595,15 +1595,14 @@ export function V2App() {
   // earlier attempt to hide it there did make Explore look broken, and that
   // note stands.
   //
-  // After a search that returned nothing it earns nothing: the entire rail
-  // reads "No discover result / No candidate selected", restating the miss a
-  // third time while the actual answer -- the collection routes -- is squeezed
-  // into the remaining columns. On that one state, give the width back.
-  const hideRail =
-    tab === "browse"
-    && Boolean(String(discoverSearchQuery || "").trim())
-    && !browseRow
-    && !discoverAssessment.active;
+  // It was previously hidden after any Discover search without a selection.
+  // The comment said "a search that returned nothing", but the condition never
+  // tested the result count, so the rail also vanished on successful searches
+  // -- and the adaptive freeze §11 makes the desktop composition
+  // "left navigation | Explore results | Detail / Ask rail". A missing third
+  // column reads as a broken page, not as a quiet one. The rail stays; keeping
+  // it worth its width is a content problem, not a layout one.
+  const hideRail = false;
 
   const activeResearch = useMemo(() => {
     const source = profile && !profile.unknown ? profile : pilotProfile;
@@ -1735,6 +1734,7 @@ export function V2App() {
         dataset={detail}
         detailLoading={detailLoading}
         clusterContext={clusterContext}
+        discoverSearchQuery={discoverSearchQuery}
         browseTarget={browseTarget}
         historyEvent={selectedHistoryEvent}
         historyJob={selectedHistoryJob}

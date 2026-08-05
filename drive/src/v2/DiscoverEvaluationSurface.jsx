@@ -51,6 +51,7 @@ function sufficiencyLocalTitle(sufficiency) {
 
 export function DiscoverEvaluationSurface({
   target,
+  searchQuery = "",
   labIds,
   catalog = [],
   onAskAbout,
@@ -91,12 +92,22 @@ export function DiscoverEvaluationSurface({
 
   if (!target || !evaluation) {
     if (variant === "workspace") return null;
+    // UI_PRODUCT_AUTHORITY §3: the rail may be quiet, but it "must never be a
+    // permanent empty inspector". During an active search it is scoped to that
+    // search, so say which one and what the next action is, rather than
+    // showing a folder icon and "No candidate selected" beside a full result
+    // list.
+    const q = String(searchQuery || "").trim();
     return (
       <RailFrame>
         <div className="rd-v2-rail-scroll">
           <EmptyRailState
-            title="No candidate selected"
-            hint="Search, then select a candidate to evaluate what you can use and what remains unknown."
+            title={q ? "Nothing selected yet" : "No candidate selected"}
+            hint={
+              q
+                ? `Showing evidence for “${q}”. Select an offering to see what it covers, what it would take to collect, and what remains unknown.`
+                : "Search, then select a candidate to evaluate what you can use and what remains unknown."
+            }
           />
         </div>
       </RailFrame>

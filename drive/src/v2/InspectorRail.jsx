@@ -28,6 +28,7 @@ function railSelectionHint(
   discoverAssessment,
   resourceRow,
   clusterContext,
+  discoverSearchQuery,
 ) {
   if (mainTab === "browse" && discoverIntentRecord) {
     return discoverIntentRecord.intent?.title || discoverIntentRecord.candidate?.title || "Acquisition review";
@@ -42,7 +43,11 @@ function railSelectionHint(
     return browseTarget.title || browseTarget.dataset_id || "Discover result";
   }
   if (mainTab === "browse") {
-    return "No discover result";
+    // "No discover result" is an internal state name, and it was the rail's
+    // headline during a search that had in fact returned results. Name the
+    // search instead; the rail is scoped to it until a candidate is selected.
+    const q = String(discoverSearchQuery || "").trim();
+    return q ? `Search · ${q}` : "No discover result";
   }
   if (mainTab === "resources" && resourceRow) {
     return resourceRow.label?.split("·")[0]?.trim() || resourceRow.key;
@@ -102,6 +107,7 @@ export function InspectorRail({
   dataset,
   detailLoading,
   clusterContext,
+  discoverSearchQuery = "",
   browseTarget,
   historyEvent,
   historyJob,
@@ -177,6 +183,7 @@ export function InspectorRail({
     ) : (
       <BrowseRailPanel
         target={browseTarget}
+        searchQuery={discoverSearchQuery}
         labIds={labIds}
         onAskAbout={onAskAbout}
         onAddToLab={onAddToLab}
@@ -272,6 +279,7 @@ export function InspectorRail({
       discoverAssessment,
       resourceRow,
       clusterContext,
+      discoverSearchQuery,
     );
 
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
