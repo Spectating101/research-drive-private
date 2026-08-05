@@ -776,11 +776,26 @@ class ResearchDataGateway:
                     return {}
                 cov = reg.get("coverage_metadata") or {}
 
+                def _flat(value: Any) -> str:
+                    if isinstance(value, dict):
+                        start = str(value.get("start") or "").strip()
+                        end = str(value.get("end") or "").strip()
+                        if start and end:
+                            return start if start == end else f"{start} – {end}"
+                        return start or end or ""
+                    if isinstance(value, (list, tuple)):
+                        parts = [_flat(v) for v in value]
+                        parts = [x for x in parts if x]
+                        if len(parts) > 4:
+                            return f"{', '.join(parts[:3])} +{len(parts) - 3}"
+                        return ", ".join(parts)
+                    return str(value or "").strip()
+
                 def _val(key: str) -> str:
                     item = cov.get(key)
-                    if isinstance(item, dict):
-                        return str(item.get("value") or "")
-                    return str(item or "")
+                    if isinstance(item, dict) and "value" in item:
+                        return _flat(item.get("value"))
+                    return _flat(item)
 
                 geo = _val("geography")
                 # How much of it there is. Measured on disk by
