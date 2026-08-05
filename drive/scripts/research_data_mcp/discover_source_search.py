@@ -1066,11 +1066,47 @@ def _slug(value: str) -> str:
     return slugify_provider(value)
 
 
+def _source_description(src: dict[str, Any], glossary: dict[str, str]) -> str:
+    """What this source carries, in the researcher's language.
+
+    Every Discover offering must explain what it contains
+    (DISCOVER_ADAPTIVE_FREEZE_2026-07-28 §3, §12). Source rows previously
+    shipped with no description at all, so the page showed a title, a repeated
+    route state, and nothing a researcher could judge relevance from.
+
+    The sentence is assembled only from registered map fields — the
+    ``capabilities_glossary`` phrases and declared ``geographies``. Nothing here
+    is inferred or generated, so it satisfies the authority's description rule
+    without inventing coverage.
+
+    ``notes`` is deliberately not used. It is an operations field ("Bulk harvest
+    STOP", "SFTP/FTPS scripting with same credentials") written for the desk, not
+    a statement of what the evidence is about.
+    """
+    phrases: list[str] = []
+    for cap in list(src.get("capabilities") or [])[:3]:
+        phrase = str(glossary.get(str(cap), "") or "").strip()
+        if phrase and phrase not in phrases:
+            phrases.append(phrase[0].lower() + phrase[1:] if phrase[:1].isupper() else phrase)
+    if not phrases:
+        return ""
+
+    text = "; ".join(phrases)
+    geos = [str(g).strip() for g in (src.get("geographies") or []) if str(g).strip()]
+    if geos:
+        shown = ", ".join(geos[:3])
+        if len(geos) > 3:
+            shown = f"{shown} +{len(geos) - 3}"
+        text = f"{text}. Covers {shown}"
+    return f"{text}."[:240]
+
+
 def _normalize_source_row(
     src: dict[str, Any],
     *,
     desk: dict[str, dict[str, Any]],
     scope: dict[str, dict[str, Any]],
+    glossary: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     source_id = str(src.get("id") or "").strip()
     if not source_id or source_id in _SKIP_SOURCE_IDS:
@@ -1094,6 +1130,7 @@ def _normalize_source_row(
         "provider": provider,
         "label": label,
         "title": label,
+        "description": _source_description(src, glossary or {}) or None,
         "connector_id": connector_id or None,
         "desk_connector_id": connector_id or None,
         "access_mode": access_mode,
@@ -1319,6 +1356,7 @@ def _catalog_corpus(
 ) -> list[dict[str, Any]]:
     """All normalized source (+ optional provider) rows for catalog/semantic search."""
     source_map = load_source_map(repo_root)
+    glossary = dict(source_map.get("capabilities_glossary") or {})
     desk = load_desk_connectors(repo_root)
     scope = _scope_index(repo_root)
     rows: list[dict[str, Any]] = []
@@ -1326,7 +1364,7 @@ def _catalog_corpus(
     for src in source_map.get("sources") or []:
         if not isinstance(src, dict):
             continue
-        row = _normalize_source_row(src, desk=desk, scope=scope)
+        row = _normalize_source_row(src, desk=desk, scope=scope, glossary=glossary)
         if not row:
             continue
         key = str(row.get("candidate_key") or "")
@@ -1766,6 +1804,7 @@ def search_discover_sources(
         score_tokens -= {"connector", "connectors", "desk"}
 
     source_map = load_source_map(root)
+    glossary = dict(source_map.get("capabilities_glossary") or {})
     desk = load_desk_connectors(root)
     scope = _scope_index(root)
 
@@ -1779,7 +1818,7 @@ def search_discover_sources(
     for src in source_map.get("sources") or []:
         if not isinstance(src, dict):
             continue
-        row = _normalize_source_row(src, desk=desk, scope=scope)
+        row = _normalize_source_row(src, desk=desk, scope=scope, glossary=glossary)
         if not row:
             continue
         score = _score(score_tokens, {**src, **row})
