@@ -762,6 +762,12 @@ class ResearchDataGateway:
 
                 geo = _val("geography")
                 return {
+                    # Two of five rows read "scrape_54af347e1ceb". Every one of
+                    # these has an authored display name; showing the id as the
+                    # headline made results unidentifiable at a glance, which no
+                    # dataset search does.
+                    "display_name": reg.get("display_name") or reg.get("name"),
+                    "one_line": reg.get("one_line"),
                     "grain": reg.get("grain") or _val("unit"),
                     "frequency": _val("frequency"),
                     "time_range": _val("time_range"),
