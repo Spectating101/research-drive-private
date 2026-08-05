@@ -18,6 +18,7 @@ import {
   RailField,
   RailFieldGrid,
   RailFrame,
+  RailStickyFooter,
 } from "@/v2/RailFrame";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import { buildObjectEstateCrumb } from "@/v2/deskIntegration";
@@ -117,6 +118,34 @@ export function DiscoverEvaluationSurface({
     return (
       <RailFrame>
         <div className="rd-v2-rail-scroll rd-v2-search-summary" data-testid="discover-search-summary">
+          {/* One glance answer at the top of the rail: how much of what this
+              search surfaced the lab already owns. A count, not a score.
+
+              Deliberately NOT labelled "Coverage" -- UI_PRODUCT_AUTHORITY §15
+              reserves that word for provider/observed evidence coverage
+              (period, geography, grain). This bar is possession, and reusing
+              the term would quietly claim something it has not established. */}
+          <section className="rd-v2-eval-block rd-v2-summary-coverage">
+            <p className="rd-v2-eval-section-label">Already in your Library</p>
+            <div
+              className="rd-v2-coverage-bar"
+              role="img"
+              aria-label={`${s.held} of ${s.held + s.offerings} results already in your Library`}
+            >
+              {Array.from({ length: 10 }, (_, i) => (
+                <span
+                  key={i}
+                  className={
+                    i < Math.round((s.held / Math.max(1, s.held + s.offerings)) * 10) ? "on" : ""
+                  }
+                />
+              ))}
+            </div>
+            <p className="rd-v2-coverage-caption">
+              <b>{s.held}</b> of {s.held + s.offerings} already held
+            </p>
+          </section>
+
           <section className="rd-v2-eval-block">
             <p className="rd-v2-eval-section-label">What this search found</p>
             <ul className="rd-v2-summary-counts">
@@ -174,6 +203,24 @@ export function DiscoverEvaluationSurface({
             </p>
           </section>
         </div>
+        {/* The rail's actions belong in the sticky footer, like every other
+            rail state, rather than scrolling away inside the body. */}
+        <RailStickyFooter>
+          <button
+            type="button"
+            className="rd-v2-btn sm"
+            onClick={() => onAskAbout?.({
+              kind: "results",
+              question: s.query,
+              prompt: `Compare coverage of the evidence found for: ${s.query}. Say what is covered, what remains unknown, and whether a wider source is still needed.`,
+            })}
+          >
+            Compare coverage
+          </button>
+          <a className="rd-v2-btn sm ghost" href={`?tab=library&q=${encodeURIComponent(s.query)}`}>
+            Open Library results
+          </a>
+        </RailStickyFooter>
       </RailFrame>
     );
   }

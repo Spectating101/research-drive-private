@@ -2008,6 +2008,11 @@
 .rd-v2-discover-evidence {
   color: #58677c;
   font-size: 13px;
+  /* The reading-measure cap is repeated here deliberately. This sheet loads
+     after v2.css and already won the font-size fight that produced 13.12px,
+     so a cap set only there would appear correct in source and do nothing on
+     screen. Both sheets state the same value in the same unit. */
+  max-width: 64ch;
 }
 
 .rd-v2-discover-route-gap {

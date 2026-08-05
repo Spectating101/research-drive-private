@@ -5904,26 +5904,37 @@ aside.rd-v2-rail .rd-v2-eval-actions > .rd-v2-btn {
      13px description, not from a fractional size difference. */
   font-size: 12px;
   letter-spacing: .01em;
+  /* Slightly wider than the description: this line is scanned in fragments
+     separated by "·", not read as prose, but it must not run past the
+     description's reading edge by much. */
+  max-width: 76ch;
 }
 
 .rd-v2-discover-library-evidence {
   position: relative;
 }
+/* Counts are not controls.
+   As a bordered, segmented strip this spanned the full column -- 1099px at
+   1920 -- with the counts clustered left and the actions pushed right, so
+   roughly 700px of empty box sat between two groups that had nothing to do
+   with each other. The box also made every count look pressable.
+   Now: plain text scope line, one rule underneath, no segment walls. */
 .rd-v2-discover-explore-chrome {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0;
-  margin: 10px 0 14px;
-  border: 1px solid var(--rd-border);
-  border-radius: 4px;
-  background: var(--rd-surface);
+  gap: 18px;
+  margin: 10px 0 16px;
+  padding: 0 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--rd-border);
+  background: transparent;
 }
 .rd-v2-discover-explore-chrome > span,
 .rd-v2-discover-explore-chrome > button,
 .rd-v2-discover-explore-chrome > .rd-v2-discover-library-evidence > summary {
-  padding: 6px 10px;
-  border-left: 1px solid var(--rd-border);
+  padding: 0;
+  border-left: 0;
   color: var(--rd-muted);
   font-size: 12px;
   font-weight: 600;
@@ -7450,6 +7461,14 @@ aside.rd-v2-rail .rd-v2-eval-actions > .rd-v2-btn {
      drift, not a scale, and they render inconsistently across rows. */
   font-size: 13px;
   line-height: 1.45;
+  /* Measured 125 characters per line at 1920. A comfortable measure is 45-75;
+     past about 90 the eye loses its place on the return sweep. That is why
+     the list read well at 1440 (~73 chars) and badly at 1920 while every row
+     was individually correct. The row still spans the column -- only the
+     reading line is bounded.
+     64ch, not 78: `ch` is the advance of "0", about 1.22x this font's
+     average glyph, so 78ch measured 95 actual characters. */
+  max-width: 64ch;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -9862,13 +9881,25 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rd-v2-summary-suff i.part { color: #92400e; }
 .rd-v2-summary-suff i.none { color: var(--rd-muted); }
 
+/* Leader dots: the count sat ~430px from its label with nothing joining
+   them, so the eye had to travel an empty gap to pair the two. */
 .rd-v2-summary-routes li {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: baseline;
+  gap: 8px;
   padding: 3px 0;
-  border-bottom: 1px solid var(--rd-border);
 }
+
+.rd-v2-summary-routes li::after {
+  content: "";
+  order: 1;
+  flex: 1 1 auto;
+  height: 0;
+  margin-bottom: 3px;
+  border-bottom: 1px dotted color-mix(in srgb, var(--rd-muted) 45%, transparent);
+}
+
+.rd-v2-summary-routes li b { order: 2; }
 
 .rd-v2-summary-routes li:last-child { border-bottom: 0; }
 .rd-v2-summary-routes b { font-weight: 700; }
@@ -9876,3 +9907,41 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 /* The summary blocks sat flush against the rail's left edge while the
    identity line above them was inset -- a ragged margin down the rail. */
 .rd-v2-search-summary { padding: 14px 16px 18px; }
+
+/* Section heads state their own size, so the reader knows how much is in the
+   group before scrolling it. */
+.rd-v2-section-count {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--rd-muted) 14%, transparent);
+  color: var(--rd-muted);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* Coverage proportion. Ten cells, filled by count -- never a percentage or a
+   score, so it cannot claim more than the results show. */
+.rd-v2-coverage-bar {
+  display: flex;
+  gap: 3px;
+  margin: 2px 0 6px;
+}
+
+.rd-v2-coverage-bar span {
+  flex: 1 1 0;
+  height: 8px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--rd-muted) 22%, transparent);
+}
+
+.rd-v2-coverage-bar span.on { background: #3f6f5c; }
+
+.rd-v2-coverage-caption {
+  margin: 0;
+  color: var(--rd-muted);
+  font-size: 12px;
+}
+
+.rd-v2-coverage-caption b { color: var(--rd-ink, inherit); font-weight: 700; }

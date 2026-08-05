@@ -1631,7 +1631,10 @@ export function BrowsePage({
                     the scope summary again below stated the same totals three
                     times before the first row. */}
                 <div className="rd-v2-home-section-head">
-                  <h3>Available to add</h3>
+                  <h3>
+                    Available to add
+                    <span className="rd-v2-section-count">{resultGroups.available.length}</span>
+                  </h3>
                 </div>
                 <DiscoverCandidateList
                   rows={groupCatalogueVariants(resultGroups.available)}
@@ -1778,11 +1781,21 @@ export function BrowsePage({
                 aria-label="Other external matches"
                 data-testid={resultGroups.available.length ? "discover-other-matches" : "discover-best-fit"}
               >
+                {/* "Other external matches" named the group by what it was not
+                    and gave no reason for the split. These rows are separated
+                    because the comparator found nothing equivalent in the
+                    Library -- say that, in the possession vocabulary the
+                    adaptive freeze §16 settled on. */}
                 <div className="rd-v2-home-section-head">
-                  <h3>{externalCatalogueActive ? "External catalogue matches" : "Other external matches"}</h3>
-                  {externalCatalogueActive ? (
-                    <span className="muted">{plural(resultGroups.external.length, "external catalogue record")}</span>
-                  ) : null}
+                  <h3>
+                    {externalCatalogueActive ? "External catalogue matches" : "Beyond your Library"}
+                    <span className="rd-v2-section-count">{resultGroups.external.length}</span>
+                  </h3>
+                  <span className="muted">
+                    {externalCatalogueActive
+                      ? plural(resultGroups.external.length, "external catalogue record")
+                      : "no equivalent found in your Library"}
+                  </span>
                 </div>
                 <DiscoverCandidateList
                   rows={groupCatalogueVariants(resultGroups.external)}

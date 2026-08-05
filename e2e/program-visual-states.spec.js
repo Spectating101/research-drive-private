@@ -177,12 +177,31 @@ test.describe("Discover — required visual states", () => {
             };
           };
           const add = document.querySelector(".rd-v2-discover-row-add");
+
+          // Reading measure, in characters, at this width.
+          const desc = document.querySelector(".rd-v2-discover-evidence");
+          const dcs = getComputedStyle(desc);
+          const probe = document.createElement("span");
+          probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${dcs.font}`;
+          probe.textContent = "abcdefghijklmnopqrstuvwxyz";
+          document.body.appendChild(probe);
+          const charWidth = probe.getBoundingClientRect().width / 26;
+          probe.remove();
+
           return {
             facts: read(".rd-v2-discover-offering-facts"),
             description: read(".rd-v2-discover-evidence"),
             addHeight: add.getBoundingClientRect().height,
+            charsPerLine: Math.round(desc.getBoundingClientRect().width / charWidth),
           };
         });
+
+        // 45-75 characters is the comfortable measure; past ~90 the eye loses
+        // its place on the return sweep. Measured 125 at 1920 before the cap.
+        expect(
+          metrics.charsPerLine,
+          `description runs ${metrics.charsPerLine} characters per line`,
+        ).toBeLessThanOrEqual(90);
 
         expect(metrics.facts.size, "facts line is too small to read").toBeGreaterThanOrEqual(11);
         expect(metrics.facts.contrast, "facts line contrast below AA").toBeGreaterThanOrEqual(4.5);
