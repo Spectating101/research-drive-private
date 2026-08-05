@@ -1616,6 +1616,14 @@ export function V2App() {
   );
 
   if (!deskAccess?.authenticated) {
+    // deskAccess starts null while the session check is in flight, and "not yet
+    // known" is not the same as "denied". Rendering the gate on that first tick
+    // flashed "Research data stays inside the desk." on every single load,
+    // including for already-authorised users who were never denied anything.
+    // Hold a neutral shell until the check actually answers.
+    if (deskAccessBusy && deskAccess === null) {
+      return <main className="rd-v2-access-gate" aria-busy="true" aria-label="Checking desk access" />;
+    }
     return (
       <DeskAccessGate
         access={deskAccess}

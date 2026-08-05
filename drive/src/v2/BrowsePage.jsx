@@ -1319,13 +1319,36 @@ export function BrowsePage({
             {!loading && !error && filtered.length === 0 ? (
               <div className="rd-v2-discover-miss">
                 <p className="rd-v2-empty-inline">
-                  No {stateFilter === "all" ? "" : `${activeFilter.label.toLowerCase()} `}matches for “{q}”
+                  The desk holds no {stateFilter === "all" ? "" : `${activeFilter.label.toLowerCase()} `}match for “{q}”
                   {indexMiss ? " in the current research index." : "."}
                 </p>
                 {indexMiss && onSearchWeb ? (
                   <button type="button" className="rd-v2-btn sm" onClick={() => onSearchWeb(q)}>
                     Search wider sources →
                   </button>
+                ) : null}
+                {/* "Nothing found" is where a procurement desk earns its keep:
+                    not holding the data is the normal case, and the useful
+                    answer is which routes could get it. These are the same
+                    declared source routes the idle screen offers, so the miss
+                    stops being a dead end without inventing a new surface. */}
+                {idleRecommendations.length ? (
+                  <div className="rd-v2-discover-miss-routes">
+                    <div className="rd-v2-home-section-head">
+                      <div>
+                        <span className="rd-v2-eyebrow">Not held — routes to get it</span>
+                        <h3>Sources the desk can collect from</h3>
+                      </div>
+                      <span className="muted">{plural(idleRecommendations.length, "collection route")}</span>
+                    </div>
+                    <DiscoverCandidateList
+                      rows={idleRecommendations}
+                      labIds={labIds}
+                      selectedId={selectedId}
+                      onSelectRow={onSelectRow}
+                      onAdd={onReviewAcquisition}
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}
