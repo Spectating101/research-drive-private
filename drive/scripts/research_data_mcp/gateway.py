@@ -682,11 +682,23 @@ class ResearchDataGateway:
                 return candidates
             picked = catalog_select.select(query, rows, top=limit, repo_root=self.repo_root)
             by_id = {str(d.get("dataset_id")): d for d in rows}
-            seen = {str(c.get("dataset_id") or "") for c in candidates}
+            existing = {str(c.get("dataset_id") or ""): c for c in candidates}
+            seen = set(existing)
             for sel in picked.get("selected") or []:
                 dataset_id = sel.get("dataset_id") or ""
                 row = by_id.get(dataset_id)
-                if not row or dataset_id in seen:
+                if not row:
+                    continue
+                if dataset_id in seen:
+                    # The lexical path found this too. It used to be skipped
+                    # outright, which threw away the reader's reason for exactly
+                    # the rows both agreed on -- the strongest results on the
+                    # page were the ones that could not say why they were there.
+                    # Endorse the existing row instead of dropping the reason.
+                    current = existing[dataset_id]
+                    if not current.get("selection_reason"):
+                        current["selected_by"] = "catalog_reader"
+                        current["selection_reason"] = sel.get("reason") or ""
                     continue
                 seen.add(dataset_id)
                 materialization = row.get("materialization") or {}
@@ -750,6 +762,14 @@ class ResearchDataGateway:
                         "handle": c.get("handle"),
                         "hf_id": c.get("hf_id"),
                         "provider": c.get("provider"),
+                        # Why this row is here, in the reader's words. The
+                        # catalog reader was already producing lines like
+                        # "On-chain USDT transfer flows during peg stress
+                        # events", and this whitelist dropped every one of them
+                        # -- so the UI could show what a dataset is but never
+                        # why it answers the question that was asked.
+                        "selected_by": c.get("selected_by"),
+                        "selection_reason": c.get("selection_reason"),
                     }
                     for c in candidates
                 ]
