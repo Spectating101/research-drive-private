@@ -5546,6 +5546,26 @@
   padding: 12px 16px 18px;
 }
 
+/* The decision footer already stays put while the body scrolls, but it had no
+   styling of its own in the rail, so it ran straight into the Ask chips above
+   it and the primary action sat as a narrow pill mid-column. It read as
+   floating content rather than as the rail's action footer. Give it the same
+   separation the other rail footers use. */
+aside.rd-v2-rail .rd-v2-eval-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--rd-border);
+  background: var(--rd-surface);
+}
+
+aside.rd-v2-rail .rd-v2-eval-actions > .rd-v2-btn {
+  width: 100%;
+  justify-content: center;
+}
+
 .rd-v2-eval-block {
   margin: 0 0 14px;
 }

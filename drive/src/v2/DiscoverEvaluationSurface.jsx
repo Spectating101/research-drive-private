@@ -413,26 +413,31 @@ export function DiscoverEvaluationSurface({
         ) : null}
 
         <div className="rd-v2-rail-scroll rd-v2-eval-scroll">
-          <section className="rd-v2-eval-block" aria-label="Useful for">
-            <p className="rd-v2-eval-section-label">Useful for</p>
-            <p className="rd-v2-eval-prose">{evaluation.usefulFor}</p>
-          </section>
+          {/* One evidence module, not two.
+              `Useful for` restated the row's own description verbatim -- the
+              researcher just selected that row -- and `Coverage` rendered as a
+              separate headed module even when its whole content was
+              "Coverage not described". Together they pushed the rail to six
+              modules against the five the bounded Detail/Ask slice allows, and
+              UI_IMPLEMENTATION_PROGRAM says plainly: "Remove duplicate
+              semantic modules when they repeat current state."
 
-          {evaluation.coverage.length ? (
-            <section className="rd-v2-eval-block" aria-label="Coverage">
-              <p className="rd-v2-eval-section-label">Coverage</p>
+              Coverage is a fact about what this evidence is, so it belongs
+              with it. When nothing is recorded the absence is one muted line,
+              not a heading of its own. */}
+          <section className="rd-v2-eval-block" aria-label="Evidence">
+            <p className="rd-v2-eval-section-label">Evidence</p>
+            <p className="rd-v2-eval-prose">{evaluation.usefulFor}</p>
+            {evaluation.coverage.length ? (
               <ul className="rd-v2-eval-list">
                 {evaluation.coverage.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
-            </section>
-          ) : (
-            <section className="rd-v2-eval-block" aria-label="Coverage">
-              <p className="rd-v2-eval-section-label">Coverage</p>
+            ) : (
               <p className="rd-v2-eval-prose muted">Coverage not described</p>
-            </section>
-          )}
+            )}
+          </section>
 
           <div className="rd-v2-eval-evidence-grid">
             {evaluation.hasProbe && evaluation.verified.length ? (
