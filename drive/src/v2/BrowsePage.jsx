@@ -1511,7 +1511,8 @@ export function BrowsePage({
                 not, because "you already hold all of these" is the answer. */}
             {!resultGroups.available.length && !resultGroups.external.length && resultGroups.duplicates ? (
               <p className="muted rd-v2-discover-all-held">
-                {plural(resultGroups.duplicates, "external match")} found — all already in your Library.
+                {resultGroups.duplicates} external{" "}
+                {resultGroups.duplicates === 1 ? "match" : "matches"} found — all already in your Library.
               </p>
             ) : null}
 
