@@ -72,12 +72,131 @@ def unmet_dimensions(assessment: dict[str, Any]) -> list[str]:
 
 
 def _sources_block(sources: dict[str, dict[str, Any]]) -> str:
+    """One line per source: id, access mode, and what it actually carries.
+
+    Used to read ``meta.get("name")``, but the source map has no ``name`` key --
+    it uses ``label``. Every description came out empty, so the model was shown
+    ``lseg_edp | materialized_instant |`` and nothing else, and had to infer
+    each source's contents from its id. Asked for US opinion polling it
+    answered ``derived_research_panels`` with "Survey panels carry US public
+    opinion and election polling data" -- a real source id and an invented
+    claim, which is precisely the failure grounding is supposed to stop.
+
+    Declared capabilities and geographies are included because they are what
+    the desk actually asserts about each source, and a model that can see
+    "daily_prices, fundamentals" will not offer it as a polling route.
+    """
     lines = []
     for sid, meta in sources.items():
         mode = str(meta.get("access_mode") or "")
-        note = str(meta.get("name") or meta.get("summary") or "")[:70]
-        lines.append(f"{sid} | {mode} | {note}")
+        label = str(meta.get("label") or meta.get("name") or "")[:60]
+        carries = ", ".join(str(c) for c in (meta.get("capabilities") or []))[:110]
+        geo = ", ".join(str(g) for g in (meta.get("geographies") or []))[:60]
+        parts = [p for p in (label, f"carries: {carries}" if carries else "",
+                             f"covers: {geo}" if geo else "") if p]
+        lines.append(f"{sid} | {mode} | {' | '.join(parts)}")
     return "\n".join(lines)
+
+
+_STOP = frozenset({
+    "a", "an", "the", "and", "or", "for", "of", "to", "in", "on", "at", "by",
+    "from", "with", "that", "this", "these", "those", "data", "dataset",
+    "datasets", "source", "sources", "research", "desk", "get", "need",
+})
+
+# Query tokens that imply a capability family. If the question lights one of
+# these up, a candidate source must declare at least one matching capability
+# (or carry the token in its label). Otherwise the model can still invent a
+# plausible-sounding reason for an unrelated declared source_id.
+_CAP_HINTS: tuple[tuple[frozenset[str], frozenset[str]], ...] = (
+    (frozenset({"price", "prices", "pricing", "ohlc", "equity", "equities",
+                "stock", "stocks", "share", "shares", "ticker", "tickers"}),
+     frozenset({"daily_prices", "index_pit_survivorship"})),
+    (frozenset({"fundamental", "fundamentals", "earnings", "revenue",
+                "balance", "income", "compustat"}),
+     frozenset({"fundamentals", "estimates_revisions"})),
+    (frozenset({"estimate", "estimates", "revision", "revisions", "analyst"}),
+     frozenset({"estimates_revisions"})),
+    (frozenset({"news", "shock", "shocks", "headline", "headlines", "gdelt"}),
+     frozenset({"entity_news_shocks", "country_news_shocks", "entity_join_gdelt_ric"})),
+    (frozenset({"sentiment", "social", "twitter", "reddit"}),
+     frozenset({"social_sentiment"})),
+    (frozenset({"crypto", "onchain", "on-chain", "bitcoin", "ethereum",
+                "stablecoin", "defi"}),
+     frozenset({"onchain_crypto"})),
+    (frozenset({"risk", "vol", "volatility", "skew", "option", "options"}),
+     frozenset({"risk_overlay"})),
+    (frozenset({"governance", "regulatory", "regulation", "filing", "filings"}),
+     frozenset({"governance_regulatory"})),
+    # Desk has no declared capability for these. Lighting the hint forces every
+    # candidate through the matching-cap check, which none can pass.
+    (frozenset({"poll", "polling", "polls", "survey", "surveys", "opinion",
+                "ballot", "election", "elections", "referendum"}),
+     frozenset()),
+)
+
+_GEO_ONLY = frozenset({
+    "us", "usa", "america", "american", "taiwan", "indonesia", "japan", "korea",
+    "singapore", "asia", "asian", "macro", "global", "world", "international",
+})
+
+
+def _tokens(text: str) -> set[str]:
+    out: set[str] = set()
+    for raw in str(text or "").lower().replace("-", " ").replace("_", " ").split():
+        tok = "".join(ch for ch in raw if ch.isalnum())
+        if len(tok) > 2 and tok not in _STOP:
+            out.add(tok)
+    return out
+
+
+def _source_bag(meta: dict[str, Any]) -> set[str]:
+    parts = [
+        str(meta.get("label") or ""),
+        str(meta.get("provider") or ""),
+        " ".join(str(c) for c in (meta.get("capabilities") or [])),
+        " ".join(str(g) for g in (meta.get("geographies") or [])),
+    ]
+    return _tokens(" ".join(parts))
+
+
+def route_plausible(question: str, meta: dict[str, Any]) -> bool:
+    """Deterministic veto after the model proposes a declared source_id.
+
+    Prompt grounding stops most hallucinations; this is the belt. A source with
+    no declared label/capabilities cannot justify any route. A question that
+    clearly asks for prices/news/crypto/etc. cannot be answered by a source that
+    does not declare a matching capability. Soft token overlap covers the rest.
+    """
+    q = _tokens(question)
+    if not q:
+        return False
+    bag = _source_bag(meta)
+    caps = {str(c) for c in (meta.get("capabilities") or [])}
+    label = str(meta.get("label") or meta.get("name") or "").strip()
+    if not caps and not label:
+        return False
+
+    hinted = False
+    for q_hints, need_caps in _CAP_HINTS:
+        if q & q_hints:
+            hinted = True
+            if need_caps and caps & need_caps:
+                return True
+            # Label may name the family even when capabilities are empty
+            # (e.g. derived_synthesis). Require the hint token itself then.
+            if need_caps and q_hints & bag:
+                return True
+    if hinted:
+        return False
+
+    # No strong family hint -- require shared *substance* between question and
+    # what the desk asserts. Geography alone ("US") must not rescue an unrelated
+    # source when the question also asked for something the source does not carry.
+    substance = q - _GEO_ONLY
+    if substance:
+        return bool(substance & bag)
+    return bool(q & bag)
 
 
 _PROMPT = """A researcher asked: {question}
@@ -192,8 +311,10 @@ def routes_for_query(
         source_id = parts[0]
         if source_id not in sources or source_id in seen:
             continue
-        seen.add(source_id)
         meta = sources[source_id]
+        if not route_plausible(question, meta):
+            continue
+        seen.add(source_id)
         mode = str(meta.get("access_mode") or "")
         routes.append({
             "source_id": source_id,
