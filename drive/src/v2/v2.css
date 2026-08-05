@@ -6941,6 +6941,11 @@
   align-items: flex-start;
   gap: 6px;
   align-self: start;
+  /* Rows whose publisher is not recorded render no ribbon. The column still
+     holds its width so every title starts on the same left edge -- otherwise
+     the list develops a ragged margin that reads as broken rather than as
+     "source unknown". */
+  min-width: 92px;
   padding-top: 2px;
 }
 

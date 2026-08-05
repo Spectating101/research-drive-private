@@ -188,8 +188,13 @@ function DiscoverCandidateRow({
   const exceptionPill = exceptionalRowPill(row, taxonomy, state);
   const showSufficiency =
     !externalCatalogue && Number(taxonomy.group) >= 3 && row.discover_sufficiency?.browseLine;
+  // States that mean the lab already holds something relevant, so collecting
+  // may be unnecessary. These get a highlighted line; the rest stay inline.
+  const materialSufficiency = ["exact-local", "partial-local", "related-local"].includes(
+    String(row?.discover_sufficiency?.state || ""),
+  );
   const hasExplicitDescription = Boolean(
-    String(row?.description || row?.recommended_use || row?.subtitle || "").trim(),
+    String(row?.description || row?.one_line || row?.recommended_use || row?.subtitle || "").trim(),
   );
   const evidenceLine = hasExplicitDescription ? humanizeDiscoverDescription(descriptiveLine(row)) : "";
   const coverage = coverageLine(row);
@@ -225,7 +230,6 @@ function DiscoverCandidateRow({
               ) : null}
               {candidateTitle(row)}
             </strong>
-            <em className="rd-v2-discover-possession">{taxonomyLine}</em>
           </span>
           {/* Why this row answers the question that was asked -- the one thing
               the single-column CLI rendering had that this page did not. It is
@@ -250,6 +254,12 @@ function DiscoverCandidateRow({
               it changes what you can do with the row (a reference or a
               connector is not a downloadable dataset), and lead with coverage,
               which is what the field shows. */}
+          {/* Adaptive freeze §3 row grammar: one facts line carrying
+              type · coverage · access/route state · local relationship.
+              The route state used to float right in green on every row
+              ("Collection route declared" three times over), and the local
+              relationship occupied a third line behind a "LIBRARY COMPARISON"
+              label. Neither is a heading; both are facts about this offering. */}
           <span className="rd-v2-discover-offering-facts">
             {[
               ["Reference only", "Web context", "Connector"].includes(offeringType(row, taxonomy))
@@ -257,9 +267,17 @@ function DiscoverCandidateRow({
                 : null,
               showCoverage ? coverage : null,
               row?.refresh_frequency || row?.refresh || row?.update_frequency,
+              taxonomyLine,
+              showSufficiency && !materialSufficiency
+                ? libraryFacingSufficiency(row.discover_sufficiency.browseLine)
+                : null,
             ].filter(Boolean).join(" · ")}
           </span>
-          {showSufficiency ? (
+          {/* A material local relationship still earns its own line: if the lab
+              already holds this evidence, or holds part of it, that changes
+              whether to collect at all (freeze §8.2). "No local alternative"
+              is the ordinary case and stays inline above. */}
+          {showSufficiency && materialSufficiency ? (
             <span
               className={`rd-v2-discover-sufficiency rd-v2-discover-sufficiency-${row.discover_sufficiency.state}`}
               data-testid="discover-sufficiency-line"
@@ -1497,12 +1515,13 @@ export function BrowsePage({
                 canvas. Held evidence is chrome above, not a permanent section. */}
             {resultGroups.available.length ? (
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
+                {/* §16: the header states one set and its partition, once.
+                    The chrome above already carries Available / Library
+                    evidence / Web context, so repeating "3 offerings" here and
+                    the scope summary again below stated the same totals three
+                    times before the first row. */}
                 <div className="rd-v2-home-section-head">
-                  <div>
-                    <span className="rd-v2-eyebrow">Best fit</span>
-                    <h3>Available to add</h3>
-                  </div>
-                  <span className="muted">{plural(resultGroups.available.length, "offering")}</span>
+                  <h3>Available to add</h3>
                 </div>
                 <DiscoverCandidateList
                   rows={groupCatalogueVariants(resultGroups.available)}
@@ -1653,8 +1672,6 @@ export function BrowsePage({
                   <h3>{externalCatalogueActive ? "External catalogue matches" : "Other external matches"}</h3>
                   {externalCatalogueActive ? (
                     <span className="muted">{plural(resultGroups.external.length, "external catalogue record")}</span>
-                  ) : scopeSummary ? (
-                    <span className="muted">{scopeSummary}</span>
                   ) : null}
                 </div>
                 <DiscoverCandidateList

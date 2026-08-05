@@ -120,10 +120,27 @@ export function CatalogHeader({ columns }) {
   );
 }
 
+/** Internal provenance buckets, not publishers.
+ *
+ * A registry row whose source is "collection_index" was truncated to the
+ * ribbon "COLLECTION_I", which reads like a vendor and is not one.
+ * UI_PRODUCT_AUTHORITY §15 makes Source an authority-backed claim with
+ * "Not recorded" as its fallback, so an unknown publisher shows no ribbon
+ * rather than a fabricated one. */
+const INTERNAL_SOURCE_BUCKETS = new Set([
+  "collection_index",
+  "collection index",
+  "registry",
+  "desk",
+  "index",
+  "unknown",
+]);
+
 export function SourceRibbon({ source }) {
   const raw = String(source || "").trim();
   const key = raw.toLowerCase();
-  let label = raw ? raw.slice(0, 12).toUpperCase() : "WEB";
+  if (!raw || INTERNAL_SOURCE_BUCKETS.has(key)) return null;
+  let label = raw.slice(0, 12).toUpperCase();
   let tone = "neutral";
   if (key.includes("twse")) { label = "TWSE"; tone = "tw"; }
   else if (key.includes("mops")) { label = "MOPS"; tone = "tw"; }
