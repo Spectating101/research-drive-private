@@ -30,6 +30,7 @@ import {
   hasSpecificDiscoverRoute,
 } from "@/v2/discoverQuerySpecificity";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
+import { groupCatalogueVariants } from "@/v2/catalogueVariants";
 
 const FILTERS = [
   { id: "all", label: "All results" },
@@ -595,6 +596,7 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
                       row.time_range,
                       geo ? `${geo} countries` : null,
                       ready ? "query-ready" : null,
+                      row._variants?.length > 1 ? `${row._variants.length} scales` : null,
                     ].filter(Boolean).join(" · ")}
                   </span>
                 </span>
@@ -1415,11 +1417,15 @@ export function BrowsePage({
 
             {resultGroups.held.length ? (
               <section className="rd-v2-discover-library" aria-label="In your Library">
+                {/* Collapsed by default: the held list is reference material the
+                    researcher opens when they want it, and leaving it expanded
+                    pushed everything else below the fold. */}
                 {/* Verdict first: one line stating where the answer stands,
                     before any list. The page used to open with a filter bar and
                     a count, so the researcher had to assemble the verdict from
                     fragments scattered across three regions. */}
-                <p className="rd-v2-discover-verdict">
+                <details className="rd-v2-library-disclosure">
+                <summary className="rd-v2-discover-verdict">
                   <span className="rd-v2-eyebrow">In your Library</span>
                   <strong>
                     {plural(resultGroups.held.length, "dataset")} held
@@ -1428,13 +1434,14 @@ export function BrowsePage({
                     ? ` · ${resultGroups.available.length + resultGroups.external.length} external`
                     : ""}
                   {readyCount ? ` · ${readyCount} query-ready now` : ""}
-                </p>
+                </summary>
                 <LibraryResultList
-                  rows={resultGroups.held}
+                  rows={groupCatalogueVariants(resultGroups.held)}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
                 />
+                </details>
               </section>
             ) : null}
 
@@ -1449,7 +1456,7 @@ export function BrowsePage({
                   </div>
                 </div>
                 <DiscoverCandidateList
-                  rows={resultGroups.available}
+                  rows={groupCatalogueVariants(resultGroups.available)}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
@@ -1594,7 +1601,7 @@ export function BrowsePage({
                   ) : null}
                 </div>
                 <DiscoverCandidateList
-                  rows={resultGroups.external}
+                  rows={groupCatalogueVariants(resultGroups.external)}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}

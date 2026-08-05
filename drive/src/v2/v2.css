@@ -7127,6 +7127,29 @@
    a card grid cannot give at twenty-plus results. */
 .rd-v2-library-rows { margin: 0; padding: 0; list-style: none; }
 
+/* Header rhythm: title, mode tabs, composer and brief were each spaced as
+   independent blocks, so five short lines occupied a third of the fold before
+   the first result. Tighten between them; the gap that matters is the one
+   before the results. */
+.rd-v2-discover-page > header { margin-bottom: 8px; }
+.rd-v2-discover-page > header h1 { margin-bottom: 2px; }
+.rd-v2-discover-modes { margin-top: 6px; }
+.rd-v2-discover-brief { margin: 6px 0; }
+
+/* Held datasets collapse by default. */
+.rd-v2-library-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.rd-v2-library-disclosure > summary::-webkit-details-marker { display: none; }
+.rd-v2-library-disclosure > summary::before {
+  content: "▸";
+  margin-right: 6px;
+  color: var(--rd-muted, #9aa0a6);
+  font-size: 11px;
+}
+.rd-v2-library-disclosure[open] > summary::before { content: "▾"; }
+
 .rd-v2-library-row {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) 14px;
