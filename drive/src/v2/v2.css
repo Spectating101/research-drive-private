@@ -7456,7 +7456,7 @@ aside.rd-v2-rail .rd-v2-eval-actions > .rd-v2-btn {
 .rd-v2-discover-evidence {
   display: -webkit-box;
   overflow: hidden;
-  color: #5f6368;
+  color: #3f4652;
   /* Was inheriting to 13.12px through a rem cascade. Fractional sizes are
      drift, not a scale, and they render inconsistently across rows. */
   font-size: 13px;
@@ -9995,4 +9995,36 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     padding-top: 4px;
     text-align: left;
   }
+}
+
+.rd-v2-discover-candidate-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.rd-v2-discover-readiness {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.rd-v2-discover-readiness.is-ready { background: #dceee2; color: #1d5c40; }
+.rd-v2-discover-readiness.is-mid   { background: #e7edf7; color: #2b4a72; }
+.rd-v2-discover-readiness.is-low   { background: #f0efe9; color: #6b6a62; }
+
+.rd-v2-discover-use {
+  display: -webkit-box;
+  overflow: hidden;
+  max-width: 64ch;
+  color: #6b7280;
+  font-size: 12.5px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }

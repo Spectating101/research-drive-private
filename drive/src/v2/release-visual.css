@@ -2006,7 +2006,7 @@
    won. Same intended size, stated once in the same unit as the rest of the
    row so the description and the facts line sit on one scale. */
 .rd-v2-discover-evidence {
-  color: #58677c;
+  color: #3f4652;
   font-size: 13px;
   /* The reading-measure cap is repeated here deliberately. This sheet loads
      after v2.css and already won the font-size fight that produced 13.12px,

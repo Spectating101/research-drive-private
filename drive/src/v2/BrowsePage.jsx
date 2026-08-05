@@ -223,6 +223,16 @@ function DiscoverCandidateRow({
     !externalCatalogue && Number(taxonomy.group) >= 3 && row.discover_sufficiency?.browseLine;
   // States that mean the lab already holds something relevant, so collecting
   // may be unnecessary. These get a highlighted line; the rest stay inline.
+  const readinessBadge = (() => {
+    const r = String(row?.analysis_readiness || row?.field_coverage || "").toLowerCase();
+    if (!r) return null;
+    if (/query[-_ ]?ready|instant/.test(r)) return { label: "Query-ready", tone: "ready" };
+    if (/register/.test(r)) return { label: "Registered", tone: "mid" };
+    if (/metadata/.test(r)) return { label: "Metadata only", tone: "low" };
+    return null;
+  })();
+  const recommendedUse = String(row?.recommended_use || "").trim().slice(0, 150);
+
   const materialSufficiency = ["exact-local", "partial-local", "related-local"].includes(
     String(row?.discover_sufficiency?.state || ""),
   );
@@ -263,6 +273,11 @@ function DiscoverCandidateRow({
               ) : null}
               {candidateTitle(row)}
             </strong>
+            {readinessBadge ? (
+              <em className={`rd-v2-discover-readiness is-${readinessBadge.tone}`}>
+                {readinessBadge.label}
+              </em>
+            ) : null}
           </span>
           {/* Why this row answers the question that was asked -- the one thing
               the single-column CLI rendering had that this page did not. It is
@@ -282,6 +297,9 @@ function DiscoverCandidateRow({
           <span className={`rd-v2-discover-evidence${evidenceLine ? "" : " is-missing"}`}>
             {evidenceLine || "Description not recorded"}
           </span>
+          {recommendedUse ? (
+            <span className="rd-v2-discover-use">{recommendedUse}</span>
+          ) : null}
           {/* "Dataset · catalog_harvest" is the desk's own vocabulary and says
               nothing a researcher can act on. Keep the offering type only when
               it changes what you can do with the row (a reference or a
