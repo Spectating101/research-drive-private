@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { discoverCollectRoutes, discoverSearch, discoverSources, webDiscover } from "@/v2/api";
+import { discoverCollectRoutes, discoverSearch, discoverSources, libraryPartitions, webDiscover } from "@/v2/api";
 import { sourcesResponseToRows } from "@/v2/discoverAdapters";
 import { DiscoverHistoryPanel } from "@/v2/DiscoverHistoryPanel";
 import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
@@ -1155,6 +1155,27 @@ export function BrowsePage({
   // This asks which sources could actually supply the request and shows
   // nothing when none can, because "this desk cannot get that" is the answer
   // a procurement tool owes.
+  // Openable content on the landing, the way Kaggle and HuggingFace show
+  // trending datasets. An empty search box with no starting point forces the
+  // researcher to already know what the desk holds, which is exactly what they
+  // came here to find out.
+  const [shelves, setShelves] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    libraryPartitions()
+      .then((res) => {
+        if (cancelled) return;
+        const rows = (res?.shelves || [])
+          .filter((sh) => (sh.dataset_count || 0) > 0)
+          .sort((a, b) => (b.query_ready_count || 0) - (a.query_ready_count || 0));
+        setShelves(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [missRouteState, setMissRouteState] = useState({ query: "", routes: [], reason: "" });
   useEffect(() => {
     const wanted = String(q || "").trim();
@@ -1267,6 +1288,26 @@ export function BrowsePage({
               onAssess={onOpenAssessment}
               idle
             />
+            {shelves.length ? (
+              <div className="rd-v2-discover-shelves" aria-label="Browse the Library">
+                <div className="rd-v2-discover-shelves-head">
+                  <span className="rd-v2-eyebrow">Browse what the desk holds</span>
+                </div>
+                <ul>
+                  {shelves.map((sh) => (
+                    <li key={sh.id}>
+                      <a className="rd-v2-shelf-chip" href={`?tab=library&folder=${encodeURIComponent(sh.id)}`}>
+                        <span className="rd-v2-shelf-label">{sh.label}</span>
+                        <span className="rd-v2-shelf-count">
+                          {sh.dataset_count}
+                          {sh.query_ready_count ? ` · ${sh.query_ready_count} ready` : ""}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div className="rd-v2-discover-idle-held">
               {/* VC-5: with no known routes this collapses to one quiet line
                   instead of an oversized empty section. */}

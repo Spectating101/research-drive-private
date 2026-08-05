@@ -202,6 +202,11 @@ export function discoverSources(
   return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: live ? 45000 : 12000 });
 }
 
+/** Professor shelves with their datasets — the browsable face of the Library. */
+export function libraryPartitions() {
+  return fetchJson("/library/partitions", { timeoutMs: 12000 });
+}
+
 /**
  * Which declared sources could supply something the desk does not hold.
  *

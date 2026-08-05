@@ -7166,6 +7166,35 @@
 .rd-v2-discover-routes-disclosure[open] > summary::before { content: "▾ "; }
 .rd-v2-discover-idle-held { margin-top: 10px; }
 
+/* Shelf chips: compact, scannable, and every one leads somewhere openable. */
+.rd-v2-discover-shelves { margin: 14px 0 4px; }
+.rd-v2-discover-shelves-head { margin-bottom: 8px; }
+.rd-v2-discover-shelves ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rd-v2-shelf-chip {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 12px;
+  border: 1px solid var(--rd-border, #dadce0);
+  border-radius: 999px;
+  color: inherit;
+  text-decoration: none;
+}
+.rd-v2-shelf-chip:hover { background: var(--rd-hover, #f1f3f4); }
+.rd-v2-shelf-label { font-size: 13px; }
+.rd-v2-shelf-count {
+  color: var(--rd-muted, #5f6368);
+  font-family: var(--rd-mono);
+  font-size: 11px;
+}
+
 .rd-v2-library-row {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) 14px;
