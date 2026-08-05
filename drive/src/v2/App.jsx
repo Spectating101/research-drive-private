@@ -690,6 +690,22 @@ export function V2App() {
         syncUrl({ tab: next, dataset: "", preview: false });
         return;
       }
+      if (next === "browse" && !opts.keepSelection) {
+        // Clicking Discover in the sidebar returns to the Discover home, the
+        // way clicking Library returns to the Library root. Without this the
+        // nav item was inert once a search had run -- the results stayed, the
+        // query stayed in the box, and there was no way back to the starting
+        // screen short of editing the URL.
+        setTab(next);
+        setDiscoverSearchQuery("");
+        setBrowseRow(null);
+        setSelectedId("");
+        setActiveObject(null);
+        setRailTab("detail");
+        setDiscoverAssessment((current) => ({ ...current, active: false }));
+        syncUrl({ tab: next, q: "", dataset: "", preview: false });
+        return;
+      }
       setTab(next);
       syncUrl({ tab: next });
     },

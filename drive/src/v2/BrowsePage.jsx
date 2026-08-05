@@ -552,6 +552,7 @@ const LIBRARY_PAGE = 7;
  */
 function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
   const [expanded, setExpanded] = useState(false);
+  const [openKey, setOpenKey] = useState("");
   const shown = expanded ? rows : rows.slice(0, LIBRARY_PAGE);
   const rest = rows.length - shown.length;
   return (
@@ -561,9 +562,22 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
           const key = candidateKey(row);
           const ready = Boolean(row.local_ready);
           const geo = Number(row.geography_count || 0);
-          return (
+          const open = openKey === key;
+            return (
             <li key={key} className={selectedId === key ? "rd-v2-row-on" : undefined}>
-              <button type="button" className="rd-v2-library-row" onClick={() => onSelectRow?.(row)}>
+              <button
+                type="button"
+                className="rd-v2-library-row"
+                aria-expanded={open}
+                onClick={() => {
+                  // One line per dataset until asked otherwise. With the reason
+                  // always visible each entry took three lines and five rows
+                  // filled the fold, which is the density problem the list was
+                  // built to solve.
+                  setOpenKey(open ? "" : key);
+                  onSelectRow?.(row);
+                }}
+              >
                 {/* Query-ready is the distinction that decides whether the
                     researcher can act now, so it leads the row. */}
                 <span className={`rd-v2-library-mark${ready ? " on" : ""}`} aria-hidden="true">
@@ -576,7 +590,7 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
                 <span className="rd-v2-library-col">{geo ? `${geo} ctry` : "—"}</span>
                 <span className="rd-v2-library-chev" aria-hidden="true">▸</span>
               </button>
-              {row.selection_reason ? (
+              {open && row.selection_reason ? (
                 <span className="rd-v2-discover-why rd-v2-library-why">
                   <b>why</b> {row.selection_reason}
                 </span>
@@ -1343,7 +1357,6 @@ export function BrowsePage({
                       Search wider
                     </button>
                   ) : null}
-                  {libraryEvidenceMenu}
                   {assessmentPending ? (
                     <button type="button" className="rd-v2-discover-strategy-trigger is-pending" disabled>
                       Assessing strategy…
@@ -1384,20 +1397,15 @@ export function BrowsePage({
                     a count, so the researcher had to assemble the verdict from
                     fragments scattered across three regions. */}
                 <p className="rd-v2-discover-verdict">
+                  <span className="rd-v2-eyebrow">In your Library</span>
                   <strong>
-                    {resultGroups.held.length} in Library
+                    {plural(resultGroups.held.length, "dataset")} held
                   </strong>
                   {resultGroups.available.length || resultGroups.external.length
                     ? ` · ${resultGroups.available.length + resultGroups.external.length} external`
                     : ""}
                   {readyCount ? ` · ${readyCount} query-ready now` : ""}
                 </p>
-                <div className="rd-v2-home-section-head">
-                  <div>
-                    <span className="rd-v2-eyebrow">In your Library</span>
-                  </div>
-                  <span className="muted">{plural(resultGroups.held.length, "dataset")}</span>
-                </div>
                 <LibraryResultList
                   rows={resultGroups.held}
                   labIds={labIds}
