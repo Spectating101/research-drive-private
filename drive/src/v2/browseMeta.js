@@ -169,3 +169,36 @@ export function humanizeDiscoverDescription(value) {
 export function isLabOwned(row, labIds) {
   return isLocalHolding(row, labIds);
 }
+
+/** Human names for declared collection routes.
+ *
+ * Shared so the row ("Collect via BigQuery") and the rail's route tally use
+ * one vocabulary. They previously disagreed: the rail listed the raw config
+ * tokens `bigquery` / `datacite` / `http_manifest` beside rows that had
+ * already named them properly. */
+const ROUTE_NAMES = {
+  bigquery: "BigQuery",
+  datacite: "DataCite",
+  huggingface: "Hugging Face",
+  local_open: "the Library copy",
+  http_manifest: "a file manifest",
+  scrape_snapshot: "a page snapshot",
+  catalog_harvest: "a catalog harvest",
+  browser_extract: "browser extraction",
+  api_query: "an API query",
+};
+
+const ROUTE_ACRONYMS = new Set([
+  "api", "edp", "sec", "doi", "ftp", "sftp", "rpc", "csv", "lseg", "twse", "mops",
+]);
+
+export function routeDisplayName(value) {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return "";
+  if (ROUTE_NAMES[key]) return ROUTE_NAMES[key];
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((word) => (ROUTE_ACRONYMS.has(word) ? word.toUpperCase() : word))
+    .join(" ");
+}

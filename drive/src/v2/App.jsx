@@ -173,6 +173,7 @@ export function V2App() {
   const [folderId, setFolderId] = useState(() => readParams().folder);
   const [selectedId, setSelectedId] = useState(() => readParams().dataset);
   const [browseRow, setBrowseRow] = useState(null);
+  const [discoverSearchSummary, setDiscoverSearchSummary] = useState(null);
   const [browseProbe, setBrowseProbe] = useState({ candidateKey: "", loading: false, result: null, error: "" });
   const [collectSubmittingKey, setCollectSubmittingKey] = useState("");
   const [lifecycleRefreshFailed, setLifecycleRefreshFailed] = useState(false);
@@ -1444,6 +1445,7 @@ export function V2App() {
           discoverMode={discoverMode}
           discoverFocusAwaiting={discoverFocusAwaiting}
           onDiscoverModeChange={setDiscoverModeSafe}
+          onSearchSummary={setDiscoverSearchSummary}
           historyEvents={historyItems}
           selectedHistoryId={selectedHistoryId}
           intentRecord={discoverIntentRecord}
@@ -1735,6 +1737,7 @@ export function V2App() {
         detailLoading={detailLoading}
         clusterContext={clusterContext}
         discoverSearchQuery={discoverSearchQuery}
+        discoverSearchSummary={discoverSearchSummary}
         browseTarget={browseTarget}
         historyEvent={selectedHistoryEvent}
         historyJob={selectedHistoryJob}

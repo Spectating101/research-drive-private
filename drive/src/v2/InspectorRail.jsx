@@ -108,6 +108,7 @@ export function InspectorRail({
   detailLoading,
   clusterContext,
   discoverSearchQuery = "",
+  discoverSearchSummary = null,
   browseTarget,
   historyEvent,
   historyJob,
@@ -184,6 +185,7 @@ export function InspectorRail({
       <BrowseRailPanel
         target={browseTarget}
         searchQuery={discoverSearchQuery}
+        searchSummary={discoverSearchSummary}
         labIds={labIds}
         onAskAbout={onAskAbout}
         onAddToLab={onAddToLab}

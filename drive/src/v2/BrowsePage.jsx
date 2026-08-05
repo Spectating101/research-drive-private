@@ -6,6 +6,7 @@ import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
 import {
   classifyDiscoverResult,
   coverageLine,
+  routeDisplayName,
   descriptiveLine,
   discoverCandidateState,
   exceptionalRowPill,
@@ -88,33 +89,10 @@ function offeringType(row, taxonomy) {
  * per-source string the adaptive freeze §13 tells us not to reintroduce.
  * `collect_via` already records which route, so name it. Only the rendering
  * changes; the claim ("a route is declared") is the same one. */
-const ROUTE_NAMES = {
-  bigquery: "BigQuery",
-  datacite: "DataCite",
-  huggingface: "Hugging Face",
-  local_open: "the Library copy",
-  http_manifest: "a file manifest",
-  scrape_snapshot: "a page snapshot",
-  catalog_harvest: "a catalog harvest",
-  browser_extract: "browser extraction",
-  api_query: "an API query",
-};
-
-/** Acronyms that must not be sentence-cased into "Lseg" or "Api". */
-const ROUTE_ACRONYMS = new Set(["api", "edp", "sec", "doi", "ftp", "sftp", "rpc", "csv", "lseg", "twse", "mops"]);
-
 function routeLabel(row) {
   const raw = Array.isArray(row?.collect_via) ? row.collect_via[0] : row?.collect_via;
-  const key = String(raw || "").trim().toLowerCase();
-  if (!key) return "Collection route declared";
-  const named =
-    ROUTE_NAMES[key]
-    || key
-      .split("_")
-      .filter(Boolean)
-      .map((word) => (ROUTE_ACRONYMS.has(word) ? word.toUpperCase() : word))
-      .join(" ");
-  return `Collect via ${named}`;
+  const named = routeDisplayName(raw);
+  return named ? `Collect via ${named}` : "Collection route declared";
 }
 
 function accessLabel(taxonomy, row) {
@@ -793,6 +771,7 @@ export function BrowsePage({
   onReviewAcquisition,
   discoverMode = "explore",
   onDiscoverModeChange,
+  onSearchSummary,
   discoverFocusAwaiting = false,
   historyEvents = [],
   selectedHistoryId = "",
@@ -1156,6 +1135,7 @@ export function BrowsePage({
     }
     return groups;
   }, [filtered, labIds]);
+
   const readyCount = useMemo(
     () => resultGroups.held.filter((r) => r.local_ready).length,
     [resultGroups.held],
@@ -1204,6 +1184,54 @@ export function BrowsePage({
   }, [merged, labIds]);
 
   const q = (searchQuery || "").trim();
+
+  /**
+   * What this search found, for the rail.
+   *
+   * With no candidate selected the rail was 9% ink in a 374x836 column -- a
+   * quarter of the viewport holding a folder icon and two lines. The authority
+   * allows a quiet rail but forbids a "permanent empty inspector" (§3), and
+   * during an active search there is a meaningful object: the search itself.
+   *
+   * Every number here is counted off rows already rendered in the centre.
+   * Nothing is inferred, so the panel cannot claim coverage the results do not
+   * show.
+   */
+  const searchSummary = useMemo(() => {
+    if (!q) return null;
+    const sufficiency = { exact: resultGroups.duplicates, partial: 0, related: 0, none: 0, unknown: 0 };
+    const routes = new Map();
+    for (const row of [...resultGroups.available, ...resultGroups.external]) {
+      const state = String(row?.discover_sufficiency?.state || "");
+      if (state === "partial-local") sufficiency.partial += 1;
+      else if (state === "related-local") sufficiency.related += 1;
+      else if (state === "no-local-alternative") sufficiency.none += 1;
+      else sufficiency.unknown += 1;
+
+      const via = Array.isArray(row?.collect_via) ? row.collect_via[0] : row?.collect_via;
+      const label = String(via || "").trim();
+      if (label) routes.set(label, (routes.get(label) || 0) + 1);
+    }
+    return {
+      query: q,
+      offerings: resultGroups.available.length + resultGroups.external.length,
+      held: resultGroups.held.length,
+      webContext: resultGroups.context.length,
+      queryReady: resultGroups.held.filter((r) => r.local_ready).length,
+      sufficiency,
+      routes: [...routes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4),
+    };
+  }, [q, resultGroups]);
+
+  // Keyed on content, not identity. `searchSummary` is a fresh object on every
+  // render, so depending on it directly pushed new state into App, which
+  // re-rendered BrowsePage, which built another object -- an infinite loop that
+  // stalled the whole shell rather than failing loudly.
+  const searchSummaryKey = searchSummary ? JSON.stringify(searchSummary) : "";
+  useEffect(() => {
+    onSearchSummary?.(searchSummaryKey ? JSON.parse(searchSummaryKey) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchSummaryKey]);
   const allInLab =
     !loading && merged.length > 0 && stageCounts.inLab > 0 && stageCounts.inLab === merged.length;
   const demoMode = demoFallback || (usingSeed && source === "demo");

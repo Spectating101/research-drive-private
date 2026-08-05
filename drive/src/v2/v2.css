@@ -9827,3 +9827,52 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   color: var(--rd-muted);
   cursor: default;
 }
+
+/* Search-scoped rail summary.
+   With nothing selected the rail was 9% ink in a 374x836 column. These
+   counts are read off the rows already rendered in the centre, so the panel
+   fills the rail without asserting anything the results do not show. */
+.rd-v2-search-summary .rd-v2-eval-block { margin: 0 0 18px; }
+
+.rd-v2-summary-counts,
+.rd-v2-summary-suff,
+.rd-v2-summary-routes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.rd-v2-summary-counts b { font-weight: 700; }
+
+.rd-v2-summary-suff li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.rd-v2-summary-suff i {
+  flex: 0 0 14px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.rd-v2-summary-suff i.ok { color: #166534; }
+.rd-v2-summary-suff i.part { color: #92400e; }
+.rd-v2-summary-suff i.none { color: var(--rd-muted); }
+
+.rd-v2-summary-routes li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--rd-border);
+}
+
+.rd-v2-summary-routes li:last-child { border-bottom: 0; }
+.rd-v2-summary-routes b { font-weight: 700; }
+
+/* The summary blocks sat flush against the rail's left edge while the
+   identity line above them was inset -- a ragged margin down the rail. */
+.rd-v2-search-summary { padding: 14px 16px 18px; }

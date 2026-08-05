@@ -21,6 +21,7 @@ import {
 } from "@/v2/RailFrame";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import { buildObjectEstateCrumb } from "@/v2/deskIntegration";
+import { routeDisplayName } from "@/v2/browseMeta";
 
 const PATH_STAGES = [
   { id: "submitted", label: "Submitted" },
@@ -52,6 +53,7 @@ function sufficiencyLocalTitle(sufficiency) {
 export function DiscoverEvaluationSurface({
   target,
   searchQuery = "",
+  searchSummary = null,
   labIds,
   catalog = [],
   onAskAbout,
@@ -98,17 +100,79 @@ export function DiscoverEvaluationSurface({
     // showing a folder icon and "No candidate selected" beside a full result
     // list.
     const q = String(searchQuery || "").trim();
+    if (!q || !searchSummary) {
+      return (
+        <RailFrame>
+          <div className="rd-v2-rail-scroll">
+            <EmptyRailState
+              title="No candidate selected"
+              hint="Search, then select a candidate to evaluate what you can use and what remains unknown."
+            />
+          </div>
+        </RailFrame>
+      );
+    }
+    const s = searchSummary;
+    const compared = s.sufficiency.exact + s.sufficiency.partial + s.sufficiency.related;
     return (
       <RailFrame>
-        <div className="rd-v2-rail-scroll">
-          <EmptyRailState
-            title={q ? "Nothing selected yet" : "No candidate selected"}
-            hint={
-              q
-                ? `Showing evidence for “${q}”. Select an offering to see what it covers, what it would take to collect, and what remains unknown.`
-                : "Search, then select a candidate to evaluate what you can use and what remains unknown."
-            }
-          />
+        <div className="rd-v2-rail-scroll rd-v2-search-summary" data-testid="discover-search-summary">
+          <section className="rd-v2-eval-block">
+            <p className="rd-v2-eval-section-label">What this search found</p>
+            <ul className="rd-v2-summary-counts">
+              <li>
+                <b>{s.offerings}</b> offering{s.offerings === 1 ? "" : "s"} you can add
+              </li>
+              <li>
+                <b>{s.held}</b> already in your Library
+                {s.held ? <span className="muted"> · {s.queryReady} query-ready</span> : null}
+              </li>
+              {s.webContext ? (
+                <li>
+                  <b>{s.webContext}</b> web context result{s.webContext === 1 ? "" : "s"}
+                </li>
+              ) : null}
+            </ul>
+          </section>
+
+          <section className="rd-v2-eval-block">
+            <p className="rd-v2-eval-section-label">Library comparison</p>
+            {compared ? (
+              <ul className="rd-v2-summary-suff">
+                {s.sufficiency.exact ? <li><i className="ok">✓</i>{s.sufficiency.exact} already held exactly</li> : null}
+                {s.sufficiency.partial ? <li><i className="part">◐</i>{s.sufficiency.partial} partially covered</li> : null}
+                {s.sufficiency.related ? <li><i className="part">≈</i>{s.sufficiency.related} related, equivalence unproven</li> : null}
+                {s.sufficiency.none ? <li><i className="none">—</i>{s.sufficiency.none} with no Library alternative</li> : null}
+                {s.sufficiency.unknown ? <li><i className="none">?</i>{s.sufficiency.unknown} comparison unknown</li> : null}
+              </ul>
+            ) : (
+              <p className="rd-v2-eval-prose muted">
+                No offering here matched something the lab already holds.
+              </p>
+            )}
+          </section>
+
+          {s.routes.length ? (
+            <section className="rd-v2-eval-block">
+              <p className="rd-v2-eval-section-label">Collection routes offered</p>
+              <ul className="rd-v2-summary-routes">
+                {s.routes.map(([route, n]) => (
+                  <li key={route}>
+                    {routeDisplayName(route)}
+                    <b>{n}</b>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="rd-v2-eval-block">
+            <p className="rd-v2-eval-section-label">Not yet established</p>
+            <p className="rd-v2-eval-prose muted">
+              Nothing here has been probed. Select an offering to see its coverage, its
+              route, and what remains unknown before collecting.
+            </p>
+          </section>
         </div>
       </RailFrame>
     );
