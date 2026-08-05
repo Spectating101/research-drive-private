@@ -239,12 +239,18 @@ function DiscoverCandidateRow({
             </span>
           ) : null}
           {evidenceLine ? <span className="rd-v2-discover-evidence">{evidenceLine}</span> : null}
+          {/* "Dataset · catalog_harvest" is the desk's own vocabulary and says
+              nothing a researcher can act on. Keep the offering type only when
+              it changes what you can do with the row (a reference or a
+              connector is not a downloadable dataset), and lead with coverage,
+              which is what the field shows. */}
           <span className="rd-v2-discover-offering-facts">
             {[
-              offeringType(row, taxonomy),
+              ["Reference only", "Web context", "Connector"].includes(offeringType(row, taxonomy))
+                ? offeringType(row, taxonomy)
+                : null,
               showCoverage ? coverage : null,
               row?.refresh_frequency || row?.refresh || row?.update_frequency,
-              row?.probe_snapshot?.observed_at ? "Observed probe" : null,
             ].filter(Boolean).join(" · ")}
           </span>
           {showSufficiency ? (
@@ -1028,8 +1034,19 @@ export function BrowsePage({
       external: [],
       held: [],
       context: [],
+      duplicates: 0,
     };
     for (const row of filtered) {
+      // An external row whose sufficiency is "exact local match" is a second
+      // listing of a dataset already shown under IN YOUR LIBRARY. Seven
+      // "external" results for a stablecoin query contained four such
+      // duplicates, so the section that is supposed to show what the desk does
+      // NOT hold was mostly re-showing what it does. Counted, not silently
+      // dropped, so the total still reconciles.
+      if (row.discover_sufficiency?.state === "exact-local") {
+        groups.duplicates += 1;
+        continue;
+      }
       const taxonomy = row.discover_taxonomy || classifyDiscoverResult(row, labIds);
       const type = offeringType(row, taxonomy);
       if (taxonomy.key.startsWith("local-")) groups.held.push(row);
