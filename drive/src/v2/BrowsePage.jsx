@@ -257,14 +257,9 @@ function DiscoverCandidateRow({
         aria-pressed={selected}
         onClick={() => onSelectRow(row)}
       >
-        <span className="rd-v2-discover-candidate-source">
-          <SourceRibbon source={ribbonSource} />
-          {exceptionPill ? (
-            <span className={`rd-v2-pill ${exceptionPill.className}`}>{exceptionPill.label}</span>
-          ) : null}
-        </span>
         <span className="rd-v2-discover-candidate-main">
           <span className="rd-v2-discover-candidate-heading">
+            <SourceRibbon source={ribbonSource} />
             <strong className="rd-v2-discover-candidate-title">
               {selected ? (
                 <span className="rd-v2-discover-selected-mark" aria-hidden="true">
@@ -273,6 +268,9 @@ function DiscoverCandidateRow({
               ) : null}
               {candidateTitle(row)}
             </strong>
+            {exceptionPill ? (
+              <span className={`rd-v2-pill ${exceptionPill.className}`}>{exceptionPill.label}</span>
+            ) : null}
             {readinessBadge ? (
               <em className={`rd-v2-discover-readiness is-${readinessBadge.tone}`}>
                 {readinessBadge.label}
@@ -297,9 +295,6 @@ function DiscoverCandidateRow({
           <span className={`rd-v2-discover-evidence${evidenceLine ? "" : " is-missing"}`}>
             {evidenceLine || "Description not recorded"}
           </span>
-          {recommendedUse ? (
-            <span className="rd-v2-discover-use">{recommendedUse}</span>
-          ) : null}
           {/* "Dataset · catalog_harvest" is the desk's own vocabulary and says
               nothing a researcher can act on. Keep the offering type only when
               it changes what you can do with the row (a reference or a

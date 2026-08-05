@@ -5397,8 +5397,8 @@
 }
 
 .rd-v2-discover-candidates button.row.rd-v2-discover-candidate {
-  grid-template-areas: "source main scale";
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "main scale";
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: clamp(12px, 1.4vw, 20px);
   min-height: 0;
@@ -9982,9 +9982,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 760px) {
   .rd-v2-discover-candidates button.row.rd-v2-discover-candidate {
     grid-template-areas:
-      "source main"
-      "source scale";
-    grid-template-columns: auto minmax(0, 1fr);
+      "main"
+      "scale";
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rd-v2-discover-candidate-scale {
@@ -10000,7 +10000,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rd-v2-discover-candidate-heading {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rd-v2-discover-candidate-heading .rd-v2-source-ribbon {
+  align-self: center;
 }
 
 .rd-v2-discover-readiness {
