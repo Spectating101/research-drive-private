@@ -570,29 +570,47 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
                 className="rd-v2-library-row"
                 aria-expanded={open}
                 onClick={() => {
-                  // One line per dataset until asked otherwise. With the reason
-                  // always visible each entry took three lines and five rows
-                  // filled the fold, which is the density problem the list was
-                  // built to solve.
                   setOpenKey(open ? "" : key);
                   onSelectRow?.(row);
                 }}
               >
-                {/* Query-ready is the distinction that decides whether the
-                    researcher can act now, so it leads the row. */}
+                {/* Title first, metadata as a byline beneath -- the row shape
+                    every dataset search converges on, because a reader scans
+                    names and only then checks whether the grain and period fit.
+                    A fixed column grid forced empty cells: time_range and
+                    geography are undeclared on most rows, so two of five
+                    columns rendered "—" on every line. A byline simply omits
+                    what is not known. */}
                 <span className={`rd-v2-library-mark${ready ? " on" : ""}`} aria-hidden="true">
                   {ready ? "✓" : "○"}
                 </span>
-                <span className="rd-v2-library-id">{row.dataset_id || row.title}</span>
-                <span className="rd-v2-library-col">{row.grain || "—"}</span>
-                <span className="rd-v2-library-col">{row.frequency || "—"}</span>
-                <span className="rd-v2-library-col">{row.time_range || "—"}</span>
-                <span className="rd-v2-library-col">{geo ? `${geo} ctry` : "—"}</span>
+                <span className="rd-v2-library-main">
+                  <span className="rd-v2-library-title">
+                    {row.display_name || row.title || row.dataset_id}
+                  </span>
+                  <span className="rd-v2-library-byline">
+                    {[
+                      row.grain,
+                      row.frequency,
+                      row.time_range,
+                      geo ? `${geo} countries` : null,
+                      ready ? "query-ready" : null,
+                    ].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
                 <span className="rd-v2-library-chev" aria-hidden="true">▸</span>
               </button>
-              {open && row.selection_reason ? (
-                <span className="rd-v2-discover-why rd-v2-library-why">
-                  <b>why</b> {row.selection_reason}
+              {open ? (
+                <span className="rd-v2-library-detail">
+                  {row.selection_reason ? (
+                    <span className="rd-v2-discover-why">
+                      <b>why</b> {row.selection_reason}
+                    </span>
+                  ) : null}
+                  {row.one_line ? <span className="rd-v2-library-oneline">{row.one_line}</span> : null}
+                  {/* The id belongs here, not in the headline: it is what you
+                      copy into a query, needed once you have chosen the row. */}
+                  <code className="rd-v2-library-idcode">{row.dataset_id}</code>
                 </span>
               ) : null}
             </li>
@@ -1338,7 +1356,12 @@ export function BrowsePage({
               {/* Conditional render, not the hidden attribute: this element is
                   display:flex, which beats the UA stylesheet's [hidden] rule,
                   so the row stayed on screen while claiming to be hidden. */}
-              {loading || error || filtered.length > 0 ? (
+              {/* The verdict line above the Library list already states held,
+                  external and query-ready counts. Keeping this row as well
+                  stated the same totals twice before the first result. It
+                  survives only when there is no Library section to carry
+                  them. */}
+              {loading || error || (filtered.length > 0 && !resultGroups.held.length) ? (
               <div
                 className="rd-v2-discover-result-actions"
                 aria-label="Discover next actions"
