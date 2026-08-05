@@ -743,6 +743,37 @@ class ResearchDataGateway:
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
 
+            # Columns the Library list renders: grain, frequency, period and
+            # geography breadth. They live on the registry row, not on the
+            # search candidate, so a held result could previously only be shown
+            # as a title -- which is why held datasets were relegated to a
+            # collapsed "Library evidence" dropdown instead of a scannable list.
+            def _cov(dataset_id: str) -> dict[str, Any]:
+                reg = _registry_by_id.get(str(dataset_id or ""))
+                if not reg:
+                    return {}
+                cov = reg.get("coverage_metadata") or {}
+
+                def _val(key: str) -> str:
+                    item = cov.get(key)
+                    if isinstance(item, dict):
+                        return str(item.get("value") or "")
+                    return str(item or "")
+
+                geo = _val("geography")
+                return {
+                    "grain": reg.get("grain") or _val("unit"),
+                    "frequency": _val("frequency"),
+                    "time_range": _val("time_range"),
+                    "geography": geo,
+                    "geography_count": len([g for g in geo.replace(";", ",").split(",") if g.strip()]),
+                }
+
+            _registry_by_id = {
+                str(d.get("dataset_id") or ""): d
+                for d in (self.engine.list_datasets() or [])
+                if isinstance(d, dict)
+            }
             rows = stamp_rows(
                 [
                     {
@@ -770,6 +801,7 @@ class ResearchDataGateway:
                         # why it answers the question that was asked.
                         "selected_by": c.get("selected_by"),
                         "selection_reason": c.get("selection_reason"),
+                        **_cov(c.get("dataset_id")),
                     }
                     for c in candidates
                 ]
