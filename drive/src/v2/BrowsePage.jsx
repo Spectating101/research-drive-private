@@ -1237,10 +1237,13 @@ export function BrowsePage({
                   rail's "No candidate selected") made the page feel like it was
                   apologising rather than answering. Keep the count where it is
                   informative: when there are results to count. */}
+              {/* Conditional render, not the hidden attribute: this element is
+                  display:flex, which beats the UA stylesheet's [hidden] rule,
+                  so the row stayed on screen while claiming to be hidden. */}
+              {loading || error || filtered.length > 0 ? (
               <div
                 className="rd-v2-discover-result-actions"
                 aria-label="Discover next actions"
-                hidden={!loading && !error && filtered.length === 0}
               >
                 <div>
                   <strong>{plural(filtered.length, "result")}</strong>
@@ -1287,6 +1290,7 @@ export function BrowsePage({
                   ) : null}
                 </div>
               </div>
+              ) : null}
             </section>
 
             {resultGroups.available.length ? (
