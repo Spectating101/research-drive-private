@@ -122,6 +122,94 @@ def parse_routes(text: str, gaps: Iterable[str], valid: set[str]) -> list[dict[s
     return out
 
 
+_QUERY_PROMPT = """A researcher asked this desk for: {question}
+
+The desk holds nothing matching it. Below are the ONLY sources this desk has a
+collection route for, as:
+source_id | access_mode | description
+
+Name the sources that could plausibly supply the requested data, best first, at
+most 3. A source counts only if it genuinely carries this kind of data -- a
+market-price archive is not a route to opinion polling. If no listed source
+could supply it, output only: NONE
+
+Answering NONE is correct and expected. Offering an unrelated source is the
+defect this exists to prevent. Use only source_id values appearing verbatim below.
+
+Output only lines of the form:
+<source_id> | <reason this source could supply it, max 14 words>
+
+SOURCES:
+{sources}"""
+
+
+def routes_for_query(
+    question: str,
+    repo_root: Path,
+    *,
+    model: str | None = None,
+    timeout: float = 120.0,
+) -> dict[str, Any]:
+    """Which declared sources could supply data the desk does not hold.
+
+    Discover's miss state used to list the desk's standing routes verbatim, so
+    a request for US opinion polling was answered with CRSP MOVEit -- a daily
+    market-price archive. Labelling that list "not matched to your query" made
+    it honest without making it useful; the researcher still had to work out
+    that none of the four could help.
+
+    This asks which sources could actually supply the request, keeps only
+    source_ids the desk really has a route for, and returns nothing at all when
+    nothing fits. "This desk cannot get that" is a real answer and the one a
+    procurement tool owes; four irrelevant offers is not.
+    """
+    sources = load_sources(repo_root)
+    if not sources:
+        return {"routes": [], "reason": "no_declared_sources"}
+
+    from scripts.research_data_mcp.requirement_extraction import (
+        ExtractionUnavailable,
+        run_cursor_prompt,
+    )
+
+    prompt = _QUERY_PROMPT.format(
+        question=str(question or "").strip(), sources=_sources_block(sources)
+    )
+    try:
+        raw = run_cursor_prompt(
+            prompt, model or os.getenv("RD_CATALOG_MODEL", "composer-2.5"), timeout
+        )
+    except ExtractionUnavailable as exc:
+        return {"routes": [], "reason": f"backend_unavailable: {exc}"}
+
+    routes: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for line in str(raw or "").splitlines():
+        text = line.strip().strip("`").lstrip("-* ").strip()
+        if not text or text.upper() == "NONE" or "|" not in text:
+            continue
+        parts = [p.strip() for p in text.split("|")]
+        source_id = parts[0]
+        if source_id not in sources or source_id in seen:
+            continue
+        seen.add(source_id)
+        meta = sources[source_id]
+        mode = str(meta.get("access_mode") or "")
+        routes.append({
+            "source_id": source_id,
+            "label": meta.get("label") or source_id,
+            "provider": meta.get("provider"),
+            "access_mode": mode,
+            "reason": (parts[1] if len(parts) > 1 else "")[:120],
+            "actionable": mode in _SELF_SERVE,
+            "action": "collect" if mode in _SELF_SERVE else "request_access",
+        })
+    return {
+        "routes": routes[:3],
+        "reason": "ok" if routes else "no_route_found",
+    }
+
+
 def routes_for_gaps(
     question: str,
     assessment: dict[str, Any],

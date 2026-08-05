@@ -63,6 +63,9 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/platform/state", "handler": "library_platform_state"},
     {"method": "GET", "path": "/library/source-map", "handler": "library_source_map"},
     {"method": "GET", "path": "/library/capabilities", "handler": "library_capabilities"},
+    # GET on purpose: proposing routes reads config and writes nothing, and the
+    # read-only public mirror must be able to answer "how would we get this?".
+    {"method": "GET", "path": "/library/discover/collect-routes", "handler": "library_discover_collect_routes"},
     {"method": "GET", "path": "/library/access-scope", "handler": "library_access_scope"},
     {"method": "GET", "path": "/library/dataset-coverage", "handler": "library_dataset_coverage"},
     {"method": "GET", "path": "/library/consolidated", "handler": "library_consolidated"},
@@ -1044,6 +1047,14 @@ def _handlers() -> dict[str, Handler]:
         live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
         return stack.gateway.source_map_audit(live=live)
 
+    def library_discover_collect_routes(stack, query, payload, params):
+        from scripts.research_data_mcp.gap_routes import routes_for_query
+
+        q = str(query.get("q") or query.get("query") or "").strip()
+        if not q:
+            return {"routes": [], "reason": "no_query"}
+        return {"query": q, **routes_for_query(q, stack.gateway.repo_root)}
+
     def library_capabilities(stack, query, payload, params):
         from scripts.research_data_mcp.source_capabilities import capability_matrix
 
@@ -1486,6 +1497,7 @@ def _handlers() -> dict[str, Handler]:
         "library_platform_state": library_platform_state,
         "library_source_map": library_source_map,
         "library_capabilities": library_capabilities,
+        "library_discover_collect_routes": library_discover_collect_routes,
         "library_access_scope": library_access_scope,
         "library_dataset_coverage": library_dataset_coverage,
         "library_consolidated": library_consolidated,
