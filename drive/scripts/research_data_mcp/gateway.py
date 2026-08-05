@@ -21,7 +21,10 @@ from scripts.yzu_cluster.api import YzuClusterAPI
 _LOG = logging.getLogger(__name__)
 
 
-def _presentable_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _presentable_candidates(
+    candidates: list[dict[str, Any]],
+    registry_by_id: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     """Drop rows a user could not act on, and collapse repeats of one dataset.
 
     A live query for "weekly ticker news and market panel for Asia" returned 13
@@ -47,6 +50,18 @@ def _presentable_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, 
             continue
         if dataset_id in seen:
             continue
+        reg = (registry_by_id or {}).get(dataset_id)
+        if reg is not None:
+            if reg.get("professor_visible") is False:
+                continue
+            try:
+                from scripts.research_data_mcp.inventory_authority import (
+                    is_excluded_operational_or_test,
+                )
+                if is_excluded_operational_or_test(reg):
+                    continue
+            except Exception:
+                pass
         seen.add(dataset_id)
         out.append(cand)
     return out
@@ -738,7 +753,14 @@ class ResearchDataGateway:
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
         candidates = self._augment_with_catalog_reader(query, candidates, limit=limit)
-        candidates = _presentable_candidates(candidates)
+        candidates = _presentable_candidates(
+            candidates,
+            {
+                str(d.get("dataset_id") or ""): d
+                for d in (self.engine.list_datasets() or [])
+                if isinstance(d, dict)
+            },
+        )
         sections: list[dict[str, Any]] = []
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
