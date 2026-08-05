@@ -91,18 +91,29 @@ function offeringType(row, taxonomy) {
 const ROUTE_NAMES = {
   bigquery: "BigQuery",
   datacite: "DataCite",
-  http_manifest: "file manifest",
-  scrape_snapshot: "page snapshot",
-  catalog_harvest: "catalog harvest",
+  huggingface: "Hugging Face",
+  local_open: "the Library copy",
+  http_manifest: "a file manifest",
+  scrape_snapshot: "a page snapshot",
+  catalog_harvest: "a catalog harvest",
   browser_extract: "browser extraction",
-  api_query: "API query",
+  api_query: "an API query",
 };
+
+/** Acronyms that must not be sentence-cased into "Lseg" or "Api". */
+const ROUTE_ACRONYMS = new Set(["api", "edp", "sec", "doi", "ftp", "sftp", "rpc", "csv", "lseg", "twse", "mops"]);
 
 function routeLabel(row) {
   const raw = Array.isArray(row?.collect_via) ? row.collect_via[0] : row?.collect_via;
   const key = String(raw || "").trim().toLowerCase();
   if (!key) return "Collection route declared";
-  const named = ROUTE_NAMES[key] || key.replaceAll("_", " ");
+  const named =
+    ROUTE_NAMES[key]
+    || key
+      .split("_")
+      .filter(Boolean)
+      .map((word) => (ROUTE_ACRONYMS.has(word) ? word.toUpperCase() : word))
+      .join(" ");
   return `Collect via ${named}`;
 }
 
