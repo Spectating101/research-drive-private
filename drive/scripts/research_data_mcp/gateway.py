@@ -768,6 +768,13 @@ class ResearchDataGateway:
                     # dataset search does.
                     "display_name": reg.get("display_name") or reg.get("name"),
                     "one_line": reg.get("one_line"),
+                    # What a dataset search actually puts on a row: a
+                    # description, subject tags, and when the holding was last
+                    # checked. Grain and frequency are internal schema
+                    # vocabulary -- "entity_week · weekly" tells a researcher
+                    # nothing about whether to open the row.
+                    "tags": list(reg.get("tags") or [])[:4],
+                    "probed_at": (reg.get("materialization") or {}).get("probed_at"),
                     "grain": reg.get("grain") or _val("unit"),
                     "frequency": _val("frequency"),
                     "time_range": _val("time_range"),
