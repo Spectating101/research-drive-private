@@ -773,6 +773,11 @@ class ResearchDataGateway:
                     # dataset search does.
                     "display_name": reg.get("display_name") or reg.get("name"),
                     "one_line": reg.get("one_line"),
+                    "recommended_use": reg.get("recommended_use") or reg.get("best_use"),
+                    "limitations": reg.get("limitations"),
+                    "source_system": reg.get("source_system"),
+                    "analysis_readiness": reg.get("analysis_readiness"),
+                    "field_coverage": reg.get("field_coverage"),
                     # What a dataset search actually puts on a row: a
                     # description, subject tags, and when the holding was last
                     # checked. Grain and frequency are internal schema
