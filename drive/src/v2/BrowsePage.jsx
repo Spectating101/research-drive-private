@@ -545,17 +545,11 @@ function DiscoverRouteComparison({
 const LIBRARY_PAGE = 7;
 
 /**
- * Held datasets as a dense, scannable list — the approved layout's hero.
+ * Dense held-dataset list for the Library evidence chrome popover.
  *
- * These rows were previously buried in a collapsed "Library evidence" dropdown
- * capped at four entries, so a query matching thirty held datasets showed four
- * of them behind a disclosure triangle while external routes took the page.
- * That inverted the thing a research desk is for: what you already hold is the
- * first answer, and external collection is the fallback.
- *
- * One line per dataset, columns aligned, because at twenty to a hundred results
- * a card is the wrong primitive — six cards fill the fold and nothing can be
- * compared across rows.
+ * Adaptive freeze (2026-07-28): held evidence is compact chrome, not the
+ * permanent centre canvas. External Available offerings stay primary; this
+ * list is the bounded popover preview behind `Library evidence · N`.
  */
 function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
   const [expanded, setExpanded] = useState(false);
@@ -1237,19 +1231,99 @@ export function BrowsePage({
     </details>
   );
 
+  // Adaptive freeze (2026-07-28): held evidence is chrome, not a permanent
+  // centre section. Opus inverted that into "IN YOUR LIBRARY" as the primary
+  // canvas; restore the freeze chrome so Available offerings stay primary.
+  const offeringsCount = resultGroups.available.length + resultGroups.external.length;
+  const showLibraryChromeOpen = Boolean(
+    resultGroups.held.length && !offeringsCount && !loading,
+  );
   const libraryEvidenceMenu = resultGroups.held.length ? (
-    <details className="rd-v2-discover-library-evidence" data-testid="discover-library-evidence">
+    <details
+      className="rd-v2-discover-library-evidence"
+      data-testid="discover-library-evidence"
+      open={showLibraryChromeOpen || undefined}
+    >
       <summary>Library evidence · {resultGroups.held.length}</summary>
       <div className="rd-v2-discover-library-popover">
         <span className="rd-v2-eyebrow">Relevant Library evidence</span>
-        <DiscoverCandidateList
-          rows={resultGroups.held.slice(0, 4)}
+        <LibraryResultList
+          rows={groupCatalogueVariants(resultGroups.held).slice(0, 6)}
           labIds={labIds}
           selectedId={selectedId}
           onSelectRow={onSelectRow}
         />
+        {resultGroups.held.length > 6 ? (
+          <p className="muted">Showing 6 of {resultGroups.held.length}.</p>
+        ) : null}
+        <div className="rd-v2-discover-library-popover-actions">
+          <button
+            type="button"
+            className="rd-v2-btn sm"
+            onClick={() => onAskQuery?.(
+              q,
+              {
+                kind: "results",
+                rows: resultGroups.held,
+                prompt: `Compare coverage of the held Library evidence for: ${q}. Say what is covered, what remains unknown, and whether a wider source is still needed.`,
+              },
+            )}
+          >
+            Compare coverage
+          </button>
+          <a className="rd-v2-btn sm ghost" href={`?tab=library&q=${encodeURIComponent(q)}`}>
+            Open Library results
+          </a>
+        </div>
       </div>
     </details>
+  ) : null;
+
+  const exploreChrome = !loading && !error && q ? (
+    <div className="rd-v2-discover-explore-chrome" data-testid="discover-explore-chrome" role="toolbar" aria-label="Discover result scope">
+      <span className={offeringsCount ? "on" : ""}>
+        Available · {offeringsCount}
+      </span>
+      {libraryEvidenceMenu || <span className="muted">Library evidence · 0</span>}
+      {resultGroups.context.length ? (
+        <span>Web context · {resultGroups.context.length}</span>
+      ) : (
+        <span className="muted">Web context · 0</span>
+      )}
+      {onSearchWeb ? (
+        <button type="button" onClick={() => onSearchWeb(q)}>
+          Search wider
+        </button>
+      ) : null}
+      {assessmentPending ? (
+        <button type="button" className="rd-v2-discover-strategy-trigger is-pending" disabled>
+          Assessing strategy…
+        </button>
+      ) : strategyNeedsContext ? (
+        <button
+          type="button"
+          className="rd-v2-discover-strategy-trigger"
+          onClick={() => onAskQuery?.(
+            q,
+            {
+              kind: "strategy_context",
+              rows: merged,
+              prompt: `Clarify the evidence requirement for: ${q}. Ask only for the missing context needed to judge coverage and prepare a custom dataset strategy. Do not submit procurement.`,
+            },
+          )}
+        >
+          Strategy needs context
+        </button>
+      ) : hasEvidenceGap ? (
+        <button
+          type="button"
+          className="rd-v2-discover-strategy-trigger is-ready"
+          onClick={() => setRouteComparisonOpen(true)}
+        >
+          Custom strategy ready
+        </button>
+      ) : null}
+    </div>
   ) : null;
 
   if (showHistory) {
@@ -1273,7 +1347,7 @@ export function BrowsePage({
     <PageShell
       className="rd-v2-discover-page"
       title="Discover"
-      lead="Search your Library first, then evaluate sources beyond it"
+      lead="Find held evidence and sources beyond it"
       headExtra={modeTabs}
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >
@@ -1407,124 +1481,22 @@ export function BrowsePage({
                 ) : null}
                 {filterMenu}
               </div>
-              {/* On a miss this row said "0 results · index lookup" and offered
-                  "Search wider" -- both of which the miss block below states
-                  more clearly, next to the routes that actually help. Three
-                  restatements of "nothing found" (here, the miss line, and the
-                  rail's "No candidate selected") made the page feel like it was
-                  apologising rather than answering. Keep the count where it is
-                  informative: when there are results to count. */}
-              {/* Conditional render, not the hidden attribute: this element is
-                  display:flex, which beats the UA stylesheet's [hidden] rule,
-                  so the row stayed on screen while claiming to be hidden. */}
-              {/* The verdict line above the Library list already states held,
-                  external and query-ready counts. Keeping this row as well
-                  stated the same totals twice before the first result. It
-                  survives only when there is no Library section to carry
-                  them. */}
-              {loading || error || (filtered.length > 0 && !resultGroups.held.length) ? (
-              <div
-                className="rd-v2-discover-result-actions"
-                aria-label="Discover next actions"
-              >
-                <div>
-                  <strong>{plural(filtered.length, "result")}</strong>
-                  <span>
-                    {resultBreakdown || (preferLiveSources || source === "sources" || externalCatalogueActive
-                      ? "wider discovery"
-                      : "index lookup")}
-                  </span>
-                </div>
-                <div>
-                  {onSearchWeb ? (
-                    <button type="button" onClick={() => onSearchWeb(q)}>
-                      Search wider
-                    </button>
-                  ) : null}
-                  {assessmentPending ? (
-                    <button type="button" className="rd-v2-discover-strategy-trigger is-pending" disabled>
-                      Assessing strategy…
-                    </button>
-                  ) : strategyNeedsContext ? (
-                    <button
-                      type="button"
-                      className="rd-v2-discover-strategy-trigger"
-                      onClick={() => onAskQuery?.(
-                        q,
-                        {
-                          kind: "strategy_context",
-                          rows: merged,
-                          prompt: `Clarify the evidence requirement for: ${q}. Ask only for the missing context needed to judge coverage and prepare a custom dataset strategy. Do not submit procurement.`,
-                        },
-                      )}
-                    >
-                      Strategy needs context
-                    </button>
-                  ) : hasEvidenceGap ? (
-                    <button
-                      type="button"
-                      className="rd-v2-discover-strategy-trigger is-ready"
-                      onClick={() => setRouteComparisonOpen(true)}
-                    >
-                      Custom strategy ready
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              ) : null}
+              {exploreChrome}
+              {/* Result counts and strategy chrome live in exploreChrome
+                  (Available / Library evidence / Web context). Keeping a second
+                  totals row restated the same numbers before the first offering. */}
             </section>
 
-            {resultGroups.held.length ? (
-              <section className="rd-v2-discover-library" aria-label="In your Library">
-                {/* Collapsed by default: the held list is reference material the
-                    researcher opens when they want it, and leaving it expanded
-                    pushed everything else below the fold. */}
-                {/* Verdict first: one line stating where the answer stands,
-                    before any list. The page used to open with a filter bar and
-                    a count, so the researcher had to assemble the verdict from
-                    fragments scattered across three regions. */}
-                <details className="rd-v2-library-disclosure">
-                <summary className="rd-v2-discover-verdict">
-                  <span className="rd-v2-eyebrow">In your Library</span>
-                  <strong>
-                    {plural(resultGroups.held.length, "dataset")} held
-                  </strong>
-                  {resultGroups.available.length || resultGroups.external.length
-                    ? ` · ${resultGroups.available.length + resultGroups.external.length} external`
-                    : ""}
-                  {readyCount ? ` · ${readyCount} query-ready now` : ""}
-                </summary>
-                <LibraryResultList
-                  rows={groupCatalogueVariants(resultGroups.held)}
-                  labIds={labIds}
-                  selectedId={selectedId}
-                  onSelectRow={onSelectRow}
-                />
-                </details>
-              </section>
-            ) : null}
-
-            {/* Every external candidate had a Library equivalent, so the
-                external sections rendered nothing and the page simply stopped
-                after the held list -- indistinguishable from a broken search.
-                Removing a duplicate is the right call; going quiet about it is
-                not, because "you already hold all of these" is the answer. */}
-            {!resultGroups.available.length && !resultGroups.external.length && resultGroups.duplicates ? (
-              <p className="muted rd-v2-discover-all-held">
-                {resultGroups.duplicates} external{" "}
-                {resultGroups.duplicates === 1 ? "match" : "matches"} found — all already in your Library.
-              </p>
-            ) : null}
-
+            {/* Adaptive freeze: Available / external offerings are the primary
+                canvas. Held evidence is chrome above, not a permanent section. */}
             {resultGroups.available.length ? (
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
-                {/* VC-5: the result header already states the offering count;
-                    repeating it beside an identical heading is noise. */}
                 <div className="rd-v2-home-section-head">
                   <div>
-                    <span className="rd-v2-eyebrow">Beyond your Library</span>
+                    <span className="rd-v2-eyebrow">Best fit</span>
                     <h3>Available to add</h3>
                   </div>
+                  <span className="muted">{plural(resultGroups.available.length, "offering")}</span>
                 </div>
                 <DiscoverCandidateList
                   rows={groupCatalogueVariants(resultGroups.available)}
@@ -1535,6 +1507,14 @@ export function BrowsePage({
                   externalCatalogue={externalCatalogueActive}
                 />
               </section>
+            ) : null}
+
+            {!resultGroups.available.length && !resultGroups.external.length && resultGroups.duplicates ? (
+              <p className="muted rd-v2-discover-all-held" data-testid="discover-all-held">
+                {resultGroups.duplicates} external{" "}
+                {resultGroups.duplicates === 1 ? "match" : "matches"} already held in Library evidence above.
+                Open that chrome to review them, or search wider for alternatives.
+              </p>
             ) : null}
 
             {hasEvidenceGap && routeComparisonOpen ? (
@@ -1559,7 +1539,7 @@ export function BrowsePage({
               <p className="rd-v2-browse-loading">Searching your Library and wider sources…</p>
             ) : null}
 
-            {!loading && allInLab ? (
+            {!loading && allInLab && offeringsCount ? (
               <div className="rd-v2-discover-expand-search">
                 <div>
                   <strong>Every current match is already in your Library.</strong>
