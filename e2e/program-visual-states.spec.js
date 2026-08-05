@@ -107,8 +107,22 @@ test.describe("Discover — required visual states", () => {
 
         await expectNoHorizontalOverflow(page);
 
-        // Every offering states what it contains (adaptive freeze §3, §12).
         const rows = page.locator(".rd-v2-discover-candidate");
+        const showAll = page.getByTestId("discover-show-all");
+
+        if (count > 8) {
+          // A ranked list must not paint as an endless column: bounded initial
+          // set, explicit expansion, and the total stated up front.
+          await expect(rows).toHaveCount(8);
+          await expect(showAll).toBeVisible();
+          await expect(showAll).toContainText(String(count));
+          await shot(page, `discover-${count}-offerings-bounded-${label}`);
+          await showAll.click();
+        } else {
+          await expect(showAll).toHaveCount(0);
+        }
+
+        // Every offering states what it contains (adaptive freeze §3, §12).
         await expect(rows).toHaveCount(count);
         const described = await page
           .locator(".rd-v2-discover-evidence")

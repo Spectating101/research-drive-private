@@ -690,6 +690,18 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
   );
 }
 
+/**
+ * The initial result budget.
+ *
+ * Rendering 20 ranked offerings as one unbroken column gave the researcher no
+ * sense of how much was below the fold and no way to act on it -- the same
+ * failure UI_IMPLEMENTATION_PROGRAM forbids for History: "Initial lifecycle
+ * viewport budget is 8-12 rows with explicit `Load more`; do not recreate an
+ * endless activity feed through infinite scrolling." The results list gets the
+ * same discipline, so the count is stated and expanding is a deliberate act.
+ */
+const RESULT_BUDGET = 8;
+
 function DiscoverCandidateList({
   rows,
   labIds,
@@ -698,20 +710,54 @@ function DiscoverCandidateList({
   onAdd,
   externalCatalogue = false,
 }) {
+  const [showAll, setShowAll] = useState(false);
+  // A selection below the fold must not be hidden by the budget.
+  const selectedBeyondBudget = rows
+    .slice(RESULT_BUDGET)
+    .some((row) => candidateKey(row) === selectedId);
+  const expanded = showAll || selectedBeyondBudget;
+  const visible = expanded ? rows : rows.slice(0, RESULT_BUDGET);
+  const hidden = rows.length - visible.length;
+
   return (
-    <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
-      {rows.map((row) => (
-        <DiscoverCandidateRow
-          key={candidateKey(row) || candidateTitle(row)}
-          row={row}
-          labIds={labIds}
-          selectedId={selectedId}
-          onSelectRow={onSelectRow}
-          onAdd={onAdd}
-          externalCatalogue={externalCatalogue}
-        />
-      ))}
-    </ul>
+    <>
+      <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
+        {visible.map((row) => (
+          <DiscoverCandidateRow
+            key={candidateKey(row) || candidateTitle(row)}
+            row={row}
+            labIds={labIds}
+            selectedId={selectedId}
+            onSelectRow={onSelectRow}
+            onAdd={onAdd}
+            externalCatalogue={externalCatalogue}
+          />
+        ))}
+      </ul>
+      {hidden > 0 ? (
+        <button
+          type="button"
+          className="rd-v2-discover-show-all"
+          data-testid="discover-show-all"
+          onClick={() => setShowAll(true)}
+        >
+          Show all {rows.length} — {hidden} more below
+        </button>
+      ) : null}
+      {expanded && rows.length > RESULT_BUDGET ? (
+        <button
+          type="button"
+          className="rd-v2-discover-show-all"
+          data-testid="discover-show-fewer"
+          onClick={() => setShowAll(false)}
+          disabled={selectedBeyondBudget}
+        >
+          {selectedBeyondBudget
+            ? `Showing all ${rows.length} — a selected offering is below the first ${RESULT_BUDGET}`
+            : `Show first ${RESULT_BUDGET}`}
+        </button>
+      ) : null}
+    </>
   );
 }
 
