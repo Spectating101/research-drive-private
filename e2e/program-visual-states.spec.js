@@ -63,6 +63,11 @@ function discoverBody(count) {
       coverage: "2015–2026",
       grain: "issuer-quarter",
       description,
+      // Two in three rows carry a measured size; the rest carry none, so the
+      // capture shows both the populated and the honestly-empty scale cell.
+      ...(i % 3 === 2
+        ? {}
+        : { size_bytes: 1024 * (37 + i * 811), file_count: 1 + (i % 4) }),
     };
   });
   return { sections: [{ title: "Registry", rows }], total: count };
@@ -209,6 +214,22 @@ test.describe("Discover — required visual states", () => {
         expect(metrics.description.fractional, "description uses a fractional font size").toBe(false);
         expect(metrics.facts.fractional, "facts line uses a fractional font size").toBe(false);
         expect(metrics.addHeight, "Add to collection is too small a target").toBeGreaterThanOrEqual(30);
+
+        // Scale is shown where measured and absent where not -- never zero,
+        // never a guess.
+        const scale = await page.evaluate(() => {
+          const cells = [...document.querySelectorAll(".rd-v2-discover-candidate-scale")];
+          return {
+            cells: cells.length,
+            populated: cells.filter((c) => c.textContent.trim()).length,
+            // Anchored: "37.0 KB" contains "0 KB" and must not count as zero.
+            zeroes: cells.filter((c) => /(^|\s)0(\.0)?\s*(B|KB|MB|GB|TB)\b/.test(c.textContent.trim())).length,
+          };
+        });
+        expect(scale.cells, "every row has a scale cell").toBe(count);
+        expect(scale.populated, "measured rows show their size").toBeGreaterThan(0);
+        expect(scale.populated, "unmeasured rows must stay empty").toBeLessThan(count);
+        expect(scale.zeroes, "a size of zero was rendered").toBe(0);
 
         await shot(page, `discover-${String(count).padStart(2, "0")}-offerings-${label}`);
       });

@@ -5397,8 +5397,8 @@
 }
 
 .rd-v2-discover-candidates button.row.rd-v2-discover-candidate {
-  grid-template-areas: "source main";
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "source main scale";
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
   gap: clamp(12px, 1.4vw, 20px);
   min-height: 0;
@@ -5413,7 +5413,7 @@
    filled the fold and nothing could be compared across rows. Add now sits on
    the title line and the row reserves inline space for it instead. */
 .rd-v2-discover-candidates li:has(.rd-v2-discover-row-add) button.row.rd-v2-discover-candidate {
-  padding-right: 150px;
+  padding-right: 138px;
 }
 
 .rd-v2-discover-row-add {
@@ -9945,3 +9945,54 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 
 .rd-v2-coverage-caption b { color: var(--rd-ink, inherit); font-weight: 700; }
+
+/* Scale column: how much of it there is.
+   Right-aligned so sizes form a scannable column down the list rather than
+   floating after each description. Empty when the probe could not measure the
+   dataset -- an unreachable or shared path is missing knowledge, not zero. */
+.rd-v2-discover-candidate-scale {
+  grid-area: scale;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 1px;
+  min-width: 84px;
+  padding-top: 2px;
+  text-align: right;
+}
+
+.rd-v2-discover-candidate-scale b {
+  color: #3c4a43;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-v2-discover-candidate-scale i {
+  color: var(--rd-muted);
+  font-size: 10.5px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile: a third column cannot fit at 390px. The scale folds under the
+   reading column and aligns left with it, rather than being dropped -- size
+   is decision information, not decoration. */
+@media (max-width: 760px) {
+  .rd-v2-discover-candidates button.row.rd-v2-discover-candidate {
+    grid-template-areas:
+      "source main"
+      "source scale";
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .rd-v2-discover-candidate-scale {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    padding-top: 4px;
+    text-align: left;
+  }
+}

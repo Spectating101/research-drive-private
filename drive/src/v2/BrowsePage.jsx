@@ -95,6 +95,25 @@ function routeLabel(row) {
   return named ? `Collect via ${named}` : "Collection route declared";
 }
 
+/** Bytes on disk, in the units a reader thinks in.
+ *
+ * Measured by dataset_scale_probe, never estimated. A row with no measurement
+ * renders no scale cell at all rather than a zero or a guess -- an unreachable
+ * or shared path is an absence of knowledge, not a size of nothing. */
+function formatSize(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = n / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
+}
+
 function accessLabel(taxonomy, row) {
   switch (taxonomy?.key) {
     case "local-query-ready":
@@ -298,6 +317,18 @@ function DiscoverCandidateRow({
             >
               {libraryFacingSufficiency(row.discover_sufficiency.browseLine)}
             </span>
+          ) : null}
+        </span>
+        {/* Scale column. How much of it there is -- the thing every comparable
+            product shows and this list did not, so a 412-byte probe snapshot
+            and a 181MB panel looked identical. Rendered only when measured. */}
+        <span className="rd-v2-discover-candidate-scale">
+          {formatSize(row?.size_bytes) ? (
+            <>
+              <b>{formatSize(row.size_bytes)}</b>
+              {row?.file_count > 1 ? <i>{row.file_count} files</i> : null}
+              {row?.size_partial ? <i>partial scan</i> : null}
+            </>
           ) : null}
         </span>
       </button>
