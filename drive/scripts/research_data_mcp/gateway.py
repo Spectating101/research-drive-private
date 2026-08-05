@@ -666,6 +666,54 @@ class ResearchDataGateway:
             out["routed_via"] = "unified_dataset_search+discover_profile"
         return out
 
+    SEMANTIC_BACKSTOP_MIN = 3
+    SEMANTIC_MIN_SCORE = 0.30
+
+    def _augment_with_semantic(
+        self, query: str, candidates: list[dict[str, Any]], *, limit: int = 8
+    ) -> list[dict[str, Any]]:
+        """Recall backstop: lexical keeps precision, embeddings fill the gaps.
+
+        Lexical returned nothing for "airline fares" or "company filings" while
+        the registry held both, because token overlap cannot bridge "fares" to
+        "fare records". Runs only when lexical is thin, so good keyword hits are
+        never displaced.
+        """
+        if len(candidates) >= self.SEMANTIC_BACKSTOP_MIN:
+            return candidates
+        q = str(query or "").strip()
+        if len(q) < 3:
+            return candidates
+        try:
+            found = self.semantic_discover(q, limit=limit)
+        except Exception:
+            return candidates
+        registry = {
+            str(d.get("dataset_id") or ""): d
+            for d in (self.engine.list_datasets() or [])
+            if isinstance(d, dict)
+        }
+        seen = {str(c.get("dataset_id") or "") for c in candidates}
+        for row in found.get("rows") or []:
+            dataset_id = str(row.get("dataset_id") or "")
+            if not dataset_id or dataset_id in seen:
+                continue
+            if float(row.get("semantic_score") or 0) < self.SEMANTIC_MIN_SCORE:
+                continue
+            reg = registry.get(dataset_id)
+            if reg is None or reg.get("professor_visible") is False:
+                continue
+            seen.add(dataset_id)
+            candidates.append({
+                **row,
+                "kind": "registry_dataset",
+                "score": round(float(row.get("semantic_score") or 0) * 4.0, 2),
+                "query_relevance": 2.0,
+                "selected_by": "semantic",
+                "selection_reason": "matched on meaning, not wording",
+            })
+        return candidates
+
     def _augment_with_catalog_reader(
         self, query: str, candidates: list[dict[str, Any]], *, limit: int = 12
     ) -> list[dict[str, Any]]:
@@ -753,6 +801,7 @@ class ResearchDataGateway:
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
         candidates = self._augment_with_catalog_reader(query, candidates, limit=limit)
+        candidates = self._augment_with_semantic(query, candidates, limit=limit)
         candidates = _presentable_candidates(
             candidates,
             {
