@@ -690,7 +690,10 @@ export function V2App() {
         syncUrl({ tab: next, dataset: "", preview: false });
         return;
       }
-      if (next === "browse" && !opts.keepSelection) {
+      // Opt-in, and only the sidebar opts in. Running a search also navigates
+      // to browse, so resetting on every arrival wiped the query the search had
+      // just set and dropped the user back on the idle screen.
+      if (next === "browse" && opts.resetDiscover) {
         // Clicking Discover in the sidebar returns to the Discover home, the
         // way clicking Library returns to the Library root. Without this the
         // nav item was inert once a search had run -- the results stayed, the
@@ -1702,7 +1705,7 @@ export function V2App() {
       />
       <V2Sidebar
         tab={tab}
-        onTabChange={goTab}
+        onTabChange={(id) => goTab(id, { resetDiscover: true })}
         activeResearch={activeResearch}
         recentItems={sidebarRecent}
         onOpenRecent={(item) => {
