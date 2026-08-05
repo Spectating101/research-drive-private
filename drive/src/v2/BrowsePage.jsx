@@ -589,15 +589,18 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
                   <span className="rd-v2-library-title">
                     {row.display_name || row.title || row.dataset_id}
                   </span>
+                  {row.one_line ? (
+                    <span className="rd-v2-library-snippet">{row.one_line}</span>
+                  ) : null}
                   <span className="rd-v2-library-byline">
                     {[
-                      row.grain,
-                      row.frequency,
+                      ready ? "query-ready" : "not query-ready",
                       row.time_range,
                       geo ? `${geo} countries` : null,
-                      ready ? "query-ready" : null,
                       row._variants?.length > 1 ? `${row._variants.length} scales` : null,
-                    ].filter(Boolean).join(" · ")}
+                      (row.tags || []).slice(0, 3).join(" · ") || null,
+                      row.probed_at ? `checked ${String(row.probed_at).slice(0, 10)}` : null,
+                    ].filter(Boolean).join("  ·  ")}
                   </span>
                 </span>
                 <span className="rd-v2-library-chev" aria-hidden="true">▸</span>
@@ -609,7 +612,6 @@ function LibraryResultList({ rows, labIds, selectedId, onSelectRow }) {
                       <b>why</b> {row.selection_reason}
                     </span>
                   ) : null}
-                  {row.one_line ? <span className="rd-v2-library-oneline">{row.one_line}</span> : null}
                   {/* The id belongs here, not in the headline: it is what you
                       copy into a query, needed once you have chosen the row. */}
                   <code className="rd-v2-library-idcode">{row.dataset_id}</code>
