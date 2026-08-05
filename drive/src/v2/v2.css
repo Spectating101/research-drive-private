@@ -5402,20 +5402,25 @@
   align-items: start;
   gap: clamp(12px, 1.4vw, 20px);
   min-height: 0;
-  padding: 16px 18px;
+  padding: 10px 14px;
   border-left: 3px solid transparent;
   background: #ffffff;
 }
 
+/* UI_PRODUCT_AUTHORITY §3: "Do not turn compact evidence rows into cards."
+   The Add control used to be absolutely positioned along the bottom edge,
+   which forced 43px of empty padding under every row. Three offerings then
+   filled the fold and nothing could be compared across rows. Add now sits on
+   the title line and the row reserves inline space for it instead. */
 .rd-v2-discover-candidates li:has(.rd-v2-discover-row-add) button.row.rd-v2-discover-candidate {
-  padding-bottom: 43px;
+  padding-right: 150px;
 }
 
 .rd-v2-discover-row-add {
   position: absolute;
   z-index: 2;
-  right: 18px;
-  bottom: 12px;
+  right: 14px;
+  top: 9px;
   padding: 4px 8px;
   border: 1px solid color-mix(in srgb, #3f6f5c 40%, var(--rd-border));
   border-radius: 4px;
@@ -7382,6 +7387,13 @@
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* An absent description is a stated fact, not an empty slot. Muted and
+   italic so it reads as "we have not recorded this" rather than as content. */
+.rd-v2-discover-evidence.is-missing {
+  color: #9aa0a6;
+  font-style: italic;
 }
 
 .rd-v2-discover-subline {

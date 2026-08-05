@@ -238,7 +238,13 @@ function DiscoverCandidateRow({
               <b>why</b> {row.selection_reason}
             </span>
           ) : null}
-          {evidenceLine ? <span className="rd-v2-discover-evidence">{evidenceLine}</span> : null}
+          {/* Every offering states what it contains (adaptive freeze §3, §12).
+              When the source map records no capability we say so rather than
+              rendering a blank line -- UI_PRODUCT_AUTHORITY §15 gives
+              "Description not recorded" as the authority-backed fallback. */}
+          <span className={`rd-v2-discover-evidence${evidenceLine ? "" : " is-missing"}`}>
+            {evidenceLine || "Description not recorded"}
+          </span>
           {/* "Dataset · catalog_harvest" is the desk's own vocabulary and says
               nothing a researcher can act on. Keep the offering type only when
               it changes what you can do with the row (a reference or a
