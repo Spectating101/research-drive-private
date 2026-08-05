@@ -10033,3 +10033,5 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
+
+.rd-v2-discover-readiness.is-lead { background: #efe8dc; color: #6f5a33; }

@@ -224,8 +224,12 @@ function DiscoverCandidateRow({
   // States that mean the lab already holds something relevant, so collecting
   // may be unnecessary. These get a highlighted line; the rest stay inline.
   const readinessBadge = (() => {
+    if (String(row?.shelf_hint || "") === "find_datasets") {
+      return { label: "Where to find it", tone: "lead" };
+    }
     const r = String(row?.analysis_readiness || row?.field_coverage || "").toLowerCase();
     if (!r) return null;
+    if (/metadata_search|metadata search/.test(r)) return { label: "Metadata only", tone: "low" };
     if (/query[-_ ]?ready|instant/.test(r)) return { label: "Query-ready", tone: "ready" };
     if (/register/.test(r)) return { label: "Registered", tone: "mid" };
     if (/metadata/.test(r)) return { label: "Metadata only", tone: "low" };
