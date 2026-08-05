@@ -1571,9 +1571,20 @@ export function V2App() {
       main = null;
   }
 
-  // Keep Detail/Ask rail on Discover Explore empty state — same shell as other pages.
-  // (Hiding it via no-rail made Explore look broken; BrowseRailPanel already owns the empty copy.)
-  const hideRail = false;
+  // The rail is a quarter of the viewport. On the Discover idle screen it earns
+  // that by telling a first-time user what selecting a candidate will do -- an
+  // earlier attempt to hide it there did make Explore look broken, and that
+  // note stands.
+  //
+  // After a search that returned nothing it earns nothing: the entire rail
+  // reads "No discover result / No candidate selected", restating the miss a
+  // third time while the actual answer -- the collection routes -- is squeezed
+  // into the remaining columns. On that one state, give the width back.
+  const hideRail =
+    tab === "browse"
+    && Boolean(String(discoverSearchQuery || "").trim())
+    && !browseRow
+    && !discoverAssessment.active;
 
   const activeResearch = useMemo(() => {
     const source = profile && !profile.unknown ? profile : pilotProfile;
