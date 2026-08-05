@@ -1504,6 +1504,17 @@ export function BrowsePage({
               </section>
             ) : null}
 
+            {/* Every external candidate had a Library equivalent, so the
+                external sections rendered nothing and the page simply stopped
+                after the held list -- indistinguishable from a broken search.
+                Removing a duplicate is the right call; going quiet about it is
+                not, because "you already hold all of these" is the answer. */}
+            {!resultGroups.available.length && !resultGroups.external.length && resultGroups.duplicates ? (
+              <p className="muted rd-v2-discover-all-held">
+                {plural(resultGroups.duplicates, "external match")} found — all already in your Library.
+              </p>
+            ) : null}
+
             {resultGroups.available.length ? (
               <section className="rd-v2-discover-best-fit" aria-label="Available to add" data-testid="discover-best-fit">
                 {/* VC-5: the result header already states the offering count;
