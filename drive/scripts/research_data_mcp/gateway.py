@@ -761,6 +761,11 @@ class ResearchDataGateway:
                     return str(item or "")
 
                 geo = _val("geography")
+                # How much of it there is. Measured on disk by
+                # dataset_scale_probe, never estimated -- a dataset whose path
+                # is unreachable or shared with siblings carries no scale block
+                # and the row says nothing rather than guessing.
+                scale = (reg.get("materialization") or {}).get("scale") or {}
                 return {
                     # Two of five rows read "scrape_54af347e1ceb". Every one of
                     # these has an authored display name; showing the id as the
@@ -775,6 +780,9 @@ class ResearchDataGateway:
                     # nothing about whether to open the row.
                     "tags": list(reg.get("tags") or [])[:4],
                     "probed_at": (reg.get("materialization") or {}).get("probed_at"),
+                    "size_bytes": scale.get("size_bytes"),
+                    "file_count": scale.get("file_count"),
+                    "size_partial": scale.get("partial") or None,
                     "grain": reg.get("grain") or _val("unit"),
                     "frequency": _val("frequency"),
                     "time_range": _val("time_range"),
