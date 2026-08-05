@@ -876,12 +876,21 @@ export function V2App() {
         goTab("browse");
         showToast("Acquisition review opened — collection has not started");
       } catch (err) {
-        setRailTab("ask");
-        setPendingAsk({
-          prompt: buildAddToLabPrompt(target, probeResult),
-          displayText: buildAddToLabDisplayText(target, probeResult),
-        });
-        showToast(err?.message || "Intent creation failed — opened Ask instead");
+        // A read-only mirror rejects every write, so "Add to collection" used to
+        // land the researcher in Ask with no explanation -- an unrelated surface
+        // appearing in place of the action they asked for. Say what happened
+        // instead of quietly substituting a different feature.
+        const status = Number(err?.status || err?.response?.status || 0);
+        if (status === 403 || status === 405) {
+          showToast("This is a read-only view — collection is disabled here");
+        } else {
+          setRailTab("ask");
+          setPendingAsk({
+            prompt: buildAddToLabPrompt(target, probeResult),
+            displayText: buildAddToLabDisplayText(target, probeResult),
+          });
+          showToast(err?.message || "Intent creation failed — opened Ask instead");
+        }
       } finally {
         setCollectSubmittingKey("");
       }

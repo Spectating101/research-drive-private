@@ -43,7 +43,16 @@ export async function fetchJson(path, init = {}) {
         data = { message: raw };
       }
     }
-    if (!r.ok) throw new Error(normalizeApiError(data, r.status, path));
+    if (!r.ok) {
+      // Carry the HTTP status on the error. Callers need to distinguish a
+      // refusal (403 on a read-only mirror, where the action is disabled and
+      // retrying is pointless) from a genuine failure, and a message string
+      // alone forces them to guess or substitute an unrelated fallback.
+      const error = new Error(normalizeApiError(data, r.status, path));
+      error.status = r.status;
+      error.path = path;
+      throw error;
+    }
     return data;
   } catch (error) {
     if (requestAbort.timedOut()) throw new Error(`Request timed out after ${timeoutMs}ms: ${path}`);

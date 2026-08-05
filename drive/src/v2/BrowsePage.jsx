@@ -770,12 +770,17 @@ export function BrowsePage({
           return;
         }
 
-        if (immediateDemo.length) {
-          apply({ sections: [{ id: "demo", rows: immediateDemo }] }, "demo");
-          setIndexMiss(false);
-          return;
-        }
-
+        // No demo fallback here. This branch means the desk answered and
+        // answered "nothing" -- which is a true, useful answer for a
+        // procurement tool, and the one the gap-to-route flow is built on.
+        //
+        // Filling it with demo fixtures fabricated results: "US polling data"
+        // returned "Global ocean temperature anomaly" because discoverDemoSearch
+        // matches any token over two characters, and every sample's text
+        // contains "data". It was then labelled "Partial Library coverage" and
+        // setIndexMiss(false) suppressed the honest miss that would have
+        // triggered the route offer. The catch branch below still seeds demo
+        // rows when the API is genuinely unreachable, and flags them as such.
         if (preferLiveSources) {
           const web = await webDiscover(q, 8);
           const webRows = webHitsToRows(web);
