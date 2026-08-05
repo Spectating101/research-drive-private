@@ -7106,6 +7106,22 @@
   white-space: nowrap;
 }
 
+.rd-v2-miss-route {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.rd-v2-miss-route > div { min-width: 0; }
+.rd-v2-miss-route .rd-v2-discover-why { margin-top: 4px; }
+
+.rd-v2-discover-no-route {
+  padding: 12px 0 4px;
+  line-height: 1.5;
+}
+
 /* The relevance argument, distinguished from the dataset's own description:
    darker than the description so it reads first, with the label set in the
    mono face the rest of the desk uses for machine-stated facts. */

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { discoverSearch, discoverSources, webDiscover } from "@/v2/api";
+import { discoverCollectRoutes, discoverSearch, discoverSources, webDiscover } from "@/v2/api";
 import { sourcesResponseToRows } from "@/v2/discoverAdapters";
 import { DiscoverHistoryPanel } from "@/v2/DiscoverHistoryPanel";
 import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
@@ -1032,29 +1032,38 @@ export function BrowsePage({
   // empty exactly when a search misses -- which is the moment the routes are
   // worth showing. Fetching the unfiltered source list separately means a miss
   // can still answer "we don't hold this, here is what we can collect from".
-  const [declaredRoutes, setDeclaredRoutes] = useState([]);
+  //
+  // Listing the desk's standing routes here was wrong: asked for US opinion
+  // polling, it offered CRSP MOVEit, a daily market-price archive. Calling it
+  // "not matched to your query" made that honest without making it useful.
+  // This asks which sources could actually supply the request and shows
+  // nothing when none can, because "this desk cannot get that" is the answer
+  // a procurement tool owes.
+  const [missRouteState, setMissRouteState] = useState({ query: "", routes: [], reason: "" });
   useEffect(() => {
+    const wanted = String(q || "").trim();
+    if (!wanted || loading || error || filtered.length > 0) return undefined;
     let cancelled = false;
-    discoverSources("", { limit: 8, semantic: false, live: false })
+    discoverCollectRoutes(wanted)
       .then((res) => {
-        if (!cancelled) setDeclaredRoutes(sourcesResponseToRows(res) || []);
+        if (!cancelled) {
+          setMissRouteState({
+            query: wanted,
+            routes: Array.isArray(res?.routes) ? res.routes : [],
+            reason: String(res?.reason || ""),
+          });
+        }
       })
       .catch(() => {
-        // A desk that cannot list its own routes should simply not offer them;
-        // the miss message above still stands on its own.
+        if (!cancelled) setMissRouteState({ query: wanted, routes: [], reason: "unavailable" });
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [q, loading, error, filtered.length]);
 
-  const missRoutes = useMemo(
-    () => declaredRoutes
-      .filter((row) => !(row.discover_taxonomy || classifyDiscoverResult(row, labIds)).key.startsWith("local-"))
-      .filter((row) => String(row.result_type || row.kind || "").toLowerCase() !== "connector")
-      .slice(0, 4),
-    [declaredRoutes, labIds],
-  );
+  const missRoutes = missRouteState.query === String(q || "").trim() ? missRouteState.routes : [];
+  const missRouteReason = missRouteState.query === String(q || "").trim() ? missRouteState.reason : "";
 
   const modeTabs = (
     <DiscoverModeTabs
@@ -1396,26 +1405,45 @@ export function BrowsePage({
                     <div className="rd-v2-home-section-head">
                       <div>
                         <span className="rd-v2-eyebrow">Not held — routes to get it</span>
-                        <h3>Sources the desk can collect from</h3>
-                        {/* These are the desk's standing routes, not routes
-                            matched to this query. Saying so is the difference
-                            between a useful offer and the earlier defect where
-                            an unrelated result was dressed up as a match. */}
-                        <p className="muted">
-                          Standing collection routes — not matched to “{q}”. Open one to check whether it
-                          carries this data.
-                        </p>
+                        <h3>Sources that could supply this</h3>
                       </div>
-                      <span className="muted">{plural(missRoutes.length, "collection route")}</span>
+                      <span className="muted">{plural(missRoutes.length, "route")}</span>
                     </div>
-                    <DiscoverCandidateList
-                      rows={missRoutes}
-                      labIds={labIds}
-                      selectedId={selectedId}
-                      onSelectRow={onSelectRow}
-                      onAdd={onReviewAcquisition}
-                    />
+                    <ul className="rd-v2-catalog rd-v2-miss-route-list">
+                      {missRoutes.map((route) => (
+                        <li key={route.source_id}>
+                          <div className="rd-v2-miss-route">
+                            <div>
+                              <strong>{route.label || route.source_id}</strong>
+                              {route.provider ? <span className="muted"> · {route.provider}</span> : null}
+                              <span className="rd-v2-discover-why">
+                                <b>why</b> {route.reason}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className="rd-v2-btn sm"
+                              onClick={() => onAskQuery?.(
+                                `Collect ${route.label || route.source_id} for: ${q}`,
+                                { kind: "investigation" },
+                              )}
+                            >
+                              {route.action === "collect" ? "Start collection" : "Request access"}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
+                ) : missRouteReason === "no_route_found" ? (
+                  /* Saying so is the answer. Four irrelevant offers -- the desk
+                     proposing a market-price archive for opinion polling -- is
+                     worse than admitting the desk has no route, because the
+                     researcher has to work that out for themselves. */
+                  <p className="muted rd-v2-discover-no-route">
+                    No source on this desk carries this kind of data. Paste a URL or DOI below to
+                    have it assessed for collection.
+                  </p>
                 ) : null}
               </div>
             ) : null}

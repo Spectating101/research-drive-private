@@ -203,6 +203,20 @@ export function discoverSources(
 }
 
 /**
+ * Which declared sources could supply something the desk does not hold.
+ *
+ * Distinct from discoverSources, which lists the desk's standing routes
+ * regardless of the question. This asks whether any of them actually carries
+ * the requested data, and returns nothing when none does — a market-price
+ * archive is not a route to opinion polling. Model-backed, so it needs the
+ * longer timeout.
+ */
+export function discoverCollectRoutes(query = "") {
+  const params = new URLSearchParams({ q: query });
+  return fetchJson(`/library/discover/collect-routes?${params}`, { timeoutMs: 45000 });
+}
+
+/**
  * Deliberate evidence-need assessment. This is intentionally separate from
  * catalogue search: typing a question must not start a live assessment.
  */
