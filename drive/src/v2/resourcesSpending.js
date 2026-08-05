@@ -37,6 +37,19 @@ function cleanTarget(target) {
   return text.startsWith("[context:") && text.includes("]") ? text.split("]").slice(1).join("]").trim() : text;
 }
 
+const ACTION_LABELS = {
+  ask: "Ask",
+  discover: "Browse discover",
+  bq_dry_run: "BQ dry-run",
+  bq_read: "BQ read",
+  procure: "Procure",
+  query: "Query dataset",
+  preview: "Preview",
+  job_submit: "Job submitted",
+  job_approve: "Job approved",
+  approve_collect: "Collect approved",
+};
+
 function cleanActivitySubject(target, action) {
   let text = cleanTarget(target).replace(/\s+/g, " ").trim();
   if (!text) return ACTION_LABELS[action] || action || "Activity";
@@ -53,18 +66,6 @@ function cleanActivitySubject(target, action) {
   return text;
 }
 
-const ACTION_LABELS = {
-  ask: "Ask",
-  discover: "Browse discover",
-  bq_dry_run: "BQ dry-run",
-  bq_read: "BQ read",
-  procure: "Procure",
-  query: "Query dataset",
-  preview: "Preview",
-  job_submit: "Job submitted",
-  job_approve: "Job approved",
-  approve_collect: "Collect approved",
-};
 
 export function buildCapacityCards(rollup) {
   if (!rollup?.hero) return [];

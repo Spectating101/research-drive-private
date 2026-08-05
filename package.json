@@ -23,7 +23,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "YZU_DESK_URL=http://127.0.0.1:5179 playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e-extended": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/visual-closure-acceptance.spec.js e2e/v2-discover-evidence.spec.js e2e/interaction-robustness.spec.js e2e/approval-robustness.spec.js e2e/decoration-layer.spec.js e2e/toast-lifecycle.spec.js e2e/v2-preview.spec.js e2e/v2-profile-freeze.spec.js e2e/desk-access-gate.spec.js e2e/multi-user-authority.spec.js"
+    "test:e2e-extended": "mkdir -p .tmp-pw && TMPDIR=$PWD/.tmp-pw playwright test e2e/visual-closure-acceptance.spec.js e2e/v2-discover-evidence.spec.js e2e/interaction-robustness.spec.js e2e/approval-robustness.spec.js e2e/decoration-layer.spec.js e2e/toast-lifecycle.spec.js e2e/v2-preview.spec.js e2e/v2-profile-freeze.spec.js e2e/desk-access-gate.spec.js e2e/multi-user-authority.spec.js",
+    "lint": "eslint drive/src e2e scripts"
   },
   "dependencies": {
     "@radix-ui/react-separator": "^1.1.10",
@@ -43,6 +44,9 @@
     "vite": "^6.3.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0"
+    "@playwright/test": "^1.52.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.9.0"
   }
 }

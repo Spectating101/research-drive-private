@@ -224,7 +224,7 @@ export function DiscoverEvidenceBrief({
     autoStartedRef.current = question;
     requestAssessment({ questionOverride: question });
     // One deliberate assessment per mounted query. Reassessment is explicit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [autoAssess, initialQuestion]);
 
   const updateDimension = (index, field, value) => {

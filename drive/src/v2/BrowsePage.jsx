@@ -1278,7 +1278,7 @@ export function BrowsePage({
   const searchSummaryKey = searchSummary ? JSON.stringify(searchSummary) : "";
   useEffect(() => {
     onSearchSummary?.(searchSummaryKey ? JSON.parse(searchSummaryKey) : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [searchSummaryKey]);
   const allInLab =
     !loading && merged.length > 0 && stageCounts.inLab > 0 && stageCounts.inLab === merged.length;

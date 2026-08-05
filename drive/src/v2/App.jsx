@@ -496,7 +496,7 @@ export function V2App() {
         q: tab === "browse" ? discoverSearchQuery.trim() : "",
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot URL normalize on mount
+     
   }, []);
 
   useEffect(() => {
@@ -821,6 +821,14 @@ export function V2App() {
     },
     [discoverSearchQuery, goTab, syncUrl],
   );
+
+  const suggestDiscoverSearch = useCallback((query) => {
+    const q = String(query || "").trim();
+    if (!q) return;
+    setDiscoverSearchQuery(q);
+    goTab("browse");
+    syncUrl({ tab: "browse", q });
+  }, [goTab, syncUrl]);
 
   const openDiscoverAssessment = useCallback((query) => {
     const q = String(query || discoverSearchQuery || "").trim();
@@ -1470,7 +1478,7 @@ export function V2App() {
           onOpenIntentHistory={(record) => {
             const job = record?.job || record?.intent?.job || null;
             setDiscoverIntentRecord(null);
-            openDiscoverHistory(job, { focusAwaiting: job?.status === "pending_approval" });
+            openDiscoverAwaiting({ job, focusAwaiting: job?.status === "pending_approval" });
           }}
           onSelectHistoryEvent={(event) => {
             setSelectedHistoryId(event?.id || "");
@@ -1570,11 +1578,7 @@ export function V2App() {
           profile={profile}
           onGoTab={goTab}
           onProfileRefresh={reloadProfile}
-          onSuggestSearch={(q) => {
-            setSearchQuery(q);
-            setTab("browse");
-            syncUrl({ tab: "browse", q });
-          }}
+          onSuggestSearch={suggestDiscoverSearch}
         />
       );
       break;
@@ -1753,10 +1757,7 @@ export function V2App() {
         onCloseDiscoverAssessment={() => {
           setDiscoverAssessment({ active: false, question: "", result: null });
         }}
-        onSuggestDiscoverSearch={(query) => {
-          setDiscoverSearchQuery(query);
-          goTab("browse");
-        }}
+        onSuggestDiscoverSearch={suggestDiscoverSearch}
         resourceRow={resourceRow}
         resourcesRollup={resourcesRollup}
         activeObject={activeObject}
