@@ -845,17 +845,18 @@ def _handlers() -> dict[str, Handler]:
     def library_partitions(stack, query, payload, params):
         from datetime import datetime, timezone
 
-        from scripts.yzu_cluster.partition_lanes import professor_shelves
+        from scripts.yzu_cluster.partition_lanes import professor_shelves, shelf_datasets
 
         overview = stack.gateway.library_overview()
         parts = overview.get("partitions") or {}
         lanes = parts.get("lanes") or []
         shelves = professor_shelves(stack.gateway.repo_root)
+        datasets_by_shelf = shelf_datasets(str(stack.gateway.repo_root))
         # Attach surfaced lane counts so the Library can render shelf-first nav.
         by_shelf: dict[str, list] = {}
         for lane in lanes:
-            sid = str(lane.get("shelf_id") or "ungrouped")
-            by_shelf.setdefault(sid, []).append(lane.get("partition_id"))
+            for sid in lane.get("shelf_ids") or [lane.get("shelf_id") or "ungrouped"]:
+                by_shelf.setdefault(str(sid), []).append(lane.get("partition_id"))
         shelf_rows = []
         for shelf in shelves:
             sid = str(shelf.get("id") or "")
@@ -865,6 +866,11 @@ def _handlers() -> dict[str, Handler]:
                     **shelf,
                     "surfaced_partition_ids": present,
                     "surfaced_count": len(present),
+                    # A shelf must be able to render from its datasets alone.
+                    # crypto_onchain holds 26 of them behind an ops partition
+                    # flagged not-visible, so a partition-only shelf renders the
+                    # desk's largest holding as an empty heading.
+                    "datasets": datasets_by_shelf.get(sid) or [],
                 }
             )
         return {
