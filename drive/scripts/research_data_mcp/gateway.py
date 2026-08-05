@@ -799,6 +799,7 @@ class ResearchDataGateway:
                     "limitations": reg.get("limitations"),
                     "source_system": reg.get("source_system"),
                     "analysis_readiness": reg.get("analysis_readiness"),
+                    "shelf_hint": reg.get("shelf_hint"),
                     "field_coverage": reg.get("field_coverage"),
                     # What a dataset search actually puts on a row: a
                     # description, subject tags, and when the holding was last
