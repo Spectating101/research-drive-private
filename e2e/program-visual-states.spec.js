@@ -20,6 +20,19 @@ import path from "node:path";
 import { mockV2Api, waitForShell } from "./fixtures/v2MockApi.js";
 
 const OUT = "docs/screenshots-review/program-visual-states";
+
+/**
+ * Widths.
+ *
+ * The program says "Review desktop 1440 first, laptop 1280 second", and the
+ * authority calls 1440 the authoritative three-surface desk. Those stay.
+ *
+ * 1920 is added because it is the width this is actually reviewed and used at.
+ * Checking conformance only at the specified width leaves the delivered width
+ * unverified, which is how a layout that satisfies the spec still reads badly
+ * on the screen in front of you.
+ */
+const WIDE = { width: 1920, height: 960 };
 const DESKTOP = { width: 1440, height: 900 };
 const LAPTOP = { width: 1280, height: 800 };
 
@@ -96,7 +109,7 @@ async function expectNoHorizontalOverflow(page) {
 }
 
 test.describe("Discover — required visual states", () => {
-  for (const [label, size] of [["1440", DESKTOP], ["1280", LAPTOP]]) {
+  for (const [label, size] of [["1920", WIDE], ["1440", DESKTOP], ["1280", LAPTOP]]) {
     for (const count of [5, 20]) {
       test(`${count} offerings at ${label}`, async ({ page }) => {
         await page.setViewportSize(size);
