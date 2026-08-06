@@ -31,6 +31,7 @@ export function AskRail({
   const textareaRef = useRef(null);
   const [approvalState, setApprovalState] = useState({});
   const [proposalState, setProposalState] = useState("");
+  const [execNotice, setExecNotice] = useState("");
 
   useEffect(() => {
     if (!pendingMessage || busy) return;
@@ -93,8 +94,7 @@ export function AskRail({
         ? "Accepted method is documented, but it has no bounded registry execution_spec yet. Ask can propose aggregates or row_output lag/diff/rolling transforms when those are defensible from held evidence."
         : raw || "Execution request failed";
       onToast?.(human);
-      // Persist in the rail so faculty can still read it after the toast fades.
-      setStatus(human);
+      setExecNotice(human);
     } finally {
       setProposalState("");
     }
@@ -202,6 +202,11 @@ export function AskRail({
         <strong>{askEntityTitle || "Ask"}</strong>
         <p className="rd-v2-ask-ctx">{railSubtitle}</p>
       </header>
+      {execNotice ? (
+        <p className="rd-v2-ask-exec-notice" role="status" data-testid="ask-exec-notice">
+          {execNotice}
+        </p>
+      ) : null}
       <div className="rd-v2-ask-messages" data-testid="ask-messages" aria-busy={busy}>
         {messages.length === 0 ? (
           isProfile ? (

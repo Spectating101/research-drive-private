@@ -13,10 +13,6 @@ import {
   resourcesOpsPosture,
   resourcesOpsPill,
 } from "./attentionModel.js";
-import {
-  classifyAskIntent,
-  shapeAskReplyForIntent,
-} from "./askIntent.js";
 
 test("history noise fence hides triage fixture recovery spam", () => {
   const events = [
@@ -209,21 +205,6 @@ test("ops attention prefers failed_actionable over lifetime failed", () => {
     },
   });
   assert.equal(counts.failedJobs, 6);
-});
-
-test("status ask intent strips Queue DOI / DESCRIBE_DATASET affordances", () => {
-  assert.equal(classifyAskIntent("Status only: reply with OK"), "status");
-  const shaped = shapeAskReplyForIntent("status", {
-    action: "collect_doi",
-    toolName: "DESCRIBE_DATASET",
-    pendingJobId: "job-1",
-    jobStatus: "pending_approval",
-    suggestedPrompts: ["Queue DOI collect for gdelt_asia", "Explain readiness"],
-  });
-  assert.equal(shaped.action, null);
-  assert.equal(shaped.toolName, null);
-  assert.equal(shaped.pendingJobId, null);
-  assert.deepEqual(shaped.suggestedPrompts, ["Explain readiness"]);
 });
 
 test("cancelled history rows are not Collecting", async () => {

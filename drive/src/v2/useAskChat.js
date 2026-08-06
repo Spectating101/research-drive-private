@@ -7,7 +7,6 @@ import {
 } from "@/v2/api";
 import { normalizeActivityStep } from "@/v2/deskIntegration";
 import { clearChatSessionId, loadChatSessionId, loadUserEmail, saveChatSessionId } from "@/v2/deskSession";
-import { classifyAskIntent, shapeAskReplyForIntent } from "@/v2/askIntent";
 import { workspaceAskBindKey } from "./askWorkspaceBind.js";
 
 function normalizeOutgoingMessage(value, fallback = "") {
@@ -71,7 +70,6 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
   const warmStartedRef = useRef(false);
   const railRef = useRef(railContext);
   const busyRef = useRef(false);
-  const intentRef = useRef("general");
   const synthesisThreadId =
     dataset?.kind === "synthesis_thread" ? String(dataset.thread_id || "") : "";
   const synthesisSessionId =
@@ -257,29 +255,23 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
       const prompt = outgoing.prompt;
       if (!prompt || busyRef.current) return;
       busyRef.current = true;
-      const intent = classifyAskIntent(outgoing.displayText || prompt);
-      intentRef.current = intent;
       const full =
         contextPrefix && !prompt.startsWith("[context:")
           ? `${contextPrefix}${prompt}`
           : prompt;
 
-      setMessages((m) => [...m, { role: "user", text: outgoing.displayText, intent }]);
+      setMessages((m) => [...m, { role: "user", text: outgoing.displayText }]);
       setInput("");
       setBusy(true);
-      setStatus(intent === "status" ? "Checking status…" : "Planning response…");
+      setStatus("Planning response…");
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
           text: "",
           streaming: true,
-          intent,
-          activity: intent === "status" ? "Checking status…" : "Planning response…",
-          activityLog:
-            intent === "status"
-              ? []
-              : [{ phase: "planning", text: "Planning response…", at: Date.now() }],
+          activity: "Planning response…",
+          activityLog: [{ phase: "planning", text: "Planning response…", at: Date.now() }],
         },
       ]);
 
@@ -297,10 +289,6 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
             );
           },
           onActivity: (event) => {
-            if (intentRef.current === "status") {
-              setStatus("Checking status…");
-              return;
-            }
             const line =
               event && typeof event === "object" ? String(event.text || "") : String(event || "");
             setStatus(line);
@@ -418,7 +406,7 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
             ...nextSteps,
           ];
         }
-        const shaped = shapeAskReplyForIntent(intent, {
+        const shaped = {
           action: out.action,
           toolName,
           candidates: out.candidates || artifacts.candidates || [],
@@ -426,7 +414,7 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
           nextSteps,
           pendingJobId,
           jobStatus,
-        });
+        };
 
         setMessages((m) => {
           const priorFacts = m.find((x) => x.streaming)?.deskFacts;
@@ -436,7 +424,6 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
             {
               role: "assistant",
               text: reply,
-              intent,
               deskFacts: deskFacts || priorFacts || undefined,
               action: shaped.action || out.action,
               toolName: shaped.toolName,
@@ -456,9 +443,7 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
           ];
         });
         setStatus(
-          intent === "status"
-            ? ""
-            : backgroundWatch
+          backgroundWatch
               ? "Composer still finishing in the background…"
             : out.campaign_id
               ? `Campaign ${String(out.campaign_id).slice(0, 8)}…`
@@ -473,7 +458,7 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
         const artifactMutation = Boolean(
           pendingJobId || subId || artifacts.platform_registered || recordedProposal,
         );
-        if (intent !== "status" && artifactMutation) {
+        if (artifactMutation) {
           onCollected?.();
           if (subId || out.action === "schedule_refresh" || artifacts.platform_registered) {
             onToast?.("Refresh registered in Discover History");
@@ -503,7 +488,6 @@ export function useAskChat({ dataset, railContext, onCollected, onSynthesisChang
       } finally {
         busyRef.current = false;
         setBusy(false);
-        intentRef.current = "general";
       }
     },
     [
