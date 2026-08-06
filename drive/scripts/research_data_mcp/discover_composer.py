@@ -63,6 +63,8 @@ Query: {query}
 DESK_FACTS (already measured via research_discover_desk — authoritative for held/route):
 {desk_facts}
 
+{capabilities}
+
 Stack contract:
 - L0 hands already ran. Do not invent dataset_ids or source_ids outside DESK_FACTS.
 - Copy DESK_FACTS held/routes into your JSON when present.
@@ -416,7 +418,20 @@ def _composer_mcp_grounded(
         return ctx, summary, nxt, ["composer_only_fallback"]
 
     desk_facts = _desk_facts_block(held, routes, route_reason)
-    prompt = _COMPOSER_MCP_PROMPT.format(query=query, desk_facts=desk_facts)
+    try:
+        from scripts.research_data_mcp.desk_capabilities import capability_block
+
+        capabilities = capability_block(
+            gateway,
+            has_held=bool(held),
+            has_routes=bool(routes),
+            is_question=is_question_like(query),
+        )
+    except Exception:  # noqa: BLE001 - capability hints are advisory, never fatal
+        capabilities = ""
+    prompt = _COMPOSER_MCP_PROMPT.format(
+        query=query, desk_facts=desk_facts, capabilities=capabilities
+    )
     state: dict[str, Any] = {
         "discover_composer": True,
         "desk_primed": True,
