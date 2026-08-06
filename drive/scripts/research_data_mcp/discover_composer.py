@@ -347,11 +347,18 @@ def _desk_facts_block(held: list[dict[str, Any]], routes: list[dict[str, Any]], 
             f"- {r.get('title') or r.get('source_id')} | source_id={r.get('source_id')} | "
             f"access={r.get('access_mode') or ''} | actionable={r.get('actionable')}"
         )
+    try:
+        from scripts.research_data_mcp.fleet_capacity import fleet_facts_line
+
+        fleet_line = fleet_facts_line()
+    except Exception:  # noqa: BLE001 - fleet facts are advisory, never fatal
+        fleet_line = ""
     return (
         f"held_count={len(held)}\n"
         + ("\n".join(held_lines) if held_lines else "(none)")
         + f"\n\nroutes_count={len(routes)} reason={route_reason or 'n/a'}\n"
         + ("\n".join(route_lines) if route_lines else "(none)")
+        + (f"\n\n{fleet_line}" if fleet_line else "")
     )
 
 
