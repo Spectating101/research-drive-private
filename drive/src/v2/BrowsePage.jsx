@@ -15,6 +15,7 @@ import {
   taxonomyMatchesFilter,
   taxonomyStageCounts,
 } from "@/v2/browseMeta";
+import { isHeldRow, readinessMark } from "@/v2/readinessMark";
 import { discoverCandidateUrl, webHitsToRows } from "@/v2/discoverActions";
 import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidateKey";
 import { buildDiscoverLifecycle, projectDiscoverCandidateLifecycle } from "@/v2/discoverLifecycle";
@@ -241,18 +242,7 @@ function DiscoverCandidateRow({
     && Boolean(materialSufficiencyLine);
   // States that mean the lab already holds something relevant, so collecting
   // may be unnecessary. These get a highlighted line; the rest stay inline.
-  const readinessBadge = (() => {
-    if (String(row?.shelf_hint || "") === "find_datasets") {
-      return { label: "Where to find it", tone: "lead" };
-    }
-    const r = String(row?.analysis_readiness || row?.field_coverage || "").toLowerCase();
-    if (!r) return null;
-    if (/metadata_search|metadata search/.test(r)) return { label: "Metadata only", tone: "low" };
-    if (/query[-_ ]?ready|instant/.test(r)) return { label: "Query-ready", tone: "ready" };
-    if (/register/.test(r)) return { label: "Registered", tone: "mid" };
-    if (/metadata/.test(r)) return { label: "Metadata only", tone: "low" };
-    return null;
-  })();
+  const readinessBadge = readinessMark(row);
   const recommendedUse = String(row?.recommended_use || "").trim().slice(0, 150);
 
   const hasExplicitDescription = Boolean(
@@ -282,8 +272,13 @@ function DiscoverCandidateRow({
           <span className="rd-v2-discover-candidate-heading">
             <SourceRibbon source={ribbonSource} />
             <strong className="rd-v2-discover-candidate-title">
-              {selected ? (
-                <span className="rd-v2-discover-selected-mark" aria-hidden="true">
+              {selected || isHeldRow(row, labIds) ? (
+                <span
+                  className={`rd-v2-discover-selected-mark${
+                    isHeldRow(row, labIds) ? " is-held" : ""
+                  }`}
+                  aria-hidden="true"
+                >
                   ▌
                 </span>
               ) : null}
