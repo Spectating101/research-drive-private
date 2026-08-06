@@ -138,6 +138,41 @@ def test_remote_query_requires_explicit_hydration_then_returns_rows(
     assert service.describe_dataset("remote_csv")["analysis_readiness"] == "query_ready"
 
 
+def test_query_unblocks_when_local_bytes_return_after_stale_demotion(tmp_path: Path) -> None:
+    """Compact→restore must not leave query stuck behind hydrate when bytes are back."""
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    registry.write_text(
+        json.dumps(
+            {
+                "datasets": [
+                    {
+                        "dataset_id": "restored_json",
+                        "backend": "local_json_file",
+                        "analysis_readiness": "query_ready",
+                        "local_path": "data_lake/procured/restored.json",
+                        "canonical_remote": "gdrive:archive/restored_json",
+                        "source_of_truth": "gdrive",
+                        "query_smoke": {"ok": True, "rows": 1},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    # First load: missing → demoted in memory.
+    service = SearchService(ResearchQueryEngine(registry, repo_root=tmp_path), registry, tmp_path)
+    assert service.describe_dataset("restored_json")["analysis_readiness"] == "registered"
+    # Bytes appear (hydrate/rclone restore) without rebuilding the service.
+    local = tmp_path / "data_lake/procured/restored.json"
+    local.parent.mkdir(parents=True)
+    local.write_text('[{"Code":"1101","Name":"demo"}]\n', encoding="utf-8")
+    out = service.query_dataset("restored_json", {"limit": 2})
+    assert out["rows"], out.get("meta")
+    assert out["rows"][0]["Code"] == "1101"
+    assert service.describe_dataset("restored_json")["analysis_readiness"] == "query_ready"
+
+
 def test_malformed_csv_is_registered_for_schema_review_not_query_ready(tmp_path: Path) -> None:
     registry = tmp_path / "config/research_query_registry.json"
     registry.parent.mkdir()

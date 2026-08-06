@@ -582,7 +582,8 @@
         "ticker_week_country_broadcast_panel",
         "ticker_week_entity_long_panel",
         "ticker_week_entity_market_panel",
-        "ticker_week_entity_residual_panel"
+        "ticker_week_entity_residual_panel",
+        "synthesis_keeling_accel_monthly_v1"
       ],
       "professor_label": "Research panels",
       "migrated_at": "2026-06-24T20:08:58.839200+00:00",

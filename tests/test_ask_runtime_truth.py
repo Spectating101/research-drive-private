@@ -216,13 +216,20 @@ def test_blocking_composer_times_out_with_typed_error(tmp_path, monkeypatch):
     artifacts = result.get("artifacts") or {}
     assert result.get("action") == "composer_timeout" or artifacts.get("action") == "composer_timeout"
     assert artifacts.get("error_type") == "composer_timeout"
+    assert artifacts.get("background_watch") is True
+    assert artifacts.get("still_working") is True
     reply_l = (result.get("reply") or "").lower()
     assert "timed out" in reply_l or "timeout" in reply_l
+    assert "background" in reply_l
     released.set()
 
 
-def test_contextual_question_preserves_facts_no_side_effects():
-    from scripts.research_data_mcp.desk_direct_turns import try_direct_contextual_turn
+def test_contextual_interceptor_stripped():
+    from scripts.research_data_mcp.desk_direct_turns import (
+        try_direct_contextual_turn,
+        try_direct_equipment_turn,
+        stripped_status,
+    )
 
     gateway = MagicMock()
     state = {
@@ -231,7 +238,6 @@ def test_contextual_question_preserves_facts_no_side_effects():
             "mode": "detail",
             "dataset_id": "twse_mi_index",
             "readiness": "Query-ready",
-            "vault_path": "",
             "entity": {"kind": "dataset", "id": "twse_mi_index", "title": "TWSE MI Index"},
             "actions": ["preview_rows", "ask_about"],
             "selected": {
@@ -241,24 +247,9 @@ def test_contextual_question_preserves_facts_no_side_effects():
             },
         }
     }
-    turn = try_direct_contextual_turn(
-        gateway,
-        "What do we know about this selected object?",
-        state,
-    )
-    assert turn is not None
-    assert turn.action_result.get("action") == "contextual"
-    assert turn.action_result.get("fast_path") is True
-    assert turn.action_result.get("side_effects") is False
-    reply = turn.reply
-    assert "twse_mi_index" in reply
-    assert "TWSE MI Index" in reply
-    assert "Query-ready" in reply
-    assert "unknown" in reply.lower()
-    gateway.jobs.assert_not_called()
-    gateway.collect_datacite_doi.assert_not_called()
-    gateway.probe_source.assert_not_called()
-    gateway.discover_refresh_create.assert_not_called()
+    assert try_direct_contextual_turn(gateway, "What do we know about this selected object?", state) is None
+    assert try_direct_equipment_turn(gateway, "Search vault for stablecoin", state) is None
+    assert stripped_status()["regex_interceptors"] is False
 
 
 def test_contextual_does_not_steal_collect_or_approve():
@@ -275,19 +266,23 @@ def test_contextual_does_not_steal_collect_or_approve():
     assert try_direct_contextual_turn(gateway, "Approve job abcdef123456", {"rail_context": rail}) is None
 
 
-def test_run_desk_agent_prefers_contextual_over_composer(monkeypatch):
-    from scripts.research_data_mcp import desk_brain, desk_direct_turns
-
-    importlib.reload(desk_direct_turns)
-    importlib.reload(desk_brain)
+def test_run_desk_agent_always_uses_composer(monkeypatch):
+    from scripts.research_data_mcp import desk_brain
 
     called = {"composer": 0}
 
-    def _boom(*_a, **_k):
-        called["composer"] += 1
-        raise AssertionError("Composer must not run for read-only contextual asks")
+    class _Turn:
+        action_result = {"action": "composer", "brain": "cursor_composer"}
+        reply = "ok"
+        plan = {"action": "composer"}
+        suggested_prompts = []
+        tool_name = "cursor_composer"
 
-    monkeypatch.setattr(desk_brain, "run_cursor_composer_turn", _boom)
+    def _composer(*_a, **_k):
+        called["composer"] += 1
+        return _Turn()
+
+    monkeypatch.setattr(desk_brain, "run_cursor_composer_turn", _composer)
     gateway = MagicMock()
     state = {
         "rail_context": {
@@ -305,6 +300,5 @@ def test_run_desk_agent_prefers_contextual_over_composer(monkeypatch):
         session_id="s1",
     )
     assert turn is not None
-    assert getattr(turn, "action_result", {}).get("action") == "contextual"
-    assert getattr(turn, "action_result", {}).get("side_effects") is False
-    assert called["composer"] == 0
+    assert called["composer"] == 1
+    assert getattr(turn, "action_result", {}).get("brain") == "cursor_composer"

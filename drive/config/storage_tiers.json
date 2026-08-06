@@ -1,7 +1,7 @@
 {
   "name": "Sharpe-Renaissance storage tiers",
   "version": 1,
-  "summary": "GDrive is canonical write target. Local/USB paths are ephemeral staging only — hydrate on read when analysis needs files.",
+  "summary": "GDrive is canonical write target. Local/USB paths are ephemeral staging only \u2014 hydrate on read when analysis needs files.",
   "tiers": {
     "hot": {
       "label": "NVMe desk",
@@ -90,8 +90,9 @@
     "hydrate_cache_from_canonical": true,
     "never_store_bulk_on_hot": true,
     "disk_guard_scope": "nvme_only_when_cache_mounted",
-    "nvme_min_free_gb_when_cache_mounted": 40,
+    "nvme_min_free_gb_when_cache_mounted": 20,
     "nvme_min_free_gb_when_cache_offline": 60,
-    "nvme_target_free_gb_when_cache_mounted": 55
+    "nvme_target_free_gb_when_cache_mounted": 30,
+    "headroom_note": "When bulk cache is mounted, NVMe only needs OS+sqlite headroom; bulk absorbs lands."
   }
 }

@@ -7,12 +7,32 @@ import os
 
 
 def mcp_server_instructions() -> str:
-    if os.getenv("RESEARCH_MCP_DESK", "").strip() in {"1", "true", "yes"}:
+    desk = os.getenv("RESEARCH_MCP_DESK", "").strip().lower() in {"1", "true", "yes"}
+    synthesis_ro = os.getenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    if desk and synthesis_ro:
+        return (
+            "Research procurement MCP — Synthesis Ask (read-only tool surface). "
+            "Answer like a normal assistant — short and direct. "
+            "Trust any preloaded Synthesis DESK_FACTS / vault brief; do not re-inventory. "
+            "Allowed synthesis tools: research_synthesis_list_profiles, research_synthesis_pair, "
+            "research_synthesis_preflight_spec, research_synthesis_propose_state (records a draft; "
+            "never applies), research_synthesis_materialisation. "
+            "You cannot run panels (research_synthesis_run), submit execution, collect missing, "
+            "or approve jobs from this Ask surface — tell the researcher to use the Synthesis UI "
+            "Build/refresh or the thread accept → execute ladder. "
+            "Never claim materialisation without research_synthesis_materialisation saying registered. "
+            "Never call yzu_approve_job."
+        )
+    if desk:
         return (
             "Research procurement MCP for the YZU Research Drive desk. "
             "Use these tools whenever you need real vault, registry, or collection state. "
             "Faculty chat: answer like a normal assistant — short and direct first (≤8 sentences on turn one). "
-            "If the user message includes a preloaded desk vault brief, trust it — "
+            "If the user message includes a preloaded desk vault brief or Ask DESK_FACTS, trust it — "
             "never call collection_status or run another inventory sweep; "
             "use tools only for samples, query, collect, hydrate, or synthesis. "
             "For stablecoin multi-source work (Skynet + Etherscan + community growth + security + GDELT): "

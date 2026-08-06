@@ -128,6 +128,60 @@ class ResearchDataGateway:
     def describe_dataset(self, dataset_id: str) -> dict[str, Any]:
         return self.search.describe_dataset(dataset_id)
 
+    def hydrate_dataset(self, dataset_id: str) -> dict[str, Any]:
+        return self.search.hydrate_dataset(dataset_id)
+
+    def relabel_dataset(
+        self,
+        dataset_id: str,
+        *,
+        dry_run: bool = False,
+        background: bool = False,
+        extras: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Faculty meaning pass — AI proposes title/aliases; hands write registry."""
+        from scripts.research_data_mcp.vault_meaning_labeler import (
+            relabel_dataset,
+            schedule_relabel_after_promote,
+        )
+
+        if background:
+            return schedule_relabel_after_promote(self.repo_root, dataset_id, extras=extras)
+        out = relabel_dataset(
+            self.repo_root,
+            dataset_id,
+            registry_path=self.registry_path,
+            extras=extras,
+            dry_run=dry_run,
+        )
+        if out.get("applied"):
+            self.reload_registry()
+        return out
+
+    def batch_relabel_datasets(
+        self,
+        *,
+        dataset_ids: list[str] | None = None,
+        limit: int = 20,
+        dry_run: bool = False,
+        include_scrape_noise: bool = False,
+    ) -> dict[str, Any]:
+        """Batch faculty meaning pass — Copilot proposes, hands apply."""
+        from scripts.research_data_mcp.vault_meaning_labeler import batch_relabel_datasets
+
+        out = batch_relabel_datasets(
+            self.repo_root,
+            dataset_ids=dataset_ids,
+            limit=limit,
+            dry_run=dry_run,
+            include_scrape_noise=include_scrape_noise,
+        )
+        if any(r.get("ok") and r.get("applied") for r in out.get("results") or []):
+            self.reload_registry()
+        elif out.get("succeeded"):
+            self.reload_registry()
+        return out
+
     def query_dataset(self, dataset_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self.search.query_dataset(dataset_id, params)
 
@@ -578,217 +632,56 @@ class ResearchDataGateway:
         include_datacite: bool = True,
         resolve_datacite: bool = False,
         max_file_bytes: int = 50_000_000,
-        skip_discover: bool = False,
+        skip_discover: bool = True,
         parallel_profile: bool = False,
     ) -> dict[str, Any]:
-        """Full unified search; when email is set, prepend discover rows and attach faculty hints."""
+        """Unified holdings search. Faculty hints only — no Discover agent merge / Recommended."""
+        _ = parallel_profile  # parallel discover merge retired (script-brain)
         email = str(email or "").strip()
-        profile_layer: dict[str, Any] = {}
-
-        if email and parallel_profile and not skip_discover:
-            from concurrent.futures import ThreadPoolExecutor
-
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                f_out = pool.submit(
-                    self.unified_dataset_search,
-                    query,
-                    limit=limit,
-                    include_hf=include_hf,
-                    include_datacite=include_datacite,
-                    resolve_datacite=resolve_datacite,
-                    max_file_bytes=max_file_bytes,
-                )
-                f_disc = pool.submit(self.discover_search, query, email=email, limit=limit)
-                out = f_out.result()
-                profile_layer = f_disc.result()
-        else:
-            out = self.unified_dataset_search(
-                query,
-                limit=limit,
-                include_hf=include_hf,
-                include_datacite=include_datacite,
-                resolve_datacite=resolve_datacite,
-                max_file_bytes=max_file_bytes,
+        out = self.unified_dataset_search(
+            query,
+            limit=limit,
+            include_hf=include_hf,
+            include_datacite=include_datacite,
+            resolve_datacite=resolve_datacite,
+            max_file_bytes=max_file_bytes,
+        )
+        out["discover_skipped"] = True
+        out["routed_via"] = "unified_dataset_search"
+        if email:
+            from scripts.research_data_mcp.faculty_profile import (
+                bigquery_route_hints,
+                expand_datacite_queries,
+                normalize_email,
+                resolve_profile,
             )
-            if not email:
-                out["routed_via"] = "unified_dataset_search"
-                return out
-            if not skip_discover:
-                profile_layer = self.discover_search(query, email=email, limit=limit)
-            else:
-                out["discover_skipped"] = True
 
-        if not email:
-            out["routed_via"] = "unified_dataset_search"
-            return out
-
-        if skip_discover:
-            out["discover_skipped"] = True
-
+            profile = resolve_profile(email=normalize_email(email))
+            if profile:
+                out["profile_queries"] = expand_datacite_queries(query, profile)
+                out["bigquery_hints"] = bigquery_route_hints(profile, query)
         if not skip_discover:
-            out["profile_queries"] = profile_layer.get("profile_queries") or []
-            out["bigquery_hints"] = profile_layer.get("bigquery_hints") or []
-            if profile_layer.get("index_miss") is not None:
-                out["discover_index_miss"] = bool(profile_layer.get("index_miss"))
-            if profile_layer.get("weak_match") is not None:
-                out["discover_weak_match"] = bool(profile_layer.get("weak_match"))
-
-        seen = {self._search_row_key(row) for section in out.get("sections") or [] for row in section.get("rows") or []}
-        discover_rows: list[dict[str, Any]] = []
-        for section in profile_layer.get("sections") or []:
-            for row in section.get("rows") or []:
-                key = self._search_row_key(row)
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                discover_rows.append(row)
-
-        if discover_rows:
-            sections = list(out.get("sections") or [])
-            sections.insert(
-                0,
-                {
-                    "id": "discover",
-                    "label": "Recommended",
-                    "count": len(discover_rows),
-                    "rows": discover_rows,
-                },
-            )
-            out["sections"] = sections
-            out["rows"] = discover_rows + list(out.get("rows") or [])
-            out["total"] = len(out["rows"])
-
-        if skip_discover:
-            out["routed_via"] = "unified_dataset_search"
-        elif discover_rows:
-            out["routed_via"] = "unified_dataset_search+discover_profile"
-        else:
-            out["routed_via"] = "unified_dataset_search+discover_profile"
+            # Explicit opt-in: lexical lab supplement only — never Composer/toolbox agent.
+            lexical = self.discover_search_lexical(query, email=email, limit=limit)
+            out["profile_queries"] = out.get("profile_queries") or lexical.get("profile_queries") or []
+            out["bigquery_hints"] = out.get("bigquery_hints") or lexical.get("bigquery_hints") or []
+            out["discover_index_miss"] = bool(lexical.get("index_miss"))
+            out["discover_weak_match"] = False
+            out["discover_skipped"] = False
+            out["routed_via"] = "unified_dataset_search+lexical_hints"
         return out
 
-    SEMANTIC_BACKSTOP_MIN = 3
-    SEMANTIC_MIN_SCORE = 0.30
-
-    def _augment_with_semantic(
-        self, query: str, candidates: list[dict[str, Any]], *, limit: int = 8
-    ) -> list[dict[str, Any]]:
-        """Recall backstop: lexical keeps precision, embeddings fill the gaps.
-
-        Lexical returned nothing for "airline fares" or "company filings" while
-        the registry held both, because token overlap cannot bridge "fares" to
-        "fare records". Runs only when lexical is thin, so good keyword hits are
-        never displaced.
-        """
-        if len(candidates) >= self.SEMANTIC_BACKSTOP_MIN:
-            return candidates
-        q = str(query or "").strip()
-        if len(q) < 3:
-            return candidates
-        try:
-            found = self.semantic_discover(q, limit=limit)
-        except Exception:
-            return candidates
-        registry = {
-            str(d.get("dataset_id") or ""): d
-            for d in (self.engine.list_datasets() or [])
-            if isinstance(d, dict)
-        }
-        seen = {str(c.get("dataset_id") or "") for c in candidates}
-        for row in found.get("rows") or []:
-            dataset_id = str(row.get("dataset_id") or "")
-            if not dataset_id or dataset_id in seen:
-                continue
-            if float(row.get("semantic_score") or 0) < self.SEMANTIC_MIN_SCORE:
-                continue
-            reg = registry.get(dataset_id)
-            if reg is None or reg.get("professor_visible") is False:
-                continue
-            seen.add(dataset_id)
-            candidates.append({
-                **row,
-                "kind": "registry_dataset",
-                "score": round(float(row.get("semantic_score") or 0) * 4.0, 2),
-                "query_relevance": 2.0,
-                "selected_by": "semantic",
-                "selection_reason": "matched on meaning, not wording",
-            })
-        return candidates
-
-    def _augment_with_catalog_reader(
-        self, query: str, candidates: list[dict[str, Any]], *, limit: int = 12
-    ) -> list[dict[str, Any]]:
-        """Add datasets the lexical path missed, by reading the whole catalog.
-
-        Measured on 16 questions: reading the catalog answered 10/10 real
-        questions while the lexical path answered 2/6 -- and its failures were
-        empty results, not wrong ones, because the index, relevance threshold
-        and geography rules each filter independently and any one returning
-        nothing ends the query.
-
-        This augments rather than replaces. Lexical hits keep their order and
-        scores, so nothing that works today changes; the reader only appends
-        datasets the lexical path did not find. Keyword queries never reach it
-        (they already return instantly), and any failure leaves the lexical
-        result exactly as it was -- a slow or unreachable model should cost
-        recall, not the search.
-        """
-        from scripts.research_data_mcp import catalog_select
-
-        if not catalog_select.enabled() or not catalog_select.is_question_like(query):
-            return candidates
-        try:
-            rows = [
-                d for d in (self.engine.list_datasets() or [])
-                if isinstance(d, dict) and d.get("professor_visible")
-            ]
-            if not rows:
-                return candidates
-            picked = catalog_select.select(query, rows, top=limit, repo_root=self.repo_root)
-            by_id = {str(d.get("dataset_id")): d for d in rows}
-            existing = {str(c.get("dataset_id") or ""): c for c in candidates}
-            seen = set(existing)
-            for sel in picked.get("selected") or []:
-                dataset_id = sel.get("dataset_id") or ""
-                row = by_id.get(dataset_id)
-                if not row:
-                    continue
-                if dataset_id in seen:
-                    # The lexical path found this too. It used to be skipped
-                    # outright, which threw away the reader's reason for exactly
-                    # the rows both agreed on -- the strongest results on the
-                    # page were the ones that could not say why they were there.
-                    # Endorse the existing row instead of dropping the reason.
-                    current = existing[dataset_id]
-                    if not current.get("selection_reason"):
-                        current["selected_by"] = "catalog_reader"
-                        current["selection_reason"] = sel.get("reason") or ""
-                    continue
-                seen.add(dataset_id)
-                materialization = row.get("materialization") or {}
-                candidates.append({
-                    "kind": "dataset",
-                    "dataset_id": dataset_id,
-                    "title": row.get("name") or dataset_id,
-                    "source": row.get("source_system") or "registry",
-                    "collect_via": "local_open" if materialization.get("query_ready") else "",
-                    "local_path": row.get("local_path") or row.get("local_root") or "",
-                    "local_ready": bool(materialization.get("query_ready")),
-                    "score": 0.0,
-                    "selected_by": "catalog_reader",
-                    "selection_reason": sel.get("reason") or "",
-                })
-        except Exception:  # noqa: BLE001 - never fail a search on the reader
-            _LOG.debug("catalog reader augmentation failed", exc_info=True)
-        return candidates[:limit] if limit else candidates
-
-    def discover_search(
+    def discover_search_lexical(
         self,
         query: str,
         *,
         email: str = "",
         limit: int = 12,
     ) -> dict[str, Any]:
-        """Profile-aware discover: catalog rows + faculty context hints for Composer (not search boosts)."""
+        """Local catalog only — MCP hand, not Discover judgment.
+
+        Lexical index only. No catalog_select LLM, no embedding Recommended filler.
+        """
         from scripts.research_data_mcp.faculty_profile import (
             bigquery_route_hints,
             expand_datacite_queries,
@@ -797,11 +690,15 @@ class ResearchDataGateway:
         )
         from scripts.research_data_mcp.procurement_search import smart_search
 
+        from scripts.research_data_mcp.evidence_placement import (
+            drop_semantic_filler,
+            stamp_evidence_fields,
+        )
+
         profile = resolve_profile(email=normalize_email(email)) if email else None
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
-        candidates = self._augment_with_catalog_reader(query, candidates, limit=limit)
-        candidates = self._augment_with_semantic(query, candidates, limit=limit)
+        candidates = drop_semantic_filler(candidates)
         candidates = _presentable_candidates(
             candidates,
             {
@@ -814,11 +711,6 @@ class ResearchDataGateway:
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
 
-            # Columns the Library list renders: grain, frequency, period and
-            # geography breadth. They live on the registry row, not on the
-            # search candidate, so a held result could previously only be shown
-            # as a title -- which is why held datasets were relegated to a
-            # collapsed "Library evidence" dropdown instead of a scannable list.
             def _cov(dataset_id: str) -> dict[str, Any]:
                 reg = _registry_by_id.get(str(dataset_id or ""))
                 if not reg:
@@ -847,16 +739,8 @@ class ResearchDataGateway:
                     return _flat(item)
 
                 geo = _val("geography")
-                # How much of it there is. Measured on disk by
-                # dataset_scale_probe, never estimated -- a dataset whose path
-                # is unreachable or shared with siblings carries no scale block
-                # and the row says nothing rather than guessing.
                 scale = (reg.get("materialization") or {}).get("scale") or {}
                 return {
-                    # Two of five rows read "scrape_54af347e1ceb". Every one of
-                    # these has an authored display name; showing the id as the
-                    # headline made results unidentifiable at a glance, which no
-                    # dataset search does.
                     "display_name": reg.get("display_name") or reg.get("name"),
                     "one_line": reg.get("one_line"),
                     "recommended_use": reg.get("recommended_use") or reg.get("best_use"),
@@ -865,11 +749,6 @@ class ResearchDataGateway:
                     "analysis_readiness": reg.get("analysis_readiness"),
                     "shelf_hint": reg.get("shelf_hint"),
                     "field_coverage": reg.get("field_coverage"),
-                    # What a dataset search actually puts on a row: a
-                    # description, subject tags, and when the holding was last
-                    # checked. Grain and frequency are internal schema
-                    # vocabulary -- "entity_week · weekly" tells a researcher
-                    # nothing about whether to open the row.
                     "tags": list(reg.get("tags") or [])[:4],
                     "probed_at": (reg.get("materialization") or {}).get("probed_at"),
                     "size_bytes": scale.get("size_bytes"),
@@ -889,54 +768,76 @@ class ResearchDataGateway:
             }
             rows = stamp_rows(
                 [
-                    {
-                        "kind": c.get("kind"),
-                        "dataset_id": c.get("dataset_id"),
-                        "doi": c.get("doi"),
-                        "title": c.get("title"),
-                        "url": c.get("url"),
-                        "source": c.get("source") or c.get("collect_via"),
-                        "score": c.get("score"),
-                        "local_path": c.get("local_path"),
-                        "local_ready": c.get("local_ready"),
-                        "collect_via": c.get("collect_via"),
-                        "procureability": c.get("procureability"),
-                        "procureability_label": c.get("procureability_label"),
-                        "external_id": c.get("external_id"),
-                        "handle": c.get("handle"),
-                        "hf_id": c.get("hf_id"),
-                        "provider": c.get("provider"),
-                        # Why this row is here, in the reader's words. The
-                        # catalog reader was already producing lines like
-                        # "On-chain USDT transfer flows during peg stress
-                        # events", and this whitelist dropped every one of them
-                        # -- so the UI could show what a dataset is but never
-                        # why it answers the question that was asked.
-                        "selected_by": c.get("selected_by"),
-                        "selection_reason": c.get("selection_reason"),
-                        **_cov(c.get("dataset_id")),
-                    }
+                    stamp_evidence_fields(
+                        {
+                            "kind": c.get("kind"),
+                            "dataset_id": c.get("dataset_id"),
+                            "doi": c.get("doi"),
+                            "title": c.get("title"),
+                            "url": c.get("url"),
+                            "source": c.get("source") or c.get("collect_via"),
+                            "score": c.get("score"),
+                            "local_path": c.get("local_path"),
+                            "local_ready": c.get("local_ready"),
+                            "collect_via": c.get("collect_via"),
+                            "procureability": c.get("procureability"),
+                            "procureability_label": c.get("procureability_label"),
+                            "external_id": c.get("external_id"),
+                            "handle": c.get("handle"),
+                            "hf_id": c.get("hf_id"),
+                            "provider": c.get("provider"),
+                            "selected_by": c.get("selected_by"),
+                            "selection_reason": c.get("selection_reason"),
+                            **_cov(c.get("dataset_id")),
+                        }
+                    )
                     for c in candidates
                 ]
             )
             sections.append(
                 {
-                    "id": "discover",
-                    "label": "Recommended",
+                    "id": "held",
+                    "label": "In Library",
                     "rows": rows,
                 }
             )
+        index_miss = len(candidates) == 0
         return {
             "query": query,
+            "mode": "lexical",
+            "engine": "lexical",
             "sections": sections,
             "total": len(candidates),
-            "index_miss": bool(result.get("index_miss")),
-            "weak_match": bool(result.get("weak_match")),
+            "held_count": len(candidates),
+            "route_count": 0,
+            "context_count": 0,
+            "index_miss": index_miss,
+            "weak_match": False,
             "sources": result.get("sources") or [],
-            "judgment": result.get("judgment"),
+            "judgment": None,
+            "next_action": "use_held" if not index_miss else "paste_url",
+            "summary": None,
             "profile_queries": expand_datacite_queries(query, profile) if profile else [],
             "bigquery_hints": bigquery_route_hints(profile, query) if profile else [],
         }
+
+    def discover_search(
+        self,
+        query: str,
+        *,
+        email: str = "",
+        limit: int = 12,
+        mode: str = "auto",
+    ) -> dict[str, Any]:
+        """Discover Explore — lexical hand for strong keywords; else Composer + MCP.
+
+        ``mode``: auto | composer | lexical  (``agent`` / ``toolbox`` aliases → auto)
+        """
+        from scripts.research_data_mcp.discover_composer import discover_turn
+
+        return discover_turn(
+            self, query, email=email, limit=limit, mode=mode or "auto"
+        )
 
     def semantic_discover(self, query: str, *, limit: int = 12) -> dict[str, Any]:
         """Embedding-ranked registry evidence for natural-language research questions."""
@@ -1394,6 +1295,7 @@ class ResearchDataGateway:
                 "composer_runtime": composer_runtime,
                 "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
                 "synthesis_fallback": synthesis_fallback_runtime,
+                "synthesis_brain": "cursor_composer_mcp_only",
                 "chat_timeout_seconds": chat_timeout_seconds(),
                 "llm_configured": composer_ok,
                 "legacy_llm_configured": legacy_llm_configured(),
@@ -1530,11 +1432,7 @@ class ResearchDataGateway:
                 f"{composer_runtime.get('error_category') or composer_runtime.get('status')}"
             )
             out["status"] = "degraded"
-        if synthesis_fallback_runtime.get("status") in {"degraded", "stale"}:
-            warnings.append(
-                "synthesis_fallback="
-                f"{synthesis_fallback_runtime.get('error_category') or 'provider_error'}"
-            )
+        # Gemini Synthesis fallback is stripped — do not degrade desk health on it.
         if hot.get("headroom_ok") is False:
             warnings.append(
                 f"nvme_headroom: {hot.get('free_gb')} GB free < min {hot.get('required_min_gb')} GB"
@@ -1854,7 +1752,7 @@ class ResearchDataGateway:
         live: bool = False,
         semantic: bool = False,
         prefer: str = "",
-        prefer_embeddings: bool = True,
+        prefer_embeddings: bool = False,
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_source_search import search_discover_sources
 
@@ -2032,6 +1930,18 @@ class ResearchDataGateway:
                 kept.append(row)
             rows = kept
         rows = rows[: max(1, min(int(limit or 30), 200))]
+        try:
+            from scripts.research_data_mcp.vault_meaning import enrich_synthesis_thread_face
+
+            faced = []
+            for row in rows:
+                try:
+                    faced.append(enrich_synthesis_thread_face(row, self.describe_dataset))
+                except Exception:  # noqa: BLE001
+                    faced.append(row)
+            rows = faced
+        except Exception:  # noqa: BLE001
+            pass
         return {
             "threads": rows,
             "total": len(rows),
@@ -2040,7 +1950,13 @@ class ResearchDataGateway:
         }
 
     def synthesis_thread_get(self, thread_id: str) -> dict:
-        return self._synthesis_thread_store().get(thread_id)
+        thread = self._synthesis_thread_store().get(thread_id)
+        try:
+            from scripts.research_data_mcp.vault_meaning import enrich_synthesis_thread_face
+
+            return enrich_synthesis_thread_face(thread, self.describe_dataset)
+        except Exception:  # noqa: BLE001 — never break thread load
+            return thread
 
     def synthesis_thread_apply_patch(
         self,
@@ -2296,7 +2212,7 @@ class ResearchDataGateway:
         if any(row.get("dataset_id") == spec["output_dataset_id"] for row in registry_doc.get("datasets") or []):
             raise ValueError("output_dataset_id already exists; create a new versioned synthesis asset")
         plan = {
-            "title": f"Synthesis: {thread.get('title') or spec['output_dataset_id']}",
+            "title": str(thread.get("title") or spec["output_dataset_id"])[:240],
             "job_type": "synthesis_execute",
             "thread_id": thread_id,
             "objective": str(thread.get("objective") or ""),
@@ -2310,6 +2226,7 @@ class ResearchDataGateway:
             "dataset_id": spec["output_dataset_id"],
             "partition_id": "derived.research-panels",
             "launchable": True,
+            "ops_title": f"Synthesis: {thread.get('title') or spec['output_dataset_id']}"[:240],
         }
         submitted = self.jobs.submit(
             plan["title"],

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Legacy OpenAI-compatible chat client for non-desk procurement helpers."""
+"""Legacy OpenAI-compatible chat client — opt-in only.
+
+Desk product brain is Cursor Composer + MCP. DeepSeek helpers stay available for
+campaign tooling when an operator sets ``DESK_LEGACY_LLM=1``; otherwise callers
+must use heuristics / Composer.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +19,14 @@ class LLMClientError(RuntimeError):
     pass
 
 
+def legacy_llm_enabled() -> bool:
+    """Explicit operator opt-in — keys alone must not wake a parallel script brain."""
+    return os.getenv("DESK_LEGACY_LLM", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def llm_configured() -> bool:
+    if not legacy_llm_enabled():
+        return False
     return bool(os.getenv("DEEPSEEK_API_KEY") or "localhost" in os.getenv("DEEPSEEK_BASE_URL", ""))
 
 
@@ -27,6 +39,11 @@ def chat_completion(
     response_format: dict[str, str] | None = None,
     timeout: int = 90,
 ) -> dict[str, Any]:
+    if not legacy_llm_enabled():
+        raise LLMClientError(
+            "Legacy DeepSeek LLM disabled (set DESK_LEGACY_LLM=1 to opt in). "
+            "Use Cursor Composer + MCP for desk judgment."
+        )
     api_key = os.getenv("DEEPSEEK_API_KEY", "")
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
     body: dict[str, Any] = {

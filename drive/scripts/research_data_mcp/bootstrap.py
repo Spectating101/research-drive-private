@@ -409,6 +409,27 @@ def create_stack(
                 if flywheel_result.get("curated_added") or flywheel_result.get("locators_added"):
                     result["flywheel"] = flywheel_result
 
+            # Background faculty meaning (title/aliases/keywords) — Copilot brain, hands write.
+            try:
+                from scripts.research_data_mcp.vault_meaning_labeler import schedule_relabel_after_promote
+
+                meaning_sched = []
+                for promo in promoted:
+                    did = str(promo.get("dataset_id") or "").strip()
+                    if not did:
+                        continue
+                    extras = {
+                        "objective": str((plan or {}).get("objective") or search_goal or ""),
+                        "execution_spec": (plan or {}).get("execution_spec")
+                        if isinstance((plan or {}).get("execution_spec"), dict)
+                        else {},
+                    }
+                    meaning_sched.append(schedule_relabel_after_promote(root, did, extras=extras))
+                if isinstance(result, dict) and meaning_sched:
+                    result["vault_meaning_scheduled"] = meaning_sched
+            except Exception:  # noqa: BLE001
+                pass
+
             if str((plan or {}).get("job_type") or "") == "scraper_run":
                 from scripts.research_data_mcp.scrape_flywheel import (
                     plan_follow_up_downloads,

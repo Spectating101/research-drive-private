@@ -213,6 +213,29 @@ class ResearchToolHandlers:
             scrape_mode=scrape_mode or "page",
         )
 
+    def research_propose_pending_collect(
+        self,
+        query: str = "",
+        research_need: str = "",
+        url: str = "",
+        title: str = "",
+        rail_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Job-first procure: L0 measure → craft → pending_approval without Composer.
+
+        Refuses inventing a URL when the route has none. Composer may narrate later.
+        """
+        from scripts.research_data_mcp.job_first_procure import propose_pending_collect
+
+        return propose_pending_collect(
+            self.gateway,
+            query=query,
+            research_need=research_need,
+            url=url,
+            title=title,
+            rail_context=rail_context if isinstance(rail_context, dict) else None,
+        )
+
     def research_craft_discover_proposal(
         self,
         research_need: str,
@@ -416,10 +439,6 @@ class ResearchToolHandlers:
         """Query a registered dataset. Pass filters as JSON."""
         return self.gateway.query_dataset(dataset_id, self.gateway.parse_params_json(params_json))
 
-    def research_plan_sources(self, q: str, limit: int = 25) -> dict[str, Any]:
-        """Turn a research question into ranked source/dataset candidates."""
-        return self.gateway.plan_sources(q, limit=min(max(limit, 1), 100))
-
     def research_search_catalog(
         self,
         q: str = "",
@@ -428,8 +447,42 @@ class ResearchToolHandlers:
         promotion_tier: str = "",
         limit: int = 25,
     ) -> dict[str, Any]:
-        """Search the curated external dataset metadata index."""
-        return self.gateway.search_catalog(q=q, source=source, domain=domain, promotion_tier=promotion_tier, limit=limit)
+        """Demoted — catalog dump was a script-brain wallpaper source.
+
+        Use research_discover_desk (measured held/routes) or research_unified_search
+        with Composer judgment. Soft queries against this index produced Zenodo/CoinGecko junk.
+        """
+        _ = source, domain, promotion_tier, limit
+        return {
+            "blocked": True,
+            "demoted": True,
+            "reason": "script_brain_purged",
+            "query": q,
+            "rows": [],
+            "total": 0,
+            "message": (
+                "research_search_catalog is demoted (catalog wallpaper / script brain). "
+                "Call research_discover_desk for measured holdings and routes, "
+                "or research_web_discover for open URLs. Composer judges fit."
+            ),
+            "prefer": ["research_discover_desk", "research_web_discover", "research_unified_search"],
+        }
+
+    def research_plan_sources(self, q: str, limit: int = 25) -> dict[str, Any]:
+        """Demoted ranking planner — Composer + research_discover_desk instead."""
+        _ = limit
+        return {
+            "blocked": True,
+            "demoted": True,
+            "reason": "script_brain_purged",
+            "query": q,
+            "rows": [],
+            "message": (
+                "research_plan_sources ranking is demoted. "
+                "Use research_discover_desk then Composer via Ask."
+            ),
+            "prefer": ["research_discover_desk"],
+        }
 
     def research_ops_status(self, lane: str = "") -> dict[str, Any]:
         """Combined collection-queue and DataCite harvest lane status."""
@@ -469,13 +522,21 @@ class ResearchToolHandlers:
         current_task_id: str = "",
         limit: int = 5,
     ) -> dict[str, Any]:
-        """Librarian guidance on dataset fit and alternatives."""
-        return self.gateway.advise_datasets(
+        """Measured desk holdings/routes only — Composer judges fit via Ask/MCP."""
+        out = self.gateway.advise_datasets(
             goal,
             current_dataset_id=current_dataset_id,
             current_task_id=current_task_id,
             limit=min(max(limit, 1), 10),
         )
+        if isinstance(out, dict):
+            out = dict(out)
+            out["demoted"] = True
+            out["advisor_note"] = (
+                out.get("advisor_note")
+                or "Measured desk_check only — Composer judges fit."
+            )
+        return out
 
 
 
@@ -638,6 +699,27 @@ class ResearchToolHandlers:
             max_file_bytes=max_file_bytes,
         )
 
+    def research_discover_desk(
+        self,
+        query: str,
+        email: str = "",
+        limit: int = 12,
+    ) -> dict[str, Any]:
+        """One-shot measured desk check: Library holdings + declared collect routes.
+
+        Call this first on Discover questions. No LLM. Returns held rows, route
+        source_ids that are collectable on this desk, and timing_ms. Authoritative
+        for vault truth — do not invent dataset_ids or source_ids outside this payload.
+        """
+        from scripts.research_data_mcp.discover_desk import desk_check
+
+        return desk_check(
+            self.gateway,
+            query,
+            email=str(email or ""),
+            limit=min(max(int(limit), 1), 50),
+        )
+
     def research_discover_search(
         self,
         query: str,
@@ -648,7 +730,8 @@ class ResearchToolHandlers:
     ) -> dict[str, Any]:
         """Discover Explore catalog first (source_id / access_mode), optional lab registry supplement.
 
-        Prefer this (or research_discover_source_search) when faculty mean Discover sources.
+        Prefer research_discover_desk for vault held + declared routes. Prefer this
+        (or research_discover_source_search) when faculty mean Discover sources.
         Use research_unified_search for vault / HF / DataCite holdings.
         """
         lim = min(max(int(limit), 1), 100)
@@ -669,7 +752,8 @@ class ResearchToolHandlers:
             )
         lab_total = 0
         if include_lab and len(source_rows) < max(3, lim // 2):
-            lab = self.gateway.discover_search(query, email=email, limit=lim)
+            # Lexical hand only — never Composer (recursion) or deleted toolbox agent.
+            lab = self.gateway.discover_search_lexical(query, email=email, limit=lim)
             for sec in lab.get("sections") or []:
                 if not isinstance(sec, dict):
                     continue
@@ -729,7 +813,7 @@ class ResearchToolHandlers:
     ) -> dict[str, Any]:
         """Unified search across local registry, catalog, DataCite, and Hugging Face.
 
-        When email is set, merges profile-aware discover rows and faculty hints.
+        Faculty email attaches profile hints only — no Discover agent / Recommended merge.
         """
         return self.gateway.unified_search_with_profile(
             query,
@@ -737,6 +821,7 @@ class ResearchToolHandlers:
             limit=limit,
             include_hf=include_hf,
             include_datacite=include_datacite,
+            skip_discover=True,
             resolve_datacite=resolve_datacite,
             max_file_bytes=max_file_bytes,
         )

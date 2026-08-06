@@ -98,6 +98,42 @@ def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
     assert "clarification_question_count" in violations
 
 
+def test_clarification_count_repair_keeps_prose_and_one_question():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        maybe_repair_synthesis_reply,
+        synthesis_reply_violations,
+    )
+
+    zero = (
+        "A provisional construct would join trust and engagement panels at weekly grain. "
+        "Held evidence could serve as the engagement side; coverage gaps remain."
+    )
+    repaired_zero = maybe_repair_synthesis_reply(zero, first_user_turn=True)
+    assert repaired_zero.count("?") == 1
+    assert "provisional" in repaired_zero.lower()
+    assert not synthesis_reply_violations(repaired_zero, first_user_turn=True)
+
+    many = (
+        "I would propose a candidate weekly panel. Could grain be week? "
+        "Would month be safer? Should we drop weekends?"
+    )
+    repaired_many = maybe_repair_synthesis_reply(many, first_user_turn=True)
+    assert repaired_many.count("?") == 1
+    assert "Would month be safer" not in repaired_many or repaired_many.strip().endswith("?")
+    assert not synthesis_reply_violations(repaired_many, first_user_turn=True)
+
+
+def test_clarification_repair_does_not_hide_false_execution():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        maybe_repair_synthesis_reply,
+        synthesis_reply_violations,
+    )
+
+    bad = "I have collected the final panel. Could grain be week? Would month work?"
+    assert maybe_repair_synthesis_reply(bad, first_user_turn=True) == bad
+    assert "false_execution_claim" in synthesis_reply_violations(bad, first_user_turn=True)
+
+
 def test_synthesis_history_is_bounded_and_provider_neutral():
     from scripts.research_data_mcp.desk_synthesis_contract import (
         record_synthesis_turn,
@@ -232,7 +268,7 @@ def _install_proposal_then_invalid_reply_cursor(monkeypatch):
 
 
 def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatch, tmp_path):
-    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+    from scripts.research_data_mcp import desk_brain
 
     _install_proposal_then_invalid_reply_cursor(monkeypatch)
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
@@ -240,13 +276,6 @@ def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatc
     monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(
         desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
-    )
-    monkeypatch.setattr(
-        desk_synthesis_fallback,
-        "run_gemini_synthesis_turn",
-        lambda _prompt: (_ for _ in ()).throw(
-            AssertionError("a recorded proposal must not be hidden by fallback prose")
-        ),
     )
 
     state = {
@@ -272,8 +301,8 @@ def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatc
     assert "Nothing was executed" in turn.reply
 
 
-def test_synthesis_timeout_continues_through_grounded_fallback(monkeypatch, tmp_path):
-    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+def test_synthesis_timeout_fails_closed_without_gemini(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain
 
     _install_empty_cursor(monkeypatch)
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
@@ -285,14 +314,6 @@ def test_synthesis_timeout_continues_through_grounded_fallback(monkeypatch, tmp_
         "_wait_run_bounded",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
     )
-    monkeypatch.setattr(
-        desk_synthesis_fallback,
-        "run_gemini_synthesis_turn",
-        lambda _prompt: (
-            "A provisional monthly proxy could combine the verified Library inputs while keeping the missing construct explicit. Which validation horizon matters most?",
-            {"provider": "gemini-test"},
-        ),
-    )
     state = {
         "desk_primed": True,
         "rail_context": {"tab": "synthesis", "mode": "define"},
@@ -300,14 +321,15 @@ def test_synthesis_timeout_continues_through_grounded_fallback(monkeypatch, tmp_
     turn = desk_brain.run_cursor_composer_turn(
         types.SimpleNamespace(repo_root=tmp_path), "Build a monthly proxy", state
     )
-    assert turn.action_result["brain"] == "gemini_synthesis"
-    assert turn.action_result["fallback_from"] == "cursor_composer_timeout"
-    assert "provisional monthly proxy" in turn.reply
-    assert state["synthesis_turn_history"][-1]["provider"] == "gemini"
+    assert turn.action_result["action"] == "composer_timeout"
+    assert turn.action_result.get("fallback") == "none"
+    assert turn.action_result.get("brain") == "cursor_composer"
+    assert state.get("synthesis_turn_history") is None
+    assert "No collection or approval was started" in turn.reply
 
 
 def test_synthesis_timeout_reports_proposal_already_recorded(monkeypatch, tmp_path):
-    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
+    from scripts.research_data_mcp import desk_brain
 
     _install_proposal_then_invalid_reply_cursor(monkeypatch)
     monkeypatch.setenv("CURSOR_API_KEY", "test-key")
@@ -318,13 +340,6 @@ def test_synthesis_timeout_reports_proposal_already_recorded(monkeypatch, tmp_pa
         desk_brain,
         "_wait_run_bounded",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
-    )
-    monkeypatch.setattr(
-        desk_synthesis_fallback,
-        "run_gemini_synthesis_turn",
-        lambda _prompt: (_ for _ in ()).throw(
-            AssertionError("recorded proposal must not be replaced")
-        ),
     )
     state = {
         "desk_primed": True,
@@ -339,45 +354,10 @@ def test_synthesis_timeout_reports_proposal_already_recorded(monkeypatch, tmp_pa
     assert "was recorded" in turn.reply
 
 
-def test_synthesis_timeout_reports_both_provider_failures_without_state_churn(monkeypatch, tmp_path):
-    from scripts.research_data_mcp import desk_brain, desk_synthesis_fallback
-
-    _install_empty_cursor(monkeypatch)
-    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
-    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
-    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
-    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {})
-    monkeypatch.setattr(
-        desk_brain,
-        "_wait_run_bounded",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError()),
-    )
-    monkeypatch.setattr(
-        desk_synthesis_fallback,
-        "run_gemini_synthesis_turn",
-        lambda _prompt: (_ for _ in ()).throw(
-            desk_synthesis_fallback.SynthesisFallbackError("provider_timeout")
-        ),
-    )
-    state = {
-        "desk_primed": True,
-        "rail_context": {"tab": "synthesis", "mode": "define"},
-    }
-    turn = desk_brain.run_cursor_composer_turn(
-        types.SimpleNamespace(repo_root=tmp_path), "Build a monthly proxy", state
-    )
-    assert turn.action_result["action"] == "composer_timeout"
-    assert turn.action_result["fallback"] == "gemini_failed"
-    assert turn.action_result["fallback_error_category"] == "provider_timeout"
-    assert state.get("synthesis_turn_history") is None
-    assert "No collection or approval was started" in turn.reply
-
-
-def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_path):
+def test_empty_synthesis_turn_fails_closed_composer_only(monkeypatch, tmp_path):
     from scripts.research_data_mcp import (
         desk_brain,
         desk_catalog_fallback,
-        desk_synthesis_fallback,
     )
 
     _install_empty_cursor(monkeypatch)
@@ -386,13 +366,6 @@ def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_pat
     monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(
         desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
-    )
-    monkeypatch.setattr(
-        desk_synthesis_fallback,
-        "run_gemini_synthesis_turn",
-        lambda _prompt: (_ for _ in ()).throw(
-            desk_synthesis_fallback.SynthesisFallbackError("not_configured")
-        ),
     )
     monkeypatch.setattr(
         desk_catalog_fallback,
@@ -411,14 +384,14 @@ def test_empty_synthesis_turn_never_uses_inventory_fallback(monkeypatch, tmp_pat
     turn = desk_brain.run_cursor_composer_turn(gateway, "Build a proxy", state)
 
     assert turn.action_result["action"] == "composer_error"
-    assert turn.action_result["fallback"] == "gemini_failed"
-    assert turn.action_result["fallback_error_category"] == "not_configured"
+    assert turn.action_result.get("fallback") == "none"
     assert turn.action_result["mode"] == "synthesis"
-    assert "did not return a usable reasoning turn" in turn.reply
+    assert turn.action_result.get("brain") == "cursor_composer"
+    assert "did not return a usable reasoning turn" in turn.reply or "usable" in turn.reply.lower()
     assert state.get("synthesis_user_turns") is None
 
 
-def test_empty_discover_turn_keeps_existing_inventory_fallback(monkeypatch, tmp_path):
+def test_empty_discover_turn_no_inventory_script_brain(monkeypatch, tmp_path):
     from scripts.research_data_mcp import desk_brain, desk_catalog_fallback
 
     _install_empty_cursor(monkeypatch)
@@ -431,7 +404,9 @@ def test_empty_discover_turn_keeps_existing_inventory_fallback(monkeypatch, tmp_
     monkeypatch.setattr(
         desk_catalog_fallback,
         "try_inventory_fallback",
-        lambda *_args, **_kwargs: "Known Library holdings.",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("inventory script brain must not run")
+        ),
     )
 
     gateway = types.SimpleNamespace(repo_root=tmp_path)
@@ -442,9 +417,9 @@ def test_empty_discover_turn_keeps_existing_inventory_fallback(monkeypatch, tmp_
     }
     turn = desk_brain.run_cursor_composer_turn(gateway, "What do we have?", state)
 
-    assert turn.action_result["action"] == "composer"
-    assert turn.action_result["fallback"] == "vault_inventory"
-    assert turn.reply == "Known Library holdings."
+    assert turn.action_result["action"] == "composer_error"
+    assert turn.action_result.get("brain") == "cursor_composer"
+    assert "did not return a usable answer" in turn.reply or "No dataset candidates" in turn.reply
 
 
 def test_chat_persists_rail_context_before_background_warm(monkeypatch, tmp_path):
@@ -550,6 +525,89 @@ def test_first_synthesis_turn_retries_fresh_model_after_resume_error(monkeypatch
     assert state["synthesis_user_turns"] == 1
 
 
+def test_empty_reply_retries_fallback_model(monkeypatch, tmp_path):
+    """After send returns empty, desk must try DESK_COMPOSER_MODEL_FALLBACK — not stop."""
+    from scripts.research_data_mcp import desk_brain
+
+    sends = {"n": 0}
+
+    class EmptyRun:
+        status = "finished"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return ""
+
+        def conversation(self):
+            return []
+
+    class GoodRun:
+        status = "finished"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "TWSE Open API is the strongest first pull for Taiwan prices."
+
+        def conversation(self):
+            return []
+
+    class Agent:
+        def __init__(self, model_id):
+            self.agent_id = f"agent-{model_id}"
+            self.model_id = model_id
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_a):
+            return False
+
+        def send(self, _text, _opts):
+            sends["n"] += 1
+            return EmptyRun() if self.model_id == "primary" else GoodRun()
+
+    class AgentAPI:
+        @classmethod
+        def resume(cls, _id, opts):
+            raise AssertionError("should create fresh agent for fallback")
+
+        @classmethod
+        def create(cls, opts):
+            model = (opts.get("model") or {}).get("id") or "unknown"
+            return Agent(model)
+
+    cursor_sdk = types.ModuleType("cursor_sdk")
+    cursor_sdk.Agent = AgentAPI
+    cursor_types = types.ModuleType("cursor_sdk.types")
+    cursor_types.AgentOptions = lambda **kwargs: kwargs
+    cursor_types.ModelSelection = lambda **kwargs: kwargs
+    cursor_types.SendOptions = lambda **kwargs: kwargs
+    cursor_types.StdioMcpServerConfig = lambda **kwargs: kwargs
+    cursor_types.LocalAgentOptions = lambda **kwargs: kwargs
+    cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
+    monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["primary", "backup"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_a, **_k: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda *_a, **_k: {})
+    monkeypatch.setattr(desk_brain, "_wait_run_bounded", lambda *_a, **_k: None)
+
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path),
+        "What should I collect for Taiwan stock prices?",
+        {"desk_primed": True, "rail_context": {"tab": "browse", "workspace": {"query": "Taiwan"}}},
+    )
+    assert sends["n"] >= 2
+    assert "TWSE" in turn.reply
+    assert turn.action_result["composer_model"] == "backup"
+    assert turn.action_result.get("action") != "composer_error"
+
+
 def test_synthesis_phase_is_tracked_per_thread():
     from scripts.research_data_mcp.desk_synthesis_contract import (
         record_synthesis_turn,
@@ -618,6 +676,18 @@ def test_synthesis_mcp_registration_is_read_only(monkeypatch):
     assert "research_synthesis_pair" in names
     assert "bigquery_dry_run" in names
     assert "research_synthesis_run" not in names
+    assert "research_synthesis_propose_state" in names
     assert "datacite_collect_doi" not in names
     assert "yzu_submit_job" not in names
     assert "procurement_approve_job" not in names
+
+
+def test_synthesis_read_only_instructions_do_not_claim_run(monkeypatch):
+    from scripts.research_data_mcp.mcp_instructions import mcp_server_instructions
+
+    monkeypatch.setenv("RESEARCH_MCP_DESK", "1")
+    monkeypatch.setenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "1")
+    text = mcp_server_instructions()
+    assert "propose_state" in text
+    assert "cannot run panels" in text.lower() or "cannot run" in text.lower()
+    assert "research_synthesis_collect_missing" not in text or "cannot" in text.lower()

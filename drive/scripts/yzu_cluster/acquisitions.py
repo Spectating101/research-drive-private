@@ -237,7 +237,20 @@ def materialize_job(
     staged_files = _dedupe_files(staged_files)
     validation = validate_staging(staging, staged_files, plan)
     dataset_root = canonical_dir(repo_root, plan, job_id, cfg)
-    revision_id = str(plan.get("revision_id") or f"rev_{job_id}").strip()
+    # Content-addressed revision when plan does not pin one: digest of staged file hashes.
+    pinned = str(plan.get("revision_id") or "").strip()
+    if pinned:
+        revision_id = pinned
+    elif staged_files:
+        digest = hashlib.sha256()
+        for row in sorted(staged_files, key=lambda r: str(r.get("name") or "")):
+            digest.update(str(row.get("name") or "").encode())
+            digest.update(b"\0")
+            digest.update(str(row.get("sha256") or "").encode())
+            digest.update(b"\0")
+        revision_id = f"rev_{digest.hexdigest()[:16]}"
+    else:
+        revision_id = f"rev_{job_id}"
     plan["revision_id"] = revision_id
     # Immutable revision tree; CURRENT pointer selects the live query path.
     canonical = dataset_root / "revisions" / revision_id
@@ -266,9 +279,11 @@ def materialize_job(
                     "sha256": _sha256_file(dst),
                 }
             )
+        content_digest = revision_id[4:] if revision_id.startswith("rev_") else revision_id
         current_ptr = {
             "dataset_id": dataset_id_for_plan(plan, job_id),
             "revision_id": revision_id,
+            "content_digest": content_digest,
             "job_id": job_id,
             "canonical_dir": repo_relpath(canonical, repo_root),
             "updated_at": _now(),

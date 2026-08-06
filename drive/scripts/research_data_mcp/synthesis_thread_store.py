@@ -306,6 +306,8 @@ def reject_proposal(state: dict[str, Any], proposal: dict[str, Any] | None = Non
 
 def _evidence_identity(node: dict[str, Any]) -> dict[str, Any]:
     """Conservative identity fields only — no fabricated collection payload."""
+    from scripts.research_data_mcp.evidence_placement import stamp_evidence_fields
+
     identity: dict[str, Any] = {
         "id": node.get("id"),
         "label": node.get("label") or node.get("title") or node.get("id"),
@@ -323,11 +325,13 @@ def _evidence_identity(node: dict[str, Any]) -> dict[str, Any]:
         "source",
         "grain",
         "coverage",
+        "why",
+        "selection_reason",
     ):
         val = node.get(key)
         if val not in (None, ""):
             identity[key] = val
-    return identity
+    return stamp_evidence_fields(identity)
 
 
 def _is_evidence_node(node: dict[str, Any]) -> bool:

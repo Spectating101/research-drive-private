@@ -187,6 +187,7 @@ def sync_registry(*, dry_run: bool = False, repo_root: Path | None = None) -> di
                         break
 
         probe = _probe_dataset(engine, ds)
+        smoke = None
         if probe.get("query_ready"):
             # query_ready only says bytes exist at the resolved path. The
             # assessment engine will not treat any dimension as verified without
@@ -200,7 +201,8 @@ def sync_registry(*, dry_run: bool = False, repo_root: Path | None = None) -> di
                 probe["query_smoke"] = smoke
                 probe["query_verified"] = bool(smoke.get("ok"))
         ds["materialization"] = {
-            "query_ready": bool(probe.get("query_ready")),
+            "query_ready": bool(probe.get("query_ready")) and bool(probe.get("query_verified")),
+            "bytes_ready": bool(probe.get("query_ready")),
             "probed_at": _stamp(),
             **{k: v for k, v in probe.items() if k not in {"dataset_id", "backend"}},
         }
@@ -212,7 +214,7 @@ def sync_registry(*, dry_run: bool = False, repo_root: Path | None = None) -> di
         if not probe.get("query_ready"):
             prior = str(ds.get("analysis_readiness") or "")
             # Soft "usable now" labels are product lies when local bytes are missing.
-            if prior in {"instant", "sample_now_full_later"}:
+            if prior in {"instant", "sample_now_full_later", "query_ready"}:
                 ds["analysis_readiness"] = "metadata_search"
                 ds["promotion_target"] = prior
                 demoted.append(did)
@@ -220,15 +222,30 @@ def sync_registry(*, dry_run: bool = False, repo_root: Path | None = None) -> di
                 ds["source_access_mode"] = "catalog_reference"
             continue
 
-        if ds.get("analysis_readiness") != "instant":
-            ds["analysis_readiness"] = "instant"
+        # Bytes exist — only claim instant/query_ready when smoke proves rows.
+        smoke_ok = bool(probe.get("query_verified"))
+        if smoke is not None and not smoke_ok:
+            prior = str(ds.get("analysis_readiness") or "")
+            if prior in {"instant", "query_ready"}:
+                ds["analysis_readiness"] = "registered"
+                demoted.append(did)
+            elif prior not in {"registered", "metadata_search"}:
+                ds["analysis_readiness"] = "registered"
+            continue
+
+        if smoke is None:
+            # Backend has no smoke path — keep declared readiness; do not invent instant.
+            continue
+
+        if ds.get("analysis_readiness") not in {"instant", "query_ready"}:
+            ds["analysis_readiness"] = "query_ready"
             promoted.append(did)
         ds["collection_status"] = "active"
         ds["field_coverage"] = "query-ready"
         ds.pop("known_gap", None)
         ds.pop("promotion_target", None)
         if ds.get("source_access_mode") in {"materialized_bulk", "catalog_reference"}:
-            ds["source_access_mode"] = "materialized_instant"
+            ds["source_access_mode"] = "materialized_query_ready"
 
     if not dry_run:
         doc["updated_at"] = _stamp()

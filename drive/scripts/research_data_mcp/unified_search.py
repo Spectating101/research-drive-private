@@ -387,12 +387,19 @@ def unified_search(
         item = {
             "kind": "local_registry",
             "id": row.get("dataset_id"),
-            "title": row.get("name") or row.get("dataset_id"),
+            "title": (
+                row.get("display_name")
+                or row.get("title")
+                or row.get("name")
+                or row.get("dataset_id")
+            ),
             "source": "registry",
             "dataset_id": row.get("dataset_id"),
             "domain": row.get("domain"),
             "description": row.get("description"),
             "recommended_use": row.get("recommended_use"),
+            "aliases": list(row.get("aliases") or [])[:12],
+            "keywords": list(row.get("keywords") or [])[:24],
             "local_path": row.get("local_path"),
             "analysis_readiness": row.get("analysis_readiness"),
             "procureability": proc,

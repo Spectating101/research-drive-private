@@ -185,13 +185,28 @@ class ResearchQueryEngine:
         scored: list[tuple[int, dict[str, Any]]] = []
         for ds in self.list_datasets():
             fields = [
-                "dataset_id", "name", "display_name", "description", "one_line",
-                "recommended_use", "best_use", "limitations", "grain", "backend",
+            "dataset_id", "name", "display_name", "title", "description", "one_line",
+            "recommended_use", "best_use", "limitations", "grain", "backend",
+            "source_dataset_id", "partition_id",
                 "source_system", "domain", "shelf_hint",
+                "meaning_about",
             ]
             parts = [str(ds.get(k, "")) for k in fields]
             parts.append(" ".join(str(t) for t in (ds.get("tags") or [])))
+            parts.append(" ".join(str(a) for a in (ds.get("aliases") or [])))
+            parts.append(" ".join(str(k) for k in (ds.get("keywords") or [])))
             parts.append(" ".join(str(c) for c in (ds.get("capabilities") or [])))
+            lineage = ds.get("lineage") if isinstance(ds.get("lineage"), dict) else {}
+            if lineage:
+                parts.append(str(lineage.get("source_dataset_id") or ""))
+                parts.append(str(lineage.get("input_dataset_id") or ""))
+                upstream = lineage.get("upstream_dataset_ids") or []
+                if isinstance(upstream, list):
+                    parts.append(" ".join(str(x) for x in upstream))
+            exec_spec = ds.get("execution_spec") if isinstance(ds.get("execution_spec"), dict) else {}
+            if exec_spec:
+                parts.append(str(exec_spec.get("input_dataset_id") or ""))
+                parts.append(str(exec_spec.get("output_dataset_id") or ""))
             cov = ds.get("coverage_metadata") or {}
             if isinstance(cov, dict):
                 for v in cov.values():

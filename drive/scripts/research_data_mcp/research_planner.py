@@ -75,7 +75,9 @@ class ResearchPlanner:
             "catalog_rows": (catalog_hits or {}).get("rows") or [],
             "discovery_results": (discovery or {}).get("results") or [],
         }
-        if os.getenv("DEEPSEEK_API_KEY") or "localhost" in os.getenv("DEEPSEEK_BASE_URL", ""):
+        from scripts.research_data_mcp.llm_client import legacy_llm_enabled, llm_configured
+
+        if legacy_llm_enabled() and llm_configured():
             try:
                 plan = self._ask_deepseek(context)
                 plan["engine"] = "deepseek"
@@ -85,7 +87,10 @@ class ResearchPlanner:
                 fallback["planner_note"] = f"Legacy research planner failed ({exc}); used heuristic plan."
                 return fallback
         body = self._fallback(context, message)
-        body["planner_note"] = "Legacy LLM planner not configured; used heuristic research plan."
+        body["planner_note"] = (
+            "Legacy DeepSeek planner gated (DESK_LEGACY_LLM); heuristic plan only. "
+            "Composer + MCP owns acquisition judgment."
+        )
         return body
 
     def _ask_deepseek(self, context: dict[str, Any]) -> dict[str, Any]:

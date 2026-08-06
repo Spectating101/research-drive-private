@@ -269,64 +269,45 @@ def routes_for_query(
     model: str | None = None,
     timeout: float = 120.0,
 ) -> dict[str, Any]:
-    """Which declared sources could supply data the desk does not hold.
+    """Declared sources that could supply the request — deterministic hand only.
 
-    Discover's miss state used to list the desk's standing routes verbatim, so
-    a request for US opinion polling was answered with CRSP MOVEit -- a daily
-    market-price archive. Labelling that list "not matched to your query" made
-    it honest without making it useful; the researcher still had to work out
-    that none of the four could help.
-
-    This asks which sources could actually supply the request, keeps only
-    source_ids the desk really has a route for, and returns nothing at all when
-    nothing fits. "This desk cannot get that" is a real answer and the one a
-    procurement tool owes; four irrelevant offers is not.
+    Composer owns judgment/reasons via MCP. This lists ``route_plausible`` matches
+    ranked by token overlap with the source bag — never a second LLM brain.
     """
+    _ = model, timeout
     sources = load_sources(repo_root)
     if not sources:
         return {"routes": [], "reason": "no_declared_sources"}
 
-    from scripts.research_data_mcp.requirement_extraction import (
-        ExtractionUnavailable,
-        run_cursor_prompt,
-    )
+    plausible = {
+        sid: meta for sid, meta in sources.items() if route_plausible(question, meta)
+    }
+    if not plausible:
+        return {"routes": [], "reason": "no_route_found"}
 
-    prompt = _QUERY_PROMPT.format(
-        question=str(question or "").strip(), sources=_sources_block(sources)
-    )
-    try:
-        raw = run_cursor_prompt(
-            prompt, model or os.getenv("RD_CATALOG_MODEL", "composer-2.5"), timeout
-        )
-    except ExtractionUnavailable as exc:
-        return {"routes": [], "reason": f"backend_unavailable: {exc}"}
+    q_tokens = _tokens(question)
+    scored: list[tuple[int, str, dict[str, Any]]] = []
+    for sid, meta in plausible.items():
+        bag = _source_bag(meta)
+        score = len(q_tokens & bag)
+        scored.append((score, sid, meta))
+    scored.sort(key=lambda item: (-item[0], item[1]))
 
     routes: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for line in str(raw or "").splitlines():
-        text = line.strip().strip("`").lstrip("-* ").strip()
-        if not text or text.upper() == "NONE" or "|" not in text:
-            continue
-        parts = [p.strip() for p in text.split("|")]
-        source_id = parts[0]
-        if source_id not in sources or source_id in seen:
-            continue
-        meta = sources[source_id]
-        if not route_plausible(question, meta):
-            continue
-        seen.add(source_id)
+    for score, source_id, meta in scored[:3]:
         mode = str(meta.get("access_mode") or "")
+        label = meta.get("label") or source_id
         routes.append({
             "source_id": source_id,
-            "label": meta.get("label") or source_id,
+            "label": label,
             "provider": meta.get("provider"),
             "access_mode": mode,
-            "reason": (parts[1] if len(parts) > 1 else "")[:120],
+            "reason": f"Declared route overlaps query tokens (score={score})",
             "actionable": mode in _SELF_SERVE,
             "action": "collect" if mode in _SELF_SERVE else "request_access",
         })
     return {
-        "routes": routes[:3],
+        "routes": routes,
         "reason": "ok" if routes else "no_route_found",
     }
 
@@ -339,16 +320,12 @@ def routes_for_gaps(
     model: str | None = None,
     timeout: float = 120.0,
 ) -> dict[str, Any]:
-    """Propose a collection route per unmet requirement."""
+    """Deterministic gap → declared-source listing. Composer writes narrative reasons."""
+    _ = model, timeout
     gaps = unmet_dimensions(assessment)
     sources = load_sources(repo_root)
     status = str((assessment or {}).get("assessment_status") or "")
     if status and status != "assessed":
-        # No requirement could be established, so no dimension was ever checked.
-        # Reporting "nothing_missing" here would tell a researcher their library
-        # covers data the desk does not hold -- "patent citation networks"
-        # returned no gaps against a catalog with no patent data at all. Not
-        # knowing and having everything must not share an answer.
         return {
             "gaps": [],
             "routes": [],
@@ -363,30 +340,26 @@ def routes_for_gaps(
     if not sources:
         return {"gaps": gaps, "routes": [], "reason": "no_declared_sources"}
 
-    from scripts.research_data_mcp.requirement_extraction import (
-        ExtractionUnavailable,
-        run_cursor_prompt,
-    )
-
-    prompt = _PROMPT.format(
-        question=str(question or "").strip(),
-        gaps=", ".join(gaps),
-        sources=_sources_block(sources),
-    )
-    try:
-        raw = run_cursor_prompt(
-            prompt, model or os.getenv("RD_CATALOG_MODEL", "composer-2.5"), timeout
-        )
-    except ExtractionUnavailable as exc:
-        return {"gaps": gaps, "routes": [], "reason": f"backend_unavailable: {exc}"}
-
-    routes = parse_routes(raw, gaps, set(sources))
-    for route in routes:
-        meta = sources.get(route["source_id"]) or {}
-        mode = str(meta.get("access_mode") or "")
-        route["access_mode"] = mode
-        # A licensed or planned source is a request, not a click. Saying which
-        # it is up front stops "Add to collection" promising what it cannot do.
-        route["actionable"] = mode in _SELF_SERVE
-        route["action"] = "collect" if route["actionable"] else "request_access"
+    routes: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for gap in gaps:
+        focus = f"{question} {gap}"
+        for sid, meta in sources.items():
+            if not route_plausible(focus, meta):
+                continue
+            key = (str(gap), sid)
+            if key in seen:
+                continue
+            seen.add(key)
+            mode = str(meta.get("access_mode") or "")
+            routes.append({
+                "dimension": str(gap),
+                "source_id": sid,
+                "reason": f"Declared source may cover unmet {gap}",
+                "access_mode": mode,
+                "actionable": mode in _SELF_SERVE,
+                "action": "collect" if mode in _SELF_SERVE else "request_access",
+            })
+            if sum(1 for r in routes if r.get("dimension") == gap) >= 2:
+                break
     return {"gaps": gaps, "routes": routes, "reason": "ok" if routes else "no_route_found"}

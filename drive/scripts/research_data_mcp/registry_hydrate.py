@@ -164,6 +164,10 @@ def ensure_registry_local_bytes(
 ) -> dict[str, Any]:
     """Pull canonical GDrive bytes to local_path when missing. No-op if already on disk."""
     repo_root = Path(repo_root).resolve()
+    local = _local_path(spec)
+    if local and local_path_has_data(repo_root, local):
+        # ok=True so callers reload/clear stale "hydrate_required" demotions.
+        return {"ok": True, "skipped": True, "reason": "local_present", "local_path": local}
     if not dataset_needs_hydrate(repo_root, spec):
         return {"skipped": True, "reason": "local_present_or_no_remote"}
 

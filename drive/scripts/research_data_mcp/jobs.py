@@ -36,7 +36,12 @@ class JobService:
         owner_id = owner_id_for_create()
         if owner_id:
             request.setdefault("owner_id", owner_id)
-        plan, auto_approve = enforce_execution_submit(plan, dict(request), auto_approve=auto_approve)
+        plan, auto_approve = enforce_execution_submit(
+            plan,
+            dict(request),
+            auto_approve=auto_approve,
+            repo_root=getattr(self.orchestrator, "repo_root", None),
+        )
         validated = self.validate(plan)
         if not validated.get("launchable", True):
             return {

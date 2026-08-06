@@ -126,7 +126,9 @@ class CollectionFlywheel:
         )
         dataset_id = str(registry_row.get("dataset_id") or promoted.get("dataset_id") or "")
         title = str(
-            registry_row.get("name")
+            registry_row.get("display_name")
+            or registry_row.get("title")
+            or registry_row.get("name")
             or plan.get("title")
             or job.get("title")
             or dataset_id
@@ -139,12 +141,18 @@ class CollectionFlywheel:
         instant = readiness == "instant" or bool(local_path and Path(self.repo_root / local_path.split("*")[0]).is_file())
 
         goal = search_goal.strip()
-        tags = list(registry_row.get("tags") or registry_row.get("keywords") or [])
+        tags = list(registry_row.get("keywords") or registry_row.get("tags") or [])
+        tags.extend(list(registry_row.get("aliases") or [])[:6])
         tags.extend(_goal_tags(goal))
-        tags = list(dict.fromkeys(t for t in tags if t))[:20]
+        tags = list(dict.fromkeys(str(t) for t in tags if t))[:20]
 
         domain = str(registry_row.get("domain") or _infer_domain(goal, title, registry_row.get("description") or ""))
-        description = str(registry_row.get("description") or registry_row.get("recommended_use") or "")
+        description = str(
+            registry_row.get("description")
+            or registry_row.get("meaning_about")
+            or registry_row.get("recommended_use")
+            or ""
+        )
         if goal and goal.lower() not in description.lower():
             description = f"{description} Sourced for: {goal[:240]}.".strip()
 
@@ -195,6 +203,69 @@ class CollectionFlywheel:
         keys.add(key)
         self._save_keys(keys)
         return True
+
+    def sync_curated_faces_from_registry(self, registry_doc: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Rewrite curated JSONL titles/descriptions from vault meaning (Show fields)."""
+        from scripts.research_data_mcp.vault_meaning import faculty_face, is_ops_face
+
+        reg_path = self.repo_root / "config/research_query_registry.json"
+        doc = registry_doc if isinstance(registry_doc, dict) else _load_json(reg_path)
+        by_id = {
+            str(r.get("dataset_id") or ""): r
+            for r in (doc.get("datasets") or [])
+            if isinstance(r, dict) and r.get("dataset_id")
+        }
+        jsonl = self.curated_jsonl()
+        if not jsonl.is_file():
+            return {"ok": False, "updated": 0, "reason": "no_curated_jsonl"}
+        rows: list[dict[str, Any]] = []
+        updated = 0
+        for line in jsonl.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            reg_id = str(
+                (row.get("procurement") or {}).get("registry_dataset_id")
+                or row.get("dataset_id")
+                or ""
+            ).strip()
+            if reg_id.startswith("doi:"):
+                reg_id = ""
+            face_row = by_id.get(reg_id) if reg_id else None
+            if face_row is None:
+                # Try bare dataset_id when curated_id == registry id
+                face_row = by_id.get(str(row.get("dataset_id") or "").strip())
+            if face_row and (face_row.get("aliases") or face_row.get("display_name") or face_row.get("title")):
+                face = faculty_face(face_row)
+                old_title = str(row.get("title") or "")
+                if face.get("title") and (is_ops_face(old_title) or old_title != face["title"]):
+                    row["title"] = face["title"]
+                    if face.get("description"):
+                        row["description"] = face["description"]
+                    tags = list(row.get("tags") or [])
+                    for a in face_row.get("aliases") or []:
+                        if a and str(a) not in tags:
+                            tags.append(str(a))
+                    for k in face_row.get("keywords") or []:
+                        if k and str(k) not in tags:
+                            tags.append(str(k))
+                    row["tags"] = tags[:20]
+                    row["vault_face_synced_at"] = _now()
+                    updated += 1
+            rows.append(row)
+        live = self.curated_live_dir()
+        live.mkdir(parents=True, exist_ok=True)
+        tmp = jsonl.with_suffix(".jsonl.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            for row in rows:
+                fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+        tmp.replace(jsonl)
+        return {"ok": True, "updated": updated, "total": len(rows), "path": str(jsonl)}
 
     def append_locator(self, row: dict[str, Any], *, registry_row: dict[str, Any] | None = None) -> bool:
         doi = _normalize_doi(str(row.get("doi") or row.get("dataset_id") or ""))

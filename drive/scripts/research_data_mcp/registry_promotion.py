@@ -257,13 +257,9 @@ class RegistryPromoter:
             if local_path and not self._artifact_exists(local_path):
                 continue
             smoke = prove_query_smoke(self.repo_root, spec, limit=3)
-            spec["query_smoke"] = smoke
-            if smoke.get("ok"):
-                spec["analysis_readiness"] = "query_ready"
-                spec["source_access_mode"] = spec.get("source_access_mode") or "materialized_query_ready"
-            else:
-                # Honest: archived/registered bytes exist, but not proven queryable yet.
-                spec["analysis_readiness"] = "registered"
+            from scripts.research_data_mcp.readiness_truth import apply_smoke_readiness
+
+            apply_smoke_readiness(spec, smoke)
             entry = self._upsert_dataset(spec, task_id=task_id, job_id=job.get("id", ""), campaign_id=campaign_id)
             promoted.append(entry)
         return promoted
@@ -338,12 +334,9 @@ class RegistryPromoter:
         from scripts.yzu_cluster.acquisitions import prove_query_smoke
 
         smoke = prove_query_smoke(self.repo_root, spec, limit=3)
-        spec["query_smoke"] = smoke
-        if smoke.get("ok"):
-            spec["analysis_readiness"] = "query_ready"
-            spec["source_access_mode"] = "materialized_query_ready"
-        else:
-            spec["analysis_readiness"] = "registered"
+        from scripts.research_data_mcp.readiness_truth import apply_smoke_readiness
+
+        apply_smoke_readiness(spec, smoke)
         entry = self._upsert_dataset(
             spec,
             task_id=dataset_id,
@@ -440,12 +433,9 @@ class RegistryPromoter:
 
         if backend in {"local_parquet_panel", "local_json_glob", "local_json_file", "local_csv_file"} and local_path:
             smoke = prove_query_smoke(self.repo_root, spec, limit=3)
-            spec["query_smoke"] = smoke
-            if smoke.get("ok"):
-                spec["analysis_readiness"] = "query_ready"
-                spec["source_access_mode"] = "materialized_query_ready"
-            else:
-                spec["analysis_readiness"] = "registered"
+            from scripts.research_data_mcp.readiness_truth import apply_smoke_readiness
+
+            apply_smoke_readiness(spec, smoke)
 
         entry = self._upsert_dataset(
             spec,

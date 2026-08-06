@@ -28,6 +28,7 @@ MCP_TOOL_CORE: tuple[str, ...] = (
     "research_faculty_profile",
     "collection_status",
     "research_discover_search",
+    "research_discover_desk",
     "research_discover_source_search",
     "research_discover_source_preview",
     "research_web_discover",
@@ -60,6 +61,7 @@ MCP_TOOL_CORE: tuple[str, ...] = (
 
 MCP_TOOL_ACQUIRE: tuple[str, ...] = (
     "research_craft_collect_plan",
+    "research_propose_pending_collect",
     "research_craft_discover_proposal",
     "research_procure_resume_campaign",
     "research_procure_campaign_artifacts",
@@ -87,12 +89,9 @@ MCP_TOOL_OPS: tuple[str, ...] = (
     "bigquery_list_tables",
     "bigquery_table_schema",
     "research_unified_search",
-    "research_search_catalog",
     "research_ops_status",
     "collection_queue_status",
     "research_procurement_catalog",
-    "research_advise_datasets",
-    "research_plan_sources",
     "huggingface_search",
     "procurement_list_connectors",
     "procurement_approve_connector",

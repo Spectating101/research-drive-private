@@ -1,48 +1,14 @@
 #!/usr/bin/env python3
-"""Deterministic first-turn grounding for Synthesis Ask."""
+"""First-turn Synthesis Ask grounding — measured desk facts only.
+
+No token-ranked catalog wallpaper (the Discover script-brain failure mode).
+Composer judges fit; this module only reports what
+``research_discover_desk`` / desk_check measured plus declared synthesis profiles.
+"""
 
 from __future__ import annotations
 
-import json
-import re
 from typing import Any
-
-_STOPWORDS = frozenset(
-    {
-        "about",
-        "after",
-        "among",
-        "before",
-        "between",
-        "construct",
-        "dataset",
-        "define",
-        "design",
-        "from",
-        "have",
-        "measure",
-        "should",
-        "through",
-        "using",
-        "what",
-        "where",
-        "which",
-        "with",
-    }
-)
-
-
-def _tokens(text: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"[a-z0-9][a-z0-9_-]{2,}", str(text or "").lower())
-        if len(token) >= 4 and token not in _STOPWORDS
-    }
-
-
-def _profile_score(profile: dict[str, Any], query_tokens: set[str]) -> int:
-    blob = json.dumps(profile, ensure_ascii=False, default=str).lower()
-    return sum(1 for token in query_tokens if token in blob)
 
 
 def build_synthesis_grounding_brief(
@@ -50,77 +16,130 @@ def build_synthesis_grounding_brief(
     message: str,
     *,
     candidate_limit: int = 8,
-    profile_limit: int = 3,
+    profile_limit: int = 8,
+    rail_context: dict[str, Any] | None = None,
 ) -> str:
-    """Build a bounded evidence map without making readiness or fit claims."""
-    candidates: list[dict[str, Any]] = []
-    try:
-        from scripts.research_data_mcp.procurement_fast import local_search
+    """Build a bounded DESK_FACTS block — held/routes measured, profiles listed.
 
-        result = local_search(gateway, message, limit=candidate_limit)
-        candidates = [
-            dict(row)
-            for row in (result.get("candidates") or [])[:candidate_limit]
-            if isinstance(row, dict)
-        ]
-    except Exception:
-        candidates = []
+    Does not claim fit, coverage, readiness, or a completed construct.
+    Prefer the open Synthesis objective when Ask is assisting that thread.
+    """
+    from scripts.research_data_mcp.desk_ask_grounding import resolve_ask_measure_query
+    from scripts.research_data_mcp.discover_desk import desk_check
+
+    q = resolve_ask_measure_query(message, rail_context)
+    desk: dict[str, Any] = {}
+    try:
+        desk = desk_check(gateway, q, limit=candidate_limit)
+    except Exception:  # noqa: BLE001
+        desk = {
+            "held": [],
+            "routes": [],
+            "strong_held": False,
+            "held_count": 0,
+            "route_count": 0,
+        }
+
+    held = [dict(r) for r in (desk.get("held") or [])[:candidate_limit] if isinstance(r, dict)]
+    routes = [dict(r) for r in (desk.get("routes") or [])[:3] if isinstance(r, dict)]
+    strong = bool(desk.get("strong_held"))
 
     profiles: list[dict[str, Any]] = []
     try:
         payload = gateway.synthesis_list_profiles()
         profiles = [
             dict(row)
-            for row in payload.get("profiles") or []
+            for row in (payload.get("profiles") or [])
             if isinstance(row, dict)
-        ]
-    except Exception:
+        ][:profile_limit]
+    except Exception:  # noqa: BLE001
         profiles = []
-    query_tokens = _tokens(message)
-    profiles.sort(
-        key=lambda row: (-_profile_score(row, query_tokens), str(row.get("title") or ""))
-    )
-    profiles = [
-        row
-        for row in profiles
-        if _profile_score(row, query_tokens) > 0
-    ][:profile_limit]
+
+    held_ids = {
+        str(r.get("dataset_id") or "").strip()
+        for r in held
+        if str(r.get("dataset_id") or "").strip()
+    }
+    # Prefer profiles that cite measured held sources; otherwise list declared ids only.
+    linked: list[dict[str, Any]] = []
+    other: list[dict[str, Any]] = []
+    for row in profiles:
+        sources = row.get("sources") or []
+        source_ids = {
+            str(s.get("dataset_id") or s.get("id") or s).strip()
+            if isinstance(s, dict)
+            else str(s).strip()
+            for s in sources
+        }
+        source_ids.discard("")
+        if held_ids and source_ids & held_ids:
+            linked.append(row)
+        else:
+            other.append(row)
 
     lines = [
-        "[Synthesis grounding candidates]",
-        "The following records came from the local Library index and existing synthesis profiles.",
-        "They are candidates, not proof of fit, coverage, readiness, or a completed construct.",
+        "[Synthesis DESK_FACTS]",
+        "Measured via research_discover_desk (L0 hands). Not ranked for fit.",
+        "Do not invent dataset_ids or source_ids outside this block.",
+        "Do not treat this list as proof of coverage or a completed construct.",
     ]
-    if candidates:
-        lines.append("Indexed evidence:")
-        for row in candidates:
+    if q:
+        lines.append(f"Open construct / measure query: {q[:220]}")
+
+    if strong and held:
+        lines.append(f"Strong Library holdings ({len(held)}):")
+        for row in held:
             title = str(row.get("title") or row.get("dataset_id") or "Dataset").strip()
             dataset_id = str(row.get("dataset_id") or "").strip()
-            readiness = str(row.get("analysis_readiness") or "not stated").strip()
-            description = str(row.get("description") or "").strip()
-            detail = f" — {description[:220]}" if description else ""
             identifier = f" [{dataset_id}]" if dataset_id else ""
-            lines.append(f"- {title}{identifier}; readiness: {readiness}{detail}")
+            lines.append(f"- held: {title}{identifier}")
+    elif held:
+        lines.append(f"Weak/lexical Library hits ({len(held)}) — verify before use:")
+        for row in held:
+            title = str(row.get("title") or row.get("dataset_id") or "Dataset").strip()
+            dataset_id = str(row.get("dataset_id") or "").strip()
+            identifier = f" [{dataset_id}]" if dataset_id else ""
+            lines.append(f"- held?: {title}{identifier}")
     else:
-        lines.append("Indexed evidence: no local candidates were returned.")
+        lines.append("Library holdings: none measured for this question.")
 
-    if profiles:
-        lines.append("Relevant prior synthesis patterns:")
-        for row in profiles:
-            title = str(row.get("title") or row.get("id") or "Synthesis profile").strip()
-            description = str(row.get("description") or "").strip()
-            sources = [
-                str(source.get("dataset_id") or source.get("id") or source)
-                if isinstance(source, dict)
-                else str(source)
-                for source in (row.get("sources") or [])
-            ]
-            source_note = f"; sources: {', '.join(sources[:6])}" if sources else ""
-            lines.append(f"- {title}: {description[:260]}{source_note}")
+    if routes and not strong:
+        lines.append(f"Declared collectable routes ({len(routes)}):")
+        for row in routes:
+            title = str(row.get("title") or row.get("label") or row.get("source_id") or "").strip()
+            sid = str(row.get("source_id") or "").strip()
+            why = str(row.get("why") or row.get("selection_reason") or "").strip()[:160]
+            detail = f" — {why}" if why else ""
+            lines.append(f"- route: {title} [{sid}]{detail}")
+    elif not strong:
+        lines.append("Declared collectable routes: none for this question.")
+
+    if linked:
+        lines.append("Declared synthesis profiles citing measured holdings:")
+        for row in linked[:profile_limit]:
+            title = str(row.get("title") or row.get("id") or "profile").strip()
+            pid = str(row.get("id") or "").strip()
+            lines.append(f"- profile: {title}" + (f" [{pid}]" if pid else ""))
+    elif profiles:
+        ids = [
+            str(row.get("id") or row.get("title") or "").strip()
+            for row in other[:profile_limit]
+            if str(row.get("id") or row.get("title") or "").strip()
+        ]
+        lines.append(
+            f"Declared synthesis profiles on this desk ({len(profiles)}); "
+            f"none cite measured holdings for this question. "
+            f"Ids: {', '.join(ids) if ids else '(none)'}."
+        )
+        lines.append(
+            "Call research_synthesis_list_profiles / research_synthesis_run only when a "
+            "profile actually matches the construct — do not invent relevance from names."
+        )
+    else:
+        lines.append("Declared synthesis profiles: unavailable or empty.")
 
     lines.append(
-        "Use targeted description/query/comparison tools to verify any candidate before "
-        "asserting its role. Do not turn this list into an inventory dump."
+        "Use MCP tools to verify holdings and routes. Composer owns fit judgment."
     )
-    lines.append("[/Synthesis grounding candidates]")
+    lines.append("[/Synthesis DESK_FACTS]")
     return "\n".join(lines)[:6000]

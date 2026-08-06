@@ -46,16 +46,24 @@ class ProbeAnalyst:
             "summary": summary[:3000],
             "result": result,
         }
-        if os.getenv("DEEPSEEK_API_KEY") and job.get("status") == "completed":
+        from scripts.research_data_mcp.llm_client import legacy_llm_enabled, llm_configured
+
+        if (
+            legacy_llm_enabled()
+            and llm_configured()
+            and job.get("status") == "completed"
+        ):
             try:
                 out = self._ask_deepseek(context)
                 out["engine"] = "deepseek"
                 return self._normalize(out, url, connector_id, access_class, governance)
-            except Exception as exc:
+            except Exception:
                 pass
         out = self._fallback(context)
         out["engine"] = "heuristic"
-        out["planner_note"] = out.get("planner_note") or "Heuristic probe analysis."
+        out["planner_note"] = out.get("planner_note") or (
+            "Heuristic probe analysis (DeepSeek gated unless DESK_LEGACY_LLM=1)."
+        )
         return self._normalize(out, url, connector_id, access_class, governance)
 
     def _ask_deepseek(self, context: dict[str, Any]) -> dict[str, Any]:

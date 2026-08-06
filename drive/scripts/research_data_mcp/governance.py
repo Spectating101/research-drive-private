@@ -61,6 +61,11 @@ class ProcurementBudget:
         self._tavily = 0
 
     def use_deepseek(self) -> bool:
+        """Budget slot for legacy planner calls — requires DESK_LEGACY_LLM opt-in."""
+        from scripts.research_data_mcp.llm_client import legacy_llm_enabled
+
+        if not legacy_llm_enabled():
+            return False
         if self._deepseek >= self.max_deepseek_calls:
             return False
         self._deepseek += 1

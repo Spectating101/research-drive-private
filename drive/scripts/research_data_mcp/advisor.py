@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Legacy dataset advisor — deterministic catalog hints; Composer judges fit."""
+"""Dataset advisor — measured desk facts only (no catalog fit ranking).
+
+Former token-score / hard-coded GDELT/SEC wallpaper was a script brain.
+Composer judges fit via Ask + MCP; this returns what the desk holds or can collect.
+"""
 
 from __future__ import annotations
 
-import json
-import re
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -22,172 +24,128 @@ class DatasetAdvisor:
         current_dataset_id: str = "",
         current_task_id: str = "",
         limit: int = 5,
+        rail_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         goal = goal.strip()
         if not goal:
             raise ValueError("goal is required — describe what you are trying to analyze or procure")
-        catalog = self.gateway.procurement_catalog(q=goal, limit=80)
-        source_plan = self.gateway.plan_sources(goal, limit=min(limit * 3, 25))
-        context = {
-            "goal": goal,
-            "current_dataset_id": current_dataset_id.strip(),
-            "current_task_id": current_task_id.strip(),
-            "catalog_summary": catalog.get("summary", {}),
-            "registry_hits": catalog.get("registry", [])[:20],
-            "queue_tasks": catalog.get("queue_tasks", [])[:20],
-            "pipelines": catalog.get("pipelines", []),
-            "source_plan_top": (source_plan.get("rows") or [])[:12],
-        }
-        body = self._fallback(context, limit=limit)
-        body["advisor_note"] = "Deterministic catalog ranking — Composer judges fit via MCP."
-        return body
 
-    def _fallback(self, context: dict[str, Any], *, limit: int) -> dict[str, Any]:
-        goal = context["goal"].lower()
-        tokens = set(re.findall(r"[a-z][a-z0-9_]{2,}", goal))
-        current = context.get("current_dataset_id") or context.get("current_task_id") or ""
+        from scripts.research_data_mcp.desk_ask_grounding import measure_ask_desk
 
-        scored: list[tuple[float, dict[str, str]]] = []
+        desk = measure_ask_desk(
+            self.gateway, goal, candidate_limit=limit, rail_context=rail_context
+        )
+        held = [dict(r) for r in (desk.get("held") or [])[:limit] if isinstance(r, dict)]
+        routes = [dict(r) for r in (desk.get("routes") or [])[:3] if isinstance(r, dict)]
+        strong = bool(desk.get("strong_held"))
+        current = (current_dataset_id or current_task_id or "").strip()
 
-        for row in context.get("registry_hits") or []:
-            blob = " ".join(
-                str(row.get(k, "")) for k in ("dataset_id", "name", "grain", "analysis_readiness", "recommended_use")
-            ).lower()
-            score = sum(1.0 for t in tokens if t in blob)
-            if row.get("analysis_readiness") == "instant":
-                score += 0.5
-            scored.append(
-                (
-                    score,
-                    {
-                        "id": row["dataset_id"],
-                        "kind": "registry_dataset",
-                        "reason": row.get("recommended_use") or row.get("grain", ""),
-                    },
-                )
-            )
-
-        for row in context.get("queue_tasks") or []:
-            blob = f"{row.get('id', '')} {row.get('title', '')} {row.get('output_hint', '')}".lower()
-            score = sum(1.2 for t in tokens if t in blob)
-            if row.get("runnable"):
-                score += 0.3
-            scored.append((score, {"id": row["id"], "kind": "queue_task", "reason": row.get("title", "")}))
-
-        for row in context.get("pipelines") or []:
-            blob = f"{row.get('id', '')} {row.get('label', '')}".lower()
-            score = sum(0.8 for t in tokens if t in blob)
-            scored.append((score, {"id": row["id"], "kind": "pipeline", "reason": row.get("label", "")}))
-
-        for row in context.get("source_plan_top") or []:
-            rid = str(row.get("dataset_id") or row.get("source_id") or "")
+        recommended: list[dict[str, str]] = []
+        for row in held:
+            rid = str(row.get("dataset_id") or row.get("id") or "").strip()
             if not rid:
                 continue
-            blob = json.dumps(row, ensure_ascii=False).lower()
-            score = sum(0.6 for t in tokens if t in blob)
-            scored.append(
-                (
-                    score,
-                    {
-                        "id": rid,
-                        "kind": "registry_dataset",
-                        "reason": str(row.get("access_recommendation") or row.get("name", "")),
-                    },
-                )
+            recommended.append(
+                {
+                    "id": rid,
+                    "kind": "registry_dataset",
+                    "reason": "measured Library hold (Ask DESK_FACTS)",
+                }
             )
-
-        if tokens & {"sec", "edgar", "filing", "filings", "10k", "10q", "cik"}:
-            for task in context.get("queue_tasks") or []:
-                blob = f"{task.get('id', '')} {task.get('title', '')}".lower()
-                if any(token in blob for token in ("sec", "edgar", "cik", "filing")):
-                    scored.append(
-                        (
-                            5.0,
-                            {
-                                "id": task["id"],
-                                "kind": "queue_task",
-                                "reason": task.get("title") or task["id"],
-                            },
-                        )
-                    )
-        if tokens & {"news", "headline", "shock", "gdelt"}:
-            scored.append(
-                (
-                    4.0,
-                    {
-                        "id": "gdelt_asia_daily_country_panel",
-                        "kind": "registry_dataset",
-                        "reason": "Instant local GDELT Asia country panel",
-                    },
-                )
-            )
-        if tokens & {"doi", "datacite", "metadata", "citation"} and not tokens.isdisjoint({"harvest", "datacite", "doi", "metadata", "mirror"}):
-            scored.append(
-                (
-                    3.5,
-                    {
-                        "id": "datacite_local_harvest_status",
-                        "kind": "registry_dataset",
-                        "reason": "Check local DataCite mirror before re-harvesting",
-                    },
-                )
-            )
-
-        scored.sort(key=lambda pair: pair[0], reverse=True)
-        seen: set[str] = set()
-        recommended: list[dict[str, str]] = []
-        for _score, item in scored:
-            if item["id"] in seen:
+        for row in routes:
+            if strong:
+                break
+            sid = str(row.get("source_id") or "").strip()
+            if not sid:
                 continue
-            seen.add(item["id"])
-            recommended.append(item)
+            recommended.append(
+                {
+                    "id": sid,
+                    "kind": "declared_route",
+                    "reason": str(row.get("why") or row.get("selection_reason") or "declared collectable route"),
+                }
+            )
             if len(recommended) >= limit:
                 break
 
         not_recommended: list[dict[str, str]] = []
-        verdict = "good_fit"
-        if current:
-            current_l = current.lower()
-            top_ids = {r["id"].lower() for r in recommended[:3]}
-            if current_l not in top_ids and recommended:
-                verdict = "wrong_fit"
-                not_recommended.append(
-                    {
-                        "id": current,
-                        "kind": "user_selection",
-                        "reason": f"'{current}' is weak for this goal; prefer {recommended[0]['id']} ({recommended[0]['kind']}).",
-                    }
-                )
-            elif current_l in top_ids:
-                verdict = "good_fit"
+        held_ids = {r["id"].lower() for r in recommended if r["kind"] == "registry_dataset"}
+        if current and held_ids and current.lower() not in held_ids:
+            not_recommended.append(
+                {
+                    "id": current,
+                    "kind": "user_selection",
+                    "reason": (
+                        f"'{current}' is not among measured holdings for this goal. "
+                        "Composer should verify before treating it as a fit."
+                    ),
+                }
+            )
 
-        message = (
-            f"For '{context['goal']}', start with {recommended[0]['id']} ({recommended[0]['kind']})."
-            if recommended
-            else "No strong catalog match — try research_plan_sources or procurement_probe_public_source."
-        )
-        if verdict == "wrong_fit" and not_recommended:
-            message = not_recommended[0]["reason"]
+        if strong and held:
+            verdict = "use_held"
+            message = (
+                f"Library holds {len(held)} measured dataset(s) for “{goal}”. "
+                "Composer judges whether they fit the analysis."
+            )
+            next_steps = [
+                f"research_describe_dataset('{recommended[0]['id']}')"
+                if recommended
+                else "research_discover_desk",
+                "ask Composer via /library/chat",
+            ]
+        elif routes:
+            verdict = "collect_route"
+            message = (
+                f"Nothing strong held; {len(routes)} declared route(s) could supply “{goal}”."
+            )
+            next_steps = [
+                "research_discover_desk",
+                f"collect via source_id={routes[0].get('source_id')}" if routes else "paste_url",
+                "ask Composer via /library/chat",
+            ]
+        elif held:
+            verdict = "weak_held"
+            message = (
+                f"Only weak lexical hits for “{goal}” — verify before use; "
+                "do not treat as ranked recommendations."
+            )
+            next_steps = ["research_discover_desk", "ask Composer via /library/chat"]
+        else:
+            verdict = "ask_composer"
+            message = (
+                f"No measured hold or declared route for “{goal}”. "
+                "Ask Composer (MCP) or paste a URL — catalog token ranking is disabled."
+            )
+            next_steps = [
+                "research_discover_desk",
+                "research_web_discover",
+                "ask Composer via /library/chat",
+            ]
 
-        next_steps: list[str] = []
-        if recommended:
-            kind = recommended[0]["kind"]
-            rid = recommended[0]["id"]
-            if kind == "registry_dataset":
-                next_steps.append(f"research_describe_dataset('{rid}') then research_query_dataset if instant")
-            elif kind == "queue_task":
-                next_steps.append(f"yzu_submit_job with job_type=collection_queue_task, task_id={rid}")
-            elif kind == "pipeline":
-                next_steps.append(f"yzu_submit_job with job_type=registered_pipeline, pipeline_id={rid}")
-            elif kind == "probe":
-                next_steps.append(f"procurement_probe_public_source on the source URL, then approve connector")
+        # Compat for callers that still branch on good_fit / wrong_fit / partial_fit.
+        legacy_verdict = {
+            "use_held": "good_fit",
+            "weak_held": "partial_fit",
+            "collect_route": "partial_fit",
+            "ask_composer": "wrong_fit" if not_recommended else "wrong_fit",
+        }.get(verdict, "wrong_fit")
 
         return {
-            "verdict": verdict,
+            "verdict": legacy_verdict,
+            "desk_verdict": verdict,
             "message": message,
-            "recommended": recommended,
+            "recommended": recommended[:limit],
             "not_recommended": not_recommended,
             "next_steps": next_steps,
-            "engine": "deterministic",
-            "goal": context["goal"],
+            "engine": "ask_desk_facts",
+            "goal": goal,
+            "held_count": len(held),
+            "route_count": 0 if strong else len(routes),
+            "strong_held": strong,
+            "advisor_note": (
+                "Measured Ask DESK_FACTS (incl. synthesis peers) — no catalog fit ranking. "
+                "Composer judges fit via Ask/MCP."
+            ),
+            "stack": "advise_l0_hands",
         }

@@ -268,14 +268,77 @@ class SearchService:
     def describe_dataset(self, dataset_id: str) -> dict[str, Any]:
         self._reload_if_unknown(dataset_id)
         try:
-            return self.engine.describe(dataset_id)
+            row = self.engine.describe(dataset_id)
         except KeyError as exc:
             from scripts.research_data_mcp.registered_asset_authority import get_verified_registration_receipt
 
             receipt = get_verified_registration_receipt(self.repo_root, dataset_id)
             if receipt is not None:
-                return receipt
-            raise exc
+                row = receipt
+            else:
+                raise exc
+        return self._enrich_describe_for_fe(dict(row))
+
+    def hydrate_dataset(self, dataset_id: str) -> dict[str, Any]:
+        """Explicit faculty hydrate — pull canonical Drive bytes to the desk, then re-describe."""
+        self._reload_if_unknown(dataset_id)
+        try:
+            spec = dict(self.engine.describe(dataset_id))
+        except KeyError as exc:
+            raise ValueError(f"unknown dataset_id: {dataset_id}") from exc
+        from scripts.research_data_mcp.registry_hydrate import ensure_registry_local_bytes
+
+        hydrate = ensure_registry_local_bytes(self.repo_root, spec, dry_run=False)
+        if hydrate.get("ok"):
+            self.reload_registry()
+        out = self.describe_dataset(dataset_id)
+        out["hydrate"] = hydrate
+        out["hydrated"] = bool(hydrate.get("ok"))
+        return out
+
+    def _enrich_describe_for_fe(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Attach local_ready / hydrate action so the Library rail can offer one click."""
+        from scripts.research_data_mcp.procurement_fast import local_path_has_data
+        from scripts.research_data_mcp.registry_hydrate import dataset_needs_hydrate
+
+        did = str(row.get("dataset_id") or "").strip()
+        local = str(row.get("local_path") or row.get("local_file") or "").strip()
+        if not local:
+            root = str(row.get("local_root") or "").rstrip("/")
+            name = str(row.get("local_file") or "").lstrip("/")
+            local = f"{root}/{name}" if root and name else ""
+        remote = str(
+            row.get("canonical_remote")
+            or (row.get("lineage") or {}).get("canonical_remote")
+            or ""
+        ).strip()
+        local_ready = bool(local and local_path_has_data(self.repo_root, local))
+        needs = bool(dataset_needs_hydrate(self.repo_root, row) or row.get("hydrate_required"))
+        # Stale demotion with bytes restored
+        if local_ready and row.get("runtime_readiness_reason") == "local_bytes_missing":
+            needs = False
+        row["local_ready"] = local_ready
+        row["hydrate_required"] = bool(needs)
+        if needs and remote and did:
+            row["required_action"] = "hydrate"
+            row["actions"] = [
+                {
+                    "id": "hydrate",
+                    "label": "Hydrate from Drive",
+                    "method": "POST",
+                    "path": f"/datasets/{did}/hydrate",
+                }
+            ]
+            row.setdefault(
+                "message",
+                "Canonical bytes are on Drive. Hydrate to the desk before Preview/query.",
+            )
+        elif local_ready and str(row.get("analysis_readiness") or "").lower() in {
+            "instant",
+            "query_ready",
+        }:
+            row["required_action"] = "query"
+        return row
 
     def query_dataset(self, dataset_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
@@ -471,9 +534,12 @@ class SearchService:
                 }
             raise
 
-    @staticmethod
-    def _requires_explicit_hydration(ds: dict[str, Any], params: dict[str, Any]) -> bool:
-        """Keep registered remote assets from triggering an implicit GDrive read."""
+    def _requires_explicit_hydration(self, ds: dict[str, Any], params: dict[str, Any]) -> bool:
+        """Keep registered remote assets from triggering an implicit GDrive read.
+
+        If local bytes are already on the desk (including after a compact→restore),
+        do not wall the query behind hydrate — clear stale demotion flags in-memory.
+        """
         backend = str(ds.get("backend") or "").strip()
         readiness = str(ds.get("analysis_readiness") or "").strip().lower()
         if backend not in {
@@ -485,6 +551,29 @@ class SearchService:
             "local_parquet_panel",
         }:
             return False
+        local = str(ds.get("local_path") or "").strip()
+        if not local:
+            root = str(ds.get("local_root") or "").rstrip("/")
+            name = str(ds.get("local_file") or "").lstrip("/")
+            local = f"{root}/{name}" if root and name else ""
+        if local:
+            from scripts.research_data_mcp.procurement_fast import local_path_has_data
+
+            if local_path_has_data(self.repo_root, local):
+                if ds.get("hydrate_required") or ds.get("runtime_readiness_reason") == "local_bytes_missing":
+                    ds.pop("hydrate_required", None)
+                    if ds.get("runtime_readiness_reason") == "local_bytes_missing":
+                        ds.pop("runtime_readiness_reason", None)
+                    smoke = ds.get("query_smoke") if isinstance(ds.get("query_smoke"), dict) else {}
+                    if readiness == "registered" and (smoke.get("ok") or True):
+                        # Bytes restored after compact — treat as queryable again.
+                        ds["analysis_readiness"] = "query_ready"
+                        mat = dict(ds.get("materialization") or {})
+                        if mat.get("skipped") == "local_bytes_missing_at_runtime":
+                            mat["query_ready"] = True
+                            mat.pop("skipped", None)
+                            ds["materialization"] = mat
+                return False
         remote = str(ds.get("canonical_remote") or (ds.get("lineage") or {}).get("canonical_remote") or "").strip()
         if not remote:
             return backend == "local_file" and readiness not in {"instant", "query_ready"}
@@ -533,10 +622,15 @@ class SearchService:
         for ds in self.engine.list_datasets():
             item = {
                 "dataset_id": ds["dataset_id"],
-                "name": ds.get("name", ds["dataset_id"]),
+                "name": ds.get("display_name") or ds.get("title") or ds.get("name", ds["dataset_id"]),
+                "title": ds.get("display_name") or ds.get("title") or ds.get("name", ds["dataset_id"]),
                 "grain": ds.get("grain", ""),
                 "analysis_readiness": ds.get("analysis_readiness", ""),
             }
+            if ds.get("aliases"):
+                item["aliases"] = list(ds.get("aliases") or [])[:8]
+            if ds.get("keywords"):
+                item["keywords"] = list(ds.get("keywords") or [])[:12]
             readiness = str(ds.get("analysis_readiness", ""))
             backend = str(ds.get("backend", ""))
             if readiness == "instant":

@@ -13,7 +13,10 @@ MAX_INPUT_BYTES = 512 * 1024 * 1024
 MAX_OUTPUT_ROWS = 1_000_000
 ALLOWED_METRIC_FNS = frozenset({"count", "sum", "mean", "min", "max"})
 ALLOWED_FILTER_OPS = frozenset({"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains"})
-ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join"})
+ALLOWED_TRANSFORM_OPS = frozenset(
+    {"filter", "select", "rename", "sort", "head", "drop_na", "join", "lag", "diff", "rolling"}
+)
+ALLOWED_ROLLING_FNS = frozenset({"mean", "sum", "min", "max", "std", "count"})
 
 
 def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
@@ -24,6 +27,7 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
     group_by = spec.get("group_by") or []
     metrics = spec.get("metrics") or []
     transforms = spec.get("transforms") or []
+    row_output = bool(spec.get("row_output"))
     if not dataset_id or not output_id:
         raise ValueError("execution_spec requires input_dataset_id and output_dataset_id")
     if dataset_id == output_id:
@@ -32,8 +36,11 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("output_dataset_id must match synthesis_[a-z0-9_], 13-128 characters")
     if not isinstance(group_by, list) or not all(isinstance(x, str) and x for x in group_by):
         raise ValueError("group_by must be a list of column names")
-    if not isinstance(metrics, list) or not metrics:
-        raise ValueError("execution_spec requires one or more aggregate metrics")
+    if not isinstance(metrics, list):
+        raise ValueError("metrics must be a list")
+    # Row-preserving transforms (lag/diff/rolling panels) may omit aggregates.
+    if not metrics and not row_output:
+        raise ValueError("execution_spec requires one or more aggregate metrics (or row_output=true)")
     for metric in metrics:
         if not isinstance(metric, dict) or str(metric.get("function") or "") not in ALLOWED_METRIC_FNS:
             raise ValueError("metrics only support count, sum, mean, min, or max")
@@ -90,6 +97,36 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
             if how not in {"inner", "left"}:
                 raise ValueError("join how must be inner or left")
             step = {**step, "on": on, "how": how, "right_dataset_id": right}
+        elif op == "lag":
+            if str(step.get("column") or "").strip() == "":
+                raise ValueError("lag requires column")
+            periods = int(step.get("periods") or step.get("n") or 0)
+            if periods < 1 or periods > 10_000:
+                raise ValueError("lag periods must be 1..10000")
+            if not str(step.get("as") or "").strip():
+                raise ValueError("lag requires output name (as)")
+            step = {**step, "periods": periods}
+        elif op == "diff":
+            if str(step.get("column") or "").strip() == "":
+                raise ValueError("diff requires column")
+            periods = int(step.get("periods") or step.get("n") or 1)
+            if periods < 1 or periods > 10_000:
+                raise ValueError("diff periods must be 1..10000")
+            if not str(step.get("as") or "").strip():
+                raise ValueError("diff requires output name (as)")
+            step = {**step, "periods": periods}
+        elif op == "rolling":
+            if str(step.get("column") or "").strip() == "":
+                raise ValueError("rolling requires column")
+            window = int(step.get("window") or step.get("n") or 0)
+            fn = str(step.get("fn") or step.get("function") or "mean").strip().lower()
+            if window < 2 or window > 10_000:
+                raise ValueError("rolling window must be 2..10000")
+            if fn not in ALLOWED_ROLLING_FNS:
+                raise ValueError(f"rolling fn must be one of {sorted(ALLOWED_ROLLING_FNS)}")
+            if not str(step.get("as") or "").strip():
+                raise ValueError("rolling requires output name (as)")
+            step = {**step, "window": window, "fn": fn}
         normalized_transforms.append(dict(step, op=op))
     return {
         "input_dataset_id": dataset_id,
@@ -97,6 +134,7 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
         "group_by": group_by,
         "metrics": metrics,
         "transforms": normalized_transforms,
+        "row_output": row_output,
     }
 
 
@@ -196,8 +234,26 @@ def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str,
             if right_cols is not None:
                 # approximate post-join columns
                 working_cols = set(working_cols) | set(right_cols)
+        elif op in {"lag", "diff", "rolling"}:
+            col = str(step.get("column") or "")
+            alias = str(step.get("as") or "")
+            keys = _panel_keys(step)
+            if col not in working_cols:
+                issues.append(
+                    {
+                        "code": "missing_column",
+                        "op": op,
+                        "column": col,
+                        "available_sample": sorted(working_cols)[:24],
+                    }
+                )
+            missing_keys = [c for c in keys if c not in working_cols]
+            if missing_keys:
+                issues.append({"code": "missing_column", "op": op, "columns": missing_keys})
+            if alias:
+                working_cols.add(alias)
 
-    if working_cols is not None:
+    if working_cols is not None and (normalized.get("metrics") or not normalized.get("row_output")):
         needed = set(normalized.get("group_by") or [])
         needed.update(str(m.get("column") or "") for m in normalized.get("metrics") or [] if m.get("column"))
         missing = sorted(c for c in needed if c and c not in working_cols)
@@ -371,6 +427,8 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                     + ", ".join([*(f"left.{c}" for c in missing_l), *(f"right.{c}" for c in missing_r)])
                 )
             frame = frame.merge(right, on=on, how=str(step.get("how") or "inner"), suffixes=("", "_right"))
+        elif op in {"lag", "diff", "rolling"}:
+            frame = _apply_window_transform(frame, step)
         else:
             raise ValueError(f"unsupported transform op: {op}")
         if len(frame) > MAX_OUTPUT_ROWS:
@@ -378,8 +436,49 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
     return frame
 
 
+def _panel_keys(step: dict[str, Any]) -> list[str]:
+    by = step.get("by") or step.get("group_by") or []
+    if isinstance(by, str):
+        by = [by]
+    if not isinstance(by, list):
+        return []
+    return [str(x) for x in by if str(x).strip()]
+
+
+def _apply_window_transform(frame, step: dict[str, Any]):
+    """Row-preserving lag / diff / rolling on a sorted panel or series."""
+    op = str(step.get("op") or "")
+    col = str(step.get("column") or "")
+    alias = str(step.get("as") or "")
+    if col not in frame.columns:
+        raise ValueError(f"{op} column missing: {col}")
+    keys = _panel_keys(step)
+    missing_keys = [c for c in keys if c not in frame.columns]
+    if missing_keys:
+        raise ValueError(f"{op} group keys missing: {', '.join(missing_keys)}")
+    out = frame.copy()
+    if keys:
+        grouped = out.groupby(keys, sort=False)[col]
+    else:
+        grouped = out[col]
+    if op == "lag":
+        out[alias] = grouped.shift(int(step["periods"]))
+    elif op == "diff":
+        out[alias] = grouped.diff(int(step["periods"]))
+    elif op == "rolling":
+        window = int(step["window"])
+        fn = str(step["fn"])
+        if keys:
+            out[alias] = grouped.transform(lambda s: getattr(s.rolling(window=window, min_periods=window), fn)())
+        else:
+            out[alias] = getattr(out[col].rolling(window=window, min_periods=window), fn)()
+    else:
+        raise ValueError(f"unsupported window transform: {op}")
+    return out
+
+
 def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any]:
-    """Materialise one approved local aggregate into a parquet research asset."""
+    """Materialise one approved local transform/aggregate into a parquet research asset."""
     repo_root = Path(repo_root).resolve()
     spec = validate_execution_spec(dict(plan.get("execution_spec") or {}))
     registry = _load_registry(repo_root)
@@ -388,19 +487,22 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     frame = _read_frame(file_path)
     frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [])
 
-    needed = set(spec["group_by"])
-    needed.update(str(m.get("column") or "") for m in spec["metrics"] if m.get("column"))
-    missing = sorted(column for column in needed if column and column not in frame.columns)
-    if missing:
-        raise ValueError(f"execution input is missing columns: {', '.join(missing)}")
-    grouped = frame.groupby(spec["group_by"], dropna=False) if spec["group_by"] else frame.groupby(lambda _x: 0)
-    output = None
-    for metric in spec["metrics"]:
-        fn, column, alias = metric["function"], metric.get("column"), metric["as"]
-        series = grouped.size() if fn == "count" else getattr(grouped[column], fn)()
-        series = series.rename(alias)
-        output = series.to_frame() if output is None else output.join(series)
-    output = output.reset_index(drop=not bool(spec["group_by"]))
+    if spec.get("row_output") and not spec.get("metrics"):
+        output = frame.reset_index(drop=True)
+    else:
+        needed = set(spec["group_by"])
+        needed.update(str(m.get("column") or "") for m in spec["metrics"] if m.get("column"))
+        missing = sorted(column for column in needed if column and column not in frame.columns)
+        if missing:
+            raise ValueError(f"execution input is missing columns: {', '.join(missing)}")
+        grouped = frame.groupby(spec["group_by"], dropna=False) if spec["group_by"] else frame.groupby(lambda _x: 0)
+        output = None
+        for metric in spec["metrics"]:
+            fn, column, alias = metric["function"], metric.get("column"), metric["as"]
+            series = grouped.size() if fn == "count" else getattr(grouped[column], fn)()
+            series = series.rename(alias)
+            output = series.to_frame() if output is None else output.join(series)
+        output = output.reset_index(drop=not bool(spec["group_by"]))
     if len(output) > MAX_OUTPUT_ROWS:
         raise ValueError("execution output exceeds the 1,000,000-row safety limit")
     out_dir = repo_root / "data_lake/synthesis/thread_outputs" / str(plan.get("thread_id") or "unknown") / job_id

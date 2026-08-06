@@ -70,6 +70,7 @@ class AgentTurn:
 _TOOL_ACTIVITY_LABELS: dict[str, str] = {
     "collection_status": "Checking the vault…",
     "research_discover_search": "Searching Discover catalog…",
+    "research_discover_desk": "Checking Library holdings and declared routes…",
     "research_discover_source_search": "Searching Discover sources…",
     "research_describe_dataset": "Reading dataset details…",
     "research_query_dataset": "Querying a dataset…",
@@ -100,6 +101,50 @@ def _emit_event(sink: DeskEventSink | None, event: dict[str, Any]) -> None:
         sink(event)
     except Exception:
         pass
+
+
+def _emit_mutation_proposal_event(
+    sink: DeskEventSink | None,
+    *,
+    name: str = "",
+    payload: dict[str, Any] | None = None,
+) -> None:
+    """Stream a reviewable mutation as soon as a tool persists one — before final prose."""
+    if sink is None or not isinstance(payload, dict):
+        return
+    job = payload.get("job") if isinstance(payload.get("job"), dict) else None
+    job_id = str(
+        (job or {}).get("id")
+        or (job or {}).get("job_id")
+        or payload.get("job_id")
+        or payload.get("pending_job_id")
+        or ""
+    ).strip()
+    job_status = str((job or {}).get("status") or payload.get("job_status") or "").strip()
+    proposal = payload.get("synthesis_proposal")
+    if not isinstance(proposal, dict):
+        proposal = None
+    if not job_id and not proposal:
+        return
+    event: dict[str, Any] = {
+        "type": "mutation_proposal",
+        "text": (
+            "Reviewable synthesis proposal recorded — accept or reject before execution."
+            if proposal
+            else "Collection/job proposal recorded — approve before it runs."
+        ),
+        "tool_name": str(name or "")[:120] or None,
+    }
+    if job_id:
+        event["job_id"] = job_id
+        event["pending_job_id"] = job_id
+        if job:
+            event["job"] = job
+        event["job_status"] = job_status or "pending_approval"
+    if proposal:
+        event["synthesis_proposal"] = proposal
+        event["synthesis_thread_id"] = payload.get("thread_id")
+    _emit_event(sink, event)
 
 
 def _interaction_payload(update: Any) -> dict[str, Any]:
@@ -303,7 +348,8 @@ def _desk_local_options(
 
 
 def _desk_composer_models() -> list[str]:
-    primary = os.getenv("DESK_COMPOSER_MODEL", "default").strip() or "default"
+    # Prefer fast Ask model; fall back to full composer if unavailable.
+    primary = os.getenv("DESK_COMPOSER_MODEL", "composer-2.5-fast").strip() or "composer-2.5-fast"
     fallback = os.getenv("DESK_COMPOSER_MODEL_FALLBACK", "composer-2.5").strip()
     models = [primary]
     if fallback and fallback not in models:
@@ -511,10 +557,66 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     from scripts.research_data_mcp.desk_asset_grounding import format_asset_grounding_block
 
     entity = ctx.get("entity") if isinstance(ctx.get("entity"), dict) else {}
-    lines = ["[UI rail context]"]
+    workspace = ctx.get("workspace") if isinstance(ctx.get("workspace"), dict) else {}
+    surface = str(
+        workspace.get("label")
+        or workspace.get("surface")
+        or ctx.get("surface")
+        or ctx.get("tab")
+        or "desk"
+    ).strip()
+    lines = [
+        f"[Workspace — {surface}]",
+        "Ask is assisting this open surface. Prefer this context over a detached inventory survey.",
+    ]
+    ws_query = str(workspace.get("query") or ctx.get("search_query") or "").strip()
+    if ws_query:
+        lines.append(f"- open_query: {ws_query[:240]}")
+    for key in ("mode", "engine", "next_action", "summary", "objective", "maturity"):
+        val = workspace.get(key)
+        if val:
+            lines.append(f"- {key}: {str(val)[:280]}")
+    if workspace.get("held_count") is not None or workspace.get("route_offerings") is not None:
+        lines.append(
+            "- explore: "
+            f"held={workspace.get('held_count', 0)} · "
+            f"routes/offerings={workspace.get('route_offerings', 0)} · "
+            f"web_context={workspace.get('web_context', 0)}"
+        )
+    for row in list(workspace.get("held") or [])[:5]:
+        if isinstance(row, dict):
+            title = str(row.get("title") or row.get("dataset_id") or "").strip()
+            did = str(row.get("dataset_id") or "").strip()
+            if title:
+                lines.append(f"- held_row: {title}" + (f" [{did}]" if did else ""))
+    for row in list(workspace.get("routes") or [])[:5]:
+        if isinstance(row, dict):
+            title = str(row.get("title") or row.get("source_id") or "").strip()
+            sid = str(row.get("source_id") or "").strip()
+            if title:
+                lines.append(f"- route_row: {title}" + (f" [{sid}]" if sid else ""))
+    if workspace.get("focus_title") or entity.get("title"):
+        lines.append(
+            f"- focus: {workspace.get('focus_kind') or entity.get('kind') or 'item'} · "
+            f"{workspace.get('focus_title') or entity.get('title') or entity.get('id') or ''}"[:280]
+        )
+    if workspace.get("thread_id") or ctx.get("thread_id"):
+        lines.append(f"- thread_id: {workspace.get('thread_id') or ctx.get('thread_id')}")
+
+    lines.append("[UI rail context]")
     for key in (
-        "tab", "mode", "thread_id", "session_id", "conversation_id", "dataset_id",
-        "folder_id", "search_query", "readiness", "analysis_readiness", "vault_path",
+        "tab",
+        "mode",
+        "surface",
+        "thread_id",
+        "session_id",
+        "conversation_id",
+        "dataset_id",
+        "folder_id",
+        "search_query",
+        "readiness",
+        "analysis_readiness",
+        "vault_path",
     ):
         val = ctx.get(key)
         if val:
@@ -532,105 +634,6 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     rail_block = "\n".join(lines) + "\n\n"
     grounding = format_asset_grounding_block(ctx)
     return rail_block + grounding
-
-
-def _prepare_synthesis_fallback_prompt(
-    gateway: Any,
-    message: str,
-    state: dict[str, Any],
-) -> tuple[str, bool]:
-    """Build the same grounded contract without requiring a Cursor session."""
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        synthesis_first_turn,
-        synthesis_history_brief,
-        wrap_synthesis_request,
-    )
-    from scripts.research_data_mcp.desk_synthesis_grounding import (
-        build_synthesis_grounding_brief,
-    )
-
-    first_user_turn = synthesis_first_turn(state)
-    parts: list[str] = []
-    rail_prefix = _format_rail_context(state.get("rail_context") or {}).strip()
-    if rail_prefix:
-        parts.append(rail_prefix)
-    history = synthesis_history_brief(state)
-    if history:
-        parts.append(history)
-    if first_user_turn:
-        grounding = build_synthesis_grounding_brief(gateway, message)
-        state["synthesis_grounding_brief"] = grounding
-        parts.append(grounding)
-    parts.append(message.strip())
-    return (
-        wrap_synthesis_request(
-            "\n\n".join(part for part in parts if part),
-            first_user_turn=first_user_turn,
-        ),
-        first_user_turn,
-    )
-
-
-def _run_synthesis_reasoning_fallback(
-    prompt: str,
-    *,
-    raw_message: str,
-    state: dict[str, Any],
-    first_user_turn: bool,
-    event_sink: DeskEventSink | None,
-    fallback_from: str,
-) -> AgentTurn:
-    """Use a stateless read-only provider while preserving project continuity."""
-    from scripts.research_data_mcp.desk_reply_sanitize import sanitize_desk_reply
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        record_synthesis_turn,
-        synthesis_reply_violations,
-    )
-    from scripts.research_data_mcp.desk_synthesis_fallback import (
-        SynthesisFallbackError,
-        run_gemini_synthesis_turn,
-    )
-
-    _emit_event(
-        event_sink,
-        {"type": "activity", "text": "Reasoning from verified Library context…"},
-    )
-    reply, metadata = run_gemini_synthesis_turn(prompt)
-    reply = sanitize_desk_reply(reply, first_turn=first_user_turn)
-    violations = synthesis_reply_violations(
-        reply,
-        first_user_turn=first_user_turn,
-    )
-    if violations:
-        raise SynthesisFallbackError(
-            "contract_violation",
-            ", ".join(violations),
-        )
-
-    record_synthesis_turn(
-        state,
-        user=raw_message,
-        assistant=reply,
-        provider="gemini",
-    )
-    action_result = {
-        "action": "synthesis_reasoning",
-        "brain": "gemini_synthesis",
-        "mode": "synthesis",
-        "fallback_from": fallback_from,
-        **metadata,
-    }
-    return AgentTurn(
-        plan={
-            "action": "synthesis_reasoning",
-            "brain": "gemini_synthesis",
-            "read_only": True,
-        },
-        action_result=action_result,
-        reply=reply,
-        suggested_prompts=_faculty_starter_prompts(state),
-        tool_name="gemini_synthesis",
-    )
 
 
 def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: float) -> AgentTurn:
@@ -699,50 +702,12 @@ def run_cursor_composer_turn(
     synthesis_context = is_synthesis_context(state)
     api_key = os.getenv("CURSOR_API_KEY", "").strip()
     if not api_key:
-        if synthesis_context:
-            try:
-                fallback_prompt, first_user_turn = _prepare_synthesis_fallback_prompt(
-                    gateway,
-                    message,
-                    state,
-                )
-                return _run_synthesis_reasoning_fallback(
-                    fallback_prompt,
-                    raw_message=message,
-                    state=state,
-                    first_user_turn=first_user_turn,
-                    event_sink=event_sink,
-                    fallback_from="cursor_not_configured",
-                )
-            except Exception as exc:
-                from scripts.research_data_mcp.desk_synthesis_fallback import (
-                    SynthesisFallbackError,
-                )
-
-                category = (
-                    exc.category
-                    if isinstance(exc, SynthesisFallbackError)
-                    else "provider_error"
-                )
-                return AgentTurn(
-                    plan={"action": "composer_unavailable"},
-                    action_result={
-                        "action": "composer_unavailable",
-                        "error": "missing CURSOR_API_KEY",
-                        "mode": "synthesis",
-                        "fallback": "gemini_failed",
-                        "fallback_error_category": category,
-                    },
-                    reply=synthesis_failure_reply("agent_unavailable"),
-                    suggested_prompts=_faculty_starter_prompts(state),
-                    tool_name="",
-                )
         return AgentTurn(
             plan={"action": "composer_unavailable"},
             action_result={
                 "action": "composer_unavailable",
                 "error": "missing CURSOR_API_KEY",
-                **({"mode": "synthesis", "fallback": "none"} if synthesis_context else {}),
+                **({"mode": "synthesis", "fallback": "none", "brain": "cursor_composer"} if synthesis_context else {}),
             },
             reply=(
                 synthesis_failure_reply("agent_unavailable")
@@ -771,9 +736,79 @@ def run_cursor_composer_turn(
         if rail_prefix and rail_prefix not in user_text:
             user_text = rail_prefix + user_text
         vault_primed_env = False
+        ask_desk_grounded = False
+        if synthesis_context:
+            # Prefer the per-turn L0 measure already streamed to the UI (includes mapped
+            # Synthesis evidence). Keep the first-turn profile brief as an additive layer.
+            ask_measure = state.get("_ask_desk_measure")
+            if isinstance(ask_measure, dict):
+                from scripts.research_data_mcp.desk_ask_grounding import (
+                    format_ask_desk_grounding_brief,
+                    serialize_desk_facts_ui,
+                )
+
+                grounding = format_ask_desk_grounding_brief(ask_measure)
+                state["ask_desk_facts_ui"] = serialize_desk_facts_ui(ask_measure)
+                state["ask_desk_grounding_brief"] = grounding
+                user_text = f"{grounding}\n\n{user_text}"
+                ask_desk_grounded = True
+            if first_synthesis_turn:
+                from scripts.research_data_mcp.desk_synthesis_grounding import (
+                    build_synthesis_grounding_brief,
+                )
+
+                grounding = build_synthesis_grounding_brief(
+                    gateway,
+                    message,
+                    rail_context=state.get("rail_context"),
+                )
+                state["synthesis_grounding_brief"] = grounding
+                user_text = f"{grounding}\n\n{user_text}"
+            user_text = wrap_synthesis_request(
+                user_text,
+                first_user_turn=first_synthesis_turn,
+            )
+        elif not prime:
+            # Same L0 measure as Discover — mandatory context, conversational L1.
+            from scripts.research_data_mcp.desk_ask_grounding import (
+                format_ask_desk_grounding_brief,
+                measure_ask_desk,
+                serialize_desk_facts_ui,
+            )
+
+            desk_facts = state.get("_ask_desk_measure")
+            if not isinstance(desk_facts, dict):
+                desk_facts = measure_ask_desk(
+                    gateway, message, rail_context=state.get("rail_context")
+                )
+            grounding = format_ask_desk_grounding_brief(desk_facts)
+            state["ask_desk_facts"] = {
+                "strong_held": desk_facts.get("strong_held"),
+                "held_count": desk_facts.get("held_count"),
+                "route_count": desk_facts.get("route_count"),
+                "route_reason": desk_facts.get("route_reason"),
+            }
+            state["ask_desk_facts_ui"] = serialize_desk_facts_ui(desk_facts)
+            state["ask_desk_grounding_brief"] = grounding
+            user_text = f"{grounding}\n\n{user_text}"
+            ask_desk_grounded = True
+            # DESK_FACTS replace the old vault-brief inventory dump — don't bloat the prompt.
+            vault_primed_env = True
+            _emit_event(
+                event_sink,
+                {
+                    "type": "desk_facts",
+                    "desk_facts": state["ask_desk_facts_ui"],
+                    "text": "Library measure ready",
+                },
+            )
         if prime:
             pass
-        elif not had_agent and not state.get("desk_primed"):
+        elif (
+            not ask_desk_grounded
+            and not had_agent
+            and not state.get("desk_primed")
+        ):
             from scripts.research_data_mcp.desk_vault_brief import (
                 build_vault_brief,
                 wrap_first_turn_message,
@@ -785,25 +820,26 @@ def run_cursor_composer_turn(
                 state["vault_brief"] = brief
             user_text = wrap_first_turn_message(brief, user_text)
             vault_primed_env = True
-        if synthesis_context:
-            if first_synthesis_turn:
-                from scripts.research_data_mcp.desk_synthesis_grounding import (
-                    build_synthesis_grounding_brief,
-                )
-
-                grounding = build_synthesis_grounding_brief(gateway, message)
-                state["synthesis_grounding_brief"] = grounding
-                user_text = f"{grounding}\n\n{user_text}"
-            user_text = wrap_synthesis_request(
-                user_text,
-                first_user_turn=first_synthesis_turn,
+        # Ask already measured L0 in-process. Keep MCP hands attached so Composer can
+        # query/sample/collect when the user asks — DESK_FACTS remain authoritative for
+        # holdings/routes. Opt out only via DESK_ASK_ATTACH_MCP=0.
+        attach_mcp = True
+        attach_flag = os.getenv("DESK_ASK_ATTACH_MCP", "").strip().lower()
+        if attach_flag in {"0", "false", "no"}:
+            attach_mcp = False
+        elif attach_flag in {"1", "true", "yes"}:
+            attach_mcp = True
+        mcp_servers = (
+            _mcp_stdio_config(
+                repo_root,
+                vault_primed=vault_primed_env,
+                synthesis_read_only=synthesis_context,
+                sdk=sdk,
             )
-        mcp_servers = _mcp_stdio_config(
-            repo_root,
-            vault_primed=vault_primed_env,
-            synthesis_read_only=synthesis_context,
-            sdk=sdk,
+            if attach_mcp
+            else {}
         )
+        state["ask_mcp_attached"] = attach_mcp
         streamed: list[str] = []
         run = None
         reply = ""
@@ -827,6 +863,20 @@ def run_cursor_composer_turn(
                 label = _tool_activity_label(name)
                 if label:
                     _emit_event(event_sink, {"type": "activity", "text": label})
+                return
+            # Some Cursor SDK builds surface completed tool calls with a result payload.
+            if typ in {"tool-call-completed", "tool-call-finished", "tool_result"}:
+                tool_call = payload.get("tool_call") or payload
+                name = str(tool_call.get("name") or tool_call.get("toolName") or "")
+                result = tool_call.get("result") or payload.get("result")
+                parsed: Any = result
+                if isinstance(result, str):
+                    try:
+                        parsed = json.loads(result)
+                    except json.JSONDecodeError:
+                        parsed = None
+                if isinstance(parsed, dict):
+                    _emit_mutation_proposal_event(event_sink, name=name, payload=parsed)
 
         send_opts = sdk.send_options(mcp_servers=mcp_servers, on_delta=on_delta)
 
@@ -855,6 +905,19 @@ def run_cursor_composer_turn(
                         send_started = True
                         run = agent.send(turn_text, send_opts)
                         _wait_run_bounded(run, turn_budget - (time.monotonic() - turn_started))
+                        # Surface reviewable mutations as soon as tools finished, before prose gates.
+                        try:
+                            early_arts = _artifacts_from_conversation(run) if run is not None else {}
+                            if early_arts.get("job") or early_arts.get("job_id") or early_arts.get(
+                                "synthesis_proposal"
+                            ):
+                                _emit_mutation_proposal_event(
+                                    event_sink,
+                                    name=str(early_arts.get("tool_name") or ""),
+                                    payload=early_arts,
+                                )
+                        except Exception:  # noqa: BLE001
+                            pass
                         reply = _reply_from_run(run, streamed)
                         if (
                             reply
@@ -887,7 +950,23 @@ def run_cursor_composer_turn(
             )
             if not is_model_error or model_idx == len(model_candidates) - 1:
                 break
-            break
+            # Empty / failed reply after send — try the next model on a fresh agent.
+            # (Resume failures before send already continue via can_retry_fresh above.)
+            agent_id = ""
+            state.pop("cursor_agent_id", None)
+            run = None
+            reply = ""
+            send_started = False
+            tool_call_started = False
+            streamed.clear()
+            _emit_event(
+                event_sink,
+                {
+                    "type": "activity",
+                    "text": f"Retrying with fallback model ({model_candidates[model_idx + 1]})…",
+                },
+            )
+            continue
 
         if not reply:
             reply = EMPTY_REPLY_FALLBACK
@@ -895,6 +974,18 @@ def run_cursor_composer_turn(
         if not prime and not had_agent:
             from scripts.research_data_mcp.desk_reply_sanitize import sanitize_desk_reply
             reply = sanitize_desk_reply(reply, first_turn=True)
+
+        if synthesis_context and not prime and reply and reply != EMPTY_REPLY_FALLBACK:
+            from scripts.research_data_mcp.desk_synthesis_contract import (
+                maybe_repair_synthesis_reply,
+            )
+
+            repaired = maybe_repair_synthesis_reply(
+                reply,
+                first_user_turn=first_synthesis_turn,
+            )
+            if repaired != reply:
+                reply = repaired
 
         is_error = (run is None) or (getattr(run, "status", "") == "error") or (not reply) or (reply == EMPTY_REPLY_FALLBACK)
         synthesis_violations: list[str] = []
@@ -905,38 +996,45 @@ def run_cursor_composer_turn(
 
             synthesis_violations = synthesis_reply_violations(
                 reply,
-                first_user_turn=synthesis_first_turn,
+                first_user_turn=first_synthesis_turn,
             )
             is_error = bool(synthesis_violations)
-        from scripts.research_data_mcp.desk_composer_health import (
-            record_composer_failure,
-            record_composer_success,
-        )
-
-        if is_error:
-            record_composer_failure(
-                (
-                    f"contract_violation:{','.join(synthesis_violations)}"
-                    if synthesis_violations
-                    else str(getattr(run, "status", "") or "empty_reply")
-                ),
-                model=model_id,
-            )
-        else:
-            record_composer_success(model=model_id)
         if is_error and not prime:
             action_result = {
                 "action": "composer_error",
                 "status": str(getattr(run, "status", "") or "empty_reply"),
             }
-            if synthesis_context:
+            recorded = _artifacts_from_conversation(run) if run is not None else {}
+            # Soft-recover when tools already persisted a reviewable mutation — empty prose
+            # must not hide a pending job / proposal behind a generic failure.
+            job = recorded.get("job") if isinstance(recorded.get("job"), dict) else None
+            job_id = str(
+                (job or {}).get("id")
+                or recorded.get("job_id")
+                or recorded.get("pending_job_id")
+                or ""
+            ).strip()
+            proposal = recorded.get("synthesis_proposal")
+            if job_id and not synthesis_context:
+                action_result.update(recorded)
+                action_result["action"] = str(recorded.get("action") or "collect")
+                action_result["job_id"] = job_id
+                if job:
+                    action_result["job"] = job
+                status = str((job or {}).get("status") or recorded.get("job_status") or "pending_approval")
+                action_result["job_status"] = status
+                reply = (
+                    f"Collection job `{job_id}` is recorded"
+                    + (" and waiting for desk approval." if "pending" in status else ".")
+                    + " Composer did not finish a prose summary — use Approve below if required."
+                )
+                is_error = False
+            elif synthesis_context:
                 # MCP proposal tools persist a review-only state before the model
                 # emits its final prose. If that prose then violates the response
                 # contract, a generic "nothing changed" fallback contradicts the
                 # durable canvas. Surface the recorded proposal instead of hiding
                 # the mutation behind another provider turn.
-                recorded = _artifacts_from_conversation(run) if run is not None else {}
-                proposal = recorded.get("synthesis_proposal")
                 if isinstance(proposal, dict):
                     from scripts.research_data_mcp.desk_synthesis_contract import (
                         synthesis_proposal_recorded_reply,
@@ -953,79 +1051,68 @@ def run_cursor_composer_turn(
                         }
                     )
                     reply = synthesis_proposal_recorded_reply(proposal.get("title"))
-                else:
-                    try:
-                        fallback_prompt, fallback_first_turn = (
-                            _prepare_synthesis_fallback_prompt(
-                                gateway,
-                                message,
-                                state,
-                            )
-                        )
-                        return _run_synthesis_reasoning_fallback(
-                            fallback_prompt,
-                            raw_message=message,
-                            state=state,
-                            first_user_turn=fallback_first_turn,
-                            event_sink=event_sink,
-                            fallback_from="cursor_composer",
-                        )
-                    except Exception as exc:
-                        from scripts.research_data_mcp.desk_synthesis_fallback import (
-                            SynthesisFallbackError,
-                        )
-
-                        category = (
-                            exc.category
-                            if isinstance(exc, SynthesisFallbackError)
-                            else "provider_error"
-                        )
-                        action_result.update(
-                            {
-                                "mode": "synthesis",
-                                "fallback": "gemini_failed",
-                                "fallback_error_category": category,
-                                "reason": (
-                                    "composer_contract_violation"
-                                    if synthesis_violations
-                                    else "empty_or_failed_composer_reply"
-                                ),
-                                **(
-                                    {"contract_violations": synthesis_violations}
-                                    if synthesis_violations
-                                    else {}
-                                ),
-                            }
-                        )
-                        reply = synthesis_failure_reply(
-                            "response_contract"
-                            if synthesis_violations
-                            else action_result["status"]
-                        )
-            elif reply == EMPTY_REPLY_FALLBACK:
-                from scripts.research_data_mcp.desk_catalog_fallback import try_inventory_fallback
-
-                brief = str(state.get("vault_brief") or "").strip()
-                fallback = try_inventory_fallback(message.strip(), brief, repo_root=repo_root)
-                if fallback:
-                    reply = fallback
                     is_error = False
-                    action_result = {
-                        "action": "composer",
-                        "brain": "cursor_composer",
-                        "fallback": "vault_inventory",
-                    }
                 else:
-                    reply = (
-                        "Composer did not return a usable answer for that turn. "
-                        "No dataset candidates or collection status were inferred."
+                    # Composer+MCP only — no Gemini / alternate-brain fallback.
+                    action_result.update(
+                        {
+                            "mode": "synthesis",
+                            "fallback": "none",
+                            "brain": "cursor_composer",
+                            "reason": (
+                                "composer_contract_violation"
+                                if synthesis_violations
+                                else "empty_or_failed_composer_reply"
+                            ),
+                            **(
+                                {"contract_violations": synthesis_violations}
+                                if synthesis_violations
+                                else {}
+                            ),
+                        }
                     )
+                    reply = synthesis_failure_reply(
+                        "response_contract"
+                        if synthesis_violations
+                        else action_result["status"]
+                    )
+            elif reply == EMPTY_REPLY_FALLBACK:
+                # No script-brain inventory wallpaper — Composer owns the miss.
+                reply = (
+                    "Composer did not return a usable answer for that turn. "
+                    "No dataset candidates or collection status were inferred. "
+                    "Try again — the desk will use a fresh Composer session."
+                )
+                action_result["retryable"] = True
+            else:
+                action_result["retryable"] = True
         else:
             action_result = _artifacts_from_conversation(run)
+
+        from scripts.research_data_mcp.desk_composer_health import (
+            record_composer_failure,
+            record_composer_success,
+        )
+
+        if is_error:
+            record_composer_failure(
+                (
+                    f"contract_violation:{','.join(synthesis_violations)}"
+                    if synthesis_violations
+                    else str(getattr(run, "status", "") or "empty_reply")
+                ),
+                model=model_id,
+            )
+        else:
+            record_composer_success(model=model_id)
 
         action_result["brain"] = "cursor_composer"
         action_result["composer_model"] = model_id
         action_result["cursor_agent_id"] = state.get("cursor_agent_id")
+        if "ask_mcp_attached" in state:
+            action_result["ask_mcp_attached"] = bool(state.get("ask_mcp_attached"))
+        if state.get("ask_desk_facts_ui"):
+            action_result["desk_facts"] = state.get("ask_desk_facts_ui")
         if action_result.get("state_patch"):
             state.update(action_result["state_patch"])
         if prime and state.get("cursor_agent_id"):
@@ -1069,8 +1156,8 @@ def run_cursor_composer_turn(
         )
     except TimeoutError:
         # A stuck Composer must not hang the desk. In Synthesis, preserve any
-        # proposal the timed-out run already recorded; otherwise continue the
-        # same grounded turn through the read-only fallback provider.
+        # proposal the timed-out run already recorded; otherwise fail closed
+        # (Composer+MCP only — no Gemini alternate brain).
         state.pop("cursor_agent_id", None)
         if synthesis_context and not prime:
             recorded = _artifacts_from_conversation(run) if run is not None else {}
@@ -1094,91 +1181,39 @@ def run_cursor_composer_turn(
                     suggested_prompts=_faculty_starter_prompts(state),
                     tool_name="cursor_composer",
                 )
-            try:
-                fallback_prompt, fallback_first_turn = _prepare_synthesis_fallback_prompt(
-                    gateway,
-                    message,
-                    state,
-                )
-                return _run_synthesis_reasoning_fallback(
-                    fallback_prompt,
-                    raw_message=message,
-                    state=state,
-                    first_user_turn=fallback_first_turn,
-                    event_sink=event_sink,
-                    fallback_from="cursor_composer_timeout",
-                )
-            except Exception as exc:
-                from scripts.research_data_mcp.desk_synthesis_fallback import (
-                    SynthesisFallbackError,
-                )
-
-                category = (
-                    exc.category
-                    if isinstance(exc, SynthesisFallbackError)
-                    else "provider_error"
-                )
-                turn = _composer_timeout_turn(
-                    state, elapsed=time.monotonic() - turn_started, limit=turn_budget
-                )
-                turn.action_result.update(
-                    {
-                        "mode": "synthesis",
-                        "fallback": "gemini_failed",
-                        "fallback_error_category": category,
-                    }
-                )
-                return turn
+            turn = _composer_timeout_turn(
+                state, elapsed=time.monotonic() - turn_started, limit=turn_budget
+            )
+            turn.action_result.update(
+                {"mode": "synthesis", "fallback": "none", "brain": "cursor_composer"}
+            )
+            return turn
         return _composer_timeout_turn(
             state, elapsed=time.monotonic() - turn_started, limit=turn_budget
         )
     except CursorSdkUnavailable as exc:
-        if synthesis_context and not prime:
-            try:
-                fallback_prompt, fallback_first_turn = (
-                    _prepare_synthesis_fallback_prompt(
-                        gateway,
-                        message,
-                        state,
-                    )
-                )
-                return _run_synthesis_reasoning_fallback(
-                    fallback_prompt,
-                    raw_message=message,
-                    state=state,
-                    first_user_turn=fallback_first_turn,
-                    event_sink=event_sink,
-                    fallback_from="cursor_sdk_unavailable",
-                )
-            except Exception as fallback_exc:
-                from scripts.research_data_mcp.desk_synthesis_fallback import (
-                    SynthesisFallbackError,
-                )
-
-                fallback_category = (
-                    fallback_exc.category
-                    if isinstance(fallback_exc, SynthesisFallbackError)
-                    else "provider_error"
-                )
-                return AgentTurn(
-                    plan={"action": "composer_unavailable"},
-                    action_result={
-                        "action": "composer_unavailable",
-                        "error": str(exc),
-                        "mode": "synthesis",
-                        "fallback": "gemini_failed",
-                        "fallback_error_category": fallback_category,
-                    },
-                    reply=synthesis_failure_reply("agent_unavailable"),
-                    suggested_prompts=_faculty_starter_prompts(state),
-                    tool_name="",
-                )
         return AgentTurn(
             plan={"action": "composer_unavailable"},
-            action_result={"action": "composer_unavailable", "error": str(exc)},
+            action_result={
+                "action": "composer_unavailable",
+                "error": str(exc),
+                **(
+                    {
+                        "mode": "synthesis",
+                        "fallback": "none",
+                        "brain": "cursor_composer",
+                    }
+                    if synthesis_context
+                    else {}
+                ),
+            },
             reply=(
-                "Cursor Composer is configured, but cursor_sdk is unavailable on this host. "
-                "Ask the lab operator to install the Cursor SDK in the desk runtime."
+                synthesis_failure_reply("agent_unavailable")
+                if synthesis_context
+                else (
+                    "Cursor Composer is configured, but cursor_sdk is unavailable on this host. "
+                    "Ask the lab operator to install the Cursor SDK in the desk runtime."
+                )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="",
@@ -1188,35 +1223,6 @@ def run_cursor_composer_turn(
 
         record_composer_failure(exc, model=locals().get("model_id", ""))
         synthesis_context = is_synthesis_context(state)
-        if synthesis_context and not prime:
-            try:
-                fallback_prompt, fallback_first_turn = (
-                    _prepare_synthesis_fallback_prompt(
-                        gateway,
-                        message,
-                        state,
-                    )
-                )
-                return _run_synthesis_reasoning_fallback(
-                    fallback_prompt,
-                    raw_message=message,
-                    state=state,
-                    first_user_turn=fallback_first_turn,
-                    event_sink=event_sink,
-                    fallback_from="cursor_composer",
-                )
-            except Exception as fallback_exc:
-                from scripts.research_data_mcp.desk_synthesis_fallback import (
-                    SynthesisFallbackError,
-                )
-
-                fallback_category = (
-                    fallback_exc.category
-                    if isinstance(fallback_exc, SynthesisFallbackError)
-                    else "provider_error"
-                )
-        else:
-            fallback_category = ""
         return AgentTurn(
             plan={"action": "composer_error"},
             action_result={
@@ -1225,8 +1231,8 @@ def run_cursor_composer_turn(
                 **(
                     {
                         "mode": "synthesis",
-                        "fallback": "gemini_failed",
-                        "fallback_error_category": fallback_category,
+                        "fallback": "none",
+                        "brain": "cursor_composer",
                     }
                     if synthesis_context
                     else {}
@@ -1254,20 +1260,8 @@ def run_desk_agent_turn(
     session_id: str = "",
     event_sink: DeskEventSink | None = None,
 ) -> AgentTurn:
-    _ = orchestrator, session_id
-    from scripts.research_data_mcp.desk_direct_turns import (
-        try_direct_equipment_turn,
-        try_direct_synthesis_read_turn,
-    )
-    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
-
-    direct = (
-        try_direct_synthesis_read_turn(gateway, message, state)
-        if synthesis_first_turn(state)
-        else try_direct_equipment_turn(gateway, message, state)
-    )
-    if direct is not None:
-        return direct
+    """Composer + MCP only — regex/script Ask interceptors are stripped."""
+    _ = orchestrator
     return run_cursor_composer_turn(
         gateway, message, state, session_id=session_id, event_sink=event_sink
     )

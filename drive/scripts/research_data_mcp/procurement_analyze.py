@@ -135,6 +135,10 @@ def format_analysis_report(
 
 
 def llm_interpret_analysis(question: str, stats: dict[str, Any], sample_rows: list[dict[str, Any]]) -> str:
+    from scripts.research_data_mcp.llm_client import legacy_llm_enabled
+
+    if not legacy_llm_enabled():
+        return ""
     api_key = os.getenv("DEEPSEEK_API_KEY", "")
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
     if not api_key and "localhost" not in base_url:

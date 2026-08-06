@@ -176,6 +176,54 @@ def synthesis_proposal_recorded_reply(title: str = "") -> str:
     )
 
 
+_CLARIFICATION_FALLBACK = (
+    "What is the single highest-value ambiguity we should resolve before locking this construct?"
+)
+
+
+def normalize_synthesis_clarification(text: str) -> str:
+    """Hands repair: keep Composer prose, enforce exactly one clarification question."""
+    reply = str(text or "").strip()
+    if not reply:
+        return reply
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", reply) if p and p.strip()]
+    if not parts:
+        return reply
+    questions = [p for p in parts if "?" in p]
+    statements = [p for p in parts if "?" not in p]
+    if len(questions) == 1 and reply.count("?") == 1:
+        return reply
+    if not questions:
+        return f"{reply.rstrip()}\n\n{_CLARIFICATION_FALLBACK}"
+    chosen = questions[-1]
+    q_idx = chosen.find("?")
+    if q_idx >= 0:
+        chosen = chosen[: q_idx + 1].strip()
+    body = " ".join(statements).strip()
+    if body:
+        return f"{body}\n\n{chosen}"
+    return chosen
+
+
+def maybe_repair_synthesis_reply(text: str, *, first_user_turn: bool) -> str:
+    """Repair only clarification-count misses; never paper over false execution claims."""
+    reply = str(text or "").strip()
+    if not first_user_turn or not reply:
+        return reply
+    violations = synthesis_reply_violations(reply, first_user_turn=True)
+    if "clarification_question_count" not in violations:
+        return reply
+    if "false_execution_claim" in violations or "empty_reply" in violations:
+        return reply
+    repaired = normalize_synthesis_clarification(reply)
+    repaired_violations = synthesis_reply_violations(repaired, first_user_turn=True)
+    if "clarification_question_count" in repaired_violations:
+        return reply
+    if "false_execution_claim" in repaired_violations:
+        return reply
+    return repaired
+
+
 def synthesis_reply_violations(text: str, *, first_user_turn: bool) -> list[str]:
     """Return contract violations that make a model reply unsafe to surface."""
     reply = str(text or "").strip()

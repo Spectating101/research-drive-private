@@ -22,6 +22,8 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/health", "handler": "health"},
     {"method": "GET", "path": "/datasets", "handler": "datasets"},
     {"method": "GET", "path": "/datasets/{id}", "handler": "dataset_describe"},
+    {"method": "POST", "path": "/datasets/{id}/hydrate", "handler": "dataset_hydrate"},
+    {"method": "POST", "path": "/datasets/{id}/relabel", "handler": "dataset_relabel"},
     {"method": "GET", "path": "/query/{id}", "handler": "dataset_query"},
     {"method": "GET", "path": "/library/catalog", "handler": "library_catalog"},
     {"method": "GET", "path": "/library/search", "handler": "library_unified_search"},
@@ -40,6 +42,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/discover/intents/{intent_id}/route", "handler": "library_discover_intent_route"},
     {"method": "POST", "path": "/library/discover/intents/{intent_id}/submit", "handler": "library_discover_intent_submit"},
     {"method": "POST", "path": "/library/craft/collect-plan", "handler": "library_craft_collect_plan"},
+    {"method": "POST", "path": "/library/craft/pending-collect", "handler": "library_propose_pending_collect"},
     {"method": "POST", "path": "/library/craft/discover-proposal", "handler": "library_craft_discover_proposal"},
     {"method": "GET", "path": "/library/discover/sources", "handler": "library_discover_sources"},
     {"method": "POST", "path": "/library/discover/sources/preview", "handler": "library_discover_source_preview"},
@@ -324,6 +327,37 @@ def _handlers() -> dict[str, Handler]:
     def dataset_describe(stack, query, payload, params):
         return stack.gateway.describe_dataset(params["id"])
 
+    def dataset_hydrate(stack, query, payload, params):
+        out = stack.gateway.hydrate_dataset(params["id"])
+        _activity(
+            stack,
+            "hydrate",
+            params["id"],
+            meta={"hydrated": out.get("hydrated"), "ok": (out.get("hydrate") or {}).get("ok")},
+        )
+        return out
+
+    def dataset_relabel(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        extras = body.get("extras") if isinstance(body.get("extras"), dict) else None
+        out = stack.gateway.relabel_dataset(
+            params["id"],
+            dry_run=bool(body.get("dry_run")),
+            background=bool(body.get("background")),
+            extras=extras,
+        )
+        _activity(
+            stack,
+            "relabel",
+            params["id"],
+            meta={
+                "applied": out.get("applied"),
+                "provider": out.get("provider"),
+                "title": (out.get("meaning") or {}).get("title") or out.get("title"),
+            },
+        )
+        return out
+
     def dataset_query(stack, query, payload, params):
         params_out = dict(query)
         if "limit" in params_out:
@@ -357,13 +391,29 @@ def _handlers() -> dict[str, Handler]:
 
     def library_discover(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "")
+        # auto → lexical fast / Composer; lexical → hand only; agent/toolbox aliases → auto
+        mode = str(query.get("mode") or "auto").strip().lower() or "auto"
+        if mode in {"agent", "toolbox", "toolbox_agent"}:
+            mode = "auto"
         out = stack.gateway.discover_search(
             q,
             email=str(query.get("email") or ""),
             limit=int(query.get("limit", 12)),
+            mode=mode,
         )
         if q.strip():
-            _activity(stack, "discover", q[:200], meta={"limit": query.get("limit"), "total": out.get("total")})
+            _activity(
+                stack,
+                "discover",
+                q[:200],
+                meta={
+                    "limit": query.get("limit"),
+                    "total": out.get("total"),
+                    "mode": out.get("mode") or mode,
+                    "engine": out.get("engine"),
+                    "next_action": out.get("next_action"),
+                },
+            )
         return out
 
     def library_discover_assessment(stack, query, payload, params):
@@ -671,6 +721,17 @@ def _handlers() -> dict[str, Handler]:
             scrape_mode=str(payload.get("scrape_mode") or "page"),
         )
 
+    def library_propose_pending_collect(stack, query, payload, params):
+        """Job-first: measure → craft → pending job. Composer not required."""
+        rail = payload.get("rail_context") if isinstance(payload.get("rail_context"), dict) else {}
+        return stack.tools.research_propose_pending_collect(
+            query=str(payload.get("query") or ""),
+            research_need=str(payload.get("research_need") or payload.get("need") or ""),
+            url=str(payload.get("url") or ""),
+            title=str(payload.get("title") or ""),
+            rail_context=rail,
+        )
+
     def library_craft_discover_proposal(stack, query, payload, params):
         return stack.tools.research_craft_discover_proposal(
             research_need=str(payload.get("research_need") or payload.get("need") or ""),
@@ -908,11 +969,14 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.ops_status(lane=query.get("lane", ""))
 
     def library_advise(stack, query, payload, params):
+        rail = payload.get("rail_context")
         return stack.gateway.advise_datasets(
             str(payload.get("goal") or payload.get("message") or ""),
             current_dataset_id=str(payload.get("current_dataset_id") or payload.get("dataset_id") or ""),
             current_task_id=str(payload.get("current_task_id") or ""),
             limit=int(payload.get("limit", 5)),
+            rail_context=rail if isinstance(rail, dict) else None,
+            skip_cache=True,
         )
 
     def library_procure_chat(stack, query, payload, params):
@@ -1440,6 +1504,7 @@ def _handlers() -> dict[str, Handler]:
         "health": health,
         "datasets": datasets,
         "dataset_describe": dataset_describe,
+        "dataset_hydrate": dataset_hydrate,
         "dataset_query": dataset_query,
         "library_catalog": library_catalog,
         "library_unified_search": library_unified_search,
@@ -1458,6 +1523,7 @@ def _handlers() -> dict[str, Handler]:
         "library_discover_intent_route": library_discover_intent_route,
         "library_discover_intent_submit": library_discover_intent_submit,
         "library_craft_collect_plan": library_craft_collect_plan,
+        "library_propose_pending_collect": library_propose_pending_collect,
         "library_craft_discover_proposal": library_craft_discover_proposal,
         "library_discover_sources": library_discover_sources,
         "library_discover_source_preview": library_discover_source_preview,

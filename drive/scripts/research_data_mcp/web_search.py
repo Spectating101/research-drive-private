@@ -586,23 +586,9 @@ def discover_with_catalog(
             queries.append(q)
 
     catalog_rows: list[dict[str, Any]] = []
-    for q in queries[:5]:
-        try:
-            payload = gateway.search_catalog(q=q, limit=max(5, max_results))
-            catalog_rows.extend(payload.get("rows") or [])
-        except Exception:
-            pass
-
+    # Local catalog / plan_sources ranking removed from discovery wallpaper —
+    # Composer uses research_discover_desk + research_web_discover instead.
     source_rows: list[dict[str, Any]] = []
-    try:
-        source_rows = (gateway.plan_sources(message, limit=max_results).get("rows") or [])
-    except Exception:
-        pass
-    for q in queries[1:3]:
-        try:
-            source_rows.extend(gateway.plan_sources(q, limit=5).get("rows") or [])
-        except Exception:
-            pass
 
     web = discover_sources(
         gateway.repo_root,

@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 
 
-_PATH_LINE = re.compile(r"data_lake/|/home/|registry_datasets|`\w+_\w+`", re.I)
+_PATH_LINE = re.compile(r"data_lake/|/home/|registry_datasets", re.I)
 
 
 def sanitize_desk_reply(text: str, *, first_turn: bool = False) -> str:

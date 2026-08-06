@@ -131,7 +131,7 @@ def test_provider_failure_is_not_scored_as_reasoning_failure():
     assert evaluated["checks"] == []
 
 
-def test_provider_failure_reports_the_fallback_chain():
+def test_provider_failure_reports_composer_only_chain():
     from scripts.research_data_mcp.synthesis_acceptance import evaluate_response
 
     result = {
@@ -141,8 +141,7 @@ def test_provider_failure_reports_the_fallback_chain():
             "action": "composer_error",
             "brain": "cursor_composer",
             "error": "internal error",
-            "fallback": "gemini_failed",
-            "fallback_error_category": "authentication",
+            "fallback": "none",
         },
     }
     evaluated = evaluate_response(_case(), result)
@@ -151,8 +150,8 @@ def test_provider_failure_reports_the_fallback_chain():
     assert evaluated["provider_chain"] == {
         "primary": "cursor_composer",
         "primary_error": "internal error",
-        "fallback": "gemini_failed",
-        "fallback_error_category": "authentication",
+        "fallback": "none",
+        "fallback_error_category": "",
     }
 
 

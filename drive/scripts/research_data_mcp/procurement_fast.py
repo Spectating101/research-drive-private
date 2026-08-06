@@ -308,17 +308,34 @@ def local_search(
             if "promoted" not in badges:
                 badges.append("promoted")
             proc = {**proc, "badges": badges, "can_collect": True, "status": "ready"}
+        show_title = (
+            row.get("display_name")
+            or row.get("title")
+            or row.get("name")
+            or dataset_id
+        )
+        desc_parts = [
+            str(row.get("description") or "").strip(),
+            str(row.get("meaning_about") or "").strip(),
+            str(row.get("recommended_use") or "").strip(),
+        ]
         item = {
             "kind": "local_registry",
             "dataset_id": dataset_id,
-            "title": row.get("name") or dataset_id,
+            "title": show_title,
+            "display_name": show_title,
             "source": "registry",
             "local_path": local_path,
             "local_ready": on_disk,
             "analysis_readiness": row.get("analysis_readiness"),
             "procureability": proc,
+            "aliases": list(row.get("aliases") or [])[:12],
+            "keywords": list(row.get("keywords") or [])[:24],
             "tags": row.get("tags") or row.get("keywords") or [],
-            "description": row.get("recommended_use") or row.get("description") or "",
+            "meaning_about": row.get("meaning_about") or "",
+            "recommended_use": row.get("recommended_use") or "",
+            # Prefer full description for match; recommended_use alone drops intent phrasing.
+            "description": " ".join(p for p in desc_parts if p),
         }
         sc = score_row(item, query)
         if sc <= 0:
@@ -328,27 +345,8 @@ def local_search(
         cand["kind"] = "registry_dataset"
         _add(cand)
 
-    try:
-        curated = gateway.search_catalog(q=query, limit=max(8, limit))
-        for row in curated.get("rows") or []:
-            item = {
-                "kind": "catalog",
-                "dataset_id": row.get("dataset_id") or row.get("id"),
-                "title": row.get("title") or row.get("name"),
-                "source": row.get("source") or "catalog",
-                "description": row.get("description"),
-                "url": row.get("url"),
-                "procureability": row.get("procureability")
-                or {"status": "catalog", "can_collect": bool(row.get("launchable"))},
-            }
-            sc = score_row(item, query)
-            if sc <= 0:
-                continue
-            cand = candidate_from_row(item, 0, score=sc)
-            cand["score"] = round(sc * _collect_score_boost(cand), 2)
-            _add(cand)
-    except Exception:
-        pass
+    # Curated external catalog merge removed — that wallpaper was the Zenodo/CoinGecko
+    # script-brain failure mode. Registry + on-disk index + declared routes only.
 
     for score, row in acquisition_route_rows(gateway, query, limit=max(limit, 8)):
         cand = candidate_from_acquisition_route(row, 0, score=score)
@@ -481,7 +479,7 @@ def catalog_search(gateway: Any, query: str, *, limit: int = 6) -> dict[str, Any
 
 
 def advice_from_local_search(local: dict[str, Any], message: str) -> dict[str, Any]:
-    """Lightweight advisor payload without legacy LLM calls — for chat / catalog-fast paths."""
+    """Catalog hit list for equipment paths — not a fit verdict. Composer judges."""
     candidates = local.get("candidates") or []
     recommended = []
     for cand in candidates[:5]:
@@ -495,22 +493,14 @@ def advice_from_local_search(local: dict[str, Any], message: str) -> dict[str, A
                 "reason": str(cand.get("procureability_label") or cand.get("collect_via") or ""),
             }
         )
-    if local.get("strong_local_hit"):
-        verdict = "good_fit"
-        message_out = f"Local catalog match for: {message[:120]}"
-    elif candidates and not local.get("index_miss"):
-        verdict = "partial_fit"
-        message_out = f"Local leads found; may need external supplement for: {message[:120]}"
-    else:
-        verdict = "weak"
-        message_out = f"Weak local match for: {message[:120]}"
     return {
-        "verdict": verdict,
-        "message": message_out,
+        "verdict": "catalog_only",
+        "message": f"Lexical catalog leads for: {message[:120]} (Composer judges fit).",
         "recommended": recommended,
         "not_recommended": [],
-        "next_steps": ["download #1", "source this for me"] if local.get("index_miss") else ["download #1", "preview #1"],
+        "next_steps": ["ask Composer", "download #1"] if recommended else ["ask Composer", "paste a URL"],
         "engine": "local_search",
+        "demoted": True,
     }
 
 

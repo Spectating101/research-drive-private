@@ -61,19 +61,24 @@ def test_duplicate_routes_collapse():
     assert len(out) == 1
 
 
-def test_licensed_sources_are_offered_as_a_request_not_a_click(tmp_path, monkeypatch):
+def test_licensed_sources_are_offered_as_a_request_not_a_click(tmp_path):
     """'Add to collection' must not promise what an entitlement gate blocks."""
     from scripts.research_data_mcp import gap_routes
 
     root = _repo(tmp_path, {
-        "crsp_moveit": {"access_mode": "materialized_bulk"},
-        "wrds_crsp_compustat": {"access_mode": "planned"},
+        "crsp_moveit": {
+            "label": "CRSP MOVEit",
+            "access_mode": "materialized_bulk",
+            "capabilities": ["daily_prices"],
+            "geographies": ["US"],
+        },
+        "wrds_crsp_compustat": {
+            "label": "WRDS CRSP/Compustat",
+            "access_mode": "planned",
+            "capabilities": ["daily_prices", "fundamentals"],
+            "geographies": ["US"],
+        },
     })
-    monkeypatch.setattr(gap_routes, "run_cursor_prompt", lambda *a, **k: "", raising=False)
-    monkeypatch.setattr(
-        "scripts.research_data_mcp.requirement_extraction.run_cursor_prompt",
-        lambda *a, **k: "geography | crsp_moveit | US coverage\ngeography | wrds_crsp_compustat | licensed",
-    )
     out = gap_routes.routes_for_gaps(
         "US equity returns",
         {"assessment_basis": {"dimension_status": {"geography": "not_supported"}}},
@@ -115,3 +120,104 @@ def test_genuinely_complete_coverage_still_reports_nothing_missing(tmp_path):
         root,
     )
     assert out["reason"] == "nothing_missing"
+
+
+def test_sources_block_uses_label_capabilities_and_geography():
+    """Blank descriptions were the grounding failure behind junk polling routes."""
+    from scripts.research_data_mcp.gap_routes import _sources_block
+
+    block = _sources_block({
+        "crsp_moveit": {
+            "label": "CRSP MOVEit Cloud",
+            "access_mode": "materialized_bulk",
+            "capabilities": ["daily_prices", "index_pit_survivorship"],
+            "geographies": ["US"],
+        }
+    })
+    assert "CRSP MOVEit Cloud" in block
+    assert "daily_prices" in block
+    assert "covers: US" in block
+    assert "name" not in block  # must not depend on a key the map does not have
+
+
+def test_polling_short_circuits_without_model(tmp_path, monkeypatch):
+    """Unserviceable questions must not wait on a model call the FE will time out."""
+    from scripts.research_data_mcp import gap_routes
+
+    called = {"n": 0}
+
+    def boom(*a, **k):
+        called["n"] += 1
+        raise AssertionError("model must not be called when nothing is plausible")
+
+    root = _repo(tmp_path, {
+        "crsp_moveit": {
+            "label": "CRSP MOVEit",
+            "access_mode": "materialized_bulk",
+            "capabilities": ["daily_prices"],
+            "geographies": ["US"],
+        },
+    })
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.requirement_extraction.run_cursor_prompt", boom,
+    )
+    out = gap_routes.routes_for_query("US Polling data", root)
+    assert out == {"routes": [], "reason": "no_route_found"}
+    assert called["n"] == 0
+
+
+
+def test_none_response_is_no_route_found(tmp_path, monkeypatch):
+    """Deterministic path: when nothing is plausible, empty — model unused."""
+    from scripts.research_data_mcp import gap_routes
+
+    root = _repo(tmp_path, {
+        "crsp_moveit": {
+            "label": "CRSP MOVEit",
+            "access_mode": "materialized_bulk",
+            "capabilities": ["daily_prices"],
+            "geographies": ["US"],
+        }
+    })
+    out = gap_routes.routes_for_query("US Polling data", root)
+    assert out == {"routes": [], "reason": "no_route_found"}
+
+
+def test_taiwan_prices_keeps_declared_price_source(tmp_path):
+    from scripts.research_data_mcp import gap_routes
+
+    root = _repo(tmp_path, {
+        "lseg_edp": {
+            "label": "LSEG Workspace / EDP",
+            "access_mode": "materialized_instant",
+            "capabilities": ["daily_prices", "fundamentals"],
+            "geographies": ["Taiwan", "US"],
+            "provider": "LSEG",
+        },
+        "gdelt": {
+            "label": "GDELT news graph",
+            "access_mode": "materialized_bulk",
+            "capabilities": ["entity_news_shocks"],
+            "geographies": ["Asia_multi_13"],
+        },
+    })
+    out = gap_routes.routes_for_query("Taiwan listed firm daily prices", root)
+    assert out["reason"] == "ok"
+    assert [r["source_id"] for r in out["routes"]] == ["lseg_edp"]
+
+
+def test_route_plausible_units():
+    from scripts.research_data_mcp.gap_routes import route_plausible
+
+    price = {
+        "label": "CRSP MOVEit",
+        "capabilities": ["daily_prices"],
+        "geographies": ["US"],
+    }
+    assert route_plausible("US Polling data", price) is False
+    assert route_plausible("Taiwan listed firm daily prices", {
+        "label": "LSEG EDP",
+        "capabilities": ["daily_prices"],
+        "geographies": ["Taiwan"],
+    }) is True
+    assert route_plausible("anything", {"label": "", "capabilities": []}) is False

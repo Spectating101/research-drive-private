@@ -216,23 +216,12 @@ class ProcurementChatOrchestrator:
         from pathlib import Path as _Path
 
         from scripts.research_data_mcp.desk_brain import cursor_composer_available, desk_brain_mode
-
-        from scripts.research_data_mcp.desk_direct_turns import (
-            is_direct_equipment_message,
-            is_direct_probe_message,
-            is_direct_status_message,
-        )
         from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
 
-        rail = state.get("rail_context")
-        rail_dict = rail if isinstance(rail, dict) else None
-        skip_composer_priming = is_direct_equipment_message(message, rail_dict)
-        direct_probe = is_direct_probe_message(message, rail_dict)
-        direct_search = skip_composer_priming and not direct_probe and not is_direct_status_message(message)
-        direct_status = is_direct_status_message(message)
+        # Regex Ask interceptors stripped — always Composer+MCP path.
         chat_timeout = chat_timeout_seconds()
 
-        if not skip_composer_priming and not state.get("vault_brief"):
+        if not state.get("vault_brief"):
             from pathlib import Path
 
             from scripts.research_data_mcp.desk_vault_brief import build_vault_brief
@@ -242,42 +231,56 @@ class ProcurementChatOrchestrator:
             except Exception:
                 state["vault_brief"] = ""
 
-        # Priming must not consume the whole chat budget. Cap wait to half the timeout.
-        prime_wait = max(1, min(60, int(chat_timeout * 0.5)))
+        # Ask injects L0 DESK_FACTS per turn — do not block the faculty message on a
+        # vault-prime Composer round (that was paying ~Composer latency twice).
+        # Warm in the background only; never wait on the request path.
         if (
-            not skip_composer_priming
-            and desk_brain_mode(_Path(gateway.repo_root)) == "cursor_composer"
+            desk_brain_mode(_Path(gateway.repo_root)) == "cursor_composer"
             and cursor_composer_available()
             and not state.get("desk_primed")
             and not state.get("cursor_agent_id")
+            and not state.get("desk_priming")
         ):
             from scripts.research_data_mcp.desk_warm import warm_desk_session
 
-            if not state.get("desk_priming"):
-                warm_desk_session(
-                    gateway,
-                    user_email=state.get("user_email"),
-                    session_id=sid,
-                    background=True,
-                )
-            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=prime_wait)
-            session = self.sessions.get(sid)
-            state = dict(session.get("state") or state)
-            self.sessions.update_state(sid, state)
-        elif not skip_composer_priming and state.get("desk_priming"):
-            state = yield from self._wait_for_prime_events(gateway, sid, timeout_seconds=prime_wait)
-            session = self.sessions.get(sid)
-            state = dict(session.get("state") or state)
+            warm_desk_session(
+                gateway,
+                user_email=state.get("user_email"),
+                session_id=sid,
+                background=True,
+            )
 
         progress_text = "Understanding your request…"
-        if direct_status:
-            progress_text = "Checking session status…"
-        elif direct_probe:
-            progress_text = "Running direct probe…"
-        elif direct_search:
-            progress_text = "Searching the vault…"
         self.sessions.append_message(sid, "user", message)
         yield {"type": "progress", "phase": "planning", "text": progress_text}
+
+        # L0 hands before Composer — stream measured facts for UI; Composer still drafts.
+        # Synthesis included: measure the open objective / typed Ask so Ask assists the construct
+        # with Library truth, not catalog wallpaper.
+        from scripts.research_data_mcp.desk_ask_grounding import (
+            measure_ask_desk,
+            serialize_desk_facts_ui,
+        )
+
+        desk_facts_ui: dict[str, Any] | None = None
+        measured = measure_ask_desk(
+            gateway, message, rail_context=state.get("rail_context")
+        )
+        desk_facts_ui = serialize_desk_facts_ui(measured)
+        state["_ask_desk_measure"] = measured
+        state["ask_desk_facts"] = {
+            "strong_held": measured.get("strong_held"),
+            "held_count": measured.get("held_count"),
+            "route_count": measured.get("route_count"),
+            "route_reason": measured.get("route_reason"),
+        }
+        state["ask_desk_facts_ui"] = desk_facts_ui
+        self.sessions.update_state(sid, state)
+        yield {
+            "type": "desk_facts",
+            "desk_facts": desk_facts_ui,
+            "text": "Library measure ready",
+        }
 
         turn_queue: queue.Queue[tuple[str, Any]] = queue.Queue()
 
@@ -310,8 +313,8 @@ class ProcurementChatOrchestrator:
         heartbeat_idx = 0
         streamed_answer = False
         streamed_chunks: list[str] = []
-        # Direct equipment paths are not SLA-bounded by Composer; Composer path is hard-bounded.
-        turn_limit = 0.0 if skip_composer_priming else chat_timeout
+        # Composer path is hard-bounded by chat timeout.
+        turn_limit = chat_timeout
         turn: AgentTurn | None = None
         sla_hit = False
 
@@ -352,10 +355,10 @@ class ProcurementChatOrchestrator:
         if sla_hit and turn is None:
             elapsed = int(time.monotonic() - started)
             partial = "".join(streamed_chunks).strip()
-            state.pop("composer_pending", None)
+            # Keep the thread marked pending while the background watcher harvests
+            # the late Composer turn — FE can poll session history for completion.
+            state["composer_pending"] = True
             self.sessions.update_state(sid, state)
-            # Still harvest a late completion into session history, but the HTTP
-            # response is a typed timeout — not an indefinite hang / soft pending.
             self._watch_composer_completion(
                 self,
                 sid=sid,
@@ -367,8 +370,9 @@ class ProcurementChatOrchestrator:
             )
             reply = partial or (
                 f"Ask timed out after {elapsed}s waiting for Composer "
-                f"(limit {int(turn_limit)}s). No collection or approval was started. "
-                "Try a direct command (search, probe, status) or ask about the selected object."
+                f"(limit {int(turn_limit)}s). Composer may still finish this turn in the "
+                "background — this thread will update when it lands. "
+                "No collection or approval was started from this timeout."
             )
             turn = AgentTurn(
                 plan={"action": "composer_timeout"},
@@ -378,15 +382,28 @@ class ProcurementChatOrchestrator:
                     "elapsed_seconds": elapsed,
                     "timeout_seconds": float(turn_limit),
                     "partial_reply": bool(partial),
+                    "background_watch": True,
+                    "still_working": True,
                 },
                 reply=reply,
                 suggested_prompts=["status", "Search vault for related datasets", "What do we know about this?"],
                 tool_name="cursor_composer",
             )
+            yield {
+                "type": "progress",
+                "phase": "composing",
+                "action": "composer_pending",
+                "text": "Composer still working in the background…",
+                "elapsed_seconds": elapsed,
+            }
         elif turn is None:
             raise RuntimeError("chat turn did not complete")
 
-        if str((turn.action_result or {}).get("action") or "") == "composer_pending":
+        action_payload = turn.action_result if isinstance(turn.action_result, dict) else {}
+        if (
+            str(action_payload.get("action") or "") == "composer_pending"
+            or action_payload.get("background_watch")
+        ):
             state["composer_pending"] = True
         else:
             state.pop("composer_pending", None)
@@ -466,6 +483,7 @@ class ProcurementChatOrchestrator:
                 "session_id": sid,
                 "reply": reply,
                 "action": action,
+                "desk_facts": state.get("ask_desk_facts_ui") or desk_facts_ui,
                 "candidates": state.get("candidates") or [],
                 "selected_index": state.get("selected_index"),
                 "campaign_id": state.get("campaign_id"),
@@ -522,8 +540,9 @@ class ProcurementChatOrchestrator:
         action: str,
         action_result: dict[str, Any],
     ) -> str:
-        """Label Composer outcomes for UI state; Composer still chooses all tools."""
-        if action and action != "composer":
+        """Label outcomes from tool/platform artifacts only — never from reply prose."""
+        _ = message, reply  # kept for call-site compatibility; do not scrape text
+        if action and action not in {"composer", "search"}:
             return action
         # Prefer explicit platform mutations from equipment / tools.
         if action_result.get("platform_registered") and action_result.get("subscription_id"):
@@ -534,42 +553,24 @@ class ProcurementChatOrchestrator:
             isinstance(action_result.get("intent"), dict) and action_result.get("intent", {}).get("id")
         ):
             return "create_intent"
-        text = f"{message}\n{reply}".lower()
-        if "subscription" in text and any(t in text for t in ("schedule", "monday", "weekly", "refresh")):
-            if "pause" in text[:200]:
-                return "pause_subscription"
-            if "resume" in text[:200]:
-                return "resume_subscription"
-            if "stop" in text[:200]:
-                return "stop_subscription"
-            return "schedule_refresh"
-        if "create" in text[:160] and "intent" in text[:200]:
-            return "create_intent"
-        if action_result.get("job") or action_result.get("pending_job_id"):
+        if action_result.get("job") or action_result.get("pending_job_id") or action_result.get("job_id"):
             return "queue"
         if action_result.get("preview"):
             return "query"
-        if "probe " in text[:80] or "probe result" in text or "probe succeeded" in text:
-            return "probe_url"
-        doi_like = "doi" in text or "10." in text[:180]
-        if "collect " in text[:120] and doi_like:
-            if "already in the vault" in text or "already vaulted" in text or (
-                "in the vault" in text and ("already" in text or "checksum" in text)
-            ):
-                return "in_lab"
-            if "queued" in text or "collection job" in text or "collected" in text:
-                return "collect_doi"
         if action_result.get("result_kind") == "discover_sources" or action_result.get("action") == "discover_search":
             return "discover_search"
         if action_result.get("action") == "discover_collect" or action_result.get("result_kind") == "discover_collect":
             return "discover_collect"
         if action_result.get("action") == "spectator_scrape":
             return "spectator_scrape"
-        if "discover catalog" in text or "source_id" in text and "access" in text:
-            if any(tkn in text[:200] for tkn in ("discover", "catalog", "source")):
-                return "discover_search"
-        if any(token in text[:160] for token in ("what ", "find ", "search ", "which ", "do we have")):
-            return "search"
+        if action_result.get("action") == "collect_doi":
+            return "collect_doi"
+        if action_result.get("action") == "probe_url":
+            return "probe_url"
+        if action_result.get("action") == "in_lab":
+            return "in_lab"
+        if action:
+            return action
         return "composer"
 
     def _run_agent_turn(
@@ -600,10 +601,43 @@ class ProcurementChatOrchestrator:
 
         grounding = grounding_from_rail(state.get("rail_context") or {})
         readiness = grounding.get("canonical_readiness")
-        clean_suggestions = sanitize_suggested_prompts(suggestions, readiness)
         steps: list[dict[str, Any]] = []
-        for prompt in clean_suggestions[:3]:
-            steps.append({"label": prompt[:80], "prompt": prompt, "kind": "chat"})
+
+        # Prefer actions grounded on this turn's measured holdings over wallpaper.
+        facts = state.get("ask_desk_facts_ui") or state.get("_ask_desk_measure") or {}
+        held = [r for r in (facts.get("held") or []) if isinstance(r, dict)]
+        for row in held[:3]:
+            did = str(row.get("dataset_id") or "").strip()
+            title = str(row.get("title") or did).strip()[:56]
+            if not did:
+                continue
+            ready = str(row.get("analysis_readiness") or "").lower() in {
+                "query_ready",
+                "instant",
+            } or row.get("local_ready") is True
+            if ready:
+                steps.append(
+                    {
+                        "label": f"Preview {title}",
+                        "prompt": f"Preview rows from {did} ({title}).",
+                        "kind": "chat",
+                        "dataset_id": did,
+                    }
+                )
+            else:
+                steps.append(
+                    {
+                        "label": f"Open {title}",
+                        "prompt": f"Open Library holding {did} ({title}) and explain readiness.",
+                        "kind": "chat",
+                        "dataset_id": did,
+                    }
+                )
+
+        if not steps:
+            clean_suggestions = sanitize_suggested_prompts(suggestions, readiness)
+            for prompt in clean_suggestions[:3]:
+                steps.append({"label": prompt[:80], "prompt": prompt, "kind": "chat"})
         if state.get("pending_job_id"):
             steps.append({"label": "Check job progress", "prompt": "status", "kind": "status"})
         paths = action_result.get("paths") or []

@@ -1477,9 +1477,13 @@ def semantic_search_discover_sources(
     query: str,
     *,
     limit: int = 24,
-    prefer_embeddings: bool = True,
+    prefer_embeddings: bool = False,
 ) -> dict[str, Any]:
-    """Meaning-aware search over source/provider metadata — never registry datasets."""
+    """Meaning-aware search over source/provider metadata — never registry datasets.
+
+    Default is lexical capability search. Embeddings are opt-in for Composer/MCP,
+    never Explore authority.
+    """
     root = Path(repo_root).resolve()
     limit = max(1, min(int(limit or 24), 100))
     q = str(query or "").strip()
@@ -1734,13 +1738,13 @@ def search_discover_sources(
     live: bool = False,
     semantic: bool = False,
     prefer: str = "",
-    prefer_embeddings: bool = True,
+    prefer_embeddings: bool = False,
 ) -> dict[str, Any]:
     """Return normalized Explore results from known source/provider/connector facts.
 
     Default is fast catalog-only with source-level capability dedupe.
     Optional live=1 federates Hugging Face + DataCite only.
-    Optional semantic=1 runs embedding/lexical meaning search over source metadata.
+    Optional semantic=1 runs meaning search over source metadata (embeddings opt-in).
     """
     if semantic:
         out = semantic_search_discover_sources(

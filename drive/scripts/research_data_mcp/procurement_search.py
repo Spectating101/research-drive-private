@@ -44,11 +44,65 @@ PROCUREMENT_QUERY_STOPWORDS = frozenset(
         "help", "illustrate", "measure", "measurement", "measurements", "public", "open",
         "daily", "weekly", "monthly", "quarterly", "annual", "yearly", "time", "series",
         "my", "our", "we", "me", "of", "to", "in", "on", "at", "by", "as", "it", "are", "is", "do", "or",
+        # Conversational Ask wrappers — must not inflate compound-query thresholds.
+        "hold", "holds", "held", "holding", "holdings", "have", "has", "any", "some",
+        "please", "tell", "show", "give", "list", "available", "there",
+        # Weak question fillers (keep distinctive stems like "speeding" / "slowing").
+        "up", "down", "out", "over", "into", "about", "again", "still", "just",
+        "rise", "rising", "fell", "falling",
     }
 )
 QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_selection
 
-# When query contains domain anchor tokens, top hit must match same domain in blob.
+# Weak topical tokens — alone they must not keep a row when the query also names
+# distinctive anchors (e.g. "country"+"news" from a "not a country-level news panel"
+# correction phrase matching an Asia/GDELT query).
+GENERIC_TOPIC_TOKENS = frozenset(
+    {
+        "country",
+        "countries",
+        "news",
+        "media",
+        "market",
+        "markets",
+        "stock",
+        "stocks",
+        "equity",
+        "equities",
+        "price",
+        "prices",
+        "return",
+        "returns",
+        "firm",
+        "firms",
+        "company",
+        "companies",
+        "global",
+        "level",
+        "record",
+        "records",
+        "value",
+        "values",
+        "ratio",
+        "ratios",
+        "index",
+        "indexes",
+        "indices",
+        "security",
+        "securities",
+        "snapshot",
+        "export",
+        "mapping",
+        "layer",
+        "crosswalk",
+        "lookup",
+        "reference",
+        "join",
+        "joins",
+    }
+)
+
+
 def _tokens(text: str) -> set[str]:
     normalized = str(text or "").translate(SUBSCRIPT_DIGITS).lower()
     return {t for t in TOKEN_RE.findall(normalized) if len(t) > 1 and t not in PROCUREMENT_QUERY_STOPWORDS}
@@ -132,6 +186,15 @@ def query_topic_tokens(query: str) -> set[str]:
     return _tokens(query) - geography
 
 
+def distinctive_topic_tokens(query: str) -> set[str]:
+    """Topic tokens strong enough to establish on-topic vault relevance."""
+    return {
+        t
+        for t in query_topic_tokens(query)
+        if t not in GENERIC_TOPIC_TOKENS and len(t) > 2
+    }
+
+
 def query_geography_ok(row: dict[str, Any], query: str) -> bool:
     """A named geography is a requirement, but naming two is not a demand for both.
 
@@ -169,7 +232,9 @@ def query_geography_match_count(row: dict[str, Any], query: str) -> int:
 
 
 def _row_blob_raw(row: dict[str, Any]) -> str:
+    """Match blob for relevance — includes vault meaning Store fields (aliases/keywords)."""
     parts = [
+        str(row.get("display_name") or ""),
         str(row.get("title") or row.get("name") or ""),
         str(row.get("dataset_id") or row.get("id") or ""),
         str(row.get("doi") or ""),
@@ -178,8 +243,12 @@ def _row_blob_raw(row: dict[str, Any]) -> str:
         str(row.get("url") or ""),
         str(row.get("local_path") or ""),
         str(row.get("description") or ""),
+        str(row.get("one_line") or ""),
+        str(row.get("meaning_about") or ""),
         str(row.get("recommended_use") or ""),
-        " ".join(str(x) for x in (row.get("tags") or row.get("keywords") or [])),
+        " ".join(str(x) for x in (row.get("aliases") or [])),
+        " ".join(str(x) for x in (row.get("keywords") or [])),
+        " ".join(str(x) for x in (row.get("tags") or [])),
     ]
     return " ".join(parts)
 
@@ -193,10 +262,22 @@ def _token_in_blob(token: str, blob: str) -> bool:
 
 
 def relevance_score(row: dict[str, Any], query_tokens: set[str]) -> float:
+    """Lexical overlap; ignore generic-only coincidence when distinctive tokens exist.
+
+    If the query names distinctive anchors (gdelt, keeling, shock, …) and the row
+    matches none of them, return 0 even when weak tokens like country/news hit —
+    including hits inside “not a … news panel” correction prose.
+    """
     blob = _row_blob(row)
     if not query_tokens:
         return 0.0
-    return float(sum(1.0 for t in query_tokens if _token_in_blob(t, blob)))
+    hits = {t for t in query_tokens if _token_in_blob(t, blob)}
+    if not hits:
+        return 0.0
+    distinctive = {t for t in query_tokens if t not in GENERIC_TOPIC_TOKENS and len(t) > 2}
+    if distinctive and not (hits & distinctive):
+        return 0.0
+    return float(len(hits))
 
 
 def top_query_relevance(query: str, candidate: dict[str, Any] | None) -> float:
@@ -413,7 +494,16 @@ def candidate_from_row(row: dict[str, Any], index: int, *, score: float = 0.0) -
         "local_ready": local_ready,
         "local_path": row.get("local_path"),
     }
-    for key in ("tags", "description", "one_line", "recommended_use", "display_name"):
+    for key in (
+        "tags",
+        "keywords",
+        "aliases",
+        "description",
+        "one_line",
+        "meaning_about",
+        "recommended_use",
+        "display_name",
+    ):
         value = row.get(key)
         if value:
             card.setdefault(key, value)
