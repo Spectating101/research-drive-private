@@ -1,6 +1,7 @@
 /** Discover Explore/History adapters — map BE contracts to faculty UI rows. */
 
 import { isReceiptOnlyAsset, isQueryReadyReadiness, statusPillKind } from "./datasetMeta.js";
+import { evidencePlacement, evidenceWhy } from "./evidencePlacement.js";
 
 export function normalizeDiscoverMode(raw = "") {
   const mode = String(raw || "").trim().toLowerCase();
@@ -118,6 +119,8 @@ export function sourcesResponseToRows(data) {
     if (key) seen.add(key);
     out.push({
       ...candidate,
+      placement: evidencePlacement(candidate),
+      why: evidenceWhy(candidate) || undefined,
       _search_meta: searchMeta,
       search_meta: searchMeta,
       cached: row.cached ?? data?.cached,
@@ -149,6 +152,8 @@ export function searchHitToCandidate(row = {}) {
     candidate_key: candidateKey,
     source_id: row.source_id || "",
     connector_id: row.connector_id || row.desk_connector_id || "",
+    placement: evidencePlacement(row),
+    why: evidenceWhy(row) || undefined,
   };
 }
 

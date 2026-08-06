@@ -1,8 +1,8 @@
-import { displayName, isQueryReadyReadiness } from "@/v2/datasetMeta";
-import { candidateKey } from "@/v2/candidateKey";
-import { assetAuthorityContext } from "@/v2/assetAuthority";
-import { connectorContext } from "@/v2/connectorContract";
-import { normalizeSynthesisExecution } from "@/v2/executionLifecycle";
+import { displayName, isQueryReadyReadiness } from "./datasetMeta.js";
+import { candidateKey } from "./candidateKey.js";
+import { assetAuthorityContext } from "./assetAuthority.js";
+import { connectorContext } from "./connectorContract.js";
+import { normalizeSynthesisExecution } from "./executionLifecycle.js";
 
 function readinessLabel(dataset) {
   const raw = String(dataset?.analysis_readiness || "").trim();
@@ -46,6 +46,99 @@ function lifecycleSelection(lifecycle = {}) {
   };
 }
 
+function surfaceLabel(tab) {
+  const t = String(tab || "").toLowerCase();
+  if (t === "browse") return "discover";
+  if (t === "library") return "library";
+  if (t === "synthesis") return "synthesis";
+  if (t === "home") return "home";
+  if (t === "resources") return "resources";
+  return t || "desk";
+}
+
+function buildWorkspace({
+  tab,
+  searchQuery,
+  discoverMode,
+  discoverSummary,
+  folderId,
+  entity,
+  selected,
+  dataset,
+}) {
+  const surface = surfaceLabel(tab);
+  const query = String(searchQuery || discoverSummary?.query || "").trim();
+  const workspace = {
+    surface,
+    label:
+      surface === "discover"
+        ? "Discover"
+        : surface === "library"
+          ? "Library"
+          : surface === "synthesis"
+            ? "Synthesis"
+            : surface === "home"
+              ? "Home"
+              : surface,
+  };
+  if (query) workspace.query = query.slice(0, 240);
+  if (surface === "discover") {
+    if (discoverMode) workspace.mode = String(discoverMode);
+    if (discoverSummary && typeof discoverSummary === "object") {
+      workspace.held_count = Number(discoverSummary.held || 0);
+      workspace.route_offerings = Number(discoverSummary.offerings || 0);
+      workspace.web_context = Number(discoverSummary.webContext || 0);
+      if (discoverSummary.engine) workspace.engine = String(discoverSummary.engine);
+      if (discoverSummary.next_action) workspace.next_action = String(discoverSummary.next_action);
+      if (discoverSummary.summary) workspace.summary = String(discoverSummary.summary).slice(0, 320);
+      if (Array.isArray(discoverSummary.held_titles) && discoverSummary.held_titles.length) {
+        workspace.held = discoverSummary.held_titles.slice(0, 5);
+      }
+      if (Array.isArray(discoverSummary.route_titles) && discoverSummary.route_titles.length) {
+        workspace.routes = discoverSummary.route_titles.slice(0, 5);
+      }
+    }
+  }
+  if (surface === "library") {
+    if (folderId) workspace.folder_id = String(folderId);
+    if (dataset?.dataset_id) {
+      workspace.dataset_id = dataset.dataset_id;
+      workspace.dataset_title = displayName(dataset);
+    }
+  }
+  if (surface === "synthesis" && selected) {
+    if (selected.thread_id) workspace.thread_id = selected.thread_id;
+    if (selected.objective) workspace.objective = String(selected.objective).slice(0, 320);
+    if (selected.maturity) workspace.maturity = selected.maturity;
+    if (selected.proposal_id) workspace.proposal_id = selected.proposal_id;
+    if (selected.proposal && typeof selected.proposal === "object") {
+      workspace.proposal = {
+        id: selected.proposal.id,
+        title: selected.proposal.title,
+        summary: selected.proposal.summary,
+        proposal_hash: selected.proposal.proposal_hash || selected.proposal.hash,
+      };
+    }
+    if (selected.has_method) workspace.has_method = true;
+    if (selected.can_request_execution) workspace.can_request_execution = true;
+    if (selected.method_not_executable) workspace.method_not_executable = true;
+    if (selected.has_execution_spec) workspace.has_execution_spec = true;
+    if (selected.output_ready) workspace.output_ready = true;
+    if (selected.query_ready) workspace.query_ready = true;
+    if (selected.output_dataset_id) workspace.output_dataset_id = selected.output_dataset_id;
+    if (Array.isArray(selected.mapped_evidence) && selected.mapped_evidence.length) {
+      workspace.mapped_evidence = selected.mapped_evidence.slice(0, 8);
+    }
+  }
+  if (entity?.kind) {
+    workspace.focus_kind = entity.kind;
+    workspace.focus_title = entity.title || entity.id || undefined;
+  }
+  if (selected?.source_id) workspace.focus_source_id = selected.source_id;
+  if (selected?.candidate_key) workspace.focus_candidate_key = selected.candidate_key;
+  return workspace;
+}
+
 export function buildRailContext({
   tab = "home",
   mode = "detail",
@@ -55,6 +148,8 @@ export function buildRailContext({
   folderId = "",
   clusterContext = null,
   profileEmail = "",
+  discoverMode = "",
+  discoverSummary = null,
 } = {}) {
   let entity = null;
   let datasetId = "";
@@ -153,27 +248,88 @@ export function buildRailContext({
     const state = thread.state || {};
     const lifecycle = normalizeSynthesisExecution(thread);
     const outputId = lifecycle.proof?.outputs?.[0] || state.execution?.output_dataset_id || state.execution_spec?.output_dataset_id;
+    const proposal =
+      state.proposal && typeof state.proposal === "object" ? state.proposal : null;
     entity = {
       kind: "synthesis_thread",
       id: activeObject.id,
       title: activeObject.title,
       status: lifecycle.stage !== "unknown" ? lifecycle.stage : state.maturity || undefined,
     };
+    const executionSpec =
+      state.execution_spec && typeof state.execution_spec === "object" ? state.execution_spec : null;
+    const hasMetrics =
+      Array.isArray(executionSpec?.metrics) && executionSpec.metrics.length > 0;
+    const hasRowTransforms =
+      Boolean(executionSpec?.row_output) &&
+      Array.isArray(executionSpec?.transforms) &&
+      executionSpec.transforms.length > 0;
+    const hasBoundedExecutionSpec = Boolean(
+      executionSpec &&
+        String(executionSpec.input_dataset_id || "").trim() &&
+        String(executionSpec.output_dataset_id || "").trim() &&
+        (hasMetrics || hasRowTransforms),
+    );
+    const hasMethod = Boolean(
+      state.spec ||
+        executionSpec ||
+        hasBoundedExecutionSpec ||
+        (Array.isArray(state.nodes) && state.nodes.length) ||
+        (Array.isArray(state.activity) &&
+          state.activity.some((row) => /accepted proposal/i.test(String(row?.message || "")))),
+    );
+    const outputReady =
+      lifecycle.stage === "registered" ||
+      lifecycle.stage === "query_ready" ||
+      Boolean(lifecycle.proof?.registry_verified);
+    const queryReady =
+      lifecycle.stage === "query_ready" || Boolean(lifecycle.proof?.query_ready);
+    // Spec alone is not enough once the durable output already exists.
+    const canRequestExecution = Boolean(!proposal && hasBoundedExecutionSpec && !outputReady);
+    const mappedEvidence = (
+      Array.isArray(state.nodes)
+        ? state.nodes
+            .filter((node) => node && typeof node === "object" && String(node.dataset_id || "").trim())
+            .map((node) => ({
+              dataset_id: String(node.dataset_id).trim(),
+              title: String(node.label || node.title || node.dataset_id).trim(),
+              grain: String(node.grain || "").trim() || undefined,
+              coverage: String(node.coverage || "").trim() || undefined,
+              role: String(node.role || "").trim() || undefined,
+              status: String(node.status || "").trim() || undefined,
+            }))
+        : []
+    ).slice(0, 8);
     selected = {
       thread_id: activeObject.id,
       title: activeObject.title,
       objective: thread.objective || state.objective || undefined,
       required_grain: state.required_grain || state.spec?.grain || undefined,
       maturity: state.maturity || state.maturityLabel || undefined,
-      proposal_id: state.proposal?.id || undefined,
-      proposal_hash: state.proposal?.proposal_hash || undefined,
+      proposal_id: proposal?.id || undefined,
+      proposal_hash: proposal?.proposal_hash || undefined,
+      proposal: proposal || undefined,
+      has_method: hasMethod || undefined,
+      // Only offer Request execution when the registry executor can actually run it
+      // and the thread has not already produced a registered / query-ready output.
+      can_request_execution: canRequestExecution || undefined,
+      method_not_executable: (!proposal && hasMethod && !hasBoundedExecutionSpec && !outputReady) || undefined,
+      has_execution_spec: hasBoundedExecutionSpec || undefined,
+      output_ready: outputReady || undefined,
+      query_ready: queryReady || undefined,
+      mapped_evidence: mappedEvidence.length ? mappedEvidence : undefined,
       output_dataset_id: outputId || undefined,
       ...lifecycleSelection(lifecycle),
     };
     actions = ["ask_about", "challenge_method", "review_proposal"];
+    if (proposal) actions.unshift("review_proposal");
+    if (canRequestExecution) actions.push("request_execution");
+    if (!proposal && hasMethod && !hasBoundedExecutionSpec && !outputReady) {
+      actions.push("refine_execution_spec");
+    }
     if (lifecycle.stage === "pending_approval") actions.push("review_execution");
     if (lifecycle.retryable && /failed|blocked/.test(lifecycle.stage)) actions.push("retry_execution");
-    if (lifecycle.stage === "registered") actions.push("open_output", "refresh_output");
+    if (outputReady) actions.push("open_output", "refresh_output");
   } else if (dataset?.dataset_id) {
     const authority = assetAuthorityContext(dataset);
     entity = {
@@ -205,9 +361,21 @@ export function buildRailContext({
     actions = ["ask_about_overlap", "preview_rows"];
   }
 
+  const workspace = buildWorkspace({
+    tab,
+    searchQuery,
+    discoverMode,
+    discoverSummary,
+    folderId,
+    entity,
+    selected,
+    dataset,
+  });
+
   return {
     tab,
     mode,
+    surface: workspace.surface,
     entity,
     selected: selected || undefined,
     dataset_id: datasetId || undefined,
@@ -218,5 +386,7 @@ export function buildRailContext({
     vault_path: dataset ? vaultPath(dataset) : undefined,
     compare: compare || undefined,
     actions: actions.length ? actions : undefined,
+    thread_id: selected?.thread_id || undefined,
+    workspace,
   };
 }

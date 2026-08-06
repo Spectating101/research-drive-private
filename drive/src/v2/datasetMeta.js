@@ -120,8 +120,30 @@ export function canIUseDecision(dataset) {
   };
 }
 
+function looksOpsFace(text) {
+  const s = String(text || "").trim();
+  if (!s) return true;
+  if (/^(Custom collect|Route prove|Synthesis)\b/i.test(s)) return true;
+  if (/Using the Library asset/i.test(s)) return true;
+  if (s.length > 96) return true;
+  return false;
+}
+
+/** Prefer faculty meaning (title/display_name); hide ops jargon faces. */
 export function displayName(dataset) {
-  return dataset?.name || dataset?.title || dataset?.dataset_id || "Dataset";
+  const candidates = [
+    dataset?.display_name,
+    dataset?.title,
+    dataset?.faculty_title,
+    dataset?.name,
+  ];
+  for (const c of candidates) {
+    if (c && !looksOpsFace(c)) return String(c);
+  }
+  for (const c of candidates) {
+    if (c) return String(c).slice(0, 72);
+  }
+  return dataset?.dataset_id || "Dataset";
 }
 
 export function rowSubtitle(dataset) {

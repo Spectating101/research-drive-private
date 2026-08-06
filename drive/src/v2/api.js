@@ -162,8 +162,19 @@ export function describeDataset(datasetId) {
   return fetchJson(`/datasets/${encodeURIComponent(datasetId)}`);
 }
 
-export function queryDataset(datasetId, limit = 50) {
-  return fetchJson(`/query/${encodeURIComponent(datasetId)}?limit=${limit}`);
+export function hydrateDataset(datasetId) {
+  return fetchJson(`/datasets/${encodeURIComponent(datasetId)}/hydrate`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: "{}",
+    timeoutMs: 120000,
+  });
+}
+
+export function queryDataset(datasetId, limit = 50, { hydrate = false } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (hydrate) params.set("hydrate", "1");
+  return fetchJson(`/query/${encodeURIComponent(datasetId)}?${params}`);
 }
 
 export function deskHealth(live = false) {
@@ -177,10 +188,12 @@ export function deskResources(live = true) {
   return fetchJson(`/library/desk/resources${q}`);
 }
 
-export function discoverSearch(query = "", limit = 12, email = "") {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
+export function discoverSearch(query = "", limit = 12, email = "", { mode = "auto" } = {}) {
+  const params = new URLSearchParams({ q: query, limit: String(limit), mode: String(mode || "auto") });
   if (email) params.set("email", email);
-  return fetchJson(`/library/discover?${params}`);
+  // Agent toolbox path may call routes + web; allow longer than lexical-only.
+  const timeoutMs = mode === "lexical" ? 20000 : 120000;
+  return fetchJson(`/library/discover?${params}`, { timeoutMs });
 }
 
 export function webDiscover(query = "", limit = 8, tavilyLive = true) {
@@ -663,7 +676,7 @@ export function downloadText(filename, text, mime = "text/plain") {
 
 export async function sendChatMessage(
   message,
-  { sessionId, userEmail, railContext, onDelta, onActivity } = {},
+  { sessionId, userEmail, railContext, onDelta, onActivity, onDeskFacts } = {},
 ) {
   const body = JSON.stringify({
     message,
@@ -673,12 +686,57 @@ export async function sendChatMessage(
   });
 
   const consumeEvent = (event, state) => {
+    if (event.type === "desk_facts" && event.desk_facts) {
+      onDeskFacts?.(event.desk_facts);
+      if (event.text) {
+        onActivity?.({ text: event.text, action: "desk_facts", elapsed_seconds: event.elapsed_seconds });
+      }
+    }
+    if (event.type === "mutation_proposal") {
+      onActivity?.({
+        text: event.text || "Reviewable proposal recorded",
+        action: "mutation_proposal",
+        elapsed_seconds: event.elapsed_seconds,
+        job_id: event.job_id || event.pending_job_id || null,
+        job_status: event.job_status || null,
+        job: event.job || null,
+        synthesis_proposal: event.synthesis_proposal || null,
+        synthesis_thread_id: event.synthesis_thread_id || null,
+        mutation: true,
+      });
+    }
     if (event.type === "delta" && event.text) onDelta?.(event.text);
     if ((event.type === "activity" || event.type === "progress") && event.text) {
       onActivity?.({ text: event.text, action: event.action || null, elapsed_seconds: event.elapsed_seconds });
     }
     if (event.type === "error") throw new Error(event.message || event.error || "Chat stream error");
-    if (event.type === "complete") state.result = event.result || null;
+    if (event.type === "complete") {
+      state.result = event.result || null;
+      // When CF/proxy coalesces mid-turn events, still surface mutations from the final payload.
+      const result = state.result && typeof state.result === "object" ? state.result : {};
+      const arts = result.artifacts && typeof result.artifacts === "object" ? result.artifacts : {};
+      const job =
+        (arts.job && typeof arts.job === "object" ? arts.job : null) ||
+        (result.job && typeof result.job === "object" ? result.job : null);
+      const jobId = job?.id || arts.job_id || arts.pending_job_id || result.job_id || null;
+      const proposal = arts.synthesis_proposal || result.synthesis_proposal || null;
+      if (jobId || proposal) {
+        onActivity?.({
+          text: jobId
+            ? "Collection job recorded — review Approve if pending"
+            : "Synthesis proposal recorded",
+          action: "mutation_proposal",
+          job_id: jobId,
+          job_status: job?.status || arts.job_status || result.job_status || null,
+          job: job,
+          synthesis_proposal: proposal,
+          synthesis_thread_id: arts.synthesis_thread_id || result.synthesis_thread_id || null,
+          mutation: true,
+        });
+      }
+      if (result.desk_facts) onDeskFacts?.(result.desk_facts);
+      else if (arts.desk_facts) onDeskFacts?.(arts.desk_facts);
+    }
   };
 
   const sendNonStream = async () => {
@@ -716,17 +774,49 @@ export async function sendChatMessage(
         await new Promise((r) => setTimeout(r, 1200));
       }
       if (payload.session_id) saveChatSessionId(payload.session_id);
+      if (payload.desk_facts) onDeskFacts?.(payload.desk_facts);
+      else if (payload.artifacts?.desk_facts) onDeskFacts?.(payload.artifacts.desk_facts);
       if (payload.reply) onDelta?.(String(payload.reply));
+      const arts = payload.artifacts && typeof payload.artifacts === "object" ? payload.artifacts : {};
+      const job = (arts.job && typeof arts.job === "object" ? arts.job : null) ||
+        (payload.job && typeof payload.job === "object" ? payload.job : null);
+      const jobId = job?.id || arts.job_id || arts.pending_job_id || payload.job_id || null;
+      const proposal = arts.synthesis_proposal || payload.synthesis_proposal || null;
+      if (jobId || proposal) {
+        onActivity?.({
+          text: jobId
+            ? "Collection job recorded — review Approve if pending"
+            : "Synthesis proposal recorded",
+          action: "mutation_proposal",
+          job_id: jobId,
+          job_status: job?.status || arts.job_status || payload.job_status || null,
+          job,
+          synthesis_proposal: proposal,
+          synthesis_thread_id: arts.synthesis_thread_id || payload.synthesis_thread_id || null,
+          mutation: true,
+        });
+      }
       return payload;
     } finally {
       clearInterval(tick);
     }
   };
 
-  // Production previous.easycamp.tech sits behind Cloudflare, which buffers NDJSON
-  // (~20s TTFB). Prefer the reliable non-stream path unless explicitly opted in.
+  // Prefer NDJSON stream so Ask can paint L0 desk_facts / mutations before Composer finishes.
+  // Cloudflare-fronted hosts may buffer; allow override with VITE_ASK_STREAM=1.
+  // Private / Tailscale / localhost always prefer stream (front-door path).
+  const host = typeof window !== "undefined" ? String(window.location.hostname || "") : "";
+  const privateHost =
+    /^(localhost|127\.|10\.|192\.168\.|100\.)/i.test(host) || host.includes(":");
+  const cloudflareBuffered =
+    !privateHost &&
+    /\.easycamp\.|trycloudflare\.com$/i.test(host) &&
+    String(import.meta.env.VITE_ASK_STREAM || "").trim() !== "1";
   const preferStream =
-    Boolean(import.meta.env.DEV) || String(import.meta.env.VITE_ASK_STREAM || "").trim() === "1";
+    Boolean(import.meta.env.DEV) ||
+    privateHost ||
+    String(import.meta.env.VITE_ASK_STREAM || "").trim() === "1" ||
+    !cloudflareBuffered;
   if (!preferStream) {
     return sendNonStream();
   }
@@ -753,6 +843,7 @@ export async function sendChatMessage(
     tail.events.forEach((event) => consumeEvent(event, state));
     if (!state.result) throw new Error("Chat ended without a response");
     if (state.result.session_id) saveChatSessionId(state.result.session_id);
+    if (state.result.desk_facts) onDeskFacts?.(state.result.desk_facts);
     return state.result;
   }
 

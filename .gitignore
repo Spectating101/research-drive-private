@@ -11,3 +11,5 @@ artifacts/
 !docs/screenshots-review/
 !docs/screenshots-review/**
 !research-drive-screenshots.zip
+dist
+releases/

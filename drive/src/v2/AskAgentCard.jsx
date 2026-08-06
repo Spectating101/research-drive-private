@@ -6,6 +6,7 @@ import {
   readinessLabel,
   readinessTone,
 } from "@/v2/askText.jsx";
+import { statusPillKind } from "@/v2/datasetMeta";
 
 function nextStepLabel(step) {
   if (!step) return "";
@@ -19,12 +20,28 @@ function nextStepPrompt(step) {
   return String(step.prompt || step.label || "").trim();
 }
 
+function heldMetaBits(row) {
+  const bits = [];
+  const readiness = String(row?.analysis_readiness || row?.readiness || "").trim();
+  if (readiness) {
+    const pill = statusPillKind({ analysis_readiness: readiness });
+    bits.push(pill?.label || readiness.replace(/_/g, " "));
+  }
+  if (row?.grain) bits.push(`grain ${row.grain}`);
+  if (row?.coverage) bits.push(String(row.coverage).slice(0, 48));
+  if (row?.local_ready) bits.push("local ready");
+  return bits;
+}
+
 export function AskAgentCard({
   message,
   busy = false,
   approval = "",
+  proposalState = "",
   onSend,
   onApprove,
+  onDecideProposal,
+  onRequestExecution,
 }) {
   const streaming = Boolean(message?.streaming);
   const parsed = parseAskReply(message?.text || "");
@@ -34,6 +51,17 @@ export function AskAgentCard({
   const steps = Array.isArray(message?.nextSteps) && message.nextSteps.length
     ? message.nextSteps
     : (message?.suggestedPrompts || []).map((prompt) => ({ label: prompt, prompt }));
+  const proposal =
+    message?.synthesisProposal && typeof message.synthesisProposal === "object"
+      ? message.synthesisProposal
+      : null;
+  const proposalTitle = String(proposal?.title || proposal?.summary || "").trim();
+  const secondaryQuery = String(message?.deskFacts?.secondary_query || "").trim();
+  const allowRequestExecution = Boolean(
+    proposal || message?.allowRequestExecution || message?.canRequestExecution,
+  );
+  const methodNotExecutable = Boolean(message?.methodNotExecutable);
+  const synthesisThreadId = String(message?.synthesisThreadId || "").trim();
 
   return (
     <article
@@ -62,8 +90,60 @@ export function AskAgentCard({
       </header>
 
       <div className="rd-v2-ask-card-body">
+        {message?.deskFacts ? (
+          <div className="rd-v2-ask-desk-facts" data-testid="ask-desk-facts">
+            <p className="rd-v2-ask-desk-facts-label">Desk measure</p>
+            {message.deskFacts.query ? (
+              <p className="rd-v2-ask-desk-facts-query">
+                Primary · {message.deskFacts.query}
+              </p>
+            ) : null}
+            {secondaryQuery ? (
+              <p className="rd-v2-ask-desk-facts-query" data-testid="ask-desk-facts-secondary">
+                Also measured · {secondaryQuery}
+              </p>
+            ) : null}
+            {Array.isArray(message.deskFacts.held) && message.deskFacts.held.length ? (
+              <ul className="rd-v2-ask-desk-facts-list">
+                {message.deskFacts.held.map((row, i) => {
+                  const meta = heldMetaBits(row);
+                  return (
+                    <li key={`held-${row.dataset_id || i}`}>
+                      <span className="rd-v2-ask-desk-facts-kind">held</span>
+                      {row.title || row.dataset_id}
+                      {row.dataset_id ? <code>{row.dataset_id}</code> : null}
+                      {meta.length ? (
+                        <span className="rd-v2-ask-desk-facts-meta">{meta.join(" · ")}</span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="rd-v2-ask-desk-facts-empty">No Library holdings measured.</p>
+            )}
+            {Array.isArray(message.deskFacts.routes) && message.deskFacts.routes.length ? (
+              <ul className="rd-v2-ask-desk-facts-list">
+                {message.deskFacts.routes.map((row, i) => (
+                  <li key={`route-${row.source_id || i}`}>
+                    <span className="rd-v2-ask-desk-facts-kind">route</span>
+                    {row.title || row.source_id}
+                    {row.source_id ? <code>{row.source_id}</code> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+        {message?.composerPending || message?.backgroundWatch || message?.action === "composer_pending" ? (
+          <p className="rd-v2-ask-card-pending" data-testid="ask-composer-pending">
+            Composer may still be finishing this turn in the background. This card will update when it lands.
+          </p>
+        ) : null}
         {streaming && !message?.text ? (
-          <p className="rd-v2-ask-card-pending">Gathering grounded context…</p>
+          <p className="rd-v2-ask-card-pending">
+            {message?.deskFacts ? "Composer drafting…" : "Gathering grounded context…"}
+          </p>
         ) : null}
         {parsed.paragraphs.map((para, i) => (
           <p key={`p-${i}`} className="rd-v2-ask-card-para">
@@ -82,8 +162,9 @@ export function AskAgentCard({
         ) : null}
       </div>
 
-      {message?.pendingJobId && message?.jobStatus === "pending_approval" ? (
-        <div className="rd-v2-ask-card-actions">
+      {message?.pendingJobId &&
+      (message?.jobStatus === "pending_approval" || String(message?.jobStatus || "").includes("pending")) ? (
+        <div className="rd-v2-ask-card-actions" data-testid="ask-job-approve">
           <button
             type="button"
             className="rd-v2-btn sm primary"
@@ -96,8 +177,64 @@ export function AskAgentCard({
                 <LoaderCircle className="rd-v2-inline-spinner" aria-hidden="true" /> Approving…
               </>
             ) : (
-              "Approve job"
+              "Approve collection job"
             )}
+          </button>
+        </div>
+      ) : null}
+
+      {methodNotExecutable && !allowRequestExecution ? (
+        <div className="rd-v2-ask-card-actions" data-testid="ask-synthesis-method-note">
+          <p className="rd-v2-ask-desk-facts-label">Accepted method · not registry-executable yet</p>
+        </div>
+      ) : null}
+
+      {allowRequestExecution && synthesisThreadId ? (
+        <div className="rd-v2-ask-card-actions" data-testid="ask-synthesis-proposal">
+          <p className="rd-v2-ask-desk-facts-label">
+            {proposal
+              ? `Synthesis proposal${proposalTitle ? ` · ${proposalTitle.slice(0, 72)}` : ""}`
+              : "Accepted method — request execution when ready"}
+          </p>
+          {proposal ? (
+            <>
+              <button
+                type="button"
+                className="rd-v2-btn sm primary"
+                disabled={busy || proposalState === "working"}
+                onClick={() =>
+                  onDecideProposal?.({
+                    decision: "accept",
+                    threadId: synthesisThreadId,
+                    proposal,
+                  })
+                }
+              >
+                Accept proposal
+              </button>
+              <button
+                type="button"
+                className="rd-v2-btn sm"
+                disabled={busy || proposalState === "working"}
+                onClick={() =>
+                  onDecideProposal?.({
+                    decision: "reject",
+                    threadId: synthesisThreadId,
+                    proposal,
+                  })
+                }
+              >
+                Reject
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="rd-v2-btn sm primary"
+            disabled={busy || proposalState === "working"}
+            onClick={() => onRequestExecution?.(synthesisThreadId)}
+          >
+            Request execution
           </button>
         </div>
       ) : null}

@@ -124,6 +124,7 @@ export function InspectorRail({
   activeObject,
   onPreview,
   onAskAbout,
+  onHydrate,
   onSeeCluster,
   onAddToLab,
   onPreviewExternal,
@@ -225,6 +226,7 @@ export function InspectorRail({
         dataset={dataset}
         onPreview={onPreview}
         onAskAbout={onAskAbout}
+        onHydrate={onHydrate}
       />
     );
   } else if (
@@ -253,6 +255,7 @@ export function InspectorRail({
         dataset={dataset}
         onPreview={onPreview}
         onAskAbout={onAskAbout}
+        onHydrate={onHydrate}
       />
     );
   } else if (mainTab === "home") {

@@ -3,6 +3,7 @@ import { V2DeskHeader } from "@/v2/V2DeskHeader";
 import {
   approveJob,
   describeDataset,
+  hydrateDataset,
   deskHealth,
   deskResources,
   deskWarm,
@@ -585,8 +586,10 @@ export function V2App() {
         folderId,
         clusterContext,
         profileEmail: profile?.email || loadUserEmail(),
+        discoverMode,
+        discoverSummary: tab === "browse" ? discoverSearchSummary : null,
       }),
-    [tab, railTab, detail, activeObject, pageSearchQuery, folderId, clusterContext, profile],
+    [tab, railTab, detail, activeObject, pageSearchQuery, folderId, clusterContext, profile, discoverMode, discoverSearchSummary],
   );
 
   const syncUrl = useCallback(
@@ -1368,7 +1371,9 @@ export function V2App() {
       const did = String(d.dataset_id || "");
       if (shelfHitIds.has(did)) return true;
       const nav = libraryNavHaystack.get(did) || "";
-      const text = `${did} ${d.name} ${d.display_name || ""} ${d.grain} ${d.description || ""} ${d.one_line || ""} ${d.partition_id || ""} ${nav}`.toLowerCase();
+      const aliases = Array.isArray(d.aliases) ? d.aliases.join(" ") : "";
+      const keywords = Array.isArray(d.keywords) ? d.keywords.join(" ") : "";
+      const text = `${did} ${d.name || ""} ${d.title || ""} ${d.display_name || ""} ${d.grain || ""} ${d.description || ""} ${d.one_line || ""} ${d.recommended_use || ""} ${d.meaning_about || ""} ${aliases} ${keywords} ${d.partition_id || ""} ${d.source_dataset_id || ""} ${nav}`.toLowerCase();
       return text.includes(q);
     });
   }, [catalog, libraryNavHaystack, librarySearchQuery, partitions, shelves]);
@@ -1764,6 +1769,17 @@ export function V2App() {
         profile={profile}
         onPreview={() => detail && openPreview(detail)}
         onAskAbout={askAboutSelection}
+        onHydrate={async (row) => {
+          const id = row?.dataset_id || detail?.dataset_id;
+          if (!id) throw new Error("No dataset to hydrate");
+          const next = await hydrateDataset(id);
+          setDetail((cur) => ({ ...(cur || {}), ...next }));
+          setDatasets((rows) =>
+            (rows || []).map((d) => (d.dataset_id === id ? { ...d, ...next } : d)),
+          );
+          showToast(next?.hydrated || next?.local_ready ? "Hydrated — ready to preview" : "Hydrate finished");
+          return next;
+        }}
         onViewActivity={(filter) => {
           setResourceMode("usage");
           setActivityFilter(filter);
@@ -1816,7 +1832,9 @@ export function V2App() {
                     }
                 : activeObject?.kind === "library_folder" || activeObject?.kind === "library_intake"
                   ? {
-                      title: `Library · ${activeObject.title}`,
+                      title: /^library\b/i.test(String(activeObject.title || ""))
+                        ? activeObject.title
+                        : `Library · ${activeObject.title}`,
                     }
                 : tab === "synthesis"
                   ? activeObject?.kind === "synthesis_thread"

@@ -66,7 +66,33 @@ function evidenceNodes(thread) {
 }
 
 function targetNode(thread) {
-  return (thread?.state?.nodes || []).find((node) => node?.layer === "target" || node?.type === "target");
+  return (thread?.state?.nodes || []).find(
+    (node) =>
+      node?.layer === "target" ||
+      node?.type === "target" ||
+      node?.layer === "output" ||
+      node?.type === "output",
+  );
+}
+
+function transformSummary(spec) {
+  const transforms = Array.isArray(spec?.transforms) ? spec.transforms : [];
+  if (!transforms.length) return "";
+  const parts = transforms.map((step) => {
+    const op = text(step?.op || step?.type, "step");
+    if (op === "diff") {
+      const periods = step?.periods != null ? `${step.periods}` : "";
+      const column = text(step?.column);
+      const alias = text(step?.as);
+      return [op, periods && `${periods}m`, column, alias && `→ ${alias}`].filter(Boolean).join(" ");
+    }
+    if (op === "select") {
+      const n = Array.isArray(step?.columns) ? step.columns.length : 0;
+      return n ? `select ${n} cols` : "select";
+    }
+    return op;
+  });
+  return parts.join(" · ");
 }
 
 function threadStatus(thread) {
@@ -206,7 +232,20 @@ function EvidenceMap({ thread, onAsk }) {
   const target = targetNode(thread);
   const evidence = evidenceNodes(thread);
   const state = thread?.state || {};
-  const missing = evidence.filter((node) => /missing|needs_access|sourceable/i.test(String(node.status || "")));
+  const methodText =
+    text(state.spec?.summary || state.spec?.method) ||
+    transformSummary(state.execution_spec) ||
+    "";
+  const missing = evidence.filter((node) => {
+    const placement = String(node.placement || "").toLowerCase();
+    if (placement === "missing" || placement === "route") return true;
+    return /missing|needs_access|sourceable/i.test(String(node.status || ""));
+  });
+  const held = evidence.filter((node) => {
+    const placement = String(node.placement || "").toLowerCase();
+    if (placement === "held") return true;
+    return /held|queryable|query_ready/i.test(String(node.status || ""));
+  });
   return (
     <section className="s04-card" data-testid="synthesis-evidence-state">
       <header className="s04-title">
@@ -219,13 +258,30 @@ function EvidenceMap({ thread, onAsk }) {
       <div className="s04-map" role="img" aria-label="The current Synthesis evidence map">
         <div className="sources">
           {evidence.length ? (
-            evidence.slice(0, 6).map((node) => (
-              <article key={node.id || node.label}>
-                <small>{text(node.role || node.eyebrow || node.status, "Evidence")}</small>
+            evidence.slice(0, 6).map((node) => {
+              const placement = String(node.placement || "").toLowerCase();
+              const eyebrow =
+                placement === "held"
+                  ? "In Library"
+                  : placement === "missing"
+                    ? "Missing"
+                    : placement === "route"
+                      ? "Collection route"
+                      : text(node.role || node.eyebrow || node.status, "Evidence");
+              const why = String(node.why || node.selection_reason || "").trim();
+              return (
+              <article key={node.id || node.label} data-placement={placement || undefined}>
+                <small>{eyebrow}</small>
                 <strong>{text(node.label || node.dataset_id, "Unnamed evidence")}</strong>
-                <span>{[node.grain, node.coverage].filter(Boolean).join(" · ") || "Metadata not reported"}</span>
+                <span>
+                  {[node.grain, node.coverage, node.dataset_id && softIdentifier(node.dataset_id)]
+                    .filter(Boolean)
+                    .join(" · ") || "Metadata not reported"}
+                </span>
+                {why ? <span className="s04-evidence-why"><b>why</b> {why}</span> : null}
               </article>
-            ))
+              );
+            })
           ) : (
             <article className="s04-empty-evidence">
               <small>Next</small>
@@ -235,19 +291,27 @@ function EvidenceMap({ thread, onAsk }) {
           )}
         </div>
         <b>↓</b>
-        {state.spec?.summary || state.spec?.method ? (
+        {methodText ? (
           <>
-            <span className="process">{text(state.spec.summary || state.spec.method, "Method detail not reported")}</span>
+            <span className="process">
+              <small>Method</small>
+              {methodText}
+            </span>
             <b>↓</b>
           </>
         ) : null}
-        <strong className="target">{text(target?.label, text(thread?.objective, "Research objective"))}</strong>
+        <strong className="target">{text(target?.label, titleFor(thread))}</strong>
       </div>
       <div className="s04-pairs">
         <article>
           <small>Research object</small>
-          <strong>{text(thread?.objective || state.objective, "Not reported")}</strong>
-          <p>{text(target?.interpretation, "Ask can refine the object before a method proposal is accepted.")}</p>
+          <strong>{titleFor(thread)}</strong>
+          <p>{text(target?.interpretation || target?.description || thread?.objective || state.objective, "Ask can refine the object before a method proposal is accepted.")}</p>
+        </article>
+        <article>
+          <small>Library holdings mapped</small>
+          <strong>{held.length ? `${held.length} in Library` : "No held input mapped"}</strong>
+          <p>{held.length ? held.map((node) => node.label || node.dataset_id).filter(Boolean).join(" · ") : "Held placement comes from thread evidence status, not invented equivalence."}</p>
         </article>
         <article>
           <small>Unresolved evidence</small>
@@ -429,8 +493,20 @@ function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDatas
         <dl className="s04-method">
           <div><dt>Input</dt><dd>{softIdentifier(spec.input_dataset_id)}</dd></div>
           <div><dt>Output</dt><dd>{softIdentifier(spec.output_dataset_id)}</dd></div>
-          <div><dt>Group by</dt><dd>{Array.isArray(spec.group_by) ? spec.group_by.join(" · ") : "Not reported"}</dd></div>
-          <div><dt>Metrics</dt><dd>{Array.isArray(spec.metrics) ? `${spec.metrics.length} defined` : "Not reported"}</dd></div>
+          <div>
+            <dt>Group by</dt>
+            <dd>{Array.isArray(spec.group_by) && spec.group_by.length ? spec.group_by.join(" · ") : "Not reported"}</dd>
+          </div>
+          <div>
+            <dt>{Array.isArray(spec.transforms) && spec.transforms.length ? "Transforms" : "Metrics"}</dt>
+            <dd>
+              {Array.isArray(spec.transforms) && spec.transforms.length
+                ? transformSummary(spec)
+                : Array.isArray(spec.metrics) && spec.metrics.length
+                  ? `${spec.metrics.length} defined`
+                  : "Not reported"}
+            </dd>
+          </div>
         </dl>
       ) : null}
       {hasSpec ? (
@@ -909,7 +985,12 @@ export function SynthesisPage({
   };
 
   const mode = stateFor(selected);
-  const showExecution = Boolean(selected && (mode === "execution" || mode === "registered" || mode === "failed" || selected.state?.execution_spec));
+  const showExecution = Boolean(selected && (mode === "execution" || mode === "registered" || mode === "query_ready" || mode === "failed" || selected.state?.execution_spec));
+  const showEvidenceMap = Boolean(
+    selected &&
+      ((selected.state?.nodes || []).length > 0) &&
+      (mode === "explore" || mode === "execution" || mode === "registered" || mode === "query_ready" || mode === "proposal"),
+  );
 
   return (
     <PageShell className="rd-v2-synthesis-page" title="Synthesis" lead="Reason from Library evidence to a reviewable research construct, then preserve the method and its proof.">
@@ -946,6 +1027,7 @@ export function SynthesisPage({
             <>
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
+              {showEvidenceMap ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
               {showExecution ? (
                 <ExecutionRecord
                   thread={selected}
@@ -956,7 +1038,6 @@ export function SynthesisPage({
                   onOpenDataset={onOpenDataset}
                 />
               ) : null}
-              {mode === "explore" ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
               {mode === "draft" ? <DraftCanvas thread={selected} onAsk={ask} /> : null}
             </>
           ) : null}

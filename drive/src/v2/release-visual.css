@@ -2364,6 +2364,79 @@ a.rd-v2-link {
   gap: 8px;
 }
 
+
+.rd-v2-ask-desk-facts {
+  border: 1px solid color-mix(in srgb, var(--rd-ink, #1e293b) 12%, transparent);
+  background: color-mix(in srgb, var(--rd-surface, #fffdf6) 88%, #dbe4ea);
+  padding: 10px 12px;
+  border-radius: 2px;
+}
+
+.rd-v2-ask-desk-facts-label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.rd-v2-ask-desk-facts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.rd-v2-ask-desk-facts-list + .rd-v2-ask-desk-facts-list {
+  margin-top: 8px;
+}
+
+.rd-v2-ask-desk-facts-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.rd-v2-ask-desk-facts-kind {
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #475569;
+  font-weight: 600;
+  min-width: 2.75rem;
+}
+
+.rd-v2-ask-desk-facts-list code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.rd-v2-ask-desk-facts-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.rd-v2-ask-desk-facts-query {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.rd-v2-ask-desk-facts-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #64748b;
+}
+
 .rd-v2-ask-card-para,
 .rd-v2-ask-card-pending {
   margin: 0;

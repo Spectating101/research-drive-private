@@ -8,7 +8,6 @@ import { useEffect, useMemo, useState } from "react";
 import { applyLifecycleToEvaluation, LIFECYCLE } from "@/v2/discoverLifecycle";
 import { buildDiscoverEvaluation } from "@/v2/discoverEvaluation";
 import {
-  assessLocalSufficiency,
   applySufficiencyToActions,
   buildSufficiencyAskContext,
   sufficiencyAskPrompts,
@@ -74,13 +73,10 @@ export function DiscoverEvaluationSurface({
     : null;
   const sufficiency = useMemo(() => {
     if (!target) return null;
+    // FE sufficiency taxonomy is demoted — only honor backend-stamped placement.
     if (target?.discover_sufficiency?.state) return target.discover_sufficiency;
-    const taxonomy = target.discover_taxonomy;
-    const group = Number(taxonomy?.group);
-    // Lab holdings do not need local-alternative comparison against themselves.
-    if (Number.isFinite(group) && group <= 2) return null;
-    return assessLocalSufficiency(target, catalog);
-  }, [target, catalog]);
+    return null;
+  }, [target]);
   const exactLocalEvaluation = useMemo(() => {
     if (lifecycle || sufficiency?.state !== SUFFICIENCY.EXACT_LOCAL || !sufficiency?.bestLocal) {
       return null;

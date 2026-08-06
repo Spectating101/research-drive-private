@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { canIUseDecision, detailFields, displayName, statusPillKind } from "@/v2/datasetMeta";
 import { assetTypeLabel } from "@/v2/libraryEstate";
 import { RailEntityHeader, RailFrame, RailStickyFooter } from "@/v2/RailFrame";
@@ -95,7 +96,18 @@ function verificationBlock(dataset) {
   };
 }
 
-export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
+function needsHydrate(dataset) {
+  if (!dataset) return false;
+  if (dataset.hydrate_required === true) return true;
+  if (dataset.required_action === "hydrate") return true;
+  if (Array.isArray(dataset.actions) && dataset.actions.some((a) => a?.id === "hydrate")) return true;
+  const ready = String(dataset.analysis_readiness || "").toLowerCase();
+  if (dataset.local_ready === false && dataset.canonical_remote && ready === "registered") return true;
+  return false;
+}
+
+export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout, onHydrate }) {
+  const [hydrateState, setHydrateState] = useState("");
   if (!dataset) return null;
   const fields = detailFields(dataset);
   const state = statusPillKind(dataset);
@@ -105,8 +117,21 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
   const columnCount = dataset.columns || dataset.column_count || dataset.num_columns;
   const updated = dataset.updated_at || dataset.last_modified || dataset.as_of;
   const route = dataset.collect_via || dataset.backend;
-  const canPreview = state.kind === "query-ready";
+  const canPreview = state.kind === "query-ready" || dataset.local_ready === true;
+  const showHydrate = needsHydrate(dataset) && typeof onHydrate === "function";
   const verification = verificationBlock(dataset);
+  const hydrateBusy = hydrateState === "working";
+
+  const handleHydrate = async () => {
+    if (!onHydrate || hydrateBusy) return;
+    setHydrateState("working");
+    try {
+      await onHydrate(dataset);
+      setHydrateState("done");
+    } catch {
+      setHydrateState("error");
+    }
+  };
 
   return (
     <RailFrame>
@@ -120,6 +145,11 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
         <p className="rd-v2-rail-section-label">Can I use this?</p>
         <h3>{decision.headline}</h3>
         <p>{decision.body}</p>
+        {showHydrate ? (
+          <p className="rd-v2-library-inspector-prose" data-testid="library-rail-hydrate-hint">
+            {dataset.message || "Canonical bytes are on Drive. Hydrate to the desk before Preview."}
+          </p>
+        ) : null}
       </section>
 
       <div className="rd-v2-rail-scroll rd-v2-library-inspector-scroll">
@@ -199,13 +229,24 @@ export function LibraryDatasetRailPanel({ dataset, onPreview, onAskAbout }) {
       </div>
 
       <RailStickyFooter>
+        {showHydrate ? (
+          <button
+            type="button"
+            className="rd-v2-btn primary sm"
+            data-testid="library-rail-hydrate"
+            disabled={hydrateBusy}
+            onClick={handleHydrate}
+          >
+            {hydrateBusy ? "Hydrating…" : hydrateState === "error" ? "Hydrate failed — retry" : "Hydrate from Drive"}
+          </button>
+        ) : null}
         {canPreview ? (
           <>
             <button type="button" className="rd-v2-btn primary sm" onClick={onPreview}>Preview rows</button>
             <button type="button" className="rd-v2-btn sm" onClick={onAskAbout}>Ask about this →</button>
           </>
         ) : (
-          <button type="button" className="rd-v2-btn primary sm" onClick={onAskAbout}>Ask about access →</button>
+          <button type="button" className="rd-v2-btn sm" onClick={onAskAbout}>Ask about access →</button>
         )}
       </RailStickyFooter>
     </RailFrame>
