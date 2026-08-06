@@ -743,6 +743,8 @@ class ResearchDataGateway:
                 scale = mat.get("scale") or {}
                 smoke = mat.get("query_smoke") if isinstance(mat.get("query_smoke"), dict) else {}
                 return {
+                    "capabilities": list(reg.get("capabilities") or [])[:8],
+                    "join_keys": list(reg.get("join_keys") or [])[:6],
                     "query_ready": bool(mat.get("query_ready")),
                     "query_verified": bool(mat.get("query_verified") or smoke.get("ok")),
                     "query_verified_at": smoke.get("probed_at") or mat.get("probed_at"),
