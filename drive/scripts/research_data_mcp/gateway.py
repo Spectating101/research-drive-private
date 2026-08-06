@@ -739,8 +739,14 @@ class ResearchDataGateway:
                     return _flat(item)
 
                 geo = _val("geography")
-                scale = (reg.get("materialization") or {}).get("scale") or {}
+                mat = reg.get("materialization") or {}
+                scale = mat.get("scale") or {}
+                smoke = mat.get("query_smoke") if isinstance(mat.get("query_smoke"), dict) else {}
                 return {
+                    "query_ready": bool(mat.get("query_ready")),
+                    "query_verified": bool(mat.get("query_verified") or smoke.get("ok")),
+                    "query_verified_at": smoke.get("probed_at") or mat.get("probed_at"),
+                    "entitlement_status": reg.get("entitlement_status"),
                     "display_name": reg.get("display_name") or reg.get("name"),
                     "one_line": reg.get("one_line"),
                     "recommended_use": reg.get("recommended_use") or reg.get("best_use"),
