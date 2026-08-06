@@ -18,6 +18,7 @@ PHASES = (
     "smoked",
     "registered",
     "query_ready",
+    "stopped",
     "failed",
     "blocked",
 )
@@ -27,7 +28,9 @@ def procure_phase_from_job(job: dict[str, Any] | None) -> str:
     """Map a YZU/desk job record to a procure lifecycle phase."""
     job = job if isinstance(job, dict) else {}
     status = str(job.get("status") or "").strip().lower().replace("-", "_")
-    if status in {"failed", "error", "cancelled", "canceled"}:
+    if status in {"cancelled", "canceled"}:
+        return "stopped"
+    if status in {"failed", "error"}:
         return "failed"
     if status in {"blocked", "headroom_blocked"}:
         return "blocked"
@@ -56,10 +59,10 @@ def procure_phase_from_job(job: dict[str, Any] | None) -> str:
         or result.get("analysis_readiness")
         or ""
     ).strip()
-    if readiness in {"query_ready", "instant"}:
-        return "query_ready"
     if smoke is not None:
-        return "smoked" if smoke.get("ok") else "registered"
+        return "query_ready" if smoke.get("ok") else "registered"
+    if readiness == "query_ready":
+        return "query_ready"
     if materialized or result.get("canonical_dir") or result.get("revision_id"):
         return "materialized"
     return "registered"
