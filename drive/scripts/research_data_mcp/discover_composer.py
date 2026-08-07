@@ -15,7 +15,7 @@ import logging
 import os
 import re
 import time
-from typing import Any
+from typing import Any, Iterable
 
 from scripts.research_data_mcp.evidence_placement import (
     PLACEMENT_CONTEXT,
@@ -82,8 +82,16 @@ Hard bans:
 For context (max 6): canonical matching sources with real URLs (Gallup/Pew/ANES/Roper/538/TWSE/TPEx…).
 Pretrained knowledge is allowed. Summary MUST state desk truth (held / collectable route / neither).
 
+Answering from held data:
+- When the question asks something the registry cannot state (row counts, distinct
+  values, actual date extent, distributions), call research_query_dataset or
+  research_analyze_dataset on a held dataset_id and answer from the result.
+- Put that in "answer". Omit "answer" entirely when you did not query — never
+  fill it from registry labelling, description text or pretrained knowledge.
+
 Return ONLY JSON:
 {{
+  "answer": {{"text":"...","from":["dataset_id"],"via":"research_query_dataset"}},
   "held": [{{"title":"...","dataset_id":"...","why":"..."}}],
   "route": [{{"title":"...","source_id":"...","why":"..."}}],
   "context": [{{"title":"...","url":"...","why":"..."}}],
@@ -181,6 +189,47 @@ def parse_composer_discover_json(reply: str) -> dict[str, Any] | None:
     except (ValueError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+_ANSWER_TOOLS = ("research_query_dataset", "research_analyze_dataset")
+
+
+def verified_answer(
+    parsed: dict[str, Any] | None,
+    tools_used: Iterable[str] | None,
+    held_ids: Iterable[str] | None = None,
+) -> dict[str, Any] | None:
+    """An answer survives only with a recorded query tool call behind it.
+
+    Composer will happily narrate registry labelling as if it had read the data.
+    No tool call, no answer — the same rule readiness_truth applies to query_ready.
+    """
+    raw = (parsed or {}).get("answer")
+    if not isinstance(raw, dict):
+        return None
+    text = str(raw.get("text") or "").strip()
+    if not text:
+        return None
+
+    used = {str(t).strip() for t in (tools_used or []) if str(t).strip()}
+    via = str(raw.get("via") or "").strip()
+    evidence = [t for t in _ANSWER_TOOLS if t in used]
+    if via in _ANSWER_TOOLS and via not in used:
+        return None
+    if not evidence:
+        return None
+
+    sources = [str(d).strip() for d in (raw.get("from") or []) if str(d).strip()]
+    known = {str(d).strip() for d in (held_ids or []) if str(d).strip()}
+    if known:
+        sources = [d for d in sources if d in known]
+        if not sources:
+            return None
+    return {
+        "text": text[:600],
+        "from": sources[:4],
+        "via": via if via in _ANSWER_TOOLS else evidence[0],
+    }
 
 
 def package_from_composer(
@@ -405,8 +454,11 @@ def _composer_mcp_grounded(
     routes: list[dict[str, Any]],
     route_reason: str,
     limit: int = 6,
-) -> tuple[list[dict[str, Any]], str, str, list[str]]:
-    """Composer + MCP with desk facts pre-injected. Returns context, summary, next, tools_note."""
+) -> tuple[list[dict[str, Any]], str, str, list[str], dict[str, Any] | None]:
+    """Composer + MCP with desk facts pre-injected.
+
+    Returns context, summary, next, tools_called, verified answer (or None).
+    """
     from scripts.research_data_mcp.desk_brain import (
         cursor_composer_available,
         run_cursor_composer_turn,
@@ -415,7 +467,7 @@ def _composer_mcp_grounded(
     if not cursor_composer_available():
         # Fall back to composer-only knowledge path
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
-        return ctx, summary, nxt, ["composer_only_fallback"]
+        return ctx, summary, nxt, ["composer_only_fallback"], None
 
     desk_facts = _desk_facts_block(held, routes, route_reason)
     try:
@@ -446,10 +498,16 @@ def _composer_mcp_grounded(
     except Exception:  # noqa: BLE001
         _LOG.exception("composer+mcp discover failed; falling back to composer-only")
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
-        return ctx, summary, nxt, ["composer_only_fallback"]
+        return ctx, summary, nxt, ["composer_only_fallback"], None
 
     reply = str(getattr(turn, "reply", "") or "")
+    tools_called = list(getattr(turn, "tools_called", None) or [])
     parsed = parse_composer_discover_json(reply) or {}
+    answer = verified_answer(
+        parsed,
+        tools_called,
+        [str(r.get("dataset_id") or "") for r in held],
+    )
     context = _filter_context_noise(
         _normalize_context_rows(parsed.get("context") or [], limit=limit),
         query,
@@ -477,7 +535,15 @@ def _composer_mcp_grounded(
             summary = f"{len(context)} open source(s) to inspect for “{query}”."
         else:
             summary = f"No desk holding for “{query}”."
-    return context, summary, next_action, ["cursor_composer", "mcp"]
+    if answer:
+        summary = answer["text"][:300]
+    return (
+        context,
+        summary,
+        next_action,
+        ["cursor_composer", "mcp", *tools_called],
+        answer,
+    )
 
 
 def _enrich_cache_key(query: str, *, use_mcp: bool, desk_sig: str) -> str:
@@ -540,6 +606,7 @@ def _package_hybrid(
     profile_extra: dict[str, Any] | None = None,
     layers: dict[str, Any] | None = None,
     cache_hit: bool = False,
+    answer: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not next_action:
         if held:
@@ -588,6 +655,7 @@ def _package_hybrid(
         "judgment": None,
         "next_action": next_action,
         "summary": summary,
+        "answer": answer or None,
         "route_reason": route_reason or None,
         "tools_used": list(tools_used or []),
         "layers": layers or {},
@@ -673,8 +741,9 @@ def run_hybrid_discover(
         else:
             t1 = time.perf_counter()
             note: list[str] = []
+            answer: dict[str, Any] | None = None
             if use_mcp:
-                context, composer_summary, composer_next, note = _composer_mcp_grounded(
+                context, composer_summary, composer_next, note, answer = _composer_mcp_grounded(
                     gateway,
                     q,
                     held=held,
@@ -747,6 +816,7 @@ def run_hybrid_discover(
         profile_extra=profile_extra,
         layers=layers,
         cache_hit=cache_hit,
+        answer=answer,
     )
 
 

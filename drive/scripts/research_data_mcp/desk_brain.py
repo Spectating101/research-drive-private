@@ -65,6 +65,7 @@ class AgentTurn:
     reply: str
     suggested_prompts: list[str] = field(default_factory=list)
     tool_name: str = ""
+    tools_called: list[str] = field(default_factory=list)
 
 
 _TOOL_ACTIVITY_LABELS: dict[str, str] = {
@@ -864,6 +865,7 @@ def run_cursor_composer_turn(
         reply = ""
         model_id = model_candidates[0]
         tool_call_started = False
+        tools_called: list[str] = []
 
         def on_delta(update: Any) -> None:
             nonlocal tool_call_started
@@ -879,6 +881,8 @@ def run_cursor_composer_turn(
                 tool_call_started = True
                 tool_call = payload.get("tool_call") or {}
                 name = str(tool_call.get("name") or tool_call.get("toolName") or "")
+                if name and name not in tools_called:
+                    tools_called.append(name)
                 label = _tool_activity_label(name)
                 if label:
                     _emit_event(event_sink, {"type": "activity", "text": label})
@@ -1172,6 +1176,7 @@ def run_cursor_composer_turn(
             reply=reply,
             suggested_prompts=suggestions[:5],
             tool_name="cursor_composer",
+            tools_called=list(tools_called),
         )
     except TimeoutError:
         # A stuck Composer must not hang the desk. In Synthesis, preserve any
