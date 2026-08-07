@@ -44,6 +44,11 @@ PROCUREMENT_QUERY_STOPWORDS = frozenset(
         "help", "illustrate", "measure", "measurement", "measurements", "public", "open",
         "daily", "weekly", "monthly", "quarterly", "annual", "yearly", "time", "series",
         "my", "our", "we", "me", "of", "to", "in", "on", "at", "by", "as", "it", "are", "is", "do", "or",
+        # Pronouns/fillers with zero topical content. Verified live: "this" alone
+        # (from "do we have this or can we get it?"), paired with one other weak
+        # word, was enough to clear the relevance floor for six unrelated
+        # stablecoin/token scrapes on an OpenSea NFT query.
+        "this", "that", "these", "those", "get", "got",
         # Conversational Ask wrappers — must not inflate compound-query thresholds.
         "hold", "holds", "held", "holding", "holdings", "have", "has", "any", "some",
         "please", "tell", "show", "give", "list", "available", "there",
