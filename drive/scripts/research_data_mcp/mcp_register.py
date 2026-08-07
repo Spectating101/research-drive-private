@@ -76,7 +76,25 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
 )
 
 
+# Discover answers one question about held evidence. 87 tools is well past the
+# point where selection stays reliable — observed live, Composer authenticated to
+# MCP and then never reached research_query_dataset. This is the task surface.
+DISCOVER_TOOL_NAMES = frozenset(
+    {
+        "research_discover_desk",
+        "research_query_dataset",
+        "research_analyze_dataset",
+        "research_describe_dataset",
+        "research_list_datasets",
+        "research_web_discover",
+        "procurement_probe_public_source",
+    }
+)
+
+
 def registered_tool_names() -> list[str]:
+    if os.getenv("RESEARCH_MCP_DISCOVER", "").strip().lower() in {"1", "true", "yes"}:
+        return [name for name in MCP_TOOL_NAMES if name in DISCOVER_TOOL_NAMES]
     read_only = os.getenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "").strip().lower()
     if read_only in {"1", "true", "yes"}:
         return [

@@ -6,6 +6,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -280,10 +281,21 @@ def composer_runtime_status(repo_root: Path | None = None) -> dict[str, Any]:
 
 
 def _repo_python(repo_root: Path) -> str:
+    """Interpreter for the MCP server subprocess.
+
+    Falling back to bare python3 spawns an interpreter without the desk
+    dependencies, so the server dies on import and the SDK reports
+    "MCP server does not exist" — the model then answers with no tools at all
+    while the engine still calls itself composer_mcp_grounded. Prefer the
+    running interpreter, which provably has the deps, over a bare guess.
+    """
     venv = repo_root / ".venv/bin/python"
     if venv.is_file():
         return str(venv)
-    return os.getenv("PYTHON", "python3")
+    override = os.getenv("PYTHON", "").strip()
+    if override:
+        return override
+    return sys.executable or "python3"
 
 
 def _desk_pythonpath(repo_root: Path) -> str:
@@ -304,6 +316,7 @@ def _mcp_stdio_config(
     *,
     vault_primed: bool = False,
     synthesis_read_only: bool = False,
+    discover: bool = False,
     sdk: _CursorSdkBindings | None = None,
 ) -> dict[str, Any]:
     bindings = sdk or _load_cursor_sdk_bindings()
@@ -311,15 +324,18 @@ def _mcp_stdio_config(
     env["PYTHONPATH"] = _desk_pythonpath(repo_root)
     env["SHARPE_REPO_ROOT"] = str(repo_root)
     env["RESEARCH_MCP_DESK"] = "1"
+    if discover:
+        env["RESEARCH_MCP_DISCOVER"] = "1"
     if synthesis_read_only:
         env["RESEARCH_MCP_SYNTHESIS_READ_ONLY"] = "1"
     if vault_primed:
         env["RESEARCH_MCP_VAULT_PRIMED"] = "1"
-    server_name = (
-        "research_procurement_synthesis_read_only"
-        if synthesis_read_only
-        else "research_procurement"
-    )
+    if discover:
+        server_name = "research_procurement_discover"
+    elif synthesis_read_only:
+        server_name = "research_procurement_synthesis_read_only"
+    else:
+        server_name = "research_procurement"
     return {
         server_name: bindings.stdio_mcp_server_config(
             command=_repo_python(repo_root),
@@ -869,11 +885,13 @@ def run_cursor_composer_turn(
             attach_mcp = False
         elif attach_flag in {"1", "true", "yes"}:
             attach_mcp = True
+        discover_turn = bool(state.get("discover_composer"))
         mcp_servers = (
             _mcp_stdio_config(
                 repo_root,
                 vault_primed=vault_primed_env,
                 synthesis_read_only=synthesis_context,
+                discover=discover_turn,
                 sdk=sdk,
             )
             if attach_mcp
