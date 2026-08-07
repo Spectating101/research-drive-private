@@ -102,6 +102,13 @@ row list with no synthesis is a worse answer than no summary at all):
   isn't there.
 - Note grain/frequency when it changes what the data can answer (e.g.
   "country-week, not firm-level" vs "ticker-day").
+- If DESK_FACTS has a SEMANTIC_CANDIDATES section, those rows share no
+  vocabulary with the query but scored high on meaning — the common case is a
+  dataset whose metadata describes what it *is* rather than what question it
+  answers (a microstructure/liquidity panel is a real building block for a
+  manipulation study even though "manipulation" never appears in its tags).
+  Mention a strong one as a lead worth checking, explicitly unverified — never
+  word it as if it were confirmed held data.
 - 2-4 sentences. No padding, no restating the query back verbatim.
 
 Answering from held data:
@@ -464,11 +471,45 @@ def _composer_only_context(query: str, *, limit: int = 6) -> tuple[list[dict[str
     return context, summary, next_action
 
 
+_SEMANTIC_BACKSTOP_MIN_SCORE = 0.30
+_SEMANTIC_BACKSTOP_MAX_ROWS = 5
+
+
+def _semantic_backstop_lines(gateway: Any, query: str, held: list[dict[str, Any]]) -> list[str]:
+    """Embedding-similarity candidates the lexical layer's word-overlap missed.
+
+    Verified live: jkse_pit_idn_microstructure_revisions is the #1 semantic
+    match (0.535) for an Indonesia small-cap manipulation query while scoring
+    0.0 lexically -- its metadata describes what the data *is* (liquidity,
+    trading, estimate-revisions), not what question it could serve
+    (manipulation detection), so no shared vocabulary exists to match on.
+    Advisory only, same pattern as fleet_facts_line/shape_facts_lines below:
+    never lexically confirmed, so never merged into `held` -- the model must
+    treat it as a lead to verify, not a holding to cite as fact.
+    """
+    try:
+        result = gateway.semantic_discover(query, limit=8 + len(held))
+    except Exception:  # noqa: BLE001 - embedding backstop is advisory, never fatal
+        return []
+    held_ids = {str(r.get("dataset_id") or "") for r in held}
+    lines: list[str] = []
+    for row in result.get("rows") or []:
+        did = str(row.get("dataset_id") or "")
+        score = float(row.get("semantic_score") or 0.0)
+        if not did or did in held_ids or score < _SEMANTIC_BACKSTOP_MIN_SCORE:
+            continue
+        lines.append(f"- {row.get('title') or did} | dataset_id={did} | similarity={score:.2f}")
+        if len(lines) >= _SEMANTIC_BACKSTOP_MAX_ROWS:
+            break
+    return lines
+
+
 def _desk_facts_block(
     held: list[dict[str, Any]],
     routes: list[dict[str, Any]],
     route_reason: str,
     gateway: Any = None,
+    query: str = "",
 ) -> str:
     held_lines = []
     for r in held[:8]:
@@ -495,6 +536,9 @@ def _desk_facts_block(
             shape_lines = shape_facts_lines(gateway, held)
         except Exception:  # noqa: BLE001 - shape probing must never fail a search
             shape_lines = []
+    semantic_lines: list[str] = []
+    if gateway is not None and query.strip():
+        semantic_lines = _semantic_backstop_lines(gateway, query, held)
     return (
         f"held_count={len(held)}\n"
         + ("\n".join(held_lines) if held_lines else "(none)")
@@ -504,6 +548,15 @@ def _desk_facts_block(
             "\n\nMEASURED SHAPE (read from the files just now — use these numbers, never recall them):\n"
             + "\n".join(shape_lines)
             if shape_lines
+            else ""
+        )
+        + (
+            "\n\nSEMANTIC_CANDIDATES (embedding similarity to your query, NOT a lexical "
+            "match and NOT in held/routes above — these are leads the keyword search "
+            "missed, not confirmed holdings. Call research_query_dataset to verify one "
+            "before citing it as available; never state it's held without doing so):\n"
+            + "\n".join(semantic_lines)
+            if semantic_lines
             else ""
         )
         + (f"\n\n{fleet_line}" if fleet_line else "")
@@ -566,7 +619,7 @@ def _composer_mcp_grounded(
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
         return ctx, summary, nxt, ["composer_only_fallback"], None
 
-    desk_facts = _desk_facts_block(held, routes, route_reason, gateway)
+    desk_facts = _desk_facts_block(held, routes, route_reason, gateway, query=query)
     try:
         from scripts.research_data_mcp.desk_capabilities import capability_block
 
