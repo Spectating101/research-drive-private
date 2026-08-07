@@ -30,8 +30,15 @@ const proxy = {
 // (not 2xx), timing out the mock e2e job at ~120s.
 const pagesBase = process.env.YZU_PAGES === "true" ? "/yzu-cluster/" : "/";
 
+// A bare `vite build` must never land on a served path. `dist/` here was a
+// symlink into releases/<sha>, and --emptyOutDir wipes the target — including
+// research-drive-build.json, which run_optiplex_front_door.sh requires. So an
+// ordinary local build silently redeployed the public mirror and could take the
+// front door down with "build identity missing". Default to scratch; the
+// front-door build passes --outDir <release_dir> explicitly and is unaffected.
 export default defineConfig({
   base: pagesBase,
+  build: { outDir: process.env.YZU_BUILD_OUT_DIR || ".vite-build" },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
