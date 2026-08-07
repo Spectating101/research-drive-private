@@ -143,8 +143,43 @@ def _parse_json_object(text: str) -> dict[str, Any]:
     raise ValueError("model reply was not a JSON object")
 
 
-def call_label_brain(prompt: str, *, timeout: int = 90) -> tuple[dict[str, Any], str, str]:
-    """Prefer Copilot wrappers; optional Gemini if available. Returns (json, provider, model)."""
+def _cursor_label(prompt: str, gateway: Any) -> dict[str, Any]:
+    """Label via the desk's own Composer — the same brain Discover and Ask use."""
+    from scripts.research_data_mcp.desk_brain import (
+        cursor_composer_available,
+        run_cursor_composer_turn,
+    )
+
+    if not cursor_composer_available():
+        raise RuntimeError("composer not configured")
+    turn = run_cursor_composer_turn(
+        gateway,
+        prompt,
+        {"vault_meaning_label": True},
+        session_id=f"vault-label-{abs(hash(prompt)) % 10_000_000}",
+    )
+    payload = _parse_json_object(str(getattr(turn, "reply", "") or ""))
+    normalize_meaning_payload(payload)
+    return payload
+
+
+def call_label_brain(
+    prompt: str, *, timeout: int = 90, gateway: Any = None
+) -> tuple[dict[str, Any], str, str]:
+    """Cursor Composer first, then Copilot wrappers, then optional Gemini.
+
+    Composer is the desk's own brain — the one Discover and Ask already run on —
+    so labelling no longer depends on separate CLI wrappers that can be down
+    while the desk itself is healthy.
+    """
+    errors: list[str] = []
+    if gateway is not None:
+        try:
+            payload = _cursor_label(prompt, gateway)
+            return payload, "cursor_composer", "cursor_composer"
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"cursor_composer:{str(exc)[:80]}")
+
     providers = [
         ("copilot-ly", ["copilot-ly", "-p", prompt]),
         ("copilot-ly2", ["copilot-ly2", "-p", prompt]),
@@ -154,7 +189,6 @@ def call_label_brain(prompt: str, *, timeout: int = 90) -> tuple[dict[str, Any],
     if gemini and os.getenv("VAULT_MEANING_ALLOW_GEMINI", "").strip().lower() in {"1", "true", "yes"}:
         providers.append(("gemini", [gemini, "-p", prompt, "-o", "text", "--yolo"]))
 
-    errors: list[str] = []
     for name, argv in providers:
         bin_path = shutil.which(argv[0])
         if not bin_path and name != "gemini":
@@ -193,10 +227,11 @@ def propose_meaning_for_row(
     row: dict[str, Any],
     *,
     extras: dict[str, Any] | None = None,
+    gateway: Any = None,
 ) -> dict[str, Any]:
     facts = measure_meaning_facts(row, extras=extras)
     prompt = build_meaning_prompt(facts)
-    payload, provider, model = call_label_brain(prompt)
+    payload, provider, model = call_label_brain(prompt, gateway=gateway)
     clean = normalize_meaning_payload(payload)
     return {
         "ok": True,
@@ -242,6 +277,7 @@ def relabel_dataset(
     registry_path: Path | None = None,
     extras: dict[str, Any] | None = None,
     dry_run: bool = False,
+    gateway: Any = None,
 ) -> dict[str, Any]:
     root = Path(repo_root).resolve()
     reg_path = Path(registry_path) if registry_path else root / "config/research_query_registry.json"
@@ -249,7 +285,7 @@ def relabel_dataset(
     row = next((r for r in (doc.get("datasets") or []) if r.get("dataset_id") == dataset_id), None)
     if not row:
         raise KeyError(f"unknown dataset_id: {dataset_id}")
-    proposal = propose_meaning_for_row(row, extras=extras)
+    proposal = propose_meaning_for_row(row, extras=extras, gateway=gateway)
     if dry_run:
         return {**proposal, "applied": False, "dry_run": True}
     applied = apply_meaning_to_registry(
@@ -344,8 +380,13 @@ def batch_relabel_datasets(
     limit: int = 20,
     dry_run: bool = False,
     include_scrape_noise: bool = False,
+    gateway: Any = None,
 ) -> dict[str, Any]:
-    """Sequential Copilot meaning pass over a prioritized queue (hands apply)."""
+    """Sequential meaning pass over a prioritized queue (hands apply).
+
+    Pass ``gateway`` to label via the desk's own Composer rather than the
+    Copilot CLI wrappers.
+    """
     root = Path(repo_root).resolve()
     if dataset_ids:
         queue = [{"dataset_id": str(d).strip()} for d in dataset_ids if str(d).strip()]
@@ -357,7 +398,7 @@ def batch_relabel_datasets(
         if not did:
             continue
         try:
-            out = relabel_dataset(root, did, dry_run=dry_run)
+            out = relabel_dataset(root, did, dry_run=dry_run, gateway=gateway)
             row_out = {
                 "dataset_id": did,
                 "ok": True,
