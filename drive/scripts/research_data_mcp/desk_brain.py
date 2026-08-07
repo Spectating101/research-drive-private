@@ -199,6 +199,26 @@ def _reply_from_run(run: Any, streamed: list[str]) -> str:
     return "".join(chunks).strip()
 
 
+def tool_call_name(tool_call: Any) -> tuple[str, bool]:
+    """Return (name, is_mcp) from a Cursor SDK tool_call payload.
+
+    Two shapes reach us and neither carries a top-level name:
+      built-in : {"type": "grep", "args": {...}}
+      mcp      : {"type": "mcp", "args": {"toolName": "research_query_dataset", ...}}
+    Reading tool_call["name"] silently yielded "" for every call, which left
+    tools_called empty and every activity label blank.
+    """
+    if not isinstance(tool_call, dict):
+        return "", False
+    kind = str(tool_call.get("type") or "").strip()
+    args = tool_call.get("args")
+    if kind == "mcp" and isinstance(args, dict):
+        name = str(args.get("toolName") or args.get("tool_name") or "").strip()
+        return name, bool(name)
+    direct = str(tool_call.get("name") or tool_call.get("toolName") or "").strip()
+    return (direct or kind), False
+
+
 def _tool_activity_label(tool_name: str) -> str:
     name = str(tool_name or "").strip()
     if not name:
@@ -880,17 +900,17 @@ def run_cursor_composer_turn(
             if typ == "tool-call-started":
                 tool_call_started = True
                 tool_call = payload.get("tool_call") or {}
-                name = str(tool_call.get("name") or tool_call.get("toolName") or "")
-                if name and name not in tools_called:
+                name, is_mcp = tool_call_name(tool_call)
+                if is_mcp and name and name not in tools_called:
                     tools_called.append(name)
-                label = _tool_activity_label(name)
+                label = _tool_activity_label(name) if is_mcp else ""
                 if label:
                     _emit_event(event_sink, {"type": "activity", "text": label})
                 return
             # Some Cursor SDK builds surface completed tool calls with a result payload.
             if typ in {"tool-call-completed", "tool-call-finished", "tool_result"}:
                 tool_call = payload.get("tool_call") or payload
-                name = str(tool_call.get("name") or tool_call.get("toolName") or "")
+                name, _is_mcp = tool_call_name(tool_call)
                 result = tool_call.get("result") or payload.get("result")
                 parsed: Any = result
                 if isinstance(result, str):

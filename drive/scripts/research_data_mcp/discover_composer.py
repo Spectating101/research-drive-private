@@ -88,6 +88,9 @@ Answering from held data:
   research_analyze_dataset on a held dataset_id and answer from the result.
 - Put that in "answer". Omit "answer" entirely when you did not query — never
   fill it from registry labelling, description text or pretrained knowledge.
+- "summary" must not state a measured quantity (row counts, distinct values,
+  exact start/end dates) unless "answer" is present. Without a query, say what
+  the desk holds and that the number needs a read — do not recall it.
 
 Return ONLY JSON:
 {{
@@ -655,6 +658,9 @@ def _package_hybrid(
         "judgment": None,
         "next_action": next_action,
         "summary": summary,
+        # Summary is model prose. Only an answer carries a recorded measurement,
+        # so the client can label the difference instead of trusting both equally.
+        "summary_measured": bool(answer),
         "answer": answer or None,
         "route_reason": route_reason or None,
         "tools_used": list(tools_used or []),
