@@ -102,7 +102,10 @@ def test_composer_turn_passes_raw_message(monkeypatch) -> None:
     )
 
     assert "Here is what I found" in turn.reply
-    assert FakeAgent.last_prompt.strip() == "what TWSE data do we have?"
+    # L0 grounding is prepended on purpose; the faculty message must survive intact
+    # and stay last so it is what the model answers.
+    assert FakeAgent.last_prompt.rstrip().endswith("what TWSE data do we have?")
+    assert "[Ask DESK_FACTS]" in FakeAgent.last_prompt
     assert turn.tool_name == "cursor_composer"
 
 

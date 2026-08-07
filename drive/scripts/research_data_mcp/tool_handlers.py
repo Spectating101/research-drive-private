@@ -174,6 +174,34 @@ class ResearchToolHandlers:
             "job_status": (job or {}).get("status") if isinstance(job, dict) else None,
         }
 
+    def research_synthesis_terminal_list(self) -> dict[str, Any]:
+        """List allowlisted Synthesis Ask terminal inspect commands (no free shell)."""
+        from scripts.research_data_mcp.synthesis_terminal import list_terminal_commands
+
+        return list_terminal_commands()
+
+    def research_synthesis_terminal_run(
+        self,
+        thread_id: str,
+        command: str,
+        limit: int = 5,
+        tail: bool = False,
+        columns: list[str] | None = None,
+        job_id: str = "",
+    ) -> dict[str, Any]:
+        """Run one allowlisted Synthesis terminal inspect command for a thread."""
+        from scripts.research_data_mcp.synthesis_terminal import run_terminal_command
+
+        return run_terminal_command(
+            self.gateway,
+            thread_id=thread_id,
+            command=command,
+            limit=min(max(int(limit or 5), 1), 20),
+            tail=bool(tail),
+            columns=list(columns or []) or None,
+            job_id=str(job_id or ""),
+        )
+
     def research_discover_create_intent(
         self, research_need: str, title: str = "", candidate: dict[str, Any] | None = None, session_id: str = ""
     ) -> dict[str, Any]:

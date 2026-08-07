@@ -11,6 +11,9 @@ from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES, ResearchTool
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
+# Synthesis Ask construction surface (env RESEARCH_MCP_SYNTHESIS_READ_ONLY=1).
+# Propose never applies; submit_execution queues pending_approval only.
+# Still excludes approve/run-panel/blanket procure mutate tools.
 SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
     {
         "research_mcp_stack_status",
@@ -33,6 +36,12 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
         "research_synthesis_materialisation",
         # Propose never applies — Composer can record a reviewable draft for the researcher.
         "research_synthesis_propose_state",
+        # Construction ladder (human Accept still required before durable apply).
+        "research_synthesis_submit_execution",
+        "research_synthesis_discover_handoff",
+        "research_synthesis_collect_missing",
+        "research_synthesis_terminal_list",
+        "research_synthesis_terminal_run",
         "research_discover_get_intent",
         "research_discover_history",
         "research_quant_brief",

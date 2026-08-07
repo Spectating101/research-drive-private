@@ -84,6 +84,8 @@ _TOOL_ACTIVITY_LABELS: dict[str, str] = {
     "research_synthesis_collect_missing": "Collecting missing evidence…",
     "research_synthesis_materialisation": "Checking synthesis materialisation…",
     "research_synthesis_submit_execution": "Submitting synthesis for approval…",
+    "research_synthesis_terminal_list": "Listing synthesis terminal commands…",
+    "research_synthesis_terminal_run": "Inspecting synthesis thread output…",
     "research_collection_hydrate": "Pulling files from Drive…",
     "yzu_submit_job": "Submitting collection job…",
     "research_craft_collect_plan": "Crafting custom collect plan…",
@@ -489,6 +491,8 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                     "research_synthesis_collect_missing",
                     "research_synthesis_materialisation",
                     "research_synthesis_submit_execution",
+                    "research_synthesis_terminal_list",
+                    "research_synthesis_terminal_run",
                 ):
                     summary = payload.get("summary") or {}
                     samples = payload.get("panel_samples") or payload.get("entities") or []
@@ -516,6 +520,21 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                     if isinstance(proposal, dict):
                         action_result["synthesis_proposal"] = proposal
                         action_result["synthesis_thread_id"] = payload.get("thread_id")
+                if name == "research_synthesis_terminal_run":
+                    rows = payload.get("rows")
+                    cols = payload.get("columns")
+                    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+                        set_action("query")
+                        preview = {
+                            "kind": "table",
+                            "columns": list(cols or rows[0].keys())[:12],
+                            "rows": rows[:5],
+                        }
+                    action_result["synthesis_terminal"] = {
+                        "ok": payload.get("ok"),
+                        "thread_id": payload.get("thread_id"),
+                        "command_result_keys": sorted(payload.keys())[:24],
+                    }
                 if name == "procurement_probe_public_source":
                     set_action("probe_url")
                     action_result["probe"] = payload

@@ -17,6 +17,16 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(REPO), str(REPO / "kernel"), str(REPO / "drive")]
 
 
+@pytest.fixture(autouse=True)
+def _clean_composer_health():
+    """Recorded provider observations live in module state and leak across tests."""
+    from scripts.research_data_mcp.desk_composer_health import reset_composer_health
+
+    reset_composer_health()
+    yield
+    reset_composer_health()
+
+
 @pytest.fixture()
 def desk_brain(monkeypatch):
     monkeypatch.delenv("CURSOR_API_KEY", raising=False)

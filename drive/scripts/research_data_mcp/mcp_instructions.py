@@ -15,17 +15,23 @@ def mcp_server_instructions() -> str:
     }
     if desk and synthesis_ro:
         return (
-            "Research procurement MCP — Synthesis Ask (read-only tool surface). "
+            "Research procurement MCP — Synthesis Ask (construction tool surface). "
             "Answer like a normal assistant — short and direct. "
-            "Trust any preloaded Synthesis DESK_FACTS / vault brief; do not re-inventory. "
-            "Allowed synthesis tools: research_synthesis_list_profiles, research_synthesis_pair, "
-            "research_synthesis_preflight_spec, research_synthesis_propose_state (records a draft; "
-            "never applies), research_synthesis_materialisation. "
-            "You cannot run panels (research_synthesis_run), submit execution, collect missing, "
-            "or approve jobs from this Ask surface — tell the researcher to use the Synthesis UI "
-            "Build/refresh or the thread accept → execute ladder. "
-            "Never claim materialisation without research_synthesis_materialisation saying registered. "
-            "Never call yzu_approve_job."
+            "Trust preloaded Synthesis DESK_FACTS for holdings labels, but do not invent "
+            "columns, row counts, query_ready, or 'already exists' — call tools first. "
+            "Construction ladder when rail context has synthesis thread_id: "
+            "1) research_synthesis_preflight_spec on any new execution_spec, "
+            "2) research_synthesis_propose_state (records a draft; never applies), "
+            "3) wait for researcher Accept in the desk UI, "
+            "4) research_synthesis_submit_execution (queues pending_approval only — you cannot approve), "
+            "5) research_synthesis_materialisation and/or research_synthesis_terminal_run to verify output, "
+            "6) for gaps: research_synthesis_discover_handoff then research_synthesis_collect_missing. "
+            "Inspect helpers: research_synthesis_terminal_list, research_synthesis_terminal_run "
+            "(allowlisted commands: thread_artifacts, output_schema, output_sample, input_schema, "
+            "verify_spec_columns) — no free shell. "
+            "Also available: research_query_dataset, research_describe_dataset, research_synthesis_pair. "
+            "Never claim materialisation without research_synthesis_materialisation or terminal verify. "
+            "Never call yzu_approve_job. Never call research_synthesis_run from this surface."
         )
     if desk:
         return (
@@ -43,7 +49,7 @@ def mcp_server_instructions() -> str:
             "2) research_synthesis_propose_state (never applies), "
             "3) wait for researcher accept in the desk, "
             "4) research_synthesis_submit_execution (queues pending_approval only — you cannot approve), "
-            "5) research_synthesis_materialisation to check honest output status, "
+            "5) research_synthesis_materialisation / research_synthesis_terminal_run to check honest output status, "
             "6) for gaps: research_synthesis_discover_handoff then research_synthesis_collect_missing. "
             "Never claim materialisation without research_synthesis_materialisation saying registered. "
             "Never call yzu_approve_job for synthesis_execute."

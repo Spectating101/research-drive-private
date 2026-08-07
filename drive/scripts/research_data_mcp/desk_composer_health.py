@@ -35,6 +35,12 @@ def _error_category(detail: Any) -> str:
     return "provider_error"
 
 
+def reset_composer_health() -> None:
+    """Drop recorded observations so status reverts to unverified."""
+    with _LOCK:
+        _LAST.clear()
+
+
 def record_composer_success(*, model: str = "") -> None:
     with _LOCK:
         _LAST.clear()

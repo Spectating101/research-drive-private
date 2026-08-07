@@ -46,6 +46,8 @@ MCP_TOOL_CORE: tuple[str, ...] = (
     "research_synthesis_collect_missing",
     "research_synthesis_materialisation",
     "research_synthesis_submit_execution",
+    "research_synthesis_terminal_list",
+    "research_synthesis_terminal_run",
     "research_discover_create_intent",
     "research_discover_get_intent",
     "research_discover_propose_intent",

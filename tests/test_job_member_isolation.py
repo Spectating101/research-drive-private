@@ -41,7 +41,7 @@ class FakeOrchestrator:
 def test_member_jobs_are_owned_and_history_is_isolated(monkeypatch):
     monkeypatch.setattr(
         "scripts.research_data_mcp.execution_policy.enforce_execution_submit",
-        lambda plan, request, auto_approve=False: (plan, auto_approve),
+        lambda plan, request=None, *, auto_approve=False, repo_root=None: (plan, auto_approve),
     )
     service = JobService(FakeOrchestrator())
     with desk_principal_context(ALICE):

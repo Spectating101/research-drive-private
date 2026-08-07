@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import threading
 import time
+
+import pytest
 from pathlib import Path
 
 import pytest
@@ -34,7 +36,12 @@ def _orchestrator(tmp_path: Path, *, operations: dict | None = None) -> YzuOrche
     return YzuOrchestrator(tmp_path)
 
 
-def test_faculty_acquisition_requires_explicit_approval(tmp_path: Path) -> None:
+def test_faculty_acquisition_requires_explicit_approval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Approval scope is the subject here; nvme headroom is measured against the
+    # ambient volume and would otherwise fail this on a full disk.
+    monkeypatch.setenv("RD_ENFORCE_HEADROOM", "0")
     orchestrator = _orchestrator(tmp_path)
 
     submitted = orchestrator.submit(

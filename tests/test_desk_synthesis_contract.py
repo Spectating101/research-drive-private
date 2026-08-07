@@ -667,7 +667,7 @@ def test_first_synthesis_turn_blocks_direct_collection(monkeypatch, tmp_path):
     assert called == {"collect": 0, "composer": 1}
 
 
-def test_synthesis_mcp_registration_is_read_only(monkeypatch):
+def test_synthesis_mcp_registration_is_construction_surface(monkeypatch):
     from scripts.research_data_mcp.mcp_register import registered_tool_names
 
     monkeypatch.setenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "1")
@@ -677,17 +677,27 @@ def test_synthesis_mcp_registration_is_read_only(monkeypatch):
     assert "bigquery_dry_run" in names
     assert "research_synthesis_run" not in names
     assert "research_synthesis_propose_state" in names
+    assert "research_synthesis_submit_execution" in names
+    assert "research_synthesis_discover_handoff" in names
+    assert "research_synthesis_collect_missing" in names
+    assert "research_synthesis_terminal_list" in names
+    assert "research_synthesis_terminal_run" in names
     assert "datacite_collect_doi" not in names
     assert "yzu_submit_job" not in names
+    assert "yzu_approve_job" not in names
     assert "procurement_approve_job" not in names
 
 
-def test_synthesis_read_only_instructions_do_not_claim_run(monkeypatch):
+def test_synthesis_construction_instructions_require_tools(monkeypatch):
     from scripts.research_data_mcp.mcp_instructions import mcp_server_instructions
 
     monkeypatch.setenv("RESEARCH_MCP_DESK", "1")
     monkeypatch.setenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "1")
     text = mcp_server_instructions()
     assert "propose_state" in text
-    assert "cannot run panels" in text.lower() or "cannot run" in text.lower()
-    assert "research_synthesis_collect_missing" not in text or "cannot" in text.lower()
+    assert "submit_execution" in text
+    assert "terminal_run" in text
+    assert "never applies" in text.lower() or "never applies" in text
+    assert "yzu_approve_job" in text.lower() or "Never call yzu_approve_job" in text
+    assert "cannot run panels" not in text.lower()
+    assert "tell the researcher to use the Synthesis UI" not in text
