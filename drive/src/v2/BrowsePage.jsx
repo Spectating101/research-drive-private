@@ -845,6 +845,8 @@ export function BrowsePage({
   const [indexMiss, setIndexMiss] = useState(false);
   const [agentMeta, setAgentMeta] = useState({
     summary: "",
+    summaryMeasured: false,
+    answer: null,
     nextAction: "",
     engine: "",
     routeReason: "",
@@ -957,6 +959,8 @@ export function BrowsePage({
         const engine = String(discover.engine || discover.mode || "composer");
         const meta = {
           summary: discover.summary || "",
+          summaryMeasured: Boolean(discover.summary_measured),
+          answer: discover.answer && discover.answer.text ? discover.answer : null,
           nextAction: discover.next_action || "",
           engine,
           routeReason: discover.route_reason || "",
@@ -1599,6 +1603,18 @@ export function BrowsePage({
                   (Available / Library evidence / Web context). Keeping a second
                   totals row restated the same numbers before the first offering. */}
             </section>
+
+            {agentMeta.answer ? (
+              <section className="rd-v2-discover-answer" data-testid="discover-answer">
+                <p className="rd-v2-discover-answer-text">{agentMeta.answer.text}</p>
+                <p className="rd-v2-discover-answer-provenance">
+                  Measured from{" "}
+                  {(agentMeta.answer.from || []).length
+                    ? agentMeta.answer.from.join(", ")
+                    : "held evidence"}
+                </p>
+              </section>
+            ) : null}
 
             {/* Adaptive freeze: Available / external offerings are the primary
                 canvas. Held evidence is chrome above, not a permanent section. */}
