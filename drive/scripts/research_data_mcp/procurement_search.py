@@ -238,6 +238,15 @@ def query_geography_ok(row: dict[str, Any], query: str) -> bool:
     genuine Refinitiv match this fix exists for scores 4.0 (one curated-field
     hit). The bar sits at 3.5, just above the measured false-positive ceiling
     and just below the weakest genuine match, to require that margin.
+
+    Crosswalk/entity-bridge tables are exempt from that strength gate (still
+    behind the caller's relevance floor, see REFERENCE_JOIN_TABLE_MARKERS) --
+    they're geography-agnostic by design, so demanding extra topical strength
+    from them the same way a topic dataset needs it just penalizes them for
+    being infrastructure. Measured live: daily_ticker_entity_shock_panel and
+    refinitiv_entity_market_spine_expanded both scored exactly 3.0 -- correct,
+    relevant plumbing for a compound event-study query -- and were invisible
+    in the final answer for scoring 0.5 under the bar.
     """
     required = _query_geography_rules(query)
     if not required:
@@ -246,6 +255,8 @@ def query_geography_ok(row: dict[str, Any], query: str) -> bool:
         return True
     if row_geography_claims(row):
         return False
+    if _is_reference_join_row(row):
+        return True
     return relevance_score(row, query_topic_tokens(query)) >= _UNLABELLED_GEOGRAPHY_RELEVANCE_BAR
 
 
@@ -340,6 +351,37 @@ _GENERAL_HIT_WEIGHT = 1.0
 # scored 4.0, and the strongest scored 16. The bar sits just above the
 # measured false-positive ceiling.
 _UNLABELLED_GEOGRAPHY_RELEVANCE_BAR = 3.5
+
+# Crosswalk/join/id-bridge tables (RIC<->GDELT entity spines, CIK/PERMNO/GVKEY
+# links, airport-code lookups, ...) are deliberately geography-agnostic by
+# construction -- their whole purpose is linking rows *across* markets, so they
+# can never earn a geography tag the way a topic dataset would, and their thin
+# "how to join" descriptions score low on any single-country query even when
+# they're exactly the plumbing a compound query needs. Scanned the live
+# registry: 15 rows carry one of these markers in tags/keywords, spanning
+# finance (refinitiv_entity_market_spine, crsp_compustat_ccm_link) and
+# unrelated domains (airport-code lookups) alike -- a real, recognizable
+# category, not a fit to one query. Safe to exempt unconditionally because
+# every caller of query_geography_ok already requires the row to have cleared
+# a real relevance floor first (see the `and`/`or` short-circuits in
+# procurement_fast.py and unified_search.py) -- this only fires on rows with
+# genuine topical support, never on a bare tag-name coincidence.
+REFERENCE_JOIN_TABLE_MARKERS = frozenset(
+    {
+        "crosswalk",
+        "entity-mapping",
+        "entity-bridge",
+        "entity-linking",
+        "join-key",
+        "id-bridge",
+        "ticker-mapping",
+    }
+)
+
+
+def _is_reference_join_row(row: dict[str, Any]) -> bool:
+    curated = _row_blob_curated(row)
+    return any(_token_in_blob(marker, curated) for marker in REFERENCE_JOIN_TABLE_MARKERS)
 
 
 def relevance_score(row: dict[str, Any], query_tokens: set[str]) -> float:

@@ -67,7 +67,11 @@ DESK_FACTS (already measured via research_discover_desk — authoritative for he
 
 Stack contract:
 - L0 hands already ran. Do not invent dataset_ids or source_ids outside DESK_FACTS.
-- Copy DESK_FACTS held/routes into your JSON when present.
+- DESK_FACTS held/routes are already used verbatim in the response — do NOT
+  re-list them in your JSON. Re-enumerating rows you didn't add anything to
+  just burns your output budget on text nobody reads instead of the summary,
+  which is the one field that does reach the user. Reference dataset_ids by
+  name inside "summary" prose instead.
 - Prefer research_discover_desk if you need to re-check; prefer research_web_discover to confirm live URLs.
 - research_platform_consolidated only if credentials/access change the next step.
 
@@ -80,7 +84,25 @@ Hard bans:
   pretend use_held is sufficient.
 
 For context (max 6): canonical matching sources with real URLs (Gallup/Pew/ANES/Roper/538/TWSE/TPEx…).
-Pretrained knowledge is allowed. Summary MUST state desk truth (held / collectable route / neither).
+Pretrained knowledge is allowed.
+
+Summary requirements (this is the one thing the user actually reads — a flat
+row list with no synthesis is a worse answer than no summary at all):
+- State desk truth first: held / collectable route / neither.
+- When 2+ DESK_FACTS held rows exist, group them by the role each plays for
+  this question (e.g. topic/news data vs company or entity data vs
+  join/crosswalk tables that link the others together) instead of just
+  restating the list — that grouping is the actual value you add over the
+  raw retrieval.
+- Name any distinctive concept in the query (a sector, event type, named
+  entity, specific geography) that no held/route/context row actually covers
+  by tag or description, and say so plainly. A query about "semiconductor
+  export controls" answered with general Taiwan equity data is not the same
+  as data about semiconductor export controls — do not imply coverage that
+  isn't there.
+- Note grain/frequency when it changes what the data can answer (e.g.
+  "country-week, not firm-level" vs "ticker-day").
+- 2-4 sentences. No padding, no restating the query back verbatim.
 
 Answering from held data:
 - When the question asks something the registry cannot state (row counts, distinct
@@ -92,14 +114,16 @@ Answering from held data:
   exact start/end dates) unless "answer" is present. Without a query, say what
   the desk holds and that the number needs a read — do not recall it.
 
+Write "summary" first, before "context" — if you run out of room, the field
+that reaches the user should be the one already finished, not the one you
+never got to. Do not include "held" or "route" keys at all; they are ignored.
+
 Return ONLY JSON:
 {{
-  "answer": {{"text":"...","from":["dataset_id"],"via":"research_query_dataset"}},
-  "held": [{{"title":"...","dataset_id":"...","why":"..."}}],
-  "route": [{{"title":"...","source_id":"...","why":"..."}}],
-  "context": [{{"title":"...","url":"...","why":"..."}}],
+  "summary": "2-4 sentences: desk truth, role grouping, coverage gaps, grain",
   "next_action": "use_held|collect_route|probe_url|ask_clarify|paste_url|none",
-  "summary": "one sentence with desk truth"
+  "answer": {{"text":"...","from":["dataset_id"],"via":"research_query_dataset"}},
+  "context": [{{"title":"...","url":"...","why":"..."}}]
 }}
 """
 
@@ -213,6 +237,9 @@ def _stamp_row(row: dict[str, Any], *, placement: str) -> dict[str, Any]:
     return stamp_evidence_fields(out)
 
 
+_SUMMARY_SALVAGE_RE = re.compile(r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
 def parse_composer_discover_json(reply: str) -> dict[str, Any] | None:
     text = str(reply or "").strip()
     if not text:
@@ -224,9 +251,22 @@ def parse_composer_discover_json(reply: str) -> dict[str, Any] | None:
         start = text.index("{")
         end = text.rindex("}") + 1
         payload = json.loads(text[start:end])
+        return payload if isinstance(payload, dict) else None
     except (ValueError, json.JSONDecodeError):
-        return None
-    return payload if isinstance(payload, dict) else None
+        pass
+    # A cut-off generation (output limit, not our call timeout — the model
+    # spends its budget on early fields first) still leaves the schema's
+    # first field, "summary", complete more often than not. Verified live:
+    # a real reply died mid-way through a `held` re-listing the caller never
+    # even reads, losing a perfectly good summary that was already written.
+    # Salvage it via regex rather than fall all the way to the boilerplate.
+    salvaged = _SUMMARY_SALVAGE_RE.search(text)
+    if salvaged:
+        try:
+            return {"summary": json.loads(f'"{salvaged.group(1)}"')}
+        except json.JSONDecodeError:
+            return None
+    return None
 
 
 _ANSWER_TOOLS = ("research_query_dataset", "research_analyze_dataset")

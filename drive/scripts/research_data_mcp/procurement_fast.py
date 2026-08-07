@@ -288,7 +288,15 @@ def local_search(
             raw.append(cand)
 
     try:
-        catalog = gateway.procurement_catalog(q=query, limit=max(20, limit * 2))
+        # This prefetch is ranked by engine.search_datasets()'s crude substring
+        # scorer, not the relevance_score()/query_geography_ok() gates below --
+        # it already scores every registry row internally regardless of limit
+        # (verified: ~25ms whether this asks for 24 or 200), so a small limit
+        # here only throws away already-computed candidates before the real
+        # scoring ever sees them. Measured live: a genuinely relevant row
+        # (twse_openapi_taiwan_market_layer) ranked #33 by the crude scorer on
+        # a compound query and was invisible downstream at the old limit=24.
+        catalog = gateway.procurement_catalog(q=query, limit=max(300, limit * 2))
     except Exception:
         catalog = {}
 

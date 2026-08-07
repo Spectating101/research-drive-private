@@ -66,6 +66,31 @@ def test_parse_and_package_composer_reply():
     assert row["selected_by"] == "composer_only"
 
 
+def test_parse_salvages_summary_from_a_truncated_reply():
+    # Real failure mode observed live: the model's output budget ran out
+    # mid-way through re-listing "held" rows the caller never reads, cutting
+    # the reply off before the closing brace and losing a complete summary
+    # that had already been written earlier in the JSON.
+    reply = (
+        '```json { "summary": "Desk holds Taiwan equity and GDELT news data; '
+        'no semiconductor-specific dataset exists.", "next_action": "use_held", '
+        '"context": [ { "title": "TWSE listed stocks valuation ratios", '
+        '"dataset_id": "craft_openapi_twse_com_tw", "why": "supplier valuation'
+    )
+    parsed = parse_composer_discover_json(reply)
+    assert parsed is not None
+    assert parsed["summary"] == (
+        "Desk holds Taiwan equity and GDELT news data; "
+        "no semiconductor-specific dataset exists."
+    )
+
+
+def test_parse_returns_none_when_nothing_salvageable():
+    assert parse_composer_discover_json('```json { "next_action": "use_held", "cont') is None
+    assert parse_composer_discover_json("") is None
+    assert parse_composer_discover_json("not json at all") is None
+
+
 def test_package_empty_miss():
     out = package_from_composer(
         "US Polling data",
