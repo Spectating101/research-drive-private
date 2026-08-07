@@ -389,7 +389,12 @@ def _composer_only_context(query: str, *, limit: int = 6) -> tuple[list[dict[str
     return context, summary, next_action
 
 
-def _desk_facts_block(held: list[dict[str, Any]], routes: list[dict[str, Any]], route_reason: str) -> str:
+def _desk_facts_block(
+    held: list[dict[str, Any]],
+    routes: list[dict[str, Any]],
+    route_reason: str,
+    gateway: Any = None,
+) -> str:
     held_lines = []
     for r in held[:8]:
         held_lines.append(
@@ -407,11 +412,25 @@ def _desk_facts_block(held: list[dict[str, Any]], routes: list[dict[str, Any]], 
         fleet_line = fleet_facts_line()
     except Exception:  # noqa: BLE001 - fleet facts are advisory, never fatal
         fleet_line = ""
+    shape_lines: list[str] = []
+    if gateway is not None:
+        try:
+            from scripts.research_data_mcp.dataset_shape import shape_facts_lines
+
+            shape_lines = shape_facts_lines(gateway, held)
+        except Exception:  # noqa: BLE001 - shape probing must never fail a search
+            shape_lines = []
     return (
         f"held_count={len(held)}\n"
         + ("\n".join(held_lines) if held_lines else "(none)")
         + f"\n\nroutes_count={len(routes)} reason={route_reason or 'n/a'}\n"
         + ("\n".join(route_lines) if route_lines else "(none)")
+        + (
+            "\n\nMEASURED SHAPE (read from the files just now — use these numbers, never recall them):\n"
+            + "\n".join(shape_lines)
+            if shape_lines
+            else ""
+        )
         + (f"\n\n{fleet_line}" if fleet_line else "")
     )
 
@@ -472,7 +491,7 @@ def _composer_mcp_grounded(
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
         return ctx, summary, nxt, ["composer_only_fallback"], None
 
-    desk_facts = _desk_facts_block(held, routes, route_reason)
+    desk_facts = _desk_facts_block(held, routes, route_reason, gateway)
     try:
         from scripts.research_data_mcp.desk_capabilities import capability_block
 
