@@ -387,9 +387,12 @@ def _desk_local_options(
 
 
 def _desk_composer_models() -> list[str]:
-    # Prefer fast Ask model; fall back to full composer if unavailable.
-    primary = os.getenv("DESK_COMPOSER_MODEL", "composer-2.5-fast").strip() or "composer-2.5-fast"
-    fallback = os.getenv("DESK_COMPOSER_MODEL_FALLBACK", "composer-2.5").strip()
+    # "composer-2.5-fast" is not a valid model on this account — verified live,
+    # BadRequestError: "Cannot use this model: composer-2.5-fast. Available
+    # models: default, grok-4.5, composer-2.5, ...". Every single call was
+    # eating one guaranteed failed attempt before falling through.
+    primary = os.getenv("DESK_COMPOSER_MODEL", "composer-2.5").strip() or "composer-2.5"
+    fallback = os.getenv("DESK_COMPOSER_MODEL_FALLBACK", "default").strip()
     models = [primary]
     if fallback and fallback not in models:
         models.append(fallback)

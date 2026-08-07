@@ -107,6 +107,41 @@ Return ONLY JSON:
 _ENRICH_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _ENRICH_TTL_S = float(os.getenv("RD_DISCOVER_ENRICH_TTL_S", "900") or 900)
 
+# Discover creates a brand-new cloud agent per query by default — measured at
+# 10.3s cold vs 4.6s resumed on a bare prompt. Bounded reuse amortizes the cold
+# start without letting one agent's history run forever: an agent resumed
+# across many unrelated searches risks the model referencing an earlier,
+# unrelated query. TTL and a use cap force a fresh agent periodically.
+_AGENT_POOL: dict[str, Any] = {"id": "", "created": 0.0, "uses": 0}
+_AGENT_TTL_S = float(os.getenv("RD_DISCOVER_AGENT_TTL_S", "300") or 300)
+_AGENT_MAX_USES = int(os.getenv("RD_DISCOVER_AGENT_MAX_USES", "6") or 6)
+
+
+def _pooled_discover_agent_id() -> str:
+    if not _AGENT_POOL["id"]:
+        return ""
+    if time.time() - _AGENT_POOL["created"] > _AGENT_TTL_S or _AGENT_POOL["uses"] >= _AGENT_MAX_USES:
+        _AGENT_POOL["id"] = ""
+        return ""
+    return str(_AGENT_POOL["id"])
+
+
+def _remember_discover_agent(agent_id: str) -> None:
+    agent_id = str(agent_id or "").strip()
+    if not agent_id:
+        return
+    if agent_id != _AGENT_POOL["id"]:
+        _AGENT_POOL["id"] = agent_id
+        _AGENT_POOL["created"] = time.time()
+        _AGENT_POOL["uses"] = 0
+    _AGENT_POOL["uses"] += 1
+
+
+def reset_discover_agent_pool() -> None:
+    _AGENT_POOL["id"] = ""
+    _AGENT_POOL["created"] = 0.0
+    _AGENT_POOL["uses"] = 0
+
 
 def is_question_like(query: str) -> bool:
     text = str(query or "").strip().lower()
@@ -510,6 +545,9 @@ def _composer_mcp_grounded(
         "discover_composer": True,
         "desk_primed": True,
     }
+    pooled_agent = _pooled_discover_agent_id()
+    if pooled_agent:
+        state["cursor_agent_id"] = pooled_agent
     try:
         turn = run_cursor_composer_turn(
             gateway,
@@ -519,8 +557,10 @@ def _composer_mcp_grounded(
         )
     except Exception:  # noqa: BLE001
         _LOG.exception("composer+mcp discover failed; falling back to composer-only")
+        reset_discover_agent_pool()
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
         return ctx, summary, nxt, ["composer_only_fallback"], None
+    _remember_discover_agent(str(state.get("cursor_agent_id") or ""))
 
     reply = str(getattr(turn, "reply", "") or "")
     tools_called = list(getattr(turn, "tools_called", None) or [])
