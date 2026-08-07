@@ -16,6 +16,7 @@ import {
   taxonomyStageCounts,
 } from "@/v2/browseMeta";
 import { isHeldRow, readinessMark } from "@/v2/readinessMark";
+import { SORTS, sortRows } from "@/v2/sortRows";
 import { discoverCandidateUrl, webHitsToRows } from "@/v2/discoverActions";
 import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidateKey";
 import { buildDiscoverLifecycle, projectDiscoverCandidateLifecycle } from "@/v2/discoverLifecycle";
@@ -842,6 +843,7 @@ export function BrowsePage({
   const [source, setSource] = useState("");
   const [demoFallback, setDemoFallback] = useState(false);
   const [stateFilter, setStateFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("relevance");
   const [indexMiss, setIndexMiss] = useState(false);
   const [agentMeta, setAgentMeta] = useState({
     summary: "",
@@ -1306,6 +1308,33 @@ export function BrowsePage({
     />
   );
 
+  const sortMenu = (
+    <details className="rd-v2-discover-filter-menu" data-testid="discover-sort-menu">
+      <summary>
+        <span>Sort</span>
+        {sortBy !== "relevance" ? (
+          <strong>{(SORTS.find((s) => s.id === sortBy) || SORTS[0]).label}</strong>
+        ) : null}
+      </summary>
+      <div className="rd-v2-discover-filter-popover" role="group" aria-label="Sort Discover results">
+        {SORTS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={sortBy === item.id ? "on" : ""}
+            aria-pressed={sortBy === item.id}
+            onClick={(event) => {
+              setSortBy(item.id);
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+          >
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+
   const filterMenu = (
     <details className="rd-v2-discover-filter-menu" data-testid="discover-filter-menu">
       <summary>
@@ -1597,6 +1626,7 @@ export function BrowsePage({
                   </div>
                 ) : null}
                 {filterMenu}
+                {sortMenu}
               </div>
               {exploreChrome}
               {/* Result counts and strategy chrome live in exploreChrome
@@ -1632,7 +1662,7 @@ export function BrowsePage({
                   ) : null}
                 </div>
                 <DiscoverCandidateList
-                  rows={groupCatalogueVariants(resultGroups.flat)}
+                  rows={sortRows(groupCatalogueVariants(resultGroups.flat), sortBy)}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
