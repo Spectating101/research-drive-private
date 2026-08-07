@@ -20,8 +20,23 @@ PROFILE_LIMIT = 3
 _CACHE: dict[str, dict[str, Any]] = {}
 
 
-def _time_field(spec: dict[str, Any]) -> str:
-    return str(spec.get("time_field") or "").strip()
+_TIME_FIELD_PREFERENCE = ("date", "month", "period", "timestamp", "time", "dt", "decimal_date")
+
+
+def _time_field(spec: dict[str, Any], columns: list[str] | None = None) -> str:
+    """Declared time field, else the first known time column present in the file.
+
+    engine.list_datasets() returns a projection without time_field, so the
+    declared value is often absent even when the registry has one.
+    """
+    declared = str(spec.get("time_field") or "").strip()
+    if declared:
+        return declared
+    present = {c.lower(): c for c in (columns or [])}
+    for candidate in _TIME_FIELD_PREFERENCE:
+        if candidate in present:
+            return present[candidate]
+    return ""
 
 
 def _parquet_footer(path: str, time_field: str = "") -> dict[str, Any]:
@@ -99,7 +114,7 @@ def measure_shape(gateway: Any, dataset_id: str, spec: dict[str, Any] | None = N
     # Preview-mode datasets return meta.mode=local_sample and ignore ordering, so
     # edge queries would report the head twice. Parquet keeps its row count and
     # per-column min/max in the footer — O(1), no scan.
-    field = _time_field(spec or {})
+    field = _time_field(spec or {}, columns)
     source = str(meta.get("source_path") or "")
     if source.lower().endswith(".parquet"):
         stats = _parquet_footer(source, field)
@@ -111,9 +126,22 @@ def measure_shape(gateway: Any, dataset_id: str, spec: dict[str, Any] | None = N
     return out
 
 
+def _registry_specs(gateway: Any) -> dict[str, Any]:
+    """dataset_id -> spec, so time_field is known and the extent can be measured."""
+    try:
+        rows = gateway.engine.list_datasets() or []
+    except Exception:  # noqa: BLE001
+        return {}
+    return {
+        str(d.get("dataset_id") or ""): d
+        for d in rows
+        if isinstance(d, dict) and d.get("dataset_id")
+    }
+
+
 def shape_facts_lines(gateway: Any, held: list[dict[str, Any]], registry: dict[str, Any] | None = None) -> list[str]:
     """One measured line per query-ready held dataset, newest measurement wins."""
-    registry = registry or {}
+    registry = registry if registry is not None else _registry_specs(gateway)
     lines: list[str] = []
     for row in held[:PROFILE_LIMIT]:
         if not isinstance(row, dict):
