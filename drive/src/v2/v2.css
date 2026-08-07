@@ -10036,4 +10036,5 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .rd-v2-discover-readiness.is-lead { background: #efe8dc; color: #6f5a33; }
 .rd-v2-discover-readiness.is-route { background: #e3ecf6; color: #23507f; }
+.rd-v2-section-sub { margin: 2px 0 0; font-size: 12px; color: #59616f; }
 .rd-v2-discover-selected-mark.is-held { color: #2f6a52; }

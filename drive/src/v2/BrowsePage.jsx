@@ -361,7 +361,7 @@ function DiscoverCandidateRow({
             onAdd(row);
           }}
         >
-          Add to collection
+          {readinessBadge?.state === "route" ? "Request collection" : "Add to collection"}
         </button>
       ) : null}
     </li>
@@ -1059,6 +1059,7 @@ export function BrowsePage({
       external: [],
       held: [],
       context: [],
+      flat: [],
       duplicates: 0,
     };
     for (const row of filtered) {
@@ -1072,21 +1073,20 @@ export function BrowsePage({
       const taxonomy = row.discover_taxonomy || classifyDiscoverResult(row, labIds);
       if (placement === PLACEMENT.HELD || taxonomy.key.startsWith("local-")) {
         groups.held.push(row);
+        groups.flat.push(row);
       } else if (placement === PLACEMENT.CONTEXT || offeringType(row, taxonomy) === "Reference only" || offeringType(row, taxonomy) === "Web context") {
         groups.context.push(row);
       } else if (placement === PLACEMENT.ROUTE || ["external-acquirable", "external-probed"].includes(taxonomy.key)) {
         groups.available.push(row);
+        groups.flat.push(row);
       } else {
         groups.external.push(row);
+        groups.flat.push(row);
       }
     }
     return groups;
   }, [filtered, labIds]);
 
-  const readyCount = useMemo(
-    () => resultGroups.held.filter((r) => r.local_ready).length,
-    [resultGroups.held],
-  );
   const resultBreakdown = useMemo(
     () => [
       resultGroups.available.length
@@ -1602,21 +1602,21 @@ export function BrowsePage({
 
             {/* Adaptive freeze: Available / external offerings are the primary
                 canvas. Held evidence is chrome above, not a permanent section. */}
-            {resultGroups.available.length ? (
-              <section className="rd-v2-discover-best-fit" aria-label="Available" data-testid="discover-best-fit">
-                {/* §16: the header states one set and its partition, once.
-                    The chrome above already carries Available / Library
-                    evidence / Web context, so repeating "3 offerings" here and
-                    the scope summary again below stated the same totals three
-                    times before the first row. */}
+            {resultGroups.flat.length ? (
+              <section className="rd-v2-discover-best-fit" aria-label="Results" data-testid="discover-best-fit">
                 <div className="rd-v2-home-section-head">
                   <h3>
-                    Available
-                    <span className="rd-v2-section-count">{resultGroups.available.length}</span>
+                    Results
+                    <span className="rd-v2-section-count">{resultGroups.flat.length}</span>
                   </h3>
+                  {resultGroups.held.length ? (
+                    <p className="rd-v2-section-sub" data-testid="discover-held-count">
+                      {resultGroups.held.length} already in your Library
+                    </p>
+                  ) : null}
                 </div>
                 <DiscoverCandidateList
-                  rows={groupCatalogueVariants(resultGroups.available)}
+                  rows={groupCatalogueVariants(resultGroups.flat)}
                   labIds={labIds}
                   selectedId={selectedId}
                   onSelectRow={onSelectRow}
@@ -1784,27 +1784,6 @@ export function BrowsePage({
                   onSelectRow={onSelectRow}
                   onAdd={onReviewAcquisition}
                   externalCatalogue={externalCatalogueActive}
-                />
-              </section>
-            ) : null}
-
-            {resultGroups.held.length ? (
-              <section className="rd-v2-discover-other-matches" aria-label="In your Library" data-testid="discover-held-section">
-                <div className="rd-v2-home-section-head">
-                  <h3>
-                    In your Library
-                    <span className="rd-v2-section-count">{resultGroups.held.length}</span>
-                  </h3>
-                  <span className="muted">
-                    {readyCount ? `${readyCount} query-ready` : "already collected"}
-                  </span>
-                </div>
-                <DiscoverCandidateList
-                  rows={groupCatalogueVariants(resultGroups.held)}
-                  labIds={labIds}
-                  selectedId={selectedId}
-                  onSelectRow={onSelectRow}
-                  onAdd={onReviewAcquisition}
                 />
               </section>
             ) : null}
