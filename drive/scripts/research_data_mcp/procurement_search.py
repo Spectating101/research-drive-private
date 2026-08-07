@@ -399,9 +399,24 @@ def relevance_score(row: dict[str, Any], query_tokens: set[str]) -> float:
     if not hits:
         return 0.0
     distinctive = {t for t in query_tokens if t not in GENERIC_TOPIC_TOKENS and len(t) > 2}
-    if distinctive and not (hits & distinctive):
+    distinctive_hits = hits & distinctive
+    if distinctive and not distinctive_hits:
         return 0.0
     curated_blob = _row_blob_curated(row)
+    if len(distinctive) >= 3 and len(distinctive_hits) == 1:
+        # A compound query naming several distinctive anchors, matched on
+        # exactly one of them, is weak evidence unless that one hit is a
+        # deliberate label rather than free-text coincidence. Verified live:
+        # a query for "Indonesian ... stock price manipulation ... patterns
+        # ... social-media coordination" matched two airline ticket-price
+        # datasets on "patterns" alone -- their meaning_about says "airfare
+        # pricing patterns", same word, unrelated meaning -- while missing
+        # every other named anchor (bandar, manipulation, coordination,
+        # social, signals). Both scored rel=4.0, clearing every floor in this
+        # file, purely on that one incidental word.
+        only_hit = next(iter(distinctive_hits))
+        if not _token_in_blob(only_hit, curated_blob):
+            return 0.0
     score = 0.0
     for token in hits:
         score += _CURATED_HIT_WEIGHT if _token_in_blob(token, curated_blob) else _GENERAL_HIT_WEIGHT
