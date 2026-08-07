@@ -270,6 +270,27 @@ def apply_meaning_to_registry(
     return _atomic_update_json(Path(registry_path), mutate)
 
 
+def resolve_registry_path(repo_root: Path, gateway: Any = None) -> Path:
+    """Registry location for this checkout.
+
+    The private repo carries a root-level config/ of symlinks; the runtime
+    checkout only has drive/config/. Hardcoding the former made relabel fail on
+    the root the service actually runs from. The gateway already knows, so ask
+    it first and fall back to the layouts that exist.
+    """
+    declared = getattr(gateway, "registry_path", None)
+    if declared:
+        candidate = Path(declared)
+        if candidate.is_file():
+            return candidate
+    root = Path(repo_root).resolve()
+    for rel in ("config/research_query_registry.json", "drive/config/research_query_registry.json"):
+        candidate = root / rel
+        if candidate.is_file():
+            return candidate
+    return root / "config/research_query_registry.json"
+
+
 def relabel_dataset(
     repo_root: Path,
     dataset_id: str,
@@ -280,7 +301,7 @@ def relabel_dataset(
     gateway: Any = None,
 ) -> dict[str, Any]:
     root = Path(repo_root).resolve()
-    reg_path = Path(registry_path) if registry_path else root / "config/research_query_registry.json"
+    reg_path = Path(registry_path) if registry_path else resolve_registry_path(root, gateway)
     doc = json.loads(reg_path.read_text(encoding="utf-8"))
     row = next((r for r in (doc.get("datasets") or []) if r.get("dataset_id") == dataset_id), None)
     if not row:
@@ -319,10 +340,11 @@ def list_relabel_queue(
     registry_path: Path | None = None,
     limit: int = 40,
     include_scrape_noise: bool = False,
+    gateway: Any = None,
 ) -> list[dict[str, Any]]:
     """Prioritize query-ready / instant holdings that still lack meaning store."""
     root = Path(repo_root).resolve()
-    reg_path = Path(registry_path) if registry_path else root / "config/research_query_registry.json"
+    reg_path = Path(registry_path) if registry_path else resolve_registry_path(root, gateway)
     doc = json.loads(reg_path.read_text(encoding="utf-8"))
     scored: list[tuple[int, dict[str, Any]]] = []
     for row in doc.get("datasets") or []:
@@ -391,7 +413,9 @@ def batch_relabel_datasets(
     if dataset_ids:
         queue = [{"dataset_id": str(d).strip()} for d in dataset_ids if str(d).strip()]
     else:
-        queue = list_relabel_queue(root, limit=limit, include_scrape_noise=include_scrape_noise)
+        queue = list_relabel_queue(
+            root, limit=limit, include_scrape_noise=include_scrape_noise, gateway=gateway
+        )
     results: list[dict[str, Any]] = []
     for item in queue[: max(1, min(int(limit or 20), 100))]:
         did = str(item.get("dataset_id") or "")
