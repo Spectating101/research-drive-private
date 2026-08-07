@@ -195,6 +195,16 @@ def distinctive_topic_tokens(query: str) -> set[str]:
     }
 
 
+def _row_claims_geography(row: dict[str, Any], rule: GeographyRule) -> bool:
+    blob = _row_blob_raw(row).translate(SUBSCRIPT_DIGITS)
+    return bool(rule[2].search(blob) or (rule[3] and rule[3].search(blob)))
+
+
+def row_geography_claims(row: dict[str, Any]) -> list[GeographyRule]:
+    """Every known geography this row positively claims, if any."""
+    return [rule for rule in GEOGRAPHY_RULES if _row_claims_geography(row, rule)]
+
+
 def query_geography_ok(row: dict[str, Any], query: str) -> bool:
     """A named geography is a requirement, but naming two is not a demand for both.
 
@@ -209,12 +219,34 @@ def query_geography_ok(row: dict[str, Any], query: str) -> bool:
     Taiwan-and-Japan question; reporting which part is missing is the coverage
     assessment's job, and it can say nothing about rows retrieval already threw
     away.
+
+    A row with no geography claim anywhere is unlabelled, not contradicted.
+    Verified live: three well-tagged, correctly-scoring Refinitiv rows (score 16,
+    proven query-ready) declare no geography in tags, keywords, or
+    coverage_metadata at all -- "US equity fundamentals" excluded every one of
+    them on missing metadata despite a perfect topical match. Silence is not
+    evidence of the wrong country any more than an unmeasured dataset is evidence
+    it isn't ready. Only a row making a positive claim about a *different*
+    geography than every one the query names is a genuine conflict.
+
+    Forgiving a missing geography still requires a strong topical match, not
+    merely a positive one -- GEOGRAPHY_RULES only names a handful of countries,
+    so "unlabelled" also covers rows about a real, different place this table
+    has no rule for (an "Irish Polling Indicator" against a US query). Measured
+    live against the real registry: every genuine false positive from dropping
+    the gate outright topped out at 3.0 (one incidental hit); the weakest
+    genuine Refinitiv match this fix exists for scores 4.0 (one curated-field
+    hit). The bar sits at 3.5, just above the measured false-positive ceiling
+    and just below the weakest genuine match, to require that margin.
     """
     required = _query_geography_rules(query)
     if not required:
         return True
-    blob = _row_blob_raw(row).translate(SUBSCRIPT_DIGITS)
-    return any(bool(rule[2].search(blob) or (rule[3] and rule[3].search(blob))) for rule in required)
+    if any(_row_claims_geography(row, rule) for rule in required):
+        return True
+    if row_geography_claims(row):
+        return False
+    return relevance_score(row, query_topic_tokens(query)) >= _UNLABELLED_GEOGRAPHY_RELEVANCE_BAR
 
 
 def query_geography_match_count(row: dict[str, Any], query: str) -> int:
@@ -257,27 +289,81 @@ def _row_blob(row: dict[str, Any]) -> str:
     return _row_blob_raw(row).lower()
 
 
+def _row_blob_curated(row: dict[str, Any]) -> str:
+    """Authored-for-matching fields only — aliases/keywords/tags.
+
+    A hit here is a deliberate label, not incidental prose overlap, and is
+    weighted accordingly in relevance_score.
+    """
+    parts = [
+        " ".join(str(x) for x in (row.get("aliases") or [])),
+        " ".join(str(x) for x in (row.get("keywords") or [])),
+        " ".join(str(x) for x in (row.get("tags") or [])),
+    ]
+    return " ".join(parts).lower()
+
+
+_TOKEN_BOUNDARY_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _token_pattern(token: str) -> re.Pattern[str]:
+    pattern = _TOKEN_BOUNDARY_CACHE.get(token)
+    if pattern is None:
+        pattern = re.compile(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])")
+        _TOKEN_BOUNDARY_CACHE[token] = pattern
+    return pattern
+
+
 def _token_in_blob(token: str, blob: str) -> bool:
-    return token in blob
+    """Whole-token match, not substring.
+
+    Verified live: raw substring matching made a query token as short as "us"
+    match 144 of 167 registry rows (inside "focus", "trust", "status", "custom",
+    …) — a near-universal wildcard. Hyphens and underscores already act as word
+    boundaries, so a compound tag like "point-in-time" still credits "point" and
+    "time" as real hits; only incidental interior-substring matches are excluded.
+    """
+    return bool(_token_pattern(token).search(blob))
+
+
+# A hit inside aliases/keywords/tags is a deliberate label; a hit only in
+# free-text prose is incidental. Weighting them apart is what stops a long
+# natural-language query from letting several incidental hits on unrelated
+# rows outscore a row with one exact, curated match.
+_CURATED_HIT_WEIGHT = 3.0
+_GENERAL_HIT_WEIGHT = 1.0
+
+# See query_geography_ok: measured against the real registry, every false
+# positive from an unlabelled-but-wrong-country row topped out at 3.0 (one
+# incidental hit, real SEC/EDGAR rows against a Taiwan query); the weakest
+# genuine match found (refinitiv_fundamentals_snapshot, one curated tag hit)
+# scored 4.0, and the strongest scored 16. The bar sits just above the
+# measured false-positive ceiling.
+_UNLABELLED_GEOGRAPHY_RELEVANCE_BAR = 3.5
 
 
 def relevance_score(row: dict[str, Any], query_tokens: set[str]) -> float:
-    """Lexical overlap; ignore generic-only coincidence when distinctive tokens exist.
+    """Lexical overlap, weighted by whether the hit landed in a curated field.
 
-    If the query names distinctive anchors (gdelt, keeling, shock, …) and the row
-    matches none of them, return 0 even when weak tokens like country/news hit —
+    Ignore generic-only coincidence when distinctive tokens exist: if the query
+    names distinctive anchors (gdelt, keeling, shock, …) and the row matches
+    none of them, return 0 even when weak tokens like country/news hit —
     including hits inside “not a … news panel” correction prose.
     """
-    blob = _row_blob(row)
     if not query_tokens:
         return 0.0
+    blob = _row_blob(row)
     hits = {t for t in query_tokens if _token_in_blob(t, blob)}
     if not hits:
         return 0.0
     distinctive = {t for t in query_tokens if t not in GENERIC_TOPIC_TOKENS and len(t) > 2}
     if distinctive and not (hits & distinctive):
         return 0.0
-    return float(len(hits))
+    curated_blob = _row_blob_curated(row)
+    score = 0.0
+    for token in hits:
+        score += _CURATED_HIT_WEIGHT if _token_in_blob(token, curated_blob) else _GENERAL_HIT_WEIGHT
+    return score
 
 
 def top_query_relevance(query: str, candidate: dict[str, Any] | None) -> float:
