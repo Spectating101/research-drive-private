@@ -42,7 +42,15 @@ def propose_pending_collect(
 
     routes = list(measured.get("routes") or [])
     held = list(measured.get("held") or [])
-    if measured.get("strong_held") and held:
+    # Skip the already-held refusal when the caller supplied an explicit URL.
+    # That URL is itself the signal that whoever is calling already judged
+    # the held data insufficient for this specific need — Composer only
+    # reaches this tool after concluding held rows don't cover the ask (e.g.
+    # a metadata snapshot when sales/price history was asked for). Re-running
+    # a blunt "is *anything* strong-held" check here would just override that
+    # judgment. Still applies for the no-url courtesy path (a bare need with
+    # no specific target yet), where a real redundant-collect risk exists.
+    if measured.get("strong_held") and held and not str(url or "").strip():
         return {
             "ok": False,
             "action": "already_held",

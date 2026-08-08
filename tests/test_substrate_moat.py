@@ -230,6 +230,62 @@ def test_job_first_submits_pending_when_url_present():
     assert kwargs.get("auto_approve") is False
 
 
+def test_job_first_refuses_redundant_collect_when_no_url_given():
+    # The courtesy path: a bare need with no specific target — a real held
+    # match should block a redundant collect here.
+    gw = MagicMock()
+    measured = {
+        "strong_held": True,
+        "held": [{"dataset_id": "twse_daily", "analysis_readiness": "instant"}],
+        "routes": [],
+    }
+    with (
+        patch("scripts.research_data_mcp.desk_ask_grounding.measure_ask_desk", return_value=measured),
+        patch("scripts.research_data_mcp.desk_ask_grounding.resolve_ask_measure_query", return_value="twse"),
+        patch("scripts.research_data_mcp.desk_ask_grounding.serialize_desk_facts_ui", return_value={}),
+    ):
+        out = propose_pending_collect(gw, query="taiwan stocks")
+    assert out["ok"] is False
+    assert out["action"] == "already_held"
+    gw.submit_yzu_job.assert_not_called()
+
+
+def test_job_first_allows_explicit_url_despite_a_loosely_related_held_row():
+    # Composer only calls this tool after judging held data insufficient for
+    # the specific need (e.g. metadata held, sales history asked for) — an
+    # explicit url is that judgment made concrete, and should not be
+    # second-guessed by a blunt "something strong-held exists" check.
+    gw = MagicMock()
+    gw.submit_yzu_job.return_value = {"job": {"id": "job_xyz", "status": "pending_approval"}, "plan": {}}
+    measured = {
+        "strong_held": True,
+        "held": [{"dataset_id": "opensea_nft_metadata_layer", "analysis_readiness": "instant"}],
+        "routes": [],
+    }
+    crafted = {
+        "plan": {
+            "job_type": "scraper_run",
+            "url": "https://opensea.io/collection/boredapeyachtclub",
+            "title": "Collect · BAYC sales history",
+        }
+    }
+    with (
+        patch("scripts.research_data_mcp.desk_ask_grounding.measure_ask_desk", return_value=measured),
+        patch("scripts.research_data_mcp.desk_ask_grounding.resolve_ask_measure_query", return_value="bayc"),
+        patch("scripts.research_data_mcp.desk_ask_grounding.serialize_desk_facts_ui", return_value={}),
+        patch("scripts.research_data_mcp.craft_collect.craft_collect_plan", return_value=crafted),
+    ):
+        out = propose_pending_collect(
+            gw,
+            query="bayc sales history",
+            url="https://opensea.io/collection/boredapeyachtclub",
+        )
+    assert out["ok"] is True
+    assert out["action"] == "pending_collect_proposed"
+    assert out["job_id"] == "job_xyz"
+    gw.submit_yzu_job.assert_called_once()
+
+
 def test_job_first_surfaces_submit_envelope_failure():
     gw = MagicMock()
     gw.submit_yzu_job.return_value = {"job": None, "error": "plan not launchable"}
