@@ -36,6 +36,7 @@ class SpectatorEngine:
         self.allowlist = cfg.get("spectator_scripts") or {}
         self.pools = cfg.get("worker_pools") or {}
         self.dispatch_script = self._resolve_dispatch_script()
+        self.sr_repo_root = self._resolve_sr_repo_root()
         self.local_staging = self.repo_root / str(self.engine_cfg.get("local_staging") or "data_lake/spectator_engine")
         self.molina_repo = self._resolve_molina_repo()
 
@@ -58,6 +59,32 @@ class SpectatorEngine:
             if candidate.is_file():
                 return candidate
         return candidates[0]
+
+    def _resolve_sr_repo_root(self) -> Path:
+        """Root to export as SR_REPO_ROOT for the dispatch script's own path math.
+
+        self.repo_root and self.repo_root/"drive" are both valid "repo_root"
+        conventions in this monorepo (see sharpe_kernel.paths: repo_root_from_file
+        finds the outer folder with kernel/+drive/ as siblings, while
+        ResearchDataGateway treats repo_root as the drive/ folder itself) --
+        whichever one self.dispatch_script actually resolved under is the one
+        with a real scripts/yzu_cluster/... tree under it, so that is what
+        scraper_dispatch.sh's own `$SR_REPO_ROOT/scripts/$SCRIPT` lookup needs,
+        not self.repo_root blindly. Verified live: passing self.repo_root when
+        it was the outer monorepo root exported a directory with no
+        scripts/yzu_cluster/scrapers/ tree at all (that only exists under
+        drive/), and generic_url_scrape.mjs failed with MODULE_NOT_FOUND on a
+        real submitted job, after everything upstream (tool call, craft plan,
+        submit) worked correctly.
+        """
+        # Most specific first — self.repo_root/"drive" is always also a
+        # prefix-match under self.repo_root, so checking self.repo_root first
+        # would win every time and defeat this entirely.
+        script_str = str(self.dispatch_script)
+        for candidate in (self.repo_root / "drive", self.repo_root):
+            if script_str.startswith(str(candidate) + os.sep):
+                return candidate
+        return self.repo_root
 
     def resolve(self, plan: dict[str, Any]) -> ResolvedScript:
         script_key = str(plan.get("script_key") or "")
@@ -305,7 +332,7 @@ class SpectatorEngine:
 
     def _env_base(self) -> dict[str, str]:
         env = os.environ.copy()
-        env["SR_REPO_ROOT"] = str(self.repo_root)
+        env["SR_REPO_ROOT"] = str(self.sr_repo_root)
         env["MOLINA_REPO"] = str(self.molina_repo)
         env["SPECTATOR_STAGING"] = str(self.local_staging)
         env["DISPATCH_LOG"] = ""
