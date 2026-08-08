@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "drive"))
 
-from scripts.research_data_mcp.discover_composer import verified_collect  # noqa: E402
+from scripts.research_data_mcp.discover_composer import (  # noqa: E402
+    _deterministic_collect_fallback,
+    verified_collect,
+)
 
 PROPOSAL = {
     "collect_proposed": {
@@ -61,3 +65,53 @@ def test_message_is_truncated_and_url_defaults_empty():
     assert out is not None
     assert out["url"] == ""
     assert len(out["message"]) == 400
+
+
+CONTEXT = [{"title": "OpenSea", "url": "https://opensea.io/collection/boredapeyachtclub"}]
+
+
+def test_fallback_proposes_a_collect_when_composer_named_a_url_but_never_called_the_tool():
+    # The exact failure mode this exists for: Composer's own summary said a
+    # collect "would be possible" without ever invoking the tool.
+    with patch(
+        "scripts.research_data_mcp.job_first_procure.propose_pending_collect",
+        return_value={"ok": True, "job_id": "job-fallback-1", "message": "Pending collect job proposed."},
+    ) as mocked:
+        out = _deterministic_collect_fallback(
+            gateway=object(), query="q", held=[], routes=[], context=CONTEXT
+        )
+    assert out is not None
+    assert out["job_id"] == "job-fallback-1"
+    assert out["url"] == "https://opensea.io/collection/boredapeyachtclub"
+    mocked.assert_called_once()
+
+
+def test_fallback_does_nothing_when_anything_is_held_or_routed():
+    with patch("scripts.research_data_mcp.job_first_procure.propose_pending_collect") as mocked:
+        assert _deterministic_collect_fallback(
+            gateway=object(), query="q", held=[{"dataset_id": "x"}], routes=[], context=CONTEXT
+        ) is None
+        assert _deterministic_collect_fallback(
+            gateway=object(), query="q", held=[], routes=[{"source_id": "y"}], context=CONTEXT
+        ) is None
+    mocked.assert_not_called()
+
+
+def test_fallback_refuses_to_invent_a_url():
+    with patch("scripts.research_data_mcp.job_first_procure.propose_pending_collect") as mocked:
+        out = _deterministic_collect_fallback(
+            gateway=object(), query="q", held=[], routes=[], context=[{"title": "no url here"}]
+        )
+    assert out is None
+    mocked.assert_not_called()
+
+
+def test_fallback_returns_none_when_the_underlying_call_fails():
+    with patch(
+        "scripts.research_data_mcp.job_first_procure.propose_pending_collect",
+        return_value={"ok": False, "action": "already_held"},
+    ):
+        out = _deterministic_collect_fallback(
+            gateway=object(), query="q", held=[], routes=[], context=CONTEXT
+        )
+    assert out is None

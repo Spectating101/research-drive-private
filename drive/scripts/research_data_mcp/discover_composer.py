@@ -353,6 +353,59 @@ def verified_answer(
 _COLLECT_TOOL = "research_propose_pending_collect"
 
 
+def _deterministic_collect_fallback(
+    gateway: Any,
+    query: str,
+    *,
+    held: list[dict[str, Any]],
+    routes: list[dict[str, Any]],
+    context: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Propose a real collect ourselves when Composer named a URL but never called the tool.
+
+    Composer's own tool-calling is nondeterministic — verified live, identical
+    prompts and identical preconditions sometimes called
+    research_propose_pending_collect and sometimes just narrated that a
+    collect "would be possible" without acting on it. Once nothing is held,
+    nothing is routed, and a real URL is already sitting in "context" (named
+    by Composer's own pretrained knowledge), whether to propose a collect is
+    a mechanical decision, not a judgment call — don't leave a mechanical
+    decision to LLM discretion. Calls the exact same tool Composer would
+    have, with the same safety property (pending_approval, never auto-runs).
+    """
+    if held or routes:
+        return None
+    url = ""
+    for row in context:
+        candidate = str(row.get("url") or "").strip()
+        if candidate.startswith("http"):
+            url = candidate
+            break
+    if not url:
+        return None
+    from scripts.research_data_mcp.job_first_procure import propose_pending_collect
+
+    try:
+        result = propose_pending_collect(
+            gateway,
+            query=query,
+            research_need=query,
+            url=url,
+            title=f"Collect · {query}"[:120],
+        )
+    except Exception:  # noqa: BLE001 - deterministic fallback must never break the turn
+        _LOG.exception("deterministic collect fallback failed")
+        return None
+    job_id = str(result.get("job_id") or "").strip()
+    if not result.get("ok") or not job_id:
+        return None
+    return {
+        "job_id": job_id,
+        "url": url,
+        "message": str(result.get("message") or "").strip()[:400],
+    }
+
+
 def verified_collect(
     parsed: dict[str, Any] | None,
     tools_used: Iterable[str] | None,
@@ -732,6 +785,24 @@ def _composer_mcp_grounded(
         query,
     )
     summary = str(parsed.get("summary") or "").strip()
+    if not collect:
+        fallback_collect = _deterministic_collect_fallback(
+            gateway, query, held=held, routes=routes, context=context
+        )
+        if fallback_collect:
+            collect = fallback_collect
+            # Labeled distinctly from _COLLECT_TOOL — this call bypassed the
+            # LLM tool-calling loop entirely (direct Python), so it isn't
+            # something Composer itself invoked. Keeping the provenance
+            # visible in tools_used matters for the same reason
+            # verified_collect() exists: don't blur "the model claimed this"
+            # with "this actually happened."
+            tools_called = [*tools_called, "deterministic_collect_fallback"]
+            # The model's own summary, if any, was written without knowing
+            # this proposal succeeded — e.g. "no collection could be drafted"
+            # — verified state must win over stale narration, not the other
+            # way around.
+            summary = ""
     next_action = str(parsed.get("next_action") or "").strip()
     allowed = {"use_held", "collect_route", "probe_url", "ask_clarify", "paste_url", "none"}
     if next_action not in allowed:
