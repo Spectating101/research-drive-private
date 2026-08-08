@@ -627,6 +627,36 @@ def prove_query_smoke(repo_root: Path, spec: dict[str, Any], *, limit: int = 3) 
         elif backend in {"local_csv_file", "local_csv_glob"}:
             result = engine._query_local_csv_file(ds, params)
         elif backend == "local_parquet_panel":
+            # Smoke proof only needs to establish that the Parquet asset is
+            # readable and contains rows. Calling the full pandas query path
+            # here loads and normalizes the entire panel (some held panels are
+            # tens of millions of rows), turning registry sync/promotion into
+            # an accidental full-data scan. Arrow can prove the same bounded
+            # fact from the first record batch without changing user-query
+            # semantics.
+            path, _run_id = engine._resolve_panel_path(ds, params)
+            if path.suffix.lower() == ".parquet":
+                try:
+                    import pyarrow.parquet as parquet
+
+                    batch = next(
+                        parquet.ParquetFile(path).iter_batches(
+                            batch_size=max(limit, 5), use_threads=False
+                        ),
+                        None,
+                    )
+                    rows = int(batch.num_rows) if batch is not None else 0
+                    return {
+                        **base,
+                        "ok": rows > 0,
+                        "rows": rows,
+                        "error": None if rows > 0 else "zero_rows",
+                        "envelope": None,
+                    }
+                except ImportError:
+                    # Keep the existing pandas path as a compatibility
+                    # fallback for deployments without pyarrow.
+                    pass
             result = engine._query_local_parquet_panel(ds, params)
         else:
             return {**base, "ok": False, "error": f"unsupported smoke backend {backend}", "rows": 0, "envelope": None}

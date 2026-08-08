@@ -210,3 +210,45 @@ def test_hybrid_runs_l1_on_strong_held_keyword(monkeypatch):
     assert out["layers"]["L1_enrich"]["strong_held_signal"] is True
     assert out["layers"]["L1_enrich"].get("skipped") is not True
     assert "TWSE" in (out.get("summary") or "")
+
+
+def test_unavailable_l1_preserves_measured_l0_answer(monkeypatch):
+    """Composer outage must not erase useful held evidence or next action."""
+    from scripts.research_data_mcp import discover_composer
+
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.discover_desk.desk_check",
+        lambda *_a, **_k: {
+            "held": [
+                {
+                    "dataset_id": "twse",
+                    "title": "TWSE valuation",
+                    "score": 24,
+                    "local_ready": True,
+                }
+            ],
+            "routes": [],
+            "strong_held": True,
+            "held_count": 1,
+            "route_count": 0,
+            "route_reason": "",
+            "timing_ms": {"total": 8},
+        },
+    )
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.desk_brain.cursor_composer_available",
+        lambda: False,
+    )
+
+    class Gateway:
+        repo_root = "."
+
+        def faculty_profile(self, **_k):
+            return {}
+
+    out = discover_composer.run_hybrid_discover(Gateway(), "Taiwan valuation no composer")
+    assert out["held_count"] == 1
+    assert out["next_action"] == "use_held"
+    assert "Library holds 1 dataset" in (out["summary"] or "")
+    assert out["layers"]["L1_enrich"]["provider_status"] == "unavailable"
+    assert out["layers"]["L1_enrich"]["fallback"] == "deterministic_hands"

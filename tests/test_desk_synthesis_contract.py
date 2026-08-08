@@ -683,6 +683,8 @@ def test_synthesis_mcp_registration_is_construction_surface(monkeypatch):
     assert "research_synthesis_terminal_list" in names
     assert "research_synthesis_terminal_run" in names
     assert "datacite_collect_doi" not in names
+    # Quant is a downstream consumer of Drive, not a Drive procurement tool.
+    assert "research_quant_brief" not in names
     assert "yzu_submit_job" not in names
     assert "yzu_approve_job" not in names
     assert "procurement_approve_job" not in names

@@ -29,6 +29,18 @@ def _stamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def refresh_procurement_catalog(repo_root: Path) -> dict[str, Any]:
+    """Rebuild the deterministic procurement index from the active registry.
+
+    ``scripts`` is available from both the monorepo root and ``drive/``. Keep
+    this compatibility entry point in the drive copy so import order cannot
+    select a module missing the public sync API.
+    """
+    from scripts.research_data_mcp.collection_index import build_index
+
+    return build_index(Path(repo_root).resolve())
+
+
 def _has_bytes(path: Path, *, max_entries: int = 2000) -> bool:
     """Whether a glob match represents real materialized data.
 

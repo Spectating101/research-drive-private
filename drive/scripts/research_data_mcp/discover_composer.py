@@ -523,11 +523,11 @@ def _composer_only_context(query: str, *, limit: int = 6) -> tuple[list[dict[str
     )
 
     if not cursor_composer_available():
-        return [], "Composer is not configured on this desk.", "paste_url"
+        return [], "", ""
 
     api_key = os.getenv("CURSOR_API_KEY", "").strip()
     if not api_key:
-        return [], "Composer is not configured on this desk.", "paste_url"
+        return [], "", ""
 
     from pathlib import Path
 
@@ -565,7 +565,7 @@ def _composer_only_context(query: str, *, limit: int = 6) -> tuple[list[dict[str
             reply = _reply_from_run(run, streamed)
     except Exception:  # noqa: BLE001
         _LOG.exception("composer-only discover failed")
-        return [], f"Composer failed while exploring “{query}”.", "paste_url"
+        return [], "", ""
 
     parsed = parse_composer_discover_json(reply) or {}
     context: list[dict[str, Any]] = []
@@ -733,7 +733,11 @@ def _composer_mcp_grounded(
     if not cursor_composer_available():
         # Fall back to composer-only knowledge path
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
-        return ctx, summary, nxt, ["composer_only_fallback"], None, None
+        # An unavailable L1 provider must not overwrite measured L0 evidence.
+        # run_hybrid_discover will package the held/routes facts and choose the
+        # deterministic next action; the provider state remains visible in the
+        # tools/layer metadata instead of becoming the user-facing answer.
+        return ctx, summary, nxt, ["composer_unavailable"], None, None
 
     desk_facts = _desk_facts_block(held, routes, route_reason, gateway, query=query)
     try:
@@ -768,7 +772,7 @@ def _composer_mcp_grounded(
         _LOG.exception("composer+mcp discover failed; falling back to composer-only")
         reset_discover_agent_pool()
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
-        return ctx, summary, nxt, ["composer_only_fallback"], None, None
+        return ctx, summary, nxt, ["composer_failure"], None, None
     _remember_discover_agent(str(state.get("cursor_agent_id") or ""))
 
     reply = str(getattr(turn, "reply", "") or "")
@@ -1081,6 +1085,14 @@ def run_hybrid_discover(
                 "reason": "always_enrich",
                 "strong_held_signal": bool(desk.get("strong_held")),
             }
+            if "composer_unavailable" in note:
+                layers["L1_enrich"].update(
+                    {"provider_status": "unavailable", "fallback": "deterministic_hands"}
+                )
+            elif "composer_failure" in note:
+                layers["L1_enrich"].update(
+                    {"provider_status": "failed", "fallback": "deterministic_hands"}
+                )
             _cache_put(
                 ckey,
                 {

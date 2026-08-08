@@ -44,7 +44,6 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
         "research_synthesis_terminal_run",
         "research_discover_get_intent",
         "research_discover_history",
-        "research_quant_brief",
         "procurement_probe_public_source",
         "datacite_search",
         "datacite_get",

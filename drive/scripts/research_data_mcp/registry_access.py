@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -33,14 +34,29 @@ def _local_data_ready(row: dict[str, Any], repo_root: Path | None) -> bool:
     from scripts.research_data_mcp.procurement_fast import local_path_has_data
 
     pattern = str(row.get("local_path") or row.get("local_root") or "").strip()
-    return bool(pattern and local_path_has_data(repo_root, pattern))
+    if not pattern:
+        return False
+    if local_path_has_data(repo_root, pattern):
+        return True
+    # Front-door deployments may bind the large data lake outside the code
+    # checkout. Treat that mount as observed only when the operator explicitly
+    # supplies its runtime root; never infer it from a registry declaration.
+    runtime_root = str(os.getenv("YZU_RUNTIME_DRIVE_ROOT") or "").strip()
+    return bool(runtime_root and local_path_has_data(Path(runtime_root), pattern))
 
 
 def access_tier(row: dict[str, Any], *, repo_root: Path | None = None) -> str:
     readiness = str(row.get("analysis_readiness") or "")
     backend = str(row.get("backend") or "")
     if readiness == "instant":
-        return QUERY_INSTANT
+        # "instant" is a registry declaration, not proof that this process can
+        # read the bytes. Require an observed local/runtime path before giving
+        # Composer permission to call query_dataset.
+        if _local_data_ready(row, repo_root):
+            return QUERY_INSTANT
+        if backend in _LOCAL_SAMPLE_BACKENDS:
+            return METADATA_SEARCH
+        return CATALOG_ONLY
     if readiness in {"dry_run_before_execution", "minutes_rate_limited", "procurement_planning"}:
         return QUERY_GUARDED
     if readiness in {"sample_now_full_later", "metadata_search"} and backend in _LOCAL_SAMPLE_BACKENDS:
