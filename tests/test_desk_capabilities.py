@@ -53,6 +53,20 @@ def test_empty_desk_turn_offers_external_reach():
     assert "answer_from_held" not in keys
 
 
+def test_nothing_held_or_routed_still_offers_collect():
+    # Previously "collect" only appeared when has_routes=True — exactly
+    # backwards, since a fresh research_propose_pending_collect proposal is
+    # most needed precisely when nothing is held AND nothing is routed.
+    keys = families_for_turn(has_held=False, has_routes=False, is_question=False)
+    assert "collect" in keys
+
+
+def test_collect_family_names_the_pending_collect_tool_first():
+    # capability_block() only renders the first 3 tool names per family, so
+    # the tool actually worth calling has to lead, not just appear in the hint.
+    assert FAMILIES["collect"]["tools"][:3][0] == "research_propose_pending_collect"
+
+
 def test_block_is_bounded_and_names_tools():
     block = capability_block(None, has_held=True, has_routes=True, is_question=True)
     assert "research_query_dataset" in block

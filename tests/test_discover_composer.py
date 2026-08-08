@@ -145,6 +145,7 @@ def test_hybrid_always_runs_l1_even_with_routes(monkeypatch):
             "collect_route",
             ["cursor_composer", "mcp"],
             None,
+            None,
         )
 
     monkeypatch.setattr(discover_composer, "_composer_mcp_grounded", _fake)
@@ -192,6 +193,7 @@ def test_hybrid_runs_l1_on_strong_held_keyword(monkeypatch):
             "Held TWSE valuation ratios answer PE/PB screening; use the local asset.",
             "use_held",
             ["cursor_composer", "mcp"],
+            None,
             None,
         )
 

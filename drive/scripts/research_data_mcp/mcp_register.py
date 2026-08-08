@@ -79,6 +79,14 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
 # Discover answers one question about held evidence. 87 tools is well past the
 # point where selection stays reliable — observed live, Composer authenticated to
 # MCP and then never reached research_query_dataset. This is the task surface.
+#
+# research_propose_pending_collect is the one exception to "read-only": it never
+# collects anything itself (submit_yzu_job runs with auto_approve=False and the
+# job sits in pending_approval for a researcher to act on) and it "refuses
+# inventing targets" — it errors rather than fabricate a URL when none is given.
+# Added deliberately narrow after finding the underlying job-first/craft_collect
+# machinery already existed, safety-gated, and simply wasn't reachable from a
+# Discover conversation — Discover could describe a gap but never act on it.
 DISCOVER_TOOL_NAMES = frozenset(
     {
         "research_discover_desk",
@@ -88,6 +96,7 @@ DISCOVER_TOOL_NAMES = frozenset(
         "research_list_datasets",
         "research_web_discover",
         "procurement_probe_public_source",
+        "research_propose_pending_collect",
     }
 )
 

@@ -121,6 +121,38 @@ Answering from held data:
   exact start/end dates) unless "answer" is present. Without a query, say what
   the desk holds and that the number needs a read — do not recall it.
 
+Proposing a real collection when held/routes don't answer the need:
+- held_count=0 and routes_count=0 is the clear case. It also applies when
+  held rows exist but don't cover the actual need (e.g. only metadata is
+  held and the need is sales/price history) — don't let a loosely-related
+  held row talk you out of proposing a collect the researcher actually needs.
+- If you can name a real, specific URL for this — your own knowledge is
+  enough, it does not need to already be in "context" — CALL THE TOOL. Do
+  not just mention in "summary" that a collect is *possible*; actually
+  invoke research_propose_pending_collect(research_need=<what the researcher
+  is after, plain text>, url=<the specific URL>, title=<short label>) and
+  report its real result. A summary that says "the fleet could fetch this if
+  approved" without having called the tool is strictly worse than either
+  actually calling it or honestly saying no source is known — narrating the
+  possibility instead of acting on it helps no one.
+- The tool refuses to invent a URL and errors rather than fabricate a
+  target — that check happens on the tool's side, not yours; you don't need
+  to hold back out of caution about it.
+- It crafts a generic collect plan and submits pending_approval — it never
+  runs automatically; a researcher must still approve the job before
+  anything is fetched. That's what makes it safe to call proactively.
+- Put the tool's own return values in "collect_proposed" — job_id and message
+  copied verbatim from what the tool returned, not paraphrased or invented.
+  If the call fails or returns ok=false, do not include "collect_proposed" at
+  all; say in "summary" that no collection could be drafted and why.
+- In "summary", describe this precisely: a job was *drafted for review*, not
+  that data was fetched. "I've queued a collection job for a researcher to
+  approve" is correct; "I collected this" is not, even if you're confident it
+  will succeed.
+- Skip this entirely for routine misses — only propose when the query clearly
+  needs data that plausibly exists at a specific real source and is worth the
+  researcher's time to review, not for every empty search.
+
 Write "summary" first, before "context" — if you run out of room, the field
 that reaches the user should be the one already finished, not the one you
 never got to. Do not include "held" or "route" keys at all; they are ignored.
@@ -130,6 +162,7 @@ Return ONLY JSON:
   "summary": "2-4 sentences: desk truth, role grouping, coverage gaps, grain",
   "next_action": "use_held|collect_route|probe_url|ask_clarify|paste_url|none",
   "answer": {{"text":"...","from":["dataset_id"],"via":"research_query_dataset"}},
+  "collect_proposed": {{"job_id":"...","url":"...","message":"..."}},
   "context": [{{"title":"...","url":"...","why":"..."}}]
 }}
 """
@@ -314,6 +347,36 @@ def verified_answer(
         "text": text[:600],
         "from": sources[:4],
         "via": via if via in _ANSWER_TOOLS else evidence[0],
+    }
+
+
+_COLLECT_TOOL = "research_propose_pending_collect"
+
+
+def verified_collect(
+    parsed: dict[str, Any] | None,
+    tools_used: Iterable[str] | None,
+) -> dict[str, Any] | None:
+    """A collect proposal survives only with a recorded submit call behind it.
+
+    Same rule as verified_answer, for a claim with real consequences (a queued
+    job) rather than just narration — never surface a job_id the model wrote
+    into JSON without research_propose_pending_collect actually appearing in
+    tools_called for this turn.
+    """
+    raw = (parsed or {}).get("collect_proposed")
+    if not isinstance(raw, dict):
+        return None
+    job_id = str(raw.get("job_id") or "").strip()
+    if not job_id:
+        return None
+    used = {str(t).strip() for t in (tools_used or []) if str(t).strip()}
+    if _COLLECT_TOOL not in used:
+        return None
+    return {
+        "job_id": job_id,
+        "url": str(raw.get("url") or "").strip(),
+        "message": str(raw.get("message") or "").strip()[:400],
     }
 
 
@@ -604,10 +667,10 @@ def _composer_mcp_grounded(
     routes: list[dict[str, Any]],
     route_reason: str,
     limit: int = 6,
-) -> tuple[list[dict[str, Any]], str, str, list[str], dict[str, Any] | None]:
+) -> tuple[list[dict[str, Any]], str, str, list[str], dict[str, Any] | None, dict[str, Any] | None]:
     """Composer + MCP with desk facts pre-injected.
 
-    Returns context, summary, next, tools_called, verified answer (or None).
+    Returns context, summary, next, tools_called, verified answer, verified collect proposal.
     """
     from scripts.research_data_mcp.desk_brain import (
         cursor_composer_available,
@@ -617,7 +680,7 @@ def _composer_mcp_grounded(
     if not cursor_composer_available():
         # Fall back to composer-only knowledge path
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
-        return ctx, summary, nxt, ["composer_only_fallback"], None
+        return ctx, summary, nxt, ["composer_only_fallback"], None, None
 
     desk_facts = _desk_facts_block(held, routes, route_reason, gateway, query=query)
     try:
@@ -652,7 +715,7 @@ def _composer_mcp_grounded(
         _LOG.exception("composer+mcp discover failed; falling back to composer-only")
         reset_discover_agent_pool()
         ctx, summary, nxt = _composer_only_context(query, limit=limit)
-        return ctx, summary, nxt, ["composer_only_fallback"], None
+        return ctx, summary, nxt, ["composer_only_fallback"], None, None
     _remember_discover_agent(str(state.get("cursor_agent_id") or ""))
 
     reply = str(getattr(turn, "reply", "") or "")
@@ -663,6 +726,7 @@ def _composer_mcp_grounded(
         tools_called,
         [str(r.get("dataset_id") or "") for r in held],
     )
+    collect = verified_collect(parsed, tools_called)
     context = _filter_context_noise(
         _normalize_context_rows(parsed.get("context") or [], limit=limit),
         query,
@@ -679,6 +743,9 @@ def _composer_mcp_grounded(
     elif routes:
         if not next_action or next_action == "use_held":
             next_action = "collect_route"
+    elif collect:
+        if not next_action or next_action == "use_held":
+            next_action = "collect_route"
     elif not next_action:
         next_action = "probe_url" if any(c.get("url") or c.get("doi") for c in context) else "paste_url"
     if not summary:
@@ -686,6 +753,8 @@ def _composer_mcp_grounded(
             summary = f"Library holds {len(held)} dataset(s) for “{query}”."
         elif routes:
             summary = f"Desk can collect via {len(routes)} declared route(s); {len(context)} open source(s) listed."
+        elif collect:
+            summary = collect["message"] or f"Drafted a pending collect job for “{query}”."
         elif context:
             summary = f"{len(context)} open source(s) to inspect for “{query}”."
         else:
@@ -698,6 +767,7 @@ def _composer_mcp_grounded(
         next_action,
         ["cursor_composer", "mcp", *tools_called],
         answer,
+        collect,
     )
 
 
@@ -762,11 +832,14 @@ def _package_hybrid(
     layers: dict[str, Any] | None = None,
     cache_hit: bool = False,
     answer: dict[str, Any] | None = None,
+    collect: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not next_action:
         if held:
             next_action = "use_held"
         elif routes:
+            next_action = "collect_route"
+        elif collect:
             next_action = "collect_route"
         elif any(c.get("url") or c.get("doi") for c in context):
             next_action = "probe_url"
@@ -779,6 +852,8 @@ def _package_hybrid(
             summary = f"Library holds {len(held)} dataset(s) for “{query}”."
         elif routes:
             summary = f"Nothing held; {len(routes)} declared route(s) could supply “{query}”."
+        elif collect:
+            summary = collect.get("message") or f"Drafted a pending collect job for “{query}”."
         elif context:
             summary = f"No desk holding or declared route; {len(context)} open source(s) to inspect."
         elif route_reason == "no_route_found":
@@ -814,6 +889,7 @@ def _package_hybrid(
         # so the client can label the difference instead of trusting both equally.
         "summary_measured": bool(answer),
         "answer": answer or None,
+        "collect_proposed": collect or None,
         "route_reason": route_reason or None,
         "tools_used": list(tools_used or []),
         "layers": layers or {},
@@ -873,6 +949,13 @@ def run_hybrid_discover(
     engine = "hands_routes" if routes else ("lexical" if held else "miss")
     cache_hit = False
     enrich_ms = 0.0
+    # Bound at function scope, not just inside the uncached branch below — a
+    # cache hit or the use_mcp=False path never assigns these, and Python
+    # treats a name assigned anywhere in the function as local throughout it,
+    # so referencing either at _package_hybrid() below would otherwise raise
+    # UnboundLocalError on exactly the paths that skip the L1 Composer call.
+    answer: dict[str, Any] | None = None
+    collect: dict[str, Any] | None = None
 
     # Always enrich when open — strong_held is informational only (layers.L0_hands).
     if enrich_open:
@@ -889,6 +972,8 @@ def run_hybrid_discover(
             composer_next = str(cached.get("next_action") or "")
             tools.extend(list(cached.get("tools") or []) + ["enrich_cache"])
             engine = str(cached.get("engine") or engine)
+            answer = cached.get("answer") if isinstance(cached.get("answer"), dict) else None
+            collect = cached.get("collect") if isinstance(cached.get("collect"), dict) else None
             cache_hit = True
             layers["L1_enrich"] = {
                 "cache_hit": True,
@@ -899,9 +984,8 @@ def run_hybrid_discover(
         else:
             t1 = time.perf_counter()
             note: list[str] = []
-            answer: dict[str, Any] | None = None
             if use_mcp:
-                context, composer_summary, composer_next, note, answer = _composer_mcp_grounded(
+                context, composer_summary, composer_next, note, answer, collect = _composer_mcp_grounded(
                     gateway,
                     q,
                     held=held,
@@ -934,6 +1018,8 @@ def run_hybrid_discover(
                     "next_action": composer_next,
                     "tools": note,
                     "engine": engine,
+                    "answer": answer,
+                    "collect": collect,
                 },
             )
     else:
@@ -975,6 +1061,7 @@ def run_hybrid_discover(
         layers=layers,
         cache_hit=cache_hit,
         answer=answer,
+        collect=collect,
     )
 
 

@@ -104,6 +104,14 @@ GENERIC_TOPIC_TOKENS = frozenset(
         "reference",
         "join",
         "joins",
+        # Verified live: "history" alone (from "OpenSea NFT ... sales and floor
+        # price history") landed in the curated tags/keywords of seven wholly
+        # unrelated datasets (S&P 500 prices, SEC filings, Ethereum transfers,
+        # three separate Refinitiv panels) — "historical"/"history" is a
+        # near-universal label curators attach to almost any time-series
+        # dataset, not a real topic anchor, curated placement notwithstanding.
+        "history",
+        "historical",
     }
 )
 

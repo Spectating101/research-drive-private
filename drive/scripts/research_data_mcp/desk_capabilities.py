@@ -35,8 +35,21 @@ FAMILIES: dict[str, dict[str, Any]] = {
     },
     "collect": {
         "label": "Collect and probe",
-        "tools": ["procurement_probe_public_source", "procurement_list_connectors", "research_procurement_catalog"],
-        "hint": "probe a public URL to classify it before proposing a route",
+        # capability_block() only shows the first 3 tool names in its rendered
+        # tuple — research_propose_pending_collect leads so it's actually
+        # visible there, not just named inside the hint sentence.
+        "tools": [
+            "research_propose_pending_collect",
+            "procurement_probe_public_source",
+            "procurement_list_connectors",
+            "research_procurement_catalog",
+        ],
+        "hint": (
+            "when nothing is held or routed, research_propose_pending_collect "
+            "drafts a real pending_approval job from a URL you name — call it, "
+            "don't just describe that a collect would be possible; probe a "
+            "public URL first to classify it if unsure"
+        ),
     },
     "synthesis": {
         "label": "Build derived datasets",
@@ -115,6 +128,11 @@ def families_for_turn(*, has_held: bool, has_routes: bool, is_question: bool) ->
     if not has_held:
         keys.append("catalog")
         keys.append("warehouse")
+        # "collect" was previously gated on has_routes only — exactly backwards
+        # for the case that most needs it: nothing held AND nothing routed is
+        # when research_propose_pending_collect actually matters, and it was
+        # never surfaced in the capability block for that turn.
+        keys.append("collect")
     seen: set[str] = set()
     return [k for k in keys if not (k in seen or seen.add(k))]
 
