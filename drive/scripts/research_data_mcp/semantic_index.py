@@ -20,6 +20,18 @@ _EMBEDDING_MODELS: dict[str, Any] = {}
 DEFAULT_EMBEDDING_MODEL = os.environ.get("RESEARCH_SEMANTIC_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
 
+def _embedding_network_allowed() -> bool:
+    """Whether loading a missing model may perform a network download.
+
+    Semantic enrichment is advisory. A request should never block on a model
+    registry being reachable; the source search caller already has a bounded
+    lexical/capability fallback. Operators can explicitly opt into first-use
+    downloads for a provisioned environment.
+    """
+    value = str(os.getenv("RESEARCH_SEMANTIC_ALLOW_NETWORK") or "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 def _tokenize(text: str) -> list[str]:
     return [t for t in re.findall(r"[a-z][a-z0-9_]{2,}", text.lower()) if t not in STOPWORDS]
 
@@ -127,7 +139,14 @@ class SemanticCatalogIndex:
                     sys.path.append(user_site)
                 from sentence_transformers import SentenceTransformer
 
-            _EMBEDDING_MODELS[model_name] = SentenceTransformer(model_name)
+            kwargs: dict[str, Any] = {}
+            if not _embedding_network_allowed():
+                # Prevent Hugging Face retries from turning an optional
+                # enrichment into a 30–60 second request hang. A missing local
+                # model raises immediately and callers fall back to lexical
+                # capability ranking.
+                kwargs["local_files_only"] = True
+            _EMBEDDING_MODELS[model_name] = SentenceTransformer(model_name, **kwargs)
         return _EMBEDDING_MODELS[model_name]
 
     def _ensure_embeddings(self, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> None:
