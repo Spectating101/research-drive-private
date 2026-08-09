@@ -51,6 +51,87 @@ def test_followup_contract_preserves_context_without_restarting():
     assert prompt.endswith("Use a weekly horizon.")
 
 
+def test_followup_thread_state_brief_is_observed_and_bounded():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        build_synthesis_thread_state_brief,
+    )
+
+    class Gateway:
+        def synthesis_thread_get(self, thread_id):
+            assert thread_id == "thread-42"
+            return {
+                "id": thread_id,
+                "title": "Trust and engagement panel",
+                "objective": "Construct issuer-week trust proxy",
+                "materialisation": "planned",
+                "state": {
+                    "maturity": "exploring",
+                    "nodes": [{"id": "n1", "role": "trust input", "status": "observed"}],
+                    "proposal": {"id": "p1", "title": "Use security + news proxy"},
+                    "accepted_spec_hash": "none",
+                    "execution": {"status": "pending_approval", "job_id": "job-1"},
+                },
+            }
+
+    brief = build_synthesis_thread_state_brief(
+        Gateway(),
+        {"rail_context": {"tab": "synthesis", "thread_id": "thread-42"}},
+    )
+    assert "authoritative for this turn" in brief
+    assert "objective: Construct issuer-week trust proxy" in brief
+    assert "pending_proposal: Use security + news proxy" in brief
+    assert "execution: status=pending_approval" in brief
+    assert "proposal is not acceptance" in brief
+
+
+def test_lifecycle_claims_require_same_turn_verification_artifact():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_lifecycle_claim_violations,
+    )
+
+    assert "unverified_query_ready_claim" in synthesis_lifecycle_claim_violations(
+        "The output is query-ready.", {}
+    )
+    assert not synthesis_lifecycle_claim_violations(
+        "The output is not query-ready; registration is not confirmed.", {}
+    )
+    assert not synthesis_lifecycle_claim_violations(
+        "The registered output is query-ready.",
+        {
+            "synthesis_verifications": [
+                {
+                    "tool": "research_synthesis_materialisation",
+                    "materialisation": "registered",
+                    "output_registered": True,
+                    "query_ready": True,
+                }
+            ]
+        },
+    )
+
+
+def test_later_construction_advance_requires_a_reviewable_artifact():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_construction_claim_violations,
+    )
+
+    assert synthesis_construction_claim_violations(
+        "I updated the construct and added the proxy node.",
+        artifacts={},
+        first_user_turn=False,
+    ) == ["construction_advance_without_artifact"]
+    assert not synthesis_construction_claim_violations(
+        "I updated the construct with a review proposal.",
+        artifacts={"synthesis_proposal": {"id": "p1"}},
+        first_user_turn=False,
+    )
+    assert not synthesis_construction_claim_violations(
+        "I would update the construct by adding a proxy node.",
+        artifacts={},
+        first_user_turn=False,
+    )
+
+
 def test_synthesis_brief_completion_detects_truncated_numbered_output():
     from scripts.research_data_mcp.desk_synthesis_contract import (
         completed_synthesis_sections,
@@ -140,6 +221,15 @@ def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
     )
     assert "false_execution_claim" in violations
     assert "clarification_question_count" in violations
+    assert not synthesis_reply_violations(
+        "The output is query-ready.",
+        first_user_turn=False,
+        artifacts={
+            "synthesis_verifications": [
+                {"materialisation": "registered", "output_registered": True, "query_ready": True}
+            ]
+        },
+    )
 
 
 def test_clarification_count_repair_keeps_prose_and_one_question():
@@ -200,6 +290,199 @@ def test_synthesis_history_is_bounded_and_provider_neutral():
     assert "faculty-8" in brief
     assert "faculty-9" in brief
     assert "newly verified evidence" in brief
+
+
+def test_followup_composer_prompt_includes_authoritative_thread_state(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain
+
+    class Run:
+        status = "success"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "The construct remains provisional; the next question is which proxy to test."
+
+        def conversation(self):
+            return []
+
+    class Agent:
+        agent_id = "agent-followup"
+        last_prompt = ""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, text, _opts):
+            Agent.last_prompt = text
+            return Run()
+
+    agent_api = types.SimpleNamespace(create=lambda _opts: Agent(), resume=lambda _id, _opts: Agent())
+    bindings = desk_brain._CursorSdkBindings(
+        agent=agent_api,
+        agent_options=lambda **kwargs: kwargs,
+        model_selection=lambda **kwargs: kwargs,
+        send_options=lambda **kwargs: kwargs,
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: bindings)
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda *_args, **_kwargs: {})
+
+    class Gateway:
+        repo_root = tmp_path
+
+        def synthesis_thread_get(self, thread_id):
+            return {
+                "id": thread_id,
+                "objective": "Issuer-week trust proxy",
+                "materialisation": "not_materialised",
+                "state": {
+                    "nodes": [{"role": "trust input"}],
+                    "proposal": None,
+                    "accepted_spec_hash": "none",
+                    "execution": {},
+                },
+            }
+
+    state = {
+        "desk_primed": True,
+        "synthesis_user_turns": 1,
+        "rail_context": {"tab": "synthesis", "mode": "define", "thread_id": "thread-42"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(Gateway(), "Review the current construct", state)
+    assert "Observed Synthesis thread state" in Agent.last_prompt
+    assert "Issuer-week trust proxy" in Agent.last_prompt
+    assert "not_materialised" in Agent.last_prompt
+    assert turn.action_result["action"] == "composer"
+
+
+def test_unverified_lifecycle_reply_is_blocked_at_desk_boundary(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain
+
+    class Run:
+        status = "success"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "The output is query-ready and registered."
+
+        def conversation(self):
+            return []
+
+    class Agent:
+        agent_id = "agent-claim"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, _text, _opts):
+            return Run()
+
+    agent_api = types.SimpleNamespace(create=lambda _opts: Agent(), resume=lambda _id, _opts: Agent())
+    bindings = desk_brain._CursorSdkBindings(
+        agent=agent_api,
+        agent_options=lambda **kwargs: kwargs,
+        model_selection=lambda **kwargs: kwargs,
+        send_options=lambda **kwargs: kwargs,
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: bindings)
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda *_args, **_kwargs: {})
+    gateway = types.SimpleNamespace(repo_root=tmp_path, synthesis_thread_get=lambda _id: {})
+    state = {
+        "desk_primed": True,
+        "synthesis_user_turns": 1,
+        "rail_context": {"tab": "synthesis", "mode": "define", "thread_id": "thread-42"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(gateway, "Check the output", state)
+    assert turn.action_result["action"] == "synthesis_claim_blocked"
+    assert turn.action_result["lifecycle_claim_blocked"] is True
+    assert "not treated the output as materialised" in turn.reply
+
+
+def test_verified_lifecycle_reply_can_pass_with_materialisation_artifact(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain
+
+    class Run:
+        status = "success"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "The output is query-ready and registered."
+
+        def conversation(self):
+            message = types.SimpleNamespace(
+                type="tool_call",
+                name="research_synthesis_materialisation",
+                result=json.dumps(
+                    {
+                        "thread_id": "thread-42",
+                        "materialisation": "registered",
+                        "output_registered": True,
+                        "query_ready": True,
+                        "executed": True,
+                    }
+                ),
+            )
+            return [types.SimpleNamespace(steps=[types.SimpleNamespace(message=message)])]
+
+    class Agent:
+        agent_id = "agent-verified"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, _text, _opts):
+            return Run()
+
+    agent_api = types.SimpleNamespace(create=lambda _opts: Agent(), resume=lambda _id, _opts: Agent())
+    bindings = desk_brain._CursorSdkBindings(
+        agent=agent_api,
+        agent_options=lambda **kwargs: kwargs,
+        model_selection=lambda **kwargs: kwargs,
+        send_options=lambda **kwargs: kwargs,
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: bindings)
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda *_args, **_kwargs: {})
+    gateway = types.SimpleNamespace(repo_root=tmp_path, synthesis_thread_get=lambda _id: {})
+    state = {
+        "desk_primed": True,
+        "synthesis_user_turns": 1,
+        "rail_context": {"tab": "synthesis", "mode": "define", "thread_id": "thread-42"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(gateway, "Verify the output", state)
+    assert turn.action_result["action"] == "composer"
+    assert turn.action_result["synthesis_verifications"][0]["output_registered"] is True
 
 
 def _install_empty_cursor(monkeypatch):

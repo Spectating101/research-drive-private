@@ -25,6 +25,45 @@ _FALSE_EXECUTION_CLAIMS = (
     ),
     re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
 )
+_LIFECYCLE_CLAIMS = (
+    re.compile(
+        r"\b(?:the|this|your|our|a|an)\s+(?:output|dataset|panel|construct|result)\s+"
+        r"(?:is|was|now|has been|became|becomes)\s+"
+        r"(?:query[- ]ready|registered|materiali[sz]ed|archive[- ]verified|archived|"
+        r"complete|completed)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:i|we|the system)\s+(?:have|has|just|now)?\s*"
+        r"(?:registered|materiali[sz]ed|archived|executed|completed)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:query[- ]ready|registered|materiali[sz]ed|archive[- ]verified)\s+"
+        r"(?:output|dataset|panel)\b",
+        re.I,
+    ),
+)
+_CONSTRUCTION_ADVANCE_CLAIMS = (
+    re.compile(
+        r"\b(?:i|we|the system)\s+(?:have|has|just|now)?\s*"
+        r"(?:updated|changed|applied|recorded|accepted|locked|finali[sz]ed)\s+"
+        r"(?:the\s+)?(?:construct|method|recipe|canvas|spec|state|proposal|"
+        r"node|edge|proxy|transform|input|column|evidence)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:i|we|the system)\s+(?:have|has|just|now)?\s*"
+        r"(?:added|removed)\s+(?:the\s+)?(?:node|edge|proxy|transform|input|"
+        r"column|evidence|dataset|role)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:the|this)\s+(?:construct|method|recipe|canvas|spec|state)\s+"
+        r"(?:is|was|now|has been)\s+(?:updated|changed|locked|finali[sz]ed|applied)\b",
+        re.I,
+    ),
+)
 
 _SYNTHESIS_CTA = re.compile(
     r"\n+\s*(?:I can|You can)\s+drill into any dataset.*?\bstart a collect\b.*$",
@@ -104,6 +143,96 @@ def synthesis_turn_count(state: dict[str, Any] | None) -> int:
 
 def synthesis_first_turn(state: dict[str, Any] | None) -> bool:
     return is_synthesis_context(state) and synthesis_turn_count(state) == 0
+
+
+def build_synthesis_thread_state_brief(
+    gateway: Any, state: dict[str, Any] | None, *, max_chars: int = 5200
+) -> str:
+    """Load bounded, explicitly observed canvas state for a follow-up turn.
+
+    Conversation history is useful context but is not authoritative state. This
+    brief is deliberately assembled from the thread store so Composer cannot
+    infer that a proposal was accepted or an output was registered merely because
+    a previous turn said so.
+    """
+    source = state if isinstance(state, dict) else {}
+    rail = source.get("rail_context") if isinstance(source.get("rail_context"), dict) else {}
+    workspace = rail.get("workspace") if isinstance(rail.get("workspace"), dict) else {}
+    entity = rail.get("entity") if isinstance(rail.get("entity"), dict) else {}
+    raw_thread_id = (
+        rail.get("thread_id")
+        or workspace.get("thread_id")
+        or source.get("synthesis_thread_id")
+        or entity.get("id")
+    )
+    thread_id = str(raw_thread_id or "").strip()
+    if not thread_id or gateway is None:
+        return ""
+    getter = getattr(gateway, "synthesis_thread_get", None)
+    if not callable(getter):
+        return "[Observed Synthesis thread state unavailable; do not infer canvas state.]"
+    try:
+        thread = getter(thread_id)
+    except Exception:  # noqa: BLE001 — grounding must never break a conversation turn
+        return "[Observed Synthesis thread state unavailable; do not infer canvas state.]"
+    if not isinstance(thread, dict):
+        return "[Observed Synthesis thread state unavailable; do not infer canvas state.]"
+    thread_state = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+    lines = [
+        "[Observed Synthesis thread state — authoritative for this turn]",
+        f"- thread_id: {thread.get('id') or thread_id}",
+    ]
+    for key in ("title", "objective", "maturity", "maturityLabel"):
+        value = thread.get(key) or thread_state.get(key)
+        if value:
+            label = key.replace("maturityLabel", "maturity_label")
+            lines.append(f"- {label}: {str(value)[:700]}")
+
+    nodes = thread_state.get("nodes")
+    if isinstance(nodes, list):
+        lines.append(f"- nodes_recorded: {len(nodes)}")
+        for node in nodes[:8]:
+            if not isinstance(node, dict):
+                continue
+            node_id = str(node.get("id") or node.get("node_id") or "").strip()
+            label = str(node.get("title") or node.get("label") or node.get("role") or "node").strip()
+            status = str(node.get("status") or node.get("state") or "").strip()
+            suffix = f" · {status}" if status else ""
+            lines.append(f"- node: {label[:240]}{suffix}" + (f" [{node_id[:120]}]" if node_id else ""))
+
+    proposal = thread_state.get("proposal")
+    if isinstance(proposal, dict):
+        lines.append(
+            "- pending_proposal: "
+            f"{str(proposal.get('title') or proposal.get('id') or 'untitled')[:300]}"
+            " · review required; not applied"
+        )
+    else:
+        lines.append("- pending_proposal: none")
+    accepted_hash = thread_state.get("accepted_spec_hash") or thread.get("accepted_spec_hash")
+    lines.append(f"- accepted_spec_hash: {str(accepted_hash or 'none')[:180]}")
+
+    materialisation = (
+        thread.get("materialisation")
+        or thread_state.get("materialisation")
+        or "not_materialised"
+    )
+    lines.append(f"- materialisation: {str(materialisation)[:120]}")
+    execution = thread_state.get("execution")
+    if isinstance(execution, dict):
+        lines.append(
+            "- execution: "
+            f"status={str(execution.get('status') or 'none')[:100]}"
+            f" · job_id={str(execution.get('job_id') or 'none')[:180]}"
+        )
+    else:
+        lines.append("- execution: none recorded")
+    lines.append(
+        "Do not upgrade any state above. A proposal is not acceptance; completed is "
+        "not archived, registered, or query-ready."
+    )
+    lines.append("[/Observed Synthesis thread state]")
+    return "\n".join(lines)[:max_chars]
 
 
 def _advance_synthesis_phase(state: dict[str, Any]) -> None:
@@ -272,6 +401,99 @@ def synthesis_failure_reply(status: str = "") -> str:
     )
 
 
+def synthesis_claim_failure_reply() -> str:
+    """Explain why an unverified lifecycle claim was not accepted."""
+    return (
+        "The Synthesis reply made a lifecycle claim without a verifying tool result. "
+        "I have not treated the output as materialised, archived, registered, or "
+        "query-ready. Nothing was executed or changed; inspect the thread or run "
+        "the appropriate verification tool before making that claim."
+    )
+
+
+def synthesis_advance_failure_reply() -> str:
+    """Explain why prose cannot advance the durable construction state by itself."""
+    return (
+        "The Synthesis reply described a construction change, but no reviewable "
+        "state artifact was recorded in this turn. I have not changed the canvas. "
+        "Record a proposal through the Synthesis tool, then review it before any "
+        "acceptance or execution."
+    )
+
+
+def _verification_records(artifacts: dict[str, Any] | None) -> list[dict[str, Any]]:
+    source = artifacts if isinstance(artifacts, dict) else {}
+    rows = source.get("synthesis_verifications")
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def _positive_bool(value: Any) -> bool:
+    return value is True or (isinstance(value, str) and value.strip().lower() in {"true", "yes", "1"})
+
+
+def synthesis_lifecycle_claim_violations(
+    text: str, artifacts: dict[str, Any] | None = None
+) -> list[str]:
+    """Fail closed when prose claims output lifecycle state without same-turn proof."""
+    reply = str(text or "").strip()
+    if not reply or not any(pattern.search(reply) for pattern in _LIFECYCLE_CLAIMS):
+        return []
+    records = _verification_records(artifacts)
+    materialised = False
+    executed = False
+    registered = False
+    archived = False
+    query_ready = False
+    for record in records:
+        status = str(record.get("materialisation") or record.get("status") or "").lower()
+        materialised = materialised or status in {"materialised", "materialized", "registered"}
+        executed = executed or _positive_bool(record.get("executed")) or status in {"completed", "registered"}
+        registered = (
+            registered
+            or _positive_bool(record.get("output_registered"))
+            or _positive_bool(record.get("registered"))
+            or status == "registered"
+        )
+        archived = (
+            archived
+            or _positive_bool(record.get("archive_verified"))
+            or status in {"archived", "archive_verified"}
+        )
+        query_ready = query_ready or _positive_bool(record.get("query_ready"))
+    violations: list[str] = []
+    positive_claim = reply.lower()
+    if re.search(r"\bquery[- ]ready\b", positive_claim) and not (query_ready or registered):
+        violations.append("unverified_query_ready_claim")
+    if re.search(r"\bregistered\b", positive_claim) and not registered:
+        violations.append("unverified_registration_claim")
+    if re.search(r"archive[- ]verified|\barchived\b", positive_claim) and not archived:
+        violations.append("unverified_archive_claim")
+    if re.search(r"materiali[sz]ed|\bexecuted\b|\bcompleted\b", positive_claim) and not (materialised or executed):
+        violations.append("unverified_execution_claim")
+    return violations
+
+
+def synthesis_construction_claim_violations(
+    text: str,
+    *,
+    artifacts: dict[str, Any] | None = None,
+    first_user_turn: bool = False,
+) -> list[str]:
+    """Require a durable review artifact when a later turn claims canvas progress."""
+    if first_user_turn:
+        return []
+    reply = str(text or "").strip()
+    if not reply or not any(pattern.search(reply) for pattern in _CONSTRUCTION_ADVANCE_CLAIMS):
+        return []
+    source = artifacts if isinstance(artifacts, dict) else {}
+    if isinstance(source.get("synthesis_proposal"), dict):
+        # A proposal is a reviewable state artifact. It is not treated as applied.
+        return []
+    if isinstance(source.get("synthesis_state_artifact"), dict):
+        return []
+    return ["construction_advance_without_artifact"]
+
+
 def synthesis_proposal_recorded_reply(title: str = "") -> str:
     """Truthful fallback when a tool persisted a proposal before prose failed."""
     named = f" “{str(title).strip()}”" if str(title).strip() else ""
@@ -331,13 +553,36 @@ def maybe_repair_synthesis_reply(text: str, *, first_user_turn: bool) -> str:
     return repaired
 
 
-def synthesis_reply_violations(text: str, *, first_user_turn: bool) -> list[str]:
+def _has_lifecycle_evidence(artifacts: dict[str, Any] | None) -> bool:
+    for record in _verification_records(artifacts):
+        status = str(record.get("materialisation") or record.get("status") or "").lower()
+        if (
+            _positive_bool(record.get("executed"))
+            or _positive_bool(record.get("execution_recorded"))
+            or _positive_bool(record.get("output_registered"))
+            or _positive_bool(record.get("query_ready"))
+            or _positive_bool(record.get("archive_verified"))
+            or _positive_bool(record.get("registered"))
+            or status in {"completed", "materialised", "materialized", "registered"}
+        ):
+            return True
+    return False
+
+
+def synthesis_reply_violations(
+    text: str,
+    *,
+    first_user_turn: bool,
+    artifacts: dict[str, Any] | None = None,
+) -> list[str]:
     """Return contract violations that make a model reply unsafe to surface."""
     reply = str(text or "").strip()
     violations: list[str] = []
     if not reply:
         return ["empty_reply"]
-    if any(pattern.search(reply) for pattern in _FALSE_EXECUTION_CLAIMS):
+    if any(pattern.search(reply) for pattern in _FALSE_EXECUTION_CLAIMS) and (
+        first_user_turn or not _has_lifecycle_evidence(artifacts)
+    ):
         violations.append("false_execution_claim")
     if first_user_turn and len(reply) < 40:
         violations.append("insufficient_substance")

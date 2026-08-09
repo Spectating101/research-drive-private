@@ -555,11 +555,48 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                                 "kind": "kv",
                                 "rows": [{"metric": k, "value": v} for k, v in list(summary.items())[:10]],
                             }
+                    if name in {
+                        "research_synthesis_materialisation",
+                        "research_synthesis_terminal_run",
+                        "research_synthesis_submit_execution",
+                    }:
+                        # Keep only lifecycle fields needed by the response gate;
+                        # never copy an unbounded provider payload into UI state.
+                        verification = {
+                            "tool": name,
+                            **{
+                                key: payload.get(key)
+                                for key in (
+                                    "status",
+                                    "materialisation",
+                                    "materialization",
+                                    "executed",
+                                    "execution_recorded",
+                                    "output_registered",
+                                    "query_ready",
+                                    "registered",
+                                    "archive_verified",
+                                    "verified",
+                                    "ok",
+                                    "command",
+                                    "job_id",
+                                    "output_dataset_id",
+                                )
+                                if payload.get(key) is not None
+                            },
+                        }
+                        action_result.setdefault("synthesis_verifications", []).append(verification)
                 if name == "research_synthesis_propose_state":
                     proposal = payload.get("synthesis_proposal")
                     if isinstance(proposal, dict):
                         action_result["synthesis_proposal"] = proposal
                         action_result["synthesis_thread_id"] = payload.get("thread_id")
+                        action_result["synthesis_state_artifact"] = {
+                            "tool": name,
+                            "thread_id": payload.get("thread_id"),
+                            "proposal_id": proposal.get("id"),
+                            "proposal_hash": proposal.get("proposal_hash"),
+                        }
                 if name == "research_synthesis_terminal_run":
                     rows = payload.get("rows")
                     cols = payload.get("columns")
@@ -827,6 +864,15 @@ def run_cursor_composer_turn(
                 )
                 state["synthesis_grounding_brief"] = grounding
                 user_text = f"{grounding}\n\n{user_text}"
+            else:
+                from scripts.research_data_mcp.desk_synthesis_contract import (
+                    build_synthesis_thread_state_brief,
+                )
+
+                thread_state_brief = build_synthesis_thread_state_brief(gateway, state)
+                if thread_state_brief:
+                    state["synthesis_thread_state_brief"] = thread_state_brief
+                    user_text = f"{thread_state_brief}\n\n{user_text}"
             user_text = wrap_synthesis_request(
                 user_text,
                 first_user_turn=first_synthesis_turn,
@@ -1119,14 +1165,29 @@ def run_cursor_composer_turn(
 
         is_error = (run is None) or (getattr(run, "status", "") == "error") or (not reply) or (reply == EMPTY_REPLY_FALLBACK)
         synthesis_violations: list[str] = []
+        recorded_artifacts: dict[str, Any] = {}
         if synthesis_context and not prime and not is_error:
             from scripts.research_data_mcp.desk_synthesis_contract import (
+                synthesis_construction_claim_violations,
+                synthesis_lifecycle_claim_violations,
                 synthesis_reply_violations,
             )
 
+            recorded_artifacts = _artifacts_from_conversation(run) if run is not None else {}
             synthesis_violations = synthesis_reply_violations(
                 reply,
                 first_user_turn=first_synthesis_turn,
+                artifacts=recorded_artifacts,
+            )
+            synthesis_violations.extend(
+                synthesis_construction_claim_violations(
+                    reply,
+                    artifacts=recorded_artifacts,
+                    first_user_turn=first_synthesis_turn,
+                )
+            )
+            synthesis_violations.extend(
+                synthesis_lifecycle_claim_violations(reply, recorded_artifacts)
             )
             if synthesis_reply_needs_continuation(message, reply):
                 synthesis_violations.append("incomplete_structured_reply")
@@ -1136,7 +1197,7 @@ def run_cursor_composer_turn(
                 "action": "composer_error",
                 "status": str(getattr(run, "status", "") or "empty_reply"),
             }
-            recorded = _artifacts_from_conversation(run) if run is not None else {}
+            recorded = recorded_artifacts or (_artifacts_from_conversation(run) if run is not None else {})
             # Soft-recover when tools already persisted a reviewable mutation — empty prose
             # must not hide a pending job / proposal behind a generic failure.
             job = recorded.get("job") if isinstance(recorded.get("job"), dict) else None
@@ -1212,6 +1273,36 @@ def run_cursor_composer_turn(
                             }
                         )
                         reply = synthesis_incomplete_reply(reply, message)
+                    elif "construction_advance_without_artifact" in synthesis_violations:
+                        from scripts.research_data_mcp.desk_synthesis_contract import (
+                            synthesis_advance_failure_reply,
+                        )
+
+                        action_result.update(
+                            {
+                                "action": "synthesis_advance_blocked",
+                                "construction_advance_blocked": True,
+                                "required_artifact": "research_synthesis_propose_state",
+                                "retryable": True,
+                            }
+                        )
+                        reply = synthesis_advance_failure_reply()
+                    elif any(
+                        violation.startswith("unverified_")
+                        for violation in synthesis_violations
+                    ):
+                        from scripts.research_data_mcp.desk_synthesis_contract import (
+                            synthesis_claim_failure_reply,
+                        )
+
+                        action_result.update(
+                            {
+                                "action": "synthesis_claim_blocked",
+                                "lifecycle_claim_blocked": True,
+                                "retryable": True,
+                            }
+                        )
+                        reply = synthesis_claim_failure_reply()
                     else:
                         reply = synthesis_failure_reply(
                             "response_contract"
