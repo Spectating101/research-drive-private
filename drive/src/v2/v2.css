@@ -2937,7 +2937,8 @@
 }
 
 .rd-v2-ask-composer-pending,
-.rd-v2-ask-license {
+.rd-v2-ask-license,
+.rd-v2-ask-handoff {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2947,6 +2948,21 @@
   border-radius: 8px;
   background: #fffbeb;
   border: 1px solid #fde68a;
+}
+
+.rd-v2-ask-handoff {
+  justify-content: space-between;
+  background: #f2f7f1;
+  border-color: #b9d1bc;
+}
+
+.rd-v2-ask-handoff > div {
+  display: grid;
+  gap: 3px;
+}
+
+.rd-v2-ask-handoff p {
+  margin: 0;
 }
 
 .rd-v2-ask-probe,

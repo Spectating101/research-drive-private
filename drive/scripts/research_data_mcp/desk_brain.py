@@ -586,6 +586,37 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                             },
                         }
                         action_result.setdefault("synthesis_verifications", []).append(verification)
+                    if name == "research_synthesis_discover_handoff":
+                        # Preserve a bounded, typed context exchange for the UI.
+                        # The handoff carries identities and a return target; it
+                        # does not choose a search query or authorize collection.
+                        handoff = {
+                            key: payload.get(key)
+                            for key in (
+                                "thread_id",
+                                "objective",
+                                "required_grain",
+                                "held_evidence",
+                                "missing_evidence",
+                                "collect_intents",
+                                "resolvable_collect_count",
+                                "review_required",
+                                "agent_may_collect",
+                                "workspace_handoff",
+                                "note",
+                            )
+                            if payload.get(key) is not None
+                        }
+                        for key in ("held_evidence", "missing_evidence", "collect_intents"):
+                            if isinstance(handoff.get(key), list):
+                                handoff[key] = handoff[key][:12]
+                        action_result["synthesis_handoff"] = handoff
+                    if name == "research_synthesis_collect_missing":
+                        action_result["synthesis_collection"] = {
+                            key: payload.get(key)
+                            for key in ("thread_id", "submitted", "skipped", "fake_collection", "note")
+                            if payload.get(key) is not None
+                        }
                 if name == "research_synthesis_propose_state":
                     proposal = payload.get("synthesis_proposal")
                     if isinstance(proposal, dict):

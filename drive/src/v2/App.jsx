@@ -431,6 +431,44 @@ export function V2App() {
     [tab, folderId, selectedId, previewOpen, discoverSearchQuery, discoverMode],
   );
 
+  const openWorkspaceHandoff = useCallback(
+    (handoff) => {
+      const navigation = handoff?.workspace_handoff || {};
+      const destination = navigation?.destination?.workspace;
+      const threadId = navigation?.return_to?.thread_id || handoff?.thread_id || "";
+      if (destination !== "discover") return;
+
+      const missing = Array.isArray(handoff?.missing_evidence) ? handoff.missing_evidence : [];
+      const missingLabels = missing
+        .slice(0, 8)
+        .map((row) => row?.label || row?.id)
+        .filter(Boolean);
+      const objective = String(handoff?.objective || "").trim();
+      setResearchBriefContext({
+        question: objective,
+        synthesis_thread_id: threadId,
+        required_grain: handoff?.required_grain || "",
+        missing_evidence: missing,
+        handoff,
+      });
+      setTab("browse");
+      setDiscoverSearchQuery("");
+      setDiscoverMode("explore");
+      setDiscoverFocusAwaiting(false);
+      setDiscoverActivityFilter("all");
+      setDiscoverFilter("all");
+      setRailTab("ask");
+      syncUrl({ tab: "browse", q: "", mode: "explore" });
+      setPendingAsk(
+        `Continue the Synthesis investigation in Discover. Preserved objective: ${objective || "the current research construct"}. ` +
+          `Thread: ${threadId || "current thread"}. ` +
+          `${missingLabels.length ? `Investigate these missing evidence items: ${missingLabels.join(", ")}. ` : "Inspect the preserved evidence boundary. "}` +
+          "Search and assess sources first; do not collect anything without explicit approval.",
+      );
+    },
+    [syncUrl],
+  );
+
   const goTab = useCallback(
     (id) => {
       if (id !== "browse") {
@@ -1258,6 +1296,7 @@ export function V2App() {
             onCollected={refreshBackend}
             onApproveJob={handleApproveJob}
             onToast={showToast}
+            onOpenHandoff={openWorkspaceHandoff}
             railContext={railContext}
           />
         }

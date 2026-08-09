@@ -11,7 +11,7 @@ function rowsFromSearchBlock(block) {
 
 export function extractAskArtifacts(message) {
   if (!message || message.role !== "assistant") {
-    return { searchRows: [], probe: null, queryPreview: null, candidates: [] };
+    return { searchRows: [], probe: null, queryPreview: null, candidates: [], synthesisHandoff: null };
   }
   const artifacts = message.artifacts || {};
   const searchBlock = artifacts.search || artifacts.preview?.search || message.search;
@@ -31,7 +31,9 @@ export function extractAskArtifacts(message) {
         ? { rows: message.preview.rows, columns: message.preview.columns || [] }
         : null;
   const candidates = Array.isArray(message.candidates) ? message.candidates : [];
-  return { searchRows, probe, queryPreview, candidates };
+  const synthesisHandoff =
+    artifacts.synthesis_handoff || message.synthesisHandoff || null;
+  return { searchRows, probe, queryPreview, candidates, synthesisHandoff };
 }
 
 export function rowTitle(row) {
@@ -87,6 +89,7 @@ export function mapSessionMessageToUi(row, state = {}) {
     preview: artifacts.preview,
     queryPreview: artifacts.query,
     candidates: artifacts.candidates || [],
+    synthesisHandoff: artifacts.synthesis_handoff || null,
     suggestedPrompts: artifacts.suggestions || artifacts.suggested_prompts || [],
     pendingJobId,
     jobStatus,

@@ -437,6 +437,18 @@ def test_discover_handoff_preserves_identities_only(store):
     assert intent["resolvable_hint"] is True
     assert intent["status"] == "intent_only"
 
+    navigation = handoff["workspace_handoff"]
+    assert navigation["origin"] == {
+        "workspace": "synthesis",
+        "thread_id": thread["id"],
+    }
+    assert navigation["destination"] == {"workspace": "discover", "mode": "explore"}
+    assert navigation["return_to"] == {
+        "workspace": "synthesis",
+        "thread_id": thread["id"],
+    }
+    assert "objective" in navigation["preserve"]
+
     held_ids = {row["id"] for row in handoff["held_evidence"]}
     missing_ids = {row["id"] for row in handoff["missing_evidence"]}
     assert held_ids == {"trends"}

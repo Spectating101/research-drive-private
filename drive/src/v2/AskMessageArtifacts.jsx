@@ -4,14 +4,19 @@ export function AskMessageArtifacts({
   message,
   onApproveJob,
   onApproveLicense,
+  onOpenHandoff,
   busy,
 }) {
-  const { searchRows, probe, queryPreview, candidates } = extractAskArtifacts(message);
+  const { searchRows, probe, queryPreview, candidates, synthesisHandoff } = extractAskArtifacts(message);
   const showSearch = searchRows.length > 0 && message.action === "search";
   const showCandidates = candidates.length > 0 && !showSearch;
   const probeSpec = probe?.connector?.spec || probe?.spec || {};
   const access = probeSpec.access_mode || probe?.access_mode;
   const contentType = probeSpec.content_type || probe?.content_type;
+  const missingEvidence = Array.isArray(synthesisHandoff?.missing_evidence)
+    ? synthesisHandoff.missing_evidence
+    : [];
+  const handoffNavigation = synthesisHandoff?.workspace_handoff || {};
 
   return (
     <>
@@ -53,6 +58,29 @@ export function AskMessageArtifacts({
             onClick={() => onApproveLicense?.(message.licenseDoi)}
           >
             Approve license
+          </button>
+        </div>
+      ) : null}
+
+      {synthesisHandoff ? (
+        <div className="rd-v2-ask-handoff" data-testid="ask-synthesis-handoff">
+          <div>
+            <span className="rd-v2-chip sm warn">Evidence gap</span>
+            <strong>Continue in Discover</strong>
+            <p className="muted small">
+              {missingEvidence.length
+                ? `${missingEvidence.length} missing evidence item${missingEvidence.length === 1 ? "" : "s"} carried from Synthesis`
+                : "Synthesis preserved its objective and evidence boundary"}
+              {synthesisHandoff.required_grain ? ` · ${synthesisHandoff.required_grain}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rd-v2-btn sm"
+            disabled={busy || handoffNavigation?.destination?.workspace !== "discover"}
+            onClick={() => onOpenHandoff?.(synthesisHandoff)}
+          >
+            Open Discover →
           </button>
         </div>
       ) : null}

@@ -26,6 +26,8 @@ def mcp_server_instructions() -> str:
             "4) research_synthesis_submit_execution (queues pending_approval only — you cannot approve), "
             "5) research_synthesis_materialisation and/or research_synthesis_terminal_run to verify output, "
             "6) for gaps: research_synthesis_discover_handoff then research_synthesis_collect_missing. "
+            "The handoff returns a typed workspace_handoff with the same thread identity and a return_to target; "
+            "use it to continue in Discover and resume this thread, but do not invent a query or collect unless the user approves. "
             "Inspect helpers: research_synthesis_terminal_list, research_synthesis_terminal_run "
             "(allowlisted commands: thread_artifacts, output_schema, output_sample, input_schema, "
             "verify_spec_columns) — no free shell. "
@@ -51,6 +53,8 @@ def mcp_server_instructions() -> str:
             "4) research_synthesis_submit_execution (queues pending_approval only — you cannot approve), "
             "5) research_synthesis_materialisation / research_synthesis_terminal_run to check honest output status, "
             "6) for gaps: research_synthesis_discover_handoff then research_synthesis_collect_missing. "
+            "The handoff returns a typed workspace_handoff with the same thread identity and a return_to target; "
+            "use it to continue in Discover and resume this thread, but do not invent a query or collect unless the user approves. "
             "Never claim materialisation without research_synthesis_materialisation saying registered. "
             "Never call yzu_approve_job for synthesis_execute."
         )

@@ -662,6 +662,43 @@ def test_unstructured_synthesis_turn_gets_one_tool_enabled_envelope_repair(monke
     assert turn.action_result["action"] == "composer"
 
 
+def test_discover_handoff_is_exposed_as_bounded_workspace_artifact():
+    from scripts.research_data_mcp import desk_brain
+
+    payload = {
+        "thread_id": "thread-42",
+        "objective": "Construct an issuer-week proxy.",
+        "required_grain": "issuer-week",
+        "held_evidence": [{"id": "held-1", "label": "Prices"}],
+        "missing_evidence": [{"id": "missing-1", "label": "Events"}],
+        "collect_intents": [{"evidence_id": "missing-1", "label": "Events"}],
+        "resolvable_collect_count": 0,
+        "review_required": True,
+        "agent_may_collect": True,
+        "workspace_handoff": {
+            "origin": {"workspace": "synthesis", "thread_id": "thread-42"},
+            "destination": {"workspace": "discover", "mode": "explore"},
+            "return_to": {"workspace": "synthesis", "thread_id": "thread-42"},
+        },
+        "note": "identities only",
+    }
+
+    message = types.SimpleNamespace(
+        type="tool_call",
+        name="research_synthesis_discover_handoff",
+        result=json.dumps(payload),
+    )
+    run = types.SimpleNamespace(
+        conversation=lambda: [types.SimpleNamespace(steps=[types.SimpleNamespace(message=message)])]
+    )
+
+    artifacts = desk_brain._artifacts_from_conversation(run)
+    handoff = artifacts["synthesis_handoff"]
+    assert handoff["workspace_handoff"]["destination"]["workspace"] == "discover"
+    assert handoff["workspace_handoff"]["return_to"]["thread_id"] == "thread-42"
+    assert handoff["missing_evidence"][0]["id"] == "missing-1"
+
+
 def test_unstructured_synthesis_draft_survives_without_scripted_answer(
     monkeypatch, tmp_path
 ):

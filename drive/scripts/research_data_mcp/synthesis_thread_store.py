@@ -383,6 +383,7 @@ def build_discover_handoff(thread: dict[str, Any]) -> dict[str, Any]:
             intent["reason"] = "missing_source_hooks"
         collect_intents.append(intent)
 
+    thread_id = thread.get("id")
     return {
         "thread_id": thread.get("id"),
         "objective": thread.get("objective") or state.get("objective") or "",
@@ -392,6 +393,30 @@ def build_discover_handoff(thread: dict[str, Any]) -> dict[str, Any]:
         "collect_intents": collect_intents,
         "collection": None,
         "fake_collection": False,
+        # Navigation is deliberately a typed context exchange, not a scripted
+        # decision.  The receiving workspace gets the same investigation
+        # identity and evidence boundary, while the researcher remains in
+        # control of any search or collection action.
+        "workspace_handoff": {
+            "origin": {
+                "workspace": "synthesis",
+                "thread_id": thread_id,
+            },
+            "destination": {
+                "workspace": "discover",
+                "mode": "explore",
+            },
+            "return_to": {
+                "workspace": "synthesis",
+                "thread_id": thread_id,
+            },
+            "preserve": [
+                "objective",
+                "required_grain",
+                "held_evidence",
+                "missing_evidence",
+            ],
+        },
         "note": (
             "Conservative Discover handoff: identities + collect_intents from "
             "missing evidence hooks. No acquisition jobs invented until "

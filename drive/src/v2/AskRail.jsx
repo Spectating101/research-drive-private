@@ -14,6 +14,7 @@ export function AskRail({
   onCollected,
   onApproveJob,
   onToast,
+  onOpenHandoff,
   railContext,
 }) {
   const { messages, input, setInput, busy, status, send, patchMessageJob, contextLabel } = useAskChat({
@@ -123,6 +124,7 @@ export function AskRail({
                       message={m}
                       onApproveJob={handleApproveJob}
                       onApproveLicense={handleApproveLicense}
+                      onOpenHandoff={onOpenHandoff}
                       busy={busy}
                     />
                   ) : null}
