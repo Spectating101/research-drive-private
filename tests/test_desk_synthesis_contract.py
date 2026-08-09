@@ -1034,6 +1034,94 @@ def test_first_synthesis_turn_retries_fresh_model_after_resume_error(monkeypatch
     assert state["synthesis_user_turns"] == 1
 
 
+def test_synthesis_send_error_retries_only_before_any_tool_call(
+    monkeypatch, tmp_path
+):
+    """A provider drop before tools may use a fresh model without duplicating work."""
+    from scripts.research_data_mcp import desk_brain
+
+    sends: list[str] = []
+
+    class GoodRun:
+        status = "success"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return json.dumps(
+                {
+                    "reply": "A provisional construct remains under review.",
+                    "clarification": "Which event definition should govern inclusion?",
+                    "claims": [],
+                    "construction": {"status": "unknown"},
+                    "sections": [],
+                }
+            )
+
+        def conversation(self):
+            return []
+
+    class Agent:
+        def __init__(self, model_id):
+            self.model_id = model_id
+            self.agent_id = f"agent-{model_id}"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, _text, _opts):
+            sends.append(self.model_id)
+            if self.model_id == "primary":
+                raise RuntimeError("provider session dropped before first tool call")
+            return GoodRun()
+
+    class AgentAPI:
+        @classmethod
+        def create(cls, opts):
+            model = (opts.get("model") or {}).get("id") or "unknown"
+            return Agent(model)
+
+        @classmethod
+        def resume(cls, _agent_id, _opts):
+            raise AssertionError("send-error test should create a fresh agent")
+
+    cursor_sdk = types.ModuleType("cursor_sdk")
+    cursor_sdk.Agent = AgentAPI
+    cursor_types = types.ModuleType("cursor_sdk.types")
+    cursor_types.AgentOptions = lambda **kwargs: kwargs
+    cursor_types.ModelSelection = lambda **kwargs: kwargs
+    cursor_types.SendOptions = lambda **kwargs: kwargs
+    cursor_types.StdioMcpServerConfig = lambda **kwargs: kwargs
+    cursor_types.LocalAgentOptions = lambda **kwargs: kwargs
+    cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
+    monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["primary", "backup"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_a, **_k: {})
+    monkeypatch.setattr(
+        desk_brain, "_desk_agent_runtime_kwargs", lambda _root, **_kwargs: {}
+    )
+    monkeypatch.setattr(desk_brain, "_wait_run_bounded", lambda *_a, **_k: None)
+
+    gateway = types.SimpleNamespace(repo_root=tmp_path)
+    state = {
+        "desk_primed": True,
+        "synthesis_user_turns": 1,
+        "rail_context": {"tab": "synthesis", "mode": "define"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(gateway, "Continue the construct", state)
+
+    assert sends == ["primary", "backup"]
+    assert turn.reply.startswith("A provisional construct")
+    assert turn.action_result["composer_model"] == "backup"
+    assert turn.action_result["cursor_agent_id"] == "agent-backup"
+
+
 def test_empty_reply_retries_fallback_model(monkeypatch, tmp_path):
     """After send returns empty, desk must try DESK_COMPOSER_MODEL_FALLBACK — not stop."""
     from scripts.research_data_mcp import desk_brain

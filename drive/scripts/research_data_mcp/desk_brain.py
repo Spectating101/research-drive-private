@@ -1245,9 +1245,27 @@ def run_cursor_composer_turn(
                     )
                     synthesis_artifacts_for_turn = envelope_artifacts
             except Exception:
+                # A provider can fail after ``agent.send`` has started (for
+                # example, a resumed Composer session can drop before its
+                # first response).  A fresh fallback is safe only when this
+                # attempt has not started a tool call or persisted a
+                # reviewable mutation.  Retrying after either signal could
+                # duplicate a collect/proposal, so fail closed in that case.
+                try:
+                    failed_attempt_artifacts = (
+                        _artifacts_from_conversation(run) if run is not None else {}
+                    )
+                except Exception:  # noqa: BLE001
+                    failed_attempt_artifacts = {}
+                mutation_started = bool(
+                    tool_call_started
+                    or failed_attempt_artifacts.get("job")
+                    or failed_attempt_artifacts.get("job_id")
+                    or failed_attempt_artifacts.get("synthesis_proposal")
+                )
                 can_retry_fresh = (
                     model_idx < len(model_candidates) - 1
-                    and not send_started
+                    and not mutation_started
                 )
                 if not can_retry_fresh:
                     raise
@@ -1255,6 +1273,15 @@ def run_cursor_composer_turn(
                 state.pop("cursor_agent_id", None)
                 run = None
                 reply = ""
+                tool_call_started = False
+                streamed.clear()
+                _emit_event(
+                    event_sink,
+                    {
+                        "type": "activity",
+                        "text": f"Retrying with fallback model ({model_candidates[model_idx + 1]})…",
+                    },
+                )
                 continue
 
             is_model_error = (
