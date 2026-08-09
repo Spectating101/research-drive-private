@@ -693,6 +693,75 @@ def _merge_synthesis_artifacts(
     return merged
 
 
+def _authoritative_synthesis_artifacts(
+    gateway: Any,
+    state: dict[str, Any],
+    tools_called: list[str],
+) -> dict[str, Any]:
+    """Read back thread artifacts after MCP calls.
+
+    Cursor SDK conversation objects are not uniform across releases: some
+    expose MCP results as structured messages, others expose only a receipt.
+    The thread store is authoritative, so use it to complete the response
+    envelope when a stateful Synthesis tool was called. This is reconciliation
+    of typed backend state, not interpretation of model prose.
+    """
+    if not tools_called:
+        return {}
+    rail = state.get("rail_context") if isinstance(state.get("rail_context"), dict) else {}
+    thread_id = str(
+        rail.get("thread_id")
+        or state.get("synthesis_thread_id")
+        or ""
+    ).strip()
+    if not thread_id:
+        return {}
+    out: dict[str, Any] = {}
+    try:
+        if "research_synthesis_discover_handoff" in tools_called:
+            out["synthesis_handoff"] = gateway.synthesis_thread_discover_handoff(thread_id)
+        if "research_synthesis_propose_state" in tools_called:
+            thread = gateway.synthesis_thread_get(thread_id)
+            proposal = (thread.get("state") or {}).get("proposal")
+            if isinstance(proposal, dict):
+                out["synthesis_proposal"] = proposal
+                out["synthesis_thread_id"] = thread_id
+                out["synthesis_state_artifact"] = {
+                    "tool": "research_synthesis_propose_state",
+                    "thread_id": thread_id,
+                    "proposal_id": proposal.get("id"),
+                    "proposal_hash": proposal.get("proposal_hash"),
+                }
+        if {
+            "research_synthesis_materialisation",
+            "research_synthesis_terminal_run",
+        } & set(tools_called):
+            view = gateway.synthesis_thread_materialisation(thread_id)
+            fields = {
+                key: view.get(key)
+                for key in (
+                    "materialisation",
+                    "executed",
+                    "execution_recorded",
+                    "output_registered",
+                    "job_id",
+                    "output_dataset_id",
+                )
+                if view.get(key) is not None
+            }
+            out["synthesis_verifications"] = [
+                {"tool": tool_name, **fields}
+                for tool_name in (
+                    "research_synthesis_materialisation",
+                    "research_synthesis_terminal_run",
+                )
+                if tool_name in tools_called
+            ]
+    except Exception:  # noqa: BLE001 — readback must not break a turn
+        return out
+    return out
+
+
 def _format_rail_context(ctx: dict[str, Any]) -> str:
     """Compact UI envelope for Composer — matches RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT."""
     if not isinstance(ctx, dict) or not ctx:
@@ -1154,8 +1223,26 @@ def run_cursor_composer_turn(
                                         )
                             except Exception:  # noqa: BLE001
                                 pass
+                    authoritative = _authoritative_synthesis_artifacts(
+                        gateway,
+                        state,
+                        tools_called,
+                    )
+                    envelope_artifacts = _merge_synthesis_artifacts(
+                        envelope_artifacts,
+                        authoritative,
+                    )
                     synthesis_envelope = envelope
-                    synthesis_envelope_issues = envelope_issues
+                    synthesis_envelope_issues = (
+                        ["unstructured_envelope"]
+                        if synthesis_context and not prime and not envelope.get("structured")
+                        else synthesis_reply_violations(
+                            reply,
+                            first_user_turn=first_synthesis_turn,
+                            artifacts=envelope_artifacts,
+                            envelope=envelope,
+                        )
+                    )
                     synthesis_artifacts_for_turn = envelope_artifacts
             except Exception:
                 can_retry_fresh = (
@@ -1299,7 +1386,10 @@ def run_cursor_composer_turn(
             else:
                 action_result["retryable"] = True
         else:
-            action_result = _artifacts_from_conversation(run)
+            action_result = _merge_synthesis_artifacts(
+                synthesis_artifacts_for_turn,
+                _artifacts_from_conversation(run),
+            )
 
         if synthesis_context and not prime:
             action_result["synthesis_envelope_structured"] = bool(

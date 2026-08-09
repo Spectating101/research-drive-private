@@ -15,6 +15,7 @@ from contextlib import contextmanager
 import copy
 import hashlib
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -65,6 +66,9 @@ def _now() -> str:
 
 
 def default_synthesis_thread_db(repo_root: Path) -> Path:
+    configured = os.getenv("SHARPE_SYNTHESIS_THREAD_DB", "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
     return Path(repo_root).resolve() / "data_lake/procurement_memory/synthesis_threads.sqlite3"
 
 

@@ -699,6 +699,8 @@ def test_discover_handoff_is_exposed_as_bounded_workspace_artifact():
     assert handoff["missing_evidence"][0]["id"] == "missing-1"
 
 
+
+
 def test_unstructured_synthesis_draft_survives_without_scripted_answer(
     monkeypatch, tmp_path
 ):

@@ -12,8 +12,22 @@ from scripts.research_data_mcp.mcp_instructions import mcp_server_instructions
 from scripts.research_data_mcp.mcp_register import build_mcp_server
 from sharpe_kernel.paths import repo_root_from_file
 
-ROOT = repo_root_from_file(__file__)
-REGISTRY = ROOT / "config/research_query_registry.json"
+def _configured_root() -> Path:
+    """Use the root selected by the parent desk process when supplied.
+
+    Composer runs this MCP server in a separate process. Falling back to
+    ``repo_root_from_file`` is convenient for direct CLI use, but ignoring the
+    parent's root can split SQLite thread/job state across two checkouts.
+    """
+    configured = os.getenv("SHARPE_REPO_ROOT", "").strip()
+    return Path(configured).resolve() if configured else repo_root_from_file(__file__)
+
+
+ROOT = _configured_root()
+REGISTRY = Path(
+    os.getenv("SHARPE_REGISTRY_PATH", "").strip()
+    or (ROOT / "config/research_query_registry.json")
+).resolve()
 
 mcp = FastMCP(
     "Research Procurement MCP",

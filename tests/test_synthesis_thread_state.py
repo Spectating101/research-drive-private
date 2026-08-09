@@ -464,6 +464,14 @@ def test_discover_handoff_preserves_identities_only(store):
     assert "plan" not in handoff
 
 
+def test_synthesis_thread_db_can_be_shared_with_mcp_subprocess(monkeypatch, tmp_path):
+    from scripts.research_data_mcp.synthesis_thread_store import default_synthesis_thread_db
+
+    target = tmp_path / "shared" / "threads.sqlite3"
+    monkeypatch.setenv("SHARPE_SYNTHESIS_THREAD_DB", str(target))
+    assert default_synthesis_thread_db(tmp_path / "ignored") == target.resolve()
+
+
 @pytest.fixture(scope="module")
 def stack():
     from scripts.research_data_mcp.bootstrap import create_stack
