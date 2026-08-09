@@ -74,6 +74,21 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
     }
 )
 
+# Neutral desk routing surface.  This is deliberately narrower than the
+# ordinary desk MCP: it can inspect Library, Discover, and Synthesis and can
+# record a review-only construction proposal, but it cannot collect, approve,
+# execute, or register anything.  A neutral turn is for cross-workspace
+# orientation and planning; explicit mutations stay on their governed rails.
+NEUTRAL_ROUTER_TOOL_NAMES = frozenset(
+    name
+    for name in SYNTHESIS_READ_ONLY_TOOL_NAMES
+    if name
+    not in {
+        "research_synthesis_collect_missing",
+        "research_synthesis_submit_execution",
+    }
+)
+
 
 # Discover answers one question about held evidence. 87 tools is well past the
 # point where selection stays reliable — observed live, Composer authenticated to
@@ -103,6 +118,11 @@ DISCOVER_TOOL_NAMES = frozenset(
 def registered_tool_names() -> list[str]:
     if os.getenv("RESEARCH_MCP_DISCOVER", "").strip().lower() in {"1", "true", "yes"}:
         return [name for name in MCP_TOOL_NAMES if name in DISCOVER_TOOL_NAMES]
+    neutral_router = os.getenv("RESEARCH_MCP_NEUTRAL_ROUTER", "").strip().lower()
+    if neutral_router in {"1", "true", "yes"}:
+        return [
+            name for name in MCP_TOOL_NAMES if name in NEUTRAL_ROUTER_TOOL_NAMES
+        ]
     read_only = os.getenv("RESEARCH_MCP_SYNTHESIS_READ_ONLY", "").strip().lower()
     if read_only in {"1", "true", "yes"}:
         return [

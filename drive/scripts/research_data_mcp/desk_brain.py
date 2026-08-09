@@ -316,6 +316,7 @@ def _mcp_stdio_config(
     *,
     vault_primed: bool = False,
     synthesis_read_only: bool = False,
+    neutral_router: bool = False,
     discover: bool = False,
     sdk: _CursorSdkBindings | None = None,
 ) -> dict[str, Any]:
@@ -328,10 +329,14 @@ def _mcp_stdio_config(
         env["RESEARCH_MCP_DISCOVER"] = "1"
     if synthesis_read_only:
         env["RESEARCH_MCP_SYNTHESIS_READ_ONLY"] = "1"
+    if neutral_router:
+        env["RESEARCH_MCP_NEUTRAL_ROUTER"] = "1"
     if vault_primed:
         env["RESEARCH_MCP_VAULT_PRIMED"] = "1"
     if discover:
         server_name = "research_procurement_discover"
+    elif neutral_router:
+        server_name = "research_procurement_neutral_router"
     elif synthesis_read_only:
         server_name = "research_procurement_synthesis_read_only"
     else:
@@ -907,6 +912,7 @@ def run_cursor_composer_turn(
         synthesis_envelope_repair_request,
         first_turn_reply_is_acceptable,
         is_synthesis_context,
+        is_neutral_router_context,
         record_synthesis_turn,
         synthesis_reply_violations,
         synthesis_first_turn,
@@ -915,6 +921,7 @@ def run_cursor_composer_turn(
     )
 
     synthesis_context = is_synthesis_context(state)
+    neutral_router_context = is_neutral_router_context(state)
     api_key = os.getenv("CURSOR_API_KEY", "").strip()
     if not api_key:
         return AgentTurn(
@@ -1026,6 +1033,27 @@ def run_cursor_composer_turn(
                     "text": "Library measure ready",
                 },
             )
+            if neutral_router_context:
+                # A neutral router may be resumed from any page.  Keep its
+                # durable Synthesis thread state in the prompt when a thread
+                # identity is present, so a fresh agent can continue the same
+                # investigation without relying on provider conversation
+                # history.
+                from scripts.research_data_mcp.desk_synthesis_contract import (
+                    build_synthesis_thread_state_brief,
+                )
+
+                thread_brief = build_synthesis_thread_state_brief(gateway, state)
+                if thread_brief:
+                    user_text = f"{thread_brief}\n\n{user_text}"
+                user_text = (
+                    "[Neutral Research Drive routing]\n"
+                    "You may inspect Library, Discover, and the linked Synthesis thread. "
+                    "Use only the bounded neutral-router tools; do not collect, approve, "
+                    "execute, register, or claim query readiness. End with evidence, gap, "
+                    "and next safe action.\n\n"
+                    f"{user_text}"
+                )
         if prime:
             pass
         elif (
@@ -1059,6 +1087,7 @@ def run_cursor_composer_turn(
                 repo_root,
                 vault_primed=vault_primed_env,
                 synthesis_read_only=synthesis_context,
+                neutral_router=neutral_router_context,
                 discover=discover_turn,
                 sdk=sdk,
             )

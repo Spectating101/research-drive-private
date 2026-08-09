@@ -34,6 +34,27 @@ def is_synthesis_context(state: dict[str, Any] | None) -> bool:
     )
 
 
+def is_neutral_router_context(state: dict[str, Any] | None) -> bool:
+    """Return true for the cross-workspace desk router, not a page-specific Ask.
+
+    The neutral surface is intentionally explicit.  A normal Browse or
+    Synthesis rail keeps its existing tool contract; only a rail marked
+    ``surface=neutral`` or ``mode=neutral|orchestrate|router`` receives the
+    bounded cross-workspace MCP surface.
+    """
+    source = state if isinstance(state, dict) else {}
+    rail = source.get("rail_context")
+    rail = rail if isinstance(rail, dict) else {}
+    workspace = rail.get("workspace")
+    workspace = workspace if isinstance(workspace, dict) else {}
+    mode = str(rail.get("mode") or workspace.get("mode") or "").strip().lower()
+    surface = str(rail.get("surface") or workspace.get("surface") or "").strip().lower()
+    return (
+        not is_synthesis_context(source)
+        and (surface == "neutral" or mode in {"neutral", "orchestrate", "router"})
+    )
+
+
 def synthesis_starter_prompts() -> list[str]:
     """Prompts that advance construction rather than generic procurement."""
     return [

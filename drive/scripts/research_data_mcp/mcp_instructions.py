@@ -13,6 +13,27 @@ def mcp_server_instructions() -> str:
         "true",
         "yes",
     }
+    neutral_router = os.getenv("RESEARCH_MCP_NEUTRAL_ROUTER", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    if desk and neutral_router:
+        return (
+            "Research procurement MCP — neutral Research Drive router. "
+            "You may move across Library, Discover, and Synthesis in one investigation. "
+            "Use the supplied workspace/thread context and call tools for authoritative state; "
+            "do not treat conversation prose as state. "
+            "Start with the user's current objective, inspect held Library evidence, search or "
+            "preview Discover candidates, then inspect the linked Synthesis thread when present. "
+            "research_synthesis_discover_handoff is a typed context exchange: preserve the same "
+            "thread_id and return_to target, but do not invent a query or silently collect. "
+            "research_synthesis_propose_state records a review-only proposal and never applies it. "
+            "This neutral surface has no collection, approval, execution, or registration tools. "
+            "Never claim materialisation, registration, or query readiness without an explicit "
+            "verification artifact. End with evidence found, unresolved gap, and the next safe "
+            "action or workspace to open."
+        )
     if desk and synthesis_ro:
         return (
             "Research procurement MCP — Synthesis Ask (construction tool surface). "
