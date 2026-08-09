@@ -750,9 +750,13 @@ def run_cursor_composer_turn(
     turn_started = time.monotonic()
     repo_root = Path(gateway.repo_root).resolve()
     from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_continuation_request,
+        synthesis_incomplete_reply,
         first_turn_reply_is_acceptable,
         is_synthesis_context,
         record_synthesis_turn,
+        strip_synthesis_procurement_cta,
+        synthesis_reply_needs_continuation,
         synthesis_first_turn,
         synthesis_failure_reply,
         wrap_synthesis_request,
@@ -983,6 +987,8 @@ def run_cursor_composer_turn(
                         except Exception:  # noqa: BLE001
                             pass
                         reply = _reply_from_run(run, streamed)
+                        if synthesis_context:
+                            reply = strip_synthesis_procurement_cta(reply)
                         if (
                             reply
                             or prime
@@ -994,6 +1000,64 @@ def run_cursor_composer_turn(
                             f"{user_text}\n\n"
                             "(The previous attempt returned no final text. Answer now in plain prose.)"
                         )
+
+                    # Providers sometimes stop after the first numbered section and
+                    # append their generic catalogue CTA. A structured Synthesis
+                    # brief should get one bounded continuation on the same agent,
+                    # rather than surfacing a visibly unfinished answer or silently
+                    # starting a new conversation. The Synthesis MCP surface is
+                    # read-only, and the continuation prompt explicitly forbids
+                    # proposals/collection/execution.
+                    continuation_attempts = 0
+                    while (
+                        synthesis_context
+                        and not prime
+                        and not first_synthesis_turn
+                        and reply
+                        and synthesis_reply_needs_continuation(message, reply)
+                        and continuation_attempts < 2
+                    ):
+                        remaining = turn_budget - (time.monotonic() - turn_started)
+                        if remaining <= 1.0:
+                            break
+                        continuation_attempts += 1
+                        continuation_run = None
+                        try:
+                            continuation_text = synthesis_continuation_request(
+                                message, reply
+                            )
+                            streamed.clear()
+                            continuation_run = agent.send(continuation_text, send_opts)
+                            _wait_run_bounded(continuation_run, remaining)
+                            continuation_reply = strip_synthesis_procurement_cta(
+                                _reply_from_run(continuation_run, streamed)
+                            )
+                            if continuation_reply:
+                                try:
+                                    continuation_arts = _artifacts_from_conversation(
+                                        continuation_run
+                                    )
+                                    if (
+                                        continuation_arts.get("job")
+                                        or continuation_arts.get("job_id")
+                                        or continuation_arts.get("synthesis_proposal")
+                                    ):
+                                        _emit_mutation_proposal_event(
+                                            event_sink,
+                                            name=str(continuation_arts.get("tool_name") or ""),
+                                            payload=continuation_arts,
+                                        )
+                                except Exception:  # noqa: BLE001
+                                    pass
+                                reply = f"{reply.rstrip()}\n\n{continuation_reply}"
+                                run = continuation_run
+                            else:
+                                break
+                        except Exception:  # noqa: BLE001
+                            # The original grounded answer is safer than a provider
+                            # error; the normal contract gate below will report it
+                            # as retryable if it remains short.
+                            break
             except Exception:
                 can_retry_fresh = (
                     model_idx < len(model_candidates) - 1
@@ -1042,8 +1106,10 @@ def run_cursor_composer_turn(
         if synthesis_context and not prime and reply and reply != EMPTY_REPLY_FALLBACK:
             from scripts.research_data_mcp.desk_synthesis_contract import (
                 maybe_repair_synthesis_reply,
+                strip_synthesis_procurement_cta,
             )
 
+            reply = strip_synthesis_procurement_cta(reply)
             repaired = maybe_repair_synthesis_reply(
                 reply,
                 first_user_turn=first_synthesis_turn,
@@ -1062,6 +1128,8 @@ def run_cursor_composer_turn(
                 reply,
                 first_user_turn=first_synthesis_turn,
             )
+            if synthesis_reply_needs_continuation(message, reply):
+                synthesis_violations.append("incomplete_structured_reply")
             is_error = bool(synthesis_violations)
         if is_error and not prime:
             action_result = {
@@ -1135,11 +1203,21 @@ def run_cursor_composer_turn(
                             ),
                         }
                     )
-                    reply = synthesis_failure_reply(
-                        "response_contract"
-                        if synthesis_violations
-                        else action_result["status"]
-                    )
+                    if "incomplete_structured_reply" in synthesis_violations:
+                        action_result.update(
+                            {
+                                "action": "composer_incomplete",
+                                "continuation_required": True,
+                                "retryable": True,
+                            }
+                        )
+                        reply = synthesis_incomplete_reply(reply, message)
+                    else:
+                        reply = synthesis_failure_reply(
+                            "response_contract"
+                            if synthesis_violations
+                            else action_result["status"]
+                        )
             elif reply == EMPTY_REPLY_FALLBACK:
                 # No script-brain inventory wallpaper — Composer owns the miss.
                 reply = (

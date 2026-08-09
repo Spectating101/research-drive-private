@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sys
 import types
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 
 def _state(**rail):
@@ -47,6 +49,48 @@ def test_followup_contract_preserves_context_without_restarting():
     assert "Continue the same Synthesis investigation" in prompt
     assert "first faculty turn" not in prompt
     assert prompt.endswith("Use a weekly horizon.")
+
+
+def test_synthesis_brief_completion_detects_truncated_numbered_output():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        completed_synthesis_sections,
+        expected_synthesis_sections,
+        synthesis_continuation_request,
+        synthesis_reply_needs_continuation,
+    )
+
+    request = (
+        "Answer exactly five numbered items: 1) input, 2) grain, 3) transform, "
+        "4) blockers, 5) next action."
+    )
+    reply = (
+        "1. **Input:** the held panel.\n"
+        "2. **Grain:** entity-week.\n"
+        "3. **Transform:** aggregate to week.\n"
+        "4. **Blockers:** local bytes are missing.\n\n"
+        "I can drill into any dataset, run a sample query, or start a collect — "
+        "just say which market or topic."
+    )
+    assert expected_synthesis_sections(request) == 5
+    assert completed_synthesis_sections(reply) == 4
+    assert synthesis_reply_needs_continuation(request, reply)
+    continuation = synthesis_continuation_request(request, reply)
+    assert "sections 5–5 only" in continuation
+    assert "start a collect" not in continuation
+
+
+def test_synthesis_cta_is_removed_without_touching_evidence():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        strip_synthesis_procurement_cta,
+    )
+
+    reply = (
+        "The strongest observed input is the GDELT panel.\n\n"
+        "I can drill into any dataset, run a sample query, or start a collect — "
+        "just say which market or topic."
+    )
+    cleaned = strip_synthesis_procurement_cta(reply)
+    assert cleaned == "The strongest observed input is the GDELT panel."
 
 
 def test_synthesis_prompts_are_not_procurement_prompts():
@@ -265,6 +309,155 @@ def _install_proposal_then_invalid_reply_cursor(monkeypatch):
     cursor_types.CloudAgentOptions = lambda **kwargs: kwargs
     monkeypatch.setitem(sys.modules, "cursor_sdk", cursor_sdk)
     monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
+
+
+def test_truncated_synthesis_brief_gets_one_bounded_continuation(monkeypatch, tmp_path):
+    from scripts.research_data_mcp import desk_brain
+
+    class Run:
+        status = "success"
+
+        def __init__(self, text):
+            self._text = text
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return self._text
+
+        def conversation(self):
+            return []
+
+    class Agent:
+        agent_id = "agent-continuation"
+
+        def __init__(self):
+            self.calls = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, text, _opts):
+            self.calls.append(text)
+            if len(self.calls) == 1:
+                return Run(
+                    "1. Input: held panel.\n"
+                    "2. Grain: entity-week.\n"
+                    "3. Transform: aggregate weekly.\n"
+                    "4. Blocker: bytes are not local.\n\n"
+                    "I can drill into any dataset, run a sample query, or start a collect — "
+                    "just say which market or topic."
+                )
+            return Run("5. Next action: verify the missing local partition read-only.")
+
+    agent_instance = Agent()
+    agent = SimpleNamespace(
+        create=MagicMock(return_value=agent_instance),
+        resume=MagicMock(return_value=agent_instance),
+    )
+    bindings = desk_brain._CursorSdkBindings(
+        agent=agent,
+        agent_options=lambda **kwargs: kwargs,
+        model_selection=lambda **kwargs: kwargs,
+        send_options=lambda **kwargs: kwargs,
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: bindings)
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda *_args, **_kwargs: {})
+
+    state = {
+        "desk_primed": True,
+        "synthesis_user_turns": 1,
+        "rail_context": {"tab": "synthesis", "mode": "define"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path),
+        "Answer exactly five numbered items: 1) input, 2) grain, 3) transform, "
+        "4) blocker, 5) next action.",
+        state,
+    )
+
+    assert len(agent_instance.calls) == 2
+    assert "sections 5–5 only" in agent_instance.calls[1]
+    assert "5. Next action" in turn.reply
+    assert "start a collect" not in turn.reply
+    assert turn.action_result["action"] == "composer"
+
+
+def test_unfinished_synthesis_brief_fails_closed_after_bounded_continuations(
+    monkeypatch, tmp_path
+):
+    from scripts.research_data_mcp import desk_brain
+
+    class Run:
+        status = "success"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "1. Input: held panel. 2. Grain: entity-week. 3. Transform: aggregate."
+
+        def conversation(self):
+            return []
+
+    class Agent:
+        agent_id = "agent-partial"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, _text, _opts):
+            return Run()
+
+    agent_instance = Agent()
+    agent = SimpleNamespace(
+        create=MagicMock(return_value=agent_instance),
+        resume=MagicMock(return_value=agent_instance),
+    )
+    bindings = desk_brain._CursorSdkBindings(
+        agent=agent,
+        agent_options=lambda **kwargs: kwargs,
+        model_selection=lambda **kwargs: kwargs,
+        send_options=lambda **kwargs: kwargs,
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: bindings)
+    monkeypatch.setattr(desk_brain, "_desk_composer_models", lambda: ["test"])
+    monkeypatch.setattr(desk_brain, "_mcp_stdio_config", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(desk_brain, "_desk_agent_runtime_kwargs", lambda *_args, **_kwargs: {})
+
+    state = {
+        "desk_primed": True,
+        "synthesis_user_turns": 1,
+        "rail_context": {"tab": "synthesis", "mode": "define"},
+    }
+    turn = desk_brain.run_cursor_composer_turn(
+        types.SimpleNamespace(repo_root=tmp_path),
+        "Answer exactly five numbered items: 1) input, 2) grain, 3) transform, "
+        "4) blocker, 5) next action.",
+        state,
+    )
+
+    assert turn.action_result["action"] == "composer_incomplete"
+    assert turn.action_result["continuation_required"] is True
+    assert "Synthesis draft incomplete" in turn.reply
+    assert "No proposal, collection, approval, execution" in turn.reply
 
 
 def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatch, tmp_path):

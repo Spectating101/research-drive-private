@@ -26,6 +26,26 @@ _FALSE_EXECUTION_CLAIMS = (
     re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
 )
 
+_SYNTHESIS_CTA = re.compile(
+    r"\n+\s*(?:I can|You can)\s+drill into any dataset.*?\bstart a collect\b.*$",
+    re.I | re.S,
+)
+_NUMBERED_SECTION = re.compile(
+    # Models often put the first numbered item immediately after an opening
+    # sentence ("... below. 1. Input ...") rather than starting a new line.
+    # Require whitespace after the marker so decimal values are not sections.
+    r"(?<![\w.])(?:#{1,6}\s*)?(?:\*\*)?(\d+)[.)](?:\*\*)?(?=\s)",
+)
+_NUMBER_WORDS = {
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+}
+
 
 def is_synthesis_context(state: dict[str, Any] | None) -> bool:
     """Return true when Ask is attached to the Synthesis workspace."""
@@ -153,6 +173,93 @@ reviewable proposal and user approval.
 
 """
     return contract + user_text.strip()
+
+
+def strip_synthesis_procurement_cta(text: str) -> str:
+    """Remove the generic catalogue/procurement footer from Synthesis prose.
+
+    Synthesis can expose a deliberate Discover handoff, but a provider's generic
+    "I can ... start a collect" footer is not a decision or a valid next action
+    for a read-only reasoning turn. Keeping it makes a completed answer look like
+    an implicit procurement offer.
+    """
+    reply = str(text or "").strip()
+    if not reply:
+        return reply
+    return _SYNTHESIS_CTA.sub("", reply).strip()
+
+
+def expected_synthesis_sections(request: str) -> int:
+    """Infer an explicitly requested numbered-brief size, if one exists."""
+    source = str(request or "").strip()
+    if not source:
+        return 0
+    exact = re.search(
+        r"\bexactly\s+(\d+|two|three|four|five|six|seven|eight)\s+"
+        r"(?:numbered\s+)?(?:items|sections|parts|points|bullets)",
+        source,
+        re.I,
+    )
+    if exact:
+        raw = exact.group(1).lower()
+        return max(0, int(raw) if raw.isdigit() else _NUMBER_WORDS[raw])
+    tail = source.rsplit("return:", 1)[-1] if "return:" in source.lower() else source
+    labels = [int(match.group(1)) for match in re.finditer(r"\(\s*(\d+)\s*\)", tail)]
+    if len(labels) >= 2 and labels == list(range(1, max(labels) + 1)):
+        return max(labels)
+    return 0
+
+
+def completed_synthesis_sections(reply: str) -> int:
+    """Return the highest contiguous numbered section in a provider reply."""
+    cleaned = strip_synthesis_procurement_cta(reply)
+    labels = {int(match.group(1)) for match in _NUMBERED_SECTION.finditer(cleaned)}
+    completed = 0
+    while completed + 1 in labels:
+        completed += 1
+    return completed
+
+
+def synthesis_reply_needs_continuation(request: str, reply: str) -> bool:
+    """Detect a provider that stopped before an explicitly requested brief ended."""
+    expected = expected_synthesis_sections(request)
+    return expected >= 2 and completed_synthesis_sections(reply) < expected
+
+
+def synthesis_continuation_request(request: str, reply: str) -> str:
+    """Ask the same Composer session for only the missing numbered sections."""
+    expected = expected_synthesis_sections(request)
+    completed = completed_synthesis_sections(reply)
+    next_section = completed + 1
+    return (
+        "[Synthesis continuation]\n"
+        f"Your previous answer stopped after section {completed} of {expected}. "
+        f"Continue with sections {next_section}–{expected} only; do not repeat "
+        "completed sections. Finish the requested brief in numbered form. Keep "
+        "observed evidence, proposed transformations, and unknowns distinct. "
+        "Write every missing section even when its answer is Unknown. Do not call "
+        "tools on this continuation; use the verified evidence already in the "
+        "previous answer. This is read-only: do not propose, collect, approve, "
+        "execute, materialise, or append a generic catalogue/procurement offer.\n\n"
+        f"Original request:\n{str(request or '').strip()}\n\n"
+        f"Previous answer:\n{strip_synthesis_procurement_cta(reply)[-6000:]}"
+    )
+
+
+def synthesis_incomplete_reply(reply: str, request: str) -> str:
+    """Surface a bounded, honest draft when Composer still stops early."""
+    expected = expected_synthesis_sections(request)
+    completed = completed_synthesis_sections(reply)
+    cleaned = strip_synthesis_procurement_cta(reply)
+    if expected < 2:
+        return synthesis_failure_reply("response_contract")
+    missing = f"sections {completed + 1}–{expected}"
+    return (
+        f"{cleaned}\n\n**Synthesis draft incomplete.** The agent returned {completed} "
+        f"of {expected} requested sections; {missing} are still missing. No "
+        "proposal, collection, approval, execution, or materialisation was "
+        "created. Continue this Synthesis thread to finish the brief."
+    ).strip()
 
 
 def synthesis_failure_reply(status: str = "") -> str:
