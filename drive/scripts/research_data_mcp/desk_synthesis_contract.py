@@ -8,82 +8,10 @@ silently turning the conversation into procurement or execution.
 
 from __future__ import annotations
 
-import re
+import json
 from typing import Any
 
 _SYNTHESIS_FALLBACK_THREAD = "__synthesis_session__"
-_FALSE_EXECUTION_CLAIMS = (
-    re.compile(
-        r"\b(?:i|we|the system)\s+(?:have\s+)?"
-        r"(?:collected|executed|materialised|materialized|registered)\b",
-        re.I,
-    ),
-    re.compile(
-        r"\b(?:collection|execution|materialisation|materialization)\s+"
-        r"(?:is\s+)?complete\b",
-        re.I,
-    ),
-    re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
-)
-_LIFECYCLE_CLAIMS = (
-    re.compile(
-        r"\b(?:the|this|your|our|a|an)\s+(?:output|dataset|panel|construct|result)\s+"
-        r"(?:is|was|now|has been|became|becomes)\s+"
-        r"(?:query[- ]ready|registered|materiali[sz]ed|archive[- ]verified|archived|"
-        r"complete|completed)\b",
-        re.I,
-    ),
-    re.compile(
-        r"\b(?:i|we|the system)\s+(?:have|has|just|now)?\s*"
-        r"(?:registered|materiali[sz]ed|archived|executed|completed)\b",
-        re.I,
-    ),
-    re.compile(
-        r"\b(?:query[- ]ready|registered|materiali[sz]ed|archive[- ]verified)\s+"
-        r"(?:output|dataset|panel)\b",
-        re.I,
-    ),
-)
-_CONSTRUCTION_ADVANCE_CLAIMS = (
-    re.compile(
-        r"\b(?:i|we|the system)\s+(?:have|has|just|now)?\s*"
-        r"(?:updated|changed|applied|recorded|accepted|locked|finali[sz]ed)\s+"
-        r"(?:the\s+)?(?:construct|method|recipe|canvas|spec|state|proposal|"
-        r"node|edge|proxy|transform|input|column|evidence)\b",
-        re.I,
-    ),
-    re.compile(
-        r"\b(?:i|we|the system)\s+(?:have|has|just|now)?\s*"
-        r"(?:added|removed)\s+(?:the\s+)?(?:node|edge|proxy|transform|input|"
-        r"column|evidence|dataset|role)\b",
-        re.I,
-    ),
-    re.compile(
-        r"\b(?:the|this)\s+(?:construct|method|recipe|canvas|spec|state)\s+"
-        r"(?:is|was|now|has been)\s+(?:updated|changed|locked|finali[sz]ed|applied)\b",
-        re.I,
-    ),
-)
-
-_SYNTHESIS_CTA = re.compile(
-    r"\n+\s*(?:I can|You can)\s+drill into any dataset.*?\bstart a collect\b.*$",
-    re.I | re.S,
-)
-_NUMBERED_SECTION = re.compile(
-    # Models often put the first numbered item immediately after an opening
-    # sentence ("... below. 1. Input ...") rather than starting a new line.
-    # Require whitespace after the marker so decimal values are not sections.
-    r"(?<![\w.])(?:#{1,6}\s*)?(?:\*\*)?(\d+)[.)](?:\*\*)?(?=\s)",
-)
-_NUMBER_WORDS = {
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-}
 
 
 def is_synthesis_context(state: dict[str, Any] | None) -> bool:
@@ -254,9 +182,193 @@ def _advance_synthesis_phase(state: dict[str, Any]) -> None:
     )
 
 
-def first_turn_reply_is_acceptable(reply: str) -> bool:
-    """Minimal deterministic gate before advancing a Synthesis thread phase."""
-    return not synthesis_reply_violations(reply, first_user_turn=True)
+_LIFECYCLE_STATUSES = {
+    "unknown",
+    "planned",
+    "materialised",
+    "materialized",
+    "archived",
+    "registered",
+    "query_ready",
+    "query-ready",
+    "not_materialised",
+    "not_materialized",
+}
+_CONSTRUCTION_STATUSES = {"proposed", "accepted", "applied", "unknown"}
+_VERIFICATION_TOOLS = {
+    "research_synthesis_materialisation",
+    "research_synthesis_terminal_run",
+    "research_synthesis_submit_execution",
+}
+
+
+def parse_synthesis_envelope(text: str) -> dict[str, Any]:
+    """Parse the model's optional typed response envelope without parsing prose.
+
+    Plain Composer prose remains usable as an explicitly unstructured draft. It
+    never creates a lifecycle or construction claim; only fields in a valid JSON
+    envelope can do that.
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return {"structured": False, "reply": "", "claims": [], "sections": []}
+    candidate = raw
+    if candidate.startswith("```") and candidate.endswith("```"):
+        first_newline = candidate.find("\n")
+        if first_newline >= 0:
+            candidate = candidate[first_newline + 1 : -3].strip()
+    try:
+        value = json.loads(candidate)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {"structured": False, "reply": raw, "claims": [], "sections": []}
+    if not isinstance(value, dict) or not isinstance(value.get("reply"), str):
+        return {"structured": False, "reply": raw, "claims": [], "sections": []}
+    claims = value.get("claims")
+    sections = value.get("sections")
+    return {
+        "structured": True,
+        "reply": value["reply"].strip(),
+        "clarification": str(value.get("clarification") or "").strip(),
+        "claims": [claim for claim in claims if isinstance(claim, dict)]
+        if isinstance(claims, list)
+        else [],
+        "construction": value.get("construction") if isinstance(value.get("construction"), dict) else {},
+        "sections": [section for section in sections if isinstance(section, dict)]
+        if isinstance(sections, list)
+        else [],
+    }
+
+
+def synthesis_envelope_request(*, first_user_turn: bool) -> str:
+    """Tell Composer how to return typed claims without constraining its prose."""
+    phase = (
+        "Include one highest-value clarification in `clarification`. Keep the "
+        "construct provisional."
+        if first_user_turn
+        else "Use `clarification` only when it materially changes the construct."
+    )
+    return f"""
+[Synthesis response envelope]
+Return exactly one JSON object after using any needed tools. Do not put markdown
+outside the object. Fields:
+- `reply`: your normal reasoning prose; discuss evidence, proxies, limitations,
+  and alternatives without treating prose as system state.
+- `clarification`: one question string or an empty string. {phase}
+- `claims`: a list of typed claims. Only include lifecycle or construction claims
+  when the matching tool artifact exists in this turn. Each claim must include
+  `kind`, `status`, and `evidence_tool`.
+- `construction`: an optional object with `status` and `proposal_id`.
+- `sections`: optional structured sections with `title` and `content`.
+
+Lifecycle statuses are `planned`, `materialised`, `archived`, `registered`,
+`query_ready`, or `unknown`. Construction statuses are `proposed`, `accepted`,
+`applied`, or `unknown`. A proposal is not acceptance. Completed execution is
+not registration or query readiness. If a tool cannot verify a claim, put
+`unknown` in the envelope and explain the limitation in `reply`.
+[/Synthesis response envelope]
+""".strip()
+
+
+def validate_synthesis_envelope(
+    envelope: dict[str, Any], artifacts: dict[str, Any] | None = None
+) -> list[str]:
+    """Validate typed claims against same-turn artifacts, never against prose."""
+    if not isinstance(envelope, dict) or not envelope.get("structured"):
+        return []
+    violations: list[str] = []
+    source = artifacts if isinstance(artifacts, dict) else {}
+    verification_rows = source.get("synthesis_verifications")
+    verification_rows = (
+        [row for row in verification_rows if isinstance(row, dict)]
+        if isinstance(verification_rows, list)
+        else []
+    )
+    proposal = source.get("synthesis_proposal")
+    proposal_id = str((proposal or {}).get("id") or "") if isinstance(proposal, dict) else ""
+
+    for claim in envelope.get("claims") or []:
+        if not isinstance(claim, dict):
+            violations.append("invalid_claim_shape")
+            continue
+        kind = str(claim.get("kind") or "").strip().lower()
+        status = str(claim.get("status") or "").strip().lower()
+        evidence_tool = str(claim.get("evidence_tool") or "").strip()
+        if kind in {"lifecycle", "materialisation", "materialization"}:
+            if status not in _LIFECYCLE_STATUSES:
+                violations.append("invalid_lifecycle_status")
+                continue
+            if status in {"unknown", "not_materialised", "not_materialized"}:
+                continue
+            if evidence_tool not in _VERIFICATION_TOOLS:
+                violations.append("lifecycle_evidence_tool_missing")
+                continue
+            matching = [row for row in verification_rows if row.get("tool") == evidence_tool]
+            if not matching:
+                violations.append("lifecycle_artifact_missing")
+                continue
+            if status in {"registered", "query_ready", "query-ready"} and not any(
+                row.get("output_registered") is True
+                or row.get("query_ready") is True
+                or str(row.get("materialisation") or "").lower() == "registered"
+                for row in matching
+            ):
+                violations.append("lifecycle_artifact_mismatch")
+        elif kind in {"construction", "state"}:
+            if status not in _CONSTRUCTION_STATUSES:
+                violations.append("invalid_construction_status")
+                continue
+            if status == "unknown":
+                continue
+            if status == "proposed":
+                requested_id = str(claim.get("proposal_id") or envelope.get("construction", {}).get("proposal_id") or "")
+                if not proposal_id or (requested_id and requested_id != proposal_id):
+                    violations.append("construction_proposal_missing")
+            else:
+                # Acceptance/application is a thread-store decision, not a Composer claim.
+                violations.append("construction_decision_not_model_owned")
+        else:
+            # Other claim kinds (observation, evidence, proxy, limitation) are
+            # reasoning annotations. They do not assert durable system state and
+            # therefore do not require a lifecycle/construction artifact here.
+            continue
+    clarification = envelope.get("clarification")
+    if clarification is not None and not isinstance(clarification, str):
+        violations.append("invalid_clarification_shape")
+    return violations
+
+
+def synthesis_envelope_repair_request(
+    *,
+    original_request: str,
+    previous_reply: str,
+    violations: list[str],
+) -> str:
+    """Give Composer one tool-enabled chance to repair a typed response."""
+    return (
+        "[Synthesis envelope repair]\n"
+        "Your previous response did not satisfy the typed response contract. "
+        "Use the appropriate Synthesis verification or proposal tool now; tools "
+        "are allowed on this repair turn. Then return exactly one JSON envelope "
+        "with `reply`, `clarification`, `claims`, `construction`, and `sections`. "
+        "Do not claim a lifecycle state without matching tool evidence. Do not "
+        "claim acceptance or application; those belong to the researcher and the "
+        "thread store. If verification is unavailable, use status `unknown`.\n"
+        f"Contract issues: {', '.join(violations) or 'missing_or_unstructured_envelope'}\n"
+        f"Original request:\n{str(original_request or '').strip()}\n"
+        f"Previous response:\n{str(previous_reply or '').strip()[-6000:]}"
+    )
+
+
+def first_turn_reply_is_acceptable(
+    reply: str, *, envelope: dict[str, Any] | None = None
+) -> bool:
+    """Advance a first-turn phase only after Composer returns the typed envelope."""
+    parsed = envelope or parse_synthesis_envelope(reply)
+    return bool(
+        parsed.get("structured")
+        and str(parsed.get("reply") or "").strip()
+        and str(parsed.get("clarification") or "").strip()
+    )
 
 
 def wrap_synthesis_request(user_text: str, *, first_user_turn: bool) -> str:
@@ -301,94 +413,7 @@ reviewable proposal and user approval.
 [/Synthesis workspace contract]
 
 """
-    return contract + user_text.strip()
-
-
-def strip_synthesis_procurement_cta(text: str) -> str:
-    """Remove the generic catalogue/procurement footer from Synthesis prose.
-
-    Synthesis can expose a deliberate Discover handoff, but a provider's generic
-    "I can ... start a collect" footer is not a decision or a valid next action
-    for a read-only reasoning turn. Keeping it makes a completed answer look like
-    an implicit procurement offer.
-    """
-    reply = str(text or "").strip()
-    if not reply:
-        return reply
-    return _SYNTHESIS_CTA.sub("", reply).strip()
-
-
-def expected_synthesis_sections(request: str) -> int:
-    """Infer an explicitly requested numbered-brief size, if one exists."""
-    source = str(request or "").strip()
-    if not source:
-        return 0
-    exact = re.search(
-        r"\bexactly\s+(\d+|two|three|four|five|six|seven|eight)\s+"
-        r"(?:numbered\s+)?(?:items|sections|parts|points|bullets)",
-        source,
-        re.I,
-    )
-    if exact:
-        raw = exact.group(1).lower()
-        return max(0, int(raw) if raw.isdigit() else _NUMBER_WORDS[raw])
-    tail = source.rsplit("return:", 1)[-1] if "return:" in source.lower() else source
-    labels = [int(match.group(1)) for match in re.finditer(r"\(\s*(\d+)\s*\)", tail)]
-    if len(labels) >= 2 and labels == list(range(1, max(labels) + 1)):
-        return max(labels)
-    return 0
-
-
-def completed_synthesis_sections(reply: str) -> int:
-    """Return the highest contiguous numbered section in a provider reply."""
-    cleaned = strip_synthesis_procurement_cta(reply)
-    labels = {int(match.group(1)) for match in _NUMBERED_SECTION.finditer(cleaned)}
-    completed = 0
-    while completed + 1 in labels:
-        completed += 1
-    return completed
-
-
-def synthesis_reply_needs_continuation(request: str, reply: str) -> bool:
-    """Detect a provider that stopped before an explicitly requested brief ended."""
-    expected = expected_synthesis_sections(request)
-    return expected >= 2 and completed_synthesis_sections(reply) < expected
-
-
-def synthesis_continuation_request(request: str, reply: str) -> str:
-    """Ask the same Composer session for only the missing numbered sections."""
-    expected = expected_synthesis_sections(request)
-    completed = completed_synthesis_sections(reply)
-    next_section = completed + 1
-    return (
-        "[Synthesis continuation]\n"
-        f"Your previous answer stopped after section {completed} of {expected}. "
-        f"Continue with sections {next_section}–{expected} only; do not repeat "
-        "completed sections. Finish the requested brief in numbered form. Keep "
-        "observed evidence, proposed transformations, and unknowns distinct. "
-        "Write every missing section even when its answer is Unknown. Do not call "
-        "tools on this continuation; use the verified evidence already in the "
-        "previous answer. This is read-only: do not propose, collect, approve, "
-        "execute, materialise, or append a generic catalogue/procurement offer.\n\n"
-        f"Original request:\n{str(request or '').strip()}\n\n"
-        f"Previous answer:\n{strip_synthesis_procurement_cta(reply)[-6000:]}"
-    )
-
-
-def synthesis_incomplete_reply(reply: str, request: str) -> str:
-    """Surface a bounded, honest draft when Composer still stops early."""
-    expected = expected_synthesis_sections(request)
-    completed = completed_synthesis_sections(reply)
-    cleaned = strip_synthesis_procurement_cta(reply)
-    if expected < 2:
-        return synthesis_failure_reply("response_contract")
-    missing = f"sections {completed + 1}–{expected}"
-    return (
-        f"{cleaned}\n\n**Synthesis draft incomplete.** The agent returned {completed} "
-        f"of {expected} requested sections; {missing} are still missing. No "
-        "proposal, collection, approval, execution, or materialisation was "
-        "created. Continue this Synthesis thread to finish the brief."
-    ).strip()
+    return contract + synthesis_envelope_request(first_user_turn=first_user_turn) + "\n\n" + user_text.strip()
 
 
 def synthesis_failure_reply(status: str = "") -> str:
@@ -399,99 +424,6 @@ def synthesis_failure_reply(status: str = "") -> str:
         f"{detail}. I have not inferred a construct, selected proxies, or changed "
         "the project. Please retry; the same research context remains attached."
     )
-
-
-def synthesis_claim_failure_reply() -> str:
-    """Explain why an unverified lifecycle claim was not accepted."""
-    return (
-        "The Synthesis reply made a lifecycle claim without a verifying tool result. "
-        "I have not treated the output as materialised, archived, registered, or "
-        "query-ready. Nothing was executed or changed; inspect the thread or run "
-        "the appropriate verification tool before making that claim."
-    )
-
-
-def synthesis_advance_failure_reply() -> str:
-    """Explain why prose cannot advance the durable construction state by itself."""
-    return (
-        "The Synthesis reply described a construction change, but no reviewable "
-        "state artifact was recorded in this turn. I have not changed the canvas. "
-        "Record a proposal through the Synthesis tool, then review it before any "
-        "acceptance or execution."
-    )
-
-
-def _verification_records(artifacts: dict[str, Any] | None) -> list[dict[str, Any]]:
-    source = artifacts if isinstance(artifacts, dict) else {}
-    rows = source.get("synthesis_verifications")
-    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
-
-
-def _positive_bool(value: Any) -> bool:
-    return value is True or (isinstance(value, str) and value.strip().lower() in {"true", "yes", "1"})
-
-
-def synthesis_lifecycle_claim_violations(
-    text: str, artifacts: dict[str, Any] | None = None
-) -> list[str]:
-    """Fail closed when prose claims output lifecycle state without same-turn proof."""
-    reply = str(text or "").strip()
-    if not reply or not any(pattern.search(reply) for pattern in _LIFECYCLE_CLAIMS):
-        return []
-    records = _verification_records(artifacts)
-    materialised = False
-    executed = False
-    registered = False
-    archived = False
-    query_ready = False
-    for record in records:
-        status = str(record.get("materialisation") or record.get("status") or "").lower()
-        materialised = materialised or status in {"materialised", "materialized", "registered"}
-        executed = executed or _positive_bool(record.get("executed")) or status in {"completed", "registered"}
-        registered = (
-            registered
-            or _positive_bool(record.get("output_registered"))
-            or _positive_bool(record.get("registered"))
-            or status == "registered"
-        )
-        archived = (
-            archived
-            or _positive_bool(record.get("archive_verified"))
-            or status in {"archived", "archive_verified"}
-        )
-        query_ready = query_ready or _positive_bool(record.get("query_ready"))
-    violations: list[str] = []
-    positive_claim = reply.lower()
-    if re.search(r"\bquery[- ]ready\b", positive_claim) and not (query_ready or registered):
-        violations.append("unverified_query_ready_claim")
-    if re.search(r"\bregistered\b", positive_claim) and not registered:
-        violations.append("unverified_registration_claim")
-    if re.search(r"archive[- ]verified|\barchived\b", positive_claim) and not archived:
-        violations.append("unverified_archive_claim")
-    if re.search(r"materiali[sz]ed|\bexecuted\b|\bcompleted\b", positive_claim) and not (materialised or executed):
-        violations.append("unverified_execution_claim")
-    return violations
-
-
-def synthesis_construction_claim_violations(
-    text: str,
-    *,
-    artifacts: dict[str, Any] | None = None,
-    first_user_turn: bool = False,
-) -> list[str]:
-    """Require a durable review artifact when a later turn claims canvas progress."""
-    if first_user_turn:
-        return []
-    reply = str(text or "").strip()
-    if not reply or not any(pattern.search(reply) for pattern in _CONSTRUCTION_ADVANCE_CLAIMS):
-        return []
-    source = artifacts if isinstance(artifacts, dict) else {}
-    if isinstance(source.get("synthesis_proposal"), dict):
-        # A proposal is a reviewable state artifact. It is not treated as applied.
-        return []
-    if isinstance(source.get("synthesis_state_artifact"), dict):
-        return []
-    return ["construction_advance_without_artifact"]
 
 
 def synthesis_proposal_recorded_reply(title: str = "") -> str:
@@ -505,95 +437,23 @@ def synthesis_proposal_recorded_reply(title: str = "") -> str:
     )
 
 
-_CLARIFICATION_FALLBACK = (
-    "What is the single highest-value ambiguity we should resolve before locking this construct?"
-)
-
-
-def normalize_synthesis_clarification(text: str) -> str:
-    """Hands repair: keep Composer prose, enforce exactly one clarification question."""
-    reply = str(text or "").strip()
-    if not reply:
-        return reply
-    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", reply) if p and p.strip()]
-    if not parts:
-        return reply
-    questions = [p for p in parts if "?" in p]
-    statements = [p for p in parts if "?" not in p]
-    if len(questions) == 1 and reply.count("?") == 1:
-        return reply
-    if not questions:
-        return f"{reply.rstrip()}\n\n{_CLARIFICATION_FALLBACK}"
-    chosen = questions[-1]
-    q_idx = chosen.find("?")
-    if q_idx >= 0:
-        chosen = chosen[: q_idx + 1].strip()
-    body = " ".join(statements).strip()
-    if body:
-        return f"{body}\n\n{chosen}"
-    return chosen
-
-
-def maybe_repair_synthesis_reply(text: str, *, first_user_turn: bool) -> str:
-    """Repair only clarification-count misses; never paper over false execution claims."""
-    reply = str(text or "").strip()
-    if not first_user_turn or not reply:
-        return reply
-    violations = synthesis_reply_violations(reply, first_user_turn=True)
-    if "clarification_question_count" not in violations:
-        return reply
-    if "false_execution_claim" in violations or "empty_reply" in violations:
-        return reply
-    repaired = normalize_synthesis_clarification(reply)
-    repaired_violations = synthesis_reply_violations(repaired, first_user_turn=True)
-    if "clarification_question_count" in repaired_violations:
-        return reply
-    if "false_execution_claim" in repaired_violations:
-        return reply
-    return repaired
-
-
-def _has_lifecycle_evidence(artifacts: dict[str, Any] | None) -> bool:
-    for record in _verification_records(artifacts):
-        status = str(record.get("materialisation") or record.get("status") or "").lower()
-        if (
-            _positive_bool(record.get("executed"))
-            or _positive_bool(record.get("execution_recorded"))
-            or _positive_bool(record.get("output_registered"))
-            or _positive_bool(record.get("query_ready"))
-            or _positive_bool(record.get("archive_verified"))
-            or _positive_bool(record.get("registered"))
-            or status in {"completed", "materialised", "materialized", "registered"}
-        ):
-            return True
-    return False
-
-
 def synthesis_reply_violations(
     text: str,
     *,
     first_user_turn: bool,
     artifacts: dict[str, Any] | None = None,
+    envelope: dict[str, Any] | None = None,
 ) -> list[str]:
-    """Return contract violations that make a model reply unsafe to surface."""
-    reply = str(text or "").strip()
+    """Validate only typed envelope fields; never inspect prose for claims."""
+    parsed = envelope or parse_synthesis_envelope(text)
     violations: list[str] = []
-    if not reply:
+    if not str(parsed.get("reply") or "").strip():
         return ["empty_reply"]
-    if any(pattern.search(reply) for pattern in _FALSE_EXECUTION_CLAIMS) and (
-        first_user_turn or not _has_lifecycle_evidence(artifacts)
-    ):
-        violations.append("false_execution_claim")
-    if first_user_turn and len(reply) < 40:
-        violations.append("insufficient_substance")
-    if first_user_turn and reply.count("?") != 1:
-        violations.append("clarification_question_count")
-    if first_user_turn and not any(
-        marker in reply.lower()
-        for marker in ("provisional", "propose", "candidate", "proxy", "could", "would")
-    ):
-        violations.append("missing_provisional_language")
-    return violations
+    if parsed.get("structured"):
+        violations.extend(validate_synthesis_envelope(parsed, artifacts))
+        if first_user_turn and not str(parsed.get("clarification") or "").strip():
+            violations.append("clarification_missing")
+    return list(dict.fromkeys(violations))
 
 
 def synthesis_history_brief(

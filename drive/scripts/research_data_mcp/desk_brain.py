@@ -646,6 +646,22 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
     return action_result
 
 
+def _merge_synthesis_artifacts(
+    first: dict[str, Any] | None, second: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Merge tool evidence across the original turn and one envelope repair turn."""
+    merged = dict(first or {})
+    extra = second if isinstance(second, dict) else {}
+    for key, value in extra.items():
+        if key == "synthesis_verifications":
+            rows = list(merged.get(key) or [])
+            rows.extend(value if isinstance(value, list) else [])
+            merged[key] = rows
+        elif value not in (None, "", [], {}):
+            merged[key] = value
+    return merged
+
+
 def _format_rail_context(ctx: dict[str, Any]) -> str:
     """Compact UI envelope for Composer — matches RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT."""
     if not isinstance(ctx, dict) or not ctx:
@@ -787,13 +803,12 @@ def run_cursor_composer_turn(
     turn_started = time.monotonic()
     repo_root = Path(gateway.repo_root).resolve()
     from scripts.research_data_mcp.desk_synthesis_contract import (
-        synthesis_continuation_request,
-        synthesis_incomplete_reply,
+        parse_synthesis_envelope,
+        synthesis_envelope_repair_request,
         first_turn_reply_is_acceptable,
         is_synthesis_context,
         record_synthesis_turn,
-        strip_synthesis_procurement_cta,
-        synthesis_reply_needs_continuation,
+        synthesis_reply_violations,
         synthesis_first_turn,
         synthesis_failure_reply,
         wrap_synthesis_request,
@@ -957,6 +972,9 @@ def run_cursor_composer_turn(
         model_id = model_candidates[0]
         tool_call_started = False
         tools_called: list[str] = []
+        synthesis_envelope: dict[str, Any] = {}
+        synthesis_envelope_issues: list[str] = []
+        synthesis_artifacts_for_turn: dict[str, Any] = {}
 
         def on_delta(update: Any) -> None:
             nonlocal tool_call_started
@@ -966,7 +984,11 @@ def run_cursor_composer_turn(
                 chunk = str(payload.get("text") or "")
                 if chunk:
                     streamed.append(chunk)
-                    _emit_event(event_sink, {"type": "delta", "text": chunk})
+                    # Synthesis responses are typed JSON envelopes. Do not stream
+                    # the envelope syntax into the faculty UI; emit the parsed
+                    # `reply` only after the contract/repair step completes.
+                    if not synthesis_context:
+                        _emit_event(event_sink, {"type": "delta", "text": chunk})
                 return
             if typ == "tool-call-started":
                 tool_call_started = True
@@ -1033,8 +1055,6 @@ def run_cursor_composer_turn(
                         except Exception:  # noqa: BLE001
                             pass
                         reply = _reply_from_run(run, streamed)
-                        if synthesis_context:
-                            reply = strip_synthesis_procurement_cta(reply)
                         if (
                             reply
                             or prime
@@ -1044,66 +1064,68 @@ def run_cursor_composer_turn(
                             break
                         turn_text = (
                             f"{user_text}\n\n"
-                            "(The previous attempt returned no final text. Answer now in plain prose.)"
+                            "(The previous attempt returned no final text. Return the requested Synthesis response envelope now.)"
                         )
 
-                    # Providers sometimes stop after the first numbered section and
-                    # append their generic catalogue CTA. A structured Synthesis
-                    # brief should get one bounded continuation on the same agent,
-                    # rather than surfacing a visibly unfinished answer or silently
-                    # starting a new conversation. The Synthesis MCP surface is
-                    # read-only, and the continuation prompt explicitly forbids
-                    # proposals/collection/execution.
-                    continuation_attempts = 0
-                    while (
-                        synthesis_context
-                        and not prime
-                        and not first_synthesis_turn
-                        and reply
-                        and synthesis_reply_needs_continuation(message, reply)
-                        and continuation_attempts < 2
-                    ):
+                    # A plain/invalid response gets one bounded, tool-enabled repair
+                    # turn. This is model-driven verification, not a prose regex
+                    # interceptor: Composer may call materialisation or proposal
+                    # tools before returning the corrected envelope.
+                    envelope = parse_synthesis_envelope(reply)
+                    envelope_artifacts = _artifacts_from_conversation(run) if run is not None else {}
+                    envelope_issues = (
+                        ["unstructured_envelope"]
+                        if synthesis_context and not prime and not envelope.get("structured")
+                        else synthesis_reply_violations(
+                            reply,
+                            first_user_turn=first_synthesis_turn,
+                            artifacts=envelope_artifacts,
+                            envelope=envelope,
+                        )
+                    )
+                    if synthesis_context and not prime and reply and envelope_issues:
                         remaining = turn_budget - (time.monotonic() - turn_started)
-                        if remaining <= 1.0:
-                            break
-                        continuation_attempts += 1
-                        continuation_run = None
-                        try:
-                            continuation_text = synthesis_continuation_request(
-                                message, reply
-                            )
-                            streamed.clear()
-                            continuation_run = agent.send(continuation_text, send_opts)
-                            _wait_run_bounded(continuation_run, remaining)
-                            continuation_reply = strip_synthesis_procurement_cta(
-                                _reply_from_run(continuation_run, streamed)
-                            )
-                            if continuation_reply:
-                                try:
-                                    continuation_arts = _artifacts_from_conversation(
-                                        continuation_run
+                        if remaining > 1.0:
+                            try:
+                                repair_text = synthesis_envelope_repair_request(
+                                    original_request=message,
+                                    previous_reply=reply,
+                                    violations=envelope_issues,
+                                )
+                                streamed.clear()
+                                repair_run = agent.send(repair_text, send_opts)
+                                _wait_run_bounded(repair_run, remaining)
+                                repair_reply = _reply_from_run(repair_run, streamed)
+                                repair_envelope = parse_synthesis_envelope(repair_reply)
+                                repair_artifacts = _artifacts_from_conversation(repair_run)
+                                envelope_artifacts = _merge_synthesis_artifacts(
+                                    envelope_artifacts, repair_artifacts
+                                )
+                                if repair_reply:
+                                    reply = repair_reply
+                                    run = repair_run
+                                    envelope = repair_envelope
+                                    envelope_issues = synthesis_reply_violations(
+                                        reply,
+                                        first_user_turn=first_synthesis_turn,
+                                        artifacts=envelope_artifacts,
+                                        envelope=envelope,
                                     )
                                     if (
-                                        continuation_arts.get("job")
-                                        or continuation_arts.get("job_id")
-                                        or continuation_arts.get("synthesis_proposal")
+                                        repair_artifacts.get("job")
+                                        or repair_artifacts.get("job_id")
+                                        or repair_artifacts.get("synthesis_proposal")
                                     ):
                                         _emit_mutation_proposal_event(
                                             event_sink,
-                                            name=str(continuation_arts.get("tool_name") or ""),
-                                            payload=continuation_arts,
+                                            name=str(repair_artifacts.get("tool_name") or ""),
+                                            payload=repair_artifacts,
                                         )
-                                except Exception:  # noqa: BLE001
-                                    pass
-                                reply = f"{reply.rstrip()}\n\n{continuation_reply}"
-                                run = continuation_run
-                            else:
-                                break
-                        except Exception:  # noqa: BLE001
-                            # The original grounded answer is safer than a provider
-                            # error; the normal contract gate below will report it
-                            # as retryable if it remains short.
-                            break
+                            except Exception:  # noqa: BLE001
+                                pass
+                    synthesis_envelope = envelope
+                    synthesis_envelope_issues = envelope_issues
+                    synthesis_artifacts_for_turn = envelope_artifacts
             except Exception:
                 can_retry_fresh = (
                     model_idx < len(model_candidates) - 1
@@ -1145,53 +1167,31 @@ def run_cursor_composer_turn(
         if not reply:
             reply = EMPTY_REPLY_FALLBACK
 
-        if not prime and not had_agent:
+        if not prime and not had_agent and not synthesis_context:
             from scripts.research_data_mcp.desk_reply_sanitize import sanitize_desk_reply
             reply = sanitize_desk_reply(reply, first_turn=True)
 
         if synthesis_context and not prime and reply and reply != EMPTY_REPLY_FALLBACK:
-            from scripts.research_data_mcp.desk_synthesis_contract import (
-                maybe_repair_synthesis_reply,
-                strip_synthesis_procurement_cta,
-            )
-
-            reply = strip_synthesis_procurement_cta(reply)
-            repaired = maybe_repair_synthesis_reply(
-                reply,
-                first_user_turn=first_synthesis_turn,
-            )
-            if repaired != reply:
-                reply = repaired
+            synthesis_envelope = synthesis_envelope or parse_synthesis_envelope(reply)
+            if synthesis_envelope.get("structured"):
+                reply = str(synthesis_envelope.get("reply") or "").strip()
+            else:
+                state["synthesis_unstructured_draft"] = True
 
         is_error = (run is None) or (getattr(run, "status", "") == "error") or (not reply) or (reply == EMPTY_REPLY_FALLBACK)
         synthesis_violations: list[str] = []
-        recorded_artifacts: dict[str, Any] = {}
+        recorded_artifacts: dict[str, Any] = synthesis_artifacts_for_turn or {}
         if synthesis_context and not prime and not is_error:
-            from scripts.research_data_mcp.desk_synthesis_contract import (
-                synthesis_construction_claim_violations,
-                synthesis_lifecycle_claim_violations,
-                synthesis_reply_violations,
-            )
-
-            recorded_artifacts = _artifacts_from_conversation(run) if run is not None else {}
             synthesis_violations = synthesis_reply_violations(
                 reply,
                 first_user_turn=first_synthesis_turn,
                 artifacts=recorded_artifacts,
+                envelope=synthesis_envelope,
             )
-            synthesis_violations.extend(
-                synthesis_construction_claim_violations(
-                    reply,
-                    artifacts=recorded_artifacts,
-                    first_user_turn=first_synthesis_turn,
-                )
-            )
-            synthesis_violations.extend(
-                synthesis_lifecycle_claim_violations(reply, recorded_artifacts)
-            )
-            if synthesis_reply_needs_continuation(message, reply):
-                synthesis_violations.append("incomplete_structured_reply")
-            is_error = bool(synthesis_violations)
+            if synthesis_envelope.get("structured"):
+                state["synthesis_envelope"] = synthesis_envelope
+            else:
+                state["synthesis_unstructured_draft"] = True
         if is_error and not prime:
             action_result = {
                 "action": "composer_error",
@@ -1252,63 +1252,11 @@ def run_cursor_composer_turn(
                             "mode": "synthesis",
                             "fallback": "none",
                             "brain": "cursor_composer",
-                            "reason": (
-                                "composer_contract_violation"
-                                if synthesis_violations
-                                else "empty_or_failed_composer_reply"
-                            ),
-                            **(
-                                {"contract_violations": synthesis_violations}
-                                if synthesis_violations
-                                else {}
-                            ),
+                            "reason": "empty_or_failed_composer_reply",
+                            "retryable": True,
                         }
                     )
-                    if "incomplete_structured_reply" in synthesis_violations:
-                        action_result.update(
-                            {
-                                "action": "composer_incomplete",
-                                "continuation_required": True,
-                                "retryable": True,
-                            }
-                        )
-                        reply = synthesis_incomplete_reply(reply, message)
-                    elif "construction_advance_without_artifact" in synthesis_violations:
-                        from scripts.research_data_mcp.desk_synthesis_contract import (
-                            synthesis_advance_failure_reply,
-                        )
-
-                        action_result.update(
-                            {
-                                "action": "synthesis_advance_blocked",
-                                "construction_advance_blocked": True,
-                                "required_artifact": "research_synthesis_propose_state",
-                                "retryable": True,
-                            }
-                        )
-                        reply = synthesis_advance_failure_reply()
-                    elif any(
-                        violation.startswith("unverified_")
-                        for violation in synthesis_violations
-                    ):
-                        from scripts.research_data_mcp.desk_synthesis_contract import (
-                            synthesis_claim_failure_reply,
-                        )
-
-                        action_result.update(
-                            {
-                                "action": "synthesis_claim_blocked",
-                                "lifecycle_claim_blocked": True,
-                                "retryable": True,
-                            }
-                        )
-                        reply = synthesis_claim_failure_reply()
-                    else:
-                        reply = synthesis_failure_reply(
-                            "response_contract"
-                            if synthesis_violations
-                            else action_result["status"]
-                        )
+                    reply = synthesis_failure_reply(action_result["status"])
             elif reply == EMPTY_REPLY_FALLBACK:
                 # No script-brain inventory wallpaper — Composer owns the miss.
                 reply = (
@@ -1321,6 +1269,23 @@ def run_cursor_composer_turn(
                 action_result["retryable"] = True
         else:
             action_result = _artifacts_from_conversation(run)
+
+        if synthesis_context and not prime:
+            action_result["synthesis_envelope_structured"] = bool(
+                synthesis_envelope.get("structured")
+            )
+            action_result["synthesis_envelope_valid"] = bool(
+                synthesis_envelope.get("structured") and not synthesis_envelope_issues
+            )
+            if synthesis_envelope_issues:
+                action_result["synthesis_envelope_issues"] = synthesis_envelope_issues
+            if not synthesis_envelope.get("structured"):
+                action_result["synthesis_unstructured_draft"] = True
+            if synthesis_envelope.get("structured"):
+                action_result["synthesis_claims"] = synthesis_envelope.get("claims") or []
+                action_result["synthesis_construction"] = synthesis_envelope.get(
+                    "construction"
+                ) or {}
 
         from scripts.research_data_mcp.desk_composer_health import (
             record_composer_failure,
@@ -1353,7 +1318,7 @@ def run_cursor_composer_turn(
         if synthesis_context and not prime and not is_error:
             if first_synthesis_turn:
                 action_result["synthesis_contract_validated"] = (
-                    first_turn_reply_is_acceptable(reply)
+                    first_turn_reply_is_acceptable(reply, envelope=synthesis_envelope)
                 )
             if not first_synthesis_turn or action_result.get(
                 "synthesis_contract_validated"

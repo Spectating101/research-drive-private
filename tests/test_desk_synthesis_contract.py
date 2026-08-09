@@ -84,94 +84,126 @@ def test_followup_thread_state_brief_is_observed_and_bounded():
     assert "proposal is not acceptance" in brief
 
 
-def test_lifecycle_claims_require_same_turn_verification_artifact():
+def test_synthesis_envelope_is_typed_and_prose_is_not_parsed():
     from scripts.research_data_mcp.desk_synthesis_contract import (
-        synthesis_lifecycle_claim_violations,
+        parse_synthesis_envelope,
+        synthesis_reply_violations,
     )
 
-    assert "unverified_query_ready_claim" in synthesis_lifecycle_claim_violations(
-        "The output is query-ready.", {}
-    )
-    assert not synthesis_lifecycle_claim_violations(
-        "The output is not query-ready; registration is not confirmed.", {}
-    )
-    assert not synthesis_lifecycle_claim_violations(
-        "The registered output is query-ready.",
-        {
-            "synthesis_verifications": [
-                {
-                    "tool": "research_synthesis_materialisation",
-                    "materialisation": "registered",
-                    "output_registered": True,
-                    "query_ready": True,
-                }
-            ]
-        },
-    )
+    plain = "The output is query-ready, but that sentence is only prose."
+    parsed_plain = parse_synthesis_envelope(plain)
+    assert parsed_plain["structured"] is False
+    assert synthesis_reply_violations(plain, first_user_turn=False) == []
 
-
-def test_later_construction_advance_requires_a_reviewable_artifact():
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        synthesis_construction_claim_violations,
+    envelope = parse_synthesis_envelope(
+        json.dumps(
+            {
+                "reply": "The output is query-ready.",
+                "clarification": "Which validation horizon should we use?",
+                "claims": [
+                    {
+                        "kind": "lifecycle",
+                        "status": "query_ready",
+                        "evidence_tool": "research_synthesis_materialisation",
+                    }
+                ],
+            }
+        )
     )
-
-    assert synthesis_construction_claim_violations(
-        "I updated the construct and added the proxy node.",
-        artifacts={},
+    assert envelope["structured"] is True
+    assert "lifecycle_artifact_missing" in synthesis_reply_violations(
+        envelope["reply"],
         first_user_turn=False,
-    ) == ["construction_advance_without_artifact"]
-    assert not synthesis_construction_claim_violations(
-        "I updated the construct with a review proposal.",
+        envelope=envelope,
+        artifacts={},
+    )
+
+
+def test_synthesis_envelope_accepts_tool_backed_claims_only():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        parse_synthesis_envelope,
+        synthesis_reply_violations,
+    )
+
+    envelope = parse_synthesis_envelope(
+        json.dumps(
+            {
+                "reply": "The output is query-ready.",
+                "clarification": "",
+                "claims": [
+                    {
+                        "kind": "lifecycle",
+                        "status": "query_ready",
+                        "evidence_tool": "research_synthesis_materialisation",
+                    }
+                ],
+            }
+        )
+    )
+    artifacts = {
+        "synthesis_verifications": [
+            {
+                "tool": "research_synthesis_materialisation",
+                "materialisation": "registered",
+                "output_registered": True,
+                "query_ready": True,
+            }
+        ]
+    }
+    assert synthesis_reply_violations(
+        envelope["reply"],
+        first_user_turn=False,
+        envelope=envelope,
+        artifacts=artifacts,
+    ) == []
+
+
+def test_construction_envelope_requires_proposal_artifact():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        parse_synthesis_envelope,
+        synthesis_reply_violations,
+    )
+
+    envelope = parse_synthesis_envelope(
+        json.dumps(
+            {
+                "reply": "I propose adding the proxy node.",
+                "clarification": "",
+                "claims": [
+                    {
+                        "kind": "construction",
+                        "status": "proposed",
+                        "proposal_id": "p1",
+                    }
+                ],
+                "construction": {"status": "proposed", "proposal_id": "p1"},
+            }
+        )
+    )
+    assert "construction_proposal_missing" in synthesis_reply_violations(
+        envelope["reply"], first_user_turn=False, envelope=envelope, artifacts={}
+    )
+    assert synthesis_reply_violations(
+        envelope["reply"],
+        first_user_turn=False,
+        envelope=envelope,
         artifacts={"synthesis_proposal": {"id": "p1"}},
-        first_user_turn=False,
-    )
-    assert not synthesis_construction_claim_violations(
-        "I would update the construct by adding a proxy node.",
-        artifacts={},
-        first_user_turn=False,
-    )
+    ) == []
 
 
-def test_synthesis_brief_completion_detects_truncated_numbered_output():
+def test_synthesis_envelope_repair_turn_is_tool_enabled():
     from scripts.research_data_mcp.desk_synthesis_contract import (
-        completed_synthesis_sections,
-        expected_synthesis_sections,
-        synthesis_continuation_request,
-        synthesis_reply_needs_continuation,
+        synthesis_envelope_repair_request,
     )
 
-    request = (
-        "Answer exactly five numbered items: 1) input, 2) grain, 3) transform, "
-        "4) blockers, 5) next action."
+    prompt = synthesis_envelope_repair_request(
+        original_request="Verify the output",
+        previous_reply="The output is query-ready.",
+        violations=["lifecycle_artifact_missing"],
     )
-    reply = (
-        "1. **Input:** the held panel.\n"
-        "2. **Grain:** entity-week.\n"
-        "3. **Transform:** aggregate to week.\n"
-        "4. **Blockers:** local bytes are missing.\n\n"
-        "I can drill into any dataset, run a sample query, or start a collect — "
-        "just say which market or topic."
-    )
-    assert expected_synthesis_sections(request) == 5
-    assert completed_synthesis_sections(reply) == 4
-    assert synthesis_reply_needs_continuation(request, reply)
-    continuation = synthesis_continuation_request(request, reply)
-    assert "sections 5–5 only" in continuation
-    assert "start a collect" not in continuation
-
-
-def test_synthesis_cta_is_removed_without_touching_evidence():
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        strip_synthesis_procurement_cta,
-    )
-
-    reply = (
-        "The strongest observed input is the GDELT panel.\n\n"
-        "I can drill into any dataset, run a sample query, or start a collect — "
-        "just say which market or topic."
-    )
-    cleaned = strip_synthesis_procurement_cta(reply)
-    assert cleaned == "The strongest observed input is the GDELT panel."
+    assert "tools are allowed" in prompt
+    assert "researcher and the thread store" in prompt
+    assert "exactly one JSON envelope" in prompt
 
 
 def test_synthesis_prompts_are_not_procurement_prompts():
@@ -207,65 +239,12 @@ def test_recorded_proposal_failure_copy_acknowledges_durable_change():
     assert "changed the project" not in reply
 
 
-def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        synthesis_reply_violations,
-    )
+def test_plain_prose_remains_a_draft_without_state_side_effects():
+    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_reply_violations
 
-    violations = synthesis_reply_violations(
-        (
-            "I have collected the final panel. Could this use a week? "
-            "Would a month be better?"
-        ),
-        first_user_turn=True,
-    )
-    assert "false_execution_claim" in violations
-    assert "clarification_question_count" in violations
-    assert not synthesis_reply_violations(
-        "The output is query-ready.",
-        first_user_turn=False,
-        artifacts={
-            "synthesis_verifications": [
-                {"materialisation": "registered", "output_registered": True, "query_ready": True}
-            ]
-        },
-    )
-
-
-def test_clarification_count_repair_keeps_prose_and_one_question():
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        maybe_repair_synthesis_reply,
-        synthesis_reply_violations,
-    )
-
-    zero = (
-        "A provisional construct would join trust and engagement panels at weekly grain. "
-        "Held evidence could serve as the engagement side; coverage gaps remain."
-    )
-    repaired_zero = maybe_repair_synthesis_reply(zero, first_user_turn=True)
-    assert repaired_zero.count("?") == 1
-    assert "provisional" in repaired_zero.lower()
-    assert not synthesis_reply_violations(repaired_zero, first_user_turn=True)
-
-    many = (
-        "I would propose a candidate weekly panel. Could grain be week? "
-        "Would month be safer? Should we drop weekends?"
-    )
-    repaired_many = maybe_repair_synthesis_reply(many, first_user_turn=True)
-    assert repaired_many.count("?") == 1
-    assert "Would month be safer" not in repaired_many or repaired_many.strip().endswith("?")
-    assert not synthesis_reply_violations(repaired_many, first_user_turn=True)
-
-
-def test_clarification_repair_does_not_hide_false_execution():
-    from scripts.research_data_mcp.desk_synthesis_contract import (
-        maybe_repair_synthesis_reply,
-        synthesis_reply_violations,
-    )
-
-    bad = "I have collected the final panel. Could grain be week? Would month work?"
-    assert maybe_repair_synthesis_reply(bad, first_user_turn=True) == bad
-    assert "false_execution_claim" in synthesis_reply_violations(bad, first_user_turn=True)
+    assert synthesis_reply_violations(
+        "I have collected the final panel. Could grain be week?", first_user_turn=True
+    ) == []
 
 
 def test_synthesis_history_is_bounded_and_provider_neutral():
@@ -309,7 +288,7 @@ def test_followup_composer_prompt_includes_authoritative_thread_state(monkeypatc
 
     class Agent:
         agent_id = "agent-followup"
-        last_prompt = ""
+        prompts = []
 
         def __enter__(self):
             return self
@@ -318,7 +297,7 @@ def test_followup_composer_prompt_includes_authoritative_thread_state(monkeypatc
             return False
 
         def send(self, text, _opts):
-            Agent.last_prompt = text
+            Agent.prompts.append(text)
             return Run()
 
     agent_api = types.SimpleNamespace(create=lambda _opts: Agent(), resume=lambda _id, _opts: Agent())
@@ -359,13 +338,14 @@ def test_followup_composer_prompt_includes_authoritative_thread_state(monkeypatc
         "rail_context": {"tab": "synthesis", "mode": "define", "thread_id": "thread-42"},
     }
     turn = desk_brain.run_cursor_composer_turn(Gateway(), "Review the current construct", state)
-    assert "Observed Synthesis thread state" in Agent.last_prompt
-    assert "Issuer-week trust proxy" in Agent.last_prompt
-    assert "not_materialised" in Agent.last_prompt
+    joined_prompts = "\n".join(Agent.prompts)
+    assert "Observed Synthesis thread state" in joined_prompts
+    assert "Issuer-week trust proxy" in joined_prompts
+    assert "not_materialised" in joined_prompts
     assert turn.action_result["action"] == "composer"
 
 
-def test_unverified_lifecycle_reply_is_blocked_at_desk_boundary(monkeypatch, tmp_path):
+def test_unstructured_lifecycle_prose_is_not_parsed_or_blocked(monkeypatch, tmp_path):
     from scripts.research_data_mcp import desk_brain
 
     class Run:
@@ -383,6 +363,8 @@ def test_unverified_lifecycle_reply_is_blocked_at_desk_boundary(monkeypatch, tmp
     class Agent:
         agent_id = "agent-claim"
 
+        calls = 0
+
         def __enter__(self):
             return self
 
@@ -390,6 +372,7 @@ def test_unverified_lifecycle_reply_is_blocked_at_desk_boundary(monkeypatch, tmp
             return False
 
         def send(self, _text, _opts):
+            Agent.calls += 1
             return Run()
 
     agent_api = types.SimpleNamespace(create=lambda _opts: Agent(), resume=lambda _id, _opts: Agent())
@@ -414,9 +397,10 @@ def test_unverified_lifecycle_reply_is_blocked_at_desk_boundary(monkeypatch, tmp
         "rail_context": {"tab": "synthesis", "mode": "define", "thread_id": "thread-42"},
     }
     turn = desk_brain.run_cursor_composer_turn(gateway, "Check the output", state)
-    assert turn.action_result["action"] == "synthesis_claim_blocked"
-    assert turn.action_result["lifecycle_claim_blocked"] is True
-    assert "not treated the output as materialised" in turn.reply
+    assert turn.action_result["action"] == "composer"
+    assert turn.action_result["synthesis_unstructured_draft"] is True
+    assert Agent.calls == 2
+    assert "query-ready" in turn.reply
 
 
 def test_verified_lifecycle_reply_can_pass_with_materialisation_artifact(monkeypatch, tmp_path):
@@ -594,7 +578,7 @@ def _install_proposal_then_invalid_reply_cursor(monkeypatch):
     monkeypatch.setitem(sys.modules, "cursor_sdk.types", cursor_types)
 
 
-def test_truncated_synthesis_brief_gets_one_bounded_continuation(monkeypatch, tmp_path):
+def test_unstructured_synthesis_turn_gets_one_tool_enabled_envelope_repair(monkeypatch, tmp_path):
     from scripts.research_data_mcp import desk_brain
 
     class Run:
@@ -627,15 +611,18 @@ def test_truncated_synthesis_brief_gets_one_bounded_continuation(monkeypatch, tm
         def send(self, text, _opts):
             self.calls.append(text)
             if len(self.calls) == 1:
-                return Run(
-                    "1. Input: held panel.\n"
-                    "2. Grain: entity-week.\n"
-                    "3. Transform: aggregate weekly.\n"
-                    "4. Blocker: bytes are not local.\n\n"
-                    "I can drill into any dataset, run a sample query, or start a collect — "
-                    "just say which market or topic."
+                return Run("The construct remains provisional; I need to verify its inputs.")
+            return Run(
+                json.dumps(
+                    {
+                        "reply": "The construct remains provisional; its inputs need verification.",
+                        "clarification": "Which validation horizon should we use?",
+                        "claims": [],
+                        "construction": {"status": "unknown"},
+                        "sections": [],
+                    }
                 )
-            return Run("5. Next action: verify the missing local partition read-only.")
+            )
 
     agent_instance = Agent()
     agent = SimpleNamespace(
@@ -664,19 +651,18 @@ def test_truncated_synthesis_brief_gets_one_bounded_continuation(monkeypatch, tm
     }
     turn = desk_brain.run_cursor_composer_turn(
         types.SimpleNamespace(repo_root=tmp_path),
-        "Answer exactly five numbered items: 1) input, 2) grain, 3) transform, "
-        "4) blocker, 5) next action.",
+        "Review the current construct and return the typed Synthesis response.",
         state,
     )
 
     assert len(agent_instance.calls) == 2
-    assert "sections 5–5 only" in agent_instance.calls[1]
-    assert "5. Next action" in turn.reply
-    assert "start a collect" not in turn.reply
+    assert "tools are allowed" in agent_instance.calls[1]
+    assert "typed Synthesis response" in agent_instance.calls[0]
+    assert turn.action_result["synthesis_envelope_valid"] is True
     assert turn.action_result["action"] == "composer"
 
 
-def test_unfinished_synthesis_brief_fails_closed_after_bounded_continuations(
+def test_unstructured_synthesis_draft_survives_without_scripted_answer(
     monkeypatch, tmp_path
 ):
     from scripts.research_data_mcp import desk_brain
@@ -737,13 +723,14 @@ def test_unfinished_synthesis_brief_fails_closed_after_bounded_continuations(
         state,
     )
 
-    assert turn.action_result["action"] == "composer_incomplete"
-    assert turn.action_result["continuation_required"] is True
-    assert "Synthesis draft incomplete" in turn.reply
-    assert "No proposal, collection, approval, execution" in turn.reply
+    assert turn.action_result["action"] == "composer"
+    assert turn.action_result["synthesis_unstructured_draft"] is True
+    assert "Input: held panel" in turn.reply
 
 
-def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatch, tmp_path):
+def test_unstructured_reply_preserves_proposal_artifact_without_scripted_failure(
+    monkeypatch, tmp_path
+):
     from scripts.research_data_mcp import desk_brain
 
     _install_proposal_then_invalid_reply_cursor(monkeypatch)
@@ -769,12 +756,11 @@ def test_contract_failure_reports_proposal_that_tool_already_recorded(monkeypatc
         state,
     )
 
-    assert turn.action_result["action"] == "synthesis_proposal_recorded_response_error"
-    assert turn.action_result["proposal_recorded"] is True
+    assert turn.action_result["action"] == "composer"
+    assert turn.action_result["synthesis_unstructured_draft"] is True
     assert turn.action_result["synthesis_thread_id"] == "thread-a"
     assert turn.action_result["synthesis_proposal"]["id"] == "proposal-1"
-    assert "was recorded" in turn.reply
-    assert "Nothing was executed" in turn.reply
+    assert "collected the final panel" in turn.reply
 
 
 def test_synthesis_timeout_fails_closed_without_gemini(monkeypatch, tmp_path):
@@ -944,7 +930,15 @@ def test_first_synthesis_turn_retries_fresh_model_after_resume_error(monkeypatch
             return None
 
         def text(self):
-            return "A provisional construct with one clarification question?"
+            return json.dumps(
+                {
+                    "reply": "A provisional construct with one clarification question.",
+                    "clarification": "Which horizon matters most?",
+                    "claims": [],
+                    "construction": {"status": "unknown"},
+                    "sections": [],
+                }
+            )
 
         def conversation(self):
             return []
