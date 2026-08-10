@@ -58,7 +58,74 @@ def _rclone_flags(repo_root: Path) -> list[str]:
     cfg = load_storage_tiers(repo_root)
     canonical = (cfg.get("tiers") or {}).get("canonical") or {}
     flags = list(canonical.get("rclone_extra_flags") or ["--drive-acknowledge-abuse"])
+    root_folder_id = str(canonical.get("drive_root_folder_id") or "").strip()
+    if root_folder_id:
+        flags.extend(["--drive-root-folder-id", root_folder_id])
     return flags
+
+
+def _rclone_pacing(repo_root: Path) -> dict[str, int | str]:
+    """Return bounded Drive pacing settings from the canonical storage contract.
+
+    Drive quota is project-wide, so the archive path deliberately defaults to a
+    conservative one-transfer/one-request-per-second profile.  Operators can
+    tune the contract in storage_tiers.json without changing job code.
+    """
+    cfg = load_storage_tiers(repo_root)
+    canonical = (cfg.get("tiers") or {}).get("canonical") or {}
+    raw = canonical.get("rclone_pacing") or {}
+
+    def bounded_int(name: str, default: int, maximum: int) -> int:
+        try:
+            value = int(raw.get(name, default))
+        except (TypeError, ValueError):
+            value = default
+        return max(1, min(value, maximum))
+
+    sleep = str(raw.get("drive_pacer_min_sleep") or "1s").strip() or "1s"
+    return {
+        "transfers": bounded_int("transfers", 1, 4),
+        "checkers": bounded_int("checkers", 1, 4),
+        "tpslimit": bounded_int("tpslimit", 1, 10),
+        "tpslimit_burst": bounded_int("tpslimit_burst", 1, 10),
+        "drive_pacer_min_sleep": sleep,
+        "drive_pacer_burst": bounded_int("drive_pacer_burst", 5, 20),
+        "retries": bounded_int("retries", 1, 3),
+        "low_level_retries": bounded_int("low_level_retries", 2, 5),
+    }
+
+
+def _rclone_pacing_flags(repo_root: Path, *, include_transfers: bool) -> list[str]:
+    pacing = _rclone_pacing(repo_root)
+    flags: list[str] = []
+    if include_transfers:
+        flags.extend(["--transfers", str(pacing["transfers"])])
+    flags.extend(
+        [
+            "--checkers",
+            str(pacing["checkers"]),
+            "--tpslimit",
+            str(pacing["tpslimit"]),
+            "--tpslimit-burst",
+            str(pacing["tpslimit_burst"]),
+            "--drive-pacer-min-sleep",
+            str(pacing["drive_pacer_min_sleep"]),
+            "--drive-pacer-burst",
+            str(pacing["drive_pacer_burst"]),
+            "--retries",
+            str(pacing["retries"]),
+            "--low-level-retries",
+            str(pacing["low_level_retries"]),
+        ]
+    )
+    return flags
+
+
+def _rclone_failure_code(output: str) -> str:
+    lowered = output.lower()
+    if "ratelimitexceeded" in lowered or "quota exceeded" in lowered or "rate limit exceeded" in lowered:
+        return "drive_rate_limited"
+    return "rclone_failed"
 
 
 def archive_local_to_remote(
@@ -84,26 +151,21 @@ def archive_local_to_remote(
         "copy",
         str(local),
         remote,
-        "--transfers",
-        "2",
-        "--checkers",
-        "4",
-        "--retries",
-        "5",
-        "--low-level-retries",
-        "10",
+        *_rclone_pacing_flags(repo_root, include_transfers=True),
         *flags,
     ]
     for glob in excludes or []:
         cmd.extend(["--exclude", glob])
     copy = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, timeout=7200, check=False)
     if copy.returncode != 0:
+        output = copy.stderr or copy.stdout or ""
         return {
             "ok": False,
             "stage": "copy",
+            "error": _rclone_failure_code(output),
             "local_path": local_rel,
             "remote_path": remote,
-            "stderr": (copy.stderr or copy.stdout or "")[:500],
+            "stderr": output[:500],
         }
     verified = True
     if verify:
@@ -113,6 +175,7 @@ def archive_local_to_remote(
             str(local),
             remote,
             "--one-way",
+            *_rclone_pacing_flags(repo_root, include_transfers=False),
             *flags,
         ]
         for glob in excludes or []:
@@ -120,12 +183,14 @@ def archive_local_to_remote(
         check = subprocess.run(check_cmd, cwd=repo_root, capture_output=True, text=True, timeout=1800, check=False)
         verified = check.returncode == 0
         if not verified:
+            output = check.stderr or check.stdout or ""
             return {
                 "ok": False,
                 "stage": "verify",
+                "error": _rclone_failure_code(output),
                 "local_path": local_rel,
                 "remote_path": remote,
-                "stderr": (check.stderr or check.stdout or "")[:500],
+                "stderr": output[:500],
             }
     return {
         "ok": True,

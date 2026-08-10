@@ -39,6 +39,17 @@
       "archive_quota_tb": 3,
       "upload_policy": "copy_verify",
       "completion_requires_verify": true,
+      "rclone_pacing": {
+        "transfers": 1,
+        "checkers": 1,
+        "tpslimit": 1,
+        "tpslimit_burst": 1,
+        "drive_pacer_min_sleep": "1s",
+        "drive_pacer_burst": 5,
+        "retries": 1,
+        "low_level_retries": 2
+      },
+      "drive_root_folder_id": "0ALoLklJPjXFyUk9PVA",
       "rclone_extra_flags": [
         "--drive-acknowledge-abuse"
       ],
