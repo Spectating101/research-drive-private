@@ -355,6 +355,11 @@ def routes_for_gaps(
             routes.append({
                 "dimension": str(gap),
                 "source_id": sid,
+                # The identifier is for execution; a researcher-facing route
+                # must carry the declared human label rather than forcing every
+                # client to expose or reconstruct an implementation key.
+                "label": str(meta.get("label") or meta.get("name") or sid),
+                "provider": meta.get("provider"),
                 "reason": f"Declared source may cover unmet {gap}",
                 "access_mode": mode,
                 "actionable": mode in _SELF_SERVE,

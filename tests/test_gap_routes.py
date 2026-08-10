@@ -86,7 +86,9 @@ def test_licensed_sources_are_offered_as_a_request_not_a_click(tmp_path):
     )
     by = {r["source_id"]: r for r in out["routes"]}
     assert by["crsp_moveit"]["action"] == "collect"
+    assert by["crsp_moveit"]["label"] == "CRSP MOVEit"
     assert by["wrds_crsp_compustat"]["action"] == "request_access"
+    assert by["wrds_crsp_compustat"]["label"] == "WRDS CRSP/Compustat"
 
 
 def test_unassessed_question_is_not_reported_as_nothing_missing(tmp_path):
