@@ -9,6 +9,7 @@ guess which of 25 declared sources supplies it.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 from scripts.research_data_mcp.gap_routes import (
     load_sources,
@@ -117,3 +118,52 @@ def test_genuinely_complete_coverage_still_reports_nothing_missing(tmp_path):
         root,
     )
     assert out["reason"] == "nothing_missing"
+
+
+def test_http_route_uses_the_callers_existing_assessment(monkeypatch):
+    """The UI must not pay for assessment twice or lose its verdict at dispatch."""
+    from scripts.research_data_mcp.http_router import ROUTE_CATALOG, handle_post
+
+    captured = {}
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.gap_routes.routes_for_gaps",
+        lambda question, assessment, repo_root: captured.update(
+            question=question, assessment=assessment, repo_root=repo_root,
+        ) or {"gaps": ["time_range"], "routes": [], "reason": "no_route_found"},
+    )
+    assessment = {"assessment_status": "assessed", "verdict": "not_covered"}
+    stack = SimpleNamespace(
+        gateway=SimpleNamespace(
+            repo_root="/tmp",
+            discover_assessment=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must reuse supplied assessment")),
+        )
+    )
+
+    out = handle_post("/library/discover/routes", {"question": "Need weekly filings", "assessment": assessment}, stack)
+
+    assert out["status"] == 200
+    assert captured["question"] == "Need weekly filings"
+    assert captured["assessment"] is assessment
+    assert any(row["path"] == "/library/discover/routes" and row["method"] == "POST" for row in ROUTE_CATALOG)
+
+
+def test_route_model_turn_delegates_without_local_matching(monkeypatch):
+    """Route choice stays a model decision; code only transports its prompt."""
+    from scripts.research_data_mcp import requirement_extraction
+
+    captured = {}
+    monkeypatch.setattr(requirement_extraction.shutil, "which", lambda _name: "/opt/cursor-agent")
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(returncode=0, stdout="geography | declared_source | stated coverage", stderr="")
+
+    monkeypatch.setattr(requirement_extraction.subprocess, "run", fake_run)
+    prompt = "Choose only from these declared sources."
+    out = requirement_extraction.run_cursor_prompt(prompt, "composer-2.5", 12)
+
+    assert out == "geography | declared_source | stated coverage"
+    assert captured["args"][:5] == ["/opt/cursor-agent", "-p", prompt, "--model", "composer-2.5"]
+    assert captured["kwargs"]["timeout"] == 12

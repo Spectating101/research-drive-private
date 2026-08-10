@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import urllib.error
 import urllib.request
 from typing import Any
@@ -50,6 +52,36 @@ Rules:
 
 class ExtractionUnavailable(RuntimeError):
     """The local model could not be reached or returned unusable output."""
+
+
+def run_cursor_prompt(prompt: str, model: str, timeout: float) -> str:
+    """Run one bounded desk-model turn for declared-source selection.
+
+    The model may propose source identifiers; the caller must validate every
+    one against its declared source map. This helper deliberately performs no
+    matching, ranking, or fallback inference itself.
+    """
+    binary = shutil.which("cursor-agent")
+    if not binary:
+        raise ExtractionUnavailable("cursor-agent not installed")
+    key = os.getenv("CURSOR_API_KEY", "").strip()
+    if not key:
+        raise ExtractionUnavailable("CURSOR_API_KEY is empty")
+    try:
+        done = subprocess.run(
+            [binary, "-p", str(prompt or ""), "--model", str(model or "composer-2.5"),
+             "--output-format", "text", "--trust"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env={**os.environ, "CURSOR_API_KEY": key},
+            cwd="/tmp",
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ExtractionUnavailable(f"cursor-agent timed out after {timeout}s") from exc
+    if done.returncode != 0:
+        raise ExtractionUnavailable(f"cursor-agent failed: {done.stderr[:200]}")
+    return done.stdout
 
 
 def _endpoint() -> str:
