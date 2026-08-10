@@ -121,6 +121,7 @@ export function InspectorRail({
   askPanel,
   profile = null,
   searchQuery = "",
+  catalog = [],
 }) {
   let detailPanel;
   if (mainTab === "synthesis" && activeObject?.kind === "synthesis_thread") {
@@ -161,6 +162,7 @@ export function InspectorRail({
         onReviewApproval={onReviewApproval}
         onRetryLifecycleRefresh={onRetryLifecycleRefresh}
         searchQuery={searchQuery}
+        catalog={catalog}
       />
     );
   } else if (mainTab === "resources") {

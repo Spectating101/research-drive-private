@@ -19,7 +19,7 @@ import {
   RailFieldGrid,
   RailFrame,
 } from "@/v2/RailFrame";
-import { assessDiscoverCoverage } from "@/v2/api";
+import { assessDiscoverCoverage, listDiscoverGapRoutes } from "@/v2/api";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import { buildObjectEstateCrumb } from "@/v2/deskIntegration";
 
@@ -62,6 +62,14 @@ function coverageAssessmentCopy(assessment) {
   if (status === "insufficient_metadata") return "Not yet recorded";
   if (status === "insufficient_requirement") return "Need a clearer question";
   return "Assessment unavailable";
+}
+
+function routeDisplay(route, catalog) {
+  const id = String(route?.source_id || route?.connector_id || "").trim();
+  const catalogMatch = (catalog || []).find((row) =>
+    [row?.source_id, row?.connector_id, row?.dataset_id, row?.id].some((value) => String(value || "").trim() === id),
+  );
+  return String(route?.label || route?.title || route?.name || catalogMatch?.title || catalogMatch?.name || "Declared source").trim();
 }
 
 export function DiscoverEvaluationSurface({
@@ -110,12 +118,18 @@ export function DiscoverEvaluationSurface({
   const [coverageAssessment, setCoverageAssessment] = useState(null);
   const [coverageAssessmentBusy, setCoverageAssessmentBusy] = useState(false);
   const [coverageAssessmentError, setCoverageAssessmentError] = useState("");
+  const [gapRoutes, setGapRoutes] = useState(null);
+  const [gapRoutesBusy, setGapRoutesBusy] = useState(false);
+  const [gapRoutesError, setGapRoutesError] = useState("");
 
   useEffect(() => {
     setRequestConfirm(false);
     setCoverageAssessment(null);
     setCoverageAssessmentBusy(false);
     setCoverageAssessmentError("");
+    setGapRoutes(null);
+    setGapRoutesBusy(false);
+    setGapRoutesError("");
   }, [assessmentTargetKey, assessmentQuestion]);
 
   if (!target || !evaluation) {
@@ -301,11 +315,31 @@ export function DiscoverEvaluationSurface({
     try {
       const result = await assessDiscoverCoverage({ question: assessmentQuestion });
       setCoverageAssessment(result || {});
+      setGapRoutes(null);
+      setGapRoutesError("");
     } catch (error) {
       setCoverageAssessment(null);
       setCoverageAssessmentError(String(error?.message || error || "Coverage assessment could not be read."));
     } finally {
       setCoverageAssessmentBusy(false);
+    }
+  };
+
+  const findGapRoutes = async () => {
+    if (!assessmentQuestion || !coverageAssessment || gapRoutesBusy) return;
+    setGapRoutesBusy(true);
+    setGapRoutesError("");
+    try {
+      const result = await listDiscoverGapRoutes({
+        question: assessmentQuestion,
+        assessment: coverageAssessment,
+      });
+      setGapRoutes(result || {});
+    } catch (error) {
+      setGapRoutes(null);
+      setGapRoutesError(String(error?.message || error || "Declared routes could not be read."));
+    } finally {
+      setGapRoutesBusy(false);
     }
   };
 
@@ -365,6 +399,43 @@ export function DiscoverEvaluationSurface({
               </p>
               {coverageAssessment?.gap?.statement ? (
                 <p className="rd-v2-eval-prose muted">Gap · {coverageAssessment.gap.statement}</p>
+              ) : null}
+              {coverageAssessment.assessment_status === "assessed" && coverageAssessment.gap ? (
+                <>
+                  <button
+                    type="button"
+                    className="rd-v2-btn sm"
+                    disabled={gapRoutesBusy}
+                    onClick={findGapRoutes}
+                  >
+                    {gapRoutesBusy ? "Finding declared routes…" : "See ways to close this gap"}
+                  </button>
+                  {gapRoutesError ? (
+                    <p className="rd-v2-eval-prose muted">Routes unavailable. {gapRoutesError}</p>
+                  ) : null}
+                  {gapRoutes ? (
+                    Array.isArray(gapRoutes.routes) && gapRoutes.routes.length ? (
+                      <ul className="rd-v2-eval-list rd-v2-eval-route-list" aria-label="Declared routes">
+                        {gapRoutes.routes.map((route, index) => (
+                          <li key={`${route.source_id || route.title || "route"}-${index}`}>
+                            <span className="rd-v2-eval-mark infer" aria-hidden="true">→</span>
+                            <span>
+                              <strong>{routeDisplay(route, catalog)}</strong>
+                              <br />
+                              {route.reason || "Declared route may address this gap."}
+                              <br />
+                              <small>{route.action === "collect" ? "Collection can be requested for review" : "Access review may be required"}</small>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="rd-v2-eval-prose muted">
+                        No declared route was found. This does not show that no source exists.
+                      </p>
+                    )
+                  ) : null}
+                </>
               ) : null}
             </>
           ) : coverageAssessmentError ? (

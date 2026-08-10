@@ -137,6 +137,20 @@ export function assessDiscoverCoverage({ question = "", requirement = null, limi
   });
 }
 
+/** List declared acquisition routes for an already-returned coverage gap. */
+export function listDiscoverGapRoutes({ question = "", assessment = null, limit = 100 } = {}) {
+  return fetchJson("/library/discover/routes", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      question: question || undefined,
+      assessment: assessment || undefined,
+      limit,
+    }),
+    timeoutMs: 15000,
+  });
+}
+
 /** Durable Discover history (intents / subscriptions / collection runs). */
 export function discoverHistory({ limit = 50, kind = "", sessionId = "" } = {}) {
   const params = new URLSearchParams({ limit: String(limit) });

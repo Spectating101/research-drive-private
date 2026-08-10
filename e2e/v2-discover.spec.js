@@ -124,6 +124,46 @@ test.describe("v2 Discover tab", () => {
     await expect(assessment).toContainText("Gap · No held record declares the requested period.");
   });
 
+  test("gap routes remain explicit, human-readable possibilities rather than a collection promise", async ({ page }) => {
+    await page.route("**/library/discover/assessment", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          assessment_status: "assessed",
+          verdict: "not_covered",
+          because: "No held record declares the requested period.",
+          gap: { statement: "Requested period is not declared in held evidence." },
+        }),
+      }),
+    );
+    await page.route("**/library/discover/routes", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          routes: [{
+            source_id: "mops_financial_statements_ext",
+            label: "MOPS financial statements",
+            reason: "Declared source may cover unmet period.",
+            action: "request_access",
+          }],
+        }),
+      }),
+    );
+    await page.getByRole("textbox", { name: "Evidence need" }).fill("Taiwan issuer-week filings before 2015");
+    await page.getByRole("button", { name: "Search evidence need" }).click();
+    await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate').first().click();
+
+    const assessment = page.getByTestId("discover-coverage-assessment");
+    await assessment.getByRole("button", { name: "Assess coverage" }).click();
+    await assessment.getByRole("button", { name: "See ways to close this gap" }).click();
+    await expect(assessment).toContainText("MOPS financial statements");
+    await expect(assessment).toContainText("Access review may be required");
+    await expect(assessment).not.toContainText("mops_financial_statements_ext");
+    await expect(assessment).not.toContainText("Collection has started");
+  });
+
   test("mobile selection preserves Explore and opens Ask deliberately", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 1200 });
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });

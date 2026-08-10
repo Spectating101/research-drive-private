@@ -1737,6 +1737,7 @@ export function V2App() {
         onReviewApproval={reviewApprovalInResources}
         onRetryLifecycleRefresh={retryLifecycleRefresh}
         searchQuery={searchQuery}
+        catalog={catalog}
         onReviewHistoryRequest={(item) => {
           const job = item?.id && item?.status ? item : selectedHistoryJob;
           if (job) reviewApprovalInResources(job);
