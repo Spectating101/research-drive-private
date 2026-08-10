@@ -1736,6 +1736,7 @@ export function V2App() {
         onTrackResources={trackJobInResources}
         onReviewApproval={reviewApprovalInResources}
         onRetryLifecycleRefresh={retryLifecycleRefresh}
+        searchQuery={searchQuery}
         onReviewHistoryRequest={(item) => {
           const job = item?.id && item?.status ? item : selectedHistoryJob;
           if (job) reviewApprovalInResources(job);

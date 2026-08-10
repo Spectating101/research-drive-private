@@ -19,6 +19,7 @@ import {
   RailFieldGrid,
   RailFrame,
 } from "@/v2/RailFrame";
+import { assessDiscoverCoverage } from "@/v2/api";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import { buildObjectEstateCrumb } from "@/v2/deskIntegration";
 
@@ -49,6 +50,20 @@ function sufficiencyLocalTitle(sufficiency) {
   return String(local?.title || local?.name || local?.dataset_id || "").trim();
 }
 
+function coverageAssessmentCopy(assessment) {
+  const status = String(assessment?.assessment_status || "").trim();
+  const verdict = String(assessment?.verdict || "").trim();
+  if (status === "assessed") {
+    if (verdict === "covered") return "Covered";
+    if (verdict === "partially_covered") return "Partially covered";
+    if (verdict === "not_covered") return "Not covered";
+    return "Assessment returned no verdict";
+  }
+  if (status === "insufficient_metadata") return "Not yet recorded";
+  if (status === "insufficient_requirement") return "Need a clearer question";
+  return "Assessment unavailable";
+}
+
 export function DiscoverEvaluationSurface({
   target,
   labIds,
@@ -68,8 +83,11 @@ export function DiscoverEvaluationSurface({
   onTrackResources,
   onReviewApproval,
   onRetryLifecycleRefresh,
+  searchQuery = "",
   variant = "rail",
 }) {
+  const assessmentQuestion = String(searchQuery || "").trim();
+  const assessmentTargetKey = target?.candidate_key || target?.dataset_id || target?.url || target?.title || "";
   const evaluation = target
     ? applyLifecycleToEvaluation(buildDiscoverEvaluation(target, labIds, probeState), lifecycle)
     : null;
@@ -89,10 +107,16 @@ export function DiscoverEvaluationSurface({
     return buildDiscoverEvaluation(sufficiency.bestLocal, labIds, null);
   }, [lifecycle, sufficiency, labIds]);
   const [requestConfirm, setRequestConfirm] = useState(false);
+  const [coverageAssessment, setCoverageAssessment] = useState(null);
+  const [coverageAssessmentBusy, setCoverageAssessmentBusy] = useState(false);
+  const [coverageAssessmentError, setCoverageAssessmentError] = useState("");
 
   useEffect(() => {
     setRequestConfirm(false);
-  }, [target]);
+    setCoverageAssessment(null);
+    setCoverageAssessmentBusy(false);
+    setCoverageAssessmentError("");
+  }, [assessmentTargetKey, assessmentQuestion]);
 
   if (!target || !evaluation) {
     if (variant === "workspace") return null;
@@ -270,6 +294,21 @@ export function DiscoverEvaluationSurface({
     onAddToLab?.(target);
   };
 
+  const assessCoverage = async () => {
+    if (!assessmentQuestion || coverageAssessmentBusy) return;
+    setCoverageAssessmentBusy(true);
+    setCoverageAssessmentError("");
+    try {
+      const result = await assessDiscoverCoverage({ question: assessmentQuestion });
+      setCoverageAssessment(result || {});
+    } catch (error) {
+      setCoverageAssessment(null);
+      setCoverageAssessmentError(String(error?.message || error || "Coverage assessment could not be read."));
+    } finally {
+      setCoverageAssessmentBusy(false);
+    }
+  };
+
   const reachedStages = new Set(lifecycle?.stages || []);
   const shellClass = variant === "workspace" ? "rd-v2-eval-workspace" : "rd-v2-eval-rail";
   const estate = buildObjectEstateCrumb(target, {
@@ -314,6 +353,42 @@ export function DiscoverEvaluationSurface({
           <p className="rd-v2-eval-section-label">Can I use this?</p>
           <p className="rd-v2-eval-decision-headline">{displayDecision.headline}</p>
           <p className="rd-v2-eval-decision-body">{displayDecision.body}</p>
+        </section>
+
+        <section className="rd-v2-eval-block rd-v2-eval-coverage-assessment" aria-label="Catalogue coverage" data-testid="discover-coverage-assessment">
+          <p className="rd-v2-eval-section-label">Catalogue coverage</p>
+          {coverageAssessment ? (
+            <>
+              <p className="rd-v2-eval-decision-headline">{coverageAssessmentCopy(coverageAssessment)}</p>
+              <p className="rd-v2-eval-prose">
+                {coverageAssessment.because || "The catalogue returned no explanation for this assessment."}
+              </p>
+              {coverageAssessment?.gap?.statement ? (
+                <p className="rd-v2-eval-prose muted">Gap · {coverageAssessment.gap.statement}</p>
+              ) : null}
+            </>
+          ) : coverageAssessmentError ? (
+            <>
+              <p className="rd-v2-eval-decision-headline">Assessment unavailable</p>
+              <p className="rd-v2-eval-prose muted">
+                Coverage is not established. {coverageAssessmentError}
+              </p>
+            </>
+          ) : (
+            <p className="rd-v2-eval-prose muted">
+              {assessmentQuestion
+                ? "No declared-coverage verdict yet. Assess this question against catalogue evidence."
+                : "Enter a question in Discover to assess declared catalogue coverage."}
+            </p>
+          )}
+          <button
+            type="button"
+            className="rd-v2-btn sm"
+            disabled={!assessmentQuestion || coverageAssessmentBusy}
+            onClick={assessCoverage}
+          >
+            {coverageAssessmentBusy ? "Assessing catalogue coverage…" : "Assess coverage"}
+          </button>
         </section>
 
         {lifecycle ? (

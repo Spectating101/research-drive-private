@@ -119,6 +119,24 @@ export function discoverSources(query = "", { limit = 12, live = false, prefer =
   return fetchJson(`/library/discover/sources?${params}`, { timeoutMs: 10000 });
 }
 
+/**
+ * Ask the evidence service for a declared-coverage verdict. This is deliberately
+ * separate from quick catalogue search: a keyword lookup must stay immediate and
+ * must not quietly become an expensive or inferential assessment.
+ */
+export function assessDiscoverCoverage({ question = "", requirement = null, limit = 100 } = {}) {
+  return fetchJson("/library/discover/assessment", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      question: question || undefined,
+      requirement: requirement || undefined,
+      limit,
+    }),
+    timeoutMs: 15000,
+  });
+}
+
 /** Durable Discover history (intents / subscriptions / collection runs). */
 export function discoverHistory({ limit = 50, kind = "", sessionId = "" } = {}) {
   const params = new URLSearchParams({ limit: String(limit) });

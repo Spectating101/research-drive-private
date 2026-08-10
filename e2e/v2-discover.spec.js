@@ -99,6 +99,31 @@ test.describe("v2 Discover tab", () => {
     await expect(surface).not.toContainText("Possession");
   });
 
+  test("coverage assessment is deliberate and renders only the backend verdict", async ({ page }) => {
+    await page.route("**/library/discover/assessment", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          assessment_status: "assessed",
+          verdict: "partially_covered",
+          because: "One held record declares the requested unit, but not the requested period.",
+          gap: { statement: "No held record declares the requested period." },
+        }),
+      }),
+    );
+    await page.getByRole("textbox", { name: "Evidence need" }).fill("Taiwan issuer-week filings 2018 to 2026");
+    await page.getByRole("button", { name: "Search evidence need" }).click();
+    await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate').first().click();
+
+    const assessment = page.getByTestId("discover-coverage-assessment");
+    await expect(assessment).toContainText("No declared-coverage verdict yet");
+    await assessment.getByRole("button", { name: "Assess coverage" }).click();
+    await expect(assessment).toContainText("Partially covered");
+    await expect(assessment).toContainText("One held record declares the requested unit");
+    await expect(assessment).toContainText("Gap · No held record declares the requested period.");
+  });
+
   test("mobile selection preserves Explore and opens Ask deliberately", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 1200 });
     await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });

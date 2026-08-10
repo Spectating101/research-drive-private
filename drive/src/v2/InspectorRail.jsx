@@ -120,6 +120,7 @@ export function InspectorRail({
   onSubmitLibraryProcure,
   askPanel,
   profile = null,
+  searchQuery = "",
 }) {
   let detailPanel;
   if (mainTab === "synthesis" && activeObject?.kind === "synthesis_thread") {
@@ -159,6 +160,7 @@ export function InspectorRail({
         onTrackResources={onTrackResources}
         onReviewApproval={onReviewApproval}
         onRetryLifecycleRefresh={onRetryLifecycleRefresh}
+        searchQuery={searchQuery}
       />
     );
   } else if (mainTab === "resources") {
