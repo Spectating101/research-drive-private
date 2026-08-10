@@ -10,7 +10,7 @@ This is the sole top-level authority for Research Drive product composition, nav
 
 For Discover, [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) is the normative full-scale visual and interaction appendix incorporated by reference into this authority. Its complete CLI wireframes are implementation authority, not examples.
 
-For Library, [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the normative full-scale visual and interaction appendix incorporated by reference into this authority. Its complete CLI wireframes are implementation authority, not examples.
+For Library, [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the normative visual and interaction authority for the Library estate, selected-asset workspace, truthful local-readiness states, and bounded inspection/preparation overlays. It supersedes conflicting portions of [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md); that earlier appendix remains authority for collection semantics and rules not explicitly superseded. The current CLI wireframes are implementation authority, not examples.
 
 A Discover or Library composition change must amend this document and the corresponding full-scale appendix before implementation.
 
@@ -159,7 +159,7 @@ What research context does it belong to?
 What evidence is still missing?
 ```
 
-The complete binding composition and state family are in [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md).
+The complete binding composition and selected-asset state family are in [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md). Collection semantics not changed there remain governed by [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md).
 
 ### 7.1 Library composition
 
