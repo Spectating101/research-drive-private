@@ -174,6 +174,11 @@ def routes_for_gaps(
     routes = parse_routes(raw, gaps, set(sources))
     for route in routes:
         meta = sources.get(route["source_id"]) or {}
+        # The identifier is for execution; a researcher-facing route must carry
+        # the declared human label rather than forcing every client to expose or
+        # reconstruct an implementation key.
+        route["label"] = str(meta.get("label") or meta.get("name") or route["source_id"])
+        route["provider"] = meta.get("provider")
         mode = str(meta.get("access_mode") or "")
         route["access_mode"] = mode
         # A licensed or planned source is a request, not a click. Saying which

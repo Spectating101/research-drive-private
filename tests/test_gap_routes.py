@@ -66,8 +66,8 @@ def test_licensed_sources_are_offered_as_a_request_not_a_click(tmp_path, monkeyp
     from scripts.research_data_mcp import gap_routes
 
     root = _repo(tmp_path, {
-        "crsp_moveit": {"access_mode": "materialized_bulk"},
-        "wrds_crsp_compustat": {"access_mode": "planned"},
+        "crsp_moveit": {"label": "CRSP MOVEit", "access_mode": "materialized_bulk"},
+        "wrds_crsp_compustat": {"label": "WRDS CRSP/Compustat", "access_mode": "planned"},
     })
     monkeypatch.setattr(gap_routes, "run_cursor_prompt", lambda *a, **k: "", raising=False)
     monkeypatch.setattr(
@@ -81,7 +81,9 @@ def test_licensed_sources_are_offered_as_a_request_not_a_click(tmp_path, monkeyp
     )
     by = {r["source_id"]: r for r in out["routes"]}
     assert by["crsp_moveit"]["action"] == "collect"
+    assert by["crsp_moveit"]["label"] == "CRSP MOVEit"
     assert by["wrds_crsp_compustat"]["action"] == "request_access"
+    assert by["wrds_crsp_compustat"]["label"] == "WRDS CRSP/Compustat"
 
 
 def test_unassessed_question_is_not_reported_as_nothing_missing(tmp_path):
