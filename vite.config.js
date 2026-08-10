@@ -10,6 +10,13 @@ const API_TARGET = process.env.YZU_API_URL || "http://127.0.0.1:8765";
 const apiProxy = {
   target: API_TARGET,
   changeOrigin: true,
+  // The desk session bootstrap intentionally verifies browser same-origin.
+  // In dev, Vite is that same-origin facade, so forward the upstream origin.
+  configure: (proxy) => {
+    proxy.on("proxyReq", (proxyReq) => {
+      proxyReq.setHeader("origin", API_TARGET);
+    });
+  },
 };
 const proxy = {
   "/api": {

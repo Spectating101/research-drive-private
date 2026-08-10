@@ -60,6 +60,11 @@ export function DiscoverEvaluationSurface({
   probeState,
   onOpenInLibrary,
   lifecycle = null,
+  collectionBrief = null,
+  collectionBriefBusy = false,
+  onReviewCollectionBrief,
+  onSelectCollectionRoute,
+  onSubmitCollectionBrief,
   onTrackResources,
   onReviewApproval,
   onRetryLifecycleRefresh,
@@ -197,6 +202,10 @@ export function DiscoverEvaluationSurface({
     (difference) => difference?.local || difference?.candidate,
   );
   const localDatasetTitle = sufficiencyLocalTitle(sufficiency);
+  const briefState = collectionBrief?.state || {};
+  const briefProposal = briefState.proposal || null;
+  const briefRoutes = Array.isArray(briefState.routes) ? briefState.routes : [];
+  const selectedRouteId = briefState.selected_route_id || "";
 
   const openLocal = () => {
     const local = sufficiency?.bestLocal;
@@ -468,6 +477,73 @@ export function DiscoverEvaluationSurface({
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {collectionBrief ? (
+            <section className="rd-v2-eval-block rd-v2-collection-brief" data-testid="discover-collection-brief">
+              <p className="rd-v2-eval-section-label">Acquisition brief</p>
+              <p className="rd-v2-eval-decision-headline">
+                {briefState.status === "proposal_ready"
+                  ? "Review a verified collection route"
+                  : briefState.status === "ready_for_review"
+                    ? "Choose the collection route"
+                    : briefState.status === "pending_approval"
+                      ? "Collection request submitted"
+                      : "A collection route is still needed"}
+              </p>
+              <p className="rd-v2-eval-prose">
+                {collectionBrief.reason ||
+                  briefProposal?.reason ||
+                  "This is a durable acquisition record. It cannot collect until its route is reviewed."}
+              </p>
+              {briefProposal ? (
+                <>
+                  <p className="rd-v2-eval-prose">{briefProposal.summary}</p>
+                  <button
+                    type="button"
+                    className="rd-v2-btn sm primary"
+                    disabled={collectionBriefBusy}
+                    onClick={() =>
+                      onReviewCollectionBrief?.(collectionBrief, {
+                        decision: "accept",
+                        proposalId: briefProposal.id,
+                        proposalHash: briefProposal.proposal_hash,
+                      })
+                    }
+                  >
+                    Accept route proposal
+                  </button>
+                </>
+              ) : null}
+              {briefRoutes.length ? (
+                <div className="rd-v2-collection-routes" role="radiogroup" aria-label="Collection routes">
+                  {briefRoutes.map((route) => (
+                    <button
+                      key={route.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={route.id === selectedRouteId}
+                      className={route.id === selectedRouteId ? "on" : ""}
+                      disabled={collectionBriefBusy || briefState.status === "pending_approval"}
+                      onClick={() => onSelectCollectionRoute?.(collectionBrief, route.id)}
+                    >
+                      <strong>{route.title}</strong>
+                      <span>{route.summary || route.access || "Reviewed collection route"}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {briefState.status === "ready_for_review" && selectedRouteId ? (
+                <button
+                  type="button"
+                  className="rd-v2-btn sm primary"
+                  disabled={collectionBriefBusy}
+                  onClick={() => onSubmitCollectionBrief?.(collectionBrief)}
+                >
+                  Request collection
+                </button>
+              ) : null}
             </section>
           ) : null}
 

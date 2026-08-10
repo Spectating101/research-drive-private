@@ -9,28 +9,6 @@ import { buildCapacityAccessPairs, groupSourceCapabilities } from "@/v2/resource
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
 import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
 
-const PLACEHOLDER_ROLLUP = {
-  hero: {
-    composer: { model: "composer-2.5", configured: true, legacy_configured: false },
-    workers: {},
-    vault: {},
-    query_engine: { port: 8765, up: true },
-  },
-  ai: { composer_model: "composer-2.5", mcp_tools: {} },
-  metered: {
-    bigquery: { configured: true },
-    tavily: { keys_loaded: 0 },
-  },
-  spending: {
-    period: { totals: {}, daily: [] },
-    today: {},
-    drivers: [],
-  },
-  activity: { events: [] },
-  motion: { jobs: {} },
-  issues: [],
-};
-
 function shortText(value, max = 92) {
   const text = String(value || "");
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -644,12 +622,21 @@ function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
   const partitions = platform.professor_partitions ?? catalogSummary?.partitions;
   const routeCount = buildPinnedSourceRows(panels.providers || [], panels.layers || []).length;
   const workers = rollup?.hero?.workers || {};
-  const collectorCount = workers.online ?? workers.joined ?? workers.busy ?? workers.total;
-  const collectorLabel = workers.total != null && collectorCount != null
-    ? `${collectorCount}/${workers.total} collectors available`
-    : collectorCount != null
-      ? `${collectorCount} collectors available`
-      : "Collector state pending";
+  const collectorLabel = workers.online != null
+    ? workers.total != null
+      ? `${workers.online}/${workers.total} collectors online`
+      : `${workers.online} collectors online`
+    : workers.idle != null
+      ? workers.total != null
+        ? `${workers.idle}/${workers.total} collectors idle`
+        : `${workers.idle} collectors idle`
+      : workers.busy != null
+        ? workers.total != null
+          ? `${workers.busy}/${workers.total} collectors busy`
+          : `${workers.busy} collectors busy`
+        : workers.total != null
+          ? `${workers.total} collectors configured`
+          : "Collector state not reported";
   const bigQuery = (panels.metered || []).find((row) => row.key === "bigquery");
 
   return (
@@ -657,7 +644,11 @@ function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
       <header>
         <div>
           <p>What this enables</p>
-          <span>Verified capability available to the lab today.</span>
+          <span>
+            {panels?.connect?.sourcesReported
+              ? "Access labels use the desk's last reported capability state."
+              : "Route inventory is declared; live source access has not been reported."}
+          </span>
         </div>
       </header>
       <div className="rd-v2-res-capability-lines">
@@ -671,8 +662,8 @@ function ResearchCapability({ cluster, panels, rollup, catalogSummary }) {
         </div>
         <div>
           <span>Evidence acquisition reach</span>
-          <strong>{routeCount || "Configured"} source routes</strong>
-          <em>{collectorLabel}. Discover can probe and collect within the available access rules.</em>
+          <strong>{routeCount || "Declared"} source-route groups</strong>
+          <em>{collectorLabel}. Discover evaluates routes against the access conditions reported here.</em>
         </div>
         <div>
           <span>Guarded remote analysis</span>
@@ -740,13 +731,13 @@ function ResourceInventory({ sections, selectedKey, onSelect }) {
         <details className="rd-v2-res-routes">
           <summary>
             <span>
-              <strong>Available source routes</strong>
-              <em>{sourceRoutes} configured routes used by Discover when evidence is missing.</em>
+              <strong>Declared source routes</strong>
+              <em>{sourceRoutes} route groups declared for Discover when evidence is missing.</em>
             </span>
             <b>Show routes</b>
           </summary>
           <div className="rd-v2-res-routes-body">
-            <p>Routes remain available for inspection here; sourcing choices and collection progress stay in Discover.</p>
+            <p>Declared routes remain visible for inspection here; sourcing choices and collection progress stay in Discover.</p>
             {sourceSection.rows.map((item) => (
               <ResourceInventoryRow
                 key={item.id}
@@ -781,7 +772,8 @@ export function ResourcesPage({
 }) {
   const [activityKind, setActivityKind] = useState("all");
   const isInitialLoading = rollupLoading && rollup === undefined;
-  const viewRollup = isInitialLoading ? null : rollup || PLACEHOLDER_ROLLUP;
+  const isUnavailable = rollup === null && !rollupLoading;
+  const viewRollup = rollup && typeof rollup === "object" ? rollup : null;
   const panels = useMemo(
     () =>
       buildResourcesPanels({
@@ -863,13 +855,15 @@ export function ResourcesPage({
         </>
       }
     >
-      {rollup === null && !rollupLoading ? (
-        <p className="rd-v2-res-offline" role="status">
-          Desk API unreachable — start <code>python -m scripts.research_query_engine.server</code> on :8765.
-        </p>
-      ) : null}
-
-      {mode === "sources" || mode === "spending" ? (
+      {isUnavailable ? (
+        <section className="rd-v2-res-offline" role="status" aria-label="Resources status unavailable">
+          <strong>Resources status unavailable</strong>
+          <span>
+            Live desk capability data could not be read. Source access, workers, storage, and spending are not
+            reported. Refresh to try again.
+          </span>
+        </section>
+      ) : mode === "sources" || mode === "spending" ? (
         isInitialLoading ? (
           <p className="rd-v2-res-loading" role="status">
             Loading resources…

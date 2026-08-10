@@ -53,7 +53,35 @@ export const MOCK_RESOURCES_ROLLUP = {
     windows_lab: { busy: 2, joined: 3, total: 12, max_parallel: 6 },
     queue: { open: 4, runnable_tasks: 18, total_tasks: 24, pipelines: 6, connectors: 3 },
   },
-  connect: { source_count: 10, layer_count: 9 },
+  connect: {
+    source_count: 10,
+    layer_count: 9,
+    sources: [
+      {
+        id: "datacite",
+        label: "DataCite",
+        collect_via: ["api"],
+        routes: ["doi_lookup"],
+        execution_mode: "api_live",
+      },
+      {
+        id: "bigquery",
+        label: "BigQuery",
+        collect_via: ["query"],
+        routes: ["public_tables"],
+        execution_mode: "needs_credentials",
+        entitlement: { state: "credentials_missing", note: "Route exists but desk credentials are not configured." },
+      },
+      {
+        id: "wrds",
+        label: "WRDS",
+        collect_via: ["manual_export"],
+        routes: ["licensed_export"],
+        execution_mode: "licensed_unavailable",
+        entitlement: { state: "seat_unavailable", note: "WRDS credentials do not authenticate on this desk." },
+      },
+    ],
+  },
   issues: [{ key: "usb-cache", label: "USB bulk cache", section: "usage" }],
   issues_count: 1,
   spending: {

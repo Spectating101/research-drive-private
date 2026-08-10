@@ -190,6 +190,65 @@ export function submitDiscoverCollect(
   });
 }
 
+export function createDiscoverIntent({ researchNeed, title = "", candidate = {}, sessionId = "", userEmail = "" } = {}) {
+  return fetchJson("/library/discover/intents", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      research_need: researchNeed,
+      title: title || undefined,
+      candidate,
+      session_id: sessionId || loadChatSessionId() || undefined,
+      user_email: userEmail || loadUserEmail() || undefined,
+    }),
+  });
+}
+
+export function setDiscoverIntentProposal(intentId, proposal) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/proposal`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ proposal }),
+  });
+}
+
+export function reviewDiscoverIntent(intentId, { decision, proposalId, proposalHash } = {}) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/review`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ decision, proposal_id: proposalId, proposal_hash: proposalHash }),
+  });
+}
+
+export function selectDiscoverIntentRoute(intentId, routeId) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/route`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ route_id: routeId }),
+  });
+}
+
+export function submitDiscoverIntent(intentId, { limit = 200 } = {}) {
+  return fetchJson(`/library/discover/intents/${encodeURIComponent(intentId)}/submit`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ limit }),
+  });
+}
+
+export function submitLibraryUrl({ url = "", doi = "", title = "" } = {}) {
+  return fetchJson("/library/upload", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      url: url || undefined,
+      doi: doi || undefined,
+      title: title || undefined,
+      auto_approve: false,
+    }),
+  });
+}
+
 export function submitLibraryJob({ title, plan, autoApprove = false, request = {} }) {
   return fetchJson("/library/jobs", {
     method: "POST",
@@ -200,6 +259,22 @@ export function submitLibraryJob({ title, plan, autoApprove = false, request = {
       request,
       auto_approve: autoApprove,
     }),
+  });
+}
+
+/** Draft a generic, approval-gated collect plan for a public URL. */
+export function craftCollectPlan({ researchNeed = "", url = "", title = "", mode = "", datasetId = "" } = {}) {
+  return fetchJson("/library/craft/collect-plan", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      research_need: researchNeed || (url ? `Craft collect for ${url}` : ""),
+      url: url || undefined,
+      title: title || undefined,
+      mode: mode || undefined,
+      dataset_id: datasetId || undefined,
+    }),
+    timeoutMs: 20000,
   });
 }
 
@@ -243,6 +318,18 @@ export function listAcquisitions(live = true) {
 
 export function listJobs() {
   return fetchJson("/library/jobs").then((d) => d.jobs || d.items || d || []);
+}
+
+export function getJob(jobId) {
+  return fetchJson(`/library/jobs/${encodeURIComponent(jobId)}`);
+}
+
+export function cancelJob(jobId) {
+  return fetchJson(`/library/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({}),
+  });
 }
 
 /** RC2-A: sanitized cross-surface identity from the private factory / desk gateway. */
@@ -344,6 +431,29 @@ export function requestSynthesisExecution(threadId) {
 
 export function getSynthesisDiscoverHandoff(threadId) {
   return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/discover-handoff`);
+}
+
+export function collectSynthesisMissingEvidence(threadId, { evidenceIds = [], limit = 8 } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/collect-missing`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      evidence_ids: evidenceIds,
+      auto_approve_safe: false,
+      limit,
+    }),
+  });
+}
+
+export function linkSynthesisConversation(threadId, { sessionId = "", conversationId = "" } = {}) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/conversation`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      session_id: sessionId || loadChatSessionId() || undefined,
+      conversation_id: conversationId || undefined,
+    }),
+  });
 }
 
 export function synthesisMaterialisation(threadId) {

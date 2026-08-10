@@ -4249,6 +4249,15 @@
   line-height: 1.45;
 }
 
+.rd-v2-res-offline strong,
+.rd-v2-res-offline span {
+  display: block;
+}
+
+.rd-v2-res-offline span {
+  margin-top: 2px;
+}
+
 .rd-v2-res-connect-collapsed {
   padding-top: 0;
 }

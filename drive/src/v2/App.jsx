@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { V2DeskHeader } from "@/v2/V2DeskHeader";
 import {
   approveJob,
+  cancelJob,
+  craftCollectPlan,
+  collectSynthesisMissingEvidence,
+  createDiscoverIntent,
   describeDataset,
   deskHealth,
   deskResources,
@@ -12,11 +16,18 @@ import {
   getSynthesisDiscoverHandoff,
   libraryOps,
   libraryOverview,
+  linkSynthesisConversation,
   listAcquisitions,
   listDatasets,
   listJobs,
   listPartitions,
   probePublicSource,
+  reviewDiscoverIntent,
+  selectDiscoverIntentRoute,
+  setDiscoverIntentProposal,
+  submitDiscoverIntent,
+  submitLibraryJob,
+  submitLibraryUrl as submitLibraryUrlIntake,
   procurementCatalogSummary,
   submitDiscoverCollect,
   yzuClusterStatus,
@@ -42,6 +53,7 @@ import { LibraryPage } from "@/v2/LibraryPage";
 import { PreviewModal } from "@/v2/PreviewModal";
 import { ProfilePage } from "@/v2/ProfilePage";
 import { ResourcesPage } from "@/v2/ResourcesPage";
+import { ResearchContextOverlay } from "@/v2/ResearchContextOverlay";
 import { SettingsPage } from "@/v2/SettingsPage";
 import { SynthesisPage } from "@/v2/SynthesisPage";
 import {
@@ -64,6 +76,8 @@ import {
   discoverCandidateUrl,
 } from "@/v2/discoverActions";
 import { candidateKey } from "@/v2/candidateKey";
+import { buildVerifiedConnectorProposal, decideDiscoverCollection } from "@/v2/discoverCollectionDecision";
+import { classifyLibraryIntakeTarget } from "@/v2/libraryIntake";
 import { durableHistoryToEvents, mergeHistoryEvents } from "@/v2/discoverAdapters";
 import { discoverModeFromLegacy, discoverModeToUrlState } from "@/v2/discoverMode";
 import { jobToDiscoverHistoryEvent, pendingApprovalJobs } from "@/v2/procurementJobs";
@@ -150,6 +164,8 @@ export function V2App() {
   const [selectedId, setSelectedId] = useState(() => readParams().dataset);
   const [browseRow, setBrowseRow] = useState(null);
   const [browseProbe, setBrowseProbe] = useState({ candidateKey: "", loading: false, result: null, error: "" });
+  const [browseIntent, setBrowseIntent] = useState(null);
+  const [browseIntentBusy, setBrowseIntentBusy] = useState(false);
   const [collectSubmittingKey, setCollectSubmittingKey] = useState("");
   const [lifecycleRefreshFailed, setLifecycleRefreshFailed] = useState(false);
   const lifecycleLastKnownRef = useRef(null);
@@ -170,6 +186,8 @@ export function V2App() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [researchContextOpen, setResearchContextOpen] = useState(false);
+  const accountTriggerRef = useRef(null);
   /** Unbound desk still binds sidebar Active research from EXAMPLE pilot (same as Profile). */
   const [pilotProfile, setPilotProfile] = useState(null);
   /** Bump when touchRecent runs so sidebar Recent recomputes (localStorage alone does not). */
@@ -195,6 +213,7 @@ export function V2App() {
   const [resourceMode, setResourceMode] = useState("sources");
   const [activityFilter, setActivityFilter] = useState(null);
   const [pendingAsk, setPendingAsk] = useState("");
+  const [focusSynthesisThreadId, setFocusSynthesisThreadId] = useState("");
   const { toast, show: showToast, dismissIf: dismissToastIf } = useToast();
 
   const reloadProfile = useCallback(() => {
@@ -209,6 +228,18 @@ export function V2App() {
       })
       .catch(() => setProfile({ email, unknown: true }));
   }, []);
+
+  const openResearchContext = useCallback((trigger) => {
+    accountTriggerRef.current = trigger || null;
+    setResearchContextOpen(true);
+  }, []);
+
+  const clearResearchContext = useCallback(() => {
+    window.localStorage.removeItem("procure_user_email");
+    window.localStorage.removeItem("rd_v2_settings.email");
+    reloadProfile();
+    showToast("Research context cleared");
+  }, [reloadProfile, showToast]);
 
   useEffect(() => {
     if (profile && !profile.unknown) {
@@ -324,21 +355,33 @@ export function V2App() {
     [refreshBackend, showToast],
   );
 
-  useEffect(() => {
-    refreshBackend();
-  }, [refreshBackend]);
+  const handleCancelJob = useCallback(async (jobId) => {
+    if (!jobId) return false;
+    try {
+      await cancelJob(jobId);
+      await refreshBackend();
+      showToast("Job cancelled");
+      return true;
+    } catch (error) {
+      showToast(error?.message || "Could not cancel this job");
+      return false;
+    }
+  }, [refreshBackend, showToast]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       await ensureDeskSession().catch(() => ({ ok: false }));
       if (cancelled) return;
+      // Protected desk reads must follow cookie bootstrap. Starting them in a
+      // separate effect races the initial session and creates avoidable 401s.
+      refreshBackend();
       deskWarm({ userEmail: loadUserEmail(), background: true }).catch(() => {});
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshBackend]);
 
   const askFromPrompt = useCallback((prompt) => {
     if (!prompt) return;
@@ -603,6 +646,48 @@ export function V2App() {
     [syncUrl],
   );
 
+  const returnToSynthesis = useCallback(() => {
+    const threadId = synthesisDiscoverHandoff?.thread_id;
+    if (!threadId) return;
+    setFocusSynthesisThreadId(threadId);
+    setSynthesisDiscoverHandoff(null);
+    setRailTab("detail");
+    setTab("synthesis");
+    syncUrl({ tab: "synthesis" });
+  }, [synthesisDiscoverHandoff, syncUrl]);
+
+  const submitSynthesisHandoffCollection = useCallback(async () => {
+    const handoff = synthesisDiscoverHandoff;
+    const threadId = handoff?.thread_id;
+    const evidenceId = handoff?.selected_field?.id;
+    if (!threadId || !evidenceId) return;
+    try {
+      const out = await collectSynthesisMissingEvidence(threadId, { evidenceIds: [evidenceId] });
+      const submitted = Array.isArray(out?.submitted) ? out.submitted : [];
+      if (!submitted.length) {
+        const reason = out?.skipped?.[0]?.reason || "no resolvable collection route";
+        showToast(`This evidence gap cannot be requested yet: ${reason}`);
+        return;
+      }
+      refreshBackend();
+      showToast(`Evidence request submitted — ${submitted.length} approval-gated job${submitted.length === 1 ? "" : "s"} created`);
+    } catch (error) {
+      showToast(error?.message || "Could not request this Synthesis evidence");
+    }
+  }, [refreshBackend, showToast, synthesisDiscoverHandoff]);
+
+  const linkActiveSynthesisConversation = useCallback(
+    ({ sessionId, conversationId } = {}) => {
+      const threadId =
+        activeObject?.kind === "synthesis_thread" ? activeObject.thread?.id || activeObject.id : "";
+      if (!threadId || !sessionId) return;
+      linkSynthesisConversation(threadId, { sessionId, conversationId }).catch(() => {
+        showToast("Conversation continued, but could not be linked to the Synthesis thread");
+      });
+    },
+    [activeObject, showToast],
+  );
+
   useEffect(() => {
     const route = readParams();
     if (
@@ -771,9 +856,10 @@ export function V2App() {
       browseSelectedKeyRef.current = key;
 
       const probeResult = browseProbe.candidateKey === key ? browseProbe.result : null;
-      const connectorId = probeResult?.connector?.connector_id || probeResult?.connector?.id;
+      const decision = decideDiscoverCollection({ candidate: target, probe: probeResult });
+      const connectorId = decision.connectorId;
 
-      if (connectorId) {
+      if (decision.kind === "direct" && connectorId) {
         setCollectSubmittingKey(key);
         setRailTab("detail");
         try {
@@ -816,14 +902,91 @@ export function V2App() {
         return;
       }
 
-      setRailTab("ask");
-      setPendingAsk({
-        prompt: buildAddToLabPrompt(target, probeResult),
-        displayText: buildAddToLabDisplayText(target, probeResult),
-      });
-      showToast("Queued Ask — Request this evidence");
+      setCollectSubmittingKey(key);
+      try {
+        let intent = await createDiscoverIntent({
+          researchNeed: searchQuery || target?.title || target?.name || "Evaluate this source for collection",
+          title: target?.title || target?.name || target?.dataset_id || "",
+          candidate: {
+            ...target,
+            candidate_key: key,
+            probe_snapshot: probeResult || undefined,
+          },
+        });
+        const proposal = buildVerifiedConnectorProposal({ candidate: target, probe: probeResult });
+        if (proposal && intent?.id) {
+          intent = await setDiscoverIntentProposal(intent.id, proposal);
+        }
+        setBrowseIntent({ ...intent, reason: decision.reason || "" });
+        setRailTab("detail");
+        showToast(
+          proposal
+            ? "Acquisition brief ready — review its route before submitting"
+            : "Acquisition brief saved — a verified route is still required",
+        );
+      } catch (err) {
+        showToast(err?.message || "Could not create an acquisition brief");
+      } finally {
+        setCollectSubmittingKey("");
+      }
     },
-    [labIds, browseProbe, catalog, syncUrl, showToast, refreshBackend, collectSubmittingKey],
+    [
+      labIds,
+      browseProbe,
+      catalog,
+      syncUrl,
+      showToast,
+      refreshBackend,
+      collectSubmittingKey,
+      searchQuery,
+    ],
+  );
+
+  const craftPublicUrlPlan = useCallback(
+    async (url) => {
+      const target = String(url || "").trim();
+      if (!target) return;
+      try {
+        const crafted = await craftCollectPlan({
+          researchNeed: `Craft a generic collect plan for ${target}`,
+          url: target,
+        });
+        const plan = crafted?.plan || crafted;
+        if (!plan || typeof plan !== "object") {
+          throw new Error("Craft returned no collect plan");
+        }
+        const out = await submitLibraryJob({
+          title: plan.title || `Craft collect · ${target}`,
+          plan,
+          autoApprove: false,
+          request: {
+            craft: true,
+            url: target,
+            rationale: crafted?.rationale,
+          },
+        });
+        const job = out?.job || out;
+        if (job?.id) {
+          setJobs((current) => [job, ...(current || []).filter((row) => row?.id !== job.id)]);
+        }
+        refreshBackend({ preserveJob: job || null });
+        setDiscoverModeSafe("history");
+        goTab("browse");
+        showToast(
+          job?.status === "pending_approval"
+            ? "Crafted collect plan — approval required"
+            : "Crafted collect plan queued",
+        );
+      } catch (error) {
+        setRailTab("ask");
+        setPendingAsk({
+          prompt: `Craft a generic collect plan for this public URL (HTTP or scrape — not a named vendor module): ${target}`,
+          displayText: `Craft collect for ${target}`,
+        });
+        showToast(error?.message || "Could not craft a collection plan");
+      }
+    },
+    [refreshBackend, showToast, setDiscoverModeSafe, goTab],
   );
 
   const probeDiscoverCandidate = useCallback(async (target) => {
@@ -929,6 +1092,53 @@ export function V2App() {
       })
       .catch(() => setLifecycleRefreshFailed(true));
   }, []);
+
+  const reviewCollectionBrief = useCallback(async (intent, decision) => {
+    if (!intent?.id) return;
+    setBrowseIntentBusy(true);
+    try {
+      const next = await reviewDiscoverIntent(intent.id, decision);
+      setBrowseIntent((current) => (current?.id === intent.id ? { ...next, reason: current.reason || "" } : current));
+      showToast("Collection route accepted — select or submit it when ready");
+    } catch (error) {
+      showToast(error?.message || "Could not review the collection route");
+    } finally {
+      setBrowseIntentBusy(false);
+    }
+  }, [showToast]);
+
+  const selectCollectionBriefRoute = useCallback(async (intent, routeId) => {
+    if (!intent?.id || !routeId) return;
+    setBrowseIntentBusy(true);
+    try {
+      const next = await selectDiscoverIntentRoute(intent.id, routeId);
+      setBrowseIntent((current) => (current?.id === intent.id ? { ...next, reason: current.reason || "" } : current));
+    } catch (error) {
+      showToast(error?.message || "Could not select this collection route");
+    } finally {
+      setBrowseIntentBusy(false);
+    }
+  }, [showToast]);
+
+  const submitCollectionBrief = useCallback(async (intent) => {
+    if (!intent?.id) return;
+    setBrowseIntentBusy(true);
+    try {
+      const out = await submitDiscoverIntent(intent.id);
+      const nextIntent = out?.intent || intent;
+      const job = out?.job;
+      setBrowseIntent((current) => (current?.id === intent.id ? { ...nextIntent, reason: current.reason || "" } : current));
+      if (job?.id) {
+        setJobs((current) => [job, ...(current || []).filter((row) => row?.id !== job.id)]);
+        refreshBackend({ preserveJob: job });
+      }
+      showToast(job?.status === "pending_approval" ? "Collection submitted — approval required" : "Collection submitted");
+    } catch (error) {
+      showToast(error?.message || "Could not submit the collection request");
+    } finally {
+      setBrowseIntentBusy(false);
+    }
+  }, [refreshBackend, showToast]);
 
   // Poll jobs while selected Discover candidate has a nonterminal exact job.
   useEffect(() => {
@@ -1080,46 +1290,50 @@ export function V2App() {
     [folderId, syncUrl],
   );
 
-  const queueLibraryAsk = useCallback(
-    (prompt) => {
-      setRailTab("ask");
-      setPendingAsk(prompt);
-      showToast("Queued Ask - Library");
-    },
-    [showToast],
-  );
-
-  const submitLibraryUpload = useCallback(
-    (files, intake) => {
-      const names = Array.from(files || []).map((file) => file.name).filter(Boolean);
-      const destination = intake?.destination || "Lab root";
-      const filePart = names.length ? ` Files: ${names.join(", ")}.` : " No files selected yet.";
-      queueLibraryAsk(
-        `Upload files to ${destination}.${filePart} Confirm destination, ingestion, schema detection, and vault archival.`,
-      );
-    },
-    [queueLibraryAsk],
-  );
+  const submitLibraryUpload = useCallback((files) => {
+    const names = Array.from(files || []).map((file) => file.name).filter(Boolean);
+    showToast(
+      names.length
+        ? "Local file staging is not connected yet. Use a URL/DOI or archive the files before requesting intake."
+        : "Local file staging is not connected yet.",
+    );
+  }, [showToast]);
 
   const submitLibraryUrl = useCallback(
-    (value, intake) => {
-      const destination = intake?.destination || "Lab root";
-      const targets = String(value || "").trim().replace(/\s+/g, " ");
-      queueLibraryAsk(
-        `Add URL or DOI to ${destination}. Targets: ${targets}. Probe source, collect metadata, and procure if missing.`,
-      );
+    async (value) => {
+      const target = classifyLibraryIntakeTarget(value);
+      if (!target) {
+        showToast("Enter one valid http(s) URL or DOI.");
+        return;
+      }
+      try {
+        const out = await submitLibraryUrlIntake(target);
+        const job = out?.job;
+        if (job?.id) {
+          setJobs((current) => [job, ...(current || []).filter((row) => row?.id !== job.id)]);
+          refreshBackend({ preserveJob: job });
+        }
+        showToast(
+          job?.status === "pending_approval"
+            ? "Evidence intake submitted — approval required"
+            : "Evidence intake submitted",
+        );
+      } catch (error) {
+        showToast(error?.message || "Could not submit evidence intake");
+      }
     },
-    [queueLibraryAsk],
+    [refreshBackend, showToast],
   );
 
   const submitLibraryProcure = useCallback(
     (intake) => {
-      const destination = intake?.destination || "Lab root";
-      queueLibraryAsk(
-        `Procure datasets for ${destination}. Search faculty sources, check the local catalog, probe public sources, and propose acquisition steps.`,
-      );
+      const destination = intake?.destination || "this Library branch";
+      setSearchQuery(destination);
+      setDiscoverModeSafe("explore");
+      goTab("browse");
+      showToast("Search Discover to evaluate evidence for this Library branch");
     },
-    [queueLibraryAsk],
+    [goTab, setDiscoverModeSafe, showToast],
   );
 
   const askHomeAttention = useCallback(
@@ -1241,6 +1455,8 @@ export function V2App() {
           historyEvents={historyItems}
           selectedHistoryId={selectedHistoryId}
           synthesisHandoff={synthesisDiscoverHandoff}
+          onRequestSynthesisEvidence={submitSynthesisHandoffCollection}
+          onReturnToSynthesis={returnToSynthesis}
           onDismissSynthesisHandoff={() => {
             setSynthesisDiscoverHandoff(null);
             setActiveObject((current) => (current?.kind === "synthesis_discover_handoff" ? null : current));
@@ -1256,6 +1472,7 @@ export function V2App() {
             setSearchQuery(q);
             goTab("browse");
           }}
+          onCraftUrl={craftPublicUrlPlan}
           onSearchWeb={askSearchWeb}
           onSelectRow={(row) => {
             setSynthesisDiscoverHandoff(null);
@@ -1269,6 +1486,7 @@ export function V2App() {
                 ? { ...row, probe_snapshot: probeSnapshots[nextKey] }
                 : row;
             setBrowseRow(stamped);
+            setBrowseIntent(null);
             setBrowseProbe((current) =>
               current.candidateKey === nextKey
                 ? current
@@ -1297,6 +1515,8 @@ export function V2App() {
             setActiveObject(synthesisThreadObject(thread));
             setRailTab("detail");
           }}
+          focusThreadId={focusSynthesisThreadId}
+          onFocusThreadConsumed={() => setFocusSynthesisThreadId("")}
         />
       );
       break;
@@ -1428,6 +1648,9 @@ export function V2App() {
         activeResearchTitle={activeResearch.title}
         currentPage={tab}
         discoverOwnsSearch={tab === "browse"}
+        profile={profile}
+        onOpenResearchContext={openResearchContext}
+        onClearContext={clearResearchContext}
       />
       <V2Sidebar
         tab={tab}
@@ -1454,6 +1677,26 @@ export function V2App() {
           }}
         />
       </main>
+      <ResearchContextOverlay
+        open={researchContextOpen}
+        profile={profile}
+        onProfileRefresh={reloadProfile}
+        restoreFocusRef={accountTriggerRef}
+        onClose={() => setResearchContextOpen(false)}
+        onGoTab={(nextTab) => {
+          setResearchContextOpen(false);
+          goTab(nextTab);
+        }}
+        onSuggestSearch={(query) => {
+          setResearchContextOpen(false);
+          setSearchQuery(query);
+          goTab("browse");
+        }}
+        onChangeContext={() => {
+          setResearchContextOpen(false);
+          goTab("settings");
+        }}
+      />
       <InspectorRail
         mainTab={tab}
         railTab={railTab}
@@ -1482,6 +1725,11 @@ export function V2App() {
         onOpenInLibrary={openInLibraryFromDiscover}
         labIds={labIds}
         browseLifecycle={browseLifecycle}
+        collectionBrief={browseIntent}
+        collectionBriefBusy={browseIntentBusy}
+        onReviewCollectionBrief={reviewCollectionBrief}
+        onSelectCollectionRoute={selectCollectionBriefRoute}
+        onSubmitCollectionBrief={submitCollectionBrief}
         onTrackResources={trackJobInResources}
         onReviewApproval={reviewApprovalInResources}
         onRetryLifecycleRefresh={retryLifecycleRefresh}
@@ -1491,6 +1739,7 @@ export function V2App() {
         }}
         onPreviewExternal={() => browseRow && openPreviewExternal(browseRow)}
         onApproveJob={handleApproveJob}
+        onCancelJob={handleCancelJob}
         onRefresh={refreshBackend}
         onStartLibraryUpload={(folder) => startLibraryIntake("upload", folder)}
         onStartLibraryUrl={(folder) => startLibraryIntake("url", folder)}
@@ -1539,6 +1788,7 @@ export function V2App() {
             onCollected={refreshBackend}
             onApproveJob={handleApproveJob}
             onToast={showToast}
+            onConversation={linkActiveSynthesisConversation}
             railContext={railContext}
           />
         }

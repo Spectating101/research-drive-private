@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deskWarm, sendChatMessage } from "@/v2/api";
+import { sendChatMessage } from "@/v2/api";
 import { normalizeActivityStep } from "@/v2/deskIntegration";
 import { loadChatSessionId, loadUserEmail } from "@/v2/deskSession";
 import { classifyAskIntent, shapeAskReplyForIntent } from "@/v2/askIntent";
@@ -15,13 +15,12 @@ function normalizeOutgoingMessage(value, fallback = "") {
   return { prompt, displayText: prompt };
 }
 
-export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) {
+export function useAskChat({ dataset, railContext, onCollected, onToast, onConversation } = {}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const sessionRef = useRef(loadChatSessionId());
-  const warmStartedRef = useRef(false);
   const railRef = useRef(railContext);
   const busyRef = useRef(false);
   const intentRef = useRef("general");
@@ -29,16 +28,6 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
   useEffect(() => {
     railRef.current = railContext;
   }, [railContext]);
-
-  useEffect(() => {
-    if (warmStartedRef.current) return;
-    warmStartedRef.current = true;
-    deskWarm({
-      sessionId: sessionRef.current,
-      userEmail: loadUserEmail(),
-      background: true,
-    }).catch(() => {});
-  }, []);
 
   const contextPrefix = dataset?.dataset_id
     ? `[context: ${dataset.dataset_id}] `
@@ -114,6 +103,12 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         });
 
         if (out.session_id) sessionRef.current = out.session_id;
+        if (out.session_id || out.conversation_id || out.conversation) {
+          onConversation?.({
+            sessionId: out.session_id || sessionRef.current,
+            conversationId: out.conversation_id || out.conversation || "",
+          });
+        }
         const reply = out.reply || out.message || "Done.";
         const artifacts = out.artifacts || {};
         const statePatch = artifacts.state_patch || out.state_patch || {};
@@ -196,7 +191,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         intentRef.current = "general";
       }
     },
-    [contextPrefix, input, onCollected, onToast],
+    [contextPrefix, input, onCollected, onToast, onConversation],
   );
 
   return {

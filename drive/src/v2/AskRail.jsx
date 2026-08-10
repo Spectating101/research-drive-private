@@ -12,6 +12,7 @@ export function AskRail({
   onCollected,
   onApproveJob,
   onToast,
+  onConversation,
   railContext,
 }) {
   const { messages, input, setInput, busy, status, send, contextLabel } = useAskChat({
@@ -19,6 +20,7 @@ export function AskRail({
     railContext,
     onCollected,
     onToast,
+    onConversation,
   });
   const pendingSentRef = useRef("");
   const textareaRef = useRef(null);
@@ -241,6 +243,20 @@ export function AskRail({
                           <p className="rd-v2-ask-action-meta muted small">{meta.join(" · ")}</p>
                         );
                       })()}
+                      {Array.isArray(m.candidates) && m.candidates.length ? (
+                        <ul className="rd-v2-ask-candidates" data-testid="ask-candidates">
+                          {m.candidates.slice(0, 5).map((candidate, ci) => (
+                            <li key={candidate?.id || candidate?.dataset_id || ci}>
+                              <strong>
+                                {candidate?.label || candidate?.title || candidate?.dataset_id || candidate?.name || "Candidate"}
+                              </strong>
+                              {candidate?.reason || candidate?.summary ? (
+                                <span className="muted small"> — {candidate.reason || candidate.summary}</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                       {m.intent !== "status" && m.pendingJobId && m.jobStatus === "pending_approval" ? (
                         <div className="rd-v2-ask-actions">
                           <button

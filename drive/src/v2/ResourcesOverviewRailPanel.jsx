@@ -12,6 +12,27 @@ import {
 } from "@/v2/attentionModel";
 
 export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
+  if (rollup === null) {
+    return (
+      <RailFrame>
+        <RailEntityHeader
+          id="resources"
+          title="Resources"
+          description="Live desk capability data is unavailable."
+          pills={<span className="rd-v2-pill warn">Not reported</span>}
+        />
+        <div className="rd-v2-rail-scroll">
+          <RailFieldGrid>
+            <RailField label="Status" value="Live capability data unavailable" />
+            <RailField label="Source access" value="Not reported" />
+            <RailField label="Workers & storage" value="Not reported" />
+            <RailField label="Next" value="Use Refresh to check again" />
+          </RailFieldGrid>
+        </div>
+      </RailFrame>
+    );
+  }
+
   const workers = rollup?.hero?.workers || {};
   const vault = rollup?.hero?.vault || {};
   const query = rollup?.hero?.query_engine || {};
@@ -21,6 +42,7 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
     jobs,
   });
   const sourceCount = rollup?.connect?.source_count;
+  const reportedSources = Array.isArray(rollup?.connect?.sources) ? rollup.connect.sources : [];
   const collectorCount = workers.online ?? workers.joined ?? workers.busy ?? workers.total;
   const collectorState = workers.total != null && collectorCount != null
     ? `${collectorCount}/${workers.total} ${workers.busy != null ? "busy" : "available"}`
@@ -54,9 +76,11 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
           <p>
             {query.up === false
               ? "Catalog and query service is offline."
-              : sourceCount != null
-                ? `${sourceCount} source routes are reachable through the desk.`
-                : "Source routes and collection capacity are available for inspection."}
+              : reportedSources.length
+                ? `Access states are reported for ${reportedSources.length} desk routes.`
+                : sourceCount != null
+                  ? `${sourceCount} source routes are declared; individual access is not reported.`
+                  : "Source routes and collection capacity are not reported."}
           </p>
         </section>
         <p className="rd-v2-rail-section-label">Current capacity</p>
@@ -72,7 +96,10 @@ export function ResourcesOverviewRailPanel({ rollup, onViewActivity }) {
           <RailField label="Running" value={counts.running ? String(counts.running) : "None"} />
           <RailField label="Collectors" value={collectorState} />
           <RailField label="Vault" value={vaultState} />
-          <RailField label="Source reach" value={sourceCount != null ? `${sourceCount} routes` : "Configured routes"} />
+          <RailField
+            label="Source access"
+            value={reportedSources.length ? `${reportedSources.length} routes reported` : "Not reported"}
+          />
           <RailField label="Desk connection" value={query.up === false ? "Offline" : "Connected"} />
         </RailFieldGrid>
       </div>

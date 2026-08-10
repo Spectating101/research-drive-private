@@ -14,6 +14,12 @@ function text(value, fallback = "") {
   return String(value || "").trim() || fallback;
 }
 
+// Above this, an unbroken "checking evidence… updates automatically" claim
+// would run forever if the agent's turn never lands. Bounding it keeps the
+// happy path (agent responds in seconds) untouched while giving a genuine
+// stall an honest fallback instead of silent, indefinite optimism.
+const INTERPRETING_STALL_MS = 60000;
+
 function titleFor(thread) {
   return text(thread?.title || thread?.state?.title, "Untitled synthesis");
 }
@@ -25,9 +31,10 @@ function stateFor(thread) {
   if (lifecycle === "query_ready") return "query_ready";
   if (lifecycle === "registered") return "registered";
   if (lifecycle === "failed") return "failed";
-  if (execution.status) return "execution";
+  if (execution.status || state.execution_spec) return "execution";
   if (state.proposal) return "proposal";
   if ((state.nodes || []).length) return "explore";
+  if (text(thread?.objective || state.objective)) return "interpreting";
   return "draft";
 }
 
@@ -298,7 +305,7 @@ function ProposalReview({ thread, busy, onDecide, onAsk }) {
   );
 }
 
-function ExecutionRecord({ thread, busy, onRequest, onApprove, onAsk, onOpenDataset }) {
+function ExecutionRecord({ thread, busy, onApproveAndRun, onAsk, onOpenDataset }) {
   const state = thread?.state || {};
   const execution = state.execution || {};
   const spec = state.execution_spec || {};
@@ -309,7 +316,6 @@ function ExecutionRecord({ thread, busy, onRequest, onApprove, onAsk, onOpenData
   const registered = mode === "registered" || queryReady;
   const failed = execution.status === "failed";
   const hasSpec = Boolean(spec.input_dataset_id && spec.output_dataset_id);
-  const awaitingApproval = execution.status === "pending_approval" && Boolean(execution.job_id);
 
   return (
     <section className="s04-card" data-testid={queryReady ? "synthesis-query-ready-state" : registered ? "synthesis-registered-state" : failed ? "synthesis-failed-state" : "synthesis-execution-state"}>
@@ -361,8 +367,7 @@ function ExecutionRecord({ thread, busy, onRequest, onApprove, onAsk, onOpenData
                 : "An accepted execution specification is required before this thread can request a build."}
         </p>
         {registered ? <button type="button" className="rd-v2-btn primary" onClick={() => onOpenDataset?.({ dataset_id: outputId, name: outputId, analysis_readiness: "instant" })}>Open in Library</button> : null}
-        {awaitingApproval ? <button type="button" className="rd-v2-btn primary" disabled={busy} onClick={() => onApprove?.(execution.job_id)}>Approve build</button> : null}
-        {!registered && hasSpec ? <button type="button" className="rd-v2-btn primary" disabled={busy || Boolean(execution.status)} onClick={onRequest}>Request execution</button> : null}
+        {!registered && hasSpec ? <button type="button" className="rd-v2-btn primary" disabled={busy} onClick={onApproveAndRun}>Approve and run</button> : null}
         <button type="button" className="rd-v2-btn" onClick={() => onAsk("Explain the exact execution state and which evidence is still missing before this output can be trusted.")}>Ask about execution</button>
       </footer>
     </section>
@@ -380,6 +385,37 @@ function NewThread({ objective, setObjective, busy, onCreate, onAsk }) {
         <span>A new durable thread is created before the conversation continues.</span>
         <button type="button" className="rd-v2-btn primary" disabled={busy || !objective.trim()} onClick={onCreate}>Create thread &amp; discuss</button>
         <button type="button" className="rd-v2-btn" disabled={!objective.trim()} onClick={() => onAsk(objective)}>Ask first</button>
+      </footer>
+    </section>
+  );
+}
+
+function ThreadCreatedCard({ thread, onAsk, stalled, onRetry }) {
+  return (
+    <section className="s04-intent s04-intent-quiet" data-testid="synthesis-interpreting-state">
+      <small>Thread created</small>
+      <h2>{text(thread?.objective || thread?.state?.objective, "Research objective")}</h2>
+      {stalled ? (
+        <p data-testid="synthesis-interpreting-stalled">
+          This is taking longer than expected — the agent hasn't responded yet. Nothing has been built or
+          modified. You can keep waiting or check again now.
+        </p>
+      ) : (
+        <p>The agent is checking Library evidence and drafting a recommended construction. This updates automatically — nothing has been built or modified yet.</p>
+      )}
+      <footer>
+        {stalled ? (
+          <button type="button" className="rd-v2-btn" onClick={onRetry}>
+            Check again
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="rd-v2-btn"
+          onClick={() => onAsk("Explain what you've found so far and what decision is next.")}
+        >
+          Ask about progress
+        </button>
       </footer>
     </section>
   );
@@ -439,7 +475,7 @@ function EmptyWorkspace({ profiles, profilesLoading, profilesError, onStartBluep
   );
 }
 
-export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, onOpenDataset, onSelectThread }) {
+export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, onOpenDataset, onSelectThread, focusThreadId, onFocusThreadConsumed }) {
   const [threads, setThreads] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
@@ -451,7 +487,10 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
   const [newMode, setNewMode] = useState(false);
   const [objective, setObjective] = useState("");
   const [selectedField, setSelectedField] = useState(null);
+  const [interpretingStalled, setInterpretingStalled] = useState(false);
   const notified = useRef("");
+  const interpretingSinceRef = useRef(null);
+  const interpretingThreadIdRef = useRef("");
 
   const replaceThread = useCallback((next) => {
     if (!next?.id) return;
@@ -525,13 +564,51 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
   }, [replaceThread, selectedId]);
 
   useEffect(() => {
+    if (!selected) return undefined;
     const execution = selected?.state?.execution || {};
-    if (!selected || !/pending_approval|queued|running|registering|archiving/i.test(String(execution.status || ""))) return undefined;
-    const timer = window.setInterval(() => {
-      refreshThread().catch(() => {});
+    const executing = /pending_approval|queued|running|registering|archiving/i.test(String(execution.status || ""));
+    const interpreting = stateFor(selected) === "interpreting";
+
+    const interpretingThreadId = selected?.id || "";
+    if (!interpreting) {
+      interpretingSinceRef.current = null;
+      interpretingThreadIdRef.current = "";
+      if (interpretingStalled) setInterpretingStalled(false);
+    } else if (interpretingThreadIdRef.current !== interpretingThreadId) {
+      // Stalling belongs to one durable thread. Selecting a different new
+      // thread must start a fresh wait window rather than inheriting the
+      // previous thread's "agent hasn't responded" state.
+      interpretingThreadIdRef.current = interpretingThreadId;
+      interpretingSinceRef.current = Date.now();
+      if (interpretingStalled) setInterpretingStalled(false);
+    }
+
+    if (!executing && !interpreting) return undefined;
+    // Once truly stalled, stop polling in the background — continuing to
+    // poll silently would undercut the honest "this stalled" signal now
+    // showing. A manual "Check again" click (retryInterpreting) re-arms it.
+    if (interpreting && interpretingStalled) return undefined;
+
+    const timer = window.setInterval(async () => {
+      const next = await refreshThread().catch(() => null);
+      const stillInterpreting = next ? stateFor(next) === "interpreting" : interpreting;
+      if (
+        stillInterpreting &&
+        interpretingSinceRef.current &&
+        Date.now() - interpretingSinceRef.current > INTERPRETING_STALL_MS
+      ) {
+        setInterpretingStalled(true);
+      }
     }, 4000);
     return () => window.clearInterval(timer);
-  }, [selected, refreshThread]);
+  }, [selected, refreshThread, interpretingStalled]);
+
+  const retryInterpreting = useCallback(() => {
+    interpretingThreadIdRef.current = selected?.id || "";
+    interpretingSinceRef.current = Date.now();
+    setInterpretingStalled(false);
+    refreshThread().catch(() => {});
+  }, [refreshThread, selected?.id]);
 
   const selectThread = async (threadId) => {
     setSelectedId(threadId);
@@ -546,11 +623,20 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
     }
   };
 
-  const ask = (prompt) => {
+  useEffect(() => {
+    if (!focusThreadId) return;
+    // Returning from a Discover handoff: select the exact originating thread
+    // directly, bypassing refreshThreads()'s "familiar thread" demo heuristic
+    // (below) so a real cross-page return always wins over it.
+    selectThread(focusThreadId).finally(() => onFocusThreadConsumed?.());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot per focusThreadId change; selectThread/onFocusThreadConsumed read via closure
+  }, [focusThreadId]);
+
+  const ask = (prompt, displayText) => {
     const context = selected
       ? `\n\nSynthesis thread: ${titleFor(selected)}\nObjective: ${text(selected.objective || selected.state?.objective)}\nDurable status: ${stageLabel(selected)}.`
       : "\n\nSynthesis workspace context.";
-    onAskComposer?.({ prompt: `${text(prompt)}${context}`, displayText: text(prompt, "Discuss this synthesis") });
+    onAskComposer?.({ prompt: `${text(prompt)}${context}`, displayText: text(displayText || prompt, "Discuss this synthesis") });
   };
 
   const routeToDiscover = async (field) => {
@@ -592,7 +678,7 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
       setNewMode(false);
       setObjective("");
       onSelectThread?.(created);
-      ask(`Interpret this research objective and propose the smallest defensible construction: ${nextObjective}`);
+      ask(`Interpret this research objective and propose the smallest defensible construction: ${nextObjective}`, nextObjective);
     } catch (cause) {
       setError(text(cause?.message, "The Synthesis thread could not be created."));
     } finally {
@@ -630,6 +716,7 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
       onSelectThread?.(created);
       ask(
         `Use registered blueprint ${profile.id} (${title}). Propose the smallest defensible construction from owned Library inputs. Do not invent missing sources.`,
+        objectiveText,
       );
     } catch (cause) {
       setError(text(cause?.message, "Could not start this blueprint as a Synthesis thread."));
@@ -659,36 +746,34 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
     }
   };
 
-  const requestExecution = async () => {
-    if (!selected) return;
+  const approveAndRun = async () => {
+    if (!selected || !onApproveJob) return;
     setBusy(true);
     setError("");
     try {
-      const result = await requestSynthesisExecution(selected.id);
-      const next = result?.thread || (result?.state ? result : await refreshThread(selected.id));
-      if (next) {
-        replaceThread(next);
-        onSelectThread?.(next);
+      let thread = selected;
+      let jobId = thread?.state?.execution?.job_id;
+      // State-driven, not a blind two-call chain: if a request already landed
+      // (e.g. a prior click's approval failed, or the page reloaded mid-flow),
+      // re-entering here goes straight to approval instead of requesting a
+      // second job against the same accepted spec.
+      if (thread?.state?.execution?.status !== "pending_approval" || !jobId) {
+        const result = await requestSynthesisExecution(thread.id);
+        thread = result?.thread || (result?.state ? result : await refreshThread(thread.id));
+        if (thread) {
+          replaceThread(thread);
+          onSelectThread?.(thread);
+        }
+        jobId = thread?.state?.execution?.job_id;
       }
-    } catch (cause) {
-      setError(text(cause?.message, "The execution request could not be created."));
-      refreshThread().catch(() => {});
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const approveExecution = async (jobId) => {
-    if (!jobId || !onApproveJob) return;
-    setBusy(true);
-    setError("");
-    try {
+      if (!jobId) throw new Error("Execution could not be requested.");
       const approved = await onApproveJob(jobId);
-      if (!approved) throw new Error("The build was not approved. Review the error and try again.");
-      const next = await refreshThread(selected?.id);
+      if (!approved) throw new Error("Requested, but approval failed. Click Approve and run to retry.");
+      const next = await refreshThread(thread.id);
       if (next) onSelectThread?.(next);
     } catch (cause) {
-      setError(text(cause?.message, "The execution build could not be approved."));
+      setError(text(cause?.message, "The build could not be approved."));
+      refreshThread().catch(() => {});
     } finally {
       setBusy(false);
     }
@@ -723,8 +808,11 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
             <>
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
-              {showExecution ? <ExecutionRecord thread={selected} busy={busy} onRequest={requestExecution} onApprove={approveExecution} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
+              {showExecution ? <ExecutionRecord thread={selected} busy={busy} onApproveAndRun={approveAndRun} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
               {mode === "explore" ? <EvidenceMap thread={selected} selectedField={selectedField} onAsk={ask} onRouteToDiscover={routeToDiscover} onSelectField={setSelectedField} /> : null}
+              {mode === "interpreting" ? (
+                <ThreadCreatedCard thread={selected} onAsk={ask} stalled={interpretingStalled} onRetry={retryInterpreting} />
+              ) : null}
               {mode === "draft" ? (
                 <EmptyWorkspace
                   profiles={profiles}

@@ -59,12 +59,13 @@ const SettingsIcon = () => (
 export const CLUSTER_NAV_DEFERRED = true;
 
 export const V2_CLUSTER_TAB = { id: "cluster", label: "Cluster", Icon: ClusterIcon };
+export const V2_SYNTHESIS_TAB = { id: "synthesis", label: "Synthesis", Icon: SynthesisIcon };
 
+/** Professor-facing navigation. Synthesis stays routable while its workflow is being refined. */
 export const V2_SIDEBAR_TABS = [
   { id: "home",      label: "Home",      Icon: HomeIcon },
   { id: "library",   label: "Library",   Icon: LibraryIcon },
   { id: "browse",    label: "Discover",  Icon: BrowseIcon },
-  { id: "synthesis", label: "Synthesis", Icon: SynthesisIcon },
   { id: "resources", label: "Resources", Icon: ResourcesIcon },
   { id: "profile",   label: "Profile",   Icon: ProfileIcon },
   { id: "settings",  label: "Settings",  Icon: SettingsIcon },
@@ -72,5 +73,11 @@ export const V2_SIDEBAR_TABS = [
 
 /** All routable tabs (includes deferred). */
 export const V2_TABS = CLUSTER_NAV_DEFERRED
-  ? V2_SIDEBAR_TABS
-  : [...V2_SIDEBAR_TABS.slice(0, 2), V2_CLUSTER_TAB, ...V2_SIDEBAR_TABS.slice(2)];
+  ? [...V2_SIDEBAR_TABS.slice(0, 3), V2_SYNTHESIS_TAB, ...V2_SIDEBAR_TABS.slice(3)]
+  : [
+      ...V2_SIDEBAR_TABS.slice(0, 2),
+      V2_CLUSTER_TAB,
+      ...V2_SIDEBAR_TABS.slice(2, 3),
+      V2_SYNTHESIS_TAB,
+      ...V2_SIDEBAR_TABS.slice(3),
+    ];

@@ -26,7 +26,7 @@ test.describe("v2 Resources tab", () => {
     await expect(inventory).toContainText("Capacity & access");
     await expect(inventory).toContainText("Storage");
     await expect(inventory).toContainText("Accounts & limits");
-    await expect(inventory).toContainText("Available source routes");
+    await expect(inventory).toContainText("Declared source routes");
     await expect(inventory).not.toContainText("Work capacity");
     await expect(inventory.locator('[data-kind="usage"]', { hasText: "Drive vault" })).toBeVisible();
     await expect(inventory.locator('[data-kind="source"]')).toHaveCount(5);
@@ -45,6 +45,16 @@ test.describe("v2 Resources tab", () => {
     await expect(main.getByText("Metered APIs")).toHaveCount(0);
     await expect(main.getByText("Activity ledger")).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Review queue" })).toHaveCount(0);
+
+    const ledger = page.getByTestId("resources-source-ledger");
+    await expect(ledger).toContainText("DataCite");
+    await expect(ledger).toContainText("Live API route");
+    await expect(ledger).toContainText("ROUTE DEFINED");
+    await expect(ledger).toContainText("BigQuery");
+    await expect(ledger).toContainText("Credentials required");
+    await expect(ledger).toContainText("UNAVAILABLE");
+    await expect(ledger).toContainText("WRDS");
+    await expect(ledger).toContainText("Licensed access unavailable");
   });
 
   test("inventory row opens the matching rail resource", async ({ page }) => {
@@ -57,6 +67,18 @@ test.describe("v2 Resources tab", () => {
     await expect(rail).toContainText("DataCite");
     await expect(rail).toContainText("Academic metadata and dataset APIs");
     await expect(rail).toContainText("DOI lookup and dataset import");
+  });
+
+  test("reported source access carries through to the Detail rail", async ({ page }) => {
+    const ledger = page.getByTestId("resources-source-ledger");
+    await ledger.getByRole("button", { name: /BigQuery/ }).click();
+
+    const rail = page.getByRole("complementary", { name: "Inspector" });
+    await expect(rail.locator(".rd-v2-rail-selection")).toHaveText("BigQuery");
+    await expect(rail).toContainText("Credentials required");
+    await expect(rail).toContainText("Unavailable");
+    await expect(rail).toContainText("Not available on this desk");
+    await expect(rail).not.toContainText("Available for discovery/procurement");
   });
 
   test("selected inventory resource can be sent to Ask from the rail", async ({ page }) => {
@@ -76,6 +98,8 @@ test.describe("v2 Resources tab", () => {
     await expect(rail).toContainText("Lab capacity");
     await expect(rail).toContainText("Current capacity");
     await expect(rail).toContainText(/items? need attention|Desk ready|collection.*running/i);
+    await expect(rail).toContainText("Access states are reported for 3 desk routes.");
+    await expect(rail).not.toContainText("source routes are reachable");
     await expect(rail.getByRole("button", { name: "Open activity" })).toBeVisible();
     await expect(rail).not.toContainText("Select a key resource");
   });
@@ -176,4 +200,25 @@ test("v2 Resources loading state does not flash account summary", async ({ page 
   releaseResources();
   await waitForShell(page);
   await expect(main.getByRole("region", { name: "Capacity and access" })).toBeVisible();
+});
+
+test("v2 Resources API failure reports unknown capability instead of a healthy fallback", async ({ page }) => {
+  await mockV2Api(page);
+  await page.route("**/library/desk/resources*", (route) =>
+    route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "unavailable" }) }),
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/?tab=resources", { waitUntil: "domcontentloaded" });
+
+  const main = page.locator("main");
+  await expect(main.getByRole("status", { name: "Resources status unavailable" })).toContainText(
+    "Live desk capability data could not be read",
+  );
+  await expect(main.getByRole("region", { name: "Capacity and access" })).toHaveCount(0);
+  await expect(main.getByText("Declared source routes")).toHaveCount(0);
+  await expect(main.getByText("Composer + MCP")).toHaveCount(0);
+  await expect(main.getByText("ADC ok")).toHaveCount(0);
+  const rail = page.getByRole("complementary", { name: "Inspector" });
+  await expect(rail).toContainText("Live capability data unavailable");
+  await expect(rail).not.toContainText("Lab capacity");
 });

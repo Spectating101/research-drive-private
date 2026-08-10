@@ -191,6 +191,7 @@ export function BrowsePage({
   usingSeed = false,
   probeSnapshots = {},
   onSuggestSearch,
+  onCraftUrl,
   onSearchWeb,
   discoverMode = "explore",
   onDiscoverModeChange,
@@ -199,6 +200,8 @@ export function BrowsePage({
   selectedHistoryId = "",
   synthesisHandoff = null,
   onDismissSynthesisHandoff,
+  onRequestSynthesisEvidence,
+  onReturnToSynthesis,
   onSelectHistoryEvent,
 }) {
   const [rows, setRows] = useState([]);
@@ -487,13 +490,21 @@ export function BrowsePage({
                 This is a research handoff only; no collection has started.
               </p>
             </div>
+            {(synthesisHandoff.collect_intents || []).some((intent) => intent?.resolvable) ? (
+              <button type="button" className="rd-v2-btn sm primary" onClick={() => onRequestSynthesisEvidence?.()}>
+                Request this evidence
+              </button>
+            ) : null}
+            <button type="button" className="rd-v2-btn sm" onClick={() => onReturnToSynthesis?.()}>
+              Return to Synthesis
+            </button>
             <button type="button" className="rd-v2-btn sm" onClick={() => onDismissSynthesisHandoff?.()}>
               Dismiss
             </button>
           </section>
         ) : null}
         {!q ? (
-          <DiscoverEmptyState onSuggest={onSuggestSearch} />
+          <DiscoverEmptyState onSuggest={onSuggestSearch} onCraftUrl={onCraftUrl} />
         ) : (
           <>
             <section

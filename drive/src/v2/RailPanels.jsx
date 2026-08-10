@@ -13,6 +13,7 @@ import {
   RailStickyFooter,
 } from "@/v2/RailFrame";
 import { DetailPanel } from "@/v2/DetailPanel";
+import { classifyJobLifecycle } from "@/v2/discoverLifecycle";
 
 function fmtGiB(gib) {
   if (gib == null) return "—";
@@ -80,10 +81,11 @@ function resourceRailUse(row) {
   if (row.key === "source-datacite") return "Research datasets";
   if (row.key === "source-huggingface") return "Community datasets";
   if (row.key === "source-web_generic") return "Any public URL";
-  return row.detail || row.sublabel || row.section || "—";
+  return row.sourceNote || row.detail || row.sublabel || row.section || "—";
 }
 
 function resourceRailAccess(row) {
+  if (row.kind === "source" && row.authority && row.detail) return row.detail;
   if (row.key === "source-gdelt") return "Queue to collect";
   if (row.key === "source-market-filings") return "Official feeds and queue scripts";
   if (row.key === "source-research-catalogs") return "DOI lookup and dataset import";
@@ -128,6 +130,10 @@ function resourceRailLimit(row) {
 }
 
 function resourceRailStatus(row) {
+  if (row.authority === "UNAVAILABLE") return "Unavailable";
+  if (row.authority === "CONDITIONAL") return "Conditional";
+  if (row.authority === "ROUTE DEFINED") return "Declared";
+  if (row.authority === "NOT CHECKED") return "Not checked";
   if (row.warn) return "Needs attention";
   if (row.ok === false) return "Offline";
   return "Healthy";
@@ -215,7 +221,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
         <RailEntityHeader
           id={object.id}
           title="Add URL / DOI"
-          description="Probe a public source, collect metadata, and hand the acquisition plan to Ask."
+          description="Create a governed evidence-intake request from one URL or DOI."
           pills={<span className="rd-v2-pill ext">Intake</span>}
         />
         <div className="rd-v2-rail-scroll">
@@ -224,7 +230,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
             <RailField label="Path" value={object.path} />
           </RailFieldGrid>
           <div className="rd-v2-rail-intake">
-            <label htmlFor="rd-v2-rail-url-input">URLs or DOIs</label>
+            <label htmlFor="rd-v2-rail-url-input">One URL or DOI</label>
             <textarea
               id="rd-v2-rail-url-input"
               rows={7}
@@ -241,7 +247,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
             disabled={!target.trim()}
             onClick={() => onSubmitUrl?.(target.trim(), object)}
           >
-            Send to Ask
+            Request intake
           </button>
         </RailStickyFooter>
       </RailFrame>
@@ -254,7 +260,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
         <RailEntityHeader
           id={object.id}
           title="Procure branch"
-          description="Use the current Library branch as the destination and ask the desk to search, probe, and propose acquisition steps."
+          description="Open Discover with this branch as the research context, then inspect and request evidence deliberately."
           pills={<span className="rd-v2-pill ext">Procure</span>}
         />
         <div className="rd-v2-rail-scroll">
@@ -267,7 +273,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
         </div>
         <RailStickyFooter>
           <button type="button" className="rd-v2-btn sm primary" onClick={() => onSubmitProcure?.(object)}>
-            Ask to procure
+            Find evidence in Discover
           </button>
         </RailStickyFooter>
       </RailFrame>
@@ -279,7 +285,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
       <RailEntityHeader
         id={object.id}
         title="Upload files"
-        description="Stage local files against the current Library branch and hand ingestion to the vault via Ask."
+        description="Local file staging is not connected to the desk yet. Use a URL or DOI, or archive the file before requesting intake."
         pills={<span className="rd-v2-pill lab">Upload</span>}
       />
       <div className="rd-v2-rail-scroll">
@@ -302,10 +308,10 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
             aria-label="Choose files to upload"
             onChange={(event) => setPickedFiles(event.target.files)}
           />
-          <strong>Drop files here</strong>
-          <p>or choose files from disk for vault ingestion.</p>
+          <strong>Local file staging unavailable</strong>
+          <p>Choose URL / DOI intake for a backend-backed request.</p>
           <button type="button" className="rd-v2-btn sm" onClick={chooseFiles}>
-            Choose files
+            Inspect local files
           </button>
         </div>
         <div className="rd-v2-rail-file-list" aria-label="Selected files">
@@ -319,7 +325,7 @@ function LibraryIntakeRailPanel({ object, onSubmitUpload, onSubmitUrl, onSubmitP
           disabled={!files.length}
           onClick={() => onSubmitUpload?.(files, object)}
         >
-          Send to Ask
+          Explain staging requirement
         </button>
       </RailStickyFooter>
     </RailFrame>
@@ -511,7 +517,7 @@ export function BrowseRailPanel(props) {
   return <DiscoverEvaluationSurface {...props} variant="rail" />;
 }
 
-export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onViewActivity, onAskAbout }) {
+export function ResourcesRailPanel({ row, rollup, onApproveJob, onCancelJob, onRefresh, onViewActivity, onAskAbout }) {
   const [liveIdentity, setLiveIdentity] = useState(null);
 
   useEffect(() => {
@@ -538,6 +544,26 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
       cancelled = true;
     };
   }, [row?.key, row?.job?.id, row?.event?.id, row?.event?.meta?.job_id, row?.event?.meta?.dataset_id]);
+
+  if (rollup === null) {
+    return (
+      <RailFrame>
+        <RailEntityHeader
+          id="resources"
+          title="Resources"
+          description="Live desk capability data is unavailable."
+          pills={<span className="rd-v2-pill warn">Not reported</span>}
+        />
+        <div className="rd-v2-rail-scroll">
+          <RailFieldGrid>
+            <RailField label="Status" value="Live capability data unavailable" />
+            <RailField label="Selected resource" value="Not reported" />
+            <RailField label="Next" value="Use Refresh to check again" />
+          </RailFieldGrid>
+        </div>
+      </RailFrame>
+    );
+  }
 
   if (!row) {
     const workers = rollup?.hero?.workers || {};
@@ -705,11 +731,12 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
       : row.ok !== false
         ? "Healthy"
         : "Failed";
-  const pillLabel = row.warn ? "Check" : row.ok === false ? "Offline" : "Ready";
+  const sourceStatus = row.kind === "source" ? resourceRailStatus(row) : "";
+  const pillLabel = sourceStatus || (row.warn ? "Check" : row.ok === false ? "Offline" : "Ready");
   const fields =
     row.kind === "source"
       ? [
-          [row.group ? "Includes" : "Website", row.endpoint || "—"],
+          [row.group ? "Includes" : "Route", row.endpoint || row.routes || row.metric || "—"],
           ["Use", resourceRailUse(row)],
           ["Access", resourceRailAccess(row)],
           ["Status", resourceRailStatus(row)],
@@ -737,6 +764,7 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
       : row.kind === "metered" && row.key === "tavily"
         ? { meterId: "tavily" }
         : null;
+  const jobLifecycle = row.job ? classifyJobLifecycle(row.job) : null;
 
   return (
     <RailFrame>
@@ -754,7 +782,15 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
         status={resourceRailStatus(row) || fallbackStatus}
         primary={
           row.kind === "source"
-            ? "Available for discovery/procurement"
+            ? sourceStatus === "Unavailable"
+              ? "Not available on this desk"
+              : sourceStatus === "Conditional"
+                ? "Available only with stated conditions"
+                : sourceStatus === "Declared"
+                  ? "Route declared; verify before relying on it"
+                  : sourceStatus === "Not checked"
+                    ? "Inspect before relying on this route"
+                    : "Available for discovery/procurement"
             : row.kind === "metered"
               ? "Usable with limit checks"
               : row.kind === "usage"
@@ -790,7 +826,9 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
           {row.job ? (
             <>
               <RailField label="Job ID" value={row.job.id} mono />
-              <RailField label="Job status" value={row.job.status} />
+              <RailField label="Job status" value={jobLifecycle?.label || row.job.status} />
+              <RailField label="Next" value={jobLifecycle?.explanation || "Inspect job details"} />
+              {row.job.error ? <RailField label="Failure detail" value={row.job.error} /> : null}
             </>
           ) : null}
           {liveIdentity ? (
@@ -813,6 +851,11 @@ export function ResourcesRailPanel({ row, rollup, onApproveJob, onRefresh, onVie
         {row.job?.status === "pending_approval" ? (
           <button type="button" className="rd-v2-btn sm primary" onClick={() => onApproveJob?.(row.job.id)}>
             Approve job
+          </button>
+        ) : null}
+        {row.job && ["pending_approval", "queued"].includes(row.job.status) ? (
+          <button type="button" className="rd-v2-btn sm" onClick={() => onCancelJob?.(row.job.id)}>
+            Cancel job
           </button>
         ) : null}
         {meterActivityFilter ? (

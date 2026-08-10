@@ -239,30 +239,36 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await capture(page, "01-durable-evidence-desktop");
   });
 
-  test("accepts a revision-bound proposal, then requests but does not fabricate execution", async ({ page }) => {
+  test("accepts a revision-bound proposal, then approves and runs in one action without fabricating registration", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
     await expect(page.getByTestId("synthesis-proposal-state")).toContainText("Aggregate held weekly panel");
     await page.getByRole("button", { name: "Accept proposal" }).click();
     await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
-    await page.getByRole("button", { name: "Request execution" }).click();
-    const pending = page.getByTestId("synthesis-execution-state");
-    await expect(pending).toContainText("pending approval");
-    await expect(pending.getByText("Query ready", { exact: true })).toHaveCount(0);
+
+    const execution = page.getByTestId("synthesis-execution-state");
+    await expect(execution.getByRole("button", { name: "Approve and run" })).toBeVisible();
+    await expect(execution.getByRole("button", { name: "Request execution" })).toHaveCount(0);
+    await expect(execution.getByRole("button", { name: "Approve build" })).toHaveCount(0);
+    // An accepted proposal with no execution requested yet has empty nodes
+    // and no execution.status — the same gap a freshly created thread sits
+    // in. Only the execution record should render there, never the
+    // interpreting card or the blueprint picker underneath it.
+    await expect(page.getByTestId("synthesis-interpreting-state")).toHaveCount(0);
+    await expect(page.getByTestId("synthesis-empty-state")).toHaveCount(0);
+    // The rail's Evidence field must not say "No inputs mapped" while the
+    // execution record beside it names a specific accepted input — the
+    // thread's evidence graph nodes stay empty through the proposal/accept
+    // path, but the rail has to reflect the accepted method's declared
+    // input rather than defaulting to a contradiction.
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("Declared input · accepted: stablecoin_trust_engagement_weekly");
+    await expect(rail).not.toContainText("No inputs mapped");
     await capture(page, "02-execution-request-desktop");
-  });
 
-  test("queues an approved synthesis build without fabricating a registered output", async ({ page }) => {
-    await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
-    await page.getByRole("button", { name: "Accept proposal" }).click();
-    await page.getByRole("button", { name: "Request execution" }).click();
-
-    const pending = page.getByTestId("synthesis-execution-state");
-    await expect(pending).toContainText("pending approval");
-    await expect(pending.getByRole("button", { name: "Approve build" })).toBeVisible();
-
-    await pending.getByRole("button", { name: "Approve build" }).click();
+    await execution.getByRole("button", { name: "Approve and run" }).click();
     const queued = page.getByTestId("synthesis-execution-state");
     await expect(queued).toContainText("queued");
+    await expect(queued.getByText("Query ready", { exact: true })).toHaveCount(0);
     await expect(queued.getByRole("button", { name: "Open in Library" })).toHaveCount(0);
   });
 
@@ -307,11 +313,12 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(ready.getByRole("button", { name: "Open in Library" })).toBeVisible();
   });
 
-  test("sends the selected durable thread to the shared Ask rail", async ({ page }) => {
+  test("sends the selected durable thread to the shared Ask rail with a grounded reply, not a generic acknowledgement", async ({ page }) => {
     await page.getByRole("button", { name: "Discuss construction in Ask" }).click();
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Ask · synthesis thread");
-    await expect(rail).toContainText("Synthesis thread context received for Historical stablecoin attention");
+    await expect(rail).toContainText("The evidence map for Historical stablecoin attention reflects what is currently held");
+    await expect(rail).not.toContainText("context received");
     await expect(rail.getByTestId("ask-composer")).toHaveAttribute(
       "placeholder",
       "Correct the interpretation, add a constraint, or ask…",
@@ -326,6 +333,14 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.getByRole("button", { name: "Create thread & discuss" }).click();
     await expect(page.getByText(objective, { exact: true }).first()).toBeVisible();
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · synthesis thread");
+    // The visible "You:" turn shows the researcher's literal words, not a
+    // system-authored wrapper instruction.
+    await expect(page.locator("aside.rd-v2-rail")).toContainText(`You: ${objective}`);
+    // A "thread created" card replaces the post-create blueprint picker —
+    // the picker's tiles unconditionally create a *second* thread if clicked,
+    // so it must not reappear once a thread already exists.
+    await expect(page.getByTestId("synthesis-interpreting-state")).toBeVisible();
+    await expect(page.getByTestId("synthesis-empty-state")).toHaveCount(0);
     await capture(page, "05-new-thread-ask-desktop");
   });
 
@@ -337,5 +352,111 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.getByRole("button", { name: /Show Detail.*Ask|Hide panel/ }).click();
     await expect(page.locator("aside.rd-v2-rail")).toBeVisible();
     await capture(page, "06-durable-evidence-mobile");
+  });
+
+  test("the interpreting card yields to the evidence map once the agent's turn lands, without a manual reload", async ({ page }) => {
+    await page.getByRole("button", { name: "+ New" }).click();
+    const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
+
+    const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes("/api/library/synthesis/threads") && res.request().method() === "POST",
+      ),
+      page.getByRole("button", { name: "Create thread & discuss" }).click(),
+    ]);
+    const created = await createResponse.json();
+    const threadId = created.id;
+
+    await expect(page.getByTestId("synthesis-interpreting-state")).toBeVisible();
+
+    // Simulate the agent's server-side turn landing: the next poll of this
+    // thread now returns mapped evidence.
+    await page.route(`**/api/library/synthesis/threads/${threadId}`, async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: threadId,
+          title: objective,
+          objective,
+          state: {
+            title: objective,
+            objective,
+            nodes: [
+              { id: "trends", type: "construct", layer: "evidence", label: "Search intent", role: "Core signal", status: "held" },
+            ],
+            edges: [],
+            proposal: null,
+          },
+        }),
+      });
+    });
+
+    await expect(page.getByTestId("synthesis-evidence-state")).toBeVisible({ timeout: 6000 });
+    await expect(page.getByTestId("synthesis-interpreting-state")).toHaveCount(0);
+  });
+
+  test("stops polling silently and admits it when the agent's turn never lands", async ({ page }) => {
+    await page.clock.install();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
+    await page.getByRole("button", { name: "Create thread & discuss" }).click();
+
+    const card = page.getByTestId("synthesis-interpreting-state");
+    await expect(card).toBeVisible();
+    await expect(page.getByTestId("synthesis-interpreting-stalled")).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Check again" })).toHaveCount(0);
+
+    // Nothing overrides this thread's GET route, so it keeps returning the
+    // same unresolved state on every poll — a genuine stall, not a landed
+    // turn the test forgot to simulate.
+    await page.clock.fastForward(65000);
+
+    await expect(page.getByTestId("synthesis-interpreting-stalled")).toBeVisible();
+    await expect(card).toContainText("taking longer than expected");
+    await expect(card).not.toContainText("This updates automatically");
+    const retry = card.getByRole("button", { name: "Check again" });
+    await expect(retry).toBeVisible();
+
+    await retry.click();
+    await expect(page.getByTestId("synthesis-interpreting-stalled")).toHaveCount(0);
+    await expect(card).toContainText("This updates automatically");
+  });
+
+  test("a stalled thread does not make the next new thread look stalled", async ({ page }) => {
+    await page.clock.install();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill("First unresolved objective");
+    await page.getByRole("button", { name: "Create thread & discuss" }).click();
+    await page.clock.fastForward(65000);
+    await expect(page.getByTestId("synthesis-interpreting-stalled")).toBeVisible();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    const secondObjective = "Second unresolved objective";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(secondObjective);
+    await page.getByRole("button", { name: "Create thread & discuss" }).click();
+
+    const card = page.getByTestId("synthesis-interpreting-state");
+    await expect(card).toContainText(secondObjective);
+    await expect(page.getByTestId("synthesis-interpreting-stalled")).toHaveCount(0);
+    await expect(card).toContainText("This updates automatically");
+  });
+
+  test("returns to the exact Synthesis thread after a Discover handoff, with context intact", async ({ page }) => {
+    await page.getByRole("button", { name: /Regulatory filings/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Regulatory filings");
+    await page.getByRole("button", { name: "Route to Discover" }).click();
+    await expect(page).toHaveURL(/tab=browse/);
+    await expect(page.getByTestId("synthesis-discover-handoff")).toContainText("Regulatory filings");
+
+    await page.getByRole("button", { name: "Return to Synthesis" }).click();
+    await expect(page).toHaveURL(/tab=synthesis/);
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Historical stablecoin attention");
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Search intent");
   });
 });

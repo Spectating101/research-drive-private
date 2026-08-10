@@ -331,6 +331,29 @@ export async function mockV2Api(
       body: JSON.stringify({ job }),
     });
   });
+  await page.route("**/library/upload", (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    let body = {};
+    try {
+      body = JSON.parse(route.request().postData() || "{}");
+    } catch {
+      body = {};
+    }
+    const job = {
+      id: `job-library-intake-${liveJobs.jobs.length + 1}`,
+      status: "pending_approval",
+      candidate_key: body.doi ? `doi:${body.doi}` : body.url ? `url:${body.url}` : null,
+      registered_dataset_id: null,
+      plan: { title: body.doi || body.url || "Library intake" },
+      request: { doi: body.doi || null, url: body.url || null },
+    };
+    liveJobs.jobs = [job, ...liveJobs.jobs.filter((item) => item?.id !== job.id)];
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, via: body.doi ? "datacite" : "http_manifest", job }),
+    });
+  });
   await page.route("**/library/discover/web*", (route) =>
     route.fulfill({
       status: 200,
@@ -469,14 +492,33 @@ export async function mockV2Api(
   const fulfillChat = (route) => {
     const body = route.request().postDataJSON?.() || {};
     const entity = body?.rail_context?.entity || {};
-    const reply =
-      entity.kind === "discover_history"
-        ? `Lifecycle context received for ${entity.title || "selected record"}.`
-        : entity.kind === "external_candidate"
-          ? `Source context received for ${entity.title || "selected candidate"}.`
-          : entity.kind === "synthesis_thread"
-            ? `Synthesis thread context received for ${entity.title || "selected thread"}.`
-          : "Resources context received.";
+    const message = String(body?.message || "");
+    let reply;
+    if (entity.kind === "discover_history") {
+      reply = `Lifecycle context received for ${entity.title || "selected record"}.`;
+    } else if (entity.kind === "external_candidate") {
+      reply = `Source context received for ${entity.title || "selected candidate"}.`;
+    } else if (entity.kind === "synthesis_thread") {
+      // Varies by prompt content, not just entity kind — a blanket
+      // "context received" reply for every turn (including the first
+      // interpretation turn) is the exact anti-pattern the product doc
+      // calls out; a real backend reply is grounded in what was actually
+      // asked.
+      const title = entity.title || "this thread";
+      if (/interpret this research objective/i.test(message)) {
+        reply = `Understood the objective for ${title}. Checking Library evidence and drafting a recommended construction now.`;
+      } else if (/evidence map/i.test(message)) {
+        reply = `The evidence map for ${title} reflects what is currently held and what remains a gap — nothing has been resolved automatically.`;
+      } else if (/next material research decision|progress/i.test(message)) {
+        reply = `Still mapping evidence for ${title}. The next material decision will surface here as soon as one exists.`;
+      } else if (/challenge/i.test(message)) {
+        reply = `Reviewing the proposal for ${title} against the held evidence and stated limitations.`;
+      } else {
+        reply = `Continuing the ${title} thread.`;
+      }
+    } else {
+      reply = "Resources context received.";
+    }
     return route.fulfill({
       status: 200,
       contentType: "application/json",

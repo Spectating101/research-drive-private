@@ -11,6 +11,99 @@ function rowBase(row) {
   return { ok: true, warn: false, showStatus: false, ...row };
 }
 
+const CONNECT_MODE = {
+  local_query: {
+    access: "Available now",
+    authority: "OBSERVED",
+    detail: "Bytes are held on the desk and can be queried now.",
+  },
+  api_live: {
+    access: "Live API route",
+    authority: "ROUTE DEFINED",
+    detail: "A live API route is declared by the desk.",
+  },
+  needs_credentials: {
+    access: "Credentials required",
+    authority: "UNAVAILABLE",
+    detail: "The route is declared, but desk credentials are missing.",
+    ok: false,
+    warn: true,
+  },
+  licensed_seat: {
+    access: "Licensed seat required",
+    authority: "CONDITIONAL",
+    detail: "This route depends on an institutional entitlement.",
+  },
+  licensed_entitled: {
+    access: "Entitlement reported",
+    authority: "CONDITIONAL",
+    detail: "An institutional entitlement was reported; access still needs route-level verification.",
+  },
+  licensed_unavailable: {
+    access: "Licensed access unavailable",
+    authority: "UNAVAILABLE",
+    detail: "The documented institutional seat does not authenticate on this desk.",
+    ok: false,
+    warn: true,
+  },
+  licensed_manual: {
+    access: "Manual export required",
+    authority: "CONDITIONAL",
+    detail: "This licensed source is available only through a manual or scripted export path.",
+  },
+  automated_collect: {
+    access: "Collection route declared",
+    authority: "ROUTE DEFINED",
+    detail: "The desk has a declared collection route; collection remains approval-gated.",
+  },
+  ai_assisted: {
+    access: "AI-assisted inspection",
+    authority: "NOT CHECKED",
+    detail: "Ask and Discover can inspect this source; it is not an instant connector.",
+  },
+  configured: {
+    access: "Configured route",
+    authority: "ROUTE DEFINED",
+    detail: "This route is declared in the desk configuration.",
+  },
+};
+
+function connectModeRow(source) {
+  const mode = String(source?.execution_mode || "configured").toLowerCase();
+  const presentation = CONNECT_MODE[mode] || CONNECT_MODE.configured;
+  const entitlement = source?.entitlement && typeof source.entitlement === "object" ? source.entitlement : {};
+  const note = String(entitlement.note || presentation.detail);
+  const collectVia = Array.isArray(source?.collect_via)
+    ? source.collect_via.filter(Boolean).join(" · ")
+    : String(source?.collect_via || "");
+  const routes = Array.isArray(source?.routes) ? source.routes.filter(Boolean).join(" · ") : String(source?.routes || "");
+
+  return rowBase({
+    kind: "source",
+    key: `source-${source.id}`,
+    section: "Sources",
+    label: source.label || source.id || "Source",
+    metric: routes || collectVia || "Route details not reported",
+    detail: presentation.access,
+    authority: presentation.authority,
+    sourceNote: note,
+    collect_via: collectVia,
+    routes,
+    executionMode: mode,
+    ok: presentation.ok !== false,
+    warn: Boolean(presentation.warn),
+    showStatus: presentation.ok === false || Boolean(presentation.warn),
+  });
+}
+
+export function buildReportedConnectSourceRows(rollup) {
+  const sources = rollup?.connect?.sources;
+  if (!Array.isArray(sources)) return [];
+  return sources
+    .filter((source) => source && source.show_on_resources !== false && (source.id || source.label))
+    .map(connectModeRow);
+}
+
 function fmtGiB(gib) {
   if (gib == null || gib === 0) return "—";
   if (gib < 0.01) return "<0.01 GiB today";
@@ -517,7 +610,8 @@ export function buildResourcesPanels({
   const usage = buildUsageRowsFromRollup(rollup);
   const motion = buildMotionRowsFromRollup(rollup, jobs);
   const compute = buildComputeRowsFromRollup(rollup);
-  const providers = buildProviderRows({ health, ops, catalogSummary });
+  const reportedProviders = buildReportedConnectSourceRows(rollup);
+  const providers = reportedProviders.length ? reportedProviders : buildProviderRows({ health, ops, catalogSummary });
   const layers = buildLayerRows({ health, queryUp });
 
   const issuesFromRollup = rollup?.issues || [];
@@ -532,9 +626,11 @@ export function buildResourcesPanels({
     compute,
     providers,
     layers,
-    connect: rollup?.connect || {
-      source_count: providers.length,
-      layer_count: layers.length,
+    connect: {
+      ...(rollup?.connect || {}),
+      source_count: rollup?.connect?.source_count ?? providers.length,
+      layer_count: rollup?.connect?.layer_count ?? layers.length,
+      sourcesReported: reportedProviders.length > 0,
     },
     issuesCount,
     issuesFromRollup,

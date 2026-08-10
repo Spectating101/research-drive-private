@@ -5,7 +5,7 @@ import { DISCOVER_SUGGESTIONS } from "@/v2/deskSeed";
  * Centre owns the evidence-need field; starters are shortcuts only.
  * Fill first viewport with need + method cue + starter ledger (no giant empty canvas).
  */
-export function DiscoverEmptyState({ onSuggest }) {
+export function DiscoverEmptyState({ onSuggest, onCraftUrl }) {
   const suggestions = DISCOVER_SUGGESTIONS.length
     ? DISCOVER_SUGGESTIONS
     : ["TWSE governance", "MOPS filings", "stablecoin", "Indonesia IDX", "GDELT news shocks"];
@@ -51,7 +51,41 @@ export function DiscoverEmptyState({ onSuggest }) {
           <strong>3 · Evaluate</strong>
           <span>Detail owns fit, unknowns, and one primary action.</span>
         </li>
+        <li>
+          <strong>Or · Craft</strong>
+          <span>Paste a public URL to draft a generic collect plan (approval required).</span>
+        </li>
       </ol>
+
+      {onCraftUrl ? (
+        <form
+          className="rd-v2-discover-craft-form"
+          data-testid="discover-craft-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const next = String(event.currentTarget.elements.craftUrl?.value || "").trim();
+            if (next) onCraftUrl(next);
+          }}
+        >
+          <label className="rd-v2-eyebrow" htmlFor="rd-discover-craft-url">
+            Craft a URL plan
+          </label>
+          <div className="rd-v2-discover-need-form">
+            <input
+              id="rd-discover-craft-url"
+              name="craftUrl"
+              type="url"
+              className="rd-v2-discover-need-input"
+              data-testid="discover-craft-url"
+              placeholder="https://example.com/data.csv or API endpoint…"
+              aria-label="Public URL to craft a collect plan"
+            />
+            <button type="submit" className="rd-v2-btn sm" aria-label="Craft collect plan for URL">
+              Craft
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <section className="rd-v2-discover-explore-starters" aria-label="Suggested evidence needs">
         <span className="rd-v2-eyebrow">Suggested needs</span>

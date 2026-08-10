@@ -99,11 +99,17 @@ export function InspectorRail({
   onOpenInLibrary,
   labIds,
   browseLifecycle = null,
+  collectionBrief = null,
+  collectionBriefBusy = false,
+  onReviewCollectionBrief,
+  onSelectCollectionRoute,
+  onSubmitCollectionBrief,
   onTrackResources,
   onReviewApproval,
   onRetryLifecycleRefresh,
   onReviewHistoryRequest,
   onApproveJob,
+  onCancelJob,
   onRefresh,
   onViewActivity,
   onStartLibraryUpload,
@@ -145,6 +151,11 @@ export function InspectorRail({
         probeState={probeState}
         onOpenInLibrary={onOpenInLibrary}
         lifecycle={browseLifecycle}
+        collectionBrief={collectionBrief}
+        collectionBriefBusy={collectionBriefBusy}
+        onReviewCollectionBrief={onReviewCollectionBrief}
+        onSelectCollectionRoute={onSelectCollectionRoute}
+        onSubmitCollectionBrief={onSubmitCollectionBrief}
         onTrackResources={onTrackResources}
         onReviewApproval={onReviewApproval}
         onRetryLifecycleRefresh={onRetryLifecycleRefresh}
@@ -156,6 +167,7 @@ export function InspectorRail({
         row={resourceRow}
         rollup={resourcesRollup}
         onApproveJob={onApproveJob}
+        onCancelJob={onCancelJob}
         onRefresh={onRefresh}
         onViewActivity={onViewActivity}
         onAskAbout={onAskAbout}

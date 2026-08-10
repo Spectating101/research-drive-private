@@ -1274,6 +1274,14 @@
   font-size: 0.82rem;
   line-height: 1.35;
 }
+.rd-v2-discover-craft-form {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.rd-v2-discover-craft-form .rd-v2-discover-need-form {
+  margin: 0;
+}
 .rd-v2-discover-starter-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

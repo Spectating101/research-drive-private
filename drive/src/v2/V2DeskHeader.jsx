@@ -1,4 +1,5 @@
 /** v2 header — freeze shell: research context ▾ · page · search · resting status */
+import { AccountMenu } from "@/v2/AccountMenu";
 
 function freshnessLabel(refreshedAt) {
   if (refreshedAt == null) return null;
@@ -38,6 +39,11 @@ export function V2DeskHeader({
   currentPage = "home",
   /** Discover owns page search — header becomes Ask-only so the two bars don't fight. */
   discoverOwnsSearch = false,
+  profile = null,
+  onOpenResearchContext,
+  onOpenWorkspacePrefs,
+  onOpenAdvanced,
+  onClearContext,
 }) {
   const metaText = usingSeed
     ? `${datasetCount} datasets`
@@ -172,9 +178,15 @@ export function V2DeskHeader({
           </button>
         ) : null}
       </div>
-      <button type="button" className="rd-header-avatar" aria-label="Account">
-        {headerInitials}
-      </button>
+      <AccountMenu
+        variant="header"
+        profile={profile}
+        headerInitials={headerInitials}
+        onOpenResearchContext={onOpenResearchContext}
+        onOpenWorkspacePrefs={onOpenWorkspacePrefs}
+        onOpenAdvanced={onOpenAdvanced}
+        onClearContext={onClearContext}
+      />
     </header>
   );
 }
