@@ -16,20 +16,22 @@ const PROVIDER_CODES = new Set([
   "PROVIDER_NOT_LINKED",
   "ASSISTANT_UNAVAILABLE",
 ]);
+const PROVIDER_ACTIONS = new Set(["composer_unavailable", "composer_error", "composer_timeout"]);
 const NON_ANSWER_STATUSES = new Set(["context_ack", "not_grounded", "no_answer"]);
 
 /**
- * @param {{ errorCode?: string, error_code?: string, error?: Error, recoveryKind?: string, recovery_kind?: string, kind?: string, answerStatus?: string, answer_status?: string, entityKind?: string }} input
+ * @param {{ action?: string, errorCode?: string, error_code?: string, error?: Error, recoveryKind?: string, recovery_kind?: string, kind?: string, answerStatus?: string, answer_status?: string, entityKind?: string }} input
  * @returns {null | { kind: string, title: string, detail: string, recoverable: true, retryPrompt?: string }}
  */
 export function classifyAskRecovery(input = {}) {
   const entityKind = textOf(input.entityKind);
   const isSynthesis = entityKind === "synthesis_thread";
   const code = textOf(input.errorCode || input.error_code || input.error?.code).toUpperCase();
+  const action = textOf(input.action || input.error?.action).toLowerCase();
   const recoveryKind = textOf(input.recoveryKind || input.recovery_kind || input.kind).toLowerCase();
   const answerStatus = textOf(input.answerStatus || input.answer_status).toLowerCase();
 
-  if (PROVIDER_CODES.has(code) || recoveryKind === "provider_unavailable") {
+  if (PROVIDER_CODES.has(code) || PROVIDER_ACTIONS.has(action) || recoveryKind === "provider_unavailable") {
     return {
       kind: "provider",
       title: "Assistant provider is unavailable",

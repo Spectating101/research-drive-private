@@ -14,6 +14,15 @@ test("provider linking failures become recoverable UI, not raw plumbing", () => 
   assert.match(recovery.detail, /objective is preserved/i);
 });
 
+test("backend Composer action envelopes become recoverable UI", () => {
+  const recovery = classifyAskRecovery({
+    action: "composer_timeout",
+    entityKind: "synthesis_thread",
+  });
+  assert.equal(recovery?.kind, "provider");
+  assert.equal(recovery?.recoverable, true);
+});
+
 test("synthesis context-received acknowledgements are not treated as answers", () => {
   const recovery = classifyAskRecovery({
     answerStatus: "context_ack",

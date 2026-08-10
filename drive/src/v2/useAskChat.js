@@ -131,6 +131,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           jobStatus,
         });
         const recovery = classifyAskRecovery({
+          action: out.action || artifacts.action,
           errorCode: out.error_code || out.errorCode,
           recoverable: out.recoverable,
           answerStatus: out.answer_status || out.answerStatus,
@@ -210,6 +211,7 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
         }
       } catch (err) {
         const recovery = classifyAskRecovery({
+          action: err?.action,
           errorCode: err?.code,
           recoverable: err?.recoverable,
           answerStatus: err?.answerStatus,

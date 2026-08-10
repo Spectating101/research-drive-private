@@ -416,6 +416,7 @@ export async function sendChatMessage(
 ) {
   const chatError = (data, status, path) => {
     const error = new Error(normalizeApiError(data, status, path));
+    error.action = data?.action || data?.error_type || "";
     error.code = data?.error_code || data?.errorCode || data?.code || "";
     error.recoverable = data?.recoverable === true;
     error.answerStatus = data?.answer_status || data?.answerStatus || "";
