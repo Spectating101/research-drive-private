@@ -239,31 +239,31 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await capture(page, "01-durable-evidence-desktop");
   });
 
-  test("accepts a revision-bound proposal, then requests but does not fabricate execution", async ({ page }) => {
+  test("accepts a revision-bound proposal, then exposes one approval action without fabricating registration", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
     await expect(page.getByTestId("synthesis-proposal-state")).toContainText("Aggregate held weekly panel");
     await page.getByRole("button", { name: "Accept proposal" }).click();
-    await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
-    await page.getByRole("button", { name: "Request execution" }).click();
-    const pending = page.getByTestId("synthesis-execution-state");
-    await expect(pending).toContainText("pending approval");
-    await expect(pending.getByText("Query ready", { exact: true })).toHaveCount(0);
+    const execution = page.getByTestId("synthesis-execution-state");
+    await expect(execution).toContainText("stablecoin_attention_weekly");
+    await expect(execution.getByRole("button", { name: "Approve and run" })).toBeVisible();
+    await expect(execution.getByRole("button", { name: "Request execution" })).toHaveCount(0);
+    await expect(execution.getByRole("button", { name: "Approve build" })).toHaveCount(0);
+    await expect(execution.getByText("Query ready", { exact: true })).toHaveCount(0);
     await capture(page, "02-execution-request-desktop");
   });
 
   test("queues an approved synthesis build without fabricating a registered output", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
     await page.getByRole("button", { name: "Accept proposal" }).click();
-    await page.getByRole("button", { name: "Request execution" }).click();
 
-    const pending = page.getByTestId("synthesis-execution-state");
-    await expect(pending).toContainText("pending approval");
-    await expect(pending.getByRole("button", { name: "Approve build" })).toBeVisible();
+    const execution = page.getByTestId("synthesis-execution-state");
+    await expect(execution.getByRole("button", { name: "Approve and run" })).toBeVisible();
+    await execution.getByRole("button", { name: "Approve and run" }).click();
 
-    await pending.getByRole("button", { name: "Approve build" }).click();
     const queued = page.getByTestId("synthesis-execution-state");
     await expect(queued).toContainText("queued");
     await expect(queued.getByRole("button", { name: "Open in Library" })).toHaveCount(0);
+    await expect(queued.getByText("Query ready", { exact: true })).toHaveCount(0);
   });
 
   test("obtains a durable Discover handoff before routing a selected evidence gap to Discover", async ({ page }) => {
@@ -310,8 +310,10 @@ test.describe("v2 Synthesis durable thread surface", () => {
   test("sends the selected durable thread to the shared Ask rail", async ({ page }) => {
     await page.getByRole("button", { name: "Discuss construction in Ask" }).click();
     const rail = page.locator("aside.rd-v2-rail");
+    await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await expect(rail).toContainText("Ask · synthesis thread");
-    await expect(rail).toContainText("Synthesis thread context received for Historical stablecoin attention");
+    await expect(rail).toContainText("durable research construction");
+    await expect(rail).not.toContainText("context received for");
     await expect(rail.getByTestId("ask-composer")).toHaveAttribute(
       "placeholder",
       "Correct the interpretation, add a constraint, or ask…",
@@ -319,14 +321,38 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await capture(page, "04-shared-ask-desktop");
   });
 
-  test("creates a durable thread before handing the objective to Ask", async ({ page }) => {
+  test("creates a durable thread, opens Ask, and shows the thread-created decision card", async ({ page }) => {
     await page.getByRole("button", { name: "+ New" }).click();
     const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
     await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
     await page.getByRole("button", { name: "Create thread & discuss" }).click();
-    await expect(page.getByText(objective, { exact: true }).first()).toBeVisible();
-    await expect(page.locator("aside.rd-v2-rail")).toContainText("Ask · synthesis thread");
+
+    const created = page.getByTestId("synthesis-thread-created-state");
+    await expect(created).toBeVisible();
+    await expect(created).toContainText("Thread created");
+    await expect(created).toContainText(objective);
+    await expect(page.getByTestId("synthesis-empty-state")).toHaveCount(0);
+    await expect(page.getByTestId("synthesis-blueprints")).toHaveCount(0);
+
+    await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("Ask · synthesis thread");
+    await expect(rail).toContainText(objective.slice(0, 24));
+    await expect(rail.getByTestId("ask-messages")).toContainText("durable research construction");
+    await expect(page.getByRole("tab", { name: "Detail" })).toHaveAttribute("aria-selected", "false");
     await capture(page, "05-new-thread-ask-desktop");
+  });
+
+  test("shows recoverable Ask UI for provider linking failures on a Synthesis thread", async ({ page }) => {
+    await page.getByRole("tab", { name: "Ask" }).click();
+    await page.getByTestId("ask-composer").fill("force provider linking failure");
+    await page.getByRole("button", { name: "Send" }).click();
+    const recovery = page.getByTestId("ask-recovery-state");
+    await expect(recovery).toBeVisible();
+    await expect(recovery).toContainText("Assistant provider is unavailable");
+    await expect(recovery).toContainText("objective is preserved");
+    await expect(page.getByTestId("ask-messages")).not.toContainText("Provider not linked: composer is not configured");
+    await capture(page, "09-ask-provider-recovery-desktop");
   });
 
   test("keeps the right rail usable on mobile while the workspace remains source-backed", async ({ page }) => {

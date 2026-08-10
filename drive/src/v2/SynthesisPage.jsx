@@ -9,27 +9,13 @@ import {
   listSynthesisThreads,
   requestSynthesisExecution,
 } from "@/v2/api";
-
-function text(value, fallback = "") {
-  return String(value || "").trim() || fallback;
-}
-
-function titleFor(thread) {
-  return text(thread?.title || thread?.state?.title, "Untitled synthesis");
-}
-
-function stateFor(thread) {
-  const state = thread?.state || {};
-  const execution = state.execution || {};
-  const lifecycle = text(execution.status || thread?.materialisation).toLowerCase().replace(/-/g, "_");
-  if (lifecycle === "query_ready") return "query_ready";
-  if (lifecycle === "registered") return "registered";
-  if (lifecycle === "failed") return "failed";
-  if (execution.status) return "execution";
-  if (state.proposal) return "proposal";
-  if ((state.nodes || []).length) return "explore";
-  return "draft";
-}
+import {
+  executionPrimaryAction,
+  stateFor,
+  text,
+  threadCreatedCardModel,
+  titleFor,
+} from "@/v2/synthesisWorkspace";
 
 function stageLabel(thread) {
   const state = thread?.state || {};
@@ -298,7 +284,7 @@ function ProposalReview({ thread, busy, onDecide, onAsk }) {
   );
 }
 
-function ExecutionRecord({ thread, busy, onRequest, onApprove, onAsk, onOpenDataset }) {
+function ExecutionRecord({ thread, busy, onApproveAndRun, onAsk, onOpenDataset }) {
   const state = thread?.state || {};
   const execution = state.execution || {};
   const spec = state.execution_spec || {};
@@ -309,7 +295,7 @@ function ExecutionRecord({ thread, busy, onRequest, onApprove, onAsk, onOpenData
   const registered = mode === "registered" || queryReady;
   const failed = execution.status === "failed";
   const hasSpec = Boolean(spec.input_dataset_id && spec.output_dataset_id);
-  const awaitingApproval = execution.status === "pending_approval" && Boolean(execution.job_id);
+  const primary = executionPrimaryAction(thread);
 
   return (
     <section className="s04-card" data-testid={queryReady ? "synthesis-query-ready-state" : registered ? "synthesis-registered-state" : failed ? "synthesis-failed-state" : "synthesis-execution-state"}>
@@ -357,13 +343,65 @@ function ExecutionRecord({ thread, busy, onRequest, onApprove, onAsk, onOpenData
               : failed
               ? "The accepted specification remains inspectable; no output is claimed registered."
               : hasSpec
-                ? "Requesting execution creates a durable job. Registration remains a separate verified outcome."
-                : "An accepted execution specification is required before this thread can request a build."}
+                ? "Approve and run is the material write boundary. Backend may still pass through pending approval before the job is queued. Registration remains a separate verified outcome."
+                : "An accepted execution specification is required before this thread can approve a build."}
         </p>
-        {registered ? <button type="button" className="rd-v2-btn primary" onClick={() => onOpenDataset?.({ dataset_id: outputId, name: outputId, analysis_readiness: "instant" })}>Open in Library</button> : null}
-        {awaitingApproval ? <button type="button" className="rd-v2-btn primary" disabled={busy} onClick={() => onApprove?.(execution.job_id)}>Approve build</button> : null}
-        {!registered && hasSpec ? <button type="button" className="rd-v2-btn primary" disabled={busy || Boolean(execution.status)} onClick={onRequest}>Request execution</button> : null}
+        {primary?.kind === "open_library" ? (
+          <button type="button" className="rd-v2-btn primary" onClick={() => onOpenDataset?.({ dataset_id: outputId, name: outputId, analysis_readiness: "instant" })}>
+            {primary.label}
+          </button>
+        ) : null}
+        {primary?.kind === "approve_and_run" ? (
+          <button type="button" className="rd-v2-btn primary" disabled={busy} onClick={onApproveAndRun}>
+            {primary.label}
+          </button>
+        ) : null}
         <button type="button" className="rd-v2-btn" onClick={() => onAsk("Explain the exact execution state and which evidence is still missing before this output can be trusted.")}>Ask about execution</button>
+      </footer>
+    </section>
+  );
+}
+
+function ThreadCreatedCard({ thread, onAsk }) {
+  const card = threadCreatedCardModel(thread);
+  return (
+    <section className="s04-card s04-thread-created" data-testid="synthesis-thread-created-state">
+      <header className="s04-title">
+        <div>
+          <small>{card.eyebrow}</small>
+          <h2>{card.title}</h2>
+        </div>
+        <em className="neutral">{card.status}</em>
+      </header>
+      <div className="s04-pairs">
+        <article>
+          <small>Interpreted objective</small>
+          <strong>{card.objective}</strong>
+          <p>The durable thread is attached to this canvas and the conversation. No method is accepted yet.</p>
+        </article>
+        <article>
+          <small>Required grain</small>
+          <strong>{card.grain}</strong>
+          <p>Ask may refine grain before a proposal is accepted.</p>
+        </article>
+        <article>
+          <small>Next research step</small>
+          <strong>{card.nextStep}</strong>
+          <p>{card.truth}</p>
+        </article>
+      </div>
+      <footer className="s04-actions">
+        <p>
+          <small>Conversation sync</small>
+          Continue in Ask without leaving this construction canvas.
+        </p>
+        <button
+          type="button"
+          className="rd-v2-btn primary"
+          onClick={() => onAsk(`Interpret this research objective and propose the smallest defensible construction: ${card.objective}`)}
+        >
+          Continue in conversation
+        </button>
       </footer>
     </section>
   );
@@ -514,7 +552,7 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
     const key = `${selected.id}:${selected.updated_at || ""}:${selected.state?.execution?.status || ""}`;
     if (notified.current === key) return;
     notified.current = key;
-    onSelectThread?.(selected);
+    onSelectThread?.(selected, { keepRail: true });
   }, [selected, onSelectThread]);
 
   const refreshThread = useCallback(async (threadId = selectedId) => {
@@ -546,9 +584,9 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
     }
   };
 
-  const ask = (prompt) => {
-    const context = selected
-      ? `\n\nSynthesis thread: ${titleFor(selected)}\nObjective: ${text(selected.objective || selected.state?.objective)}\nDurable status: ${stageLabel(selected)}.`
+  const ask = (prompt, threadOverride = selected) => {
+    const context = threadOverride
+      ? `\n\nSynthesis thread: ${titleFor(threadOverride)}\nObjective: ${text(threadOverride.objective || threadOverride.state?.objective)}\nDurable status: ${stageLabel(threadOverride)}.`
       : "\n\nSynthesis workspace context.";
     onAskComposer?.({ prompt: `${text(prompt)}${context}`, displayText: text(prompt, "Discuss this synthesis") });
   };
@@ -591,8 +629,9 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
       setSelectedId(created.id);
       setNewMode(false);
       setObjective("");
-      onSelectThread?.(created);
-      ask(`Interpret this research objective and propose the smallest defensible construction: ${nextObjective}`);
+      notified.current = `${created.id}:${created.updated_at || ""}:${created.state?.execution?.status || ""}`;
+      onSelectThread?.(created, { openAsk: true });
+      ask(`Interpret this research objective and propose the smallest defensible construction: ${nextObjective}`, created);
     } catch (cause) {
       setError(text(cause?.message, "The Synthesis thread could not be created."));
     } finally {
@@ -627,9 +666,11 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
       setSelectedId(created.id);
       setNewMode(false);
       setObjective("");
-      onSelectThread?.(created);
+      notified.current = `${created.id}:${created.updated_at || ""}:${created.state?.execution?.status || ""}`;
+      onSelectThread?.(created, { openAsk: true });
       ask(
         `Use registered blueprint ${profile.id} (${title}). Propose the smallest defensible construction from owned Library inputs. Do not invent missing sources.`,
+        created,
       );
     } catch (cause) {
       setError(text(cause?.message, "Could not start this blueprint as a Synthesis thread."));
@@ -650,7 +691,7 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
         proposalHash: proposal.proposal_hash,
       });
       replaceThread(next);
-      onSelectThread?.(next);
+      onSelectThread?.(next, { keepRail: true });
     } catch (cause) {
       setError(text(cause?.message, "The proposal changed before this decision could be saved."));
       refreshThread().catch(() => {});
@@ -659,36 +700,36 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
     }
   };
 
-  const requestExecution = async () => {
+  const approveAndRun = async () => {
     if (!selected) return;
     setBusy(true);
     setError("");
     try {
-      const result = await requestSynthesisExecution(selected.id);
-      const next = result?.thread || (result?.state ? result : await refreshThread(selected.id));
-      if (next) {
-        replaceThread(next);
-        onSelectThread?.(next);
+      let next = selected;
+      let execution = next.state?.execution || {};
+      if (execution.status !== "pending_approval") {
+        const result = await requestSynthesisExecution(selected.id);
+        next = result?.thread || (result?.state ? result : await refreshThread(selected.id));
+        if (next) {
+          replaceThread(next);
+          onSelectThread?.(next, { keepRail: true });
+        }
+        execution = next?.state?.execution || result?.job || {};
+      }
+      const jobId = execution.job_id || execution.id;
+      const status = text(execution.status || "").toLowerCase();
+      if (status === "pending_approval" && jobId) {
+        if (!onApproveJob) throw new Error("Approval is unavailable on this desk.");
+        const approved = await onApproveJob(jobId);
+        if (!approved) throw new Error("The build was not approved. Review the error and try again.");
+        next = await refreshThread(selected.id);
+        if (next) onSelectThread?.(next, { keepRail: true });
+      } else if (!jobId && !status) {
+        throw new Error("The execution request did not return a durable job.");
       }
     } catch (cause) {
-      setError(text(cause?.message, "The execution request could not be created."));
+      setError(text(cause?.message, "The execution could not be approved and run."));
       refreshThread().catch(() => {});
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const approveExecution = async (jobId) => {
-    if (!jobId || !onApproveJob) return;
-    setBusy(true);
-    setError("");
-    try {
-      const approved = await onApproveJob(jobId);
-      if (!approved) throw new Error("The build was not approved. Review the error and try again.");
-      const next = await refreshThread(selected?.id);
-      if (next) onSelectThread?.(next);
-    } catch (cause) {
-      setError(text(cause?.message, "The execution build could not be approved."));
     } finally {
       setBusy(false);
     }
@@ -723,17 +764,9 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
             <>
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
-              {showExecution ? <ExecutionRecord thread={selected} busy={busy} onRequest={requestExecution} onApprove={approveExecution} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
+              {showExecution ? <ExecutionRecord thread={selected} busy={busy} onApproveAndRun={approveAndRun} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
               {mode === "explore" ? <EvidenceMap thread={selected} selectedField={selectedField} onAsk={ask} onRouteToDiscover={routeToDiscover} onSelectField={setSelectedField} /> : null}
-              {mode === "draft" ? (
-                <EmptyWorkspace
-                  profiles={profiles}
-                  profilesLoading={profilesLoading}
-                  profilesError={profilesError}
-                  onStartBlueprint={startBlueprint}
-                  onNew={() => setNewMode(true)}
-                />
-              ) : null}
+              {mode === "draft" && !showExecution ? <ThreadCreatedCard thread={selected} onAsk={ask} /> : null}
             </>
           ) : null}
         </main>

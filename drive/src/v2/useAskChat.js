@@ -3,6 +3,7 @@ import { deskWarm, sendChatMessage } from "@/v2/api";
 import { normalizeActivityStep } from "@/v2/deskIntegration";
 import { loadChatSessionId, loadUserEmail } from "@/v2/deskSession";
 import { classifyAskIntent, shapeAskReplyForIntent } from "@/v2/askIntent";
+import { classifyAskRecovery } from "@/v2/askRecovery";
 
 function normalizeOutgoingMessage(value, fallback = "") {
   const raw = value ?? fallback;
@@ -129,11 +130,30 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           pendingJobId,
           jobStatus,
         });
+        const recovery = classifyAskRecovery({
+          errorCode: out.error_code || out.errorCode,
+          recoverable: out.recoverable,
+          answerStatus: out.answer_status || out.answerStatus,
+          recoveryKind: out.recovery_kind || out.recoveryKind,
+          entityKind: railRef.current?.entity?.kind,
+        });
 
         setMessages((m) => {
           const streaming = m.find((x) => x.streaming);
           const activityLog = intent === "status" ? [] : streaming?.activityLog || [];
           const trimmed = m.filter((x) => !x.streaming);
+          if (recovery) {
+            return [
+              ...trimmed,
+              {
+                role: "recovery",
+                text: recovery.detail,
+                recovery,
+                intent,
+                retryPrompt: recovery.retryPrompt || outgoing.displayText || prompt,
+              },
+            ];
+          }
           return [
             ...trimmed,
             {
@@ -151,13 +171,17 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           ];
         });
         setStatus(
-          intent === "status"
+          recovery
             ? ""
-            : out.campaign_id
-              ? `Campaign ${String(out.campaign_id).slice(0, 8)}…`
-              : "",
+            : intent === "status"
+              ? ""
+              : out.campaign_id
+                ? `Campaign ${String(out.campaign_id).slice(0, 8)}…`
+                : "",
         );
-        if (
+        if (recovery) {
+          // Recoverable plumbing/provider states are shown in-thread; skip procure toasts.
+        } else if (
           intent !== "status" &&
           ["collect", "acquire", "collect_doi", "approve_collect", "queue", "schedule_refresh"].includes(
             out.action,
@@ -175,21 +199,36 @@ export function useAskChat({ dataset, railContext, onCollected, onToast } = {}) 
           artifacts.subscription?.id ||
           out.subscription_id ||
           null;
-        if (intent !== "status" && (subId || out.action === "schedule_refresh")) {
+        if (!recovery && intent !== "status" && (subId || out.action === "schedule_refresh")) {
           onCollected?.();
           if (out.action !== "schedule_refresh") {
             onToast?.("Refresh registered in Discover History");
           }
         }
-        if (intent !== "status" && shaped.pendingJobId && shaped.jobStatus === "pending_approval") {
+        if (!recovery && intent !== "status" && shaped.pendingJobId && shaped.jobStatus === "pending_approval") {
           onToast?.("Job pending approval — use Approve below");
         }
       } catch (err) {
+        const recovery = classifyAskRecovery({
+          errorCode: err?.code,
+          recoverable: err?.recoverable,
+          answerStatus: err?.answerStatus,
+          recoveryKind: err?.recoveryKind,
+          entityKind: railRef.current?.entity?.kind,
+        });
         setMessages((m) => [
           ...m.filter((x) => !x.streaming),
-          { role: "error", text: err.message || String(err) },
+          recovery
+            ? {
+                role: "recovery",
+                text: recovery.detail,
+                recovery,
+                intent,
+                retryPrompt: recovery.retryPrompt || outgoing.displayText || prompt,
+              }
+            : { role: "error", text: err.message || String(err) },
         ]);
-        setStatus(err.message || "Chat failed");
+        setStatus(recovery ? "" : err.message || "Chat failed");
       } finally {
         busyRef.current = false;
         setBusy(false);

@@ -208,6 +208,19 @@ export function AskRail({
                     <>
                       <strong>You:</strong> {m.text}
                     </>
+                  ) : m.role === "recovery" ? (
+                    <div className="rd-v2-ask-recovery" data-testid="ask-recovery-state">
+                      <strong>{m.recovery?.title || "This conversation needs a retry"}</strong>
+                      <p>{m.text}</p>
+                      <button
+                        type="button"
+                        className="rd-v2-btn sm primary"
+                        disabled={busy || !m.retryPrompt}
+                        onClick={() => send(m.retryPrompt)}
+                      >
+                        Retry
+                      </button>
+                    </div>
                   ) : m.role === "error" ? (
                     m.text
                   ) : (

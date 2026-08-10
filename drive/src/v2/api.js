@@ -414,6 +414,14 @@ export async function sendChatMessage(
   message,
   { sessionId, userEmail, railContext, onDelta, onActivity } = {},
 ) {
+  const chatError = (data, status, path) => {
+    const error = new Error(normalizeApiError(data, status, path));
+    error.code = data?.error_code || data?.errorCode || data?.code || "";
+    error.recoverable = data?.recoverable === true;
+    error.answerStatus = data?.answer_status || data?.answerStatus || "";
+    error.recoveryKind = data?.recovery_kind || data?.recoveryKind || "";
+    return error;
+  };
   const body = JSON.stringify({
     message,
     session_id: sessionId || undefined,
@@ -426,7 +434,7 @@ export async function sendChatMessage(
     if ((event.type === "activity" || event.type === "progress") && event.text) {
       onActivity?.({ text: event.text, action: event.action || null, elapsed_seconds: event.elapsed_seconds });
     }
-    if (event.type === "error") throw new Error(event.message || event.error || "Chat stream error");
+    if (event.type === "error") throw chatError(event, 502, "/library/chat/stream");
     if (event.type === "complete") state.result = event.result || null;
   };
 
@@ -463,7 +471,7 @@ export async function sendChatMessage(
 
   if (![404, 405, 406, 415].includes(streamRes.status)) {
     const streamError = await streamRes.json().catch(() => ({}));
-    throw new Error(normalizeApiError(streamError, streamRes.status, "/library/chat/stream"));
+    throw chatError(streamError, streamRes.status, "/library/chat/stream");
   }
 
   const fallback = await fetch(`${API}/library/chat`, deskFetchInit({
@@ -471,7 +479,7 @@ export async function sendChatMessage(
     body,
   }));
   const payload = await fallback.json().catch(() => ({}));
-  if (!fallback.ok) throw new Error(normalizeApiError(payload, fallback.status, "/library/chat"));
+  if (!fallback.ok) throw chatError(payload, fallback.status, "/library/chat");
   if (payload.session_id) saveChatSessionId(payload.session_id);
   return payload;
 }

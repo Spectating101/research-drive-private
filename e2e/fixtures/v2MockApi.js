@@ -469,18 +469,35 @@ export async function mockV2Api(
   const fulfillChat = (route) => {
     const body = route.request().postDataJSON?.() || {};
     const entity = body?.rail_context?.entity || {};
-    const reply =
+    const message = String(body?.message || "");
+    let reply =
       entity.kind === "discover_history"
         ? `Lifecycle context received for ${entity.title || "selected record"}.`
         : entity.kind === "external_candidate"
           ? `Source context received for ${entity.title || "selected candidate"}.`
           : entity.kind === "synthesis_thread"
-            ? `Synthesis thread context received for ${entity.title || "selected thread"}.`
+            ? `I read “${entity.title || "this thread"}” as a durable research construction. I will inspect held Library evidence, name gaps, and draft one recommended method before any build.`
           : "Resources context received.";
+    let answerStatus = entity.kind === "synthesis_thread" ? "grounded" : "context_ack";
+    // Opt-in plumbing / provider failure fixtures for recovery UI coverage.
+    if (/force synthesis plumbing ack/i.test(message)) {
+      reply = `Synthesis thread context received for ${entity.title || "selected thread"}.`;
+      answerStatus = "context_ack";
+    } else if (/force provider linking failure/i.test(message)) {
+      return route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "Provider not linked: composer is not configured",
+          error_code: "CAPABILITY_UNAVAILABLE",
+          recoverable: true,
+        }),
+      });
+    }
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ session_id: "test-session", reply, action: "answer" }),
+      body: JSON.stringify({ session_id: "test-session", reply, action: "answer", answer_status: answerStatus }),
     });
   };
   await page.route("**/api/library/chat/stream", fulfillChat);

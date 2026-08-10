@@ -1293,9 +1293,10 @@ export function V2App() {
           onDiscoverHandoff={routeSynthesisHandoff}
           onGoTab={goTab}
           onOpenDataset={openInLibraryFromDiscover}
-          onSelectThread={(thread) => {
+          onSelectThread={(thread, options = {}) => {
             setActiveObject(synthesisThreadObject(thread));
-            setRailTab("detail");
+            if (options.openAsk) setRailTab("ask");
+            else if (!options.keepRail) setRailTab("detail");
           }}
         />
       );
