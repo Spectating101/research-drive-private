@@ -47,6 +47,38 @@ test.describe("v2 Discover tab", () => {
     await expect(page.getByTestId("discover-browse-mode")).not.toContainText(/process overview/i);
   });
 
+  test("plain search stays in the catalogue until the researcher asks to search wider", async ({ page }) => {
+    let widerCalls = 0;
+    let unifiedCalls = 0;
+    await page.route("**/library/discover/web*", async (route) => {
+      widerCalls += 1;
+      await route.fallback();
+    });
+    await page.route("**/library/search*", async (route) => {
+      unifiedCalls += 1;
+      await route.fallback();
+    });
+    await page.route("**/library/discover/sources?*", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ results: [] }) }),
+    );
+    await page.route("**/library/discover?*", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ results: [], index_miss: true }) }),
+    );
+
+    await page.getByRole("textbox", { name: "Evidence need" }).fill("zzzxqv unindexed evidence relation");
+    await page.getByRole("button", { name: "Search evidence need" }).click();
+
+    const wider = page.getByRole("button", { name: "Ask Research Drive to search wider →" });
+    await expect(wider).toBeVisible();
+    expect(unifiedCalls).toBe(0);
+    expect(widerCalls).toBe(0);
+
+    await wider.click();
+    const rail = page.getByRole("complementary", { name: "Inspector" });
+    await expect(rail.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+    expect(widerCalls).toBe(0);
+  });
+
   test("selecting a discover row keeps Explore visible and updates the Detail rail", async ({ page }) => {
     await page.getByRole("textbox", { name: "Evidence need" }).fill("MOPS");
     await page.getByRole("button", { name: "Search evidence need" }).click();

@@ -1573,7 +1573,10 @@ export function V2App() {
       main = null;
   }
 
-  const hideRail = tab === "browse" && !browseTarget && !selectedHistoryEvent;
+  // Explore is intentionally canvas-first until a researcher selects a row.
+  // An explicit wider-source request is different: it deliberately seeds Ask,
+  // so keeping the rail hidden would strand the conversation it just opened.
+  const hideRail = tab === "browse" && !browseTarget && !selectedHistoryEvent && railTab !== "ask";
 
   const activeResearch = useMemo(() => {
     const source = profile && !profile.unknown ? profile : pilotProfile;

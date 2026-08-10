@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { discoverSearch, discoverSources, unifiedSearch, webDiscover } from "@/v2/api";
+import { discoverSearch, discoverSources } from "@/v2/api";
 import { sourcesResponseToRows } from "@/v2/discoverAdapters";
 import { DiscoverHistoryPanel } from "@/v2/DiscoverHistoryPanel";
 import { jobToCandidateRow, pendingApprovalJobs } from "@/v2/procurementJobs";
@@ -13,7 +13,6 @@ import {
   taxonomyMatchesFilter,
   taxonomyStageCounts,
 } from "@/v2/browseMeta";
-import { discoverCandidateUrl, webHitsToRows } from "@/v2/discoverActions";
 import { candidateKey, isCandidateQueued, withCandidateKey } from "@/v2/candidateKey";
 import { buildDiscoverLifecycle, projectDiscoverCandidateLifecycle } from "@/v2/discoverLifecycle";
 import {
@@ -269,12 +268,14 @@ export function BrowsePage({
           setDemoFallback(false);
           return;
         }
-        // Prefer Explore sources contract; fall back to legacy discover/search path.
+        // A plain Discover search is intentionally bounded to the desk's
+        // catalogue/index. Wider live-web work is an explicit Ask action
+        // below, not an invisible fallback that spends a search budget.
         try {
           const sources = await discoverSources(q, { limit: 12 });
           const sourceRows = sourcesResponseToRows(sources);
           if (sourceRows.length) {
-            apply({ results: sourceRows }, sources.demo ? "demo" : "sources");
+            apply({ results: sourceRows }, sources.demo ? "demo" : "catalog");
             if (sources.demo) setDemoFallback(true);
             setIndexMiss(false);
             return;
@@ -284,42 +285,8 @@ export function BrowsePage({
         }
         const discover = await discoverSearch(q, 12, email);
         const discoverRows = flattenRows(discover);
-        const needsUnified =
-          discoverRows.length === 0 || Boolean(discover.index_miss || discover.weak_match);
-        let mergedRows = discoverRows;
-        let label = discoverRows.length ? "discover" : "";
-        let miss = Boolean(discover.index_miss) && discoverRows.length === 0;
-
-        if (needsUnified) {
-          const search = await unifiedSearch(q, 12, email);
-          const searchRows = flattenRows(search);
-          if (searchRows.length) {
-            mergedRows = dedupeRows([...discoverRows, ...searchRows]);
-            label = discoverRows.length ? "discover" : "search";
-          }
-          if (!discoverRows.length) {
-            miss = Boolean(
-              discover.index_miss || search.index_miss || search.discover_index_miss || !searchRows.length,
-            );
-          }
-        }
-
-        const hasAcquireCandidate = mergedRows.some((r) => {
-          const tax = classifyDiscoverResult(r, labIds);
-          return !tax.key.startsWith("local-") && Boolean(discoverCandidateUrl(r));
-        });
-
-        if (mergedRows.length && !hasAcquireCandidate && q) {
-          const web = await webDiscover(q, 8);
-          const webRows = webHitsToRows(web);
-          if (webRows.length) {
-            mergedRows = dedupeRows([...mergedRows, ...webRows]);
-            if (!label) label = "web";
-          }
-        }
-
-        if (mergedRows.length) {
-          apply({ sections: [{ id: label, rows: mergedRows }] }, label);
+        if (discoverRows.length) {
+          apply({ sections: [{ id: "index", rows: discoverRows }] }, "index");
           setIndexMiss(false);
           return;
         }
@@ -330,15 +297,7 @@ export function BrowsePage({
           return;
         }
 
-        const web = await webDiscover(q, 8);
-        const webRows = webHitsToRows(web);
-        if (webRows.length) {
-          apply({ sections: [{ id: "web", rows: webRows }] }, "web");
-          setIndexMiss(false);
-          return;
-        }
-
-        setIndexMiss(miss);
+        setIndexMiss(Boolean(discover.index_miss || discover.discover_index_miss));
         setRows([]);
       } catch (err) {
         if (cancelled) return;
@@ -597,10 +556,10 @@ export function BrowsePage({
             </section>
 
             {loading && filtered.length ? (
-              <p className="rd-v2-browse-loading">Showing current matches while wider sources refresh…</p>
+              <p className="rd-v2-browse-loading">Showing current catalogue matches…</p>
             ) : null}
             {loading && !filtered.length ? (
-              <p className="rd-v2-browse-loading">Searching the lab and wider sources…</p>
+              <p className="rd-v2-browse-loading">Searching the catalogue…</p>
             ) : null}
 
             {!loading && allInLab ? (
@@ -679,8 +638,8 @@ export function BrowsePage({
             <details className="rd-v2-discover-process-disclosure">
               <summary>How Discover handles a missing dataset</summary>
               <p>
-                Discover checks lab holdings first, evaluates wider source candidates when the lab is insufficient,
-                and returns successful acquisitions to Library for reuse.
+                Discover checks the catalogue first. A wider-source request begins only when you choose it, and
+                successful acquisitions return to Library for reuse.
               </p>
             </details>
           </>
