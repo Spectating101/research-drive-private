@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { assessDiscoverEvidence } from "@/v2/api";
+import { assessDiscoverEvidence, listDiscoverGapRoutes } from "@/v2/api";
 import { DISCOVER_SUGGESTIONS } from "@/v2/deskSeed";
 import { handleEnterToRequestSubmit } from "@/v2/enterToSubmit";
 
@@ -178,6 +178,9 @@ export function DiscoverEvidenceBrief({
   const [dimensions, setDimensions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [routeResult, setRouteResult] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState("");
   const autoStartedRef = useRef("");
 
   useEffect(() => {
@@ -205,6 +208,8 @@ export function DiscoverEvidenceBrief({
     try {
       const next = await assessDiscoverEvidence({ question, requirement });
       setAssessment(next);
+      setRouteResult(null);
+      setRouteError("");
       onAssessmentChange?.(next);
       onAssessmentActive?.(true);
     } catch (requestError) {
@@ -215,6 +220,21 @@ export function DiscoverEvidenceBrief({
       onLegacySearch?.(question);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const requestRoutes = async () => {
+    if (!assessment?.gap || assessment?.assessment_status !== "assessed" || routeLoading) return;
+    setRouteLoading(true);
+    setRouteError("");
+    try {
+      const next = await listDiscoverGapRoutes({ question: assessment.question || draft, assessment });
+      setRouteResult(next || {});
+    } catch (requestError) {
+      setRouteResult(null);
+      setRouteError("Declared routes are unavailable. The gap remains unresolved.");
+    } finally {
+      setRouteLoading(false);
     }
   };
 
@@ -371,6 +391,33 @@ export function DiscoverEvidenceBrief({
               <p className="muted">Resolve with: {text(assessment.gap.resolution_evidence, "Evidence to resolve this is unknown.")}</p>
             </> : <p className="muted">No remaining gap was reported.</p>}
           </section>
+          {assessment.assessment_status === "assessed" && assessment.gap ? (
+            <section className="rd-v2-evidence-routes" aria-label="Declared acquisition routes">
+              <div className="rd-v2-evidence-section-head">
+                <div>
+                  <span className="rd-v2-eyebrow">Declared ways to close the gap</span>
+                  <p>Suggestions are source options, not a promise of collection or delivery.</p>
+                </div>
+                <button type="button" className="rd-v2-btn sm" disabled={routeLoading} onClick={requestRoutes}>
+                  {routeLoading ? "Comparing declared sources…" : "Find declared routes"}
+                </button>
+              </div>
+              {routeError ? <p className="rd-v2-discover-error" role="status">{routeError}</p> : null}
+              {routeResult ? (
+                Array.isArray(routeResult.routes) && routeResult.routes.length ? (
+                  <ul className="rd-v2-evidence-routes-list">
+                    {routeResult.routes.map((route, index) => (
+                      <li key={`${route.dimension || "gap"}-${route.source_id || index}`}>
+                        <strong>{text(route.label, "Declared source")}</strong>
+                        <span>{text(route.reason, "May address the recorded gap.")}</span>
+                        <em>{route.action === "collect" ? "Collection can be requested for review" : "Access review is required"}</em>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="muted">No declared route was found. This does not establish that no source exists.</p>
+              ) : null}
+            </section>
+          ) : null}
           {assessment.assessment_basis ? <p className="rd-v2-evidence-basis">Basis: {assessmentBasisSummary(assessment.assessment_basis)}</p> : null}
         </div>
       )}

@@ -205,7 +205,22 @@ export function assessDiscoverEvidence({ question, requirement } = {}) {
       question: String(question || "").trim(),
       ...(requirement ? { requirement } : {}),
     }),
-    timeoutMs: 20000,
+    // Requirement interpretation is deliberate model work. Keep this separate
+    // from instant catalogue search and give the rail a bounded, visible wait.
+    timeoutMs: 45000,
+  });
+}
+
+/** Declared acquisition options for an assessment the researcher already saw. */
+export function listDiscoverGapRoutes({ question, assessment } = {}) {
+  return fetchJson("/library/discover/routes", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({
+      question: String(question || "").trim(),
+      assessment: assessment || undefined,
+    }),
+    timeoutMs: 45000,
   });
 }
 
