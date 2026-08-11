@@ -293,6 +293,154 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(selected.getByRole("button", { name: "Route to Discover" })).toHaveCount(0);
   });
 
+  test("a node whose local status reads like a gap is not routable unless the backend handoff names it", async ({ page }) => {
+    // "needs_access" is exactly the kind of string the old local regex used
+    // to treat as a gap on its own. Here the durable handoff explicitly does
+    // NOT name this node, so it must not be routable no matter what its own
+    // status text says.
+    //
+    // The page's initial render comes from the bulk threads-list fetch, not
+    // a per-thread GET — override that route (falling back to the shared
+    // mock for everything else: creates, other threads, patches, execute).
+    const modifiedExploring = {
+      ...EXPLORING_THREAD,
+      state: {
+        ...EXPLORING_THREAD.state,
+        nodes: [
+          ...EXPLORING_THREAD.state.nodes,
+          {
+            id: "restricted_api",
+            type: "source",
+            layer: "evidence",
+            label: "Restricted vendor API",
+            role: "Candidate",
+            status: "needs_access",
+            grain: "event-day",
+            coverage: "Unknown",
+          },
+        ],
+      },
+    };
+    await page.route("**/api/library/synthesis/threads**", async (route) => {
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split("/").filter(Boolean);
+      const threadIndex = parts.lastIndexOf("threads");
+      const threadId = parts[threadIndex + 1] || "";
+      const suffix = parts.slice(threadIndex + 2).join("/");
+      const method = route.request().method();
+      if (!threadId && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            threads: [modifiedExploring, PROPOSAL_THREAD, REGISTERED_THREAD, QUERY_READY_THREAD],
+            total: 4,
+          }),
+        });
+      }
+      if (threadId === "thread-attention" && !suffix && method === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(modifiedExploring) });
+      }
+      if (threadId === "thread-attention" && suffix === "discover-handoff" && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thread_id: "thread-attention",
+            objective: EXPLORING_THREAD.objective,
+            required_grain: "asset × week",
+            held_evidence: [],
+            missing_evidence: [{ id: "filings", label: "Regulatory filings", source_identity: "regulatory filings" }],
+            collect_intents: [],
+            fake_collection: false,
+          }),
+        });
+      }
+      return route.fallback();
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("1 source decision");
+
+    await page.getByRole("button", { name: /Restricted vendor API/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Restricted vendor API");
+    await expect(page.getByRole("button", { name: "Route to Discover" })).toHaveCount(0);
+  });
+
+  test("an exact backend missing_evidence identity enables routing even when the node's own status looks fine", async ({ page }) => {
+    // Inverse of the above: a node whose local status is "held" — the old
+    // regex would never have flagged it — but the durable handoff names it
+    // explicitly. The backend is authoritative in both directions.
+    const modifiedExploring = {
+      ...EXPLORING_THREAD,
+      state: {
+        ...EXPLORING_THREAD.state,
+        nodes: [
+          ...EXPLORING_THREAD.state.nodes,
+          {
+            id: "quietly_stale",
+            type: "source",
+            layer: "evidence",
+            label: "Quietly stale feed",
+            role: "Candidate",
+            status: "held",
+            grain: "event-day",
+            coverage: "2018–2023",
+          },
+        ],
+      },
+    };
+    await page.route("**/api/library/synthesis/threads**", async (route) => {
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split("/").filter(Boolean);
+      const threadIndex = parts.lastIndexOf("threads");
+      const threadId = parts[threadIndex + 1] || "";
+      const suffix = parts.slice(threadIndex + 2).join("/");
+      const method = route.request().method();
+      if (!threadId && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            threads: [modifiedExploring, PROPOSAL_THREAD, REGISTERED_THREAD, QUERY_READY_THREAD],
+            total: 4,
+          }),
+        });
+      }
+      if (threadId === "thread-attention" && !suffix && method === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(modifiedExploring) });
+      }
+      if (threadId === "thread-attention" && suffix === "discover-handoff" && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thread_id: "thread-attention",
+            objective: EXPLORING_THREAD.objective,
+            required_grain: "asset × week",
+            held_evidence: [],
+            missing_evidence: [
+              { id: "filings", label: "Regulatory filings", source_identity: "regulatory filings" },
+              { id: "quietly_stale", label: "Quietly stale feed", source_identity: "quietly stale feed" },
+            ],
+            collect_intents: [],
+            fake_collection: false,
+          }),
+        });
+      }
+      return route.fallback();
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("2 source decisions");
+
+    await page.getByRole("button", { name: /Quietly stale feed/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Quietly stale feed");
+    await expect(page.getByRole("button", { name: "Route to Discover" })).toBeVisible();
+  });
+
   test("renders registered output only from thread registration evidence", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Stablecoin attention weekly panel" }).click();
     const registered = page.getByTestId("synthesis-registered-state");
@@ -433,6 +581,10 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await page.getByRole("button", { name: "+ New" }).click();
     await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill("First unresolved objective");
     await page.getByRole("button", { name: "Create thread & discuss" }).click();
+    // The stall-tracking effect only starts its timer once the thread is
+    // actually selected and rendered — fast-forwarding before that lands is
+    // a no-op, since the interval it's meant to advance doesn't exist yet.
+    await expect(page.getByTestId("synthesis-interpreting-state")).toBeVisible();
     await page.clock.fastForward(65000);
     await expect(page.getByTestId("synthesis-interpreting-stalled")).toBeVisible();
 

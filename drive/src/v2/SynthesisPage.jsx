@@ -56,8 +56,19 @@ function evidenceNodes(thread) {
   );
 }
 
-function isEvidenceGap(node) {
-  return /missing|needs_access|sourceable/i.test(String(node?.status || ""));
+function evidenceNodeId(node) {
+  return String(node?.id || node?.dataset_id || "");
+}
+
+// A node's own `status` string is display text the backend chose, not a
+// judgment the UI should re-derive meaning from. Routability to Discover is
+// decided only by whether the durable discover-handoff endpoint explicitly
+// names this node's identity as missing evidence — never by pattern-matching
+// that status locally. No handoff yet (or a failed fetch) means no routing
+// affordance, not a guessed gap.
+function isEvidenceGap(node, missingIds) {
+  const id = evidenceNodeId(node);
+  return Boolean(id) && Boolean(missingIds?.has(id));
 }
 
 function targetNode(thread) {
@@ -161,11 +172,11 @@ function ThreadHeader({ thread }) {
   );
 }
 
-function EvidenceMap({ thread, selectedField, onAsk, onRouteToDiscover, onSelectField }) {
+function EvidenceMap({ thread, selectedField, onAsk, onRouteToDiscover, onSelectField, missingIds }) {
   const target = targetNode(thread);
   const evidence = evidenceNodes(thread);
   const state = thread?.state || {};
-  const missing = evidence.filter(isEvidenceGap);
+  const missing = evidence.filter((node) => isEvidenceGap(node, missingIds));
   return (
     <section className="s04-card" data-testid="synthesis-evidence-state">
       <header className="s04-title">
@@ -235,7 +246,7 @@ function EvidenceMap({ thread, selectedField, onAsk, onRouteToDiscover, onSelect
             >
               Inspect in Composer
             </button>
-            {isEvidenceGap(selectedField) ? (
+            {isEvidenceGap(selectedField, missingIds) ? (
               <button type="button" className="rd-v2-btn primary" onClick={() => onRouteToDiscover(selectedField)}>
                 Route to Discover
               </button>
@@ -487,6 +498,7 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
   const [newMode, setNewMode] = useState(false);
   const [objective, setObjective] = useState("");
   const [selectedField, setSelectedField] = useState(null);
+  const [missingEvidenceIds, setMissingEvidenceIds] = useState(() => new Set());
   const [interpretingStalled, setInterpretingStalled] = useState(false);
   const notified = useRef("");
   const interpretingSinceRef = useRef(null);
@@ -610,6 +622,30 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
     refreshThread().catch(() => {});
   }, [refreshThread, selected?.id]);
 
+  useEffect(() => {
+    if (!selected?.id || stateFor(selected) !== "explore") {
+      setMissingEvidenceIds(new Set());
+      return undefined;
+    }
+    let cancelled = false;
+    getSynthesisDiscoverHandoff(selected.id)
+      .then((handoff) => {
+        if (cancelled) return;
+        const ids = (handoff?.missing_evidence || [])
+          .map((item) => String(item?.id || item?.evidence_id || item?.dataset_id || ""))
+          .filter(Boolean);
+        setMissingEvidenceIds(new Set(ids));
+      })
+      .catch(() => {
+        // Unavailable or incomplete handoff means no routing affordance,
+        // not a guessed gap — clear rather than leave a stale set.
+        if (!cancelled) setMissingEvidenceIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id, selected?.updated_at]);
+
   const selectThread = async (threadId) => {
     setSelectedId(threadId);
     setSelectedField(null);
@@ -640,7 +676,7 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
   };
 
   const routeToDiscover = async (field) => {
-    if (!selected || !isEvidenceGap(field)) return;
+    if (!selected || !isEvidenceGap(field, missingEvidenceIds)) return;
     setBusy(true);
     setError("");
     try {
@@ -809,7 +845,16 @@ export function SynthesisPage({ onAskComposer, onApproveJob, onDiscoverHandoff, 
               <ThreadHeader thread={selected} />
               {mode === "proposal" ? <ProposalReview thread={selected} busy={busy} onDecide={decideProposal} onAsk={ask} /> : null}
               {showExecution ? <ExecutionRecord thread={selected} busy={busy} onApproveAndRun={approveAndRun} onAsk={ask} onOpenDataset={onOpenDataset} /> : null}
-              {mode === "explore" ? <EvidenceMap thread={selected} selectedField={selectedField} onAsk={ask} onRouteToDiscover={routeToDiscover} onSelectField={setSelectedField} /> : null}
+              {mode === "explore" ? (
+                <EvidenceMap
+                  thread={selected}
+                  selectedField={selectedField}
+                  onAsk={ask}
+                  onRouteToDiscover={routeToDiscover}
+                  onSelectField={setSelectedField}
+                  missingIds={missingEvidenceIds}
+                />
+              ) : null}
               {mode === "interpreting" ? (
                 <ThreadCreatedCard thread={selected} onAsk={ask} stalled={interpretingStalled} onRetry={retryInterpreting} />
               ) : null}
