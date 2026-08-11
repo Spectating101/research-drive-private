@@ -15,6 +15,12 @@ function text(value, fallback = "") {
   return String(value || "").trim() || fallback;
 }
 
+// An unbroken "grounding Library evidence" claim would run forever if the
+// agent's turn never lands. Bounding it keeps the happy path (agent responds
+// in seconds) untouched while giving a genuine stall an honest fallback
+// instead of silent, indefinite optimism.
+const INTERPRETING_STALL_MS = 60000;
+
 function titleFor(thread) {
   return text(thread?.title || thread?.state?.title, "Untitled synthesis");
 }
@@ -500,16 +506,16 @@ function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDatas
   );
 }
 
-function DraftCanvas({ thread, onAsk }) {
+function DraftCanvas({ thread, onAsk, stalled, onRetry }) {
   const state = thread?.state || {};
   return (
     <section className="s04-card s04-draft" data-testid="synthesis-draft-state">
       <header className="s04-title">
         <div>
           <small>AI construction workspace</small>
-          <h2>Interpretation in progress</h2>
+          <h2>{stalled ? "Taking longer than expected" : "Interpretation in progress"}</h2>
         </div>
-        <em className="neutral">Grounding Library evidence</em>
+        <em className="neutral">{stalled ? "No response yet" : "Grounding Library evidence"}</em>
       </header>
       <div className="s04-draft-flow" role="img" aria-label="The first Synthesis reasoning steps">
         <strong>{text(thread?.objective || state.objective, "Research objective")}</strong>
@@ -532,8 +538,15 @@ function DraftCanvas({ thread, onAsk }) {
       <footer className="s04-actions">
         <p>
           <small>Working agreement</small>
-          Ask clarifies the construct one decision at a time. Nothing is executed or registered from this state.
+          {stalled
+            ? "The agent hasn't responded yet. Nothing has been built or modified — you can keep waiting or check again now."
+            : "Ask clarifies the construct one decision at a time. Nothing is executed or registered from this state."}
         </p>
+        {stalled ? (
+          <button type="button" className="rd-v2-btn" data-testid="synthesis-draft-retry" onClick={onRetry}>
+            Check again
+          </button>
+        ) : null}
         <button
           type="button"
           className="rd-v2-btn primary"
@@ -682,7 +695,10 @@ export function SynthesisPage({
   const [error, setError] = useState("");
   const [newMode, setNewMode] = useState(false);
   const [objective, setObjective] = useState("");
+  const [interpretingStalled, setInterpretingStalled] = useState(false);
   const notified = useRef("");
+  const interpretingSinceRef = useRef(null);
+  const interpretingThreadIdRef = useRef("");
 
   const replaceThread = useCallback((next) => {
     if (!next?.id) return;
@@ -762,13 +778,51 @@ export function SynthesisPage({
   }, [refreshThread, refreshVersion, selectedId]);
 
   useEffect(() => {
+    if (!selected) return undefined;
     const execution = selected?.state?.execution || {};
-    if (!selected || !/pending_approval|queued|running|registering|archiving/i.test(String(execution.status || ""))) return undefined;
-    const timer = window.setInterval(() => {
-      refreshThread().catch(() => {});
+    const executing = /pending_approval|queued|running|registering|archiving/i.test(String(execution.status || ""));
+    const interpreting = stateFor(selected) === "draft";
+
+    // Stalling belongs to one durable thread. Selecting a different new
+    // thread must start a fresh wait window rather than inheriting the
+    // previous thread's "agent hasn't responded" state.
+    const interpretingThreadId = selected?.id || "";
+    if (!interpreting) {
+      interpretingSinceRef.current = null;
+      interpretingThreadIdRef.current = "";
+      if (interpretingStalled) setInterpretingStalled(false);
+    } else if (interpretingThreadIdRef.current !== interpretingThreadId) {
+      interpretingThreadIdRef.current = interpretingThreadId;
+      interpretingSinceRef.current = Date.now();
+      if (interpretingStalled) setInterpretingStalled(false);
+    }
+
+    if (!executing && !interpreting) return undefined;
+    // Once truly stalled, stop polling in the background — continuing to
+    // poll silently would undercut the honest "this stalled" signal now
+    // showing. A manual "Check again" click (retryInterpreting) re-arms it.
+    if (interpreting && interpretingStalled) return undefined;
+
+    const timer = window.setInterval(async () => {
+      const next = await refreshThread().catch(() => null);
+      const stillInterpreting = next ? stateFor(next) === "draft" : interpreting;
+      if (
+        stillInterpreting &&
+        interpretingSinceRef.current &&
+        Date.now() - interpretingSinceRef.current > INTERPRETING_STALL_MS
+      ) {
+        setInterpretingStalled(true);
+      }
     }, 4000);
     return () => window.clearInterval(timer);
-  }, [selected, refreshThread]);
+  }, [selected, refreshThread, interpretingStalled]);
+
+  const retryInterpreting = useCallback(() => {
+    interpretingThreadIdRef.current = selected?.id || "";
+    interpretingSinceRef.current = Date.now();
+    setInterpretingStalled(false);
+    refreshThread().catch(() => {});
+  }, [refreshThread, selected?.id]);
 
   const selectThread = async (threadId) => {
     setSelectedId(threadId);
@@ -957,7 +1011,9 @@ export function SynthesisPage({
                 />
               ) : null}
               {mode === "explore" ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
-              {mode === "draft" ? <DraftCanvas thread={selected} onAsk={ask} /> : null}
+              {mode === "draft" ? (
+                <DraftCanvas thread={selected} onAsk={ask} stalled={interpretingStalled} onRetry={retryInterpreting} />
+              ) : null}
             </>
           ) : null}
         </main>

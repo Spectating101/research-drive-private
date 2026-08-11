@@ -286,6 +286,49 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page).toHaveURL(/mode=history/);
   });
 
+  test("rail Evidence field does not contradict an accepted execution record with empty evidence nodes", async ({ page }) => {
+    // A thread can reach "accepted method, awaiting execution" with its
+    // evidence graph nodes still empty (the accept step sets execution_spec
+    // without ever populating state.nodes) — the same gap a freshly created
+    // thread sits in. The rail must not say "No inputs mapped" beside an
+    // execution record that names a specific accepted input.
+    await page.route("**/api/library/synthesis/threads/thread-proposal", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "thread-proposal",
+          title: "Weekly trust panel",
+          objective: "Aggregate held stablecoin evidence at weekly grain.",
+          materialisation: "not_materialised",
+          state: {
+            title: "Weekly trust panel",
+            objective: "Aggregate held stablecoin evidence at weekly grain.",
+            required_grain: "asset × week",
+            maturity: "planned",
+            maturityLabel: "Accepted method",
+            lastActivity: "Accepted proposal: Aggregate held weekly panel.",
+            nodes: [],
+            edges: [],
+            proposal: null,
+            execution_spec: {
+              input_dataset_id: "stablecoin_trust_engagement_weekly",
+              output_dataset_id: "stablecoin_attention_weekly",
+              group_by: ["asset_id", "week"],
+              metrics: [{ field: "attention", aggregate: "mean" }],
+            },
+          },
+        }),
+      });
+    });
+    await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
+    await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("Declared input · accepted: stablecoin_trust_engagement_weekly");
+    await expect(rail).not.toContainText("No inputs mapped");
+  });
+
   test("renders registered output only from thread registration evidence", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Stablecoin attention weekly panel" }).click();
     const registered = page.getByTestId("synthesis-registered-state");
@@ -392,6 +435,96 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await page.waitForTimeout(250);
     await capture(page, "07-new-project-ask-desktop");
+  });
+
+  test("the draft canvas yields to evidence mapping once the agent's turn lands, without a manual reload", async ({ page }) => {
+    await page.getByRole("button", { name: "+ New" }).click();
+    const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
+
+    const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes("/api/library/synthesis/threads") && res.request().method() === "POST",
+      ),
+      page.getByRole("button", { name: "Start project in Ask" }).click(),
+    ]);
+    const created = await createResponse.json();
+    const threadId = created.id;
+
+    await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
+
+    // Simulate the agent's server-side turn landing: the next poll of this
+    // thread now returns mapped evidence.
+    await page.route(`**/api/library/synthesis/threads/${threadId}`, async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: threadId,
+          title: objective,
+          objective,
+          state: {
+            title: objective,
+            objective,
+            nodes: [
+              { id: "trends", type: "construct", layer: "evidence", label: "Search intent", role: "Core signal", status: "held" },
+            ],
+            edges: [],
+            proposal: null,
+          },
+        }),
+      });
+    });
+
+    await expect(page.getByTestId("synthesis-evidence-state")).toBeVisible({ timeout: 6000 });
+    await expect(page.getByTestId("synthesis-draft-state")).toHaveCount(0);
+  });
+
+  test("stops polling silently and admits it when the agent's turn never lands, then recovers on retry", async ({ page }) => {
+    await page.clock.install();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill("Unresolved objective for stall coverage.");
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
+
+    const card = page.getByTestId("synthesis-draft-state");
+    await expect(card).toBeVisible();
+    await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
+    await expect(card).toContainText("Interpretation in progress");
+
+    // Nothing overrides this thread's GET route, so it keeps returning the
+    // same unresolved state on every poll — a genuine stall.
+    await page.clock.fastForward(65000);
+
+    await expect(card).toContainText("Taking longer than expected");
+    await expect(card).toContainText("The agent hasn't responded yet");
+    const retry = card.getByTestId("synthesis-draft-retry");
+    await expect(retry).toBeVisible();
+
+    await retry.click();
+    await expect(card).toContainText("Interpretation in progress");
+    await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
+  });
+
+  test("a stalled thread does not make the next new thread look stalled", async ({ page }) => {
+    await page.clock.install();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill("First unresolved objective.");
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
+    await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
+    await page.clock.fastForward(65000);
+    await expect(page.getByTestId("synthesis-draft-state")).toContainText("Taking longer than expected");
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    const secondObjective = "Second unresolved objective.";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(secondObjective);
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
+
+    const card = page.getByTestId("synthesis-draft-state");
+    await expect(card).toContainText("Interpretation in progress");
+    await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
   });
 
   test("keeps the right rail usable on mobile while the workspace remains source-backed", async ({ page }) => {
