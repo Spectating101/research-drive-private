@@ -303,6 +303,32 @@ def test_failed_execution_is_visible_on_the_thread(store):
     assert "Drive verification failed" in failed["state"]["execution"]["error"]
 
 
+def test_reasoning_brief_reports_durable_facts_without_inferring_progress(store):
+    from scripts.research_data_mcp.synthesis_thread_store import build_synthesis_reasoning_brief
+
+    thread = store.create(
+        objective="Aggregate a held panel.",
+        title="Weekly trust panel",
+        state=_seed_state(),
+    )
+    state = thread["state"]
+    state["execution"] = {
+        "status": "pending_approval",
+        "job_id": "job-review",
+        "output_dataset_id": "synthesis_weekly_trust_panel",
+    }
+    store._save_state(thread["id"], state)
+
+    brief = build_synthesis_reasoning_brief(store.get(thread["id"]))
+
+    assert "[Durable Synthesis thread — recorded facts]" in brief
+    assert "Google Trends weekly panel [google_trends_stablecoin_weekly]" in brief
+    assert "recorded status: held" in brief
+    assert "Recorded execution: pending_approval" in brief
+    assert "output registered: no" in brief
+    assert "Materialisation truth: registered" not in brief
+
+
 def test_synthesis_approval_boundaries(stack):
     """Desk can approve valid synthesis; agents cannot; incomplete plans stay blocked."""
     incomplete = stack.orchestrator.store.create(

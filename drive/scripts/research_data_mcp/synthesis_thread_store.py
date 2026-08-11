@@ -396,6 +396,78 @@ def build_discover_handoff(thread: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_synthesis_reasoning_brief(thread: dict[str, Any]) -> str:
+    """Render a bounded, factual context block for a Synthesis reasoning turn.
+
+    This intentionally reports only durable state already recorded on the
+    thread. It does not score evidence, choose a proxy, infer readiness, or
+    turn an intent into a collection job. The provider retains responsibility
+    for reasoning; this gives it the exact project facts it must not contradict.
+    """
+    state = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+    lines = ["[Durable Synthesis thread — recorded facts]"]
+    title = str(thread.get("title") or state.get("title") or "").strip()
+    objective = str(thread.get("objective") or state.get("objective") or "").strip()
+    grain = str(state.get("required_grain") or (state.get("spec") or {}).get("grain") or "").strip()
+    if title:
+        lines.append(f"- title: {title[:240]}")
+    if objective:
+        lines.append(f"- objective: {objective[:900]}")
+    if grain:
+        lines.append(f"- required grain: {grain[:240]}")
+
+    evidence: list[str] = []
+    for node in _as_list(state.get("nodes")):
+        if not isinstance(node, dict) or not _is_evidence_node(node):
+            continue
+        label = str(node.get("label") or node.get("title") or node.get("id") or "evidence").strip()
+        status = str(node.get("status") or "not stated").strip()
+        role = str(node.get("role") or "").strip()
+        dataset_id = str(node.get("dataset_id") or node.get("registered_dataset_id") or "").strip()
+        detail = f"; role: {role[:200]}" if role else ""
+        identity = f" [{dataset_id[:160]}]" if dataset_id else ""
+        evidence.append(f"- {label[:240]}{identity}; recorded status: {status[:80]}{detail}")
+    if evidence:
+        lines.append("Recorded evidence:")
+        lines.extend(evidence[:16])
+    else:
+        lines.append("Recorded evidence: none mapped yet.")
+
+    proposal = state.get("proposal") if isinstance(state.get("proposal"), dict) else None
+    if proposal:
+        lines.append(
+            "Pending review proposal: "
+            f"{str(proposal.get('title') or proposal.get('id') or 'untitled')[:240]}"
+        )
+        summary = str(proposal.get("summary") or "").strip()
+        if summary:
+            lines.append(f"- proposal summary: {summary[:900]}")
+    else:
+        lines.append("Pending review proposal: none.")
+
+    execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}
+    if execution:
+        status = str(execution.get("status") or "not stated").strip()
+        output = str(execution.get("output_dataset_id") or "").strip()
+        lines.append(f"Recorded execution: {status[:80]}" + (f"; output id: {output[:160]}" if output else ""))
+    else:
+        lines.append("Recorded execution: none requested.")
+
+    materialisation = build_materialisation_view(thread)
+    lines.append(
+        "Materialisation truth: "
+        f"{materialisation['materialisation']}; "
+        f"execution record: {'yes' if materialisation['execution_recorded'] else 'no'}; "
+        f"output registered: {'yes' if materialisation['output_registered'] else 'no'}."
+    )
+    lines.append(
+        "Treat this as authoritative recorded state. It is not evidence that a proposed "
+        "method has run; use tools for any additional verification."
+    )
+    lines.append("[/Durable Synthesis thread]")
+    return "\n".join(lines)[:7000]
+
+
 def build_materialisation_view(thread: dict[str, Any]) -> dict[str, Any]:
     state = thread.get("state") or {}
     execution = state.get("execution") if isinstance(state.get("execution"), dict) else {}

@@ -534,6 +534,36 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     return rail_block + grounding
 
 
+def _durable_synthesis_thread_brief(gateway: Any, state: dict[str, Any]) -> str:
+    """Fetch the selected thread's recorded facts for every Synthesis turn.
+
+    The rail identifies a thread, but its compact UI envelope deliberately does
+    not carry the construction graph, pending proposal, or execution truth.
+    Supplying that durable record to the reasoning provider prevents a later
+    turn from having to reconstruct project state from its own prior prose.
+    This is an exact state read, not a relevance/routing heuristic: if the
+    thread cannot be read we omit the brief rather than guessing.
+    """
+    context = state.get("rail_context") if isinstance(state, dict) else {}
+    context = context if isinstance(context, dict) else {}
+    entity = context.get("entity") if isinstance(context.get("entity"), dict) else {}
+    thread_id = str(context.get("thread_id") or entity.get("id") or "").strip()
+    get_thread = getattr(gateway, "synthesis_thread_get", None)
+    if not thread_id or not callable(get_thread):
+        return ""
+    try:
+        thread = get_thread(thread_id)
+    except Exception:  # Ownership/not-found failures must never become invented context.
+        return ""
+    if not isinstance(thread, dict):
+        return ""
+    from scripts.research_data_mcp.synthesis_thread_store import (
+        build_synthesis_reasoning_brief,
+    )
+
+    return build_synthesis_reasoning_brief(thread)
+
+
 def _prepare_synthesis_fallback_prompt(
     gateway: Any,
     message: str,
@@ -554,6 +584,9 @@ def _prepare_synthesis_fallback_prompt(
     rail_prefix = _format_rail_context(state.get("rail_context") or {}).strip()
     if rail_prefix:
         parts.append(rail_prefix)
+    durable_thread = _durable_synthesis_thread_brief(gateway, state)
+    if durable_thread:
+        parts.append(durable_thread)
     history = synthesis_history_brief(state)
     if history:
         parts.append(history)
@@ -786,6 +819,9 @@ def run_cursor_composer_turn(
             user_text = wrap_first_turn_message(brief, user_text)
             vault_primed_env = True
         if synthesis_context:
+            durable_thread = _durable_synthesis_thread_brief(gateway, state)
+            if durable_thread:
+                user_text = f"{durable_thread}\n\n{user_text}"
             if first_synthesis_turn:
                 from scripts.research_data_mcp.desk_synthesis_grounding import (
                     build_synthesis_grounding_brief,
