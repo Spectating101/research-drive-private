@@ -605,6 +605,141 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
   });
 
+  test("routes a backend-declared evidence gap to Discover, then returns to the exact thread with evidence intact", async ({ page }) => {
+    const modifiedExploring = {
+      ...EXPLORING_THREAD,
+      state: {
+        ...EXPLORING_THREAD.state,
+        nodes: [
+          ...EXPLORING_THREAD.state.nodes,
+          {
+            id: "filings",
+            type: "source",
+            layer: "evidence",
+            label: "Regulatory filings",
+            role: "Direct measure gap",
+            status: "missing",
+            grain: "issuer-quarter",
+            coverage: "Not held",
+          },
+        ],
+      },
+    };
+    await page.route("**/api/library/synthesis/threads**", async (route) => {
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split("/").filter(Boolean);
+      const threadIndex = parts.lastIndexOf("threads");
+      const threadId = parts[threadIndex + 1] || "";
+      const suffix = parts.slice(threadIndex + 2).join("/");
+      const method = route.request().method();
+      if (!threadId && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ threads: [modifiedExploring, PROPOSAL_THREAD, REGISTERED_THREAD, QUERY_READY_THREAD], total: 4 }),
+        });
+      }
+      if (threadId === "thread-attention" && !suffix && method === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(modifiedExploring) });
+      }
+      if (threadId === "thread-attention" && suffix === "discover-handoff" && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thread_id: "thread-attention",
+            objective: EXPLORING_THREAD.objective,
+            required_grain: "asset × week",
+            held_evidence: [],
+            missing_evidence: [{ id: "filings", label: "Regulatory filings", source_identity: "regulatory filings" }],
+            collect_intents: [],
+            fake_collection: false,
+          }),
+        });
+      }
+      return route.fallback();
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await page.getByRole("button", { name: /Regulatory filings/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Regulatory filings");
+    await page.getByRole("button", { name: "Route to Discover" }).click();
+    await expect(page).toHaveURL(/tab=browse/);
+    await expect(page.getByTestId("synthesis-discover-handoff")).toContainText("Regulatory filings");
+
+    await page.getByRole("button", { name: "Return to Synthesis" }).click();
+    await expect(page).toHaveURL(/tab=synthesis/);
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Historical stablecoin attention");
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("4 mapped inputs");
+  });
+
+  test("keeps a node whose status looks like a gap from routing unless the backend handoff names it", async ({ page }) => {
+    // "needs_access" is exactly the kind of string a local regex used to
+    // treat as a gap on its own. The durable handoff explicitly does NOT
+    // name this node, so it must not be routable no matter what its own
+    // status text says — proves the backend, not the frontend, decides.
+    const modifiedExploring = {
+      ...EXPLORING_THREAD,
+      state: {
+        ...EXPLORING_THREAD.state,
+        nodes: [
+          ...EXPLORING_THREAD.state.nodes,
+          {
+            id: "restricted_api",
+            type: "source",
+            layer: "evidence",
+            label: "Restricted vendor API",
+            role: "Candidate",
+            status: "needs_access",
+            grain: "event-day",
+            coverage: "Unknown",
+          },
+        ],
+      },
+    };
+    await page.route("**/api/library/synthesis/threads**", async (route) => {
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split("/").filter(Boolean);
+      const threadIndex = parts.lastIndexOf("threads");
+      const threadId = parts[threadIndex + 1] || "";
+      const suffix = parts.slice(threadIndex + 2).join("/");
+      const method = route.request().method();
+      if (!threadId && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ threads: [modifiedExploring, PROPOSAL_THREAD, REGISTERED_THREAD, QUERY_READY_THREAD], total: 4 }),
+        });
+      }
+      if (threadId === "thread-attention" && !suffix && method === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(modifiedExploring) });
+      }
+      if (threadId === "thread-attention" && suffix === "discover-handoff" && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thread_id: "thread-attention",
+            objective: EXPLORING_THREAD.objective,
+            required_grain: "asset × week",
+            held_evidence: [],
+            missing_evidence: [],
+            collect_intents: [],
+            fake_collection: false,
+          }),
+        });
+      }
+      return route.fallback();
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await page.getByRole("button", { name: /Restricted vendor API/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Restricted vendor API");
+    await expect(page.getByRole("button", { name: "Route to Discover" })).toHaveCount(0);
+  });
+
   test("keeps the right rail usable on mobile while the workspace remains source-backed", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 1200 });
     await page.reload({ waitUntil: "domcontentloaded" });

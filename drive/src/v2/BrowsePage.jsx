@@ -590,6 +590,9 @@ export function BrowsePage({
   assessmentActive = false,
   assessmentResult = null,
   onOpenAssessment,
+  synthesisHandoff = null,
+  onReturnToSynthesis,
+  onDismissSynthesisHandoff,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1082,6 +1085,25 @@ export function BrowsePage({
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >
       <div className="rd-v2-discover-browse" data-testid="discover-browse-mode" data-mode="browse">
+        {synthesisHandoff ? (
+          <section className="rd-v2-synthesis-handoff" data-testid="synthesis-discover-handoff" aria-label="Synthesis evidence handoff">
+            <div>
+              <span className="rd-v2-eyebrow">Synthesis evidence gap</span>
+              <strong>{synthesisHandoff.field?.label || synthesisHandoff.field?.dataset_id || "Selected evidence"}</strong>
+              <p>
+                {synthesisHandoff.field?.role ? `${synthesisHandoff.field.role}. ` : ""}
+                {synthesisHandoff.handoff?.required_grain ? `Required grain: ${synthesisHandoff.handoff.required_grain}. ` : ""}
+                This is a research handoff only; no collection has started.
+              </p>
+            </div>
+            <button type="button" className="rd-v2-btn sm" onClick={() => onReturnToSynthesis?.()}>
+              Return to Synthesis
+            </button>
+            <button type="button" className="rd-v2-btn sm" onClick={() => onDismissSynthesisHandoff?.()}>
+              Dismiss
+            </button>
+          </section>
+        ) : null}
         {!q ? (
           <section className="rd-v2-discover-idle" data-testid="discover-empty">
             <DiscoverQueryComposer
