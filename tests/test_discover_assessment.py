@@ -39,7 +39,14 @@ def test_fully_supported_requirement_is_covered():
     assert out["held_evidence"][0]["dataset_id"] == "held_panel"
 
 
-def test_question_drafts_only_explicit_requirement_patterns():
+def test_question_is_drafted_by_the_model_without_a_static_vocabulary(monkeypatch):
+    captured = {}
+
+    def model(prompt):
+        captured["prompt"] = prompt
+        return '{"unit":"firm_day","universe/geography":"Taiwan","time_range":{"start":"2020","end":"2022"},"frequency":"daily","fields":["return","volume"],"event_type":"earnings"}'
+
+    monkeypatch.setattr("scripts.research_data_mcp.discover_assessment._run_requirement_model", model)
     normalized = normalize_requirement({"question": "Daily Taiwan firm-day returns and volume, 2020-2022 earnings"})
     assert normalized["unit"] == {"value": "firm_day", "provenance": "drafted"}
     assert normalized["universe/geography"] == {"value": "Taiwan", "provenance": "drafted"}
@@ -47,19 +54,37 @@ def test_question_drafts_only_explicit_requirement_patterns():
     assert normalized["frequency"] == {"value": "daily", "provenance": "drafted"}
     assert normalized["fields"] == {"value": ["return", "volume"], "provenance": "drafted"}
     assert normalized["event_type"] == {"value": "earnings", "provenance": "drafted"}
+    assert "Do not infer proxies" in captured["prompt"]
 
 
-def test_ambiguous_question_dimensions_remain_unspecified():
+def test_unavailable_model_leaves_question_dimensions_unspecified(monkeypatch):
+    def unavailable(prompt):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr("scripts.research_data_mcp.discover_assessment._run_requirement_model", unavailable)
     normalized = normalize_requirement({"question": "Can we study firms and performance over time?"})
     assert all(item == {"value": None, "provenance": "unspecified"} for item in normalized.values())
 
 
-def test_assessment_uses_existing_catalog_q_search():
+def test_assessment_uses_existing_catalog_q_search_and_model_draft(monkeypatch):
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.discover_assessment._run_requirement_model",
+        lambda prompt: '{"unit":"firm_day"}',
+    )
     gateway = Gateway([])
     out = assess_held_evidence(gateway, question="Taiwan firm-day returns")
     assert gateway.last_kwargs["q"] == "Taiwan firm-day returns"
     assert gateway.last_kwargs["limit"] == 100
     assert out["requirement"]["unit"]["provenance"] == "drafted"
+
+
+def test_explicit_requirement_does_not_call_the_model(monkeypatch):
+    def should_not_run(prompt):
+        raise AssertionError("explicit requirement must remain authoritative")
+
+    monkeypatch.setattr("scripts.research_data_mcp.discover_assessment._run_requirement_model", should_not_run)
+    normalized = normalize_requirement(requirement(unit="firm_day", geography="Taiwan", time_range={"start": "2020", "end": "2022"}, frequency="daily", fields=["return"], event_type="earnings"))
+    assert normalized["unit"]["value"] == "firm_day"
 
 
 def test_partial_requirement_reports_one_precise_gap():

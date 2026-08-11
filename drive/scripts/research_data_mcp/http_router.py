@@ -27,6 +27,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/search", "handler": "library_unified_search"},
     {"method": "GET", "path": "/library/discover", "handler": "library_discover"},
     {"method": "POST", "path": "/library/discover/assessment", "handler": "library_discover_assessment"},
+    {"method": "POST", "path": "/library/discover/routes", "handler": "library_discover_routes"},
     {"method": "POST", "path": "/library/discover/semantic", "handler": "library_discover_semantic"},
     {"method": "GET", "path": "/library/discover/web", "handler": "library_discover_web"},
     {"method": "POST", "path": "/library/discover/probe", "handler": "library_discover_probe"},
@@ -371,6 +372,27 @@ def _handlers() -> dict[str, Handler]:
             limit=int(payload.get("limit") or 100),
         )
         _activity(stack, "discover_assessment", str(payload.get("question") or "")[:200], meta={"verdict": out.get("verdict")})
+        return out
+
+    def library_discover_routes(stack, query, payload, params):
+        """Offer declared collection options for an already-assessed evidence gap."""
+        from scripts.research_data_mcp.gap_routes import routes_for_gaps
+
+        question = str(payload.get("question") or "").strip()
+        if not question:
+            raise ValueError("question is required")
+        assessment = payload.get("assessment")
+        if not isinstance(assessment, dict):
+            raise ValueError("assessment is required and must be an object")
+        out = routes_for_gaps(question, assessment, stack.gateway.repo_root)
+        out["verdict"] = assessment.get("verdict")
+        out["assessment_status"] = assessment.get("assessment_status")
+        _activity(
+            stack,
+            "discover_routes",
+            question[:200],
+            meta={"gaps": len(out.get("gaps") or []), "routes": len(out.get("routes") or [])},
+        )
         return out
 
     def library_discover_semantic(stack, query, payload, params):
@@ -1380,6 +1402,7 @@ def _handlers() -> dict[str, Handler]:
         "library_unified_search": library_unified_search,
         "library_discover": library_discover,
         "library_discover_assessment": library_discover_assessment,
+        "library_discover_routes": library_discover_routes,
         "library_discover_semantic": library_discover_semantic,
         "library_discover_web": library_discover_web,
         "library_discover_probe": library_discover_probe,
