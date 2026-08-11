@@ -1,4 +1,4 @@
-"""Deterministic held-evidence assessment for Discover.
+"""Held-evidence assessment for Discover.
 
 This module deliberately assesses catalog evidence, rather than predicting whether
 research is "ready".  A catalog row only supports a requirement dimension when
@@ -13,7 +13,10 @@ misrepresent an absence of data as a checked-and-failed result.
 
 from __future__ import annotations
 
-import re
+import json
+import os
+import shutil
+import subprocess
 from datetime import date
 from typing import Any
 
@@ -63,7 +66,14 @@ def _display(value: Any) -> str:
 def normalize_requirement(requirement: Any) -> dict[str, dict[str, Any]]:
     """Normalize caller input and fill only explicit, deterministic question drafts."""
     source = requirement if isinstance(requirement, dict) else {}
-    drafted = draft_requirement_from_question(str(source.get("question") or ""))
+    needs_draft = any(
+        next(
+            (source.get(key) for key in _DIMENSION_ALIASES.get(dimension, (dimension,)) if source.get(key) is not None),
+            None,
+        ) is None
+        for dimension in DIMENSIONS
+    )
+    drafted = draft_requirement_from_question(str(source.get("question") or "")) if needs_draft else {}
     normalized: dict[str, dict[str, Any]] = {}
     for dimension in DIMENSIONS:
         incoming = next(
@@ -87,70 +97,70 @@ def normalize_requirement(requirement: Any) -> dict[str, dict[str, Any]]:
     return normalized
 
 
+_INTERPRET_REQUIREMENT_PROMPT = """Extract only explicit or clearly implied research requirements from this question:
+{question}
+
+Return one JSON object and no prose. Use only these keys:
+unit, universe/geography, time_range, frequency, fields, event_type.
+
+Values must be strings, arrays of strings, or for time_range an object with
+optional string keys start and end. Omit a key when the question does not
+establish it. Do not infer proxies, data sources, access, coverage, or a
+research conclusion.
+"""
+
+
+def _run_requirement_model(prompt: str, *, timeout: float = 12.0) -> str:
+    """Use the configured agent for research interpretation; no heuristic fallback."""
+    binary = shutil.which("cursor-agent")
+    if not binary:
+        raise RuntimeError("cursor-agent is not installed")
+    environment = dict(os.environ)
+    if not environment.get("CURSOR_API_KEY"):
+        raise RuntimeError("CURSOR_API_KEY is not configured")
+    try:
+        completed = subprocess.run(
+            [
+                binary,
+                "-p",
+                prompt,
+                "--model",
+                environment.get("RD_REQUIREMENT_MODEL", "composer-2.5"),
+                "--output-format",
+                "text",
+                "--mode",
+                "ask",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=environment,
+            cwd="/tmp",
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("model timed out") from exc
+    except OSError as exc:
+        raise RuntimeError("model process could not start") from exc
+    if completed.returncode:
+        raise RuntimeError(f"model process failed (exit {completed.returncode})")
+    return completed.stdout
+
+
 def draft_requirement_from_question(question: str) -> dict[str, dict[str, Any]]:
-    """Draft only unambiguous requirement clues; this is not semantic extraction."""
-    text = str(question or "")
-    draft: dict[str, dict[str, Any]] = {}
-
-    year_range = re.search(r"\b((?:19|20)\d{2})\s*(?:-|–|to)\s*((?:19|20)\d{2})\b", text, flags=re.IGNORECASE)
-    if year_range:
-        draft["time_range"] = {
-            "value": {"start": year_range.group(1), "end": year_range.group(2)},
-            "provenance": "drafted",
-        }
-
-    frequency = re.search(r"\b(daily|weekly|monthly|quarterly|annual|yearly)\b", text, flags=re.IGNORECASE)
-    if frequency:
-        draft["frequency"] = {"value": frequency.group(1).casefold(), "provenance": "drafted"}
-
-    geographies = (
-        (r"\bTaiwan(?:ese)?\b", "Taiwan"),
-        (r"\bJapan(?:ese)?\b", "Japan"),
-        (r"\b(?:China|Chinese)\b", "China"),
-        (r"\bAsia(?:n)?\b", "Asia"),
-        (r"\bUnited States\b|\bU\.S\.\b|\bUS equities\b", "United States"),
-        (r"\bS&P\s*500\b", "S&P 500"),
-    )
-    for pattern, value in geographies:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            draft["universe/geography"] = {"value": value, "provenance": "drafted"}
-            break
-
-    units = (
-        (r"\bfirm[ -]day\b", "firm_day"),
-        (r"\bexchange[ -]day\b", "exchange_day"),
-        (r"\bcountry[ -]day\b", "country_day"),
-        (r"\btransaction(?:-level)?\b", "transaction"),
-    )
-    for pattern, value in units:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            draft["unit"] = {"value": value, "provenance": "drafted"}
-            break
-
-    field_terms = (
-        (r"\breturns?\b", "return"),
-        (r"\bvolume\b", "volume"),
-        (r"\bmarket[ -]?cap(?:italization)?\b", "market_cap"),
-        (r"\bprices?\b", "price"),
-    )
-    fields = [value for pattern, value in field_terms if re.search(pattern, text, flags=re.IGNORECASE)]
-    if fields:
-        draft["fields"] = {"value": fields, "provenance": "drafted"}
-
-    event_terms = (
-        (r"\bde-?pegs?\b", "stablecoin_depeg"),
-        (r"\bearnings?\b", "earnings"),
-        (r"\bfilings?\b", "filing"),
-        (r"\bdividends?\b", "dividend"),
-        (r"\bmergers?(?:\s+and\s+acquisitions)?\b|\bM&A\b", "merger"),
-        (r"\bearthquakes?\b", "earthquake"),
-        (r"\bnews shock\b", "news_shock"),
-    )
-    for pattern, value in event_terms:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            draft["event_type"] = {"value": value, "provenance": "drafted"}
-            break
-    return draft
+    """Ask the model to draft requirements, preserving unknowns rather than guessing."""
+    try:
+        candidate = json.loads(_run_requirement_model(_INTERPRET_REQUIREMENT_PROMPT.format(question=str(question or "").strip())))
+    except (RuntimeError, ValueError, TypeError):
+        return {}
+    if not isinstance(candidate, dict):
+        return {}
+    drafted: dict[str, dict[str, Any]] = {}
+    for dimension in DIMENSIONS:
+        value = _clean(candidate.get(dimension))
+        if value is not None and isinstance(value, (str, list, dict)):
+            drafted[dimension] = {"value": value, "provenance": "drafted"}
+    return drafted
 
 
 def _coverage_claims(row: dict[str, Any]) -> dict[str, list[Any]]:
@@ -273,7 +283,7 @@ def _date_boundary(value: Any, *, end: bool) -> date | None:
     text = str(value or "").strip()
     if not text:
         return None
-    if re.fullmatch(r"(?:19|20)\d{2}", text):
+    if len(text) == 4 and text.isdigit() and text.startswith(("19", "20")):
         year = int(text)
         return date(year, 12, 31) if end else date(year, 1, 1)
     try:
@@ -375,12 +385,12 @@ def _gap(dimension: str, requirement: dict[str, Any], status: str) -> dict[str, 
 
 
 def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None, limit: int = 100) -> dict[str, Any]:
-    """Assess catalog-held evidence with no live lookup or model call."""
+    """Assess declared catalog evidence after explicit or model-drafted requirements."""
     question = str(question or "").strip()
     if not question:
         raise ValueError("question is required")
-    # The question is deliberately supplied to the narrow draft helper only;
-    # caller-provided values remain authoritative in `normalize_requirement`.
+    # Caller-provided values remain authoritative. Missing dimensions are model-
+    # drafted only when available; no deterministic vocabulary fills the gaps.
     normalized = normalize_requirement({**(requirement if isinstance(requirement, dict) else {}), "question": question})
     result = gateway.list_datasets(q=question, limit=max(1, min(int(limit or 100), 200)))
     rows = result.get("datasets") if isinstance(result, dict) else []
@@ -534,7 +544,7 @@ def assess_held_evidence(gateway: Any, *, question: str, requirement: Any = None
         "held_evidence": held,
         "gap": gap,
         "assessment_basis": {
-            "mode": "deterministic_catalog_metadata",
+            "mode": "declared_catalog_metadata",
             "catalog_candidates_considered": len(assessed),
             "dimension_status": dimension_status,
             "compatible_record_ids": [record.get("dataset_id") for record in compatible_records],
