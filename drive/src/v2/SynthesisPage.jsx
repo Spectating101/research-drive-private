@@ -948,6 +948,17 @@ export function SynthesisPage({
     setBusy(true);
     setError("");
     try {
+      // Idempotency guard: a prior click's response can be lost even though
+      // the server successfully created the job (slow network, tab backgrounded,
+      // the researcher navigating away and back). Re-check durable state before
+      // requesting again, so a retry after a dropped response cannot create a
+      // second job against the same accepted specification.
+      const current = await refreshThread(selected.id).catch(() => null);
+      if (current) {
+        replaceThread(current);
+        onSelectThread?.(current);
+        if (text(current?.state?.execution?.status)) return;
+      }
       const result = await requestSynthesisExecution(selected.id);
       const next = result?.thread || (result?.state ? result : await refreshThread(selected.id));
       if (next) {

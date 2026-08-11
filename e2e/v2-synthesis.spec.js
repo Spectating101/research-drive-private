@@ -286,6 +286,84 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page).toHaveURL(/mode=history/);
   });
 
+  test("does not create a second execution job when a prior request's response was lost", async ({ page }) => {
+    // Simulate: a first "Request execution" click reached the server and
+    // created a job, but the response never reached this client (dropped
+    // connection, backgrounded tab). The button is still showing "Request
+    // execution" from stale local state. Clicking it again must not create a
+    // duplicate job — it must discover the durable state and self-correct.
+    let executeCalls = 0;
+    await page.route("**/api/library/synthesis/threads/thread-proposal/execute", async (route) => {
+      executeCalls += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ job: { id: "job-should-not-exist", status: "pending_approval" } }),
+      });
+    });
+    const baseState = {
+      title: "Weekly trust panel",
+      objective: "Aggregate held stablecoin evidence at weekly grain.",
+      required_grain: "asset × week",
+      maturity: "planned",
+      maturityLabel: "Accepted method",
+      lastActivity: "Accepted proposal: Aggregate held weekly panel.",
+      nodes: [],
+      edges: [],
+      proposal: null,
+      execution_spec: {
+        input_dataset_id: "stablecoin_trust_engagement_weekly",
+        output_dataset_id: "stablecoin_attention_weekly",
+        group_by: ["asset_id", "week"],
+        metrics: [{ field: "attention", aggregate: "mean" }],
+      },
+    };
+    let getCalls = 0;
+    await page.route("**/api/library/synthesis/threads/thread-proposal", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      getCalls += 1;
+      // First load shows no execution yet, so "Request execution" renders.
+      // From the second GET onward (the idempotency guard's own pre-flight
+      // refetch, triggered by the click below) the durable job already
+      // exists — simulating that the first attempt's response was lost
+      // even though the server had already created it.
+      const state =
+        getCalls === 1
+          ? baseState
+          : {
+              ...baseState,
+              execution: {
+                status: "pending_approval",
+                job_id: "job-already-created",
+                output_dataset_id: "stablecoin_attention_weekly",
+              },
+            };
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "thread-proposal",
+          title: "Weekly trust panel",
+          objective: "Aggregate held stablecoin evidence at weekly grain.",
+          materialisation: "not_materialised",
+          state,
+        }),
+      });
+    });
+
+    await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
+    const execution = page.getByTestId("synthesis-execution-state");
+    await expect(execution).toContainText("stablecoin_attention_weekly");
+    await expect(execution.getByRole("button", { name: "Request execution" })).toBeVisible();
+
+    await execution.getByRole("button", { name: "Request execution" }).click();
+
+    await expect(execution.getByRole("button", { name: "Review approval" })).toBeVisible();
+    await expect(execution.getByRole("button", { name: "Request execution" })).toHaveCount(0);
+    expect(executeCalls).toBe(0);
+    expect(getCalls).toBeGreaterThanOrEqual(2);
+  });
+
   test("rail Evidence field does not contradict an accepted execution record with empty evidence nodes", async ({ page }) => {
     // A thread can reach "accepted method, awaiting execution" with its
     // evidence graph nodes still empty (the accept step sets execution_spec
