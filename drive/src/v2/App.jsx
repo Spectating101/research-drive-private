@@ -214,6 +214,10 @@ export function V2App() {
   });
   /** One-shot: Explore should hit live source adapters (Search wider / Ask handoff). */
   const [discoverPreferLive, setDiscoverPreferLive] = useState(false);
+  /** A Synthesis evidence gap routed to Discover — cleared on Dismiss or Return. */
+  const [synthesisDiscoverHandoff, setSynthesisDiscoverHandoff] = useState(null);
+  /** One-shot: Synthesis should reselect this exact thread after a Discover return. */
+  const [focusSynthesisThreadId, setFocusSynthesisThreadId] = useState("");
   const [historyEvents, setHistoryEvents] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -695,6 +699,26 @@ export function V2App() {
     },
     [syncUrl],
   );
+
+  const handleSynthesisDiscoverHandoff = useCallback(
+    ({ field, handoff, thread } = {}) => {
+      if (!field || !thread) return;
+      setSynthesisDiscoverHandoff({ field, handoff, thread });
+      setDiscoverIntentRecord(null);
+      setDiscoverAssessment({ active: false, question: "", result: null });
+      setDiscoverSearchQuery(String(field.label || field.dataset_id || "").trim());
+      goTab("browse");
+    },
+    [goTab],
+  );
+
+  const returnToSynthesis = useCallback(() => {
+    const threadId = synthesisDiscoverHandoff?.thread?.id;
+    if (!threadId) return;
+    setFocusSynthesisThreadId(threadId);
+    setSynthesisDiscoverHandoff(null);
+    goTab("synthesis");
+  }, [synthesisDiscoverHandoff, goTab]);
 
   const selectDataset = useCallback(
     (row) => {
@@ -1421,6 +1445,9 @@ export function V2App() {
           intentRecord={discoverIntentRecord}
           onIntentChange={setDiscoverIntentRecord}
           onCloseIntent={() => setDiscoverIntentRecord(null)}
+          synthesisHandoff={synthesisDiscoverHandoff}
+          onReturnToSynthesis={returnToSynthesis}
+          onDismissSynthesisHandoff={() => setSynthesisDiscoverHandoff(null)}
           onIntentSubmitted={(job, record) => {
             if (job?.id) {
               setJobs((previous) => {
@@ -1505,6 +1532,9 @@ export function V2App() {
             setActiveObject(null);
             setRailTab("ask");
           }}
+          onDiscoverHandoff={handleSynthesisDiscoverHandoff}
+          focusThreadId={focusSynthesisThreadId}
+          onFocusThreadConsumed={() => setFocusSynthesisThreadId("")}
           refreshVersion={synthesisRefreshVersion}
         />
       );

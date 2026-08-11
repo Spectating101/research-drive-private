@@ -3,6 +3,7 @@ import { PageShell } from "@/v2/ui";
 import {
   createSynthesisThread,
   decideSynthesisProposal,
+  getSynthesisDiscoverHandoff,
   getSynthesisThread,
   listSynthesisProfiles,
   listSynthesisThreads,
@@ -14,6 +15,12 @@ import { buildStageDetail, executionTrack } from "@/v2/synthesisLifecycle";
 function text(value, fallback = "") {
   return String(value || "").trim() || fallback;
 }
+
+// An unbroken "grounding Library evidence" claim would run forever if the
+// agent's turn never lands. Bounding it keeps the happy path (agent responds
+// in seconds) untouched while giving a genuine stall an honest fallback
+// instead of silent, indefinite optimism.
+const INTERPRETING_STALL_MS = 60000;
 
 function titleFor(thread) {
   return text(thread?.title || thread?.state?.title, "Untitled synthesis");
@@ -41,7 +48,13 @@ function stateFor(thread) {
   if (lifecycle === "query_ready") return "query_ready";
   if (lifecycle === "registered") return "registered";
   if (lifecycle === "failed") return "failed";
-  if (execution.status) return "execution";
+  // An accepted method sets execution_spec before execution.status ever
+  // exists, and often before any evidence node is mapped either — the same
+  // gap a brand-new thread sits in. Without this check, mode falls through
+  // to "draft" while showExecution (which checks execution_spec directly)
+  // is already true, and DraftCanvas renders stacked underneath the
+  // execution record on the same thread.
+  if (execution.status || state.execution_spec) return "execution";
   if (state.proposal) return "proposal";
   if ((state.nodes || []).length) return "explore";
   return "draft";
@@ -54,7 +67,11 @@ function stageLabel(thread) {
   if (mode === "query_ready") return "Query-ready output";
   if (mode === "registered") return "Registered output";
   if (mode === "failed") return "Execution failed";
-  if (mode === "execution") return text(execution.status).replace(/_/g, " ");
+  if (mode === "execution") {
+    return execution.status
+      ? text(execution.status).replace(/_/g, " ")
+      : text(state.maturityLabel || state.maturity, "Accepted method");
+  }
   if (mode === "proposal") return "Proposal needs review";
   return text(state.maturityLabel || state.maturity, mode === "draft" ? "New thread" : "Evidence mapping");
 }
@@ -202,11 +219,27 @@ function ThreadHeader({ thread }) {
   );
 }
 
-function EvidenceMap({ thread, onAsk }) {
+function evidenceNodeId(node) {
+  return String(node?.id || node?.dataset_id || "");
+}
+
+// A node's own `status` string is display text the backend chose, not a
+// judgment the UI should re-derive meaning from. Routability to Discover is
+// decided only by whether the durable discover-handoff endpoint explicitly
+// names this node's identity as missing evidence (the backend's own
+// HELD_STATUSES/MISSING_STATUSES classification) — never by pattern-matching
+// that status locally. No handoff yet, or a failed fetch, means no routing
+// affordance, not a guessed gap.
+function isEvidenceGap(node, missingIds) {
+  const id = evidenceNodeId(node);
+  return Boolean(id) && Boolean(missingIds?.has(id));
+}
+
+function EvidenceMap({ thread, onAsk, selectedField, onSelectField, onRouteToDiscover, missingIds }) {
   const target = targetNode(thread);
   const evidence = evidenceNodes(thread);
   const state = thread?.state || {};
-  const missing = evidence.filter((node) => /missing|needs_access|sourceable/i.test(String(node.status || "")));
+  const missing = evidence.filter((node) => isEvidenceGap(node, missingIds));
   return (
     <section className="s04-card" data-testid="synthesis-evidence-state">
       <header className="s04-title">
@@ -216,15 +249,21 @@ function EvidenceMap({ thread, onAsk }) {
         </div>
         <em className="neutral">{evidence.length ? `${evidence.length} mapped inputs` : "No inputs mapped"}</em>
       </header>
-      <div className="s04-map" role="img" aria-label="The current Synthesis evidence map">
+      <div className="s04-map" role="group" aria-label="The current Synthesis evidence map">
         <div className="sources">
           {evidence.length ? (
             evidence.slice(0, 6).map((node) => (
-              <article key={node.id || node.label}>
+              <button
+                type="button"
+                key={node.id || node.label}
+                className={`s04-map-node${selectedField?.id === node.id ? " selected" : ""}`}
+                onClick={() => onSelectField?.(node)}
+                aria-pressed={selectedField?.id === node.id}
+              >
                 <small>{text(node.role || node.eyebrow || node.status, "Evidence")}</small>
                 <strong>{text(node.label || node.dataset_id, "Unnamed evidence")}</strong>
                 <span>{[node.grain, node.coverage].filter(Boolean).join(" · ") || "Metadata not reported"}</span>
-              </article>
+              </button>
             ))
           ) : (
             <article className="s04-empty-evidence">
@@ -255,6 +294,29 @@ function EvidenceMap({ thread, onAsk }) {
           <p>{missing.length ? missing.map((node) => node.label || node.dataset_id).filter(Boolean).join(" · ") : "This is not a claim of complete coverage."}</p>
         </article>
       </div>
+      {selectedField ? (
+        <section className="s04-selected-field" data-testid="synthesis-selected-field">
+          <div>
+            <small>Selected evidence</small>
+            <strong>{text(selectedField.label || selectedField.dataset_id, "Unnamed evidence")}</strong>
+            <p>{text(selectedField.interpretation || selectedField.status, "No evidence interpretation has been recorded.")}</p>
+          </div>
+          <div>
+            <button
+              type="button"
+              className="rd-v2-btn"
+              onClick={() => onAsk(`Inspect ${text(selectedField.label || selectedField.dataset_id)} in this construction. State what it establishes, what remains unknown, and the valid next method decision.`)}
+            >
+              Inspect in Ask
+            </button>
+            {isEvidenceGap(selectedField, missingIds) ? (
+              <button type="button" className="rd-v2-btn primary" onClick={() => onRouteToDiscover?.(selectedField)}>
+                Route to Discover
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       <footer className="s04-actions">
         <p>
           <small>Next</small>
@@ -500,16 +562,16 @@ function ExecutionRecord({ thread, busy, onRequest, onReview, onAsk, onOpenDatas
   );
 }
 
-function DraftCanvas({ thread, onAsk }) {
+function DraftCanvas({ thread, onAsk, stalled, onRetry }) {
   const state = thread?.state || {};
   return (
     <section className="s04-card s04-draft" data-testid="synthesis-draft-state">
       <header className="s04-title">
         <div>
           <small>AI construction workspace</small>
-          <h2>Interpretation in progress</h2>
+          <h2>{stalled ? "Taking longer than expected" : "Interpretation in progress"}</h2>
         </div>
-        <em className="neutral">Grounding Library evidence</em>
+        <em className="neutral">{stalled ? "No response yet" : "Grounding Library evidence"}</em>
       </header>
       <div className="s04-draft-flow" role="img" aria-label="The first Synthesis reasoning steps">
         <strong>{text(thread?.objective || state.objective, "Research objective")}</strong>
@@ -532,8 +594,15 @@ function DraftCanvas({ thread, onAsk }) {
       <footer className="s04-actions">
         <p>
           <small>Working agreement</small>
-          Ask clarifies the construct one decision at a time. Nothing is executed or registered from this state.
+          {stalled
+            ? "The agent hasn't responded yet. Nothing has been built or modified — you can keep waiting or check again now."
+            : "Ask clarifies the construct one decision at a time. Nothing is executed or registered from this state."}
         </p>
+        {stalled ? (
+          <button type="button" className="rd-v2-btn" data-testid="synthesis-draft-retry" onClick={onRetry}>
+            Check again
+          </button>
+        ) : null}
         <button
           type="button"
           className="rd-v2-btn primary"
@@ -670,6 +739,9 @@ export function SynthesisPage({
   onReviewExecution,
   onSelectThread,
   onBeginNew,
+  onDiscoverHandoff,
+  focusThreadId,
+  onFocusThreadConsumed,
   refreshVersion = 0,
 }) {
   const [threads, setThreads] = useState([]);
@@ -682,7 +754,12 @@ export function SynthesisPage({
   const [error, setError] = useState("");
   const [newMode, setNewMode] = useState(false);
   const [objective, setObjective] = useState("");
+  const [interpretingStalled, setInterpretingStalled] = useState(false);
+  const [selectedField, setSelectedField] = useState(null);
+  const [missingEvidenceIds, setMissingEvidenceIds] = useState(() => new Set());
   const notified = useRef("");
+  const interpretingSinceRef = useRef(null);
+  const interpretingThreadIdRef = useRef("");
 
   const replaceThread = useCallback((next) => {
     if (!next?.id) return;
@@ -762,23 +839,117 @@ export function SynthesisPage({
   }, [refreshThread, refreshVersion, selectedId]);
 
   useEffect(() => {
+    if (!selected) return undefined;
     const execution = selected?.state?.execution || {};
-    if (!selected || !/pending_approval|queued|running|registering|archiving/i.test(String(execution.status || ""))) return undefined;
-    const timer = window.setInterval(() => {
-      refreshThread().catch(() => {});
+    const executing = /pending_approval|queued|running|registering|archiving/i.test(String(execution.status || ""));
+    const interpreting = stateFor(selected) === "draft";
+
+    // Stalling belongs to one durable thread. Selecting a different new
+    // thread must start a fresh wait window rather than inheriting the
+    // previous thread's "agent hasn't responded" state.
+    const interpretingThreadId = selected?.id || "";
+    if (!interpreting) {
+      interpretingSinceRef.current = null;
+      interpretingThreadIdRef.current = "";
+      if (interpretingStalled) setInterpretingStalled(false);
+    } else if (interpretingThreadIdRef.current !== interpretingThreadId) {
+      interpretingThreadIdRef.current = interpretingThreadId;
+      interpretingSinceRef.current = Date.now();
+      if (interpretingStalled) setInterpretingStalled(false);
+    }
+
+    if (!executing && !interpreting) return undefined;
+    // Once truly stalled, stop polling in the background — continuing to
+    // poll silently would undercut the honest "this stalled" signal now
+    // showing. A manual "Check again" click (retryInterpreting) re-arms it.
+    if (interpreting && interpretingStalled) return undefined;
+
+    const timer = window.setInterval(async () => {
+      const next = await refreshThread().catch(() => null);
+      const stillInterpreting = next ? stateFor(next) === "draft" : interpreting;
+      if (
+        stillInterpreting &&
+        interpretingSinceRef.current &&
+        Date.now() - interpretingSinceRef.current > INTERPRETING_STALL_MS
+      ) {
+        setInterpretingStalled(true);
+      }
     }, 4000);
     return () => window.clearInterval(timer);
-  }, [selected, refreshThread]);
+  }, [selected, refreshThread, interpretingStalled]);
+
+  const retryInterpreting = useCallback(() => {
+    interpretingThreadIdRef.current = selected?.id || "";
+    interpretingSinceRef.current = Date.now();
+    setInterpretingStalled(false);
+    refreshThread().catch(() => {});
+  }, [refreshThread, selected?.id]);
 
   const selectThread = async (threadId) => {
     setSelectedId(threadId);
     setNewMode(false);
+    setSelectedField(null);
     setError("");
     try {
       const next = await refreshThread(threadId);
       if (next) onSelectThread?.(next);
     } catch (cause) {
       setError(text(cause?.message, "This Synthesis thread could not be refreshed."));
+    }
+  };
+
+  useEffect(() => {
+    if (!selected?.id || stateFor(selected) !== "explore") {
+      setMissingEvidenceIds(new Set());
+      return undefined;
+    }
+    let cancelled = false;
+    getSynthesisDiscoverHandoff(selected.id)
+      .then((handoff) => {
+        if (cancelled) return;
+        const ids = (handoff?.missing_evidence || [])
+          .map((item) => String(item?.id || item?.evidence_id || item?.dataset_id || ""))
+          .filter(Boolean);
+        setMissingEvidenceIds(new Set(ids));
+      })
+      .catch(() => {
+        // Unavailable or incomplete handoff means no routing affordance,
+        // not a guessed gap — clear rather than leave a stale set.
+        if (!cancelled) setMissingEvidenceIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id, selected?.updated_at]);
+
+  useEffect(() => {
+    if (!focusThreadId) return;
+    // Returning from a Discover handoff: select the exact originating
+    // thread directly rather than leaving whatever was selected before.
+    selectThread(focusThreadId).finally(() => onFocusThreadConsumed?.());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot per focusThreadId change
+  }, [focusThreadId]);
+
+  const routeToDiscover = async (field) => {
+    if (!selected || !isEvidenceGap(field, missingEvidenceIds)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const handoff = await getSynthesisDiscoverHandoff(selected.id);
+      const evidenceId = String(field.id || field.dataset_id || "");
+      const match = (item) => String(item?.id || item?.evidence_id || item?.dataset_id || "") === evidenceId;
+      const missingEvidence = (handoff?.missing_evidence || []).filter(match);
+      const collectIntents = (handoff?.collect_intents || []).filter(match);
+      if (!missingEvidence.length) throw new Error("This evidence gap is no longer part of the durable Discover handoff.");
+      onDiscoverHandoff?.({
+        field,
+        handoff: { ...handoff, missing_evidence: missingEvidence, collect_intents: collectIntents },
+        thread: selected,
+      });
+    } catch (cause) {
+      setError(text(cause?.message, "The Discover handoff could not be prepared."));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -894,6 +1065,17 @@ export function SynthesisPage({
     setBusy(true);
     setError("");
     try {
+      // Idempotency guard: a prior click's response can be lost even though
+      // the server successfully created the job (slow network, tab backgrounded,
+      // the researcher navigating away and back). Re-check durable state before
+      // requesting again, so a retry after a dropped response cannot create a
+      // second job against the same accepted specification.
+      const current = await refreshThread(selected.id).catch(() => null);
+      if (current) {
+        replaceThread(current);
+        onSelectThread?.(current);
+        if (text(current?.state?.execution?.status)) return;
+      }
       const result = await requestSynthesisExecution(selected.id);
       const next = result?.thread || (result?.state ? result : await refreshThread(selected.id));
       if (next) {
@@ -956,8 +1138,19 @@ export function SynthesisPage({
                   onOpenDataset={onOpenDataset}
                 />
               ) : null}
-              {mode === "explore" ? <EvidenceMap thread={selected} onAsk={ask} /> : null}
-              {mode === "draft" ? <DraftCanvas thread={selected} onAsk={ask} /> : null}
+              {mode === "explore" ? (
+                <EvidenceMap
+                  thread={selected}
+                  onAsk={ask}
+                  selectedField={selectedField}
+                  onSelectField={setSelectedField}
+                  onRouteToDiscover={routeToDiscover}
+                  missingIds={missingEvidenceIds}
+                />
+              ) : null}
+              {mode === "draft" ? (
+                <DraftCanvas thread={selected} onAsk={ask} stalled={interpretingStalled} onRetry={retryInterpreting} />
+              ) : null}
             </>
           ) : null}
         </main>

@@ -286,6 +286,132 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page).toHaveURL(/mode=history/);
   });
 
+  test("does not create a second execution job when a prior request's response was lost", async ({ page }) => {
+    // Simulate: a first "Request execution" click reached the server and
+    // created a job, but the response never reached this client (dropped
+    // connection, backgrounded tab). The button is still showing "Request
+    // execution" from stale local state. Clicking it again must not create a
+    // duplicate job — it must discover the durable state and self-correct.
+    let executeCalls = 0;
+    await page.route("**/api/library/synthesis/threads/thread-proposal/execute", async (route) => {
+      executeCalls += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ job: { id: "job-should-not-exist", status: "pending_approval" } }),
+      });
+    });
+    const baseState = {
+      title: "Weekly trust panel",
+      objective: "Aggregate held stablecoin evidence at weekly grain.",
+      required_grain: "asset × week",
+      maturity: "planned",
+      maturityLabel: "Accepted method",
+      lastActivity: "Accepted proposal: Aggregate held weekly panel.",
+      nodes: [],
+      edges: [],
+      proposal: null,
+      execution_spec: {
+        input_dataset_id: "stablecoin_trust_engagement_weekly",
+        output_dataset_id: "stablecoin_attention_weekly",
+        group_by: ["asset_id", "week"],
+        metrics: [{ field: "attention", aggregate: "mean" }],
+      },
+    };
+    let getCalls = 0;
+    await page.route("**/api/library/synthesis/threads/thread-proposal", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      getCalls += 1;
+      // First load shows no execution yet, so "Request execution" renders.
+      // From the second GET onward (the idempotency guard's own pre-flight
+      // refetch, triggered by the click below) the durable job already
+      // exists — simulating that the first attempt's response was lost
+      // even though the server had already created it.
+      const state =
+        getCalls === 1
+          ? baseState
+          : {
+              ...baseState,
+              execution: {
+                status: "pending_approval",
+                job_id: "job-already-created",
+                output_dataset_id: "stablecoin_attention_weekly",
+              },
+            };
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "thread-proposal",
+          title: "Weekly trust panel",
+          objective: "Aggregate held stablecoin evidence at weekly grain.",
+          materialisation: "not_materialised",
+          state,
+        }),
+      });
+    });
+
+    await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
+    const execution = page.getByTestId("synthesis-execution-state");
+    await expect(execution).toContainText("stablecoin_attention_weekly");
+    await expect(execution.getByRole("button", { name: "Request execution" })).toBeVisible();
+
+    await execution.getByRole("button", { name: "Request execution" }).click();
+
+    await expect(execution.getByRole("button", { name: "Review approval" })).toBeVisible();
+    await expect(execution.getByRole("button", { name: "Request execution" })).toHaveCount(0);
+    expect(executeCalls).toBe(0);
+    expect(getCalls).toBeGreaterThanOrEqual(2);
+  });
+
+  test("rail Evidence field does not contradict an accepted execution record with empty evidence nodes", async ({ page }) => {
+    // A thread can reach "accepted method, awaiting execution" with its
+    // evidence graph nodes still empty (the accept step sets execution_spec
+    // without ever populating state.nodes) — the same gap a freshly created
+    // thread sits in. The rail must not say "No inputs mapped" beside an
+    // execution record that names a specific accepted input.
+    await page.route("**/api/library/synthesis/threads/thread-proposal", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "thread-proposal",
+          title: "Weekly trust panel",
+          objective: "Aggregate held stablecoin evidence at weekly grain.",
+          materialisation: "not_materialised",
+          state: {
+            title: "Weekly trust panel",
+            objective: "Aggregate held stablecoin evidence at weekly grain.",
+            required_grain: "asset × week",
+            maturity: "planned",
+            maturityLabel: "Accepted method",
+            lastActivity: "Accepted proposal: Aggregate held weekly panel.",
+            nodes: [],
+            edges: [],
+            proposal: null,
+            execution_spec: {
+              input_dataset_id: "stablecoin_trust_engagement_weekly",
+              output_dataset_id: "stablecoin_attention_weekly",
+              group_by: ["asset_id", "week"],
+              metrics: [{ field: "attention", aggregate: "mean" }],
+            },
+          },
+        }),
+      });
+    });
+    await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
+    await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
+    // An accepted method with empty evidence nodes falls into the same gap a
+    // brand-new thread sits in — the execution record must be the only card
+    // shown, never stacked with the draft/interpreting canvas underneath it.
+    await expect(page.getByTestId("synthesis-draft-state")).toHaveCount(0);
+    const rail = page.locator("aside.rd-v2-rail");
+    await expect(rail).toContainText("Declared input · accepted: stablecoin_trust_engagement_weekly");
+    await expect(rail).not.toContainText("No inputs mapped");
+    await capture(page, "09-rail-evidence-fixed-desktop");
+  });
+
   test("renders registered output only from thread registration evidence", async ({ page }) => {
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Stablecoin attention weekly panel" }).click();
     const registered = page.getByTestId("synthesis-registered-state");
@@ -392,6 +518,234 @@ test.describe("v2 Synthesis durable thread surface", () => {
     await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
     await page.waitForTimeout(250);
     await capture(page, "07-new-project-ask-desktop");
+  });
+
+  test("the draft canvas yields to evidence mapping once the agent's turn lands, without a manual reload", async ({ page }) => {
+    await page.getByRole("button", { name: "+ New" }).click();
+    const objective = "Construct a weekly issuer attention panel for Taiwan filings.";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(objective);
+
+    const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes("/api/library/synthesis/threads") && res.request().method() === "POST",
+      ),
+      page.getByRole("button", { name: "Start project in Ask" }).click(),
+    ]);
+    const created = await createResponse.json();
+    const threadId = created.id;
+
+    await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
+
+    // Simulate the agent's server-side turn landing: the next poll of this
+    // thread now returns mapped evidence.
+    await page.route(`**/api/library/synthesis/threads/${threadId}`, async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: threadId,
+          title: objective,
+          objective,
+          state: {
+            title: objective,
+            objective,
+            nodes: [
+              { id: "trends", type: "construct", layer: "evidence", label: "Search intent", role: "Core signal", status: "held" },
+            ],
+            edges: [],
+            proposal: null,
+          },
+        }),
+      });
+    });
+
+    await expect(page.getByTestId("synthesis-evidence-state")).toBeVisible({ timeout: 6000 });
+    await expect(page.getByTestId("synthesis-draft-state")).toHaveCount(0);
+  });
+
+  test("stops polling silently and admits it when the agent's turn never lands, then recovers on retry", async ({ page }) => {
+    await page.clock.install();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill("Unresolved objective for stall coverage.");
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
+
+    const card = page.getByTestId("synthesis-draft-state");
+    await expect(card).toBeVisible();
+    await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
+    await expect(card).toContainText("Interpretation in progress");
+
+    // Nothing overrides this thread's GET route, so it keeps returning the
+    // same unresolved state on every poll — a genuine stall.
+    await page.clock.fastForward(65000);
+
+    await expect(card).toContainText("Taking longer than expected");
+    await expect(card).toContainText("The agent hasn't responded yet");
+    const retry = card.getByTestId("synthesis-draft-retry");
+    await expect(retry).toBeVisible();
+
+    await retry.click();
+    await expect(card).toContainText("Interpretation in progress");
+    await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
+  });
+
+  test("a stalled thread does not make the next new thread look stalled", async ({ page }) => {
+    await page.clock.install();
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill("First unresolved objective.");
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
+    await expect(page.getByTestId("synthesis-draft-state")).toBeVisible();
+    await page.clock.fastForward(65000);
+    await expect(page.getByTestId("synthesis-draft-state")).toContainText("Taking longer than expected");
+
+    await page.getByRole("button", { name: "+ New" }).click();
+    const secondObjective = "Second unresolved objective.";
+    await page.getByTestId("synthesis-intent-state").getByRole("textbox").fill(secondObjective);
+    await page.getByRole("button", { name: "Start project in Ask" }).click();
+
+    const card = page.getByTestId("synthesis-draft-state");
+    await expect(card).toContainText("Interpretation in progress");
+    await expect(card.getByTestId("synthesis-draft-retry")).toHaveCount(0);
+  });
+
+  test("routes a backend-declared evidence gap to Discover, then returns to the exact thread with evidence intact", async ({ page }) => {
+    const modifiedExploring = {
+      ...EXPLORING_THREAD,
+      state: {
+        ...EXPLORING_THREAD.state,
+        nodes: [
+          ...EXPLORING_THREAD.state.nodes,
+          {
+            id: "filings",
+            type: "source",
+            layer: "evidence",
+            label: "Regulatory filings",
+            role: "Direct measure gap",
+            status: "missing",
+            grain: "issuer-quarter",
+            coverage: "Not held",
+          },
+        ],
+      },
+    };
+    await page.route("**/api/library/synthesis/threads**", async (route) => {
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split("/").filter(Boolean);
+      const threadIndex = parts.lastIndexOf("threads");
+      const threadId = parts[threadIndex + 1] || "";
+      const suffix = parts.slice(threadIndex + 2).join("/");
+      const method = route.request().method();
+      if (!threadId && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ threads: [modifiedExploring, PROPOSAL_THREAD, REGISTERED_THREAD, QUERY_READY_THREAD], total: 4 }),
+        });
+      }
+      if (threadId === "thread-attention" && !suffix && method === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(modifiedExploring) });
+      }
+      if (threadId === "thread-attention" && suffix === "discover-handoff" && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thread_id: "thread-attention",
+            objective: EXPLORING_THREAD.objective,
+            required_grain: "asset × week",
+            held_evidence: [],
+            missing_evidence: [{ id: "filings", label: "Regulatory filings", source_identity: "regulatory filings" }],
+            collect_intents: [],
+            fake_collection: false,
+          }),
+        });
+      }
+      return route.fallback();
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await page.getByRole("button", { name: /Regulatory filings/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Regulatory filings");
+    await capture(page, "10-evidence-selected-desktop");
+    await page.getByRole("button", { name: "Route to Discover" }).click();
+    await expect(page).toHaveURL(/tab=browse/);
+    await expect(page.getByTestId("synthesis-discover-handoff")).toContainText("Regulatory filings");
+    await capture(page, "11-discover-handoff-desktop");
+
+    await page.getByRole("button", { name: "Return to Synthesis" }).click();
+    await expect(page).toHaveURL(/tab=synthesis/);
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Historical stablecoin attention");
+    await expect(page.getByTestId("synthesis-evidence-state")).toContainText("4 mapped inputs");
+    await capture(page, "12-returned-to-synthesis-desktop");
+  });
+
+  test("keeps a node whose status looks like a gap from routing unless the backend handoff names it", async ({ page }) => {
+    // "needs_access" is exactly the kind of string a local regex used to
+    // treat as a gap on its own. The durable handoff explicitly does NOT
+    // name this node, so it must not be routable no matter what its own
+    // status text says — proves the backend, not the frontend, decides.
+    const modifiedExploring = {
+      ...EXPLORING_THREAD,
+      state: {
+        ...EXPLORING_THREAD.state,
+        nodes: [
+          ...EXPLORING_THREAD.state.nodes,
+          {
+            id: "restricted_api",
+            type: "source",
+            layer: "evidence",
+            label: "Restricted vendor API",
+            role: "Candidate",
+            status: "needs_access",
+            grain: "event-day",
+            coverage: "Unknown",
+          },
+        ],
+      },
+    };
+    await page.route("**/api/library/synthesis/threads**", async (route) => {
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split("/").filter(Boolean);
+      const threadIndex = parts.lastIndexOf("threads");
+      const threadId = parts[threadIndex + 1] || "";
+      const suffix = parts.slice(threadIndex + 2).join("/");
+      const method = route.request().method();
+      if (!threadId && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ threads: [modifiedExploring, PROPOSAL_THREAD, REGISTERED_THREAD, QUERY_READY_THREAD], total: 4 }),
+        });
+      }
+      if (threadId === "thread-attention" && !suffix && method === "GET") {
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(modifiedExploring) });
+      }
+      if (threadId === "thread-attention" && suffix === "discover-handoff" && method === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            thread_id: "thread-attention",
+            objective: EXPLORING_THREAD.objective,
+            required_grain: "asset × week",
+            held_evidence: [],
+            missing_evidence: [],
+            collect_intents: [],
+            fake_collection: false,
+          }),
+        });
+      }
+      return route.fallback();
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    await page.getByRole("button", { name: /Restricted vendor API/ }).click();
+    await expect(page.getByTestId("synthesis-selected-field")).toContainText("Restricted vendor API");
+    await expect(page.getByRole("button", { name: "Route to Discover" })).toHaveCount(0);
   });
 
   test("keeps the right rail usable on mobile while the workspace remains source-backed", async ({ page }) => {

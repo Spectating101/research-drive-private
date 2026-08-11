@@ -588,6 +588,12 @@ export function synthesisMaterialisation(threadId) {
   return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/materialisation`);
 }
 
+/** Durable, backend-declared missing-evidence identities for one thread — the
+ * only source of truth for whether a mapped evidence node is Discover-routable. */
+export function getSynthesisDiscoverHandoff(threadId) {
+  return fetchJson(`/library/synthesis/threads/${encodeURIComponent(threadId)}/discover-handoff`);
+}
+
 export function getSynthesisProfile(profileId, { refresh = false } = {}) {
   const q = refresh ? "?refresh=1" : "";
   return fetchJson(`/library/synthesis/${encodeURIComponent(profileId)}${q}`);
