@@ -402,9 +402,14 @@ test.describe("v2 Synthesis durable thread surface", () => {
     });
     await page.getByTestId("synthesis-thread-item").filter({ hasText: "Weekly trust panel" }).click();
     await expect(page.getByTestId("synthesis-execution-state")).toContainText("stablecoin_attention_weekly");
+    // An accepted method with empty evidence nodes falls into the same gap a
+    // brand-new thread sits in — the execution record must be the only card
+    // shown, never stacked with the draft/interpreting canvas underneath it.
+    await expect(page.getByTestId("synthesis-draft-state")).toHaveCount(0);
     const rail = page.locator("aside.rd-v2-rail");
     await expect(rail).toContainText("Declared input · accepted: stablecoin_trust_engagement_weekly");
     await expect(rail).not.toContainText("No inputs mapped");
+    await capture(page, "09-rail-evidence-fixed-desktop");
   });
 
   test("renders registered output only from thread registration evidence", async ({ page }) => {
@@ -664,14 +669,17 @@ test.describe("v2 Synthesis durable thread surface", () => {
 
     await page.getByRole("button", { name: /Regulatory filings/ }).click();
     await expect(page.getByTestId("synthesis-selected-field")).toContainText("Regulatory filings");
+    await capture(page, "10-evidence-selected-desktop");
     await page.getByRole("button", { name: "Route to Discover" }).click();
     await expect(page).toHaveURL(/tab=browse/);
     await expect(page.getByTestId("synthesis-discover-handoff")).toContainText("Regulatory filings");
+    await capture(page, "11-discover-handoff-desktop");
 
     await page.getByRole("button", { name: "Return to Synthesis" }).click();
     await expect(page).toHaveURL(/tab=synthesis/);
     await expect(page.getByTestId("synthesis-evidence-state")).toContainText("Historical stablecoin attention");
     await expect(page.getByTestId("synthesis-evidence-state")).toContainText("4 mapped inputs");
+    await capture(page, "12-returned-to-synthesis-desktop");
   });
 
   test("keeps a node whose status looks like a gap from routing unless the backend handoff names it", async ({ page }) => {

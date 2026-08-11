@@ -48,7 +48,13 @@ function stateFor(thread) {
   if (lifecycle === "query_ready") return "query_ready";
   if (lifecycle === "registered") return "registered";
   if (lifecycle === "failed") return "failed";
-  if (execution.status) return "execution";
+  // An accepted method sets execution_spec before execution.status ever
+  // exists, and often before any evidence node is mapped either — the same
+  // gap a brand-new thread sits in. Without this check, mode falls through
+  // to "draft" while showExecution (which checks execution_spec directly)
+  // is already true, and DraftCanvas renders stacked underneath the
+  // execution record on the same thread.
+  if (execution.status || state.execution_spec) return "execution";
   if (state.proposal) return "proposal";
   if ((state.nodes || []).length) return "explore";
   return "draft";
@@ -61,7 +67,11 @@ function stageLabel(thread) {
   if (mode === "query_ready") return "Query-ready output";
   if (mode === "registered") return "Registered output";
   if (mode === "failed") return "Execution failed";
-  if (mode === "execution") return text(execution.status).replace(/_/g, " ");
+  if (mode === "execution") {
+    return execution.status
+      ? text(execution.status).replace(/_/g, " ")
+      : text(state.maturityLabel || state.maturity, "Accepted method");
+  }
   if (mode === "proposal") return "Proposal needs review";
   return text(state.maturityLabel || state.maturity, mode === "draft" ? "New thread" : "Evidence mapping");
 }
