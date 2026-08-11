@@ -161,7 +161,7 @@ def routes_for_gaps(
     repo_root: Path,
     *,
     model: str | None = None,
-    timeout: float = 120.0,
+    timeout: float = 12.0,
     run_model: Callable[[str, str, float], str] = _run_model,
 ) -> dict[str, Any]:
     """Return verified source options after a real assessment—not a promise to collect."""

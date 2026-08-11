@@ -95,6 +95,18 @@ def test_unavailable_model_returns_no_route_instead_of_a_heuristic(tmp_path):
     assert out["reason"] == "backend_unavailable: provider unavailable"
 
 
+def test_route_model_budget_stays_inside_the_frontend_request_budget(tmp_path):
+    _write_sources(tmp_path)
+    observed = {}
+
+    def model(prompt, model_name, timeout):
+        observed["timeout"] = timeout
+        return "unit | public_source | Declared source"
+
+    routes_for_gaps("Need issuer data", _assessment(), tmp_path, run_model=model)
+    assert observed["timeout"] == 12.0
+
+
 def test_unassessed_requirement_never_calls_the_model(tmp_path):
     _write_sources(tmp_path)
 
