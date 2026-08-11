@@ -130,8 +130,6 @@ def _run_requirement_model(prompt: str, *, timeout: float = 12.0) -> str:
                 "text",
                 "--mode",
                 "ask",
-                "--sandbox",
-                "enabled",
             ],
             capture_output=True,
             text=True,
@@ -140,10 +138,12 @@ def _run_requirement_model(prompt: str, *, timeout: float = 12.0) -> str:
             cwd="/tmp",
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError(str(exc)) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("model timed out") from exc
+    except OSError as exc:
+        raise RuntimeError("model process could not start") from exc
     if completed.returncode:
-        raise RuntimeError((completed.stderr or completed.stdout or f"exit {completed.returncode}")[:240])
+        raise RuntimeError(f"model process failed (exit {completed.returncode})")
     return completed.stdout
 
 

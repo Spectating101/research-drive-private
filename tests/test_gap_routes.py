@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from types import SimpleNamespace
 
+from scripts.research_data_mcp import gap_routes
 from scripts.research_data_mcp.gap_routes import GapRouteModelUnavailable, routes_for_gaps
 
 
@@ -105,6 +107,22 @@ def test_route_model_budget_stays_inside_the_frontend_request_budget(tmp_path):
 
     routes_for_gaps("Need issuer data", _assessment(), tmp_path, run_model=model)
     assert observed["timeout"] == 12.0
+
+
+def test_process_timeout_is_sanitised_before_it_can_reach_the_desk(monkeypatch):
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(gap_routes.shutil, "which", lambda name: "/safe/cursor-agent")
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(["cursor-agent", "-p", "sensitive prompt"], 12)
+
+    monkeypatch.setattr(gap_routes.subprocess, "run", timeout)
+    try:
+        gap_routes._run_model("sensitive prompt", "model", 12)
+    except GapRouteModelUnavailable as exc:
+        assert str(exc) == "model timed out"
+    else:
+        raise AssertionError("expected model timeout")
 
 
 def test_unassessed_requirement_never_calls_the_model(tmp_path):

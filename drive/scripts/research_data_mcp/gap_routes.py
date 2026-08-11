@@ -118,8 +118,6 @@ def _run_model(prompt: str, model: str, timeout: float) -> str:
                 "text",
                 "--mode",
                 "ask",
-                "--sandbox",
-                "enabled",
             ],
             capture_output=True,
             text=True,
@@ -128,11 +126,12 @@ def _run_model(prompt: str, model: str, timeout: float) -> str:
             cwd="/tmp",
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise GapRouteModelUnavailable(str(exc)) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise GapRouteModelUnavailable("model timed out") from exc
+    except OSError as exc:
+        raise GapRouteModelUnavailable("model process could not start") from exc
     if completed.returncode:
-        detail = (completed.stderr or completed.stdout or f"exit {completed.returncode}").strip()
-        raise GapRouteModelUnavailable(detail[:240])
+        raise GapRouteModelUnavailable(f"model process failed (exit {completed.returncode})")
     return completed.stdout
 
 

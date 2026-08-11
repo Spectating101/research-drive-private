@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from types import SimpleNamespace
 
 from scripts.research_data_mcp.discover_assessment import assess_held_evidence, evidence_state, normalize_requirement
@@ -85,6 +86,24 @@ def test_explicit_requirement_does_not_call_the_model(monkeypatch):
     monkeypatch.setattr("scripts.research_data_mcp.discover_assessment._run_requirement_model", should_not_run)
     normalized = normalize_requirement(requirement(unit="firm_day", geography="Taiwan", time_range={"start": "2020", "end": "2022"}, frequency="daily", fields=["return"], event_type="earnings"))
     assert normalized["unit"]["value"] == "firm_day"
+
+
+def test_requirement_model_timeout_is_sanitised(monkeypatch):
+    from scripts.research_data_mcp import discover_assessment
+
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setattr(discover_assessment.shutil, "which", lambda name: "/safe/cursor-agent")
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(["cursor-agent", "-p", "sensitive prompt"], 12)
+
+    monkeypatch.setattr(discover_assessment.subprocess, "run", timeout)
+    try:
+        discover_assessment._run_requirement_model("sensitive prompt")
+    except RuntimeError as exc:
+        assert str(exc) == "model timed out"
+    else:
+        raise AssertionError("expected model timeout")
 
 
 def test_partial_requirement_reports_one_precise_gap():
