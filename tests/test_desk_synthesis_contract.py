@@ -122,6 +122,55 @@ def test_synthesis_history_is_bounded_and_provider_neutral():
     assert "newly verified evidence" in brief
 
 
+def test_followup_prompt_includes_selected_thread_durable_state():
+    from scripts.research_data_mcp.desk_brain import _prepare_synthesis_fallback_prompt
+
+    thread = {
+        "id": "thread-weekly",
+        "title": "Weekly trust panel",
+        "objective": "Construct a weekly trust measure.",
+        "state": {
+            "required_grain": "asset-week",
+            "nodes": [
+                {
+                    "id": "held-source",
+                    "type": "source",
+                    "layer": "evidence",
+                    "label": "Trust engagement weekly",
+                    "dataset_id": "stablecoin_trust_engagement_weekly",
+                    "status": "held",
+                    "role": "Core input",
+                }
+            ],
+            "execution": {
+                "status": "pending_approval",
+                "job_id": "job-1",
+                "output_dataset_id": "synthesis_weekly_trust_panel",
+            },
+        },
+    }
+    gateway = types.SimpleNamespace(synthesis_thread_get=lambda thread_id: thread if thread_id == "thread-weekly" else None)
+    state = {
+        "synthesis_user_turns": 1,
+        "rail_context": {
+            "tab": "synthesis",
+            "thread_id": "thread-weekly",
+            "entity": {"kind": "synthesis_thread", "id": "thread-weekly"},
+        },
+    }
+
+    prompt, first_turn = _prepare_synthesis_fallback_prompt(
+        gateway, "Use a weekly horizon.", state
+    )
+
+    assert first_turn is False
+    assert "[Durable Synthesis thread — recorded facts]" in prompt
+    assert "Trust engagement weekly [stablecoin_trust_engagement_weekly]" in prompt
+    assert "Recorded execution: pending_approval" in prompt
+    assert "output registered: no" in prompt
+    assert "Continue the same Synthesis investigation" in prompt
+
+
 def _install_empty_cursor(monkeypatch):
     class EmptyRun:
         status = "success"
