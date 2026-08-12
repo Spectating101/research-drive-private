@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from drive.scripts.research_data_mcp import desk_auth
 from drive.scripts.research_data_mcp.desk_auth import (
     DESK_SESSION_COOKIE,
     authorize,
@@ -11,6 +12,7 @@ from drive.scripts.research_data_mcp.desk_auth import (
     path_requires_auth,
     session_cookie_value,
 )
+from scripts.research_data_mcp.desk_principal import DeskPrincipal
 
 
 def _handler(**headers: str) -> SimpleNamespace:
@@ -23,6 +25,8 @@ def _clean_desk_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DESK_ACCESS_TOKEN", raising=False)
     monkeypatch.delenv("DESK_PUBLIC_ORIGINS", raising=False)
     monkeypatch.delenv("DESK_SESSION_BOOTSTRAP_HOSTS", raising=False)
+    monkeypatch.delenv("DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN", raising=False)
+    monkeypatch.delenv("DESK_CLOUDFLARE_ACCESS_AUD", raising=False)
 
 
 @pytest.mark.parametrize(
@@ -143,3 +147,29 @@ def test_clear_session_removes_stale_cookie_without_configured_token() -> None:
 
     assert (ok, message) == (True, "")
     assert cookie == f"{DESK_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"
+
+
+def test_verified_cloudflare_access_member_has_no_private_or_operator_power(monkeypatch):
+    monkeypatch.setenv(
+        "DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN",
+        "https://research-drive.cloudflareaccess.com",
+    )
+    monkeypatch.setenv("DESK_CLOUDFLARE_ACCESS_AUD", "public-audience")
+    member = DeskPrincipal(
+        principal_id="cf-member",
+        email="member@example.edu",
+        display_name="Member",
+        role="public_member",
+    )
+    monkeypatch.setattr(desk_auth, "cloudflare_access_principal", lambda _handler: member)
+    handler = _handler(**{"Cf-Access-Jwt-Assertion": "verified-by-access"})
+
+    assert authorize(handler, "/datasets", "GET")[0] is True
+    assert authorize(handler, "/library/chat", "POST")[0] is True
+    assert authorize(handler, "/library/jobs", "POST")[0] is True
+    assert authorize(handler, "/library/faculty/profile", "GET")[0] is False
+    assert authorize(handler, "/library/jobs/approve-safe", "POST")[0] is False
+    assert authorize(handler, "/yzu/workers", "GET")[0] is False
+
+    ok, message, cookie = issue_desk_session(handler)
+    assert (ok, message, cookie) == (True, "", None)

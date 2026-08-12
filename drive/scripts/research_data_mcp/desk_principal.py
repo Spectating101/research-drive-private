@@ -18,6 +18,16 @@ from typing import Any
 
 
 _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
+    # Public Access identities can research, ask, and submit review-gated
+    # collection requests.  They deliberately cannot read a faculty member's
+    # private profile or any operations/approval surface.
+    "public_member": frozenset(
+        {
+            "view_research_data",
+            "use_ask",
+            "submit_collection",
+        }
+    ),
     "member": frozenset(
         {
             "view_research_data",
@@ -39,6 +49,7 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
 }
 
 _ROLE_ALIASES = {
+    "public": "public_member",
     "viewer": "member",
     "researcher": "member",
     "steward": "operator",

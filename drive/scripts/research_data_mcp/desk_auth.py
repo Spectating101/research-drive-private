@@ -24,6 +24,10 @@ from scripts.research_data_mcp.desk_principal import (
     principal_by_id,
     principal_for_token,
 )
+from scripts.research_data_mcp.cloudflare_access import (
+    configured_access as cloudflare_access_configured,
+    principal_from_request as cloudflare_access_principal,
+)
 
 DESK_SESSION_COOKIE = "rd_desk_session"
 _SESSION_MSG = b"research-drive-desk-session-v1"
@@ -52,7 +56,7 @@ def _session_signing_secret() -> str:
 
 
 def desk_auth_configured() -> bool:
-    return bool(
+    return bool(cloudflare_access_configured()) or bool(
         _session_signing_secret()
         and (access_token_required() or configured_principals())
     )
@@ -301,6 +305,9 @@ def request_desk_principal(handler: BaseHTTPRequestHandler) -> DeskPrincipal | N
         principal = principal_for_token(provided, shared_token=shared_token)
         if principal:
             return principal
+    cloudflare_principal = cloudflare_access_principal(handler)
+    if cloudflare_principal:
+        return cloudflare_principal
     secret = _session_signing_secret()
     if secret:
         return desk_session_principal(handler, secret)
@@ -392,6 +399,11 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
     """Return (ok, message, Set-Cookie header value)."""
+    # A browser that reached us through Cloudflare Access already carries a
+    # verified assertion on every request.  Do not turn that identity into a
+    # local cookie whose dynamic public principal cannot be reloaded safely.
+    if cloudflare_access_principal(handler):
+        return True, "", None
     token = _session_signing_secret()
     if not token:
         return False, "Desk access token is not configured on this host", None
