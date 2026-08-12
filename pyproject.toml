@@ -21,6 +21,7 @@ dependencies = [
     "pyyaml",
     "paramiko",
     "python-dotenv",
+    "PyJWT[crypto]",
     "requests",
     "networkx",
     "pyarrow",
