@@ -17,6 +17,7 @@ import {
   listDatasets,
   listJobs,
   listLibraryNav,
+  openQueryInNewTab,
   probePublicSource,
   procurementCatalogSummary,
   setDiscoverIntentProposal,
@@ -1215,6 +1216,26 @@ export function V2App() {
     [syncUrl],
   );
 
+  const clearLibrarySelection = useCallback(() => {
+    setSelectedId("");
+    setDetail(null);
+    setPreviewOpen(false);
+    setPreviewTarget(null);
+    setActiveObject(null);
+    setRailTab("detail");
+    syncUrl({ dataset: "", preview: false });
+  }, [syncUrl]);
+
+  const askAboutLibraryDataset = useCallback((dataset) => {
+    if (!dataset) return;
+    setActiveObject(datasetObject(dataset));
+    setRailTab("ask");
+    setPendingAsk({
+      prompt: `Assess this Library asset for the current research context: ${displayName(dataset)}. State what the declared evidence supports, what is not established, whether local access is proven, and the safest valid next action. Do not infer readiness beyond the recorded state.`,
+      displayText: `Assess this Library asset: ${displayName(dataset)}`,
+    });
+  }, []);
+
   const startLibraryIntake = useCallback(
     (mode, folderObject) => {
       setSelectedId("");
@@ -1403,11 +1424,14 @@ export function V2App() {
           selectedId={selectedId}
           onSelectDataset={selectDataset}
           onPreviewDataset={openPreview}
+          onOpenQuery={openQueryInNewTab}
+          onClearSelection={clearLibrarySelection}
+          onAskDataset={canUseAsk ? askAboutLibraryDataset : undefined}
           onRefresh={refreshBackend}
           onFocusFolder={focusLibraryFolder}
-          onStartUpload={(folder) => startLibraryIntake("upload", folder)}
-          onStartUrl={(folder) => startLibraryIntake("url", folder)}
-          onStartProcure={(folder) => startLibraryIntake("procure", folder)}
+          onStartUpload={canSubmitCollection ? (folder) => startLibraryIntake("upload", folder) : undefined}
+          onStartUrl={canSubmitCollection ? (folder) => startLibraryIntake("url", folder) : undefined}
+          onStartProcure={canSubmitCollection ? (folder) => startLibraryIntake("procure", folder) : undefined}
           searchQuery={librarySearchQuery}
           onSearchChange={setLibrarySearchQuery}
         />

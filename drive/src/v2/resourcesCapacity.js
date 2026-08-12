@@ -3,6 +3,7 @@
  * Storage (vault/cache) · Services (Cursor Ask / BigQuery) · Desk (query engine / Tavily)
  */
 
+import { composerRuntimeRead } from "./composerRuntimeStatus.js";
 import { identifyProviderMarkId } from "./providerMarkIds.js";
 import { formatCollectorState, workersToolbarFieldsFromRollup } from "./workersToolbarStat.js";
 
@@ -39,7 +40,7 @@ function meter({ id, name, metric, pct, available, warn = false, action = null, 
  * query engine, and Tavily keys. Drops NVMe / collectors / host parallel meters
  * (still available elsewhere in rollup if needed).
  */
-export function buildCapacityAccessPairs(rollup) {
+export function buildCapacityAccessPairs(rollup, health) {
   const usage = rollup?.usage || {};
   const hero = rollup?.hero || {};
   const ai = rollup?.ai || {};
@@ -48,6 +49,11 @@ export function buildCapacityAccessPairs(rollup) {
   const cache = usage.cache || {};
   const composer = hero.composer || {};
   const bq = metered.bigquery || {};
+  // desk_resources.py doesn't surface composer_runtime in hero.composer, only
+  // "configured" — but /health does, and ResourcesPage already has it live.
+  // Reuse it here (same read as Settings/header) instead of re-deriving a
+  // weaker signal from the rollup.
+  const runtimeRead = composerRuntimeRead(health?.desk?.composer_runtime);
 
   const vaultPctRaw =
     vault.pct != null ? Number(vault.pct) : pctOf(vault.used_tb, vault.cap_tb);
@@ -123,17 +129,29 @@ export function buildCapacityAccessPairs(rollup) {
       id: "cursor",
       markId: "cursor",
       name: "Cursor Ask",
-      metric: composerOk
-        ? turnsToday > 0
-          ? `${turnsToday} turns today`
-          : "Composer ready"
-        : "Not configured",
+      metric: runtimeRead
+        ? runtimeRead.ready
+          ? turnsToday > 0
+            ? `${turnsToday} turns today`
+            : "Composer ready"
+          : runtimeRead.short
+        : composerOk
+          ? turnsToday > 0
+            ? `${turnsToday} turns today`
+            : "Composer ready"
+          : "Not configured",
       pct: null,
-      available: composerOk
-        ? `API key live · ${composer.model || ai.composer_model || "default"}`
-        : "Set CURSOR_API_KEY for Ask",
-      warn: !composerOk,
-      action: composerOk ? null : "NEED",
+      available: runtimeRead
+        ? runtimeRead.ready
+          ? `API key live · ${composer.model || ai.composer_model || "default"}`
+          : runtimeRead.status === "unavailable"
+            ? "Set CURSOR_API_KEY for Ask"
+            : `Key set · ${composer.model || ai.composer_model || "default"} · ${runtimeRead.why}`
+        : composerOk
+          ? `API key live · ${composer.model || ai.composer_model || "default"}`
+          : "Set CURSOR_API_KEY for Ask",
+      warn: runtimeRead ? !runtimeRead.ready : !composerOk,
+      action: runtimeRead ? (runtimeRead.status === "unavailable" ? "NEED" : null) : composerOk ? null : "NEED",
     }),
     meter({
       id: "bigquery",

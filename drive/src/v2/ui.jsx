@@ -123,7 +123,8 @@ export function CatalogHeader({ columns }) {
 export function SourceRibbon({ source }) {
   const raw = String(source || "").trim();
   const key = raw.toLowerCase();
-  let label = raw ? raw.slice(0, 12).toUpperCase() : "WEB";
+  const looksInternal = /_/.test(raw);
+  let label = !raw ? "WEB" : looksInternal ? "SOURCE" : raw.slice(0, 12).toUpperCase();
   let tone = "neutral";
   if (key.includes("twse")) { label = "TWSE"; tone = "tw"; }
   else if (key.includes("mops")) { label = "MOPS"; tone = "tw"; }
