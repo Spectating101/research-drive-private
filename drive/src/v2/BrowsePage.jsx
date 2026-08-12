@@ -47,21 +47,6 @@ function plural(value, singular, pluralValue = `${singular}s`) {
 const DISCOVER_KEYWORD_EXAMPLE = "stablecoin";
 const DISCOVER_QUESTION_EXAMPLE = "What data can I use to study de-pegs?";
 
-function resultScopeSummary(counts) {
-  const wider = Math.max(0, Number(counts?.external || 0) - Number(counts?.needsAccess || 0));
-  return [
-    counts?.inLab ? `${plural(counts.inLab, "result")} in your Library` : null,
-    wider ? `${plural(wider, "source")} beyond your Library` : null,
-    counts?.needsAccess
-      ? counts.needsAccess === 1
-        ? "1 source needs access review"
-        : `${counts.needsAccess} sources need access review`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
 
 function candidateTitle(row) {
   return row?.title || row?.name || row?.dataset_id || row?.doi || row?.url || "External dataset";
@@ -975,7 +960,6 @@ export function BrowsePage({
   const allInLab =
     !loading && merged.length > 0 && stageCounts.inLab > 0 && stageCounts.inLab === merged.length;
   const demoMode = demoFallback || (usingSeed && source === "demo");
-  const scopeSummary = resultScopeSummary(stageCounts);
   const activeFilter = FILTERS.find((item) => item.id === stateFilter) || FILTERS[0];
   const externalSearchActive = Boolean(q && externalSearchQuery === q);
   const externalCatalogueActive = externalSearchActive || source === "external_catalogues";
@@ -1357,9 +1341,9 @@ export function BrowsePage({
                   <h3>{externalCatalogueActive ? "External catalogue matches" : "Other external matches"}</h3>
                   {externalCatalogueActive ? (
                     <span className="muted">{plural(resultGroups.external.length, "external catalogue record")}</span>
-                  ) : scopeSummary ? (
-                    <span className="muted">{scopeSummary}</span>
-                  ) : null}
+                  ) : (
+                    <span className="muted">{plural(resultGroups.external.length, "result")}</span>
+                  )}
                 </div>
                 <DiscoverCandidateList
                   rows={resultGroups.external}
