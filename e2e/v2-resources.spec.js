@@ -177,3 +177,37 @@ test("v2 Resources loading state does not flash account summary", async ({ page 
   await waitForShell(page);
   await expect(main.getByRole("region", { name: "Sources overview" })).toBeVisible();
 });
+
+test("a confirmed-unreachable desk API shows honest unknown capacity, never fabricated healthy claims", async ({ page }) => {
+  // Regression: viewRollup previously fell back to a hardcoded PLACEHOLDER_ROLLUP
+  // (composer configured, BigQuery configured, query engine up) whenever the
+  // rollup fetch definitively failed (rollup === null) — the "Desk API
+  // unreachable" warning and a fully healthy-looking capacity grid rendered
+  // side by side. The grid must now read its real absence as "Not configured" /
+  // "not reported," matching the warning next to it, not contradicting it.
+  //
+  // Both /health and /library/desk/resources must fail here: /health alone
+  // legitimately seeds a partial rollup via projectRollupFromHealth (an honest
+  // projection of real /health fields, not fabrication) so a resources-only
+  // failure with a healthy /health is correctly rendered as partial data, not
+  // "unreachable." Only a fully-dark desk should hit the null/placeholder path.
+  await mockV2Api(page);
+  await page.route("**/health*", (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "desk unreachable" }) }),
+  );
+  await page.route("**/library/desk/resources*", (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "desk unreachable" }) }),
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/?tab=resources", { waitUntil: "domcontentloaded" });
+  await waitForShell(page);
+
+  const main = page.locator("main");
+  await expect(main.getByText("Desk API unreachable", { exact: false })).toBeVisible();
+
+  const grid = capacityGrid(page);
+  await expect(grid).toBeVisible();
+  await expect(grid).toContainText("Not configured");
+  await expect(grid).not.toContainText("Composer ready");
+  await expect(grid).not.toContainText("turns today");
+});

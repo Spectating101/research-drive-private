@@ -19,6 +19,7 @@ const PROFILE = {
     email: "drkong@saturn.yzu.edu.tw",
     paper_count_parsed: 18,
     specialties: ["empirical asset pricing", "investment", "FinTech", "corporate finance"],
+    domain_tags: ["asia_pacific", "corporate_finance", "equities", "fintech", "machine_learning", "nft", "on_chain", "taiwan_market"],
     research_tracks: [
       { id: "token", title: "Token taxonomy — on-chain and off-chain data", phase: "active_grant", weight: 10 },
       { id: "momentum", title: "Taiwan equity momentum with machine learning", weight: 7 },
@@ -83,5 +84,65 @@ test.describe("Profile freeze showcase", () => {
     await expect(detail).toContainText(/faculty/i);
 
     await page.screenshot({ path: OUT, fullPage: true });
+  });
+
+  test("Strengths/Desk claims come from backend domain_tags, never guessed from label text", async ({ page }) => {
+    // Regression: buildDeskRead() used to regex-match lab_fintech_stack labels
+    // and procurement search_query text (e.g. /crypto|nft|.../) to invent a
+    // "FinTech through-line" / topic claim. That's a script-brain substitute
+    // for the backend's own curated classification (domain_tags, served by
+    // faculty_profile.py profile_summary) — it can say things the registry
+    // never declared, or fail to say things the registry did declare.
+    const profileWithFintechTextButNoTag = {
+      found: true,
+      profile: {
+        name_en: "Text Bait, No Domain Tag",
+        title: "Assistant Professor",
+        discipline: "Finance",
+        email: "textbait@saturn.yzu.edu.tw",
+        paper_count_parsed: 2,
+        specialties: ["market microstructure"],
+        research_tracks: [{ id: "mst", title: "Microstructure study", phase: "draft", weight: 5 }],
+        method_tags: ["event_study"],
+        domain_tags: [],
+        lab_fintech_stack: [{ id: "crypto-vault", label: "CoinGecko crypto NFT token prices", route: "vault" }],
+        procurement_recommendations: [],
+      },
+    };
+    await mockV2Api(page, { profileBody: profileWithFintechTextButNoTag });
+    await page.goto("/?tab=profile", { waitUntil: "domcontentloaded" });
+    await expect(page.locator(".rd-v2-profile-name")).toHaveText("Text Bait, No Domain Tag", { timeout: 20_000 });
+
+    const detail = page.getByTestId("profile-detail-rail");
+    await expect(detail).toBeVisible();
+    await expect(detail).not.toContainText("FinTech through-line");
+    await expect(detail).not.toContainText("Market + on-chain panels");
+    await expect(detail).not.toContainText("FinTech panels linked");
+  });
+
+  test("Strengths reflect a declared domain_tags fintech tag with no fintech-sounding label text", async ({ page }) => {
+    const profileWithTagButNoText = {
+      found: true,
+      profile: {
+        name_en: "Tag Only, No Text Bait",
+        title: "Assistant Professor",
+        discipline: "Finance",
+        email: "tagonly@saturn.yzu.edu.tw",
+        paper_count_parsed: 2,
+        specialties: ["market microstructure"],
+        research_tracks: [{ id: "mst", title: "Microstructure study", phase: "draft", weight: 5 }],
+        method_tags: ["event_study"],
+        domain_tags: ["fintech"],
+        lab_fintech_stack: [{ id: "vendor-a", label: "Vendor A holdings", route: "vault" }],
+        procurement_recommendations: [],
+      },
+    };
+    await mockV2Api(page, { profileBody: profileWithTagButNoText });
+    await page.goto("/?tab=profile", { waitUntil: "domcontentloaded" });
+    await expect(page.locator(".rd-v2-profile-name")).toHaveText("Tag Only, No Text Bait", { timeout: 20_000 });
+
+    const detail = page.getByTestId("profile-detail-rail");
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText("FinTech through-line");
   });
 });
