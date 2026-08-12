@@ -8,6 +8,7 @@ import { buildProfessorVaultTree, datasetTitle, isOpsNoiseDataset } from "@/v2/p
 import { libraryFolderObject } from "@/v2/activeObject";
 import { CatalogList } from "@/v2/CatalogList";
 import { statusPillKind } from "@/v2/datasetMeta";
+import { LibraryAssetWorkspace } from "@/v2/LibraryAssetWorkspace";
 import { Chip, PageShell } from "@/v2/ui";
 
 function datasetListItem(row) {
@@ -159,15 +160,9 @@ function LibraryNewMenu({ open, onToggle, onUploadFile, onAddUrl, onProcure, onC
       </button>
       {open ? (
         <div className="rd-v2-library-action-menu" role="menu" aria-label="New library item">
-          <button type="button" role="menuitem" className="rd-v2-library-menu-item" onClick={onUploadFile}>
-            Upload file...
-          </button>
-          <button type="button" role="menuitem" className="rd-v2-library-menu-item" onClick={onAddUrl}>
-            Add URL / DOI...
-          </button>
-          <button type="button" role="menuitem" className="rd-v2-library-menu-item" onClick={onProcure}>
-            Procure missing data...
-          </button>
+          {onUploadFile ? <button type="button" role="menuitem" className="rd-v2-library-menu-item" onClick={onUploadFile}>Upload file...</button> : null}
+          {onAddUrl ? <button type="button" role="menuitem" className="rd-v2-library-menu-item" onClick={onAddUrl}>Add URL / DOI...</button> : null}
+          {onProcure ? <button type="button" role="menuitem" className="rd-v2-library-menu-item" onClick={onProcure}>Procure missing data...</button> : null}
           <button type="button" role="menuitem" className="rd-v2-library-menu-item" disabled>
             New folder
           </button>
@@ -186,16 +181,17 @@ function LibraryHeadActions({
   onProcureBranch,
   onRefresh,
 }) {
+  const canIntake = Boolean(onOpenUpload || onOpenUrlModal || onProcureBranch);
   return (
     <div className="rd-v2-library-actions">
-      <LibraryNewMenu
+      {canIntake ? <LibraryNewMenu
         open={newMenuOpen}
         onToggle={onToggleNewMenu}
         onClose={onCloseNewMenu}
         onUploadFile={onOpenUpload}
         onAddUrl={onOpenUrlModal}
         onProcure={onProcureBranch}
-      />
+      /> : null}
       <button
         type="button"
         className="rd-v2-btn sm rd-v2-library-action-btn ghost"
@@ -219,11 +215,14 @@ export function LibraryPage({
   selectedId,
   onSelectDataset,
   onPreviewDataset,
+  onOpenQuery,
   onRefresh,
   onFocusFolder,
   onStartUpload,
   onStartUrl,
   onStartProcure,
+  onClearSelection,
+  onAskDataset,
   searchQuery = "",
   onSearchChange,
 }) {
@@ -234,6 +233,10 @@ export function LibraryPage({
   const vaultDatasets = useMemo(
     () => (datasets || []).filter((row) => !isOpsNoiseDataset(row)),
     [datasets],
+  );
+  const selectedDataset = useMemo(
+    () => vaultDatasets.find((row) => row.dataset_id === selectedId) || null,
+    [selectedId, vaultDatasets],
   );
 
   const tree = useMemo(
@@ -344,6 +347,18 @@ export function LibraryPage({
     setNewMenuOpen(false);
     onStartProcure?.(branchObject);
   }, [branchObject, onStartProcure]);
+
+  if (selectedDataset) {
+    return (
+      <LibraryAssetWorkspace
+        dataset={selectedDataset}
+        onBack={onClearSelection}
+        onPreview={() => onPreviewDataset?.(selectedDataset)}
+        onAsk={() => onAskDataset?.(selectedDataset)}
+        onOpenQuery={() => onOpenQuery?.(selectedDataset.dataset_id)}
+      />
+    );
+  }
 
   return (
     <PageShell
@@ -477,17 +492,11 @@ export function LibraryPage({
             {/* VC-8: an empty branch offers bounded intake instead of a dead
                 end. These reuse the existing Library intake handlers — no
                 dashboard, tutorial stack, or duplicated Discover catalogue. */}
-            {!searchActive ? (
+            {!searchActive && (onStartUpload || onStartUrl || onStartProcure) ? (
               <div className="rd-v2-library-empty-actions">
-                <button type="button" className="rd-v2-btn sm" onClick={() => onStartUpload?.()}>
-                  Add files
-                </button>
-                <button type="button" className="rd-v2-btn sm" onClick={() => onStartUrl?.()}>
-                  Add URL
-                </button>
-                <button type="button" className="rd-v2-btn sm" onClick={() => onStartProcure?.()}>
-                  Find missing data
-                </button>
+                {onStartUpload ? <button type="button" className="rd-v2-btn sm" onClick={() => onStartUpload?.()}>Add files</button> : null}
+                {onStartUrl ? <button type="button" className="rd-v2-btn sm" onClick={() => onStartUrl?.()}>Add URL</button> : null}
+                {onStartProcure ? <button type="button" className="rd-v2-btn sm" onClick={() => onStartProcure?.()}>Find missing data</button> : null}
               </div>
             ) : null}
           </div>
