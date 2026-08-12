@@ -23,6 +23,7 @@ from scripts.research_data_mcp.desk_principal import (
     permissions_document,
     principal_by_id,
     principal_for_token,
+    new_public_guest_principal,
 )
 from scripts.research_data_mcp.cloudflare_access import (
     configured_access as cloudflare_access_configured,
@@ -287,6 +288,39 @@ def _bootstrap_hosts() -> set[str]:
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
 
 
+def _public_guest_hosts() -> set[str]:
+    """Public host values allowed to mint a limited guest session.
+
+    This is intentionally separate from DESK_SESSION_BOOTSTRAP_HOSTS.  The
+    latter restores the internal desk's operator convenience; putting a public
+    hostname there would recreate the anonymous-operator vulnerability.
+    """
+    raw = (os.getenv("DESK_PUBLIC_GUEST_HOSTS") or "").strip()
+    return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def _same_origin_browser_request(
+    handler: BaseHTTPRequestHandler, allowed_hosts: set[str]
+) -> bool:
+    """Check a browser's same-origin request against an explicit host allowlist."""
+    host = str(handler.headers.get("Host") or "").strip().lower()
+    host_only = host.split(":")[0]
+    if not host or not (host in allowed_hosts or host_only in allowed_hosts):
+        return False
+    same_origin_values = {f"http://{host}", f"https://{host}"}
+    origin = str(handler.headers.get("Origin") or "").strip()
+    referer = str(handler.headers.get("Referer") or "").strip()
+    if origin:
+        return origin.rstrip("/").lower() in same_origin_values
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return False
+        return f"{parsed.scheme}://{parsed.netloc}".lower() in same_origin_values
+    # No Origin/Referer: do not let a script mint a session.
+    return False
+
+
 def request_presents_desk_token(handler: BaseHTTPRequestHandler) -> bool:
     """True when the caller already proved possession of the desk token."""
     token = access_token_required() or ""
@@ -330,30 +364,12 @@ def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
     if request_presents_desk_token(handler):
         return True
 
-    host = str(handler.headers.get("Host") or "").strip().lower()
-    host_only = host.split(":")[0]
-    hosts = _bootstrap_hosts()
-    host_allowed = bool(host) and (host in hosts or host_only in hosts)
+    return _same_origin_browser_request(handler, _bootstrap_hosts())
 
-    if not host_allowed:
-        # Nothing is configured to mint anonymously — refuse.
-        return False
 
-    same_origin_values = {f"http://{host}", f"https://{host}"} if host else set()
-    origin = str(handler.headers.get("Origin") or "").strip()
-    referer = str(handler.headers.get("Referer") or "").strip()
-
-    if origin:
-        o = origin.rstrip("/").lower()
-        return o in same_origin_values
-    if referer:
-        parsed = urlparse(referer)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            return False
-        r = f"{parsed.scheme}://{parsed.netloc}".lower()
-        return r in same_origin_values
-    # No Origin/Referer → refuse bootstrap (blocks curl/script session minting).
-    return False
+def public_guest_desk_request(handler: BaseHTTPRequestHandler) -> bool:
+    """Whether an explicitly configured public host may mint a guest session."""
+    return _same_origin_browser_request(handler, _public_guest_hosts())
 
 
 def _token_matches(provided: str, expected: str) -> bool:
@@ -392,7 +408,9 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
         "session": {
             "cookie_version": _SESSION_VERSION,
             "max_age_seconds": _session_max_age(),
-            "bootstrap_available": bool(_bootstrap_hosts()) or request_presents_desk_token(handler),
+            "bootstrap_available": bool(_bootstrap_hosts() or _public_guest_hosts())
+            or request_presents_desk_token(handler),
+            "public_guest_available": bool(_public_guest_hosts()),
         },
     }
 
@@ -407,6 +425,12 @@ def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
     token = _session_signing_secret()
     if not token:
         return False, "Desk access token is not configured on this host", None
+    if public_guest_desk_request(handler):
+        return True, "", _cookie_header_value(
+            token,
+            secure=request_is_https(handler),
+            principal=new_public_guest_principal(),
+        )
     if not same_origin_desk_request(handler):
         return False, "Desk session bootstrap is not permitted for this request", None
     principal = request_desk_principal(handler) if request_presents_desk_token(handler) else default_principal()
@@ -422,7 +446,7 @@ def clear_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
     if not token:
         # Still clear any stale cookie.
         return True, "", _cookie_header_value("", clear=True, secure=request_is_https(handler))
-    if not same_origin_desk_request(handler):
+    if not (same_origin_desk_request(handler) or public_guest_desk_request(handler)):
         return False, "Desk session clear requires a same-origin browser request", None
     return True, "", _cookie_header_value(token, clear=True, secure=request_is_https(handler))
 
