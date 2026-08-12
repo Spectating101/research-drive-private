@@ -91,6 +91,63 @@ class UnauthorizedPostFramingTests(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_public_guest_session_can_research_but_cannot_operate(self) -> None:
+        """Exercise the real HTTP boundary, not just the auth helpers."""
+        with patch.dict(
+            os.environ,
+            {"DESK_PUBLIC_GUEST_HOSTS": "previous.easycamp.tech"},
+            clear=False,
+        ):
+            conn = http.client.HTTPConnection(self.host, self.port, timeout=8)
+            try:
+                body = b"{}"
+                conn.request(
+                    "POST",
+                    "/library/desk/session",
+                    body=body,
+                    headers={
+                        "Host": "previous.easycamp.tech",
+                        "Origin": "https://previous.easycamp.tech",
+                        "X-Forwarded-Proto": "https",
+                        "Content-Type": "application/json",
+                        "Content-Length": str(len(body)),
+                    },
+                )
+                minted = conn.getresponse()
+                minted_body = json.loads(minted.read().decode("utf-8"))
+                self.assertEqual(minted.status, 200, minted_body)
+                cookie = minted.getheader("Set-Cookie") or ""
+                self.assertIn("rd_desk_session=", cookie)
+                self.assertIn("Secure", cookie)
+                session_cookie = cookie.split(";", 1)[0]
+
+                headers = {
+                    "Host": "previous.easycamp.tech",
+                    "Cookie": session_cookie,
+                }
+                conn.request("GET", "/datasets", headers=headers)
+                datasets = conn.getresponse()
+                self.assertEqual(datasets.status, 200, datasets.read().decode("utf-8"))
+
+                conn.request("GET", "/library/faculty/profile", headers=headers)
+                private = conn.getresponse()
+                self.assertEqual(private.status, 403, private.read().decode("utf-8"))
+
+                conn.request(
+                    "POST",
+                    "/library/jobs/approve-safe",
+                    body=body,
+                    headers={
+                        **headers,
+                        "Content-Type": "application/json",
+                        "Content-Length": str(len(body)),
+                    },
+                )
+                approval = conn.getresponse()
+                self.assertEqual(approval.status, 403, approval.read().decode("utf-8"))
+            finally:
+                conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

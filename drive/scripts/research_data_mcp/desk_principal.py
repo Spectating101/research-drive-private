@@ -18,6 +18,15 @@ from typing import Any
 
 
 _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
+    # An anonymous public visitor gets a unique, signed guest identity.  It is
+    # deliberately useful for the research desk, but cannot see personal or
+    # operational data and cannot start collection work.
+    "public_guest": frozenset(
+        {
+            "view_research_data",
+            "use_ask",
+        }
+    ),
     # Public Access identities can research, ask, and submit review-gated
     # collection requests.  They deliberately cannot read a faculty member's
     # private profile or any operations/approval surface.
@@ -150,7 +159,38 @@ def principal_by_id(principal_id: str) -> DeskPrincipal | None:
         return None
     if wanted == default_principal().principal_id:
         return default_principal()
-    return configured_principals().get(wanted)
+    configured = configured_principals().get(wanted)
+    if configured:
+        return configured
+    # Guest IDs are generated only by `new_public_guest_principal` and then
+    # carried inside an HMAC-signed session.  Recognising this narrow format
+    # lets a guest session survive a request without adding unbounded guest
+    # rows to the principals file or treating it as a named account.
+    if (
+        wanted.startswith("guest-")
+        and 24 <= len(wanted) <= 96
+        and all(ch.isalnum() or ch in "_-" for ch in wanted[6:])
+    ):
+        return DeskPrincipal(
+            principal_id=wanted,
+            email="",
+            display_name="Guest researcher",
+            role="public_guest",
+        )
+    return None
+
+
+def new_public_guest_principal() -> DeskPrincipal:
+    """Return a non-identifying, per-browser public desk principal."""
+    # Import locally to keep this identity module's normal config path small.
+    import secrets
+
+    return DeskPrincipal(
+        principal_id=f"guest-{secrets.token_urlsafe(18)}",
+        email="",
+        display_name="Guest researcher",
+        role="public_guest",
+    )
 
 
 def permissions_document(principal: DeskPrincipal | None) -> dict[str, bool]:
