@@ -3,6 +3,8 @@
  * Not an ops console: only surfaces faculty-relevant estate truth.
  */
 
+import { composerRuntimeRead } from "./composerRuntimeStatus.js";
+
 function formatAge(ts) {
   if (!ts) return null;
   const ms = typeof ts === "number" ? ts : Date.parse(String(ts));
@@ -27,6 +29,15 @@ export function buildDeskIntegrationChips(health) {
   // Desk status badge already lives in the header — only chip when degraded.
   if (String(health.status || "").toLowerCase() === "degraded") {
     chips.push({ id: "desk", label: "Desk degraded", tone: "warn" });
+  }
+
+  // composer_runtime is frequently the reason status flips to degraded —
+  // unlike NVMe/cache/vault below, it had no chip explaining it, so "Desk
+  // degraded" showed with no visible cause. "unavailable" (never configured)
+  // is a normal, expected state, not worth a warning chip here.
+  const runtimeRead = composerRuntimeRead(desk.composer_runtime);
+  if (runtimeRead && !runtimeRead.ready && runtimeRead.status !== "unavailable") {
+    chips.push({ id: "composer", label: runtimeRead.label, tone: "warn" });
   }
 
   const gdrive = desk.gdrive;

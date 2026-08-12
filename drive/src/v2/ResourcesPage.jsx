@@ -133,8 +133,8 @@ function facultyOpsSub(label, key, sub) {
   return sub;
 }
 
-function CapacityAccessGrid({ rollup, selectedKey, onSelect }) {
-  const pairs = buildCapacityAccessPairs(rollup);
+function CapacityAccessGrid({ rollup, health, selectedKey, onSelect }) {
+  const pairs = buildCapacityAccessPairs(rollup, health);
   return (
     <div className="rd-v2-res-capacity-pairs" data-testid="resources-capacity-grid" aria-label="Capacity and access">
       {pairs.map((pair) => (
@@ -931,6 +931,7 @@ export function ResourcesPage({
             <h2 className="rd-v2-res-wire-title">Capacity &amp; access</h2>
             <CapacityAccessGrid
               rollup={lastKnownRollup}
+              health={health}
               selectedKey={selectedKey}
               onSelect={onSelectRow}
             />
