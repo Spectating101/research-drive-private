@@ -119,10 +119,14 @@ function tabOwnsDataset(tab) {
   return tab === "home" || tab === "browse" || tab === "library";
 }
 
+function tabOwnsFolder(tab) {
+  return tab === "library";
+}
+
 function writeParams({ tab, dataset, folder, preview, q, mode }) {
   const p = new URLSearchParams();
   if (tab && tab !== "home") p.set("tab", tab);
-  if (folder) p.set("folder", folder);
+  if (folder && tabOwnsFolder(tab)) p.set("folder", folder);
   // Enforced here rather than at call sites: writeParams is the single writer,
   // so no caller can reintroduce the leak.
   if (dataset && tabOwnsDataset(tab)) p.set("dataset", dataset);

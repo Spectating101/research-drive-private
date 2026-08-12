@@ -116,4 +116,24 @@ test.describe("v2 Library navigation", () => {
     await expect(page.locator("aside.rd-v2-rail")).toContainText("Add data");
     await expect(page.locator("aside.rd-v2-rail")).not.toContainText("Upload here");
   });
+
+  test("leaving a Library folder for Discover does not leave a stale folder param that reopens Library on reload", async ({ page }) => {
+    await mockV2Api(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/?tab=library", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+
+    const folder = page.locator('.rd-v2-catalog-list button[data-kind="folder"]').first();
+    await folder.click();
+    await expect(page).toHaveURL(/folder=/);
+
+    await page.locator("aside.yzu-sidebar").getByRole("button", { name: "Discover", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Discover", exact: true })).toBeVisible();
+    await expect(page).not.toHaveURL(/folder=/);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await expect(page.getByRole("heading", { name: "Discover", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Explore", exact: true })).toBeVisible();
+  });
 });
