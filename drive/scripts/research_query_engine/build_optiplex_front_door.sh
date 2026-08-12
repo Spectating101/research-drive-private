@@ -6,6 +6,7 @@ private_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 public_root="${YZU_PUBLIC_REPO:-${1:-}}"
 expected_sha="${YZU_PUBLIC_SHA:-}"
 identity_only="${YZU_BUILD_IDENTITY_ONLY:-0}"
+release_scope="${YZU_DESK_RELEASE_SCOPE:-tailscale-internal-same-origin}"
 
 usage() {
   echo "usage: YZU_PUBLIC_REPO=/absolute/path/to/yzu-cluster $0 [--identity-only]" >&2
@@ -26,7 +27,7 @@ write_build_identity() {
   "private_repo": "Spectating101/research-drive-private",
   "private_sha": "${private_sha}",
   "built_at_utc": "${built_at}",
-  "release_scope": "tailscale-internal-same-origin"
+  "release_scope": "${release_scope}"
 }
 EOF
   validate_build_identity "${identity_path}" "${public_sha}" "${private_sha}"
