@@ -1,3 +1,7 @@
+> **SUPERSEDED — NOT IMPLEMENTATION AUTHORITY.**
+> Retained for history only. The governing appendix is [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](../LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md).
+> Do not build against the wireframes below.
+
 # Research Drive — Library full-scale freeze
 
 **Status:** FROZEN VISUAL / INTERACTION AUTHORITY  

@@ -1,7 +1,7 @@
 # Research Drive UI Implementation Program
 
 **Status:** Current execution program  
-**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md), and [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md)  
+**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md), and [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md)  
 **Scope:** `drive/src/v2/*`, required API contracts, tests, rendered-pixel review
 
 ## Rule

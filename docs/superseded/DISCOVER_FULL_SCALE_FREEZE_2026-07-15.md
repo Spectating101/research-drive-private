@@ -1,3 +1,7 @@
+> **SUPERSEDED — NOT IMPLEMENTATION AUTHORITY.**
+> Retained for history only. The governing appendix is [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](../DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md).
+> Do not build against the wireframes below.
+
 # Research Drive — Discover full-scale freeze
 
 **Status:** PARTIALLY SUPERSEDED — HISTORY / LIFECYCLE PROVENANCE

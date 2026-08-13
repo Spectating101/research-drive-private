@@ -10,7 +10,7 @@ This is the sole top-level authority for Research Drive product composition, nav
 
 For Discover, [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the current normative visual and interaction appendix incorporated by reference into this authority. It supersedes the July 15 Explore entry, selected-candidate composition, and procurement-review composition. The July 15 History and lifecycle truth rules remain incorporated where they do not conflict.
 
-For Library, [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the normative full-scale visual and interaction appendix incorporated by reference into this authority. Its complete CLI wireframes are implementation authority, not examples.
+For Library, [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the current normative visual and interaction appendix incorporated by reference into this authority. It supersedes the July 15 Library selected-asset composition. The July 15 freeze is retained only at [`superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) and is not implementation authority.
 
 For cross-product visual completion, [`RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md`](RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md) is the current normative finishing appendix incorporated by reference into this authority. It preserves the settled page compositions and authorizes only the bounded visual-closure work listed there.
 
@@ -161,7 +161,7 @@ What research context does it belong to?
 What evidence is still missing?
 ```
 
-The complete binding composition and state family are in [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md).
+The complete binding composition and state family are in [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md).
 
 ### 7.1 Library composition
 
@@ -1090,8 +1090,8 @@ No later implementation worker may reinterpret frozen composition because curren
 
 1. This file is the sole top-level current UX/product authority.
 2. [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the incorporated normative visual and interaction appendix for Discover. Its interaction rules and CLI wireframes are binding.
-3. [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) remains historical Explore authority and current History/lifecycle authority only where the adaptive freeze does not conflict.
-4. [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) is the incorporated normative full-scale visual and interaction appendix for Library. Its CLI wireframes are binding.
+3. [`superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) is superseded. It retains History/lifecycle truth rules for reference only; its Explore wireframes are not implementation authority.
+4. [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the incorporated normative appendix for Library. Its CLI wireframes are binding. The July 15 Library freeze is superseded and retained under `superseded/`.
 5. `UI_IMPLEMENTATION_PROGRAM.md` is the execution plan derived from this authority and the incorporated appendices.
 6. `RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md` is a subordinate typed rail/backend contract.
 7. `DISCOVER_ACQUISITION.md` is a subordinate operational runbook.
