@@ -1,4 +1,5 @@
 /** Resources — running jobs, stack, storage (sources/layers live in deskSourcesManifest.js). */
+import { measuredComposerLabel } from "@/v2/resourcesTruth";
 
 function fracProgress(text) {
   const m = String(text || "").match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
@@ -104,7 +105,7 @@ export function buildStackRows({ health, catalogSummary, cluster }) {
       section: "Desk stack",
       kind: "stack",
       key: "composer",
-      label: `Ask · ${desk.composer_model || "composer-2.5"}`,
+      label: `Ask · ${measuredComposerLabel(desk.composer_model)}`,
       metric: composerOk ? "Composer + MCP" : "Composer not configured",
       ok: composerOk,
       warn: !composerOk,

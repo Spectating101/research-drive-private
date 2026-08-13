@@ -1,6 +1,7 @@
 /** Resources — Spending | Activity model from desk rollup. */
 
 import { buildMotionRowsFromRollup } from "@/v2/resourcesFromRollup";
+import { measuredComposerLabel } from "@/v2/resourcesTruth";
 
 function rowBase(row) {
   return { ok: true, warn: false, ...row };
@@ -78,7 +79,7 @@ export function buildCapacityCards(rollup) {
       kind: "capacity",
       key: "cap-ask",
       label: "Ask",
-      metric: composer.model || "composer-2.5",
+      metric: measuredComposerLabel(composer.model),
       sublabel: composer.configured ? "Composer + MCP" : "Composer not configured",
       ok: composer.configured,
       warn: !composer.configured,
@@ -164,7 +165,7 @@ export function buildSpendingMeters(rollup) {
       periodValue: String(period.composer_turns ?? 0),
       todayValue: String(today.composer_turns ?? 0),
       unitLabel: "Ask turns this month",
-      sublabel: rollup.ai?.composer_model || "composer-2.5",
+      sublabel: measuredComposerLabel(rollup.ai?.composer_model),
       section: "spending",
       detail: rollup.ai,
     }),
@@ -200,7 +201,7 @@ export function buildAccountSummaryRows(rollup) {
       label: "Ask / model turns",
       metric: `${period.composer_turns ?? 0} month`,
       sublabel: `${today.composer_turns ?? 0} today`,
-      detail: rollup.ai?.composer_model || "composer-2.5",
+      detail: measuredComposerLabel(rollup.ai?.composer_model),
       section: "account",
     }),
     rowBase({

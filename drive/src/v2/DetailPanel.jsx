@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { detailFields, displayName, formatMetaValue } from "@/v2/datasetMeta";
+import { demotionSentence, detailFields, displayName, formatMetaValue, statusPillKind } from "@/v2/datasetMeta";
 import { EmptyRailState } from "@/v2/EmptyRailState";
 import {
   RailEntityHeader,
@@ -79,8 +79,8 @@ function FieldRow({ label, value, loading, mono = false, hideEmpty = false }) {
   );
 }
 
-function isDatasetReady(readiness) {
-  return /ready|query|instant|connected/i.test(String(readiness || ""));
+function isDatasetReady(dataset) {
+  return statusPillKind(dataset).kind === "query-ready";
 }
 
 function vaultPill(fields) {
@@ -147,6 +147,12 @@ export function DetailPanel({
       />
 
       <div className="rd-v2-rail-scroll">
+        {demotionSentence(dataset) ? (
+          <section className="rd-v2-rail-value-brief" aria-label="Readiness decision" data-testid="library-demotion-sentence">
+            <p className="rd-v2-rail-section-label">Can you use this?</p>
+            <p>{demotionSentence(dataset)}</p>
+          </section>
+        ) : null}
         <section className="rd-v2-rail-value-brief" aria-label="Why this matters">
           <p className="rd-v2-rail-section-label">Why this matters</p>
           <p>
@@ -165,7 +171,7 @@ export function DetailPanel({
           <FieldRow label="Source" value={fields.source} loading={loading} />
           <FieldRow
             label="Access"
-            value={fields.access || (isDatasetReady(dataset.analysis_readiness) ? "Query engine" : null)}
+            value={fields.access || (isDatasetReady(dataset) ? "Query engine" : null)}
             loading={loading}
           />
           <FieldRow label="Coverage" value={fields.coverage || dataset.coverage || dataset.date_range} loading={loading} />

@@ -9,29 +9,7 @@ import { mergeJobsIntoActivity } from "@/v2/jobActivityRows";
 import { jobStatusLabel } from "@/v2/askArtifacts";
 import { buildResourcesPanels } from "@/v2/resourcesFromRollup";
 import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
-
-const PLACEHOLDER_ROLLUP = {
-  hero: {
-    composer: { model: "", configured: false, legacy_configured: false },
-    workers: {},
-    vault: {},
-    query_engine: { port: 8765, up: false },
-  },
-  ai: { composer_model: "", mcp_tools: {} },
-  metered: {
-    bigquery: { configured: false },
-    tavily: { keys_loaded: 0 },
-  },
-  spending: {
-    period: { totals: {}, daily: [] },
-    today: {},
-    drivers: [],
-  },
-  activity: { events: [] },
-  motion: { jobs: {} },
-  issues: [],
-  _placeholder: true,
-};
+import { rollupIsMeasured } from "@/v2/resourcesTruth";
 
 function shortText(value, max = 92) {
   const text = String(value || "");
@@ -698,11 +676,11 @@ export function ResourcesPage({
   const [activityKind, setActivityKind] = useState("all");
   const hasEarlyContext = Boolean(health || ops || jobs.length || catalogSummary || cluster);
   const isInitialLoading = rollupLoading && rollup === undefined && !hasEarlyContext;
-  const viewRollup = isInitialLoading ? null : rollup || PLACEHOLDER_ROLLUP;
+  const viewRollup = isInitialLoading || !rollupIsMeasured(rollup) ? null : rollup;
   const panels = useMemo(
     () =>
       buildResourcesPanels({
-        rollup,
+        rollup: viewRollup,
         rollupLoading,
         health,
         ops,
@@ -710,7 +688,7 @@ export function ResourcesPage({
         catalogSummary,
         cluster,
       }),
-    [rollup, rollupLoading, health, ops, jobs, catalogSummary, cluster],
+    [viewRollup, rollupLoading, health, ops, jobs, catalogSummary, cluster],
   );
   const effectiveActivityFilter = useMemo(() => {
     if (activityFilter) return activityFilter;

@@ -1,6 +1,7 @@
 /** Map GET /library/desk/resources rollup → Resources ledger rows. */
 
 import { buildLayerRows, buildProviderRows } from "@/v2/deskSourcesManifest";
+import { measuredComposerLabel, rollupIsMeasured, unmeasuredResourcesPanels } from "@/v2/resourcesTruth";
 import {
   buildRunningRows,
   buildStackRows,
@@ -57,7 +58,7 @@ export function buildAiRows(rollup) {
       section: "AI & tools",
       kind: "ai",
       key: "composer",
-      label: `Ask · ${ai.composer_model || "composer-2.5"}`,
+      label: `Ask · ${measuredComposerLabel(ai.composer_model)}`,
       metric: ai.composer_configured ? "Composer + MCP" : "Composer not configured",
       ok: ai.composer_configured,
       warn: !ai.composer_configured,
@@ -493,24 +494,8 @@ export function buildResourcesPanels({
   queryUp = true,
 }) {
   const ctx = { health, ops, jobs, catalogSummary, cluster, queryUp };
-  if (rollupLoading) {
-    return {
-      hero: null,
-      ai: [],
-      metered: [],
-      usage: [],
-      motion: [],
-      compute: [],
-      providers: [],
-      layers: [],
-      connect: { source_count: 0, layer_count: 0 },
-      issuesCount: 0,
-      issuesFromRollup: [],
-      offline: false,
-    };
-  }
-  if (!rollup) {
-    return buildFallbackPanels(ctx);
+  if (rollupLoading || !rollupIsMeasured(rollup)) {
+    return unmeasuredResourcesPanels();
   }
 
   const ai = buildAiRows(rollup);

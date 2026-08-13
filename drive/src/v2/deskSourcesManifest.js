@@ -1,6 +1,7 @@
 /** Merge config/desk_sources.json with live desk telemetry (providers, not datasets). */
 
 import manifest from "../../config/desk_sources.json";
+import { measuredComposerLabel } from "@/v2/resourcesTruth";
 
 export const DESK_SOURCE_MANIFEST = manifest;
 
@@ -99,7 +100,7 @@ export function buildCapacitySnapshot({ health, catalogSummary, cluster }) {
       total: pools?.total ?? wl?.total ?? "—",
     },
     composer: {
-      model: desk.composer_model || "composer-2.5",
+      model: measuredComposerLabel(desk.composer_model),
       ok: !!desk.composer_configured,
       legacy: !!desk.legacy_llm_configured,
     },

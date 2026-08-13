@@ -418,7 +418,7 @@ def build_desk_resources(gateway: Any, *, live: bool = False) -> dict[str, Any]:
         faculty_payload = {"found": False}
 
     mcp = desk.get("mcp_tools") or {}
-    composer_model = desk.get("composer_model") or "composer-2.5"
+    composer_model = str(desk.get("composer_model") or "").strip()
     composer_ok = bool(desk.get("composer_configured"))
     legacy_ok = bool(desk.get("legacy_llm_configured"))
 

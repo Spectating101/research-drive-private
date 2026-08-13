@@ -52,10 +52,30 @@ export function formatMetaValue(value) {
     .join(" ");
 }
 
+const RUNTIME_DEMOTION = {
+  local_panel_missing: "Declared queryable; local panel is missing.",
+  local_bytes_missing: "Declared queryable; local bytes are missing.",
+  csv_schema_mismatch: "Declared queryable; schema does not match the registered panel.",
+};
+
+export function runtimeReadinessReason(dataset) {
+  return String(dataset?.runtime_readiness_reason || "").trim();
+}
+
+export function demotionSentence(dataset) {
+  const reason = runtimeReadinessReason(dataset);
+  if (!reason) return "";
+  return RUNTIME_DEMOTION[reason] || "Declared queryable; runtime readiness is not confirmed.";
+}
+
 export function statusPillKind(dataset) {
   const readiness = String(dataset?.analysis_readiness || "").toLowerCase();
+  const reason = runtimeReadinessReason(dataset);
   if (dataset?.external || dataset?.collect_via) {
     return { kind: "external", label: "External" };
+  }
+  if (reason) {
+    return { kind: "warn", label: "Not query-ready" };
   }
   if (readiness === "instant" || readiness === "instant_or_minutes") {
     return { kind: "query-ready", label: "Query-ready" };
@@ -64,13 +84,14 @@ export function statusPillKind(dataset) {
     return { kind: "connected", label: "Connected" };
   }
   if (readiness === "connected") return { kind: "connected", label: "Connected" };
-  if (readiness === "metadata_search" || readiness === "metadata_only") {
+  if (readiness === "metadata_search" || readiness === "metadata_only" || readiness === "registered") {
     return { kind: "remote", label: "Remote" };
   }
   if (readiness === "procurement_planning") return { kind: "queued", label: "Queued" };
   if (readiness === "sample_now_full_later") return { kind: "warn", label: "Review" };
   if (readiness === "failed") return { kind: "failed", label: "Failed" };
-  return { kind: "query-ready", label: "Query-ready" };
+  // Unknown/unset readiness is not evidence the asset is queryable — don't claim it is.
+  return { kind: "remote", label: "Remote" };
 }
 
 export function statusPill(dataset) {

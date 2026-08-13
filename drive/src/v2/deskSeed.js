@@ -7,19 +7,20 @@ export const SEED_DATASETS = demoCatalog.datasets || [];
 export const DISCOVER_SUGGESTIONS = demoCatalog.discover_suggestions || [];
 export const DISCOVER_SAMPLES = demoCatalog.discover_samples || [];
 
+const UNMEASURED_DESK = {
+  jobs: {},
+  composer_configured: false,
+  composer_model: "",
+  mcp_tools: { total: 0, core: 0, acquire: 0, ops: 0 },
+  storage_tiers: { canonical: { quota_tb: 5, used_tb: 0 }, cache: { used_pct: 0 } },
+  gdrive: { ok: null },
+  worker_pools: { busy: 0, total: 0 },
+};
+
 export const FALLBACK_HEALTH = {
   status: "demo",
   datasets: SEED_DATASETS.length,
-  desk: {
-    jobs: { running: 4, pending_approval: 1, gdelt_progress: "18 / 99 mo" },
-    composer_configured: false,
-    composer_model: "composer-2.5",
-    mcp_tools: { total: 62, core: 13, acquire: 28, ops: 21 },
-    storage_tiers: { canonical: { quota_tb: 5, used_tb: 2.1 }, cache: { used_pct: 68 } },
-    gdrive: { ok: true },
-    worker_pools: { busy: 3, total: 12 },
-  },
-  ...(demoCatalog.health || {}),
+  desk: { ...UNMEASURED_DESK },
 };
 
 export function resolveCatalog(liveRows) {
@@ -28,15 +29,7 @@ export function resolveCatalog(liveRows) {
   return { catalog: SEED_DATASETS, usingSeed: true };
 }
 
-const NEUTRAL_DESK = {
-  jobs: {},
-  composer_configured: false,
-  composer_model: "composer-2.5",
-  mcp_tools: { total: 0, core: 0, acquire: 0, ops: 0 },
-  storage_tiers: { canonical: { quota_tb: 5, used_tb: 0 }, cache: { used_pct: 0 } },
-  gdrive: { ok: null },
-  worker_pools: { busy: 0, total: 0 },
-};
+const NEUTRAL_DESK = { ...UNMEASURED_DESK };
 
 /** Live desk health — never blend demo job fiction when API reports ok. */
 export function mergeHealth(live) {
@@ -93,20 +86,5 @@ export function discoverDemoSearch(query) {
 export function deskPipelineStrips(health, acquisitions = []) {
   const running = acquisitions.filter((a) => (a.stage || "running") === "running").slice(0, 3);
   if (running.length) return running;
-  if (health?.status === "ok") return [];
-  const jobs = health?.desk?.jobs || {};
-  return [
-    {
-      id: "gdelt",
-      name: "GDELT backfill",
-      amount: jobs.gdelt_progress || "18 / 99 mo",
-      stage: "running",
-    },
-    {
-      id: "datacite",
-      name: "DataCite harvest",
-      amount: `${jobs.running ?? 4} workers`,
-      stage: "warn",
-    },
-  ];
+  return [];
 }

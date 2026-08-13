@@ -3,7 +3,7 @@ import { Chip } from "@/v2/ui";
 
 const HISTORY_FILTERS = [
   { id: "all", label: "All" },
-  { id: "needs_approval", label: "Needs approval" },
+  { id: "needs_approval", label: "Needs you" },
   { id: "active", label: "Active" },
   { id: "ready", label: "Ready" },
   { id: "needs_recovery", label: "Recovery" },
