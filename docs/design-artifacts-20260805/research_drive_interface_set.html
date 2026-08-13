@@ -1,32 +1,40 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
-<title>Research Drive — consolidated interface set</title><style>
-:root{--bg:#f3f1eb;--ink:#1c1a16;--muted:#6b655c;--line:#d7d1c5;--panel:#fffcf6;--accent:#1f4b3a}
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Research Drive — interface set &amp; handoff</title><style>
+:root{--bg:#f3f1eb;--ink:#1c1a16;--muted:#6b655c;--line:#d7d1c5;--panel:#fffcf6;--accent:#1f4b3a;--warn:#8a3b1e}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
-font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{padding:28px 32px;border-bottom:1px solid var(--line)}
-h1{margin:0 0 6px;font-size:20px;letter-spacing:.01em}
-.sub{color:var(--muted);font-size:13px}
-main{padding:8px 32px 64px;max-width:1600px}
-section{margin:34px 0;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
-h2{margin:0;padding:14px 18px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+font:14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:30px 34px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{margin:0 0 8px;font-size:21px}.sub{color:var(--muted);font-size:13px;max-width:110ch}
+main{padding:0 34px 72px;max-width:1680px}
+h2.part{margin:44px 0 4px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+section{margin:18px 0;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+h3{margin:0;padding:13px 18px;font-size:13px;letter-spacing:.05em;text-transform:uppercase;
 border-bottom:1px solid var(--line);background:#efece4}
-.note{padding:12px 18px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--line)}
-.src{float:right;font-size:11px;color:var(--accent);text-transform:none;letter-spacing:0}
-pre{margin:0;padding:16px 18px;overflow-x:auto;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;
-white-space:pre;background:var(--panel)}
-.rules{margin:34px 0;padding:18px 22px;background:#efece4;border:1px solid var(--line);border-radius:6px}
-.rules h3{margin:0 0 10px;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
-.rules li{margin:5px 0;color:#2a2721}
-a{color:var(--accent)}
-</style></head><body>
-<header>
-<h1>Research Drive — consolidated interface set</h1>
-<div class="sub">Discover Explore · Discover History lifecycle · acquisition strategy · Synthesis.
-Assembled from the 5&nbsp;Aug CLI wireframe showcase, the 7&nbsp;Aug Synthesis artifacts, and the
-13&nbsp;Aug rendered captures. Every frame below is copied from a source artifact or rendered from
-running code — none is redrawn.</div>
-</header><main>
-<section><h2>DISCOVER · EXPLORE<span class="src">13 Aug capture · discover-05-offerings</span></h2><div class="note">Resting results. Compact ranked list; source ribbon, title, readiness, size; description; coverage · grain · route; one mutation label. Filters / Sort / Refine are collapsed controls, not page text.</div><pre>┌──────────────────┬──────────────────────────────────────────────────────────────────────┬────────────────────────────┐
+.src{float:right;font-size:11px;color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400}
+.note{padding:11px 18px;color:var(--muted);font-size:13px;border-bottom:1px solid var(--line);max-width:120ch}
+pre{margin:0;padding:15px 18px;overflow-x:auto;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#efece4;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+code{font:12px ui-monospace,Menlo,monospace;background:#efece4;padding:1px 4px;border-radius:3px}
+.bad{color:var(--warn);font-weight:600}.ok{color:var(--accent);font-weight:600}
+ul{margin:10px 0;padding-left:20px}li{margin:5px 0}
+</style></head><body><header><h1>Research Drive — consolidated interface set &amp; handoff</h1>
+<div class="sub">Every frame below is copied byte-for-byte from a source artifact or rendered from running code.
+None is redrawn. Sources: the 5&nbsp;Aug CLI wireframe showcase, the 7&nbsp;Aug Synthesis artifacts, and 13&nbsp;Aug
+rendered captures — all four now committed under <code>docs/design-artifacts-20260805/</code> after being
+found outside version control.</div></header><main><h2 class="part">0 · Read first — where things stand</h2><section><h3>Repository</h3><table>
+<tr><th>Fact</th><th>Value</th></tr>
+<tr><td>Only remote</td><td><code>research-drive-private</code> — <code>yzu-fe</code> removed; all ~60 checkouts are worktrees of one repo (<code>Sharpe-Renaissance/.git</code>)</td></tr>
+<tr><td>Old frontend branches</td><td>mirrored under <code>yzu/&lt;original-name&gt;</code> (104 branches, 0 missing). <code>feat/showcase-terra-port</code> is <code>yzu/feat/showcase-terra-port</code></td></tr>
+<tr><td>yzu-cluster on GitHub</td><td>intact, <span class="bad">not deleted</span>, kept as the safety net</td></tr>
+<tr><td>Design branch</td><td><code>consolidation/discover-visual-pass-20260813</code></td></tr>
+</table></section><section><h3>Live</h3><table>
+<tr><th>Surface</th><th>Serving</th><th>Note</th></tr>
+<tr><td><code>:8765</code> desk</td><td><code>42d5b100</code> · built 12 Aug 16:40Z</td><td>env pin matches. <code>status: degraded</code> = <code>composer_status: stale</code>, age ~3300s</td></tr>
+<tr><td><code>:8778</code> previous.easycamp.tech</td><td><code>63de3d05</code> · 7 Aug</td><td>diverged from the desk line, not behind it: 45 commits one side, 16 the other, since 3 Aug</td></tr>
+<tr><td>Readiness</td><td>declared 106 instant / observed <strong>2</strong></td><td>58 rows demoted <code>local_bytes_missing</code>. Always state which projection.</td></tr>
+<tr><td>Composable pairs</td><td>23 of 5,778 declared · <strong>0 observed</strong></td><td>19 of 23 are Refinitiv × Refinitiv from 11 datasets</td></tr>
+</table></section><h2 class="part">1 · The set</h2><section><h3>DISCOVER · EXPLORE — resting results<span class="src">rendered from code @ 673237dc</span></h3><div class="note">Compact ranked list. Row grammar: source ribbon · title · readiness · size / description / coverage · grain · Collect via route / one mutation label. Filters, Sort and Refine are collapsed controls — the committed capture has all three popovers open, which every earlier transcription mistook for page text.</div><pre>┌──────────────────┬──────────────────────────────────────────────────────────────────────┬────────────────────────────┐
 │                  │                                                                      │                            │
 │ RD  Research Driv│  Test Prof                                                           │        Live registry RO    │
 │                  │                                                                      │  DISCOVER    3 datasets ·  │
@@ -69,8 +77,7 @@ running code — none is redrawn.</div>
 │                  │     GDELT                                                            │                            │
 │    Settings      │     country-day news intensity; entity-resolved news features.       │ Open Library results       │
 │                  │     2015–2026 · issuer-quarter · Collect via an API query            │                            │
-└──────────────────┴──────────────────────────────────────────────────────────────────────┴────────────────────────────┘</pre></section>
-<section><h2>DISCOVER · EXPLORE — source selected<span class="src">5 Aug showcase · block 7</span></h2><div class="note">Row selected, rail becomes source judgment. No durable procurement request exists yet.</div><pre>DISCOVER · EXPLORE
+└──────────────────┴──────────────────────────────────────────────────────────────────────┴────────────────────────────┘</pre></section><section><h3>DISCOVER · EXPLORE — source selected<span class="src">5 Aug showcase · block 7</span></h3><div class="note">Row selected; rail becomes source judgment. No durable procurement request exists yet.</div><pre>DISCOVER · EXPLORE
 SOURCE SELECTED / NO DURABLE REQUEST YET
 
 
@@ -115,8 +122,7 @@ SOURCE SELECTED / NO DURABLE REQUEST YET
 │                        │                                                                             │                                     │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Source selected · no durable procurement request exists yet                   │ Source evidence                     │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>DISCOVER · EXPLORE — Ask active<span class="src">5 Aug showcase · block 6</span></h2><div class="note">Ask operates the same selected source. Centre selection never disappears. Agent activity is a live checklist of real steps.</div><pre>DISCOVER · EXPLORE
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>DISCOVER · EXPLORE — Ask active<span class="src">5 Aug showcase · block 6</span></h3><div class="note">Ask operates the same selected source; the centre selection never disappears. Agent activity is a live checklist of real steps.</div><pre>DISCOVER · EXPLORE
 SAME SELECTED SOURCE — ASK ACTIVE
 
 
@@ -163,8 +169,7 @@ SAME SELECTED SOURCE — ASK ACTIVE
 │                        │                                                                             │ └─────────────────────────────────┘ │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Ask operates the same selected source · centre selection never disappears    │ Acquisition investigation           │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>ENTRY GRAMMAR<span class="src">5 Aug showcase · blocks 2–5</span></h2><div class="note">Four inputs through one interpreter. INTERPRETING reads the sentence, not keywords.</div><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>ENTRY GRAMMAR — 1 of 4<span class="src">5 Aug showcase · blocks 2–5</span></h3><div class="note">Four inputs through one interpreter. INTERPRETING reads the sentence, not keywords.</div><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ I need transaction-level stablecoin evidence around market stress events before 2020, preferably   │
@@ -175,8 +180,7 @@ INTERPRETING
 
 Stablecoins · Transactions · Pre-2020 · +2
 
-Refine evidence need ▾</pre></section>
-<section><h2>ENTRY GRAMMAR</h2><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
+Refine evidence need ▾</pre></section><section><h3>ENTRY GRAMMAR — 2 of 4</h3><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ ethereum transactions                                                                            ⌕ │
@@ -186,8 +190,7 @@ INTERPRETING
 
 Ethereum · Transactions
 
-Refine evidence need ▾</pre></section>
-<section><h2>ENTRY GRAMMAR</h2><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
+Refine evidence need ▾</pre></section><section><h3>ENTRY GRAMMAR — 3 of 4</h3><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ I want to compare transfer behaviour before and after major stablecoin stress events across         │
@@ -198,8 +201,7 @@ INTERPRETING
 
 Stablecoins · Transfers · Event comparison · Entity analysis · +1
 
-Refine evidence need ▾</pre></section>
-<section><h2>ENTRY GRAMMAR</h2><div class="note">The researcher states a gap in their own holdings; the interpreter names it Local coverage gap.</div><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
+Refine evidence need ▾</pre></section><section><h3>ENTRY GRAMMAR — 4 of 4</h3><div class="note">The researcher states a gap in their own holdings; the interpreter names it Local coverage gap.</div><pre>WHAT EVIDENCE ARE YOU LOOKING FOR?
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ My local USDT panel starts in 2020. I need comparable transaction evidence before that period.      │
@@ -210,8 +212,7 @@ INTERPRETING
 
 USDT · Transactions · Before 2020 · Local coverage gap
 
-Refine evidence need ▾</pre></section>
-<section><h2>DISCOVER · HISTORY — ledger<span class="src">5 Aug showcase · block 8</span></h2><div class="note">Priority + compact lifecycle ledger at 72 items. Researcher decisions first. Needs you / Active / Ready / Recovery / Scheduled.</div><pre>RESEARCH DRIVE — DISCOVER · HISTORY
+Refine evidence need ▾</pre></section><section><h3>DISCOVER · HISTORY — priority ledger<span class="src">5 Aug showcase · block 8</span></h3><div class="note">72 items. Researcher decisions pinned above running work. Showing 8 of 68 · Load more.</div><pre>RESEARCH DRIVE — DISCOVER · HISTORY
 PRIORITY + COMPACT LIFECYCLE LEDGER
 WITH MATERIAL PROCUREMENT METHOD CUE
 
@@ -279,8 +280,7 @@ DESKTOP / 1440 × 1024
 │                        │                                                                             │ Ask about method · Return to source │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Researcher decisions first · compact lifecycle ledger                         │ Procurement authority               │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>HISTORY — 1 · route investigating<span class="src">block 9</span></h2><div class="note">Durable request exists before route resolution.</div><pre>DISCOVER · HISTORY
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>LIFECYCLE 1 — route investigating<span class="src">block 9</span></h3><div class="note">Needs you 0 · Active 1 · Ready 2 · Recovery 1 · Scheduled 2. A durable request exists before a route is resolved.</div><pre>DISCOVER · HISTORY
 INITIAL DURABLE OBJECT
 
 
@@ -322,8 +322,7 @@ INITIAL DURABLE OBJECT
 │                        │                                                                             │ Return to source                    │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Request exists before route resolution · selection remains centre-owned       │ Procurement investigation           │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>HISTORY — 2 · route + Ask<span class="src">block 10</span></h2><div class="note">Ask operates the selected lifecycle item; centre reflects durable work.</div><pre>DISCOVER · HISTORY
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>LIFECYCLE 2 — route investigation, Ask active<span class="src">block 10</span></h3><div class="note">Needs you 1 · Active 2. Ask operates the selected lifecycle item; centre reflects durable work.</div><pre>DISCOVER · HISTORY
 ROUTE INVESTIGATION — ASK ACTIVE
 
 
@@ -376,8 +375,7 @@ ROUTE INVESTIGATION — ASK ACTIVE
 │                        │                                                                             │ └─────────────────────────────────┘ │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Ask operates the selected lifecycle item · centre reflects durable work       │ Route investigation                 │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>HISTORY — 3 · method proposed<span class="src">block 11</span></h2><div class="note">WHY THIS METHOD justifies by a failed attempt, not assertion.</div><pre>DISCOVER · HISTORY
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>LIFECYCLE 3 — method proposed<span class="src">block 11</span></h3><div class="note">Needs you 2 · Active 1. WHY THIS METHOD justifies by a failed attempt, not by assertion.</div><pre>DISCOVER · HISTORY
 METHOD PROPOSED — DETAIL ACTIVE
 
 
@@ -427,8 +425,7 @@ METHOD PROPOSED — DETAIL ACTIVE
 │                        │                                                                             │ Ask about method · Return to source │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Durable method state changes centre position and Detail judgment               │ Procurement authority               │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>HISTORY — 4 · extracting<span class="src">block 12</span></h2><div class="note">Observed counts and fields while running; unknowns stay named.</div><pre>DISCOVER · HISTORY
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>LIFECYCLE 4 — extraction active<span class="src">block 12</span></h3><div class="note">Needs you 2 · Active 3. Observed counts and fields while running; unknowns stay named.</div><pre>DISCOVER · HISTORY
 BROWSER EXTRACTION ACTIVE
 
 
@@ -474,8 +471,7 @@ BROWSER EXTRACTION ACTIVE
 │                        │                                                                             │ Ask about extraction               │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Method identity and observed execution remain attached to one lifecycle item  │ Extraction authority                │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>HISTORY — 5 · schema review<span class="src">block 13</span></h2><div class="note">Completed extraction returns to Needs You only for a researcher-owned decision.</div><pre>DISCOVER · HISTORY
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>LIFECYCLE 5 — schema review<span class="src">block 13</span></h3><div class="note">Needs you 3 · Active 2. Completed extraction returns to Needs You only for a researcher-owned decision.</div><pre>DISCOVER · HISTORY
 EXTRACTION FINISHED / RESEARCHER DECISION RETURNS
 
 
@@ -521,8 +517,7 @@ EXTRACTION FINISHED / RESEARCHER DECISION RETURNS
 │                        │                                                                             │ View evidence · Ask about mapping   │
 ├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
 │ Stablecoin Research    │ Completed extraction returns to Needs You only for a researcher-owned decision │ Evidence-shape authority           │
-└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section>
-<section><h2>ACQUISITION · strategy card<span class="src">5 Aug showcase · block 14</span></h2><div class="note">Question-shaped, not route-shaped. NEXT VALID ACTION: exact supported action; never a fabricated executable promise.</div><pre>┌──────────────────────────────────────────────────────────────────────────────┐
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘</pre></section><section><h3>ACQUISITION — custom strategy card<span class="src">5 Aug showcase · block 14</span></h3><div class="note">Question-shaped, not route-shaped. NEXT VALID ACTION is an exact supported action, never a fabricated executable promise.</div><pre>┌──────────────────────────────────────────────────────────────────────────────┐
 │ Custom strategy · Stablecoin De-peg Exchange Activity Dataset            × │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ WHAT YOU WILL GET                                                           │
@@ -552,23 +547,163 @@ EXTRACTION FINISHED / RESEARCHER DECISION RETURNS
 │ exact supported action; never a fabricated executable promise                │
 │                                                                              │
 │ [Refine in Ask] [Save strategy] [Next valid action]                          │
-└──────────────────────────────────────────────────────────────────────────────┘</pre></section>
-
-<section><h2>SYNTHESIS<span class="src">7 Aug artifacts</span></h2>
-<div class="note">Synthesis is held as its own rendered artifacts rather than re-drawn here:
-<a href="synthesis_fullpage_wireframe_20260807.html">registered-state canvas</a> and
+└──────────────────────────────────────────────────────────────────────────────┘</pre></section><section><h3>SYNTHESIS<span class="src">7 Aug artifacts</span></h3>
+<div class="note">Held as rendered artifacts rather than redrawn:
+<a href="synthesis_fullpage_wireframe_20260807.html">registered-state canvas</a> ·
 <a href="synthesis_guided_simulation_20260807.html">five-stage walkthrough</a>
-(Define → Ground → Review → Build → Reuse).</div></section>
+(Define → Ground → Review → Build → Reuse, each stage carrying its own truth boundary).</div></section><h2 class="part">2 · Consolidation decisions</h2><section><h3>CUT — Explore rail before selection</h3><pre>        BEFORE                                    AFTER
+┌────────────────────────────┐          ┌────────────────────────────┐
+│ Detail   Ask               │          │ Detail   Ask               │
+│ Search · stablecoin        │          │ Search · stablecoin        │
+│                            │          │                            │
+│ Already in your Library    │          │ 0 of 5 already held        │
+│ 0 of 5 already held        │          │                            │
+│                            │          │ Select an offering to see  │
+│ What this search found     │          │ its coverage, its route,   │
+│ 5 offerings you can add    │  ────▶   │ and what remains unknown   │
+│ 0 already in your Library  │          │ before collecting.         │
+│                            │          │                            │
+│ Library comparison         │  CUT     │                            │
+│ No offering here matched   │  CUT     │                            │
+│ something the lab holds    │  CUT     │                            │
+│                            │          │                            │
+│ Collection routes offered  │  CUT     │                            │
+│ BigQuery              1    │  CUT     │                            │
+│ LSEG data API         1    │  CUT     │                            │
+│ queue                 1    │  CUT     │                            │
+│ a file manifest       1    │  CUT     │                            │
+│                            │          │                            │
+│ Not yet established        │          │                            │
+│ Nothing here has been      │          │                            │
+│ probed. Select an offering │          │                            │
+│ to see its coverage…       │          │                            │
+│                            │          │                            │
+│ [ Compare coverage ]       │          │ [ Compare coverage ]       │
+│ [ Open Library results ]   │          │ [ Open Library results ]   │
+└────────────────────────────┘          └────────────────────────────┘
 
-<div class="rules"><h3>Rules the set encodes</h3><ul>
-<li>Canvas is durable truth. Ask enters via the rail with the object attached — it never lives inside evidence or execution cards.</li>
-<li>Selection stays in the ranked results; Detail expands the selected evidence. The centre selection never disappears.</li>
+WHY  aggregate counts of a result set are arithmetic, not judgment.
+     The only line worth keeping is the instruction to select.</pre></section><section><h3>MERGE — History and Synthesis are one shell</h3><pre>   DISCOVER · HISTORY                      SYNTHESIS
+┌──────────────────────────┐          ┌──────────────────────────┐
+│ TAIWAN GOVERNANCE SOURCE │          │ Monthly Keeling accel.   │   object header
+├──────────────────────────┤          ├──────────────────────────┤
+│ (no strip until accepted)│          │ (no strip until accepted)│   stage strip
+│ ✓Route ✓Method ●Extract  │          │ ✓Define ✓Ground ✓Review  │   post-acceptance
+├──────────────────────────┤          ├──────────────────────────┤
+│ ROUTE                    │          │ EVIDENCE MAP             │   body
+│  1 Open archive          │          │  Mauna Loa monthly CO₂   │
+│  2 Traverse periods      │          │       ↓                  │
+│  3 Extract fields        │          │  diff → diff             │
+├──────────────────────────┤          ├──────────────────────────┤
+│ KNOWN   ✓ route checked  │          │ CONFIRMED ✓ entity       │   rail judgment
+│ UNKNOWNS ? completeness  │          │ NEEDS REVIEW  role_text  │
+├──────────────────────────┤          ├──────────────────────────┤
+│ Extraction authority     │          │ Evidence-shape authority │   named authority
+└──────────────────────────┘          └──────────────────────────┘
+             │                                     │
+             └──────────────────┬──────────────────┘
+                                ▼
+                  ┌──────────────────────────┐
+                  │  OBJECT                  │
+                  ├──────────────────────────┤
+                  │  stage strip · accepted+ │
+                  ├──────────────────────────┤
+                  │  body   route | method   │   vocabulary swaps
+                  ├──────────────────────────┤
+                  │  KNOWN / UNKNOWNS        │
+                  ├──────────────────────────┤
+                  │  &lt;authority&gt;             │
+                  └──────────────────────────┘
+                     one shell · two vocabularies
+
+WHY  both surfaces independently arrived at the same shape without anyone
+     designing them together. One shell halves the truth-gate surface.</pre></section><section><h3>ADD — the missing frame</h3><pre>  [7] source selected              ???              [9] request exists
+┌──────────────────────┐      ┌───────────┐    ┌──────────────────────┐
+│ ▌TAIWAN GOVERNANCE   │      │           │    │ ▌TAIWAN GOVERNANCE   │
+│  ARCHIVE             │      │  MISSING  │    │  SOURCE              │
+│                      │ ───▶ │   FRAME   │───▶│  ROUTE INVESTIGATING │
+│ Request this         │      │           │    │  Acquisition method  │
+│ evidence  ─────────▶ │      │           │    │  not established     │
+│                      │      │           │    │                      │
+│ &quot;no durable          │      │           │    │ &quot;request exists      │
+│  procurement request │      │           │    │  before route        │
+│  exists yet&quot;         │      │           │    │  resolution&quot;         │
+└──────────────────────┘      └───────────┘    └──────────────────────┘
+        EXPLORE                     ▲                  HISTORY
+                                    │
+                    ┌──────────────────────────────┐
+                    │ Custom strategy · … [14]   × │
+                    │ WHAT YOU WILL GET            │
+                    │ HOW IT ANSWERS THE QUESTION  │   the strategy card
+                    │ HOW WE BUILD IT              │   belongs here
+                    │ SOURCE CHECK                 │
+                    │ STILL UNKNOWN                │
+                    │ NEXT VALID ACTION            │
+                    │ [Refine] [Save] [Next action]│
+                    └──────────────────────────────┘
+
+WHY  the transition where a search result becomes a durable object is the
+     only step in the whole product that was never rendered.</pre></section><section><h3>THE SET, AFTER</h3><pre>  EXPLORE                    ─── request ───▶     LIFECYCLE
+┌─────────────────┐          ┌────────────┐     ┌─────────────────────────┐
+│ entry grammar   │          │  strategy  │     │  ledger                 │
+│  ×4             │          │   card     │     │   Needs you · Active ·  │
+│                 │          │            │     │   Ready · Recovery ·    │
+│ results         │  ──────▶ │   ← ADD    │ ──▶ │   Scheduled             │
+│  ranked list    │          │            │     ├─────────────────────────┤
+│                 │          └────────────┘     │  object                 │
+│ selected        │                             │   procurement vocab  ┐  │
+│  rail = source  │                             │   construction vocab ┘  │
+│  judgment       │                             │      one shell          │
+│                 │                             ├─────────────────────────┤
+│ + Ask           │                             │  ✓ route  ✓ method      │
+│  ✓✓✓●           │                             │  ● extract  ○ schema    │
+└─────────────────┘                             └─────────────────────────┘
+      KEEP                       ADD                 MERGE
+
+                          ┌──────────────┐
+                          │  [1] Jul 15  │  CUT — the showcase already
+                          │   Explore    │        labels it &quot;early CLI&quot;
+                          └──────────────┘</pre></section><h2 class="part">3 · Rules the set encodes</h2>
+<section><h3>Truth contract</h3><div class="note"><ul>
+<li>Canvas is durable truth. Ask enters via the rail with the object attached — never inside evidence or execution cards.</li>
+<li>Selection stays in the ranked results; the centre selection never disappears.</li>
 <li>A request exists before a route is resolved. Route, method, execution, archive, registration and readiness are separate gates.</li>
 <li>Completed work returns to <em>Needs you</em> only for a researcher-owned decision.</li>
 <li>Accepting a method binds the method. It does not create a Library asset.</li>
 <li>A completed worker is not registered until archive and registry both confirm.</li>
-<li>Unknowns are named, never omitted. <em>Not reported</em> is a valid value.</li>
-<li>No numbered process strip before acceptance; the lifecycle strip is permitted only once a construction is accepted.</li>
+<li>Unknowns are named, never omitted. <code>Not reported</code> is a valid value.</li>
+<li><strong>No numbered process strip before acceptance.</strong> The lifecycle strip is permitted only once a construction is accepted.</li>
 <li>Next valid action is an exact supported action — never a fabricated executable promise.</li>
-</ul></div>
-</main></body></html>
+<li>Every readiness number carries its projection: declared / reconciled / returned-window / observed-materialized.</li>
+</ul></div></section><h2 class="part">4 · Verified defects</h2>
+<section><h3>Open, with evidence</h3><table>
+<tr><th>Defect</th><th>Evidence</th><th>State</th></tr>
+<tr><td>Numbered stage strip renders pre-acceptance — violates rule 8</td><td><code>SynthesisPage.jsx:106</code> <code>SYNTHESIS_STAGES</code>, <code>:125</code> <code>&lt;ol class="s04-steps"&gt;</code>, <code>:217</code> ungated</td><td class="bad">OPEN — regression; absent at <code>2ed7cae8</code> (11 Aug), back by <code>20dc2908</code> (12 Aug)</td></tr>
+<tr><td>Ten-row status rail instead of a decision surface</td><td>rendered at <code>673237dc</code>: Status/Use now/Risk/Next/Grain/Evidence/Proposal/Execution/Output/Manifest</td><td class="bad">OPEN</td></tr>
+<tr><td><code>PLACEHOLDER_ROLLUP</code> fabricates <code>composer.configured:true</code>, <code>query_engine.up:true</code> when rollup is null</td><td><code>ResourcesPage.jsx:19</code>, <code>:855</code></td><td class="bad">OPEN — live FE tree</td></tr>
+<tr><td>hydrate exists backend, no FE client</td><td><code>registry_hydrate.py:38,48,98</code> + <code>tool_handlers.py:345</code> vs zero hits in <code>src/v2</code></td><td class="bad">OPEN</td></tr>
+<tr><td><code>next_steps</code> rendered but every action is text dispatch</td><td><code>AskAgentCard.jsx:34</code>, <code>:119</code> <code>onSend(prompt)</code></td><td class="bad">OPEN — needs a typed dispatcher</td></tr>
+<tr><td>No <code>thread</code> URL param — constructions not addressable</td><td><code>App.jsx:85-91</code> writes tab/folder/dataset/preview/q/mode only</td><td class="bad">OPEN</td></tr>
+<tr><td>Activity written as literal <code>"time": "Now"</code></td><td><code>synthesis_thread_store.py:81,168,221,723,744</code></td><td class="bad">OPEN — no dated record is possible</td></tr>
+<tr><td><code>35.0</code> overlap floor · <code>synthesis_viable</code> greenlit an unjoinable pair</td><td><code>synthesis/registry_pair.py:32</code></td><td class="ok">FIXED in front-door — still wrong in <code>-release-20260812-r2</code> and the Sharpe snapshot</td></tr>
+<tr><td>Timer-driven &ldquo;Checking provenance, readiness, and uncertainty&rdquo;</td><td><code>InteractionFeedback.jsx:11</code>, 1050 ms</td><td class="ok">FIXED — regression test at <code>e2e/interaction-feedback.spec.js:91</code></td></tr>
+<tr><td>Ask transcript reset on contextKind, not object identity</td><td><code>useAskChat.js</code> → <code>scopeKeyFor(dataset, railContext)</code></td><td class="ok">FIXED — also restores the prior session per scope</td></tr>
+</table></section><h2 class="part">5 · Next</h2>
+<section><h3>Ordered, with owners</h3><table>
+<tr><th>#</th><th>Work</th><th>Best hands</th></tr>
+<tr><td>1</td><td>Hydrate CTA + fail-closed Resources, in the FE worktree, with browser proof. <code>required_action:"hydrate"</code> → <code>build_registry_hydrate_plan</code> → <code>research_collection_hydrate</code>.</td><td>grok</td></tr>
+<tr><td>2</td><td>Demotion sentence (<em>&ldquo;Declared queryable; local bytes are missing&rdquo;</em>) onto live Library/Detail; <code>intent_id</code> into the URL.</td><td>grok</td></tr>
+<tr><td>3</td><td>Delete <code>&lt;SynthesisProgress&gt;</code> at <code>:217</code>; collapse the ten-row rail to the decision surface.</td><td>terra</td></tr>
+<tr><td>4</td><td><code>thread</code> + <code>evidence</code> URL params; Playwright: Synthesis → Discover → <strong>reload</strong> → Return → same thread.</td><td>terra</td></tr>
+<tr><td>5</td><td>Composition baselines for every state in §1, same mechanism as <code>e2e/discover-composition-baseline.spec.js</code> — drift becomes a red test, not an argument.</td><td>either</td></tr>
+<tr><td>6</td><td>Draw the missing request-transition frame (§2), with the strategy card as its body.</td><td>design</td></tr>
+<tr><td>7</td><td>Merge History and Synthesis onto one lifecycle shell (§2).</td><td>design → build</td></tr>
+<tr><td>8</td><td>Restore the Refinitiv snapshot family — 11 datasets unlock 19 of 23 composable pairs. Nothing else buys a 3-input construction.</td><td>ops</td></tr>
+</table></section>
+<section><h3>Standing constraints</h3><div class="note"><ul>
+<li>No commit, push, merge or deploy without explicit permission.</li>
+<li>The public tunnel stays <code>--read-only</code>. <code>DESK_PUBLIC_GUEST_HOSTS</code> must never appear in <code>DESK_SESSION_BOOTSTRAP_HOSTS</code>.</li>
+<li>No new collect or synthesis jobs unless asked.</li>
+<li>UI claims need browser proof, not JSX inspection.</li>
+<li>Nothing is deleted — supersede, archive, tombstone.</li>
+</ul></div></section></main></body></html>
