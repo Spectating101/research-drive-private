@@ -41,22 +41,31 @@ test.describe("v2 Discover tab", () => {
     await expect(
       page.getByRole("heading", { name: "Sources the desk already knows how to investigate" }),
     ).toHaveCount(0);
-    await expect(page.getByText("No curated source routes yet")).toBeVisible();
   });
 
   test("keyword search renders the external result composition", async ({ page }) => {
+    await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
     await searchDiscover(page, "TWSE governance");
     await expect(page.locator('button.rd-v2-discover-candidate').first()).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('button.rd-v2-discover-candidate')).not.toHaveCount(0);
     await expect(page.getByTestId("discover-best-fit")).toContainText(/TWSE Open\s*API|TWSE|MOPS|candidate/i);
     await expect(page.getByTestId("discover-interpreting")).toBeVisible();
-    await expect(page.getByLabel("Discover next actions")).toContainText(/\d+ result/i);
+    await expect(page.getByTestId("discover-search-summary")).toContainText(/offerings? you can add/i);
+    await expect(page.getByTestId("discover-search-summary")).toContainText(/already in your Library/i);
     await expect(page.getByTestId("discover-rank-foot")).toContainText(/Ranked using active research/i);
     await expect(page.getByTestId("discover-filter-menu")).toBeVisible();
     await expect(page.getByTestId("discover-browse-mode")).not.toContainText(/process overview/i);
   });
 
   test("selecting a discover row keeps Explore visible and updates the Detail rail", async ({ page }) => {
+    // Explicit fixture: with an empty index the desk now states an honest
+    // "no match in the current research index" rather than seeding demo rows,
+    // so a selectable candidate has to come from real result data.
+    await mockV2Api(page, { discoverBody: MOCK_DISCOVER_HIT });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
     await searchDiscover(page);
     await page.locator('.rd-v2-catalog button.row.rd-v2-discover-candidate').first().click();
     const surface = page.locator("aside.rd-v2-rail").getByTestId("discover-eval-surface");
@@ -66,7 +75,7 @@ test.describe("v2 Discover tab", () => {
     await expect(page.locator(".rd-v2-shell")).not.toHaveClass(/no-rail/);
     await expect(surface.locator(".rd-v2-eval-title")).toContainText(/MOPS|Taiwan/i);
     await expect(surface).toContainText("Can I use this?");
-    await expect(surface).toContainText("Useful for");
+    await expect(surface).toContainText("Evidence");
     await expect(surface).toContainText("Still unknown");
     await expect(surface.locator(".rd-v2-eval-tech")).toBeVisible();
     await expect(surface.locator(".rd-v2-eval-tech")).not.toHaveAttribute("open");
@@ -161,11 +170,11 @@ test.describe("v2 Discover tab", () => {
     await searchDiscover(page, "stablecoin");
     const row = page.locator(".rd-v2-catalog button.row.rd-v2-discover-candidate", { hasText: "Etherscan" });
     await expect(row).toBeVisible();
-    await expect(row.locator(".rd-v2-source-ribbon")).not.toContainText("COLLECTION_I");
-    await expect(row.locator(".rd-v2-source-ribbon")).toHaveText("SOURCE");
+    await expect(row).not.toContainText("COLLECTION_I");
+    await expect(row.locator(".rd-v2-source-ribbon")).toHaveCount(0);
   });
 
-  test("Other external matches does not restate the top result breakdown", async ({ page }) => {
+  test("the result breakdown is stated once, never restated further down the page", async ({ page }) => {
     const body = {
       sections: [
         {
@@ -201,9 +210,8 @@ test.describe("v2 Discover tab", () => {
     await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
     await waitForShell(page);
     await searchDiscover(page, "market");
-    const section = page.locator('[aria-label="Other external matches"]');
-    await expect(section).toBeVisible();
-    await expect(section).not.toContainText("sources beyond your Library");
-    await expect(section).not.toContainText("results in your Library");
+    const centre = await page.locator("main").innerText();
+    expect((centre.match(/results? in your Library/gi) || []).length).toBeLessThanOrEqual(1);
+    expect(centre).not.toContain("sources beyond your Library");
   });
 });
