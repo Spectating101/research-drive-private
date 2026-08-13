@@ -2,7 +2,7 @@
 
 **Status:** Current test-contract for Discover browser gates  
 **Date:** 2026-07-28
-**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md) and the current Discover appendix [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md). The July 15 appendix remains History/lifecycle provenance only where non-conflicting.
+**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md), and [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md).
 **Program:** [`UI_IMPLEMENTATION_PROGRAM.md`](UI_IMPLEMENTATION_PROGRAM.md)  
 **Scope:** `e2e/v2-discover-loop.spec.js`, `e2e/v2-discover.spec.js`, and any Discover Playwright greps
 
@@ -17,7 +17,7 @@ On 2026-07-14 a Discover Playwright run against `:5179` produced many reds. Two 
 1. **Environment contamination** — the served frontend was not the tree under test.
 2. **E2E contract drift** — several assertions encoded superseded `Search | Activity` composition.
 
-The 2026-07-15 Discover freeze adds a second explicit drift boundary: a selected source must leave ranked Explore results visible and drive Detail/Ask. A test that requires centre takeover by a full `Focused Evaluation` workspace is also legacy expectation.
+The current Discover visual states require a selected source to leave ranked Explore results visible and drive Detail/Ask. A test that requires centre takeover by a full `Focused Evaluation` workspace is a legacy expectation.
 
 **Required outcome:** clean environment **plus** authority-aligned tests. Only then do remaining reds mean CURRENT AUTHORITY FAILURE.
 
@@ -25,7 +25,7 @@ The 2026-07-15 Discover freeze adds a second explicit drift boundary: a selected
 
 ## 2. Product contract — Discover subset
 
-From the current authority and incorporated full-scale appendix:
+From the current authority and [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md):
 
 ```text
 Faculty destinations only:

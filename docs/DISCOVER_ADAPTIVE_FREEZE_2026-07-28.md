@@ -4,9 +4,9 @@
 **Date:** 2026-07-28  
 **Authority:** Normative Discover appendix incorporated by [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md)  
 **Scope:** `drive/src/v2/*`, Discover API projections, Detail / Ask integration, Discover tests, rendered review  
-**Supersedes:** The Explore entry, selected-candidate composition, and procurement-review composition in [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md). The July 15 History and lifecycle truth rules remain authoritative where they do not conflict with this document.
+**Composition authority:** [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md) — not this file's CLI drawings, not the withdrawn July 15 BEST FIT freeze.
 
-This file freezes the Discover model approved on 2026-07-28. Its interaction rules and CLI compositions are implementation authority, not optional examples.
+This file freezes Discover **interaction and truth rules** approved on 2026-07-28. It does not restore the July 15 Explore wireframe. History/lifecycle rules that used to live in that freeze are in §9 of this file.
 
 No component, screenshot, test fixture, earlier wireframe, backend table, or agent summary overrides this document.
 
@@ -375,7 +375,7 @@ Library owns the resulting asset
 
 ## 9. History
 
-History remains the durable decision and lifecycle surface defined by the July 15 freeze.
+History is the durable decision and lifecycle surface.
 
 It preserves:
 

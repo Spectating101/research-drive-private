@@ -1,14 +1,14 @@
 # Research Drive UI Implementation Program
 
 **Status:** Current execution program  
-**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md), and [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md)  
+**Authority:** Derived exclusively from [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md), [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md), and [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md)  
 **Scope:** `drive/src/v2/*`, required API contracts, tests, rendered-pixel review
 
 ## Rule
 
 Do not change faculty-facing navigation, page ownership, rail behavior, Preview, truth vocabulary, Discover lifecycle ownership, procurement-method representation, Library collection semantics, source/verification semantics, or Library row grammar without first amending the product authority.
 
-Discover composition changes must amend the Discover full-scale appendix in the same change. Library composition changes must amend the Library full-scale appendix in the same change.
+Discover composition changes must amend [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md) in the same change. Library composition changes must amend the Library workbench freeze in the same change.
 
 Current implementation must converge to authority. Existing components, historical selectors, backend directory shapes, and current tests do not override the frozen designs.
 
@@ -613,4 +613,4 @@ Before treating a Discover Playwright red as a Slice failure:
 4. Report **git SHA + Vite cwd + base URL** on every run.
 5. Prefer a clean report-only audit on an isolated port (`YZU_DESK_URL`, `--strictPort`, `workers=1`) before product patches.
 
-No implementation slice passes because historical components or tests are internally consistent with each other. Acceptance is against current product authority and its incorporated full-scale appendices.
+No implementation slice passes because historical components or tests are internally consistent with each other. Acceptance is against current product authority, [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md), and the Library workbench freeze.

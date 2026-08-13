@@ -3,7 +3,7 @@
 **Status:** FROZEN VISUAL / INTERACTION AUTHORITY  
 **Date:** 2026-08-11  
 **Scope:** Library evidence estate, selected-asset workspace, Detail / Ask rail, preview and local-preparation overlays.  
-**Amends:** [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md) and supersedes conflicting portions of [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md).  
+**Amends:** [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md). The July 15 Library freeze is withdrawn ([`superseded/README.md`](superseded/README.md)).  
 
 This is a scoped freeze. It does **not** reopen Library collection semantics, the global seven-destination shell, Discover, Synthesis, Resources, or query-workspace composition.
 

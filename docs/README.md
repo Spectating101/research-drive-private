@@ -6,7 +6,8 @@
 |-----|---------|
 | **[`DESK_STATUS.md`](DESK_STATUS.md)** | **Start here** — two promises, flywheel, what to run |
 | **[`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md)** | **Sole current UX authority** — current interface amendment, product grammar, surfaces, workflows, visual system, responsive rules, acceptance |
-| **[`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md)** | **Current frozen Discover composition** — automatic composer, compact evidence chrome, right-rail Ask, visual custom-strategy modal |
+| **[`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md)** | **Discover composition** — `discover-05-offerings` · `discover-rail-selected` · `acquisition-review` |
+| **[`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md)** | **Discover truth/interaction rules** — not the withdrawn July 15 BEST FIT CLI |
 | **[`UI_IMPLEMENTATION_PROGRAM.md`](UI_IMPLEMENTATION_PROGRAM.md)** | **Frontend execution packets** — supervised Foundation + Discover sequence and review gates |
 | **[`RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md`](RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md)** | **Interface integration spine** — rail context, entity contracts, backend mapping |
 | [`design/TOKENS.md`](design/TOKENS.md) | Visual tokens only (colors, spacing) |

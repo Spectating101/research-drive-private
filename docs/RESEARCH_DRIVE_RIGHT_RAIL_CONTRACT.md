@@ -1,7 +1,7 @@
 # Research Drive right rail integration contract
 
 **Status:** Active typed rail/backend contract  
-**Authority:** Subordinate to [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md), and [`LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md)  
+**Authority:** Subordinate to [`UI_PRODUCT_AUTHORITY.md`](UI_PRODUCT_AUTHORITY.md), [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md), [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md), and [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md)  
 **Scope:** v2 interface and integration: `src/v2/InspectorRail.jsx`, `src/v2/DetailPanel.jsx`, `src/v2/RailPanels.jsx`, `src/v2/AskRail.jsx`, `src/v2/api.js`, active-object adapters, Discover lifecycle projection, Library collection/asset/search projections
 
 The right rail is the product spine. The main destinations are lenses over the same research desk; the rail is where the exact selected object becomes usable, explainable, and actionable.

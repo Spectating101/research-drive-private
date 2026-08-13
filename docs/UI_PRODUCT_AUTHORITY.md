@@ -8,9 +8,9 @@
 
 This is the sole top-level authority for Research Drive product composition, navigation, interaction grammar, visual direction, responsive behavior, and acceptance. No historical UX document, screenshot packet, runbook, component, test, backend directory shape, fixture, or backend capability overrides this document.
 
-For Discover, [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the current normative visual and interaction appendix incorporated by reference into this authority. It supersedes the July 15 Explore entry, selected-candidate composition, and procurement-review composition. The July 15 History and lifecycle truth rules remain incorporated where they do not conflict.
+For Discover composition, [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md) is the only visual authority: `discover-05-offerings`, `discover-rail-selected` (canonical selected list), `acquisition-review`. For Discover interaction and truth rules that cannot be drawn, [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) remains incorporated. The July 15 Discover CLI is withdrawn; see [`superseded/README.md`](superseded/README.md).
 
-For Library, [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the current normative visual and interaction appendix incorporated by reference into this authority. It supersedes the July 15 Library selected-asset composition. The July 15 freeze is retained only at [`superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/LIBRARY_FULL_SCALE_FREEZE_2026-07-15.md) and is not implementation authority.
+For Library, [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the current normative visual and interaction appendix. The July 15 Library freeze is withdrawn.
 
 For cross-product visual completion, [`RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md`](RESEARCH_DRIVE_VISUAL_CLOSURE_FREEZE_2026-07-30.md) is the current normative finishing appendix incorporated by reference into this authority. It preserves the settled page compositions and authorizes only the bounded visual-closure work listed there.
 
@@ -601,7 +601,7 @@ Discover has exactly two internal modes:
 Explore | History
 ```
 
-The complete binding composition and state family are in [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md).
+The complete binding composition and state family are in [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md). Interaction and truth rules are in [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md).
 
 ### 8.1 Explore
 
@@ -1089,9 +1089,9 @@ No later implementation worker may reinterpret frozen composition because curren
 ## 19. Documentation hierarchy
 
 1. This file is the sole top-level current UX/product authority.
-2. [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the incorporated normative visual and interaction appendix for Discover. Its interaction rules and CLI wireframes are binding.
-3. [`superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md`](superseded/DISCOVER_FULL_SCALE_FREEZE_2026-07-15.md) is superseded. It retains History/lifecycle truth rules for reference only; its Explore wireframes are not implementation authority.
-4. [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the incorporated normative appendix for Library. Its CLI wireframes are binding. The July 15 Library freeze is superseded and retained under `superseded/`.
+2. [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md) is the only Discover composition authority. Its three named renders are binding. Markdown CLI wireframes are not.
+3. [`DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md`](DISCOVER_ADAPTIVE_FREEZE_2026-07-28.md) is the incorporated Discover truth/interaction appendix. It does not restore the July 15 BEST FIT composition.
+4. [`LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md`](LIBRARY_ASSET_WORKBENCH_FREEZE_2026-08-11.md) is the incorporated normative appendix for Library. The July 15 Library freeze is withdrawn ([`superseded/README.md`](superseded/README.md)).
 5. `UI_IMPLEMENTATION_PROGRAM.md` is the execution plan derived from this authority and the incorporated appendices.
 6. `RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md` is a subordinate typed rail/backend contract.
 7. `DISCOVER_ACQUISITION.md` is a subordinate operational runbook.
@@ -1103,4 +1103,4 @@ No later implementation worker may reinterpret frozen composition because curren
     "non-negotiable" that this authority does not prescribe, and was repeatedly mistaken
     for current authority. History is in git.
 
-Any proposed interface change must amend this document first. A Discover or Library composition change must amend the corresponding full-scale appendix in the same change, then update the implementation program and subordinate contracts. Discover E2E rewrites must stay consistent with both the top-level authority and Discover appendix and update `DISCOVER_E2E_AUTHORITY_AUDIT.md` classification tables in the same change.
+Any proposed interface change must amend this document first. A Discover composition change must amend [`DISCOVER_VISUAL_STATES.md`](DISCOVER_VISUAL_STATES.md) in the same change. A Library composition change must amend the Library workbench freeze. Then update the implementation program and subordinate contracts. Discover E2E rewrites must stay consistent with the top-level authority and Discover visual states and update `DISCOVER_E2E_AUTHORITY_AUDIT.md` classification tables in the same change.
