@@ -63,4 +63,68 @@ describe("buildCapacityAccessPairs", () => {
     assert.match(byId.fleet.available, /3\/4 identities ready/);
     assert.match(byId.mcp.metric, /86 MCP/);
   });
+
+  it("shows Composer unverified rather than Ready when /health.desk.composer_runtime is configured but not verified", () => {
+    // Regression: desk_resources.py's hero.composer only ever carries
+    // "configured", never a verified/runtime signal — the rollup alone can't
+    // tell "key present" from "confirmed live." /health can, and it's
+    // already available in the same view, so this must use it rather than
+    // repeat the fabricated "Ready" claim that Settings had.
+    const health = {
+      desk: {
+        composer_runtime: { status: "unverified", configured: true, verified: false, checked_at: null },
+      },
+    };
+    const pairs = buildCapacityAccessPairs(sampleRollup, health);
+    const byId = Object.fromEntries(pairs.flatMap((p) => p.meters.map((m) => [m.id, m])));
+    assert.equal(byId.cursor.metric, "Unverified");
+    assert.equal(byId.cursor.warn, true);
+    assert.doesNotMatch(byId.cursor.metric, /^Composer ready$/);
+  });
+
+  it("keeps Composer ready when /health confirms a live-verified probe", () => {
+    const health = {
+      desk: {
+        composer_runtime: { status: "ready", configured: true, verified: true, checked_at: "2026-08-12T10:00:00Z" },
+      },
+    };
+    const pairs = buildCapacityAccessPairs(sampleRollup, health);
+    const byId = Object.fromEntries(pairs.flatMap((p) => p.meters.map((m) => [m.id, m])));
+    assert.match(byId.cursor.metric, /50 turns/);
+    assert.equal(byId.cursor.warn, false);
+  });
+
+  it("shows Degraded rather than Ready for a failed probe, even though verified is true", () => {
+    // Regression (caught in review): record_composer_failure() sets
+    // verified: true because a real probe DID run — it just failed.
+    const health = {
+      desk: {
+        composer_runtime: { status: "degraded", configured: true, verified: true, error_category: "timeout" },
+      },
+    };
+    const pairs = buildCapacityAccessPairs(sampleRollup, health);
+    const byId = Object.fromEntries(pairs.flatMap((p) => p.meters.map((m) => [m.id, m])));
+    assert.equal(byId.cursor.metric, "Degraded");
+    assert.equal(byId.cursor.warn, true);
+    assert.doesNotMatch(byId.cursor.metric, /^Composer ready$/);
+  });
+
+  it("shows Needs recheck for a stale observation, distinct from never-probed", () => {
+    const health = {
+      desk: {
+        composer_runtime: { status: "stale", configured: true, verified: false, age_seconds: 999 },
+      },
+    };
+    const pairs = buildCapacityAccessPairs(sampleRollup, health);
+    const byId = Object.fromEntries(pairs.flatMap((p) => p.meters.map((m) => [m.id, m])));
+    assert.equal(byId.cursor.metric, "Needs recheck");
+    assert.equal(byId.cursor.warn, true);
+  });
+
+  it("falls back to the prior configured-only behavior when no /health signal is available", () => {
+    const pairs = buildCapacityAccessPairs(sampleRollup);
+    const byId = Object.fromEntries(pairs.flatMap((p) => p.meters.map((m) => [m.id, m])));
+    assert.match(byId.cursor.metric, /50 turns/);
+    assert.equal(byId.cursor.warn, false);
+  });
 });

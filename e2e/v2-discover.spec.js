@@ -133,4 +133,77 @@ test.describe("v2 Discover tab", () => {
     await surface.locator(".rd-v2-eval-tech > summary").click();
     await expect(surface.locator(".rd-v2-eval-tech")).toHaveAttribute("open");
   });
+
+  test("an internal mechanism marker in source never renders as a raw ribbon token", async ({ page }) => {
+    const body = {
+      sections: [
+        {
+          title: "Registry",
+          rows: [
+            {
+              dataset_id: "etherscan_stablecoin_probe",
+              candidate_key: "dataset:etherscan_stablecoin_probe",
+              title: "Etherscan Stablecoin Probe Snapshot",
+              source: "collection_index",
+              collect_via: "collection_intake",
+              coverage: "2024-2026",
+              grain: "token-day",
+              description: "Etherscan stablecoin token snapshot",
+            },
+          ],
+        },
+      ],
+      total: 1,
+    };
+    await mockV2Api(page, { discoverBody: body });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await searchDiscover(page, "stablecoin");
+    const row = page.locator(".rd-v2-catalog button.row.rd-v2-discover-candidate", { hasText: "Etherscan" });
+    await expect(row).toBeVisible();
+    await expect(row.locator(".rd-v2-source-ribbon")).not.toContainText("COLLECTION_I");
+    await expect(row.locator(".rd-v2-source-ribbon")).toHaveText("SOURCE");
+  });
+
+  test("Other external matches does not restate the top result breakdown", async ({ page }) => {
+    const body = {
+      sections: [
+        {
+          title: "Registry",
+          rows: [
+            {
+              dataset_id: "mops_financial_statements_ext",
+              candidate_key: "dataset:mops_financial_statements_ext",
+              title: "MOPS financial statements (Taiwan)",
+              source: "MOPS",
+              collect_via: "mops_tw",
+              url: "https://mops.twse.com.tw/example",
+              coverage: "2015-2026",
+              grain: "issuer-quarter",
+              description: "TW listed company filings",
+            },
+            {
+              dataset_id: "coingecko_market_history",
+              candidate_key: "dataset:coingecko_market_history",
+              title: "CoinGecko market history",
+              source: "CoinGecko",
+              url: "https://coingecko.com/example",
+              coverage: "2018-2026",
+              grain: "asset-day",
+              description: "Public crypto market API",
+            },
+          ],
+        },
+      ],
+      total: 2,
+    };
+    await mockV2Api(page, { discoverBody: body });
+    await page.goto("/?tab=browse", { waitUntil: "domcontentloaded" });
+    await waitForShell(page);
+    await searchDiscover(page, "market");
+    const section = page.locator('[aria-label="Other external matches"]');
+    await expect(section).toBeVisible();
+    await expect(section).not.toContainText("sources beyond your Library");
+    await expect(section).not.toContainText("results in your Library");
+  });
 });

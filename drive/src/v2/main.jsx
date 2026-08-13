@@ -12,7 +12,8 @@ import "./release-mobile-fixes.css";
 import "./interaction-guidance.css";
 import "./interaction-feedback.css";
 import "./decoration-layer.css";
-import "./release-scale.css"; /* last: laptop/desktop resolution ladder + rail collapse */
+import "./release-scale.css"; /* laptop/desktop resolution ladder + rail collapse */
+import "./library-workspace.css";
 import { InteractionProvider } from "./InteractionGuidance.jsx";
 import { V2App } from "./App.jsx";
 

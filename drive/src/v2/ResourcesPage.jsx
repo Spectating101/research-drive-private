@@ -16,28 +16,6 @@ import {
 } from "@/v2/workersToolbarStat";
 import { Chip, PageShell, StatementRow, StatementSection } from "@/v2/ui";
 
-const PLACEHOLDER_ROLLUP = {
-  hero: {
-    composer: { model: "composer-2.5", configured: true, legacy_configured: false },
-    workers: {},
-    vault: {},
-    query_engine: { port: 8765, up: true },
-  },
-  ai: { composer_model: "composer-2.5", mcp_tools: {} },
-  metered: {
-    bigquery: { configured: true },
-    tavily: { keys_loaded: 0 },
-  },
-  spending: {
-    period: { totals: {}, daily: [] },
-    today: {},
-    drivers: [],
-  },
-  activity: { events: [] },
-  motion: { jobs: {} },
-  issues: [],
-};
-
 function shortText(value, max = 92) {
   const text = String(value || "");
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -155,8 +133,8 @@ function facultyOpsSub(label, key, sub) {
   return sub;
 }
 
-function CapacityAccessGrid({ rollup, selectedKey, onSelect }) {
-  const pairs = buildCapacityAccessPairs(rollup);
+function CapacityAccessGrid({ rollup, health, selectedKey, onSelect }) {
+  const pairs = buildCapacityAccessPairs(rollup, health);
   return (
     <div className="rd-v2-res-capacity-pairs" data-testid="resources-capacity-grid" aria-label="Capacity and access">
       {pairs.map((pair) => (
@@ -844,9 +822,12 @@ export function ResourcesPage({
   // Sources have a stable local capability manifest. Live telemetry hydrates it
   // without blocking the workspace or fabricating unknown capacity.
   const syncing = Boolean(rollupLoading) || rollup === undefined;
+  // Real data or a real last-known cache, never a fabricated placeholder —
+  // a confirmed-unreachable desk API (rollup === null) must show "not
+  // reported," not invented healthy capacity/access claims. Every consumer
+  // below already degrades gracefully on null/undefined (optional-chained
+  // field access), so there is no need for a placeholder to protect them.
   const lastKnownRollup = rollup ?? cachedRollup ?? null;
-  const viewRollup =
-    rollup != null ? rollup : rollup === undefined ? cachedRollup || {} : PLACEHOLDER_ROLLUP;
   const panels = useMemo(
     () =>
       buildResourcesPanels({
@@ -871,11 +852,11 @@ export function ResourcesPage({
   }, [activityFilter, activityKind]);
   const showActivityFeed = activityFilter || activityKind !== "review";
   const activity = useMemo(
-    () => (showActivityFeed ? buildActivityRows(viewRollup, effectiveActivityFilter) : []),
-    [viewRollup, effectiveActivityFilter, showActivityFeed],
+    () => (showActivityFeed ? buildActivityRows(lastKnownRollup, effectiveActivityFilter) : []),
+    [lastKnownRollup, effectiveActivityFilter, showActivityFeed],
   );
-  const periodLabel = useMemo(() => spendingPeriodLabel(viewRollup), [viewRollup]);
-  const actionRows = useMemo(() => buildActionRows(viewRollup), [viewRollup]);
+  const periodLabel = useMemo(() => spendingPeriodLabel(lastKnownRollup), [lastKnownRollup]);
+  const actionRows = useMemo(() => buildActionRows(lastKnownRollup), [lastKnownRollup]);
   const reviewRows = useMemo(
     () => actionRows.filter((row) => row.issue?.section === "motion" || String(row.issue?.key || "").includes("jobs")),
     [actionRows],
@@ -914,7 +895,7 @@ export function ResourcesPage({
           <Chip active={mode === "method"} onClick={() => onModeChange?.("method")}>
             Method
           </Chip>
-          <WorkersToolbarStat rollup={viewRollup} />
+          <WorkersToolbarStat rollup={lastKnownRollup} />
           {(mode === "sources" || mode === "spending") && periodLabel ? (
             <span className="rd-v2-toolbar-meta">{periodLabel}</span>
           ) : filterLabel ? (
@@ -949,7 +930,8 @@ export function ResourcesPage({
           <section className="rd-v2-res-wire-band" aria-label="Sources overview">
             <h2 className="rd-v2-res-wire-title">Capacity &amp; access</h2>
             <CapacityAccessGrid
-              rollup={viewRollup}
+              rollup={lastKnownRollup}
+              health={health}
               selectedKey={selectedKey}
               onSelect={onSelectRow}
             />
@@ -964,7 +946,7 @@ export function ResourcesPage({
             <ResearchCapability
               cluster={health?.cluster || cluster}
               panels={panels}
-              rollup={viewRollup}
+              rollup={lastKnownRollup}
               catalogSummary={catalogSummary}
             />
           </section>
@@ -1019,7 +1001,7 @@ export function ResourcesPage({
                 setActivityKind(next);
               }}
             />
-            <ActivityUsageSummary rollup={viewRollup} />
+            <ActivityUsageSummary rollup={lastKnownRollup} />
           </section>
           {showActivityFeed ? (
             <ActivityLog rows={activity} selectedKey={selectedKey} onSelectRow={onSelectRow} />

@@ -57,21 +57,6 @@ function plural(value, singular, pluralValue = `${singular}s`) {
 const DISCOVER_KEYWORD_EXAMPLE = "stablecoin";
 const DISCOVER_QUESTION_EXAMPLE = "What data can I use to study de-pegs?";
 
-function resultScopeSummary(counts) {
-  const wider = Math.max(0, Number(counts?.external || 0) - Number(counts?.needsAccess || 0));
-  return [
-    counts?.inLab ? `${plural(counts.inLab, "result")} in your Library` : null,
-    wider ? `${plural(wider, "source")} beyond your Library` : null,
-    counts?.needsAccess
-      ? counts.needsAccess === 1
-        ? "1 source needs access review"
-        : `${counts.needsAccess} sources need access review`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
 
 function candidateTitle(row) {
   return row?.title || row?.name || row?.dataset_id || row?.doi || row?.url || "External dataset";
@@ -836,6 +821,9 @@ export function BrowsePage({
   assessmentActive = false,
   assessmentResult = null,
   onOpenAssessment,
+  synthesisHandoff = null,
+  onReturnToSynthesis,
+  onDismissSynthesisHandoff,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1204,7 +1192,6 @@ export function BrowsePage({
   const allInLab =
     !loading && merged.length > 0 && stageCounts.inLab > 0 && stageCounts.inLab === merged.length;
   const demoMode = demoFallback || (usingSeed && source === "demo");
-  const scopeSummary = resultScopeSummary(stageCounts);
   const activeFilter = FILTERS.find((item) => item.id === stateFilter) || FILTERS[0];
   const externalSearchActive = Boolean(q && externalSearchQuery === q);
   const externalCatalogueActive = externalSearchActive || source === "external_catalogues";
@@ -1498,6 +1485,25 @@ export function BrowsePage({
       toolbar={demoMode ? <Chip warn>Demo preview · static sample</Chip> : null}
     >
       <div className="rd-v2-discover-browse" data-testid="discover-browse-mode" data-mode="browse">
+        {synthesisHandoff ? (
+          <section className="rd-v2-synthesis-handoff" data-testid="synthesis-discover-handoff" aria-label="Synthesis evidence handoff">
+            <div>
+              <span className="rd-v2-eyebrow">Synthesis evidence gap</span>
+              <strong>{synthesisHandoff.field?.label || synthesisHandoff.field?.dataset_id || "Selected evidence"}</strong>
+              <p>
+                {synthesisHandoff.field?.role ? `${synthesisHandoff.field.role}. ` : ""}
+                {synthesisHandoff.handoff?.required_grain ? `Required grain: ${synthesisHandoff.handoff.required_grain}. ` : ""}
+                This is a research handoff only; no collection has started.
+              </p>
+            </div>
+            <button type="button" className="rd-v2-btn sm" onClick={() => onReturnToSynthesis?.()}>
+              Return to Synthesis
+            </button>
+            <button type="button" className="rd-v2-btn sm" onClick={() => onDismissSynthesisHandoff?.()}>
+              Dismiss
+            </button>
+          </section>
+        ) : null}
         {!q ? (
           <section className="rd-v2-discover-idle" data-testid="discover-empty">
             <DiscoverQueryComposer

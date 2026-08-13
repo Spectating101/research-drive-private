@@ -6,6 +6,7 @@
 export const PILOT_PREVIEW_EMAIL = "drkong@saturn.yzu.edu.tw";
 
 const IN_LAB_ROUTES = new Set(["vault", "bigquery"]);
+const FINTECH_DOMAIN_TAGS = ["fintech", "crypto", "nft", "on_chain"];
 
 export function humanTag(value) {
   return String(value || "")
@@ -221,15 +222,13 @@ export function buildDeskRead(profile, { previewing = false } = {}) {
 
   const strengths = [];
   const stack = profile.lab_fintech_stack || [];
-  const hasFintechStack = stack.some((s) => {
-    const blob = `${s?.label || ""} ${s?.id || ""}`.toLowerCase();
-    return /crypto|nft|opensea|coingecko|skynet|token|fintech|usdt|ethereum/.test(blob);
-  });
-  if (hasFintechStack) strengths.push("FinTech through-line");
+  // domain_tags is backend-curated (faculty_profile.py profile_summary);
+  // don't re-derive the same claim by regex-matching stack/query text.
+  const tags = new Set((profile.domain_tags || []).map((t) => String(t).toLowerCase()));
+  const hasFintechDomain = FINTECH_DOMAIN_TAGS.some((t) => tags.has(t));
+  if (hasFintechDomain) strengths.push("FinTech through-line");
 
-  const hasOnChain =
-    stack.some((s) => String(s?.route || "").toLowerCase() === "bigquery")
-    || (profile.method_tags || []).some((m) => /on.?chain|machine_learning|panel/i.test(String(m)));
+  const hasOnChain = tags.has("on_chain") || stack.some((s) => String(s?.route || "").toLowerCase() === "bigquery");
   if (hasOnChain) strengths.push("Market + on-chain panels");
 
   if (strengths.length < 2 && primary && String(primary.phase || "") === "active_grant") {
@@ -242,19 +241,9 @@ export function buildDeskRead(profile, { previewing = false } = {}) {
   const lab = buildLab(profile);
   const deskParts = [];
   if (lab.linked.length) {
-    const fintechLinked = lab.linked.some((r) => /crypto|nft|opensea|coingecko|skynet|token|usdt|ethereum/i.test(r.label));
-    deskParts.push(fintechLinked ? "FinTech panels linked." : `${lab.linked.length} holdings linked.`);
+    deskParts.push(hasFintechDomain ? "FinTech panels linked." : `${lab.linked.length} holdings linked.`);
   }
-  const openBits = [];
-  for (const s of lab.suggested) {
-    const blob = `${s.label} ${s.query}`.toLowerCase();
-    if (/taiwan|twse|mops|momentum|equity/.test(blob)) openBits.push("Taiwan equity");
-    if (/governance|trust|misconduct|reputation/.test(blob)) openBits.push("misconduct");
-  }
-  const uniqOpen = [...new Set(openBits)];
-  if (uniqOpen.length) {
-    deskParts.push(`${uniqOpen.join(" / ")} open to link.`);
-  } else if (lab.suggested.length) {
+  if (lab.suggested.length) {
     deskParts.push(`${lab.suggested.length} suggested next.`);
   } else if (!lab.linked.length) {
     deskParts.push("No Library evidence linked yet.");

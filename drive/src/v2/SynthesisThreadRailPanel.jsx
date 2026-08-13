@@ -74,6 +74,19 @@ export function SynthesisThreadRailPanel({ thread, onAskAbout, onOpenInLibrary }
     .filter((node) => node?.layer === "evidence" || node?.type === "source" || node?.type === "construct")
     .map((node) => node.label || node.dataset_id)
     .filter(Boolean);
+  // A method can be proposed or accepted before its input ever becomes a
+  // mapped evidence node (state.nodes stays empty through that whole path).
+  // "No inputs mapped" would then sit next to a proposal/execution record
+  // that names a specific input dataset — a real, verified contradiction,
+  // not just a missing-data default. Distinguish declared-but-unmapped from
+  // genuinely nothing yet, and keep "accepted" vs "proposed" honest rather
+  // than folding either into the verified "mapped inputs" count.
+  const specInput = state.execution_spec?.input_dataset_id || state.proposal?.execution_spec?.input_dataset_id || "";
+  const evidenceValue = sources.length
+    ? `${sources.length} mapped inputs`
+    : specInput
+      ? `Declared input · ${state.execution_spec ? "accepted" : "proposed"}: ${specInput}`
+      : "No inputs mapped";
 
   return (
     <RailFrame>
@@ -84,7 +97,7 @@ export function SynthesisThreadRailPanel({ thread, onAskAbout, onOpenInLibrary }
       <RailDecisionSummary {...summary} />
       <RailFieldGrid>
         <RailField label="Grain" value={state.required_grain || state.spec?.grain} />
-        <RailField label="Evidence" value={sources.length ? `${sources.length} mapped inputs` : "No inputs mapped"} />
+        <RailField label="Evidence" value={evidenceValue} />
         <RailField label="Proposal" value={state.proposal?.title || "No proposal awaiting review"} />
         <RailField label="Execution" value={execution.status || "Not requested"} />
         <RailField label="Output" value={outputId || "Not registered"} mono={Boolean(outputId)} />

@@ -18,6 +18,7 @@ import {
   listDatasets,
   listJobs,
   listLibraryNav,
+  openQueryInNewTab,
   probePublicSource,
   procurementCatalogSummary,
   setDiscoverIntentProposal,
@@ -119,10 +120,14 @@ function tabOwnsDataset(tab) {
   return tab === "home" || tab === "browse" || tab === "library";
 }
 
+function tabOwnsFolder(tab) {
+  return tab === "library";
+}
+
 function writeParams({ tab, dataset, folder, preview, q, mode }) {
   const p = new URLSearchParams();
   if (tab && tab !== "home") p.set("tab", tab);
-  if (folder) p.set("folder", folder);
+  if (folder && tabOwnsFolder(tab)) p.set("folder", folder);
   // Enforced here rather than at call sites: writeParams is the single writer,
   // so no caller can reintroduce the leak.
   if (dataset && tabOwnsDataset(tab)) p.set("dataset", dataset);
@@ -216,6 +221,10 @@ export function V2App() {
   });
   /** One-shot: Explore should hit live source adapters (Search wider / Ask handoff). */
   const [discoverPreferLive, setDiscoverPreferLive] = useState(false);
+  /** A Synthesis evidence gap routed to Discover — cleared on Dismiss or Return. */
+  const [synthesisDiscoverHandoff, setSynthesisDiscoverHandoff] = useState(null);
+  /** One-shot: Synthesis should reselect this exact thread after a Discover return. */
+  const [focusSynthesisThreadId, setFocusSynthesisThreadId] = useState("");
   const [historyEvents, setHistoryEvents] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -718,6 +727,26 @@ export function V2App() {
     },
     [syncUrl],
   );
+
+  const handleSynthesisDiscoverHandoff = useCallback(
+    ({ field, handoff, thread } = {}) => {
+      if (!field || !thread) return;
+      setSynthesisDiscoverHandoff({ field, handoff, thread });
+      setDiscoverIntentRecord(null);
+      setDiscoverAssessment({ active: false, question: "", result: null });
+      setDiscoverSearchQuery(String(field.label || field.dataset_id || "").trim());
+      goTab("browse");
+    },
+    [goTab],
+  );
+
+  const returnToSynthesis = useCallback(() => {
+    const threadId = synthesisDiscoverHandoff?.thread?.id;
+    if (!threadId) return;
+    setFocusSynthesisThreadId(threadId);
+    setSynthesisDiscoverHandoff(null);
+    goTab("synthesis");
+  }, [synthesisDiscoverHandoff, goTab]);
 
   const selectDataset = useCallback(
     (row) => {
@@ -1231,6 +1260,26 @@ export function V2App() {
     [syncUrl],
   );
 
+  const clearLibrarySelection = useCallback(() => {
+    setSelectedId("");
+    setDetail(null);
+    setPreviewOpen(false);
+    setPreviewTarget(null);
+    setActiveObject(null);
+    setRailTab("detail");
+    syncUrl({ dataset: "", preview: false });
+  }, [syncUrl]);
+
+  const askAboutLibraryDataset = useCallback((dataset) => {
+    if (!dataset) return;
+    setActiveObject(datasetObject(dataset));
+    setRailTab("ask");
+    setPendingAsk({
+      prompt: `Assess this Library asset for the current research context: ${displayName(dataset)}. State what the declared evidence supports, what is not established, whether local access is proven, and the safest valid next action. Do not infer readiness beyond the recorded state.`,
+      displayText: `Assess this Library asset: ${displayName(dataset)}`,
+    });
+  }, []);
+
   const startLibraryIntake = useCallback(
     (mode, folderObject) => {
       setSelectedId("");
@@ -1421,11 +1470,14 @@ export function V2App() {
           selectedId={selectedId}
           onSelectDataset={selectDataset}
           onPreviewDataset={openPreview}
+          onOpenQuery={openQueryInNewTab}
+          onClearSelection={clearLibrarySelection}
+          onAskDataset={canUseAsk ? askAboutLibraryDataset : undefined}
           onRefresh={refreshBackend}
           onFocusFolder={focusLibraryFolder}
-          onStartUpload={(folder) => startLibraryIntake("upload", folder)}
-          onStartUrl={(folder) => startLibraryIntake("url", folder)}
-          onStartProcure={(folder) => startLibraryIntake("procure", folder)}
+          onStartUpload={canSubmitCollection ? (folder) => startLibraryIntake("upload", folder) : undefined}
+          onStartUrl={canSubmitCollection ? (folder) => startLibraryIntake("url", folder) : undefined}
+          onStartProcure={canSubmitCollection ? (folder) => startLibraryIntake("procure", folder) : undefined}
           searchQuery={librarySearchQuery}
           onSearchChange={setLibrarySearchQuery}
         />
@@ -1464,6 +1516,9 @@ export function V2App() {
           intentRecord={discoverIntentRecord}
           onIntentChange={setDiscoverIntentRecord}
           onCloseIntent={() => setDiscoverIntentRecord(null)}
+          synthesisHandoff={synthesisDiscoverHandoff}
+          onReturnToSynthesis={returnToSynthesis}
+          onDismissSynthesisHandoff={() => setSynthesisDiscoverHandoff(null)}
           onIntentSubmitted={(job, record) => {
             if (job?.id) {
               setJobs((previous) => {
@@ -1548,6 +1603,9 @@ export function V2App() {
             setActiveObject(null);
             setRailTab("ask");
           }}
+          onDiscoverHandoff={handleSynthesisDiscoverHandoff}
+          focusThreadId={focusSynthesisThreadId}
+          onFocusThreadConsumed={() => setFocusSynthesisThreadId("")}
           refreshVersion={synthesisRefreshVersion}
         />
       );
