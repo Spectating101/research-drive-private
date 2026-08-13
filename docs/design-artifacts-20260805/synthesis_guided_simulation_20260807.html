@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Synthesis — guided simulation</title>
+<style>
+  :root {
+    --bg:#f3f1eb; --ink:#1c1a16; --muted:#6b655c; --line:#d7d1c5;
+    --panel:#fffcf6; --accent:#1f4b3a; --rail:#ebe6dc; --ok:#2f6b45;
+    --warn:#8a5a22;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif; color:var(--ink); background:#cfc8ba; }
+  .wrap { max-width:1180px; margin:20px auto; padding:0 14px 40px; }
+  .intro { background:var(--panel); border:1px solid #9a9284; border-radius:10px; padding:16px 18px; margin-bottom:14px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
+  .intro h1 { margin:0 0 6px; font-size:22px; }
+  .intro p { margin:0; color:var(--muted); max-width:70ch; }
+  .steps { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 0; }
+  .steps button {
+    border:1px solid var(--line); background:#fff; padding:8px 10px; border-radius:8px;
+    cursor:pointer; font:inherit; color:var(--ink); text-align:left; min-width:140px;
+  }
+  .steps button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .steps button small { display:block; opacity:.8; font-size:11px; margin-top:2px; }
+  .frame {
+    display:grid; grid-template-columns: 200px 1fr 280px; min-height:640px;
+    background:var(--bg); border:1px solid #9a9284; border-radius:10px; overflow:hidden;
+    box-shadow:0 18px 40px rgba(0,0,0,.16);
+  }
+  .threads { background:var(--rail); border-right:1px solid var(--line); padding:12px; }
+  .threads header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .threads header small { display:block; color:var(--muted); }
+  .thread {
+    width:100%; text-align:left; border:1px solid transparent; background:transparent;
+    padding:8px; border-radius:8px; cursor:default; display:flex; gap:8px; font:inherit;
+  }
+  .thread.active { background:var(--panel); border-color:var(--line); }
+  .thread b { width:18px; height:18px; border-radius:50%; background:var(--line); color:#fff; display:grid; place-items:center; font-size:11px; flex:none; }
+  .thread.active b, .thread.done b { background:var(--ok); }
+  .main { padding:16px; overflow:auto; }
+  .lead { color:var(--muted); margin:0 0 12px; font-size:13px; }
+  .head { display:flex; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .head small { color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
+  .head h2 { margin:2px 0 6px; font-size:20px; }
+  .head p { margin:0; color:var(--muted); max-width:58ch; }
+  .badge { align-self:flex-start; font-style:normal; padding:4px 8px; border-radius:999px; border:1px solid #b7d0bf; background:#e5f0e8; color:var(--ok); white-space:nowrap; }
+  .badge.draft { background:#f7f1e4; border-color:#e2d3b5; color:var(--warn); }
+  .badge.review { background:#eef2f7; border-color:#c9d3e0; color:#345; }
+  .stagebar { list-style:none; display:grid; grid-template-columns:repeat(5,1fr); gap:6px; padding:0; margin:0 0 14px; }
+  .stagebar li { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:12px; }
+  .stagebar li.done { border-color:#b7d0bf; }
+  .stagebar li.now { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .stagebar span { display:inline-grid; place-items:center; width:16px; height:16px; border-radius:50%; background:var(--line); color:#fff; font-size:10px; margin-right:4px; }
+  .stagebar li.done span, .stagebar li.now span { background:var(--ok); }
+  .stagebar li.now span { background:var(--accent); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .card header { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .card header small { color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
+  .card header h3 { margin:2px 0 0; font-size:15px; }
+  .map { display:grid; gap:6px; justify-items:stretch; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; }
+  .box small { color:var(--muted); display:block; }
+  .process { border:1px dashed var(--line); border-radius:8px; padding:8px; background:#f7f3ea; color:var(--muted); font-family:ui-monospace,monospace; font-size:12px; }
+  .arrow { text-align:center; color:var(--muted); }
+  .actions { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+  .actions p { margin:0; color:var(--muted); font-size:12px; max-width:42ch; }
+  .btn { border:1px solid var(--line); background:#fff; padding:8px 12px; border-radius:6px; font:inherit; cursor:pointer; }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .ask { border-left:1px solid var(--line); background:#fffaf2; display:flex; flex-direction:column; }
+  .ask header { padding:12px; border-bottom:1px solid var(--line); }
+  .ask header small { color:var(--muted); display:block; }
+  .msgs { flex:1; padding:12px; display:flex; flex-direction:column; gap:8px; overflow:auto; }
+  .bubble { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#fff; font-size:13px; }
+  .bubble.user { background:#eef4f0; }
+  .bubble small { color:var(--muted); display:block; margin-bottom:3px; }
+  .facts { border:1px dashed #b7d0bf; background:#f3faf5; border-radius:8px; padding:8px; font-size:12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chips span { border:1px solid var(--line); border-radius:999px; padding:4px 8px; font-size:11px; background:#fff; }
+  .composer { border-top:1px solid var(--line); padding:10px; display:grid; gap:8px; }
+  .composer textarea { width:100%; min-height:56px; border:1px solid var(--line); border-radius:8px; padding:8px; resize:none; font:inherit; }
+  .narrator {
+    margin-top:14px; background:#1c1a16; color:#f3f1eb; border-radius:10px; padding:14px 16px;
+  }
+  .narrator strong { color:#b7d0bf; }
+  .narrator ol { margin:8px 0 0; padding-left:18px; }
+  .hidden { display:none !important; }
+  code { font-family:ui-monospace,monospace; font-size:12px; }
+  @media (max-width: 900px) {
+    .frame { grid-template-columns:1fr; }
+    .ask { border-left:0; border-top:1px solid var(--line); min-height:280px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="intro">
+    <h1>Synthesis — guided simulation</h1>
+    <p>
+      Click the stages below. Canvas = durable truth. Ask = AI that can propose/challenge but cannot silently register.
+      This mirrors the live Keeling path, including what a <em>new</em> construction would feel like before it exists.
+    </p>
+    <div class="steps" id="stepButtons"></div>
+  </section>
+
+  <div class="frame" aria-label="Simulated Synthesis desk">
+    <aside class="threads">
+      <header>
+        <div>
+          <span>Research construction</span>
+          <small id="threadCount">1 thread</small>
+        </div>
+        <button class="btn" type="button" disabled>+ New</button>
+      </header>
+      <button class="thread active" type="button" id="threadBtn">
+        <b id="threadMark">1</b>
+        <span>
+          <strong>Monthly Keeling Curve acceleration</strong>
+          <small id="threadStatus">Draft</small>
+        </span>
+      </button>
+      <p style="color:var(--muted);font-size:12px;margin-top:16px;">
+        Thread memory keeps methods, review decisions, execution state, and registered outputs attached to the research object.
+      </p>
+    </aside>
+
+    <main class="main">
+      <p class="lead">Reason from Library evidence to a reviewable research construct, then preserve the method and its proof.</p>
+      <div class="head">
+        <div>
+          <small id="maturity">New construction</small>
+          <h2>Monthly Keeling Curve acceleration</h2>
+          <p id="objective">Using the Library asset Mauna Loa Monthly CO₂ Concentrations, build a monthly acceleration indicator from seasonally adjusted CO₂.</p>
+        </div>
+        <em class="badge draft" id="badge">Nothing registered</em>
+      </div>
+      <ol class="stagebar" id="stagebar"></ol>
+      <div id="canvas"></div>
+    </main>
+
+    <aside class="ask">
+      <header>
+        <strong>Ask</strong>
+        <small id="askAttach">Attached: Synthesis thread</small>
+      </header>
+      <div class="msgs" id="msgs"></div>
+      <div class="composer">
+        <textarea readonly placeholder="Continue interpreting this construct…"></textarea>
+        <button class="btn primary" type="button" disabled>Send (sim)</button>
+      </div>
+    </aside>
+  </div>
+
+  <section class="narrator" id="narrator"></section>
+</div>
+
+<script>
+const STAGES = [
+  {
+    id: "define",
+    label: "1 · Define",
+    hint: "Research object",
+    maturity: "New construction",
+    badge: "Nothing registered",
+    badgeClass: "draft",
+    threadStatus: "Draft",
+    threadMark: "1",
+    activeStage: 0,
+    canvas: `
+      <section class="card">
+        <header><div><small>Intent</small><h3>What are we constructing?</h3></div></header>
+        <p>Faculty need: “Is CO₂ rise speeding up?” The held Mauna Loa monthly series has levels, not acceleration. Synthesis’s job is to define the missing research object.</p>
+        <div class="box"><small>Proposed object</small><strong>Monthly CO₂ acceleration</strong><div>12-month change in seasonally adjusted CO₂, then 12-month change of that rate.</div></div>
+        <div class="actions">
+          <p><small>Next</small><br/>Ask clarifies one decision at a time. Nothing is built yet.</p>
+          <button class="btn primary" type="button" disabled>Continue in Ask →</button>
+        </div>
+      </section>`,
+    ask: [
+      { who: "You", cls: "user", text: "I need a monthly Keeling Curve acceleration indicator from what we already hold." },
+      { who: "DESK_FACTS", cls: "facts", text: "held: Mauna Loa Monthly CO₂ Concentrations · query_ready · grain month · 1958–present" },
+      { who: "Composer", cls: "", text: "Strongest held input is Mauna Loa monthly CO₂. Acceleration does not exist yet. Highest-value ambiguity: compute rates on seasonally adjusted ppm, or on raw Average?" },
+    ],
+    chips: ["Use seasonally adjusted series", "Keep Average as reference only"],
+    narrate: `
+      <strong>You are defining the construct.</strong>
+      <ol>
+        <li>Faculty states an intention in ordinary language (or starts a blueprint).</li>
+        <li>Ask measures Library holdings (L0 desk facts) and names the ambiguity.</li>
+        <li>Canvas still says nothing is registered — honest empty construction state.</li>
+      </ol>`
+  },
+  {
+    id: "ground",
+    label: "2 · Ground",
+    hint: "Library evidence",
+    maturity: "Evidence mapping",
+    badge: "Nothing registered",
+    badgeClass: "draft",
+    threadStatus: "Mapping",
+    threadMark: "2",
+    activeStage: 1,
+    canvas: `
+      <section class="card">
+        <header><div><small>Evidence map</small><h3>Research construction</h3></div><em style="font-style:normal;color:var(--muted)">1 mapped input</em></header>
+        <div class="map">
+          <div class="box"><small>In Library · sole primary evidence</small><strong>Mauna Loa Monthly CO₂ Concentrations</strong><div>month · 1958-03 to 2026-06 · <code>craft_raw_…</code></div></div>
+          <div class="arrow">↓</div>
+          <div class="process">Method not accepted yet — Ask is still grounding roles.</div>
+          <div class="arrow">↓</div>
+          <div class="box"><small>Construct (not built)</small><strong>Monthly Keeling Curve acceleration</strong></div>
+        </div>
+        <div class="actions">
+          <p><small>Next</small><br/>Ask maps roles. It cannot pretend missing sources are held.</p>
+          <button class="btn primary" type="button" disabled>Discuss construction in Ask →</button>
+        </div>
+      </section>`,
+    ask: [
+      { who: "You", cls: "user", text: "Use seasonally adjusted ppm for both rates; keep Average as reference; no imputation." },
+      { who: "Composer", cls: "", text: "Mapped: Mauna Loa as sole primary evidence. Unresolved: exact lag alignment for first valid acceleration month. I can propose a reviewable method next — not execute it." },
+    ],
+    chips: ["Propose smallest reviewable method"],
+    narrate: `
+      <strong>You are grounding the construct in held evidence.</strong>
+      <ol>
+        <li>Canvas shows an evidence map: what is held, what is missing, what the target is.</li>
+        <li>Ask may only claim holdings that DESK_FACTS measured.</li>
+        <li>Still no registered output — map ≠ build.</li>
+      </ol>`
+  },
+  {
+    id: "review",
+    label: "3 · Review",
+    hint: "Method decision",
+    maturity: "Method review",
+    badge: "Reviewable change",
+    badgeClass: "review",
+    threadStatus: "Review",
+    threadMark: "3",
+    activeStage: 2,
+    canvas: `
+      <section class="card">
+        <header><div><small>Proposal</small><h3>Bounded acceleration method</h3></div><em style="font-style:normal;color:var(--warn)">Needs your decision</em></header>
+        <div class="process">
+          input <code>keeling_mlo_monthly_clean</code><br/>
+          <code>diff(sa_ppm, 12) → annual_rate_ppm</code><br/>
+          <code>diff(annual_rate_ppm, 12) → acceleration_ppm</code><br/>
+          output <code>synthesis_keeling_accel_monthly_v1</code>
+        </div>
+        <p style="color:var(--muted);font-size:13px;">Material decision: accept this method (creates a durable revision) or reject and ask for another proxy definition.</p>
+        <div class="actions">
+          <p><small>Truth boundary</small><br/>Accepting binds the method. It does not register an output by itself.</p>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" type="button" disabled>Reject</button>
+            <button class="btn primary" type="button" disabled>Accept method</button>
+          </div>
+        </div>
+      </section>`,
+    ask: [
+      { who: "Composer", cls: "", text: "Proposal ready: two diffs on seasonally adjusted ppm, null when lags missing. Accepting stores the method on the thread. Execution remains a separate approval-gated step." },
+    ],
+    chips: ["Challenge lag alignment", "Accept method"],
+    narrate: `
+      <strong>You make the methodological decision.</strong>
+      <ol>
+        <li>Ask proposes a reviewable method / proposal card on the canvas.</li>
+        <li>You accept or reject — consequential choices stay human.</li>
+        <li>Accept ≠ Library asset. It only binds the durable construction notes / execution_spec.</li>
+      </ol>`
+  },
+  {
+    id: "build",
+    label: "4 · Build",
+    hint: "Execution record",
+    maturity: "Execution specified",
+    badge: "Durable execution state",
+    badgeClass: "review",
+    threadStatus: "Building",
+    threadMark: "4",
+    activeStage: 3,
+    canvas: `
+      <section class="card">
+        <header><div><small>Execution record</small><h3><code>synthesis_keeling_accel_monthly_v1</code></h3></div><em style="font-style:normal;color:var(--muted)">Pending / running</em></header>
+        <div class="process">Accepted execution_spec present · Request execution queues a desk approval job</div>
+        <div class="actions">
+          <p><small>Truth boundary</small><br/>A completed worker is still not “registered” until archive + registry verification.</p>
+          <button class="btn primary" type="button" disabled>Request execution</button>
+        </div>
+      </section>`,
+    ask: [
+      { who: "Composer", cls: "", text: "Bounded execution_spec is ready. Request execution only if you want the desk to run it. I will not invent registration." },
+    ],
+    chips: ["Request execution", "Explain remaining risks"],
+    narrate: `
+      <strong>You optionally execute.</strong>
+      <ol>
+        <li>Only now does Ask/canvas offer <em>Request execution</em> — because a bounded spec exists and no output is registered yet.</li>
+        <li>Job may need desk approval; worker runs transforms.</li>
+        <li>Completion ≠ query-ready. Registration / readiness are separate truth gates.</li>
+      </ol>`
+  },
+  {
+    id: "reuse",
+    label: "5 · Reuse",
+    hint: "Library asset",
+    maturity: "Query-ready output",
+    badge: "Query-ready evidence",
+    badgeClass: "",
+    threadStatus: "Query ready",
+    threadMark: "✓",
+    activeStage: 4,
+    canvas: `
+      <section class="card">
+        <header><div><small>Evidence map</small><h3>Research construction</h3></div><em style="font-style:normal;color:var(--muted)">1 mapped input</em></header>
+        <div class="map">
+          <div class="box"><small>In Library · sole primary evidence</small><strong>Mauna Loa Monthly CO₂ Concentrations</strong></div>
+          <div class="arrow">↓</div>
+          <div class="process">diff(sa_ppm,12) → annual_rate_ppm<br/>diff(annual_rate_ppm,12) → acceleration_ppm<br/>select 9 cols</div>
+          <div class="arrow">↓</div>
+          <div class="box"><strong>Monthly Keeling Curve acceleration</strong></div>
+        </div>
+        <div class="actions">
+          <p><small>Next</small><br/>Ask proposes revisions. It cannot silently overwrite this output.</p>
+          <button class="btn primary" type="button" disabled>Discuss construction in Ask →</button>
+        </div>
+      </section>
+      <section class="card">
+        <header><div><small>Query-ready research asset</small><h3><code>synthesis_keeling_accel_monthly_v1</code></h3></div><em class="badge">Query ready</em></header>
+        <div class="box"><small>Proof</small>Job 5f9b86fa6be8 · 820 rows · manifest verified · registry query-ready</div>
+        <div class="actions">
+          <p><small>Truth boundary</small><br/>Shown because the thread reports a query-ready output — not because Ask claimed it.</p>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" type="button" disabled>Ask about execution</button>
+            <button class="btn primary" type="button" disabled>Open in Library</button>
+          </div>
+        </div>
+      </section>`,
+    ask: [
+      { who: "Composer", cls: "", text: "This construct is already query-ready in Library. Ask about reuse, method limits, or a revision — do not re-request execution for the same output." },
+    ],
+    chips: ["How should I reuse this output?", "What would a revision change?"],
+    narrate: `
+      <strong>This is the live Keeling end-state on your desk.</strong>
+      <ol>
+        <li>Canvas keeps evidence map + proof side by side.</li>
+        <li>Ask switches to reuse/revision — no false “Request execution”.</li>
+        <li>Open in Library to query; a new method needs a new reviewable proposal, not silent overwrite.</li>
+      </ol>`
+  },
+];
+
+const stageNames = ["Define","Ground","Review","Build","Reuse"];
+const stageHints = ["Research object","Library evidence","Method decision","Execution record","Library asset"];
+
+function renderStagebar(active) {
+  return stageNames.map((name, i) => {
+    const cls = i < active ? "done" : i === active ? "now" : "";
+    const mark = i < active ? "✓" : String(i + 1);
+    return `<li class="${cls}"><span>${mark}</span><b>${name}</b><div style="color:var(--muted)">${stageHints[i]}</div></li>`;
+  }).join("");
+}
+
+function show(i) {
+  const s = STAGES[i];
+  document.querySelectorAll(".steps button").forEach((b, idx) => b.classList.toggle("on", idx === i));
+  document.getElementById("maturity").textContent = s.maturity;
+  document.getElementById("badge").textContent = s.badge;
+  document.getElementById("badge").className = "badge " + (s.badgeClass || "");
+  document.getElementById("threadStatus").textContent = s.threadStatus;
+  document.getElementById("threadMark").textContent = s.threadMark;
+  document.getElementById("stagebar").innerHTML = renderStagebar(s.activeStage);
+  document.getElementById("canvas").innerHTML = s.canvas;
+  document.getElementById("askAttach").textContent = "Attached: Synthesis thread · Monthly Keeling Curve acceleration";
+  const msgs = document.getElementById("msgs");
+  msgs.innerHTML = s.ask.map((m) => {
+    if (m.cls === "facts") return `<div class="facts"><strong>DESK_FACTS (L0)</strong><br/>${m.text}</div>`;
+    return `<div class="bubble ${m.cls}"><small>${m.who}</small>${m.text}</div>`;
+  }).join("") + (s.chips?.length ? `<div class="chips">${s.chips.map((c) => `<span>${c}</span>`).join("")}</div>` : "");
+  document.getElementById("narrator").innerHTML = s.narrate;
+}
+
+const btns = document.getElementById("stepButtons");
+STAGES.forEach((s, i) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.innerHTML = `${s.label}<small>${s.hint}</small>`;
+  b.addEventListener("click", () => show(i));
+  btns.appendChild(b);
+});
+show(0);
+</script>
+</body>
+</html>
