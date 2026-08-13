@@ -9,6 +9,12 @@ The July 15 Discover CLI (`WHAT EVIDENCE ARE YOU LOOKING FOR?` / `BEST FIT` / `O
 
 Composition is the rendered family below — not a markdown wireframe, not live `:8765` (`42d5b100` / `63de3d05`), and not visual-pass HEAD if that HEAD has drifted (it currently splits **Request collection** / **Add to collection**; the approved row has one label).
 
+**Frozen 2026-08-14.** The composition authority is
+[`design-artifacts-20260805/FROZEN_RENDERS.txt`](design-artifacts-20260805/FROZEN_RENDERS.txt) —
+eleven fixed-width renders at 24 | 77 | 37. Route every composition question there first.
+Enforced by `e2e/frozen-renders-guard.spec.js`, which fails if a withdrawn July composition
+is cited as authority or reappears in the tree.
+
 ## The family
 
 | State | What it proves | Harness | Capture | Viewports | Row baseline |

@@ -1,0 +1,626 @@
+RESEARCH DRIVE — FROZEN INTERFACE RENDERS
+Frozen 2026-08-14. This file is the composition authority.
+
+Sources, in order of precedence:
+  1  discover-05-offerings          13 Aug rendered capture
+  2  blocks 6,7,8,9,10,11,12,13,14  5 Aug CLI wireframe showcase, verbatim
+  3  synthesis_fullpage_wireframe   7 Aug artifact, re-rendered at 24|77|37
+
+WITHDRAWN — do not cite, do not rebuild:
+  DISCOVER_FULL_SCALE_FREEZE_2026-07-15   "WHAT EVIDENCE ARE YOU LOOKING FOR? / BEST FIT /
+                                           OTHER MATCHES" — the showcase labels it "early CLI"
+  LIBRARY_FULL_SCALE_FREEZE_2026-07-15
+  FROZEN_PAGE_CHANGE_LOCK_2026-07-16
+  UX_CONVERGENCE_SNAPSHOT_2026-07-16
+
+Geometry: 24 nav | 77 centre | 37 Detail/Ask rail
+====================================================================================================
+
+=== 1 · DISCOVER EXPLORE — resting list (discover-05-offerings, Refine/Filters/Sort CLOSED) ===
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                            │ DETAIL ●              ASK           │
+│                        │                                                                             │                                     │
+│    Home                │ EXPLORE ●                                                    HISTORY 1      │ Search · stablecoin                 │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ Discover                                                                    │ ALREADY IN YOUR LIBRARY             │
+│    Synthesis           │ Find held evidence and sources beyond it                                    │ 0 of 5 already held                 │
+│    Resources           │                                                                             │                                     │
+│    Profile             │ ┌─────────────────────────────────────────────────────────────────────────┐ │ WHAT THIS SEARCH FOUND              │
+│    Settings            │ │ stablecoin                                                          ⌕ │   │ 5 offerings you can add             │
+│                        │ └─────────────────────────────────────────────────────────────────────────┘ │ 0 already in your Library           │
+│ ACTIVE RESEARCH        │                                                          [ Explore ]        │                                     │
+│                        │                                                                             │ LIBRARY COMPARISON                  │
+│ Stablecoin Research    │ Research brief    Stablecoin                                                │ No offering here matched            │
+│                        │                                                                             │ something the lab already holds.    │
+│ Event studies          │ ▸ Refine evidence need                    Filters ▾           Sort ▾        │                                     │
+│                        │                                                                             │ COLLECTION ROUTES OFFERED           │
+│ Market structure       │ Available · 5      Library evidence · 0      Web context · 0                │ BigQuery                        1   │
+│                        │                                                                             │ LSEG data API                   1   │
+│ ────────────────────── │                                                        Search wider         │ queue                           1   │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │ a file manifest                 1   │
+│ RECENT                 │ Results  5                                                                  │                                     │
+│                        │                                                                             │ NOT YET ESTABLISHED                 │
+│ USDT transactions      │ ▌ GOOGLE CLOUD   Google Cloud evidence offering 1           REGISTERED      │ Nothing here has been probed.       │
+│ Event study panel      │                                                              37.0 KB        │ Select an offering to see its       │
+│                        │   blockchain transfers, DeFi, stablecoin telemetry.                         │ coverage, its route, and what       │
+│                        │   2015–2026 · issuer-quarter · Collect via BigQuery                         │ remains unknown before              │
+│                        │                                           [ Add to collection ]             │ collecting.                         │
+│                        │                                                                             │                                     │
+│                        │   LSEG           LSEG Refinitiv evidence offering 2         REGISTERED      │                                     │
+│                        │                                                       848 KB · 2 files      │                                     │
+│                        │   point-in-time index membership; fundamentals.                             │                                     │
+│                        │   2015–2026 · issuer-quarter · Collect via LSEG data API                    │ [ Compare coverage ]                │
+│                        │                                           [ Add to collection ]             │                                     │
+│                        │                                                                             │ [ Open Library results ]            │
+│                        │   TWSE           TWSE evidence offering 3                METADATA ONLY      │                                     │
+│                        │   filings, exchange disclosures; instrument-day OHLCV.                      │                                     │
+│                        │   2015–2026 · issuer-quarter · Collect via queue                            │                                     │
+│                        │                                           [ Add to collection ]             │                                     │
+│                        │                                                                             │                                     │
+│                        │   SEC            SEC EDGAR evidence offering 4              REGISTERED      │                                     │
+│                        │                                                        2.4 MB · 4 files     │                                     │
+│                        │   filings, exchange disclosures, misconduct panels.                         │                                     │
+│                        │   2015–2026 · issuer-quarter · Collect via a file manifest                  │                                     │
+│                        │                                           [ Add to collection ]             │                                     │
+│                        │                                                                             │                                     │
+│                        │   GDELT          GDELT evidence offering 5                  REGISTERED      │                                     │
+│                        │                                                               3.2 MB        │                                     │
+│                        │   country-day news intensity; entity-resolved news features.                │                                     │
+│                        │   2015–2026 · issuer-quarter · Collect via an API query                     │                                     │
+│                        │                                           [ Add to collection ]             │                                     │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Selection stays in ranked results                                           │ Search summary                      │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 2 · DISCOVER EXPLORE — source selected  (block 7, verbatim) ===
+
+DISCOVER · EXPLORE
+SOURCE SELECTED / NO DURABLE REQUEST YET
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL ●              ASK           │
+│                        │                                                                             │ TAIWAN GOVERNANCE ARCHIVE           │
+│    Home                │ EXPLORE ●                                                    HISTORY 5      │ Government web records              │
+│    Library             │                                                                             │ Public · Access observed             │
+│  ● Discover            │ WHAT EVIDENCE ARE YOU LOOKING FOR?                                          │                                     │
+│    Synthesis           │                                                                             │ RELEVANT                            │
+│    Resources           │ ┌─────────────────────────────────────────────────────────────────────────┐ │                                     │
+│    Profile             │ │ I need historical point-in-time governance records for Taiwan firms,    │ │ The archive appears relevant to    │
+│    Settings            │ │ with entity, date, role, and source reference.                       ⌕ │ │ the requested governance evidence. │
+│                        │ └─────────────────────────────────────────────────────────────────────────┘ │                                     │
+│ ACTIVE RESEARCH        │                                                                             │ Why it fits                         │
+│                        │ INTERPRETING                                                                │                                     │
+│ Stablecoin Research   │                                                                             │ • historical records observed       │
+│                        │ Taiwan firms · Governance · Point-in-time · Entity records · +1             │ • entity pages available            │
+│ Event studies          │                                                                             │ • reporting periods visible         │
+│                        │ Refine evidence need ▾                                                     │                                     │
+│ Market structure       │                                                                             │ In your lab                         │
+│                        │ BEST FIT                                                                   │                                     │
+│ ────────────────────── │                                                                             │ No local alternative                │
+│                        │ ▌ TAIWAN GOVERNANCE ARCHIVE                                                 │                                     │
+│ RECENT                 │                                                                             │ What is known                       │
+│                        │   Government web records · Public                                            │                                     │
+│ USDT transactions      │                                                                             │ • public archive                    │
+│ Event study panel      │   Governance · Historical records                                           │ • entity pages                      │
+│                        │   No local alternative                                                     │ • reporting periods                 │
+│                        │                                                                             │                                     │
+│                        │   Historical archive observed · Preview available                           │ Unknowns                            │
+│                        │                                                                             │                                     │
+│                        │ OTHER MATCHES                                                               │ ? acquisition route                 │
+│                        │ ...                                                                         │ ? pagination completeness           │
+│                        │                                                                             │ ? required field shape              │
+│                        │                                                                             │                                     │
+│                        │                                                                             │ [ Preview source ]                  │
+│                        │                                                                             │                                     │
+│                        │                                                                             │ Request this evidence               │
+│                        │                                                                             │                                     │
+│                        │                                                                             │ Evidence and access ▸               │
+│                        │                                                                             │                                     │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Source selected · no durable procurement request exists yet                   │ Source evidence                     │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 3 · DISCOVER EXPLORE — Ask active  (block 6, verbatim) ===
+
+DISCOVER · EXPLORE
+SAME SELECTED SOURCE — ASK ACTIVE
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL                ASK ●         │
+│                        │                                                                             │ ETHEREUM / USDT HISTORY             │
+│    Home                │ EXPLORE ●                                                    HISTORY 5      │                                     │
+│    Library             │                                                                             │ Selected source context             │
+│  ● Discover            │ WHAT EVIDENCE ARE YOU LOOKING FOR?                                          │ BigQuery public datasets             │
+│    Synthesis           │                                                                             │ Transaction-level · Public           │
+│    Resources           │ ┌─────────────────────────────────────────────────────────────────────────┐ │                                     │
+│    Profile             │ │ I need transaction-level stablecoin evidence around market stress      │ │ You                                 │
+│    Settings            │ │ events before 2020, preferably with entity identifiers.             ⌕ │ │                                     │
+│                        │ └─────────────────────────────────────────────────────────────────────────┘ │ I need this before 2020. Can we     │
+│ ACTIVE RESEARCH        │                                                                             │ actually acquire it?                │
+│                        │ INTERPRETING                                                                │                                     │
+│ Stablecoin Research   │                                                                             │ Research Drive                      │
+│                        │ Stablecoins · Transactions · Pre-2020 · +2                                │                                     │
+│ Event studies          │                                                                             │ Checking this source against the    │
+│                        │ Refine evidence need ▾                                                     │ selected evidence need and current  │
+│ Market structure       │                                                                             │ lab gap.                            │
+│                        │ BEST FIT                                                                   │                                     │
+│ ────────────────────── │                                                                             │ Agent activity                      │
+│                        │ ▌ ETHEREUM / USDT ON-CHAIN HISTORY                                         │                                     │
+│ RECENT                 │                                                                             │ ✓ candidate facts loaded            │
+│                        │   BigQuery public datasets · Transaction-level · Public                   │ ✓ local coverage compared           │
+│ USDT transactions      │                                                                             │ ✓ direct source route checked       │
+│ Event study panel      │   Transactions · Stablecoins · Earlier history                             │ ● evaluating acquisition route      │
+│                        │   Partial · local evidence begins in 2020                                  │                                     │
+│                        │                                                                             │                                     │
+│                        │   2017–present reported coverage · Preview available                       │                                     │
+│                        │                                                                             │                                     │
+│                        │ OTHER MATCHES                                                               │                                     │
+│                        │ ...                                                                         │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │ 34 candidates                                                   Filters ▾   │ ┌─────────────────────────────────┐ │
+│                        │                                                                             │ │ Ask about this source…          │ │
+│                        │                                                                             │ │                           Send │ │
+│                        │                                                                             │ └─────────────────────────────────┘ │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Ask operates the same selected source · centre selection never disappears    │ Acquisition investigation           │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 4 · DISCOVER HISTORY — priority ledger  (block 8, verbatim) ===
+
+RESEARCH DRIVE — DISCOVER · HISTORY
+PRIORITY + COMPACT LIFECYCLE LEDGER
+WITH MATERIAL PROCUREMENT METHOD CUE
+
+DESKTOP / 1440 × 1024
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL ●              ASK           │
+│                        │                                                                             │ HISTORICAL USDT TRANSACTIONS        │
+│    Home                │ EXPLORE                                                     HISTORY ● 72   │ METHOD REVIEW                       │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ RESEARCH LIFECYCLE                                                          │ Browser extraction proposed         │
+│    Synthesis           │                                                                             │                                     │
+│    Resources           │ All ●    Needs you 4    Active 18    Ready 31    Recovery 7    Scheduled 12│                                     │
+│    Profile             │                                                                             ├─────────────────────────────────────┤
+│    Settings            │ NEEDS YOU · 4                                                               │                                     │
+│                        │                                                                             │ WHY THIS METHOD                     │
+│ ACTIVE RESEARCH        │ ▌ HISTORICAL USDT TRANSACTIONS                              METHOD REVIEW  │                                     │
+│                        │   BigQuery · Historical transaction evidence                                 │ Direct collection did not establish │
+│ Stablecoin Research   │   Browser extraction proposed · Updated now                                  │ the required historical records.    │
+│                        │                                                                             │                                     │
+│ Event studies          │   TAIWAN GOVERNANCE SOURCE                                  METHOD REVIEW  │ METHOD                              │
+│                        │   Government records · Governance · Point-in-time                            │                                     │
+│ Market structure       │   Browser extraction proposed · Updated 16:18                                │ Browser extraction                  │
+│                        │                                                                             │ Spectator · Playwright              │
+│ ────────────────────── │   CRYPTO ENTITY LABELS                                      SCOPE REVIEW    │                                     │
+│                        │   Address attribution · Entity evidence                                      │ ROUTE                               │
+│ RECENT                 │   12 proposed entity groups · Updated 15:31                                 │                                     │
+│                        │                                                                             │ 1  Open historical archive          │
+│ USDT transactions      │   REFINITIV NEWS ARCHIVE                                   ACCESS DECISION │ 2  Traverse periods                 │
+│ Event study panel      │   Licensed article evidence · Historical news                               │ 3  Traverse stablecoin records      │
+│                        │   Entitlement route identified · Updated 14:48                               │ 4  Extract required transfer fields │
+│                        │                                                                             │                                     │
+│                        │ RESEARCH LIFECYCLE · 68                                                       │ KNOWN                               │
+│                        │                                                                             │                                     │
+│                        │ STABLECOIN ATTENTION PANEL                                  COLLECTING       │ ✓ direct route checked              │
+│                        │ GDELT · Event / news evidence · daily panel                                  │ ✓ browser route observed            │
+│                        │ Latest verified range 2022-06-30 · Updated 16:04                             │ ✓ bounded route tested              │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ ETHEREUM TRANSFER ARCHIVE                                  ARCHIVE PENDING  │ UNKNOWNS                            │
+│                        │ Ethereum provider · Transaction evidence                                     │                                     │
+│                        │ 18.4 GB received · archive verification pending · 15:51                      │ ? traversal completeness            │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │ ? session stability                 │
+│                        │ SEC COMPANY TICKERS                                         QUERY-READY      │ ? final extraction volume           │
+│                        │ SEC EDGAR · Company identity evidence                                       │                                     │
+│                        │ Registry confirmed · Library asset available · 15:42                         │ Technical record ▸                  │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ TAIWAN ENTITY MAPPING                                      RETRY PENDING    │                                     │
+│                        │ Government identity sources · Entity evidence                               │                                     │
+│                        │ Previous observation preserved · retry pending · 15:07                       │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ TWSE REFRESH                                               SCHEDULE RECORDED│                                     │
+│                        │ TWSE · Every Monday at 10:00                                                │                                     │
+│                        │ Request saved · automatic execution not active · 14:22                       │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ USDT ENTITY PANEL                                  REGISTRATION PENDING      │                                     │
+│                        │ Local synthesis input · Entity evidence                                    │                                     │
+│                        │ Archive confirmed · registry promotion pending · 13:54                       │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ MARKET STRESS EVENTS                                         QUERY-READY     │                                     │
+│                        │ GDELT + registered event sources                                             │                                     │
+│                        │ Library asset available · 13:21                                             │                                     │
+│                        │                                                                             ├─────────────────────────────────────┤
+│                        │ Showing 8 of 68 lifecycle items                              Load more ↓    │ [ Review method ]                   │
+│                        │                                                                             │ Ask about method · Return to source │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Researcher decisions first · compact lifecycle ledger                         │ Procurement authority               │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 5 · DISCOVER HISTORY — initial durable object  (block 9, verbatim) ===
+
+DISCOVER · HISTORY
+INITIAL DURABLE OBJECT
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL ●              ASK           │
+│                        │                                                                             │ TAIWAN GOVERNANCE SOURCE            │
+│    Home                │ EXPLORE                                                     HISTORY ● 6    │ ROUTE INVESTIGATING                 │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ RESEARCH LIFECYCLE                                                          │ The evidence request is preserved.  │
+│    Synthesis           │                                                                             │                                     │
+│    Resources           │ All ●    Needs you 0    Active 1    Ready 2    Recovery 1    Scheduled 2   │ CURRENT WORK                        │
+│    Profile             │                                                                             │                                     │
+│    Settings            │ RESEARCH LIFECYCLE                                                          │ Determining how the requested       │
+│                        │                                                                             │ evidence can be acquired.           │
+│ ACTIVE RESEARCH        │ ▌ TAIWAN GOVERNANCE SOURCE                                ROUTE INVESTIGATING│                                     │
+│                        │   Government web records · Point-in-time governance evidence                │ EVIDENCE NEED                       │
+│ Stablecoin Research   │   Acquisition method not established · Updated 16:12                         │                                     │
+│                        │                                                                             │ Historical governance records       │
+│ Event studies          │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ STABLECOIN ATTENTION PANEL                                  COLLECTING       │ Preferred                          │
+│ Market structure       │   GDELT · Event / news evidence · daily panel                                │ entity · date · role                │
+│                        │   Latest verified range 2022-06-30 · Updated 16:04                           │ source reference                    │
+│ ────────────────────── │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ ETHEREUM TRANSFER ARCHIVE                                  ARCHIVE PENDING  │ KNOWN                               │
+│ RECENT                 │   Ethereum provider · Transaction evidence                                   │                                     │
+│                        │   18.4 GB received · archive verification pending · 15:51                    │ ✓ source identity confirmed         │
+│ USDT transactions      │ ─────────────────────────────────────────────────────────────────────────── │ ✓ bounded preview retained          │
+│ Event study panel      │ SEC COMPANY TICKERS                                         QUERY-READY      │                                     │
+│                        │   SEC EDGAR · Company identity evidence                                     │ UNKNOWNS                            │
+│                        │   Registry confirmed · Library asset available · 15:42                       │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │ ? acquisition method                │
+│                        │ TWSE REFRESH                                               SCHEDULE RECORDED│ ? traversal completeness            │
+│                        │   TWSE · Every Monday at 10:00                                              │ ? final output shape                │
+│                        │   Request saved · automatic execution not active · 14:22                     │                                     │
+│                        │                                                                             │ Technical record ▸                  │
+│                        │                                                                             │                                     │
+│                        │                                                                             ├─────────────────────────────────────┤
+│                        │                                                                             │ [ Investigate route ]               │
+│                        │                                                                             │ Return to source                    │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Request exists before route resolution · selection remains centre-owned       │ Procurement investigation           │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 6 · DISCOVER HISTORY — route investigation, Ask active  (block 10, verbatim) ===
+
+DISCOVER · HISTORY
+ROUTE INVESTIGATION — ASK ACTIVE
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL                ASK ●         │
+│                        │                                                                             │ HISTORICAL USDT TRANSACTIONS        │
+│    Home                │ EXPLORE                                                     HISTORY ● 6    │ ROUTE INVESTIGATING                 │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ RESEARCH LIFECYCLE                                                          │ Selected lifecycle context          │
+│    Synthesis           │                                                                             │                                     │
+│    Resources           │ All ●    Needs you 1    Active 2    Ready 1    Recovery 1    Scheduled 1   │ You                                 │
+│    Profile             │                                                                             │                                     │
+│    Settings            │ NEEDS YOU · 1                                                               │ Try to find a real acquisition      │
+│                        │                                                                             │ route. Use available procurement    │
+│ ACTIVE RESEARCH        │   TAIWAN GOVERNANCE SOURCE                                  METHOD REVIEW  │ equipment if direct access fails.   │
+│                        │   Government records · Governance · Point-in-time                            │                                     │
+│ Stablecoin Research   │   Browser extraction proposed · Updated 16:18                                │ Research Drive                      │
+│                        │                                                                             │                                     │
+│ Event studies          │ RESEARCH LIFECYCLE · 5                                                       │ Investigating the selected evidence │
+│                        │                                                                             │ request.                            │
+│ Market structure       │ ▌ HISTORICAL USDT TRANSACTIONS                          ROUTE INVESTIGATING│                                     │
+│                        │   BigQuery · Historical transaction evidence                                 │ Agent activity                      │
+│ ────────────────────── │   Evaluating acquisition routes · Updated now                               │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │ ✓ evidence need loaded              │
+│ RECENT                 │ STABLECOIN ATTENTION PANEL                                  COLLECTING       │ ✓ candidate source loaded           │
+│                        │   GDELT · Event / news evidence · daily panel                                │ ✓ direct route checked              │
+│ USDT transactions      │   Latest verified range 2022-06-30 · Updated 16:04                           │ ● testing bounded browser route     │
+│ Event study panel      │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ ETHEREUM TRANSFER ARCHIVE                                  ARCHIVE PENDING  │                                     │
+│                        │   Ethereum provider · Transaction evidence                                   │                                     │
+│                        │   18.4 GB received · archive verification pending · 15:51                    │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ SEC COMPANY TICKERS                                         QUERY-READY      │                                     │
+│                        │   SEC EDGAR · Company identity evidence                                     │                                     │
+│                        │   Registry confirmed · Library asset available · 15:42                       │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ TWSE REFRESH                                               SCHEDULE RECORDED│                                     │
+│                        │   TWSE · Every Monday at 10:00                                              │                                     │
+│                        │   Request saved · automatic execution not active · 14:22                     │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │                                     │
+│                        │                                                                             │ ┌─────────────────────────────────┐ │
+│                        │                                                                             │ │ Ask about this request…         │ │
+│                        │                                                                             │ │                           Send │ │
+│                        │                                                                             │ └─────────────────────────────────┘ │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Ask operates the selected lifecycle item · centre reflects durable work       │ Route investigation                 │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 7 · DISCOVER HISTORY — method proposed  (block 11, verbatim) ===
+
+DISCOVER · HISTORY
+METHOD PROPOSED — DETAIL ACTIVE
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL ●              ASK           │
+│                        │                                                                             │ HISTORICAL USDT TRANSACTIONS        │
+│    Home                │ EXPLORE                                                     HISTORY ● 6    │ METHOD REVIEW                       │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ RESEARCH LIFECYCLE                                                          │ Browser extraction proposed         │
+│    Synthesis           │                                                                             │                                     │
+│    Resources           │ All ●    Needs you 2    Active 1    Ready 1    Recovery 1    Scheduled 1   │                                     │
+│    Profile             │                                                                             ├─────────────────────────────────────┤
+│    Settings            │ NEEDS YOU · 2                                                               │                                     │
+│                        │                                                                             │ WHY THIS METHOD                     │
+│ ACTIVE RESEARCH        │ ▌ HISTORICAL USDT TRANSACTIONS                              METHOD REVIEW  │                                     │
+│                        │   BigQuery · Historical transaction evidence                                 │ Direct collection did not establish │
+│ Stablecoin Research   │   Browser extraction proposed · Updated now                                  │ the required historical records.    │
+│                        │                                                                             │                                     │
+│ Event studies          │   TAIWAN GOVERNANCE SOURCE                                  METHOD REVIEW  │ METHOD                              │
+│                        │   Government records · Governance · Point-in-time                            │                                     │
+│ Market structure       │   Browser extraction proposed · Updated 16:18                                │ Browser extraction                  │
+│                        │                                                                             │ Spectator · Playwright              │
+│ ────────────────────── │ RESEARCH LIFECYCLE · 4                                                       │                                     │
+│                        │                                                                             │ ROUTE                               │
+│ RECENT                 │ STABLECOIN ATTENTION PANEL                                  COLLECTING       │                                     │
+│                        │   GDELT · Event / news evidence · daily panel                                │ 1  Open historical archive          │
+│ USDT transactions      │   Latest verified range 2022-06-30 · Updated 16:04                           │ 2  Traverse periods                 │
+│ Event study panel      │ ─────────────────────────────────────────────────────────────────────────── │ 3  Traverse stablecoin records      │
+│                        │ ETHEREUM TRANSFER ARCHIVE                                  ARCHIVE PENDING  │ 4  Extract required transfer fields │
+│                        │   Ethereum provider · Transaction evidence                                   │                                     │
+│                        │   18.4 GB received · archive verification pending · 15:51                    │ KNOWN                               │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ SEC COMPANY TICKERS                                         QUERY-READY      │ ✓ direct route checked              │
+│                        │   SEC EDGAR · Company identity evidence                                     │ ✓ browser route observed            │
+│                        │   Registry confirmed · Library asset available · 15:42                       │ ✓ bounded route tested              │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ TWSE REFRESH                                               SCHEDULE RECORDED│ UNKNOWNS                            │
+│                        │   TWSE · Every Monday at 10:00                                              │                                     │
+│                        │   Request saved · automatic execution not active · 14:22                     │ ? traversal completeness            │
+│                        │                                                                             │ ? session stability                 │
+│                        │                                                                             │ ? final extraction volume           │
+│                        │                                                                             │                                     │
+│                        │                                                                             │ Technical record ▸                  │
+│                        │                                                                             │                                     │
+│                        │                                                                             ├─────────────────────────────────────┤
+│                        │                                                                             │ [ Review method ]                   │
+│                        │                                                                             │ Ask about method · Return to source │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Durable method state changes centre position and Detail judgment               │ Procurement authority               │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 8 · DISCOVER HISTORY — browser extraction active  (block 12, verbatim) ===
+
+DISCOVER · HISTORY
+BROWSER EXTRACTION ACTIVE
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL ●              ASK           │
+│                        │                                                                             │ TAIWAN GOVERNANCE SOURCE            │
+│    Home                │ EXPLORE                                                     HISTORY ● 8    │ EXTRACTING                          │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ RESEARCH LIFECYCLE                                                          │ Browser extraction active.          │
+│    Synthesis           │                                                                             │                                     │
+│    Resources           │ All ●    Needs you 2    Active 3    Ready 1    Recovery 1    Scheduled 1   │ METHOD                              │
+│    Profile             │                                                                             │                                     │
+│    Settings            │ NEEDS YOU · 2                                                               │ Spectator · Playwright              │
+│                        │                                                                             │                                     │
+│ ACTIVE RESEARCH        │   HISTORICAL USDT TRANSACTIONS                             APPROVAL REQUIRED│ OBSERVED                            │
+│                        │   BigQuery · Historical transfers · 2018–present                            │                                     │
+│ Stablecoin Research   │   Preview checked · request prepared · Updated 16:10                         │ 6 reporting periods                 │
+│                        │                                                                             │ 312 entity pages                    │
+│ Event studies          │   CRYPTO ENTITY LABELS                                      SCOPE REVIEW    │ 8,904 records                       │
+│                        │   Address attribution · Entity evidence                                      │                                     │
+│ Market structure       │   12 proposed entity groups · Updated 15:31                                 │ FIELDS                              │
+│                        │                                                                             │                                     │
+│ ────────────────────── │ RESEARCH LIFECYCLE · 6                                                       │ entity                              │
+│                        │                                                                             │ date                                │
+│ RECENT                 │ ▌ TAIWAN GOVERNANCE SOURCE                                      EXTRACTING  │ role                                │
+│                        │   Government web records · Point-in-time governance evidence                │ source reference                    │
+│ USDT transactions      │   Browser extraction · Spectator / Playwright                               │                                     │
+│ Event study panel      │   6 periods · 312 entity pages · extraction active · 16:42                  │ UNKNOWNS                            │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ STABLECOIN ATTENTION PANEL                                  COLLECTING       │ ? remaining coverage                │
+│                        │   GDELT · Event / news evidence · daily panel                                │ ? duplicate pages                   │
+│                        │   Latest verified range 2022-06-30 · Updated 16:04                           │ ? role normalization                │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ ETHEREUM TRANSFER ARCHIVE                                  ARCHIVE PENDING  │ Technical record ▸                  │
+│                        │   Ethereum provider · Transaction evidence                                   │                                     │
+│                        │   18.4 GB received · archive verification pending · 15:51                    │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ SEC COMPANY TICKERS                                         QUERY-READY      │                                     │
+│                        │   SEC EDGAR · Company identity evidence                                     │                                     │
+│                        │   Registry confirmed · Library asset available · 15:42                       │                                     │
+│                        │                                                                             ├─────────────────────────────────────┤
+│                        │                                                                             │ [ View evidence ]                   │
+│                        │                                                                             │ Ask about extraction               │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Method identity and observed execution remain attached to one lifecycle item  │ Extraction authority                │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 9 · DISCOVER HISTORY — extraction finished  (block 13, verbatim) ===
+
+DISCOVER · HISTORY
+EXTRACTION FINISHED / RESEARCHER DECISION RETURNS
+
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ STABLECOIN RESEARCH ▾   DISCOVER                                             │ DETAIL ●              ASK           │
+│                        │                                                                             │ TAIWAN GOVERNANCE SOURCE            │
+│    Home                │ EXPLORE                                                     HISTORY ● 8    │ SCHEMA REVIEW                       │
+│    Library             │                                                                             │                                     │
+│  ● Discover            │ RESEARCH LIFECYCLE                                                          │ 18,420 records observed.            │
+│    Synthesis           │                                                                             │                                     │
+│    Resources           │ All ●    Needs you 3    Active 2    Ready 1    Recovery 1    Scheduled 1   │ CONFIRMED                           │
+│    Profile             │                                                                             │                                     │
+│    Settings            │ NEEDS YOU · 3                                                               │ ✓ entity                            │
+│                        │                                                                             │ ✓ point-in-time date                │
+│ ACTIVE RESEARCH        │ ▌ TAIWAN GOVERNANCE SOURCE                                  SCHEMA REVIEW  │ ✓ source reference                  │
+│                        │   Government web records · Point-in-time governance evidence                │                                     │
+│ Stablecoin Research   │   Browser extraction completed · 18,420 records observed                    │ NEEDS REVIEW                        │
+│                        │   Role mapping requires review · Updated 17:08                              │                                     │
+│ Event studies          │ ─────────────────────────────────────────────────────────────────────────── │ role_text                           │
+│                        │ HISTORICAL USDT TRANSACTIONS                             APPROVAL REQUIRED  │ 17 observed values                  │
+│ Market structure       │   BigQuery public datasets · Historical transfers                           │                                     │
+│                        │   Preview checked · request prepared · Updated 16:10                         │ PROPOSED MAPPING                    │
+│ ────────────────────── │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ CRYPTO ENTITY LABELS                                      SCOPE REVIEW      │ Director                            │
+│ RECENT                 │   Address attribution catalogue · Entity evidence                            │ Supervisor                          │
+│                        │   12 proposed entity groups · Updated 15:31                                 │ Manager                             │
+│ USDT transactions      │                                                                             │ Representative                      │
+│ Event study panel      │ RESEARCH LIFECYCLE · 5                                                       │ Other                               │
+│                        │                                                                             │                                     │
+│                        │ STABLECOIN ATTENTION PANEL                                  COLLECTING       │ Technical record ▸                  │
+│                        │   GDELT · Event / news evidence · daily panel                                │                                     │
+│                        │   Latest verified range 2022-06-30 · Updated 16:04                           │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ ETHEREUM TRANSFER ARCHIVE                                  ARCHIVE PENDING  │                                     │
+│                        │   Ethereum provider · Transaction evidence                                   │                                     │
+│                        │   18.4 GB received · archive verification pending · 15:51                    │                                     │
+│                        │ ─────────────────────────────────────────────────────────────────────────── │                                     │
+│                        │ SEC COMPANY TICKERS                                         QUERY-READY      │                                     │
+│                        │   SEC EDGAR · Company identity evidence                                     │                                     │
+│                        │   Registry confirmed · Library asset available · 15:42                       │                                     │
+│                        │                                                                             ├─────────────────────────────────────┤
+│                        │                                                                             │ [ Review mapping ]                  │
+│                        │                                                                             │ View evidence · Ask about mapping   │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Completed extraction returns to Needs You only for a researcher-owned decision │ Evidence-shape authority           │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+
+=== 10 · STRATEGY CARD  (block 14, verbatim) ===
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Custom strategy · Stablecoin De-peg Exchange Activity Dataset            × │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ WHAT YOU WILL GET                                                           │
+│ exchange × stablecoin × day · planned fields and required coverage          │
+│                                                                              │
+│ HOW IT ANSWERS THE QUESTION                                                  │
+│ de-peg occurs → exchange volume responds → response spreads or fades         │
+│                                                                              │
+│ HOW WE BUILD IT                                                              │
+│                                                                              │
+│ [held de-peg events] + [exchange history] + [identity/listing map]           │
+│                                  ↓                                           │
+│                       [collect + normalize]                                  │
+│                                  ↓                                           │
+│                     [research-ready dataset]                                 │
+│                                  ↓                                           │
+│                       [verify + register]                                    │
+│                                                                              │
+│ SOURCE CHECK                                                                 │
+│ source       access       coverage         next check                        │
+│ …            observed / proposed / unknown                                   │
+│                                                                              │
+│ STILL UNKNOWN                                                                │
+│ [historical depth] [rate limits] [delisted pairs] [implementation effort]    │
+│                                                                              │
+│ NEXT VALID ACTION                                                            │
+│ exact supported action; never a fabricated executable promise                │
+│                                                                              │
+│ [Refine in Ask] [Save strategy] [Next valid action]                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+=== 11 · SYNTHESIS — registered state  (re-rendered from HTML) ===
+
+┌────────────────────────┬─────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+│ RESEARCH DRIVE         │ Registered output                                                           │ ASK                                 │
+│                        │                                                                             │                                     │
+│    Home                │ Monthly Keeling Curve acceleration                                          │ Attached: Synthesis thread ·        │
+│    Discover            │                                                                             │ Monthly Keeling Curve               │
+│    Library             │ Using the Library asset (Mauna Loa monthly CO₂), build a monthly            │ acceleration                        │
+│  ● Synthesis           │ Keeling Curve acceleration indicator — 12-month change in seasonally        │                                     │
+│    Resources           │ adjusted CO₂, then 12-month change of that rate.                            │ You                                 │
+│                        │                                                                             │                                     │
+│ desk · Ask attached    │ Registered evidence     Current record             Required grain           │ Explain the current evidence        │
+│                        │                         Registered synthesis       month                    │ map and identify the next           │
+│ RESEARCH               │                         output is available                                 │ material research decision.         │
+│  CONSTRUCTION          │                         in Library.                                         │                                     │
+│                        │                                                                             │ DESK_FACTS (L0)                     │
+│ 1 thread      + New    │ ✓ Define      ✓ Ground      ✓ Review      ✓ Build      5 Reuse              │                                     │
+│                        │   Research      Library       Method        Execution    Library            │ held: Mauna Loa Monthly CO₂         │
+│ ✓ Monthly Keeling      │   object        evidence      decision      record       asset              │ Record · Monthly Keeling            │
+│   Curve acceleration   │                                                                             │ Curve acceleration                  │
+│   Registered output    │ EVIDENCE MAP     Research construction          2 mapped inputs             │ strong_held: true                   │
+│                        │                                                                             │ engine: research_discover_desk      │
+│ THREAD MEMORY          │  In Library · Sole primary evidence — monthly levels                        │                                     │
+│ Methods, review        │  ┌───────────────────────────────────────────────────────────────┐          │ Composer                            │
+│ decisions, execution   │  │ Mauna Loa Monthly CO₂ Concentrations                          │          │                                     │
+│ state, and registered  │  │ month · 1958-03 to 2026-06 ·                                  │          │ Construct is already                │
+│ outputs                │  │ craft_raw_githubuserconten_2eb2f7cf1f                         │          │ registered. Mapped input is         │
+│                        │  └───────────────────────────────────────────────────────────────┘          │ held Mauna Loa monthly CO₂;         │
+│                        │                               ↓                                             │ output is the acceleration          │
+│                        │  Method (accepted execution_spec):                                          │ panel. Next material decision       │
+│                        │    diff(sa_ppm, 12)            → annual_rate_ppm                            │ is reuse/query the Library          │
+│                        │    diff(annual_rate_ppm, 12)   → acceleration_ppm                           │ asset, or propose a new             │
+│                        │    input   keeling_mlo_monthly_clean                                        │ revision if the method should       │
+│                        │    → output  synthesis_keeling_accel_monthly_v1                             │ change — that would create a        │
+│                        │                               ↓                                             │ reviewable proposal, not            │
+│                        │  ┌───────────────────────────────────────────────────────────────┐          │ silent overwrite.                   │
+│                        │  │ Monthly Keeling Curve acceleration                            │          │                                     │
+│                        │  │ (construct / Library output)                                  │          │ ▸ Preview Monthly Keeling           │
+│                        │  └───────────────────────────────────────────────────────────────┘          │   Curve acceleration                │
+│                        │                                                                             │ ▸ Open Mauna Loa Monthly            │
+│                        │ RESEARCH OBJECT   Monthly CO₂ acceleration                                  │   CO₂ Record                        │
+│                        │                                                                             │ ▸ Challenge method in Ask           │
+│                        │  Whether atmospheric CO₂ buildup is speeding up or slowing down.            │                                     │
+│                        │                                                                             │ ┌─────────────────────────────┐     │
+│                        │  Library holdings mapped    1 in Library                                    │ │ Ask…                  Send  │     │
+│                        │                             Mauna Loa Monthly CO₂ Concentrations            │ └─────────────────────────────┘     │
+│                        │  Unresolved evidence        No missing source is recorded                   │                                     │
+│                        │                             This is not a claim of complete coverage.       │                                     │
+│                        │                                                                             │                                     │
+│                        │  Next   Ask proposes reviewable changes. It cannot silently accept          │                                     │
+│                        │         a method or register an output.                                     │                                     │
+│                        │                                     [ Discuss construction in Ask → ]       │                                     │
+│                        │                                                                             │                                     │
+│                        │ REGISTERED RESEARCH ASSET    synthesis_keeling_accel_monthly_v1             │                                     │
+│                        │                                                        Registered           │                                     │
+│                        │                                                                             │                                     │
+│                        │  Input      keeling_mlo_monthly_clean                                       │                                     │
+│                        │  Output     synthesis_keeling_accel_monthly_v1                              │                                     │
+│                        │  Group by   Not reported                                                    │                                     │
+│                        │  Transforms 2 diffs + select                                                │                                     │
+│                        │                                                                             │                                     │
+│                        │  ✓ Requested      ✓ Ran           ✓ Archived      ✓ Registered              │                                     │
+│                        │    spec accepted    job 5f9b86fa    drive verified   820 rows               │                                     │
+│                        │                                                                             │                                     │
+│                        │  Execution evidence      Job        5f9b86fa6be8                            │                                     │
+│                        │                          Rows       820                                     │                                     │
+│                        │                          Manifest   synthesis_manifest_5f9b86fa6be8         │                                     │
+│                        │  Registration evidence   Archive    Reported verified                       │                                     │
+│                        │                          Registry   Registered output reported              │                                     │
+│                        │                          Output     synthesis_keeling_accel_monthly_v1      │                                     │
+│                        │                                                                             │                                     │
+│                        │  Truth boundary   Shown because the thread reports a registered             │                                     │
+│                        │                   output — not because Ask claimed it.                      │                                     │
+│                        │                                                                             │                                     │
+│                        │                    [ Ask about execution ]   [ Open in Library ]            │                                     │
+├────────────────────────┼─────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+│ Stablecoin Research    │ Wireframe of the live Synthesis page chrome                                 │ AI enters via the Ask rail          │
+└────────────────────────┴─────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────┘
