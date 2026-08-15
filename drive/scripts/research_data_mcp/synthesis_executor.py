@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -13,7 +14,18 @@ MAX_INPUT_BYTES = 512 * 1024 * 1024
 MAX_OUTPUT_ROWS = 1_000_000
 ALLOWED_METRIC_FNS = frozenset({"count", "sum", "mean", "min", "max"})
 ALLOWED_FILTER_OPS = frozenset({"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains"})
-ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join"})
+ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join", "derive", "drop_duplicates"})
+ALLOWED_DERIVE_FNS = frozenset({"indicator", "add", "sub", "mul", "div", "abs"})
+# A 1:N join side multiplies rows. The researcher chooses how it collapses; the
+# engine never picks silently.
+ALLOWED_COLLAPSE_STRATEGIES = frozenset({"first", "last", "error"})
+# Below this retained share, a join is almost always a calendar/frequency
+# mismatch rather than an intended narrowing. The researcher may still proceed
+# with accept_row_loss, but never by accident.
+JOIN_RETENTION_FLOOR_PCT = 20.0
+ARITHMETIC_DERIVE_FNS = frozenset({"add", "sub", "mul", "div"})
+DERIVE_COLUMN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+PROXY_FITNESS = frozenset({"untested", "face_valid"})
 
 
 def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
@@ -48,6 +60,7 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
     if len(transforms) > 16:
         raise ValueError("transforms limited to 16 steps")
     normalized_transforms: list[dict[str, Any]] = []
+    derived_names: set[str] = set()
     for step in transforms:
         if not isinstance(step, dict):
             raise ValueError("each transform must be an object")
@@ -89,7 +102,21 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("join requires on columns")
             if how not in {"inner", "left"}:
                 raise ValueError("join how must be inner or left")
-            step = {**step, "on": on, "how": how, "right_dataset_id": right}
+            collapse = step.get("collapse")
+            if collapse is not None:
+                if not isinstance(collapse, dict):
+                    raise ValueError("join collapse must be an object")
+                strategy = str(collapse.get("strategy") or "").strip().lower()
+                if strategy not in ALLOWED_COLLAPSE_STRATEGIES:
+                    raise ValueError(
+                        "join collapse strategy must be one of " + ", ".join(sorted(ALLOWED_COLLAPSE_STRATEGIES))
+                    )
+                collapse = {"strategy": strategy}
+            step = {**step, "on": on, "how": how, "right_dataset_id": right, "collapse": collapse,
+                    "accept_row_loss": bool(step.get("accept_row_loss"))}
+        elif op == "derive":
+            step = _validate_derive(step, derived_names)
+            derived_names.add(step["as"])
         normalized_transforms.append(dict(step, op=op))
     return {
         "input_dataset_id": dataset_id,
@@ -97,8 +124,262 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
         "group_by": group_by,
         "metrics": metrics,
         "transforms": normalized_transforms,
+        "proxy": _validate_proxy(spec.get("proxy")),
     }
 
+
+_EXPR_NODES = (
+    ast.Expression,
+    ast.Name,
+    ast.Load,
+    ast.Constant,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.Compare,
+    ast.Call,
+    ast.IfExp,
+    ast.Tuple,
+    ast.List,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+    ast.BitAnd,
+    ast.BitOr,
+    ast.BitXor,
+    ast.Invert,
+    ast.USub,
+    ast.UAdd,
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.In,
+    ast.NotIn,
+)
+
+
+def expression_functions() -> dict[str, Any]:
+    """The callable surface an expression may reach. Adding a row here widens
+    what Composer can express; nothing else in the grammar needs to change."""
+    import numpy as np
+    import pandas as pd
+
+    def dt(series):
+        return pd.to_datetime(series, errors="coerce")
+
+    periods = {"day": "D", "week": "W", "month": "M", "quarter": "Q", "year": "Y"}
+
+    def date_trunc(series, unit):
+        key = str(unit).lower()
+        if key not in periods:
+            raise ValueError(f"date_trunc unit must be one of {sorted(periods)}")
+        return dt(series).dt.to_period(periods[key]).astype(str)
+
+    def substr(series, start, length=None):
+        start = int(start)
+        stop = start + int(length) if length is not None else None
+        return series.astype(str).str[start:stop]
+
+    def concat(*parts):
+        out = None
+        for part in parts:
+            piece = part.astype(str) if hasattr(part, "astype") else str(part)
+            out = piece if out is None else out + piece
+        return out
+
+    def if_else(cond, when_true, when_false):
+        return pd.Series(np.where(cond, when_true, when_false), index=cond.index)
+
+    def ntile(series, buckets):
+        return pd.qcut(series, int(buckets), labels=False, duplicates="drop") + 1
+
+    return {
+        "date_trunc": date_trunc,
+        "year": lambda s: dt(s).dt.year,
+        "month": lambda s: dt(s).dt.month,
+        "quarter": lambda s: dt(s).dt.quarter,
+        "day_of_week": lambda s: dt(s).dt.dayofweek,
+        "lower": lambda s: s.astype(str).str.lower(),
+        "upper": lambda s: s.astype(str).str.upper(),
+        "strip": lambda s: s.astype(str).str.strip(),
+        "substr": substr,
+        "replace": lambda s, old, new: s.astype(str).str.replace(str(old), str(new), regex=False),
+        "contains": lambda s, pat: s.astype(str).str.contains(str(pat), na=False),
+        "concat": concat,
+        "length": lambda s: s.astype(str).str.len(),
+        "abs": lambda s: s.abs(),
+        "round": lambda s, digits=0: s.round(int(digits)),
+        "clip": lambda s, low, high: s.clip(low, high),
+        "log": lambda s: np.log(s.where(s > 0)),
+        "sqrt": lambda s: np.sqrt(s.where(s >= 0)),
+        "if_else": if_else,
+        "coalesce": lambda a, b: a.fillna(b),
+        "is_null": lambda s: s.isna(),
+        "rank_pct": lambda s: s.rank(pct=True),
+        "ntile": ntile,
+    }
+
+
+def validate_expression(expr: str) -> tuple[ast.Expression, list[str]]:
+    """Parse one row-wise expression and prove it is safe before it ever runs.
+
+    Safety is structural: no attribute access, no subscripting, no lambdas or
+    comprehensions, and calls only to names in expression_functions(). Returns
+    the tree and the column names it reads.
+    """
+    text = str(expr or "").strip()
+    if not text:
+        raise ValueError("derive expr must be a non-empty expression")
+    if len(text) > 2000:
+        raise ValueError("derive expr is limited to 2000 characters")
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError(f"derive expr is not a valid expression: {exc.msg}") from exc
+    functions = set(expression_functions())
+    referenced: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.BoolOp):
+            raise ValueError("use & and | instead of and/or: expressions operate on whole columns")
+        if not isinstance(node, _EXPR_NODES):
+            raise ValueError(f"derive expr may not use {type(node).__name__}")
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name):
+                raise ValueError("derive expr may only call named functions")
+            if node.func.id not in functions:
+                raise ValueError(
+                    f"unknown function {node.func.id!r}; available: {', '.join(sorted(functions))}"
+                )
+            if node.keywords:
+                raise ValueError("derive expr functions take positional arguments only")
+        elif isinstance(node, ast.Name):
+            if node.id not in functions and node.id not in referenced:
+                referenced.append(node.id)
+    if not referenced:
+        raise ValueError("derive expr must read at least one column")
+    return tree, referenced
+
+
+def _validate_derive(step: dict[str, Any], derived_names: set[str]) -> dict[str, Any]:
+    """One computed column, from a fixed operator set. No expressions, no eval."""
+    alias = str(step.get("as") or "").strip()
+    fn = str(step.get("fn") or "").strip()
+    column = str(step.get("column") or "").strip()
+    if not DERIVE_COLUMN.fullmatch(alias):
+        raise ValueError("derive requires as: lowercase name matching [a-z][a-z0-9_]{0,63}")
+    if alias in derived_names:
+        raise ValueError(f"derive produces duplicate column: {alias}")
+    if step.get("expr") is not None:
+        if fn or column:
+            raise ValueError("derive takes either expr or fn/column, not both")
+        _tree, reads = validate_expression(step.get("expr"))
+        return {"op": "derive", "as": alias, "expr": str(step["expr"]).strip(), "reads": reads}
+    if fn not in ALLOWED_DERIVE_FNS:
+        raise ValueError(f"derive fn must be one of {sorted(ALLOWED_DERIVE_FNS)}")
+    if not column:
+        raise ValueError("derive requires a source column")
+    normalized: dict[str, Any] = {"op": "derive", "as": alias, "fn": fn, "column": column}
+    if fn == "indicator":
+        cmp = str(step.get("cmp") or "")
+        if cmp not in ALLOWED_FILTER_OPS:
+            raise ValueError(f"derive indicator cmp must be one of {sorted(ALLOWED_FILTER_OPS)}")
+        if "value" not in step:
+            raise ValueError("derive indicator requires a comparison value")
+        normalized["cmp"] = cmp
+        normalized["value"] = step.get("value")
+    elif fn in ARITHMETIC_DERIVE_FNS:
+        by_column = str(step.get("by_column") or "").strip()
+        has_value = "value" in step and step.get("value") is not None
+        if bool(by_column) == has_value:
+            raise ValueError(f"derive {fn} requires exactly one of by_column or value")
+        if by_column:
+            normalized["by_column"] = by_column
+        else:
+            value = step.get("value")
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise ValueError(f"derive {fn} value must be a number")
+            normalized["value"] = value
+    return normalized
+
+
+def _validate_proxy(proxy: Any) -> dict[str, Any] | None:
+    """A declared stand-in. Optional, but when present it must say what it replaces."""
+    if proxy is None:
+        return None
+    if not isinstance(proxy, dict):
+        raise ValueError("proxy must be an object")
+    stands_in_for = str(proxy.get("stands_in_for") or "").strip()
+    construction = str(proxy.get("construction") or "").strip()
+    limitations = proxy.get("limitations") or []
+    fitness = str(proxy.get("fitness") or "untested").strip()
+    if not stands_in_for:
+        raise ValueError("proxy requires stands_in_for: the construct this output substitutes for")
+    if not construction:
+        raise ValueError("proxy requires construction: how the substitute is built")
+    if not isinstance(limitations, list) or not limitations or not all(
+        isinstance(x, str) and x.strip() for x in limitations
+    ):
+        raise ValueError("proxy requires limitations: a non-empty list of stated weaknesses")
+    if fitness == "validated":
+        raise ValueError(
+            "proxy fitness cannot be declared validated: nothing in this system measures proxy fitness"
+        )
+    if fitness not in PROXY_FITNESS:
+        raise ValueError(f"proxy fitness must be one of {sorted(PROXY_FITNESS)}")
+    return {
+        "stands_in_for": stands_in_for,
+        "construction": construction,
+        "limitations": [x.strip() for x in limitations],
+        "fitness": fitness,
+    }
+
+
+
+def _probe_join_step(
+    *,
+    left_path: Path | None,
+    right_path: Path | None,
+    key: str,
+    left_id: str,
+    right_id: str,
+) -> dict[str, Any]:
+    """Measure a declared join against the real bytes.
+
+    Never guesses: an unresolved side returns probe_error and no counts, so a
+    caller cannot mistake absence of evidence for a working join.
+    """
+    from scripts.research_data_mcp.synthesis.pair_probe import probe_pair
+
+    return probe_pair(left_path, right_path, key, left_id=left_id, right_id=right_id)
+
+
+def _non_finite_report(path: Path, columns: list[str]) -> dict[str, int]:
+    """Count inf/-inf per aggregate column. Silence means the file was unreadable
+    or the columns absent — never that the data was checked and found clean."""
+    if not columns:
+        return {}
+    try:
+        import numpy as np
+        import pandas as pd
+
+        frame = pd.read_parquet(path) if str(path).endswith(".parquet") else pd.read_csv(path, low_memory=False)
+    except Exception:
+        return {}
+    found: dict[str, int] = {}
+    for column in columns:
+        if column not in frame.columns:
+            continue
+        series = pd.to_numeric(frame[column], errors="coerce")
+        count = int(np.isinf(series).sum())
+        if count:
+            found[column] = count
+    return found
 
 
 def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str, Any]:
@@ -112,6 +393,14 @@ def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str,
     registry = _load_registry(repo_root)
     issues: list[dict[str, Any]] = []
     warnings: list[str] = []
+    probes: list[dict[str, Any]] = []
+
+    def try_path(source: dict[str, Any] | None) -> Path | None:
+        local = str((source or {}).get("local_path") or "").strip()
+        if not local or "*" in local:
+            return None
+        candidate = repo_root / local
+        return candidate if candidate.exists() else None
 
     def need_row(dataset_id: str) -> dict[str, Any] | None:
         try:
@@ -183,17 +472,114 @@ def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str,
                 missing = [c for c in subset if c not in working_cols]
                 if missing:
                     issues.append({"code": "missing_column", "op": "drop_na", "columns": missing})
+        elif op == "derive":
+            alias = str(step.get("as") or "")
+            read_keys = step.get("reads") or [] if step.get("expr") else [
+                str(step.get(key) or "") for key in ("column", "by_column")
+            ]
+            for col in read_keys:
+                if col and col not in working_cols:
+                    issues.append(
+                        {
+                            "code": "missing_column",
+                            "op": "derive",
+                            "column": col,
+                            "available_sample": sorted(working_cols)[:24],
+                        }
+                    )
+            if alias in working_cols:
+                issues.append({"code": "column_conflict", "op": "derive", "column": alias})
+            else:
+                working_cols.add(alias)
         elif op == "join":
             right_id = str(step.get("right_dataset_id") or "")
             right_row = need_row(right_id)
             right_cols = try_columns(right_id, right_row) if right_row else None
             on = list(step.get("on") or [])
+            missing_here = False
             for col in on:
                 if col not in working_cols:
                     issues.append({"code": "missing_column", "op": "join", "side": "left", "column": col})
+                    missing_here = True
                 if right_cols is not None and col not in right_cols:
                     issues.append({"code": "missing_column", "op": "join", "side": "right", "column": col, "dataset_id": right_id})
+                    missing_here = True
+            if not missing_here:
+                probe = _probe_join_step(
+                    left_path=try_path(input_row),
+                    right_path=try_path(right_row),
+                    key=list(on),
+                    left_id=normalized["input_dataset_id"],
+                    right_id=right_id,
+                )
+                probes.append(probe)
+                if probe.get("probe_error"):
+                    warnings.append(
+                        f"{right_id}: join not measured — {probe['probe_error']}; hydrate both sides before execute"
+                    )
+                elif probe.get("shared_distinct") == 0:
+                    issues.append({
+                        "code": "empty_join",
+                        "op": "join",
+                        "dataset_id": right_id,
+                        "key": list(on),
+                        "detail": "the declared key shares no values; this join returns nothing",
+                    })
+                elif (
+                    (probe.get("coverage_left_pct") or 0) < JOIN_RETENTION_FLOOR_PCT
+                    and (probe.get("coverage_right_pct") or 0) < JOIN_RETENTION_FLOOR_PCT
+                    and not step.get("accept_row_loss")
+                ):
+                    # Losing most of the long side while keeping all of the short one is
+                    # ordinary history truncation. Losing most of BOTH means the keys do
+                    # not describe the same calendar — a daily series against month-start
+                    # dates, say — and that is almost never intended.
+                    issues.append({
+                        "code": "join_discards_most_rows",
+                        "op": "join",
+                        "dataset_id": right_id,
+                        "key": list(on),
+                        "retained_left_pct": probe.get("coverage_left_pct"),
+                        "retained_right_pct": probe.get("coverage_right_pct"),
+                        "detail": (
+                            f"this join keeps {probe.get('coverage_left_pct')}% of the input and "
+                            f"{probe.get('coverage_right_pct')}% of {right_id} "
+                            f"({probe.get('shared_distinct')} shared keys). Both sides lose most of "
+                            "their rows, which usually means a frequency or calendar mismatch. "
+                            "Set accept_row_loss to proceed deliberately."
+                        ),
+                    })
+                elif probe.get("right_cardinality") == "1:N" and not step.get("collapse"):
+                    issues.append({
+                        "code": "collapse_rule_required",
+                        "op": "join",
+                        "dataset_id": right_id,
+                        "key": list(on),
+                        "detail": (
+                            f"a side is 1:N ({probe['right_rows']} rows over {probe['right_distinct']} keys); "
+                            "declare collapse.strategy so rows are not silently multiplied"
+                        ),
+                    })
             if right_cols is not None:
+                # A name present on both sides is kept from the LEFT; the right one
+                # is suffixed _right. A researcher who names it in a metric gets the
+                # left value without being told.
+                collided = sorted((set(working_cols) & set(right_cols)) - set(on))
+                if collided:
+                    warnings.append(
+                        f"{right_id}: column name(s) {', '.join(collided)} exist on both sides; "
+                        f"the input's values are kept and {right_id}'s become "
+                        f"{', '.join(c + '_right' for c in collided)}"
+                    )
+                if str(step.get("how") or "inner").lower() == "left":
+                    metric_cols = {str(m.get("column") or "") for m in normalized.get("metrics") or []}
+                    from_right = sorted(metric_cols & (set(right_cols) - set(on)))
+                    if from_right:
+                        warnings.append(
+                            f"{right_id}: left join leaves nulls where a key is unmatched, so "
+                            f"count() and mean({', '.join(from_right)}) are computed over different "
+                            "row counts; use an inner join or drop_na to make the denominator one number"
+                        )
                 # approximate post-join columns
                 working_cols = set(working_cols) | set(right_cols)
 
@@ -204,12 +590,26 @@ def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str,
         if missing:
             issues.append({"code": "missing_column", "op": "aggregate", "columns": missing, "available_sample": sorted(working_cols)[:24]})
 
+    # `_finite` scrubs inf out of DERIVED columns because inf is not a measurement.
+    # The same is true of inf arriving in source data, but silently rewriting a
+    # researcher's input would be the engine deciding for them — so report it.
+    input_path = try_path(input_row) if input_row else None
+    if input_path is not None:
+        agg_cols = [str(m.get("column") or "") for m in normalized.get("metrics") or [] if m.get("column")]
+        report = _non_finite_report(input_path, agg_cols)
+        for column, count in report.items():
+            warnings.append(
+                f"{normalized['input_dataset_id']}.{column}: {count} non-finite value(s) (inf/-inf) "
+                "in the source; aggregates over this column inherit them"
+            )
+
     ok = not issues
     return {
         "ok": ok,
         "execution_spec": normalized,
         "issues": issues,
         "warnings": warnings,
+        "join_probes": probes,
         "review_required": True,
         "note": (
             "Preflight only — does not execute or materialise. "
@@ -305,30 +705,96 @@ def _read_frame(file_path: Path):
     raise ValueError("execution input must be parquet, csv, or json")
 
 
-def _apply_filter(frame, step: dict[str, Any]):
-    col = str(step["column"])
-    cmp = str(step["cmp"])
-    value = step.get("value")
-    series = frame[col]
+def _compare_series(series, cmp: str, value: Any):
     if cmp == "eq":
-        return frame[series == value]
+        return series == value
     if cmp == "ne":
-        return frame[series != value]
+        return series != value
     if cmp == "gt":
-        return frame[series > value]
+        return series > value
     if cmp == "gte":
-        return frame[series >= value]
+        return series >= value
     if cmp == "lt":
-        return frame[series < value]
+        return series < value
     if cmp == "lte":
-        return frame[series <= value]
+        return series <= value
     if cmp == "in":
-        return frame[series.isin(list(value or []))]
+        return series.isin(list(value or []))
     if cmp == "not_in":
-        return frame[~series.isin(list(value or []))]
+        return ~series.isin(list(value or []))
     if cmp == "contains":
-        return frame[series.astype(str).str.contains(str(value), na=False)]
+        return series.astype(str).str.contains(str(value), na=False)
     raise ValueError(f"unsupported filter cmp: {cmp}")
+
+
+def _apply_filter(frame, step: dict[str, Any]):
+    return frame[_compare_series(frame[str(step["column"])], str(step["cmp"]), step.get("value"))]
+
+
+def _finite(result):
+    """inf is not a measurement. Division or a log that blew up becomes NaN so a
+    downstream mean() cannot report a finite-looking number built on it."""
+    import numpy as np
+
+    try:
+        return result.replace([np.inf, -np.inf], np.nan)
+    except (TypeError, AttributeError):
+        return result
+
+
+def _apply_expression(frame, step: dict[str, Any]):
+    alias = str(step["as"])
+    if alias in frame.columns:
+        raise ValueError(f"derive would overwrite an existing column: {alias}")
+    tree, reads = validate_expression(step["expr"])
+    missing = [name for name in reads if name not in frame.columns]
+    if missing:
+        raise ValueError(f"derive expr reads missing columns: {', '.join(missing)}")
+    namespace = dict(expression_functions())
+    namespace.update({name: frame[name] for name in reads})
+    code = compile(ast.fix_missing_locations(tree), "<derive>", "eval")
+    result = eval(code, {"__builtins__": {}}, namespace)  # noqa: S307 - AST validated above
+    frame = frame.copy()
+    frame[alias] = _finite(result)
+    return frame
+
+
+def _apply_derive(frame, step: dict[str, Any]):
+    if step.get("expr") is not None:
+        return _apply_expression(frame, step)
+    alias = str(step["as"])
+    fn = str(step["fn"])
+    column = str(step["column"])
+    if column not in frame.columns:
+        raise ValueError(f"derive source column missing: {column}")
+    if alias in frame.columns:
+        raise ValueError(f"derive would overwrite an existing column: {alias}")
+    series = frame[column]
+    if fn == "indicator":
+        result = _compare_series(series, str(step["cmp"]), step.get("value")).fillna(False).astype("int64")
+    elif fn == "abs":
+        result = series.abs()
+    else:
+        if "by_column" in step:
+            other = str(step["by_column"])
+            if other not in frame.columns:
+                raise ValueError(f"derive by_column missing: {other}")
+            right = frame[other]
+        else:
+            right = step["value"]
+        if fn == "add":
+            result = series + right
+        elif fn == "sub":
+            result = series - right
+        elif fn == "mul":
+            result = series * right
+        elif fn == "div":
+            result = _finite(series / right)
+        else:
+            raise ValueError(f"unsupported derive fn: {fn}")
+    frame = frame.copy()
+    frame[alias] = result
+    return frame
 
 
 def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]]):
@@ -370,7 +836,23 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                     "join columns missing: "
                     + ", ".join([*(f"left.{c}" for c in missing_l), *(f"right.{c}" for c in missing_r)])
                 )
+            # Preflight refuses a 1:N join unless the researcher declared how it
+            # collapses. Honour that declaration here, or the rule is theatre and
+            # the fan-out happens anyway.
+            strategy = str((step.get("collapse") or {}).get("strategy") or "").strip().lower()
+            if strategy in {"first", "last"}:
+                right = right.drop_duplicates(subset=on, keep=strategy)
+            elif strategy == "error" and right.duplicated(subset=on).any():
+                raise ValueError(
+                    f"join right side {step['right_dataset_id']} is not 1:1 on "
+                    f"{', '.join(on)} and collapse.strategy is 'error'"
+                )
             frame = frame.merge(right, on=on, how=str(step.get("how") or "inner"), suffixes=("", "_right"))
+        elif op == "derive":
+            frame = _apply_derive(frame, step)
+        elif op == "drop_duplicates":
+            subset = step.get("columns")
+            frame = frame.drop_duplicates(subset=subset if isinstance(subset, list) and subset else None)
         else:
             raise ValueError(f"unsupported transform op: {op}")
         if len(frame) > MAX_OUTPUT_ROWS:
@@ -415,6 +897,7 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
                 "manifest_id": f"synthesis_manifest_{job_id}",
                 "job_id": job_id,
                 "execution_spec": spec,
+                "proxy": spec.get("proxy"),
                 "input": {
                     "dataset_id": spec["input_dataset_id"],
                     "path": rel_input,
@@ -439,10 +922,12 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     rel = str(out_dir.relative_to(repo_root))
     return {
         "execution_spec": spec,
+        "proxy": spec.get("proxy"),
         "output_manifest_id": f"synthesis_manifest_{job_id}",
         "rows": len(output),
         "materialized": {
             "dataset_id": spec["output_dataset_id"],
+            "proxy": spec.get("proxy"),
             "canonical_dir": rel,
             "manifest_path": str(manifest.relative_to(repo_root)),
             "files": [{"name": "output.parquet", "path": str(parquet.relative_to(repo_root)), "bytes": parquet.stat().st_size}],
