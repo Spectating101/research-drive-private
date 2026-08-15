@@ -14,15 +14,22 @@ MAX_INPUT_BYTES = 512 * 1024 * 1024
 MAX_OUTPUT_ROWS = 1_000_000
 ALLOWED_METRIC_FNS = frozenset({"count", "sum", "mean", "min", "max"})
 ALLOWED_FILTER_OPS = frozenset({"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains"})
-ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join", "derive", "drop_duplicates"})
+ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join", "join_asof", "derive", "drop_duplicates"})
+# As-of is the point-in-time join: take the most recent right-hand row at or
+# before each left row's timestamp. `backward` is the only direction that cannot
+# see the future, so it is the default; `forward` and `nearest` are available but
+# a researcher choosing them is choosing to look ahead.
+ALLOWED_ASOF_DIRECTIONS = frozenset({"backward", "forward", "nearest"})
 ALLOWED_DERIVE_FNS = frozenset({"indicator", "add", "sub", "mul", "div", "abs"})
 # A 1:N join side multiplies rows. The researcher chooses how it collapses; the
 # engine never picks silently.
 ALLOWED_COLLAPSE_STRATEGIES = frozenset({"first", "last", "error"})
-# Below this retained share, a join is almost always a calendar/frequency
-# mismatch rather than an intended narrowing. The researcher may still proceed
-# with accept_row_loss, but never by accident.
-JOIN_RETENTION_FLOOR_PCT = 20.0
+# Structural interlock, not a research standard. Losing most of BOTH sides means
+# the keys do not describe the same calendar; it says nothing about whether the
+# surviving rows are worth studying — the caller judges that. Measured retention
+# is always reported in join_probes regardless of this value, and callers may
+# override it per call.
+DEFAULT_JOIN_RETENTION_FLOOR_PCT = 20.0
 ARITHMETIC_DERIVE_FNS = frozenset({"add", "sub", "mul", "div"})
 DERIVE_COLUMN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROXY_FITNESS = frozenset({"untested", "face_valid"})
@@ -114,6 +121,34 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
                 collapse = {"strategy": strategy}
             step = {**step, "on": on, "how": how, "right_dataset_id": right, "collapse": collapse,
                     "accept_row_loss": bool(step.get("accept_row_loss"))}
+        elif op == "join_asof":
+            right = str(step.get("right_dataset_id") or "").strip()
+            on = str(step.get("on") or "").strip()
+            by = step.get("by") or []
+            direction = str(step.get("direction") or "backward").strip().lower()
+            tolerance = step.get("tolerance")
+            if not right:
+                raise ValueError("join_asof requires right_dataset_id")
+            if not on:
+                raise ValueError("join_asof requires a single ordered `on` column")
+            if isinstance(by, str):
+                by = [by]
+            if not isinstance(by, list) or not all(isinstance(x, str) and x for x in by):
+                raise ValueError("join_asof `by` must be a list of column names")
+            if direction not in ALLOWED_ASOF_DIRECTIONS:
+                raise ValueError(
+                    "join_asof direction must be one of " + ", ".join(sorted(ALLOWED_ASOF_DIRECTIONS))
+                )
+            if tolerance is not None and not isinstance(tolerance, (str, int, float)):
+                raise ValueError("join_asof tolerance must be a string like '31D' or a number")
+            step = {
+                **step,
+                "right_dataset_id": right,
+                "on": on,
+                "by": by,
+                "direction": direction,
+                "tolerance": tolerance,
+            }
         elif op == "derive":
             step = _validate_derive(step, derived_names)
             derived_names.add(step["as"])
@@ -382,7 +417,12 @@ def _non_finite_report(path: Path, columns: list[str]) -> dict[str, int]:
     return found
 
 
-def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str, Any]:
+def preflight_execution_spec(
+    repo_root: Path,
+    spec: dict[str, Any],
+    *,
+    retention_floor_pct: float = DEFAULT_JOIN_RETENTION_FLOOR_PCT,
+) -> dict[str, Any]:
     """Validate structure and, when local bytes exist, required columns.
 
     Returns a structured report so agents can fix proposals before researcher review.
@@ -491,6 +531,46 @@ def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str,
                 issues.append({"code": "column_conflict", "op": "derive", "column": alias})
             else:
                 working_cols.add(alias)
+        elif op == "join_asof":
+            right_id = str(step.get("right_dataset_id") or "")
+            right_row = need_row(right_id)
+            right_cols = try_columns(right_id, right_row) if right_row else None
+            on = str(step.get("on") or "")
+            by = list(step.get("by") or [])
+            for col in [on, *by]:
+                if col and col not in working_cols:
+                    issues.append({"code": "missing_column", "op": "join_asof", "side": "left", "column": col})
+                if right_cols is not None and col and col not in right_cols:
+                    issues.append({"code": "missing_column", "op": "join_asof", "side": "right",
+                                   "column": col, "dataset_id": right_id})
+            if by and right_row is not None:
+                # An as-of join matches entities exactly and only then reaches back
+                # in time, so entity overlap is what decides whether it yields rows.
+                probe = _probe_join_step(
+                    left_path=try_path(input_row), right_path=try_path(right_row), key=by,
+                    left_id=normalized["input_dataset_id"], right_id=right_id,
+                )
+                probes.append(probe)
+                if probe.get("probe_error"):
+                    warnings.append(f"{right_id}: as-of entity overlap not measured — {probe['probe_error']}")
+                elif probe.get("shared_distinct") == 0:
+                    issues.append({
+                        "code": "empty_join", "op": "join_asof", "dataset_id": right_id, "key": by,
+                        "detail": "the `by` entities share no values; this as-of join returns nothing",
+                    })
+            if str(step.get("direction") or "backward") != "backward":
+                warnings.append(
+                    f"{right_id}: as-of direction is "
+                    f"'{step.get('direction')}' — this reads values dated after the left row, "
+                    "which is lookahead unless the study intends it"
+                )
+            if step.get("tolerance") is None:
+                warnings.append(
+                    f"{right_id}: no as-of tolerance set, so an unmatched row may pull an "
+                    "arbitrarily old value; set tolerance (e.g. '31D') to bound staleness"
+                )
+            if right_cols is not None:
+                working_cols = set(working_cols) | set(right_cols)
         elif op == "join":
             right_id = str(step.get("right_dataset_id") or "")
             right_row = need_row(right_id)
@@ -526,8 +606,8 @@ def preflight_execution_spec(repo_root: Path, spec: dict[str, Any]) -> dict[str,
                         "detail": "the declared key shares no values; this join returns nothing",
                     })
                 elif (
-                    (probe.get("coverage_left_pct") or 0) < JOIN_RETENTION_FLOOR_PCT
-                    and (probe.get("coverage_right_pct") or 0) < JOIN_RETENTION_FLOOR_PCT
+                    (probe.get("coverage_left_pct") or 0) < retention_floor_pct
+                    and (probe.get("coverage_right_pct") or 0) < retention_floor_pct
                     and not step.get("accept_row_loss")
                 ):
                     # Losing most of the long side while keeping all of the short one is
@@ -848,6 +928,34 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                     f"{', '.join(on)} and collapse.strategy is 'error'"
                 )
             frame = frame.merge(right, on=on, how=str(step.get("how") or "inner"), suffixes=("", "_right"))
+        elif op == "join_asof":
+            import pandas as pd
+
+            right_src = _registry_row(registry, str(step["right_dataset_id"]))
+            right_path = _ensure_local_file(repo_root, right_src)
+            right = _read_frame(right_path)
+            on = str(step["on"])
+            by = list(step.get("by") or [])
+            for side, cols, f in (("left", [on, *by], frame), ("right", [on, *by], right)):
+                missing = [c for c in cols if c not in f.columns]
+                if missing:
+                    raise ValueError(f"join_asof {side} is missing: {', '.join(missing)}")
+            # merge_asof requires both sides ordered by the as-of column, and a
+            # comparable dtype on each. Dates arrive as strings often enough that
+            # coercing here is the difference between a join and a crash.
+            left_frame = frame.copy()
+            right_frame = right.copy()
+            for f in (left_frame, right_frame):
+                f[on] = pd.to_datetime(f[on], errors="coerce")
+            left_frame = left_frame.dropna(subset=[on]).sort_values(on)
+            right_frame = right_frame.dropna(subset=[on]).sort_values(on)
+            tolerance = step.get("tolerance")
+            kwargs: dict[str, Any] = {"on": on, "direction": str(step.get("direction") or "backward")}
+            if by:
+                kwargs["by"] = by
+            if tolerance is not None:
+                kwargs["tolerance"] = pd.Timedelta(tolerance) if isinstance(tolerance, str) else tolerance
+            frame = pd.merge_asof(left_frame, right_frame, suffixes=("", "_right"), **kwargs)
         elif op == "derive":
             frame = _apply_derive(frame, step)
         elif op == "drop_duplicates":

@@ -127,6 +127,26 @@ def _transform_lines(transforms: list[dict[str, Any]]) -> list[str]:
             elif collapse == "error":
                 lines.append(f"assert not {var}.duplicated(subset={_py(on)}).any(), 'right side is not 1:1 on the key'")
             lines.append(f"frame = frame.merge({var}, on={_py(on)}, how={_py(how)})")
+        elif op == "join_asof":
+            right = step.get("right_dataset_id")
+            on = step.get("on")
+            by = list(step.get("by") or [])
+            direction = step.get("direction") or "backward"
+            tolerance = step.get("tolerance")
+            var = f"asof_{str(right).replace('-', '_')}"
+            lines.append(f"{var} = read_input({_py(right)})")
+            lines.append(f"frame[{_py(on)}] = pd.to_datetime(frame[{_py(on)}], errors='coerce')")
+            lines.append(f"{var}[{_py(on)}] = pd.to_datetime({var}[{_py(on)}], errors='coerce')")
+            lines.append(f"frame = frame.dropna(subset=[{_py(on)}]).sort_values({_py(on)})")
+            lines.append(f"{var} = {var}.dropna(subset=[{_py(on)}]).sort_values({_py(on)})")
+            args = [f"on={_py(on)}", f"direction={_py(direction)}"]
+            if by:
+                args.append(f"by={_py(by)}")
+            if tolerance is not None:
+                args.append(f"tolerance=pd.Timedelta({_py(tolerance)})" if isinstance(tolerance, str)
+                            else f"tolerance={tolerance}")
+            lines.append(f"# as-of: most recent {right} row {direction} of each left timestamp")
+            lines.append(f"frame = pd.merge_asof(frame, {var}, suffixes=('', '_right'), {', '.join(args)})")
         elif op == "derive":
             alias = step.get("as")
             if step.get("expr") is not None:
