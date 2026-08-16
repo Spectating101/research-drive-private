@@ -895,6 +895,19 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                     "join columns missing: "
                     + ", ".join([*(f"left.{c}" for c in missing_l), *(f"right.{c}" for c in missing_r)])
                 )
+            # The probe measures overlap on string values, so a key stored as a
+            # date on one side and text on the other reads as compatible and then
+            # fails the merge on dtype. Align them the way the probe compared them
+            # rather than letting the two disagree.
+            for key_col in on:
+                left_kind = frame[key_col].dtype.kind
+                right_kind = right[key_col].dtype.kind
+                if left_kind != right_kind:
+                    frame = frame.copy()
+                    right = right.copy()
+                    frame[key_col] = frame[key_col].astype(str)
+                    right[key_col] = right[key_col].astype(str)
+
             # Preflight refuses a 1:N join unless the researcher declared how it
             # collapses. Honour that declaration here, or the rule is theatre and
             # the fan-out happens anyway.

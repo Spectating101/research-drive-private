@@ -186,3 +186,31 @@ def test_inner_join_does_not_warn_about_denominators(tmp_path):
     spec = _spec(metrics=[{"function": "mean", "column": "y", "as": "mean_y"}])
     report = preflight_execution_spec(repo, spec)
     assert not any("row counts" in w for w in report["warnings"])
+
+
+def test_join_key_dtype_mismatch_does_not_crash_the_merge(tmp_path):
+    """The probe compares keys as strings; the executor must agree or a pair the
+    probe called compatible dies on `datetime64 and str columns`."""
+    import pandas as _pd
+    left = _pd.DataFrame({"ric": _pd.to_datetime(["2024-01-01", "2024-01-02"]), "v": [1.0, 2.0]})
+    right = _pd.DataFrame({"ric": ["2024-01-01", "2024-01-02"], "w": [10.0, 20.0]})
+    repo = _repo(tmp_path, {"spine": left, "attr": right})
+    spec = _spec(metrics=[{"function": "mean", "column": "w", "as": "mw"}])
+    report = preflight_execution_spec(repo, spec)
+    assert report["ok"], [i["code"] for i in report["issues"]]
+    from scripts.research_data_mcp.synthesis_executor import execute
+    execute(repo, "dt", {"execution_spec": spec, "thread_id": "t"})
+    out = pd.read_parquet(repo / "data_lake/synthesis/thread_outputs/t/dt/output.parquet")
+    assert len(out) == 2
+
+
+def test_matching_dtypes_are_left_alone(tmp_path):
+    repo = _repo(tmp_path, {
+        "spine": pd.DataFrame({"ric": ["A", "B"], "v": [1.0, 2.0]}),
+        "attr": pd.DataFrame({"ric": ["A", "B"], "w": [10.0, 20.0]}),
+    })
+    spec = _spec(metrics=[{"function": "mean", "column": "w", "as": "mw"}])
+    from scripts.research_data_mcp.synthesis_executor import execute
+    execute(repo, "same", {"execution_spec": spec, "thread_id": "t"})
+    out = pd.read_parquet(repo / "data_lake/synthesis/thread_outputs/t/same/output.parquet")
+    assert len(out) == 2
