@@ -126,7 +126,13 @@ def _transform_lines(transforms: list[dict[str, Any]]) -> list[str]:
                 lines.append(f"{var} = {var}.drop_duplicates(subset={_py(on)}, keep={_py(collapse)})")
             elif collapse == "error":
                 lines.append(f"assert not {var}.duplicated(subset={_py(on)}).any(), 'right side is not 1:1 on the key'")
-            lines.append(f"frame = frame.merge({var}, on={_py(on)}, how={_py(how)})")
+            lines.append(f"for _key in {_py(on)}:")
+            lines.append(f"    if frame[_key].dtype.kind != {var}[_key].dtype.kind:")
+            lines.append("        frame[_key] = frame[_key].astype(str)")
+            lines.append(f"        {var}[_key] = {var}[_key].astype(str)")
+            lines.append(
+                f"frame = frame.merge({var}, on={_py(on)}, how={_py(how)}, suffixes=('', '_right'))"
+            )
         elif op == "join_asof":
             right = step.get("right_dataset_id")
             left_on = step.get("left_on") or step.get("on")
