@@ -436,11 +436,13 @@ def preflight_execution_spec(
     probes: list[dict[str, Any]] = []
 
     def try_path(source: dict[str, Any] | None) -> Path | None:
-        local = str((source or {}).get("local_path") or "").strip()
-        if not local or "*" in local:
+        """Same addressing the executor uses, or the gate probes nothing."""
+        from scripts.research_data_mcp.synthesis.dataset_paths import resolve_dataset_file
+
+        if not source:
             return None
-        candidate = repo_root / local
-        return candidate if candidate.exists() else None
+        found, _reason = resolve_dataset_file(repo_root, source)
+        return found
 
     def need_row(dataset_id: str) -> dict[str, Any] | None:
         try:
@@ -450,17 +452,14 @@ def preflight_execution_spec(
             return None
 
     def try_columns(dataset_id: str, source: dict[str, Any]) -> list[str] | None:
-        local = str(source.get("local_path") or "").strip()
-        if not local or "*" in local:
-            warnings.append(f"{dataset_id}: local path missing or glob — column check skipped")
-            return None
-        path = repo_root / local
-        if not path.is_file():
-            # directory or compacted
-            if path.is_dir():
-                warnings.append(f"{dataset_id}: directory input — column check skipped")
-                return None
-            warnings.append(f"{dataset_id}: local bytes absent — hydrate before execute; column check skipped")
+        from scripts.research_data_mcp.synthesis.dataset_paths import resolve_dataset_file
+
+        path, reason = resolve_dataset_file(repo_root, source)
+        if path is None:
+            # The reason names what is actually wrong — a root that is not on this
+            # machine, a file the registry names but does not exist, or a directory
+            # holding several datasets — rather than "column check skipped".
+            warnings.append(f"{reason}; column check skipped")
             return None
         try:
             frame = _read_frame(path)
@@ -711,45 +710,25 @@ def _registry_row(registry: dict[str, Any], dataset_id: str) -> dict[str, Any]:
 
 
 def _ensure_local_file(repo_root: Path, source: dict[str, Any]) -> Path:
-    """Hydrate from Drive when local bytes were compacted, then return concrete file path."""
+    """Hydrate from Drive when local bytes were compacted, then return concrete file path.
+
+    Resolution honours the registry's own addressing (local_path, or
+    local_root + default_run_id + local_file) across every configured data root.
+    It previously looked only under repo_root and, for a directory, took the
+    first tabular file it found — which returns a different dataset than the one
+    asked for whenever several share a root.
+    """
     from scripts.research_data_mcp.registry_hydrate import ensure_registry_local_bytes
+    from scripts.research_data_mcp.synthesis.dataset_paths import resolve_dataset_file
 
-    path = str(source.get("local_path") or "").strip()
-    if not path or "*" in path:
-        # Directory local_path: try hydrate then pick first tabular file
+    file_path, reason = resolve_dataset_file(repo_root, source)
+    if file_path is None:
+        # Bytes may be compacted; hydrate then look once more before failing.
         hydrate = ensure_registry_local_bytes(repo_root, source)
-        root = str(source.get("local_path") or source.get("local_root") or "").rstrip("/*")
-        if not root:
-            raise ValueError("execution input must have one concrete local file path")
-        base = repo_root / root
-        if not base.exists():
-            raise ValueError(
-                f"execution input bytes are unavailable locally"
-                + (f" (hydrate={hydrate.get('error') or hydrate.get('reason')})" if hydrate else "")
-            )
-        candidates = sorted(
-            [
-                p
-                for p in base.rglob("*")
-                if p.is_file()
-                and (
-                    p.suffix.lower() in {".csv", ".parquet", ".json"}
-                    or p.name in {"STOCK_DAY_ALL", "STOCK_DAY_AVG_ALL"}
-                )
-            ]
-        )
-        if not candidates:
-            raise ValueError("execution input directory has no csv/parquet/json files")
-        return candidates[0]
-
-    file_path = repo_root / path
-    if not file_path.is_file():
-        hydrate = ensure_registry_local_bytes(repo_root, source)
-        if not file_path.is_file():
-            raise ValueError(
-                "execution input bytes are unavailable locally"
-                + (f" (hydrate={hydrate.get('error') or hydrate.get('ok')})" if hydrate else "")
-            )
+        file_path, reason = resolve_dataset_file(repo_root, source)
+        if file_path is None:
+            detail = f" (hydrate={hydrate.get('error') or hydrate.get('reason') or hydrate.get('ok')})" if hydrate else ""
+            raise ValueError(f"execution input bytes are unavailable locally: {reason}{detail}")
     if file_path.stat().st_size > MAX_INPUT_BYTES:
         raise ValueError("execution input exceeds the 512 MiB in-memory execution limit")
     return file_path
