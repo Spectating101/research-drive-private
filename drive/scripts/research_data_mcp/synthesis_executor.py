@@ -893,7 +893,7 @@ def _apply_derive(frame, step: dict[str, Any], notes: dict[str, int] | None = No
     return frame
 
 
-def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]], notes: dict[str, int] | None = None):
+def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]], notes: dict[str, int] | None = None, asof_report: list[dict[str, Any]] | None = None):
     for step in transforms:
         op = step["op"]
         if op == "filter":
@@ -977,8 +977,10 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
             right_frame = right.copy()
             left_frame[left_on] = pd.to_datetime(left_frame[left_on], errors="coerce")
             right_frame[right_on] = pd.to_datetime(right_frame[right_on], errors="coerce")
+            rows_in = len(left_frame)
             left_frame = left_frame.dropna(subset=[left_on]).sort_values(left_on)
             right_frame = right_frame.dropna(subset=[right_on]).sort_values(right_on)
+            undated_left = rows_in - len(left_frame)
             tolerance = step.get("tolerance")
             kwargs: dict[str, Any] = {"direction": str(step.get("direction") or "backward")}
             if left_on == right_on:
@@ -990,7 +992,23 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                 kwargs["by"] = by
             if tolerance is not None:
                 kwargs["tolerance"] = pd.Timedelta(tolerance) if isinstance(tolerance, str) else tolerance
+            marker = "__asof_matched"
+            if marker not in right_frame.columns:
+                right_frame[marker] = True
             frame = pd.merge_asof(left_frame, right_frame, suffixes=("", "_right"), **kwargs)
+            matched = int(frame[marker].notna().sum()) if marker in frame.columns else len(frame)
+            if marker in frame.columns:
+                frame = frame.drop(columns=[marker])
+            if asof_report is not None:
+                asof_report.append({
+                    "right_dataset_id": str(step["right_dataset_id"]),
+                    "direction": kwargs["direction"],
+                    "left_rows": rows_in,
+                    "undated_left_rows_dropped": undated_left,
+                    "matched_rows": matched,
+                    "unmatched_rows": len(frame) - matched,
+                    "match_rate_pct": round(100 * matched / len(frame), 1) if len(frame) else 0.0,
+                })
         elif op == "derive":
             frame = _apply_derive(frame, step, notes)
         elif op == "drop_duplicates":
@@ -1012,7 +1030,8 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     file_path = _ensure_local_file(repo_root, source)
     frame = _read_frame(file_path)
     undefined: dict[str, int] = {}
-    frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [], undefined)
+    asof_coverage: list[dict[str, Any]] = []
+    frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [], undefined, asof_coverage)
 
     needed = set(spec["group_by"])
     needed.update(str(m.get("column") or "") for m in spec["metrics"] if m.get("column"))
@@ -1049,6 +1068,7 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
                     "sha256": hashlib.sha256(file_path.read_bytes()).hexdigest(),
                 },
                 "undefined_derived_values": undefined,
+                "asof_coverage": asof_coverage,
                 "output": {
                     "dataset_id": spec["output_dataset_id"],
                     "path": str(parquet.relative_to(repo_root)),
@@ -1070,6 +1090,7 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
         "proxy": spec.get("proxy"),
         "output_manifest_id": f"synthesis_manifest_{job_id}",
         "undefined_derived_values": undefined,
+        "asof_coverage": asof_coverage,
         "rows": len(output),
         "materialized": {
             "dataset_id": spec["output_dataset_id"],
