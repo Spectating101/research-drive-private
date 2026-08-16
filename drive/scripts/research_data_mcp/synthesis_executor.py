@@ -816,18 +816,29 @@ def _apply_filter(frame, step: dict[str, Any]):
     return frame[_compare_series(frame[str(step["column"])], str(step["cmp"]), step.get("value"))]
 
 
-def _finite(result):
+def _finite(result, notes: dict[str, int] | None = None, alias: str = ""):
     """inf is not a measurement. Division or a log that blew up becomes NaN so a
-    downstream mean() cannot report a finite-looking number built on it."""
+    downstream mean() cannot report a finite-looking number built on it.
+
+    How many it masked is recorded in `notes`. Without that count a group whose
+    every value was undefined reports sum() == 0.0, which reads as a measured
+    zero rather than nothing to measure.
+    """
     import numpy as np
 
+    try:
+        masked = int(np.isinf(result).sum())
+    except (TypeError, ValueError):
+        masked = 0
+    if masked and notes is not None and alias:
+        notes[alias] = notes.get(alias, 0) + masked
     try:
         return result.replace([np.inf, -np.inf], np.nan)
     except (TypeError, AttributeError):
         return result
 
 
-def _apply_expression(frame, step: dict[str, Any]):
+def _apply_expression(frame, step: dict[str, Any], notes: dict[str, int] | None = None):
     alias = str(step["as"])
     if alias in frame.columns:
         raise ValueError(f"derive would overwrite an existing column: {alias}")
@@ -840,13 +851,13 @@ def _apply_expression(frame, step: dict[str, Any]):
     code = compile(ast.fix_missing_locations(tree), "<derive>", "eval")
     result = eval(code, {"__builtins__": {}}, namespace)  # noqa: S307 - AST validated above
     frame = frame.copy()
-    frame[alias] = _finite(result)
+    frame[alias] = _finite(result, notes, alias)
     return frame
 
 
-def _apply_derive(frame, step: dict[str, Any]):
+def _apply_derive(frame, step: dict[str, Any], notes: dict[str, int] | None = None):
     if step.get("expr") is not None:
-        return _apply_expression(frame, step)
+        return _apply_expression(frame, step, notes)
     alias = str(step["as"])
     fn = str(step["fn"])
     column = str(step["column"])
@@ -874,7 +885,7 @@ def _apply_derive(frame, step: dict[str, Any]):
         elif fn == "mul":
             result = series * right
         elif fn == "div":
-            result = _finite(series / right)
+            result = _finite(series / right, notes, alias)
         else:
             raise ValueError(f"unsupported derive fn: {fn}")
     frame = frame.copy()
@@ -882,7 +893,7 @@ def _apply_derive(frame, step: dict[str, Any]):
     return frame
 
 
-def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]]):
+def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]], notes: dict[str, int] | None = None):
     for step in transforms:
         op = step["op"]
         if op == "filter":
@@ -981,7 +992,7 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                 kwargs["tolerance"] = pd.Timedelta(tolerance) if isinstance(tolerance, str) else tolerance
             frame = pd.merge_asof(left_frame, right_frame, suffixes=("", "_right"), **kwargs)
         elif op == "derive":
-            frame = _apply_derive(frame, step)
+            frame = _apply_derive(frame, step, notes)
         elif op == "drop_duplicates":
             subset = step.get("columns")
             frame = frame.drop_duplicates(subset=subset if isinstance(subset, list) and subset else None)
@@ -1000,7 +1011,8 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     source = _registry_row(registry, spec["input_dataset_id"])
     file_path = _ensure_local_file(repo_root, source)
     frame = _read_frame(file_path)
-    frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [])
+    undefined: dict[str, int] = {}
+    frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [], undefined)
 
     needed = set(spec["group_by"])
     needed.update(str(m.get("column") or "") for m in spec["metrics"] if m.get("column"))
@@ -1036,6 +1048,7 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
                     "bytes": file_path.stat().st_size,
                     "sha256": hashlib.sha256(file_path.read_bytes()).hexdigest(),
                 },
+                "undefined_derived_values": undefined,
                 "output": {
                     "dataset_id": spec["output_dataset_id"],
                     "path": str(parquet.relative_to(repo_root)),
@@ -1056,6 +1069,7 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
         "execution_spec": spec,
         "proxy": spec.get("proxy"),
         "output_manifest_id": f"synthesis_manifest_{job_id}",
+        "undefined_derived_values": undefined,
         "rows": len(output),
         "materialized": {
             "dataset_id": spec["output_dataset_id"],
