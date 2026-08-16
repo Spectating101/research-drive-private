@@ -182,14 +182,18 @@ class ResearchQueryEngine:
     def search_datasets(self, q: str = "", domain: str = "", readiness: str = "", access_mode: str = "", limit: int = 50) -> list[dict[str, Any]]:
         ql = q.lower().strip()
         tokens = [t for t in re.split(r"\W+", ql) if len(t) > 2]
+        patterns = [(t, re.compile(r"\b" + re.escape(t))) for t in tokens]
         scored: list[tuple[int, dict[str, Any]]] = []
         for ds in self.list_datasets():
             text = " ".join(str(ds.get(k, "")) for k in ["dataset_id", "name", "description", "recommended_use", "limitations", "grain", "backend"]).lower()
+            matched: list[str] = []
             if ql:
                 if ql in text:
                     score = 100
-                elif tokens:
-                    score = sum(10 for token in tokens if token in text)
+                    matched = list(tokens) or [ql]
+                elif patterns:
+                    matched = [token for token, pattern in patterns if pattern.search(text)]
+                    score = 10 * len(matched)
                     if score == 0:
                         continue
                 else:
@@ -202,6 +206,10 @@ class ResearchQueryEngine:
                 continue
             if access_mode and access_mode != ds.get("access_shape"):
                 continue
+            if ql:
+                ds = dict(ds)
+                ds["match_terms"] = matched
+                ds["match_terms_total"] = len(tokens)
             scored.append((score, ds))
         scored.sort(key=lambda row: (-row[0], row[1].get("dataset_id", "")))
         return [ds for _, ds in scored[:limit]]
