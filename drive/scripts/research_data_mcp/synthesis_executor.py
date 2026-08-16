@@ -893,9 +893,10 @@ def _apply_derive(frame, step: dict[str, Any], notes: dict[str, int] | None = No
     return frame
 
 
-def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]], notes: dict[str, int] | None = None, asof_report: list[dict[str, Any]] | None = None):
-    for step in transforms:
+def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transforms: list[dict[str, Any]], notes: dict[str, int] | None = None, asof_report: list[dict[str, Any]] | None = None, row_ledger: list[dict[str, Any]] | None = None):
+    for position, step in enumerate(transforms, start=1):
         op = step["op"]
+        rows_before = len(frame)
         if op == "filter":
             if step["column"] not in frame.columns:
                 raise ValueError(f"filter column missing: {step['column']}")
@@ -1016,6 +1017,9 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
             frame = frame.drop_duplicates(subset=subset if isinstance(subset, list) and subset else None)
         else:
             raise ValueError(f"unsupported transform op: {op}")
+        if row_ledger is not None:
+            row_ledger.append({"step": position, "op": op,
+                               "rows_in": rows_before, "rows_out": len(frame)})
         if len(frame) > MAX_OUTPUT_ROWS:
             raise ValueError("transform intermediate result exceeds the 1,000,000-row safety limit")
     return frame
@@ -1031,7 +1035,10 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     frame = _read_frame(file_path)
     undefined: dict[str, int] = {}
     asof_coverage: list[dict[str, Any]] = []
-    frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [], undefined, asof_coverage)
+    row_ledger: list[dict[str, Any]] = []
+    source_rows = len(frame)
+    frame = _apply_transforms(repo_root, registry, frame, spec.get("transforms") or [], undefined, asof_coverage, row_ledger)
+    rows_aggregated = len(frame)
 
     needed = set(spec["group_by"])
     needed.update(str(m.get("column") or "") for m in spec["metrics"] if m.get("column"))
@@ -1069,6 +1076,7 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
                 },
                 "undefined_derived_values": undefined,
                 "asof_coverage": asof_coverage,
+                "rows": {"source": source_rows, "aggregated": rows_aggregated, "by_step": row_ledger},
                 "output": {
                     "dataset_id": spec["output_dataset_id"],
                     "path": str(parquet.relative_to(repo_root)),
@@ -1091,6 +1099,9 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
         "output_manifest_id": f"synthesis_manifest_{job_id}",
         "undefined_derived_values": undefined,
         "asof_coverage": asof_coverage,
+        "source_rows": source_rows,
+        "rows_aggregated": rows_aggregated,
+        "row_ledger": row_ledger,
         "rows": len(output),
         "materialized": {
             "dataset_id": spec["output_dataset_id"],
