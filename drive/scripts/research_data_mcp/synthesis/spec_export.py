@@ -129,17 +129,23 @@ def _transform_lines(transforms: list[dict[str, Any]]) -> list[str]:
             lines.append(f"frame = frame.merge({var}, on={_py(on)}, how={_py(how)})")
         elif op == "join_asof":
             right = step.get("right_dataset_id")
-            on = step.get("on")
+            left_on = step.get("left_on") or step.get("on")
+            right_on = step.get("right_on") or step.get("on")
             by = list(step.get("by") or [])
             direction = step.get("direction") or "backward"
             tolerance = step.get("tolerance")
             var = f"asof_{str(right).replace('-', '_')}"
             lines.append(f"{var} = read_input({_py(right)})")
-            lines.append(f"frame[{_py(on)}] = pd.to_datetime(frame[{_py(on)}], errors='coerce')")
-            lines.append(f"{var}[{_py(on)}] = pd.to_datetime({var}[{_py(on)}], errors='coerce')")
-            lines.append(f"frame = frame.dropna(subset=[{_py(on)}]).sort_values({_py(on)})")
-            lines.append(f"{var} = {var}.dropna(subset=[{_py(on)}]).sort_values({_py(on)})")
-            args = [f"on={_py(on)}", f"direction={_py(direction)}"]
+            lines.append(f"frame[{_py(left_on)}] = pd.to_datetime(frame[{_py(left_on)}], errors='coerce')")
+            lines.append(f"{var}[{_py(right_on)}] = pd.to_datetime({var}[{_py(right_on)}], errors='coerce')")
+            lines.append(f"frame = frame.dropna(subset=[{_py(left_on)}]).sort_values({_py(left_on)})")
+            lines.append(f"{var} = {var}.dropna(subset=[{_py(right_on)}]).sort_values({_py(right_on)})")
+            args = [f"direction={_py(direction)}"]
+            if left_on == right_on:
+                args.append(f"on={_py(left_on)}")
+            else:
+                args.append(f"left_on={_py(left_on)}")
+                args.append(f"right_on={_py(right_on)}")
             if by:
                 args.append(f"by={_py(by)}")
             if tolerance is not None:

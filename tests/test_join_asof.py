@@ -130,3 +130,62 @@ def test_export_reproduces_the_asof_result(tmp_path):
     assert run.returncode == 0, run.stderr[-500:]
     pd.testing.assert_frame_equal(engine, pd.read_parquet(repo / "o.parquet"),
                                   check_dtype=False, rtol=1e-9)
+
+
+MONTHLY_ALT = MONTHLY.rename(columns={"date": "as_of_date"})
+
+
+def test_sides_may_name_the_time_column_differently(tmp_path):
+    """A daily panel says `date`; a point-in-time snapshot says `as_of_date`."""
+    repo = _repo(tmp_path, {"px": DAILY, "fund": MONTHLY_ALT})
+    spec = _spec(step={"on": None, "left_on": "date", "right_on": "as_of_date"})
+    spec["transforms"][0].pop("on", None)
+    execute(repo, "alt", {"execution_spec": spec, "thread_id": "t"})
+    out = pd.read_parquet(repo / "data_lake/synthesis/thread_outputs/t/alt/output.parquet")
+    assert int(out["n"].iloc[0]) == 90
+
+
+def test_on_and_left_on_together_are_refused():
+    with pytest.raises(ValueError, match="either `on` or both"):
+        validate_execution_spec(_spec(step={"left_on": "date", "right_on": "as_of_date"}))
+
+
+def test_neither_on_nor_a_pair_is_refused():
+    spec = _spec()
+    spec["transforms"][0].pop("on")
+    with pytest.raises(ValueError, match="left_on"):
+        validate_execution_spec(spec)
+
+
+def test_preflight_checks_each_side_against_its_own_column(tmp_path):
+    repo = _repo(tmp_path, {"px": DAILY, "fund": MONTHLY_ALT})
+    spec = _spec(step={"on": None, "left_on": "date", "right_on": "as_of_date"})
+    spec["transforms"][0].pop("on", None)
+    report = preflight_execution_spec(repo, spec)
+    assert report["ok"], [i for i in report["issues"]]
+
+
+def test_preflight_names_the_side_whose_column_is_missing(tmp_path):
+    repo = _repo(tmp_path, {"px": DAILY, "fund": MONTHLY})  # right has `date`, not `as_of_date`
+    spec = _spec(step={"on": None, "left_on": "date", "right_on": "as_of_date"})
+    spec["transforms"][0].pop("on", None)
+    report = preflight_execution_spec(repo, spec)
+    issue = next(i for i in report["issues"] if i["code"] == "missing_column")
+    assert issue["side"] == "right" and issue["column"] == "as_of_date"
+
+
+def test_export_reproduces_a_split_column_asof(tmp_path):
+    repo = _repo(tmp_path, {"px": DAILY, "fund": MONTHLY_ALT})
+    spec = _spec(step={"on": None, "left_on": "date", "right_on": "as_of_date"})
+    spec["transforms"][0].pop("on", None)
+    pf = preflight_execution_spec(repo, spec)
+    execute(repo, "altfid", {"execution_spec": spec, "thread_id": "t"})
+    engine = pd.read_parquet(repo / "data_lake/synthesis/thread_outputs/t/altfid/output.parquet")
+    inputs = {n: fingerprint_path(repo / f"data/{n}.parquet") for n in ("px", "fund")}
+    script = render_script(spec, inputs, probes=pf.get("join_probes"))
+    path = repo / "alt.py"
+    path.write_text(script + f"\nresult.to_parquet(r'{repo}/alt.parquet', index=False)\n", encoding="utf-8")
+    run = subprocess.run([sys.executable, str(path)], capture_output=True, text=True, timeout=180)
+    assert run.returncode == 0, run.stderr[-500:]
+    pd.testing.assert_frame_equal(engine, pd.read_parquet(repo / "alt.parquet"),
+                                  check_dtype=False, rtol=1e-9)

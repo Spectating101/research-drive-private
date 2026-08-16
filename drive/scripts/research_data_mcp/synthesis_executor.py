@@ -124,13 +124,23 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
         elif op == "join_asof":
             right = str(step.get("right_dataset_id") or "").strip()
             on = str(step.get("on") or "").strip()
+            # Real datasets rarely agree on the name of their time column: a daily
+            # panel says `date`, a point-in-time snapshot says `as_of_date`.
+            left_on = str(step.get("left_on") or "").strip()
+            right_on = str(step.get("right_on") or "").strip()
             by = step.get("by") or []
             direction = str(step.get("direction") or "backward").strip().lower()
             tolerance = step.get("tolerance")
             if not right:
                 raise ValueError("join_asof requires right_dataset_id")
-            if not on:
-                raise ValueError("join_asof requires a single ordered `on` column")
+            if on and (left_on or right_on):
+                raise ValueError("join_asof takes either `on` or both `left_on` and `right_on`, not both")
+            if not on and not (left_on and right_on):
+                raise ValueError(
+                    "join_asof requires a single ordered `on` column, or `left_on` and `right_on` when the sides name it differently"
+                )
+            if on:
+                left_on = right_on = on
             if isinstance(by, str):
                 by = [by]
             if not isinstance(by, list) or not all(isinstance(x, str) and x for x in by):
@@ -144,7 +154,9 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
             step = {
                 **step,
                 "right_dataset_id": right,
-                "on": on,
+                "on": on or None,
+                "left_on": left_on,
+                "right_on": right_on,
                 "by": by,
                 "direction": direction,
                 "tolerance": tolerance,
@@ -534,11 +546,13 @@ def preflight_execution_spec(
             right_id = str(step.get("right_dataset_id") or "")
             right_row = need_row(right_id)
             right_cols = try_columns(right_id, right_row) if right_row else None
-            on = str(step.get("on") or "")
+            left_on = str(step.get("left_on") or step.get("on") or "")
+            right_on = str(step.get("right_on") or step.get("on") or "")
             by = list(step.get("by") or [])
-            for col in [on, *by]:
+            for col in [left_on, *by]:
                 if col and col not in working_cols:
                     issues.append({"code": "missing_column", "op": "join_asof", "side": "left", "column": col})
+            for col in [right_on, *by]:
                 if right_cols is not None and col and col not in right_cols:
                     issues.append({"code": "missing_column", "op": "join_asof", "side": "right",
                                    "column": col, "dataset_id": right_id})
@@ -926,9 +940,10 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
             right_src = _registry_row(registry, str(step["right_dataset_id"]))
             right_path = _ensure_local_file(repo_root, right_src)
             right = _read_frame(right_path)
-            on = str(step["on"])
+            left_on = str(step.get("left_on") or step.get("on") or "")
+            right_on = str(step.get("right_on") or step.get("on") or "")
             by = list(step.get("by") or [])
-            for side, cols, f in (("left", [on, *by], frame), ("right", [on, *by], right)):
+            for side, cols, f in (("left", [left_on, *by], frame), ("right", [right_on, *by], right)):
                 missing = [c for c in cols if c not in f.columns]
                 if missing:
                     raise ValueError(f"join_asof {side} is missing: {', '.join(missing)}")
@@ -937,12 +952,17 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
             # coercing here is the difference between a join and a crash.
             left_frame = frame.copy()
             right_frame = right.copy()
-            for f in (left_frame, right_frame):
-                f[on] = pd.to_datetime(f[on], errors="coerce")
-            left_frame = left_frame.dropna(subset=[on]).sort_values(on)
-            right_frame = right_frame.dropna(subset=[on]).sort_values(on)
+            left_frame[left_on] = pd.to_datetime(left_frame[left_on], errors="coerce")
+            right_frame[right_on] = pd.to_datetime(right_frame[right_on], errors="coerce")
+            left_frame = left_frame.dropna(subset=[left_on]).sort_values(left_on)
+            right_frame = right_frame.dropna(subset=[right_on]).sort_values(right_on)
             tolerance = step.get("tolerance")
-            kwargs: dict[str, Any] = {"on": on, "direction": str(step.get("direction") or "backward")}
+            kwargs: dict[str, Any] = {"direction": str(step.get("direction") or "backward")}
+            if left_on == right_on:
+                kwargs["on"] = left_on
+            else:
+                kwargs["left_on"] = left_on
+                kwargs["right_on"] = right_on
             if by:
                 kwargs["by"] = by
             if tolerance is not None:
