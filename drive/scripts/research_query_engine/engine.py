@@ -18,6 +18,20 @@ from typing import Any
 
 csv.field_size_limit(sys.maxsize)
 
+SEARCH_FIELDS = (
+    "dataset_id",
+    "name",
+    "one_line",
+    "description",
+    "meaning_about",
+    "recommended_use",
+    "keywords",
+    "tags",
+    "limitations",
+    "grain",
+    "backend",
+)
+
 
 @dataclass
 class QueryResult:
@@ -179,13 +193,24 @@ class ResearchQueryEngine:
             raise KeyError(f"unknown dataset_id: {dataset_id}")
         return self.datasets[dataset_id]
 
+    @staticmethod
+    def searchable_text(ds: dict[str, Any]) -> str:
+        parts: list[str] = []
+        for key in SEARCH_FIELDS:
+            value = ds.get(key)
+            if isinstance(value, (list, tuple)):
+                parts.extend(str(item) for item in value if item)
+            elif value:
+                parts.append(str(value))
+        return " ".join(parts).lower()
+
     def search_datasets(self, q: str = "", domain: str = "", readiness: str = "", access_mode: str = "", limit: int = 50) -> list[dict[str, Any]]:
         ql = q.lower().strip()
         tokens = [t for t in re.split(r"\W+", ql) if len(t) > 2]
         patterns = [(t, re.compile(r"\b" + re.escape(t))) for t in tokens]
         scored: list[tuple[int, dict[str, Any]]] = []
         for ds in self.list_datasets():
-            text = " ".join(str(ds.get(k, "")) for k in ["dataset_id", "name", "description", "recommended_use", "limitations", "grain", "backend"]).lower()
+            text = self.searchable_text(ds)
             matched: list[str] = []
             if ql:
                 if ql in text:

@@ -81,3 +81,35 @@ def test_search_does_not_mutate_the_registry_rows(tmp_path):
 def test_an_unfiltered_listing_carries_no_match_evidence(tmp_path):
     engine = _engine(tmp_path, [_rows(dataset_id="quakes", description="usgs earthquake")])
     assert "match_terms" not in engine.search_datasets(q="")[0]
+
+
+def test_the_fields_saying_what_a_dataset_is_about_are_searched(tmp_path):
+    """NHANES holds infant measures, but only its one_line says so, and
+    one_line was not indexed — so the dataset was unfindable by that word."""
+    engine = _engine(tmp_path, [
+        _rows(dataset_id="demo", name="NHANES 2017-2018 Demographics",
+              description="demographic records for survey participants",
+              one_line="includes infant and household context variables",
+              meaning_about="the demographic component of the survey cycle",
+              keywords=["public-health", "biomarkers"],
+              tags=["nhanes", "xpt"]),
+    ])
+    for term in ("infant", "biomarkers", "xpt", "demographic component"):
+        assert [h["dataset_id"] for h in engine.search_datasets(q=term)] == ["demo"], term
+
+
+def test_a_hyphenated_keyword_matches_either_half(tmp_path):
+    engine = _engine(tmp_path, [_rows(dataset_id="demo", keywords=["public-health"])])
+    assert engine.search_datasets(q="health")
+    assert engine.search_datasets(q="public")
+
+
+def test_list_fields_do_not_leak_python_syntax_into_the_text(tmp_path):
+    engine = _engine(tmp_path, [_rows(dataset_id="demo", tags=["alpha", "beta"])])
+    assert ResearchQueryEngine.searchable_text({"tags": ["alpha", "beta"]}) == "alpha beta"
+    assert engine.search_datasets(q="alpha")
+
+
+def test_an_empty_dataset_produces_empty_text():
+    assert ResearchQueryEngine.searchable_text({}) == ""
+    assert ResearchQueryEngine.searchable_text({"tags": [], "one_line": None}) == ""
