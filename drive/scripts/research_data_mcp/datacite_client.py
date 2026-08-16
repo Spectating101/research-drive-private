@@ -22,6 +22,41 @@ def request_json(url: str, timeout: int = 45) -> dict[str, Any]:
         return json.loads(response.read().decode("utf-8"))
 
 
+VERSION_RELATIONS = frozenset(
+    {"isversionof", "hasversion", "isnewversionof", "ispreviousversionof", "isidenticalto"}
+)
+
+
+def _bare_doi(value: str) -> str:
+    text = str(value or "").strip()
+    for prefix in ("https://doi.org/", "http://doi.org/", "doi:"):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix):]
+            break
+    return text.strip().lower()
+
+
+def version_family(attrs: dict[str, Any]) -> list[str]:
+    """DOIs this record declares are the same work — Zenodo mints one per version.
+
+    Self-references occur in the wild (zenodo.20625754 declares IsVersionOf
+    itself) and are dropped, as are non-DOI related identifiers.
+    """
+    own = _bare_doi(attrs.get("doi") or "")
+    out: list[str] = []
+    for rel in attrs.get("relatedIdentifiers") or []:
+        if not isinstance(rel, dict):
+            continue
+        if str(rel.get("relationType") or "").strip().lower() not in VERSION_RELATIONS:
+            continue
+        if str(rel.get("relatedIdentifierType") or "").strip().upper() != "DOI":
+            continue
+        doi = _bare_doi(rel.get("relatedIdentifier") or "")
+        if doi and doi != own and doi not in out:
+            out.append(doi)
+    return out
+
+
 def datacite_row(item: dict[str, Any]) -> dict[str, Any]:
     attrs = item.get("attributes") or {}
     titles = attrs.get("titles") or []
@@ -41,6 +76,7 @@ def datacite_row(item: dict[str, Any]) -> dict[str, Any]:
         "description": descriptions[0].get("description", "")[:1200] if descriptions and isinstance(descriptions[0], dict) else "",
         "license": rights[0].get("rightsIdentifier") or rights[0].get("rights") if rights and isinstance(rights[0], dict) else None,
         "subjects": [row.get("subject") for row in (attrs.get("subjects") or [])[:20] if isinstance(row, dict)],
+        "version_of": version_family(attrs),
     }
 
 

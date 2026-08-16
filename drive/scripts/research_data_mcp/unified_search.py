@@ -206,6 +206,7 @@ def _build_datacite_layer(
                 "procureability": proc,
                 "resolved": None,
                 "open_handle": f"doi:{doi}" if doi else "",
+                "version_siblings": row.get("version_siblings") or [],
             }
         )
     if resolve_datacite and dc_rows:

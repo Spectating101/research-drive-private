@@ -259,6 +259,7 @@ def search_datacite_api(
                         "publisher": row.get("publisher"),
                         "publication_year": row.get("publication_year"),
                         "subjects": row.get("subjects"),
+                        "version_of": row.get("version_of") or [],
                     },
                 )
             )
@@ -266,14 +267,33 @@ def search_datacite_api(
 
 
 def _merge_datacite_rows(*groups: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Dedupe by DOI, then fold versions of one work onto the best-ranked member.
+
+    Rows arrive ranked, so the kept row is the one that already ranked highest;
+    the DOIs folded into it are listed on it rather than dropped.
+    """
     merged: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen: dict[str, int] = {}
     for group in groups:
         for row in group:
             key = _normalize_doi(str(row.get("doi") or "")).lower()
-            if not key or key in seen:
+            if not key:
                 continue
-            seen.add(key)
+            family = [str(d).lower() for d in (row.get("version_of") or []) if str(d).strip()]
+            hit = seen.get(key)
+            if hit is None:
+                hit = next((seen[d] for d in family if d in seen), None)
+            if hit is not None:
+                kept = merged[hit]
+                if key != _normalize_doi(str(kept.get("doi") or "")).lower():
+                    siblings = kept.setdefault("version_siblings", [])
+                    if key not in siblings:
+                        siblings.append(key)
+                continue
+            index = len(merged)
+            seen[key] = index
+            for doi in family:
+                seen.setdefault(doi, index)
             merged.append(row)
             if len(merged) >= limit:
                 return merged
