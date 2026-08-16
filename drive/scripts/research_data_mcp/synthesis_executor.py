@@ -769,13 +769,25 @@ def _read_frame(file_path: Path):
             return pd.json_normalize(raw)
         raise ValueError("unsupported json shape for execution input")
 
+    def _from_json_lines() -> Any:
+        return pd.read_json(file_path, lines=True)
+
+    if suffix in (".jsonl", ".ndjson"):
+        return _from_json_lines()
+
     if suffix == ".json" or suffix == "":
-        return _from_json_bytes()
+        try:
+            return _from_json_bytes()
+        except json.JSONDecodeError:
+            return _from_json_lines()
     # TWSE OpenAPI harvests sometimes land as extensionless JSON payloads
     head = file_path.read_bytes()[:1]
     if head in (b"[", b"{"):
-        return _from_json_bytes()
-    raise ValueError("execution input must be parquet, csv, or json")
+        try:
+            return _from_json_bytes()
+        except json.JSONDecodeError:
+            return _from_json_lines()
+    raise ValueError("execution input must be parquet, csv, json, or jsonl")
 
 
 def _compare_series(series, cmp: str, value: Any):

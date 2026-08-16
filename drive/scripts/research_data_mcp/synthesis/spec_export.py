@@ -274,8 +274,10 @@ def render_script(
         if not alias:
             continue
         if fn == "count":
-            # count needs any column when grouped, and none at all when ungrouped
+            # The engine counts rows with grouped.size(). "count" would skip nulls,
+            # reporting 0 for a dropna=False group whose key is itself NaN.
             column = group_by[0] if group_by else None
+            fn = "size" if group_by else fn
         else:
             column = m.get("column")
         agg[alias] = (column, fn)
@@ -315,6 +317,9 @@ def render_script(
 
     needs_runtime = any(t.get("op") == "derive" for t in (spec.get("transforms") or []))
     body: list[str] = [
+        "import json",
+        "from pathlib import Path",
+        "",
         "import numpy as np",
         "import pandas as pd",
         "",
@@ -332,8 +337,23 @@ def render_script(
         "    path = PATHS[dataset_id]",
         "    if path is None:",
         "        raise SystemExit(f'no local path recorded for {dataset_id}')",
-        "    if str(path).endswith('.parquet'):",
+        "    text = str(path)",
+        "    if text.endswith('.parquet'):",
         "        return pd.read_parquet(path)",
+        "    if text.endswith(('.jsonl', '.ndjson')):",
+        "        return pd.read_json(path, lines=True)",
+        "    if text.endswith('.json') or not Path(text).suffix:",
+        "        try:",
+        "            raw = json.loads(Path(path).read_text(encoding='utf-8'))",
+        "        except json.JSONDecodeError:",
+        "            return pd.read_json(path, lines=True)",
+        "        if isinstance(raw, list):",
+        "            return pd.DataFrame(raw)",
+        "        if isinstance(raw, dict):",
+        "            if raw and all(isinstance(v, dict) for v in raw.values()):",
+        "                return pd.DataFrame(list(raw.values()))",
+        "            return pd.json_normalize(raw)",
+        "        raise SystemExit(f'unsupported json shape for {dataset_id}')",
         "    return pd.read_csv(path)",
         "",
         "",
