@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from scripts.research_data_mcp.search import SearchService
@@ -36,7 +37,10 @@ def test_missing_local_panel_is_downgraded_without_mutating_registry_file(tmp_pa
     )
     ready = tmp_path / "data_lake/ready/ready.parquet"
     ready.parent.mkdir(parents=True)
-    ready.write_bytes(b"placeholder")
+    # A real parquet, not b"placeholder": readiness now checks that the footer
+    # parses, because a 14MB file with valid PAR1 magic and a corrupt footer was
+    # claiming instant readiness and raising OSError at query time.
+    pd.DataFrame({"a": [1, 2, 3]}).to_parquet(ready)
 
     engine = ResearchQueryEngine(registry, repo_root=tmp_path)
 
@@ -241,3 +245,44 @@ def test_csv_shape_rejects_short_wide_mixed_and_header_only_files(
     assert observation["valid"] is False
     assert observation["reason"] == "column_count_mismatch"
     assert observation["observed_widths"] == observed_widths
+
+
+def test_a_corrupt_parquet_is_downgraded_and_says_why(tmp_path: Path) -> None:
+    """Present bytes are not usable bytes.
+
+    us_sp500_yfinance_daily is 14MB with valid PAR1 magic at both ends and an
+    undeserialisable footer. Size alone called it present, so it advertised
+    instant readiness and raised OSError when anyone queried it.
+    """
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    registry.write_text(
+        json.dumps({"datasets": [_panel("corrupt_panel", "data_lake/corrupt", "corrupt.parquet")]}),
+        encoding="utf-8",
+    )
+    path = tmp_path / "data_lake/corrupt/corrupt.parquet"
+    path.parent.mkdir(parents=True)
+    pd.DataFrame({"a": range(200)}).to_parquet(path)
+    raw = bytearray(path.read_bytes())
+    footer_len = int.from_bytes(raw[-8:-4], "little")
+    start = len(raw) - 8 - footer_len
+    raw[start:start + footer_len] = b"\x00" * footer_len
+    path.write_bytes(bytes(raw))
+    assert bytes(raw[:4]) == b"PAR1" and bytes(raw[-4:]) == b"PAR1"
+
+    corrupt = ResearchQueryEngine(registry, repo_root=tmp_path).describe("corrupt_panel")
+    assert corrupt["analysis_readiness"] == "metadata_search"
+    assert corrupt["materialization"]["query_ready"] is False
+    assert corrupt["runtime_readiness_reason"] == "parquet_unreadable"
+    assert corrupt["schema_observation"]["reason"] == "parquet_unreadable"
+
+
+def test_an_absent_panel_still_reports_missing_not_unreadable(tmp_path: Path) -> None:
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    registry.write_text(
+        json.dumps({"datasets": [_panel("gone_panel", "data_lake/gone", "gone.parquet")]}),
+        encoding="utf-8",
+    )
+    gone = ResearchQueryEngine(registry, repo_root=tmp_path).describe("gone_panel")
+    assert gone["runtime_readiness_reason"] == "local_bytes_missing"

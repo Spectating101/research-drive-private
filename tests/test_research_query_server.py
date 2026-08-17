@@ -25,6 +25,21 @@ def test_is_api_path_does_not_capture_spa_routes():
     assert not server.is_api_path("/discover/history")
 
 
+def test_healthz_is_json_liveness_before_static_fallback(monkeypatch):
+    handler = server.ResearchQueryHandler.__new__(server.ResearchQueryHandler)
+    handler.path = "/healthz"
+    sent = {}
+
+    def send_json(payload, status=200, **_kwargs):
+        sent.update(payload=payload, status=status)
+
+    handler._send_json = send_json
+    handler._serve_static = lambda _path: pytest.fail("healthz must bypass SPA fallback")
+    handler.do_GET()
+
+    assert sent == {"payload": {"status": "ok"}, "status": 200}
+
+
 def test_cors_is_same_origin_only_by_default(monkeypatch):
     monkeypatch.delenv("YZU_DESK_CORS_ORIGIN", raising=False)
     assert server.normalize_cors_origin() == ""

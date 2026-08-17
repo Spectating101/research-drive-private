@@ -4,6 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+# regime_hmm needs hmmlearn, which no manifest declares. Without this the whole
+# module raised ModuleNotFoundError at collection and reported nine failures
+# rather than one honest skip.
+pytest.importorskip("hmmlearn", reason="hmmlearn is required by src.strategy.regime_hmm")
+
 from src.strategy.regime_hmm import HmmRegimeModel, fit_default_hmm
 
 

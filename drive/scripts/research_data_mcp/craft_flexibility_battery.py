@@ -14,7 +14,12 @@ from collections import Counter
 from pathlib import Path
 
 BASE = "http://100.127.141.44:8765"
-TOKEN = Path.home().joinpath(".config/research-drive/front-door.desk-token").read_text().strip()
+DESK_TOKEN_PATH = Path.home() / ".config/research-drive/front-door.desk-token"
+
+
+def desk_token() -> str:
+    return DESK_TOKEN_PATH.read_text().strip()
+
 OUT = Path(
     "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/"
     "research-drive-private-front-door/drive/docs/status/generated/craft_flexibility_battery.json"
@@ -145,7 +150,7 @@ def api(method: str, path: str, body: dict | None = None, timeout: int = 120) ->
         data=data,
         method=method,
         headers={
-            "Authorization": f"Bearer {TOKEN}",
+            "Authorization": f"Bearer {desk_token()}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         },

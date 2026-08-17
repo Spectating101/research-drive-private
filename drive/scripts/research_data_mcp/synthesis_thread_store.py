@@ -492,6 +492,7 @@ def build_materialisation_view(thread: dict[str, Any]) -> dict[str, Any]:
         "execution_recorded": bool(execution.get("job_id")),
         "job_id": execution.get("job_id") or "",
         "output_dataset_id": execution.get("output_dataset_id") or "",
+        "measured": execution.get("measured") or {},
         "note": (
             "Honest materialisation only: no output is claimed generated without "
             "an execution record on this thread."
@@ -840,6 +841,18 @@ class SynthesisThreadStore:
             "rows": result.get("rows"),
             "drive_verified": bool((result.get("drive_finalize") or {}).get("ok")),
             "manifest_id": str(result.get("output_manifest_id") or ""),
+            # What the run measured about itself. The engine records these and
+            # judges none of them; whoever reads the thread decides whether a
+            # 12% as-of match rate or an aggregate over 50 of 1000 rows is worth
+            # anything. Dropping them left the measurements in the manifest and
+            # the reader blind.
+            "measured": {
+                "source_rows": result.get("source_rows"),
+                "rows_aggregated": result.get("rows_aggregated"),
+                "row_ledger": result.get("row_ledger") or [],
+                "asof_coverage": result.get("asof_coverage") or [],
+                "undefined_derived_values": result.get("undefined_derived_values") or {},
+            },
         }
         state["lastActivity"] = (
             "Registered synthesis output is available in Library."

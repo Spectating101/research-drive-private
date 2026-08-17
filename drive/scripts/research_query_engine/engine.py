@@ -18,6 +18,28 @@ from typing import Any
 
 csv.field_size_limit(sys.maxsize)
 
+SEARCH_FIELDS = (
+    "dataset_id",
+    "name",
+    "one_line",
+    "description",
+    "meaning_about",
+    "recommended_use",
+    "keywords",
+    "tags",
+    "limitations",
+    "grain",
+    "backend",
+)
+
+
+def _display_path(path: Path, repo_root: Path) -> str:
+    """Repo-relative when it can be, absolute when the bytes live elsewhere."""
+    try:
+        return str(path.relative_to(repo_root))
+    except ValueError:
+        return str(path)
+
 
 @dataclass
 class QueryResult:
@@ -38,9 +60,41 @@ class ResearchQueryEngine:
         self._reconcile_local_panel_readiness()
 
     def _resolve(self, value: str | Path) -> Path:
+        """Resolve under the repo and storage tiers, then the configured data roots.
+
+        Synthesis honours RESEARCH_DATA_ROOTS and reached 103 datasets while this
+        resolver, which did not, called 101 of them missing — on a desk whose own
+        serving process sets that variable. Of those 101, 96 serve real rows
+        through their declared backend once the path resolves.
+
+        Repo and tier resolution still win, so a local copy is preferred and
+        behaviour is unchanged when the variable is unset.
+
+        A pattern is satisfied only where it expands to a file. Plain existence let a
+        directory literally named `*` — created by hydrate before it stripped globs —
+        satisfy the repo candidate and stop the fall-through, hiding 163MB of TWSE
+        data under the real data root.
+        """
         from scripts.research_data_mcp.data_paths import resolve_data_path
 
-        return resolve_data_path(self.repo_root, value)
+        resolved = resolve_data_path(self.repo_root, value)
+        if self._candidate_satisfied(resolved):
+            return resolved
+        from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+        relative = str(value).lstrip("/")
+        for root in data_roots(self.repo_root):
+            candidate = root / relative
+            if self._candidate_satisfied(candidate):
+                return candidate
+        return resolved
+
+    @staticmethod
+    def _candidate_satisfied(candidate: Path) -> bool:
+        text = str(candidate)
+        if not any(ch in text for ch in ("*", "?", "[")):
+            return candidate.exists()
+        return any(Path(hit).is_file() for hit in globmod.glob(text))
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
@@ -82,6 +136,23 @@ class ResearchQueryEngine:
             "width_counts": {str(width): count for width, count in sorted(widths.items())},
         }
 
+    @staticmethod
+    def _parquet_footer_observation(path: Path) -> dict[str, Any]:
+        """Does the footer parse? Reads metadata only, never a row group.
+
+        us_sp500_yfinance_daily is 14MB with valid PAR1 magic at both ends and an
+        undeserialisable thrift footer. Size alone called it present, so it
+        claimed instant readiness and raised OSError at query time instead.
+        """
+        try:
+            import pyarrow.parquet as pq
+
+            metadata = pq.ParquetFile(path).metadata
+        except Exception as exc:
+            return {"valid": False, "reason": "parquet_unreadable", "error_type": type(exc).__name__}
+        return {"valid": True, "reason": "ok", "rows": int(metadata.num_rows),
+                "columns": int(metadata.num_columns)}
+
     def _reconcile_local_panel_readiness(self) -> None:
         """Remove stale query-ready claims when local bytes are not materialized.
 
@@ -94,19 +165,16 @@ class ResearchQueryEngine:
         for dataset in self.datasets.values():
             backend = str(dataset.get("backend") or "")
             readiness = str(dataset.get("analysis_readiness") or "").lower()
-            if backend not in {
-                "local_parquet_panel",
-                "local_csv_file",
-                "local_csv_glob",
-                "local_json_file",
-                "local_json_glob",
-                "local_file",
-            }:
+            # Any backend that reads local bytes, plus rows that declare none. The
+            # old six-name list let local_gdelt_panel_csv, local_gdelt_high_priority_csv
+            # and a backend-less row keep claiming instant readiness with nothing
+            # behind them, because they were never checked at all.
+            if backend and not backend.startswith("local_"):
                 continue
             if readiness not in {"instant", "query_ready"}:
                 continue
             local_path = str(dataset.get("local_path") or "").strip()
-            if backend == "local_parquet_panel" and not local_path:
+            if not local_path:
                 root = str(dataset.get("local_root") or "").rstrip("/")
                 name = str(dataset.get("local_file") or "").lstrip("/")
                 local_path = f"{root}/{name}" if root and name else ""
@@ -114,15 +182,35 @@ class ResearchQueryEngine:
                 continue
             resolved = self._resolve(local_path)
             if "*" in local_path:
-                present = bool(globmod.glob(str(resolved)))
+                # A match must be a file. taiwan_twse contains a directory literally
+                # named "*", created by code that used the pattern as a path, and
+                # matching it kept the row claiming instant readiness over an empty
+                # tree with no files anywhere beneath it.
+                present = any(Path(hit).is_file() for hit in globmod.glob(str(resolved)))
+                if not present:
+                    present = any(
+                        candidate.is_file()
+                        for hit in globmod.glob(str(resolved))
+                        if Path(hit).is_dir()
+                        for candidate in Path(hit).rglob("*")
+                    )
             else:
                 present = resolved.is_file() and resolved.stat().st_size > 0
                 if backend == "local_file":
                     present = present or (resolved.is_dir() and any(resolved.iterdir()))
+            unusable_reason = ""
+            if present and backend == "local_parquet_panel" and "*" not in local_path:
+                footer = self._parquet_footer_observation(resolved)
+                if not footer.get("valid"):
+                    present = False
+                    unusable_reason = "parquet_unreadable"
+                    dataset["schema_observation"] = footer
             if present:
                 if backend in {"local_csv_file", "local_csv_glob"}:
                     if "*" in local_path:
-                        matches = sorted(Path(p) for p in globmod.glob(str(resolved)))
+                        matches = sorted(
+                            p for p in (Path(x) for x in globmod.glob(str(resolved))) if p.is_file()
+                        )
                         csv_path = next(
                             (path for path in matches if path.suffix.lower() == ".csv"),
                             matches[0] if matches else None,
@@ -171,7 +259,9 @@ class ResearchQueryEngine:
             dataset["analysis_readiness"] = "registered" if has_archive else "metadata_search"
             dataset["collection_status"] = "registered" if has_archive else "metadata_only"
             dataset["field_coverage"] = "metadata-only"
-            dataset["runtime_readiness_reason"] = "local_bytes_missing"
+            # "missing" sends someone looking for an absent file. When the bytes
+            # are present but unusable, say which way they are unusable.
+            dataset["runtime_readiness_reason"] = unusable_reason or "local_bytes_missing"
             dataset["hydrate_required"] = has_archive
 
     def describe(self, dataset_id: str) -> dict[str, Any]:
@@ -179,17 +269,32 @@ class ResearchQueryEngine:
             raise KeyError(f"unknown dataset_id: {dataset_id}")
         return self.datasets[dataset_id]
 
+    @staticmethod
+    def searchable_text(ds: dict[str, Any]) -> str:
+        parts: list[str] = []
+        for key in SEARCH_FIELDS:
+            value = ds.get(key)
+            if isinstance(value, (list, tuple)):
+                parts.extend(str(item) for item in value if item)
+            elif value:
+                parts.append(str(value))
+        return " ".join(parts).lower()
+
     def search_datasets(self, q: str = "", domain: str = "", readiness: str = "", access_mode: str = "", limit: int = 50) -> list[dict[str, Any]]:
         ql = q.lower().strip()
         tokens = [t for t in re.split(r"\W+", ql) if len(t) > 2]
+        patterns = [(t, re.compile(r"\b" + re.escape(t))) for t in tokens]
         scored: list[tuple[int, dict[str, Any]]] = []
         for ds in self.list_datasets():
-            text = " ".join(str(ds.get(k, "")) for k in ["dataset_id", "name", "description", "recommended_use", "limitations", "grain", "backend"]).lower()
+            text = self.searchable_text(ds)
+            matched: list[str] = []
             if ql:
                 if ql in text:
                     score = 100
-                elif tokens:
-                    score = sum(10 for token in tokens if token in text)
+                    matched = list(tokens) or [ql]
+                elif patterns:
+                    matched = [token for token, pattern in patterns if pattern.search(text)]
+                    score = 10 * len(matched)
                     if score == 0:
                         continue
                 else:
@@ -202,6 +307,10 @@ class ResearchQueryEngine:
                 continue
             if access_mode and access_mode != ds.get("access_shape"):
                 continue
+            if ql:
+                ds = dict(ds)
+                ds["match_terms"] = matched
+                ds["match_terms_total"] = len(tokens)
             scored.append((score, ds))
         scored.sort(key=lambda row: (-row[0], row[1].get("dataset_id", "")))
         return [ds for _, ds in scored[:limit]]
@@ -846,7 +955,7 @@ class ResearchQueryEngine:
         pattern = str(ds.get("local_path") or "").strip()
         limit = min(int(params.get("limit", 100)), 5000)
         if "*" in pattern:
-            matches = sorted(Path(p) for p in globmod.glob(str(self._resolve(pattern))))
+            matches = sorted(p for p in (Path(x) for x in globmod.glob(str(self._resolve(pattern)))) if p.is_file())
             path = next((p for p in matches if p.suffix.lower() == ".csv"), matches[0] if matches else None)
         else:
             path = self._resolve(pattern)
@@ -872,7 +981,7 @@ class ResearchQueryEngine:
         return QueryResult(
             ds["dataset_id"],
             rows,
-            {"path": str(path.relative_to(self.repo_root)), "returned": len(rows), "params": params},
+            {"path": _display_path(path, self.repo_root), "returned": len(rows), "params": params},
         )
 
     def _query_local_file_tree(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
@@ -882,7 +991,7 @@ class ResearchQueryEngine:
             return QueryResult(ds["dataset_id"], [], {"error": f"missing path: {root}", "params": params})
         rows: list[dict[str, Any]] = []
         if root.is_file():
-            rel = str(root.relative_to(self.repo_root))
+            rel = _display_path(root, self.repo_root)
             rows.append({"path": rel, "file": root.name, "bytes": root.stat().st_size})
             if root.suffix.lower() == ".csv" and str(params.get("read_csv", "false")).lower() in {"1", "true", "yes"}:
                 import pandas as pd
@@ -975,7 +1084,7 @@ class ResearchQueryEngine:
         pattern = str(ds.get("local_path") or ds.get("local_glob") or "").strip()
         if not pattern:
             return QueryResult(ds["dataset_id"], [], {"error": "missing local_path glob pattern", "params": params})
-        matches = sorted(Path(p) for p in globmod.glob(str(self._resolve(pattern))))
+        matches = sorted(p for p in (Path(x) for x in globmod.glob(str(self._resolve(pattern)))) if p.is_file())
         ticker = str(params.get("ticker") or params.get("filter_ticker") or "").upper().strip()
         file_name = str(params.get("file") or params.get("filename") or "").strip()
         limit = int(params.get("limit", 50))

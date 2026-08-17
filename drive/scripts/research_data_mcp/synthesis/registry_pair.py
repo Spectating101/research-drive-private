@@ -1,4 +1,10 @@
-"""Registry dataset pair synthesis — metadata overlap + optional entity join."""
+"""Registry dataset pair synthesis — metadata overlap as a pre-filter only.
+
+This module compares declared metadata: field names and grain labels. That can
+suggest a pair is worth probing. It can never establish that a join runs, so it
+states no verdict — `synthesis_viable` is always False and callers must reach
+`synthesis.pair_probe.probe_pair` for a measured answer.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +35,7 @@ def metadata_overlap(left: dict[str, Any], right: dict[str, Any]) -> dict[str, A
     union_size = len(union_a | union_b)
     key_pct = round(100 * len(shared_union) / union_size, 1) if union_size else 0.0
     grain_match = bool(grain_a and grain_a == grain_b)
-    overlap_pct = key_pct if not grain_match else max(key_pct, 35.0)
+    overlap_pct = key_pct
 
     return {
         "left_dataset_id": left.get("dataset_id"),
@@ -44,12 +50,15 @@ def metadata_overlap(left: dict[str, Any], right: dict[str, Any]) -> dict[str, A
         "grain_right": grain_b or None,
         "grain_match": grain_match,
         "overlap_pct": overlap_pct,
-        "synthesis_viable": bool(shared_join or (grain_match and shared_union)),
+        "field_overlap_pct": key_pct,
+        "synthesis_viable": False,
+        "verdict": "requires_probe",
+        "probe_recommended": bool(shared_join),
+        "probe_keys": shared_join,
         "recommended_join": " · ".join(shared_join) if shared_join else ("grain:" + grain_a if grain_match else "partial"),
         "note": (
-            "Metadata-only synthesis — row-level join requires matching local panels or a dedicated profile."
-            if not shared_join
-            else "Use shared join keys for entity-level merge when both datasets expose local rows."
+            "Metadata names only. Field names matching is not evidence that any row joins; "
+            "run probe_pair on the shared key to measure real overlap before composing."
         ),
     }
 

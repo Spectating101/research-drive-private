@@ -12,6 +12,9 @@ Composer agents should use MCP stdio tools, not duplicate HTTP paths.
 
 from __future__ import annotations
 
+import socket
+import urllib.error
+
 from typing import Any, Callable
 
 from scripts.research_data_mcp.bootstrap import ResearchLibraryStack
@@ -1591,5 +1594,23 @@ def _dispatch(method: str, path: str, query: dict[str, str], payload: dict[str, 
         return {"status": 404, "body": {"error": "not_found", "message": str(exc)}}
     except ValueError as exc:
         return {"status": 400, "body": {"error": "invalid_request", "message": str(exc)}}
+    except urllib.error.HTTPError as exc:
+        # An upstream catalogue saying "no such DOI" is not this server failing.
+        # It arrived as a 500 with the message "HTTP Error 404: Not Found", so a
+        # client could not tell a missing record from a broken desk.
+        upstream = int(getattr(exc, "code", 0) or 0)
+        if upstream == 404:
+            return {"status": 404, "body": {
+                "error": "not_found_upstream", "upstream_status": 404,
+                "message": f"{path}: the upstream catalogue has no such record"}}
+        return {"status": 502, "body": {
+            "error": "upstream_error", "upstream_status": upstream,
+            "message": f"{path}: upstream returned {upstream or 'an error'}"}}
+    except urllib.error.URLError as exc:
+        reason = getattr(exc, "reason", exc)
+        timed_out = isinstance(reason, (TimeoutError, socket.timeout))
+        return {"status": 504 if timed_out else 502, "body": {
+            "error": "upstream_timeout" if timed_out else "upstream_unreachable",
+            "message": f"{path}: {reason}"}}
     except Exception as exc:
         return {"status": 500, "body": {"error": type(exc).__name__, "message": str(exc)}}

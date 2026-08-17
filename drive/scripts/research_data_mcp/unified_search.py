@@ -206,6 +206,7 @@ def _build_datacite_layer(
                 "procureability": proc,
                 "resolved": None,
                 "open_handle": f"doi:{doi}" if doi else "",
+                "version_siblings": row.get("version_siblings") or [],
             }
         )
     if resolve_datacite and dc_rows:
@@ -397,6 +398,11 @@ def unified_search(
             "analysis_readiness": row.get("analysis_readiness"),
             "procureability": proc,
             "open_handle": f"dataset:{row.get('dataset_id')}",
+            # Which of the query's words this row actually matched, and how many
+            # there were. Without it a row matching one generic word out of four
+            # arrives looking exactly like one that matched all four.
+            "match_terms": row.get("match_terms") or [],
+            "match_terms_total": row.get("match_terms_total"),
         }
         local_rows.append(item)
         merged.append(item)
