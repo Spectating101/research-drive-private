@@ -28,6 +28,7 @@ MCP_TOOL_CORE: tuple[str, ...] = (
     "research_faculty_profile",
     "collection_status",
     "research_discover_search",
+    "research_semantic_discover",
     "research_discover_source_search",
     "research_discover_source_preview",
     "research_web_discover",
