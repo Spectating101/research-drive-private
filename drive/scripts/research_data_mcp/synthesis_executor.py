@@ -19,6 +19,9 @@ ALLOWED_METRIC_FNS = frozenset(
     {"count", "sum", "mean", "min", "max", "std", "median", "nunique", "quantile"}
 )
 METRIC_FNS_NEEDING_COLUMN = ALLOWED_METRIC_FNS - {"count"}
+# min/max order text fine and nunique counts anything; the rest need numbers, and
+# asking for a mean of a text column died with a bare pandas TypeError mid-job.
+METRIC_FNS_NEEDING_NUMBERS = frozenset({"sum", "mean", "std", "median", "quantile"})
 ALLOWED_FILTER_OPS = frozenset({"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains"})
 ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join", "join_asof", "derive", "drop_duplicates"})
 # As-of is the point-in-time join: take the most recent right-hand row at or
@@ -59,6 +62,21 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("group_by must be a list of column names")
     if not isinstance(metrics, list) or not metrics:
         raise ValueError("execution_spec requires one or more aggregate metrics")
+    # Two metrics sharing a name, or a name already taken by a group key, reached
+    # execution and died inside pandas: "columns overlap but no suffix specified"
+    # and "cannot insert g, already exists". Both are spec errors, refused here.
+    seen_aliases: set[str] = set()
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            continue
+        alias = str(metric.get("as") or "").strip()
+        if not alias:
+            continue
+        if alias in seen_aliases:
+            raise ValueError(f"two metrics share the output name {alias!r}")
+        if alias in group_by:
+            raise ValueError(f"metric output name {alias!r} is already a group_by column")
+        seen_aliases.add(alias)
     for metric in metrics:
         if not isinstance(metric, dict) or str(metric.get("function") or "") not in ALLOWED_METRIC_FNS:
             raise ValueError("metrics only support " + ", ".join(sorted(ALLOWED_METRIC_FNS)))
@@ -462,6 +480,8 @@ def preflight_execution_spec(
     issues: list[dict[str, Any]] = []
     warnings: list[str] = []
     probes: list[dict[str, Any]] = []
+    numeric_by_dataset: dict[str, set[str]] = {}
+    observed_columns: set[str] = set()
 
     def try_path(source: dict[str, Any] | None) -> Path | None:
         """Same addressing the executor uses, or the gate probes nothing."""
@@ -480,6 +500,8 @@ def preflight_execution_spec(
             return None
 
     def try_columns(dataset_id: str, source: dict[str, Any]) -> list[str] | None:
+        import pandas as pd
+
         from scripts.research_data_mcp.synthesis.dataset_paths import resolve_dataset_file
 
         path, reason = resolve_dataset_file(repo_root, source)
@@ -494,6 +516,10 @@ def preflight_execution_spec(
         except Exception as exc:  # noqa: BLE001
             issues.append({"code": "unreadable_input", "dataset_id": dataset_id, "detail": str(exc)[:400]})
             return None
+        numeric_by_dataset[dataset_id] = {
+            str(c) for c in frame.columns if pd.api.types.is_numeric_dtype(frame[c])
+        }
+        observed_columns.update(str(c) for c in frame.columns)
         return [str(c) for c in frame.columns]
 
     input_row = need_row(normalized["input_dataset_id"])
@@ -698,6 +724,27 @@ def preflight_execution_spec(
         missing = sorted(c for c in needed if c and c not in working_cols)
         if missing:
             issues.append({"code": "missing_column", "op": "aggregate", "columns": missing, "available_sample": sorted(working_cols)[:24]})
+        # A mean or a median of a text column died inside pandas after approval.
+        # Only flag a column whose dtype was actually observed: a derive output or
+        # a joined column has no measured dtype here and is left alone.
+        known_numeric: set[str] = set()
+        for columns in numeric_by_dataset.values():
+            known_numeric |= columns
+        derived = {str(step.get("as") or "") for step in normalized.get("transforms") or []
+                   if step.get("op") == "derive"}
+        for metric in normalized.get("metrics") or []:
+            column = str(metric.get("column") or "")
+            function = str(metric.get("function") or "")
+            if not column or function not in METRIC_FNS_NEEDING_NUMBERS:
+                continue
+            if column in derived or column in known_numeric:
+                continue
+            if column in observed_columns and column not in known_numeric:
+                issues.append({
+                    "code": "metric_needs_numbers", "op": "aggregate",
+                    "column": column, "function": function,
+                    "detail": f"{function} needs a numeric column and {column} is not one",
+                })
 
     # `_finite` scrubs inf out of DERIVED columns because inf is not a measurement.
     # The same is true of inf arriving in source data, but silently rewriting a
