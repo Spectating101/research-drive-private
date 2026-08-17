@@ -328,6 +328,20 @@ def validate_expression(expr: str) -> tuple[ast.Expression, list[str]]:
     for node in ast.walk(tree):
         if isinstance(node, ast.BoolOp):
             raise ValueError("use & and | instead of and/or: expressions operate on whole columns")
+        # and/or, a ternary, and a chained comparison all end up asking Python for
+        # the truth of a whole column, which raises "the truth value of a Series is
+        # ambiguous" during execution. and/or was already refused here; these two
+        # reached the approved job before failing.
+        if isinstance(node, ast.IfExp):
+            raise ValueError(
+                "use if_else(condition, when_true, when_false) instead of a/if/else: "
+                "expressions operate on whole columns"
+            )
+        if isinstance(node, ast.Compare) and len(node.comparators) > 1:
+            raise ValueError(
+                "chain comparisons with & instead of a < b < c: "
+                "expressions operate on whole columns"
+            )
         if not isinstance(node, _EXPR_NODES):
             raise ValueError(f"derive expr may not use {type(node).__name__}")
         if isinstance(node, ast.Call):
