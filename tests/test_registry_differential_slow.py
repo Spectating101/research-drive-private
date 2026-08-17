@@ -34,11 +34,6 @@ pytestmark = pytest.mark.slow
 REPO = Path(__file__).resolve().parent.parent
 MIN_DATASETS = 20
 MAX_ROWS = 300_000
-METRICS = [{"function": "count", "as": "n"},
-           {"function": "sum", "column": None, "as": "s"},
-           {"function": "mean", "column": None, "as": "m"}]
-
-
 def _registry() -> list[dict]:
     raw = json.loads((REPO / "drive/config/research_query_registry.json").read_text(encoding="utf-8"))
     return list((raw.get("datasets") if isinstance(raw, dict) else raw) or [])
@@ -63,10 +58,24 @@ def frames() -> dict[str, pd.DataFrame]:
     return loaded
 
 
+COMPARED = ("n", "s", "m", "sd", "med", "nu", "p90")
+
+
 def _metrics(column: str) -> list[dict]:
     return [{"function": "count", "as": "n"},
             {"function": "sum", "column": column, "as": "s"},
-            {"function": "mean", "column": column, "as": "m"}]
+            {"function": "mean", "column": column, "as": "m"},
+            {"function": "std", "column": column, "as": "sd"},
+            {"function": "median", "column": column, "as": "med"},
+            {"function": "nunique", "column": column, "as": "nu"},
+            {"function": "quantile", "column": column, "q": 0.9, "as": "p90"}]
+
+
+def _independent(grouped, column):
+    return pd.DataFrame({"n": grouped.size(), "s": grouped[column].sum(),
+                         "m": grouped[column].mean(), "sd": grouped[column].std(),
+                         "med": grouped[column].median(), "nu": grouped[column].nunique(),
+                         "p90": grouped[column].quantile(0.9)}).reset_index()
 
 
 def _groupable(frame: pd.DataFrame, limit: int = 400) -> list[str]:
@@ -97,7 +106,7 @@ def _same(engine: pd.DataFrame, want: pd.DataFrame, keys: list[str]) -> list[str
     left = engine.sort_values(keys).reset_index(drop=True)
     right = want.sort_values(keys).reset_index(drop=True)
     bad = []
-    for col in ("n", "s", "m"):
+    for col in COMPARED:
         a, b = left[col], right[col]
         if pd.api.types.is_numeric_dtype(a) and pd.api.types.is_numeric_dtype(b):
             close = ((a - b).abs() <= 1e-6 * (1 + b.abs())) | (a.isna() & b.isna())
@@ -126,9 +135,7 @@ def test_grouped_aggregates_match_an_independent_computation(frames, tmp_path):
         except Exception as exc:
             problems.append(f"{dataset_id}: engine raised {type(exc).__name__}: {exc}")
             continue
-        grouped = frame.groupby(key, dropna=False)
-        want = pd.DataFrame({"n": grouped.size(), "s": grouped[col].sum(),
-                             "m": grouped[col].mean()}).reset_index()
+        want = _independent(frame.groupby(key, dropna=False), col)
         bad = _same(engine, want, [key])
         if bad:
             problems.append(f"{dataset_id} on {key}/{col}: {'; '.join(bad)}")
@@ -195,9 +202,7 @@ def test_joins_match_an_independent_merge(frames, tmp_path):
         l = left.copy()
         l[key], r[key] = align(l[key], r[key])
         merged = l.merge(r, on=[key], how="inner", suffixes=("", "_right"))
-        grouped = merged.groupby(key, dropna=False)
-        want = pd.DataFrame({"n": grouped.size(), "s": grouped[col].sum(),
-                             "m": grouped[col].mean()}).reset_index()
+        want = _independent(merged.groupby(key, dropna=False), col)
         bad = _same(engine, want, [key])
         if bad:
             problems.append(f"{aid}+{bid} on {key}: {'; '.join(bad)}")

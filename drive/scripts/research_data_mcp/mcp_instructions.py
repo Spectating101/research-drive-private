@@ -51,7 +51,20 @@ def mcp_server_instructions() -> str:
             "non-finite source values propagate into aggregates. "
             "join_asof matches on an ordered column with optional `by` entities: "
             "direction backward/forward/nearest (forward and nearest read values "
-            "dated after the row), tolerance bounds how stale a match may be."
+            "dated after the row), tolerance bounds how stale a match may be. "
+            "Metrics a spec may ask for — count (rows, including rows whose group "
+            "key is null), sum, mean, min, max, std, median, nunique, and quantile "
+            "(which takes q, a fraction between 0 and 1). Nothing requires "
+            "dispersion; an effect size without one cannot be told from noise, and "
+            "that is the caller's call to make. "
+            "What a run measures about itself — research_synthesis_materialisation "
+            "returns `measured` on a recorded execution: source_rows and "
+            "rows_aggregated (an aggregate over 50 of 1000 rows reads the same as "
+            "one over all of them unless you look), row_ledger (rows in and out per "
+            "transform step), asof_coverage (per as-of step: matched_rows, "
+            "unmatched_rows, match_rate_pct, undated_left_rows_dropped — an "
+            "unmatched row is NaN and sums to 0.0), and undefined_derived_values "
+            "(how many values a derive masked, a division by zero among them)."
         )
     from scripts.research_data_mcp.procurement_constants import ACQUISITION_LADDER, COMPOSER_EXTERNAL_TOOLS_NOTE
 
