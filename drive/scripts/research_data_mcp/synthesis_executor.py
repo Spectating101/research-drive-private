@@ -246,65 +246,12 @@ _EXPR_NODES = (
 
 
 def expression_functions() -> dict[str, Any]:
-    """The callable surface an expression may reach. Adding a row here widens
-    what Composer can express; nothing else in the grammar needs to change."""
-    import numpy as np
-    import pandas as pd
+    """Defined once in synthesis/expr_runtime.py, which the exported script embeds
+    verbatim. Two copies drifted before: 21 of 23 missing from the script, and
+    ntile bucketing differently on the same bytes."""
+    from scripts.research_data_mcp.synthesis.expr_runtime import functions
 
-    def dt(series):
-        return pd.to_datetime(series, errors="coerce")
-
-    periods = {"day": "D", "week": "W", "month": "M", "quarter": "Q", "year": "Y"}
-
-    def date_trunc(series, unit):
-        key = str(unit).lower()
-        if key not in periods:
-            raise ValueError(f"date_trunc unit must be one of {sorted(periods)}")
-        return dt(series).dt.to_period(periods[key]).astype(str)
-
-    def substr(series, start, length=None):
-        start = int(start)
-        stop = start + int(length) if length is not None else None
-        return series.astype(str).str[start:stop]
-
-    def concat(*parts):
-        out = None
-        for part in parts:
-            piece = part.astype(str) if hasattr(part, "astype") else str(part)
-            out = piece if out is None else out + piece
-        return out
-
-    def if_else(cond, when_true, when_false):
-        return pd.Series(np.where(cond, when_true, when_false), index=cond.index)
-
-    def ntile(series, buckets):
-        return pd.qcut(series, int(buckets), labels=False, duplicates="drop") + 1
-
-    return {
-        "date_trunc": date_trunc,
-        "year": lambda s: dt(s).dt.year,
-        "month": lambda s: dt(s).dt.month,
-        "quarter": lambda s: dt(s).dt.quarter,
-        "day_of_week": lambda s: dt(s).dt.dayofweek,
-        "lower": lambda s: s.astype(str).str.lower(),
-        "upper": lambda s: s.astype(str).str.upper(),
-        "strip": lambda s: s.astype(str).str.strip(),
-        "substr": substr,
-        "replace": lambda s, old, new: s.astype(str).str.replace(str(old), str(new), regex=False),
-        "contains": lambda s, pat: s.astype(str).str.contains(str(pat), na=False),
-        "concat": concat,
-        "length": lambda s: s.astype(str).str.len(),
-        "abs": lambda s: s.abs(),
-        "round": lambda s, digits=0: s.round(int(digits)),
-        "clip": lambda s, low, high: s.clip(low, high),
-        "log": lambda s: np.log(s.where(s > 0)),
-        "sqrt": lambda s: np.sqrt(s.where(s >= 0)),
-        "if_else": if_else,
-        "coalesce": lambda a, b: a.fillna(b),
-        "is_null": lambda s: s.isna(),
-        "rank_pct": lambda s: s.rank(pct=True),
-        "ntile": ntile,
-    }
+    return functions()
 
 
 def validate_expression(expr: str) -> tuple[ast.Expression, list[str]]:
