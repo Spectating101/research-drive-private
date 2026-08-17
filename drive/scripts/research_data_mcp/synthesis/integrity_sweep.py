@@ -148,6 +148,37 @@ def sweep(repo_root: Path, *, deep: bool = False, only: list[str] | None = None)
     }
 
 
+def runtime_readiness(repo_root: Path | str) -> dict[str, dict[str, str]]:
+    """What the engine tells a caller, after its own start-up reconciliation.
+
+    This sweep resolves through the synthesis path resolver, which answers "which
+    single file do I read". The engine answers a different question and has
+    dedicated handlers for partitioned directories, so a dataset this sweep calls
+    held_not_single_file may still serve rows. Reporting the sweep's status alone
+    overstates breakage: of 40 such datasets, 38 are already downgraded by the
+    engine with a reason and 2 (the GDELT panels) query fine.
+    """
+    try:
+        from scripts.research_query_engine.engine import ResearchQueryEngine
+
+        engine = ResearchQueryEngine(repo_root=Path(repo_root))
+    except Exception:
+        return {}
+    rows = engine.datasets
+    rows = list(rows.values()) if isinstance(rows, dict) else list(rows or [])
+    out: dict[str, dict[str, str]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        out[str(row.get("dataset_id") or "")] = {
+            "readiness": str(row.get("analysis_readiness") or ""),
+            "reason": str(row.get("runtime_readiness_reason") or ""),
+        }
+    return out
+
+
+SERVING_READINESS = {"instant", "query_ready"}
+
 LANDING_ROOTS = ("data_lake/procured", "data_lake/spectator_engine/scrapes")
 STATUS_ORPHAN = "landed_unregistered"
 STATUS_PHANTOM = "registered_absent"
@@ -210,7 +241,29 @@ def reconcile(repo_root: Path | str, *, deep: bool = False) -> dict[str, Any]:
                if item["declared_dataset_id"] not in registered_ids and item["data_files"] > 0]
     phantoms = [r for r in forward["results"] if r["status"] == STATUS_ABSENT]
 
+    runtime = runtime_readiness(repo_root)
+    misreported: list[dict[str, Any]] = []
+    for item in forward["results"]:
+        state = runtime.get(item["dataset_id"])
+        if not state:
+            continue
+        item["engine_readiness"] = state["readiness"]
+        item["engine_reason"] = state["reason"]
+        serving = state["readiness"] in SERVING_READINESS
+        item["engine_serves"] = serving
+        # A row still promising a usable dataset over bytes nothing can open is the
+        # only case here that misleads a caller; a downgraded row is the engine
+        # doing its job, and a served directory is this sweep being too narrow.
+        if serving and item["status"] in (STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
+            misreported.append(item)
+
     return {
+        "runtime_checked": bool(runtime),
+        "engine_serves": sum(1 for r in forward["results"] if r.get("engine_serves")),
+        "engine_downgraded": sum(
+            1 for r in forward["results"]
+            if r.get("engine_readiness") and not r.get("engine_serves")),
+        "misreported": misreported,
         "registered": forward["registered"],
         "counts": forward["counts"],
         "readable_rows": forward["readable_rows"],
@@ -238,13 +291,24 @@ def main(argv: list[str] | None = None) -> int:
         report = reconcile(Path(args.repo_root), deep=args.deep)
         if args.json:
             print(json.dumps(report, indent=1, default=str))
-            return 1 if (report["corrupt"] or report["orphans"]) else 0
+            return 1 if (report["corrupt"] or report["orphans"] or report.get("misreported")) else 0
         counts = report["counts"]
         print(f"registered {report['registered']}  ·  landings on disk {report['landings']}")
         for status in (STATUS_READABLE, STATUS_MULTI, STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
             if counts.get(status):
                 print(f"  {status:<11} {counts[status]}")
         print(f"  {'rows':<11} {report['readable_rows']:,} across {report['readable_bytes'] / 1e6:.1f} MB")
+        if report.get("runtime_checked"):
+            print(f"\nwhat the engine actually tells a caller — {report['engine_serves']} served, "
+                  f"{report['engine_downgraded']} downgraded with a reason.")
+            print("  a status above is this sweep's single-file resolver, not the engine's answer;")
+            print("  only the rows below promise data that cannot be opened.")
+            if report["misreported"]:
+                for item in report["misreported"]:
+                    print(f"  MISREPORTED {item['dataset_id'][:38]:<38} engine={item['engine_readiness']:<10} "
+                          f"bytes={item['status']}")
+            else:
+                print("  none — every serving row has bytes behind it.")
         if report["orphans"]:
             print(f"\nheld but not in the catalogue — {len(report['orphans'])} landings, "
                   f"{report['orphan_bytes'] / 1e6:.1f} MB, invisible to the desk:")
@@ -259,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\npresent but unusable — {len(report['corrupt'])}:")
             for item in report["corrupt"]:
                 print(f"  {item['dataset_id'][:44]:<44} {item['status']:<10} {str(item['detail'])[:44]}")
-        return 1 if (report["corrupt"] or report["orphans"]) else 0
+        return 1 if (report["corrupt"] or report["orphans"] or report.get("misreported")) else 0
 
     report = sweep(Path(args.repo_root), deep=args.deep, only=args.only)
     if args.json:
