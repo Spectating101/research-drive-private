@@ -266,6 +266,11 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = normalize_api_path(parsed.path)
+        # Keep liveness independent of the UI build. Static SPA fallback must
+        # never turn a health probe into a 200 HTML shell.
+        if path == "/healthz":
+            self._send_json({"status": "ok"}, status=200)
+            return
         if self._serve_static(path):
             return
         if path == "/library/desk/capabilities":

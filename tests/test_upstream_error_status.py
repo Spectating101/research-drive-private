@@ -12,7 +12,9 @@ everything else to 500, so urllib's HTTPError fell through to "our fault".
 
 from __future__ import annotations
 
+import socket
 import urllib.error
+import socket
 
 import pytest
 
@@ -60,10 +62,16 @@ def test_any_other_upstream_failure_is_a_gateway_error(code):
     assert out["body"]["upstream_status"] == code
 
 
-def test_an_unreachable_upstream_is_a_timeout_not_a_crash():
+def test_an_unreachable_upstream_is_a_gateway_error_not_a_server_crash():
     out = _dispatch(urllib.error.URLError("name or service not known"))
-    assert out["status"] == 504
+    assert out["status"] == 502
     assert out["body"]["error"] == "upstream_unreachable"
+
+
+def test_an_upstream_timeout_is_a_gateway_timeout():
+    out = _dispatch(urllib.error.URLError(socket.timeout("timed out")))
+    assert out["status"] == 504
+    assert out["body"]["error"] == "upstream_timeout"
 
 
 def test_a_genuine_internal_fault_is_still_a_500():

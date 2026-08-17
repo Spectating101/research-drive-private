@@ -12,6 +12,7 @@ Composer agents should use MCP stdio tools, not duplicate HTTP paths.
 
 from __future__ import annotations
 
+import socket
 import urllib.error
 
 from typing import Any, Callable
@@ -1606,8 +1607,10 @@ def _dispatch(method: str, path: str, query: dict[str, str], payload: dict[str, 
             "error": "upstream_error", "upstream_status": upstream,
             "message": f"{path}: upstream returned {upstream or 'an error'}"}}
     except urllib.error.URLError as exc:
-        return {"status": 504, "body": {
-            "error": "upstream_unreachable",
-            "message": f"{path}: {getattr(exc, 'reason', exc)}"}}
+        reason = getattr(exc, "reason", exc)
+        timed_out = isinstance(reason, (TimeoutError, socket.timeout))
+        return {"status": 504 if timed_out else 502, "body": {
+            "error": "upstream_timeout" if timed_out else "upstream_unreachable",
+            "message": f"{path}: {reason}"}}
     except Exception as exc:
         return {"status": 500, "body": {"error": type(exc).__name__, "message": str(exc)}}
