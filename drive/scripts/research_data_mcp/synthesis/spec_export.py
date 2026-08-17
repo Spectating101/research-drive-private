@@ -80,8 +80,10 @@ def _py(value: Any) -> str:
 
 def _transform_lines(transforms: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
-    for step in transforms or []:
+    for position, step in enumerate(transforms or [], start=1):
         op = step.get("op")
+        lines.append(f"_rows_before = len(frame)  # step {position}: {op}")
+        before = len(lines)
         if op == "filter":
             col, o, v = step.get("column"), step.get("cmp") or "eq", step.get("value")
             cmp = {"eq": "==", "ne": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}.get(o)
@@ -184,6 +186,12 @@ def _transform_lines(transforms: list[dict[str, Any]]) -> list[str]:
                     lines.append(
                         f"frame[{_py(alias)}] = _finite({expr})" if fn == "div" else f"frame[{_py(alias)}] = {expr}"
                     )
+        if len(lines) > before:
+            lines.append(
+                f"_ledger.append(({op!r}, _rows_before, len(frame)))"
+            )
+        else:
+            lines.pop()
     return lines
 
 
@@ -399,6 +407,8 @@ def render_script(
         "",
         "",
         f"frame = read_input({_py(spec.get('input_dataset_id'))})",
+        "_ledger = []",
+        "_source_rows = len(frame)",
     ]
     body += _transform_lines(spec.get("transforms") or [])
     if group_by and agg:
@@ -431,6 +441,14 @@ def render_script(
         "",
         "print(result.head(20).to_string(index=False))",
         "print(f'{len(result)} rows')",
+        "",
+        "# What this run was computed over. The desk records the same ledger; a",
+        "# result over a tenth of the source reads identically to one over all of",
+        "# it unless the count is stated.",
+        "print(f'source rows: {_source_rows}  aggregated over: {len(frame)}')",
+        "for _step, (_op, _before, _after) in enumerate(_ledger, start=1):",
+        "    if _before != _after:",
+        "        print(f'  step {_step} {_op}: {_before} -> {_after} rows')",
         f"# result.to_parquet({_py(str(spec.get('output_dataset_id')) + '.parquet')})",
         "",
     ]

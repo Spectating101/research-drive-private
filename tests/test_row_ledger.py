@@ -95,3 +95,42 @@ def test_the_output_row_count_is_still_the_group_count(tmp_path):
                      {"execution_spec": _spec([{"op": "drop_na", "columns": ["v"]}]), "thread_id": "t"})
     assert result["rows"] == 2
     assert result["rows_aggregated"] == 100
+
+
+def test_the_exported_script_reports_its_own_coverage(tmp_path):
+    """The desk records source_rows and a per-step ledger. The artifact a
+    researcher runs off-desk printed only the result, so a mean over a tenth of
+    the source read identically to one over all of it."""
+    import subprocess
+    import sys
+
+    from scripts.research_data_mcp.synthesis.spec_export import fingerprint_path, render_script
+
+    repo = _repo(tmp_path)
+    spec = _spec([{"op": "drop_na", "columns": ["v"]}])
+    script = tmp_path / "exported.py"
+    script.write_text(render_script(spec, {"a": fingerprint_path(repo / "data/a.parquet")}),
+                      encoding="utf-8")
+    done = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0, done.stderr[-400:]
+    assert "source rows: 1000" in done.stdout
+    assert "aggregated over: 100" in done.stdout
+    assert "drop_na: 1000 -> 100 rows" in done.stdout
+
+
+def test_a_script_with_no_row_loss_says_nothing_about_steps(tmp_path):
+    """Only steps that actually removed rows are worth a line."""
+    import subprocess
+    import sys
+
+    from scripts.research_data_mcp.synthesis.spec_export import fingerprint_path, render_script
+
+    repo = _repo(tmp_path)
+    spec = _spec([{"op": "sort", "by": ["v"]}])
+    script = tmp_path / "exported.py"
+    script.write_text(render_script(spec, {"a": fingerprint_path(repo / "data/a.parquet")}),
+                      encoding="utf-8")
+    done = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0, done.stderr[-400:]
+    assert "source rows: 1000  aggregated over: 1000" in done.stdout
+    assert "-> " not in done.stdout.split("source rows")[1]
