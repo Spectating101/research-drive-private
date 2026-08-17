@@ -172,11 +172,14 @@ def test_the_script_row_accounting_matches_the_engine_ledger(repo, tmp_path):
         metrics=[{"function": "count", "as": "n"},
                  {"function": "mean", "column": "x", "as": "mx"}],
         transforms=[
+            # join and derive keep every row; the next three each drop some, in an
+            # order the comparison below has to reproduce exactly.
             {"op": "join", "right_dataset_id": "b", "on": ["g"], "how": "inner",
              "accept_row_loss": True, "collapse": {"strategy": "first"}},
             {"op": "derive", "as": "x", "expr": "if_else(v > 1, v * r, 0)"},
             {"op": "filter", "column": "v", "cmp": "gt", "value": 1.0},
-            {"op": "drop_na", "columns": ["x"]},
+            {"op": "drop_duplicates", "columns": ["g"]},
+            {"op": "head", "n": 1},
         ])
     engine_result = execute(repo, "job", {"execution_spec": spec, "thread_id": "parity"})
 
@@ -194,12 +197,14 @@ def test_the_script_row_accounting_matches_the_engine_ledger(repo, tmp_path):
     assert int(source) == engine_result["source_rows"]
     assert int(aggregated) == engine_result["rows_aggregated"]
 
-    # every step the script reported losing rows on must match the engine's ledger
-    reported = {(op, int(a), int(b)) for op, a, b in
-                re.findall(r"step \d+ (\w+): (\d+) -> (\d+) rows", printed)}
-    expected = {(s["op"], s["rows_in"], s["rows_out"]) for s in engine_result["row_ledger"]
-                if s["rows_in"] != s["rows_out"]}
+    # Ordered records, not a set: a set would let two steps swap places, or a
+    # repeated (op, rows_in, rows_out) collapse into one and still pass.
+    reported = [(int(step), op, int(a), int(b)) for step, op, a, b in
+                re.findall(r"step (\d+) (\w+): (\d+) -> (\d+) rows", printed)]
+    expected = [(s["step"], s["op"], s["rows_in"], s["rows_out"])
+                for s in engine_result["row_ledger"] if s["rows_in"] != s["rows_out"]]
     assert reported == expected, f"script {reported} vs engine {expected}"
+    assert len(expected) >= 2, "the spec must lose rows at more than one step to prove ordering"
 
     # and the numbers must be non-trivial, or this proves nothing
     assert engine_result["source_rows"] > engine_result["rows_aggregated"] > 0

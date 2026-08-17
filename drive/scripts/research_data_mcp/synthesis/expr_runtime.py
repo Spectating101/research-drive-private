@@ -6,8 +6,12 @@ bucketed a rank there and the raw series on the desk, so the same spec on the
 same bytes produced different buckets.
 
 Here they exist once, as source text. The engine execs it to get callables; the
-renderer embeds the identical text in the script it hands the researcher. They
-cannot disagree, because there is only one of them.
+renderer embeds the identical text in the script it hands the researcher, so the
+operator source text cannot diverge — which is what caused the bug.
+
+That is narrower than "the two paths agree". Behaviour can still differ through
+pandas or numpy versions, the interpreter, or the inputs each side is given, so
+the parity suite stays load-bearing.
 
 The text needs `np` and `pd` in scope and nothing else — that is what lets the
 exported script stay standalone.
