@@ -113,3 +113,32 @@ def test_list_fields_do_not_leak_python_syntax_into_the_text(tmp_path):
 def test_an_empty_dataset_produces_empty_text():
     assert ResearchQueryEngine.searchable_text({}) == ""
     assert ResearchQueryEngine.searchable_text({"tags": [], "one_line": None}) == ""
+
+
+def test_unified_search_carries_the_match_evidence(tmp_path):
+    """Verified over HTTP first: /library/search returned the right datasets with
+    match_terms None, because the unified layer rebuilds its own row and had
+    dropped it. A one-of-three match must not look like a three-of-three.
+    """
+    from scripts.research_data_mcp.search import SearchService
+    from scripts.research_data_mcp.unified_search import unified_search
+
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    registry.write_text(json.dumps({"datasets": [
+        {"dataset_id": "usgs_earthquake_catalog", "name": "USGS earthquake catalog",
+         "description": "event-level seismic history with earthquake activity per event",
+         "domain": "geoscience", "grain": "event"},
+        {"dataset_id": "daily_activity_index", "name": "Daily activity index",
+         "description": "a broad daily activity measure", "domain": "macro", "grain": "day"},
+    ]}), encoding="utf-8")
+    engine = ResearchQueryEngine(registry, repo_root=tmp_path)
+    service = SearchService(engine, registry, tmp_path)
+
+    out = unified_search(service, "earthquake seismic activity",
+                         limit=10, include_hf=False, include_datacite=False)
+    rows = {r.get("dataset_id"): r for r in out["rows"] if r.get("kind") == "local_registry"}
+    assert rows, "no local registry rows survived the unified layer"
+    quake = rows["usgs_earthquake_catalog"]
+    assert quake["match_terms"] == ["earthquake", "seismic", "activity"]
+    assert quake["match_terms_total"] == 3
