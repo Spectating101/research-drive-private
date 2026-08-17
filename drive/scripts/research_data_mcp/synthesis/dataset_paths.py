@@ -23,7 +23,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-TABULAR_SUFFIXES = (".parquet", ".csv", ".csv.gz")
+# What _read_frame can actually open. The resolver used to accept only parquet and
+# csv, so a directory of json landings resolved to "contains no parquet or csv
+# files" and the dataset read as absent while the engine read it fine.
+TABULAR_SUFFIXES = (".parquet", ".csv", ".csv.gz", ".json", ".jsonl", ".ndjson")
 AMBIGUITY_SCAN_CAP = 64
 
 

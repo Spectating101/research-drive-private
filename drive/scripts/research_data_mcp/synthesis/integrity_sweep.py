@@ -36,6 +36,12 @@ STATUS_READABLE = "readable"
 STATUS_UNREADABLE = "unreadable"
 STATUS_ABSENT = "absent"
 STATUS_EMPTY = "empty"
+# Held, but not addressable as one file. The synthesis resolver refuses a directory
+# holding several data files because it must not guess which one a spec meant — the
+# right answer for "which file do I read" and the wrong one for "do we hold this".
+# Conflating them made this sweep report 38 datasets absent while 4,320 of their
+# files sat on disk, gdelt_asia_daily_country_panel among them at 1,415 files.
+STATUS_MULTI = "held_not_single_file"
 
 
 def _load_registry(repo_root: Path) -> list[dict[str, Any]]:
@@ -52,6 +58,25 @@ def check_dataset(repo_root: Path, source: dict[str, Any], *, deep: bool = False
     path, reason = resolve_dataset_file(repo_root, source)
     if path is None:
         out["detail"] = reason
+        declared = str(source.get("local_path") or source.get("local_root") or "").rstrip("/*")
+        if declared:
+            from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+            for root in data_roots(repo_root):
+                candidate = root / declared
+                if not candidate.is_dir():
+                    continue
+                files = [f for f in candidate.rglob("*") if f.is_file()]
+                if files:
+                    out["status"] = STATUS_MULTI
+                    out["path"] = str(candidate)
+                    out["data_files"] = len(files)
+                    out["bytes"] = sum(f.stat().st_size for f in files[:2000])
+                    out["detail"] = (
+                        f"{len(files)} files present; not addressable as a single file, "
+                        "so synthesis cannot read it without a local_file"
+                    )
+                    break
         return out
 
     out["path"] = str(path)
@@ -118,6 +143,7 @@ def sweep(repo_root: Path, *, deep: bool = False, only: list[str] | None = None)
         "readable_bytes": sum(r["bytes"] for r in results if r["status"] == STATUS_READABLE),
         "readable_rows": sum(r["rows"] or 0 for r in results if r["status"] == STATUS_READABLE),
         "results": results,
+        "held_not_single_file": [r for r in results if r["status"] == STATUS_MULTI],
         "corrupt": [r for r in results if r["status"] in (STATUS_UNREADABLE, STATUS_EMPTY)],
     }
 
@@ -215,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if (report["corrupt"] or report["orphans"]) else 0
         counts = report["counts"]
         print(f"registered {report['registered']}  ·  landings on disk {report['landings']}")
-        for status in (STATUS_READABLE, STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
+        for status in (STATUS_READABLE, STATUS_MULTI, STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
             if counts.get(status):
                 print(f"  {status:<11} {counts[status]}")
         print(f"  {'rows':<11} {report['readable_rows']:,} across {report['readable_bytes'] / 1e6:.1f} MB")
@@ -242,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = report["counts"]
     print(f"registered {report['registered']}")
-    for status in (STATUS_READABLE, STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
+    for status in (STATUS_READABLE, STATUS_MULTI, STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
         if counts.get(status):
             print(f"  {status:<11} {counts[status]}")
     print(f"  {'rows':<11} {report['readable_rows']:,} across {report['readable_bytes'] / 1e6:.1f} MB")

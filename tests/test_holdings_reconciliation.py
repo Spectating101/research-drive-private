@@ -119,3 +119,56 @@ def test_reconciliation_registers_nothing(tmp_path):
 
 def test_a_repo_with_no_landing_directory_reports_none(tmp_path):
     assert landings(_repo(tmp_path, [])) == []
+
+
+def test_a_directory_of_many_files_is_held_not_absent(tmp_path):
+    """gdelt_asia_daily_country_panel holds 1,415 files and read as absent.
+
+    The synthesis resolver refuses a directory with several data files because it
+    must not guess which one a spec meant. That is right for "which file do I
+    read" and wrong for "do we hold this", and conflating them hid 4,320 files.
+    """
+    from scripts.research_data_mcp.synthesis.integrity_sweep import check_dataset
+
+    repo = _repo(tmp_path, [])
+    panel = repo / "data_lake/news_shock/processed/run_a"
+    panel.mkdir(parents=True)
+    for name in ("panel.csv", "urls.csv", "extra.json"):
+        (panel / name).write_text("a,b\n1,2\n", encoding="utf-8")
+
+    out = check_dataset(repo, {"dataset_id": "panel", "local_path": "data_lake/news_shock/processed"})
+    assert out["status"] == "held_not_single_file"
+    assert out["data_files"] == 3
+    assert out["bytes"] > 0
+    assert "not addressable as a single file" in out["detail"]
+
+
+def test_a_genuinely_missing_directory_is_still_absent(tmp_path):
+    from scripts.research_data_mcp.synthesis.integrity_sweep import check_dataset
+
+    repo = _repo(tmp_path, [])
+    out = check_dataset(repo, {"dataset_id": "gone", "local_path": "data_lake/not_there"})
+    assert out["status"] == "absent"
+
+
+def test_an_empty_directory_is_absent_not_held(tmp_path):
+    from scripts.research_data_mcp.synthesis.integrity_sweep import check_dataset
+
+    repo = _repo(tmp_path, [])
+    (repo / "data_lake/hollow").mkdir(parents=True)
+    out = check_dataset(repo, {"dataset_id": "hollow", "local_path": "data_lake/hollow"})
+    assert out["status"] == "absent"
+
+
+def test_a_single_readable_file_is_still_readable(tmp_path):
+    """The new branch must not swallow the ordinary case."""
+    import pandas as pd
+
+    from scripts.research_data_mcp.synthesis.integrity_sweep import check_dataset
+
+    repo = _repo(tmp_path, [])
+    (repo / "data").mkdir(parents=True)
+    pd.DataFrame({"a": [1, 2, 3]}).to_parquet(repo / "data/one.parquet")
+    out = check_dataset(repo, {"dataset_id": "one", "local_path": "data/one.parquet"})
+    assert out["status"] == "readable"
+    assert out["rows"] == 3

@@ -153,19 +153,16 @@ class ResearchQueryEngine:
         for dataset in self.datasets.values():
             backend = str(dataset.get("backend") or "")
             readiness = str(dataset.get("analysis_readiness") or "").lower()
-            if backend not in {
-                "local_parquet_panel",
-                "local_csv_file",
-                "local_csv_glob",
-                "local_json_file",
-                "local_json_glob",
-                "local_file",
-            }:
+            # Any backend that reads local bytes, plus rows that declare none. The
+            # old six-name list let local_gdelt_panel_csv, local_gdelt_high_priority_csv
+            # and a backend-less row keep claiming instant readiness with nothing
+            # behind them, because they were never checked at all.
+            if backend and not backend.startswith("local_"):
                 continue
             if readiness not in {"instant", "query_ready"}:
                 continue
             local_path = str(dataset.get("local_path") or "").strip()
-            if backend == "local_parquet_panel" and not local_path:
+            if not local_path:
                 root = str(dataset.get("local_root") or "").rstrip("/")
                 name = str(dataset.get("local_file") or "").lstrip("/")
                 local_path = f"{root}/{name}" if root and name else ""
@@ -173,7 +170,18 @@ class ResearchQueryEngine:
                 continue
             resolved = self._resolve(local_path)
             if "*" in local_path:
-                present = bool(globmod.glob(str(resolved)))
+                # A match must be a file. taiwan_twse contains a directory literally
+                # named "*", created by code that used the pattern as a path, and
+                # matching it kept the row claiming instant readiness over an empty
+                # tree with no files anywhere beneath it.
+                present = any(Path(hit).is_file() for hit in globmod.glob(str(resolved)))
+                if not present:
+                    present = any(
+                        candidate.is_file()
+                        for hit in globmod.glob(str(resolved))
+                        if Path(hit).is_dir()
+                        for candidate in Path(hit).rglob("*")
+                    )
             else:
                 present = resolved.is_file() and resolved.stat().st_size > 0
                 if backend == "local_file":
