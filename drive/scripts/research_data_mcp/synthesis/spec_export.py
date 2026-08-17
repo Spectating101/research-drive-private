@@ -211,34 +211,68 @@ def _compare(series, cmp, value):
 
 
 def _expr_functions():
+    """Transcribed from synthesis_executor.expression_functions.
+
+    The engine offered 23 of these and this runtime implemented 6, so every
+    exported script using abs, sqrt, log, year, length and the rest died with a
+    NameError. The six it did implement had also drifted: ntile bucketed a rank
+    here and the raw series on the desk, giving different buckets on the same
+    data. test_export_runtime_parity keeps the two in step.
+    """
     periods = {"day": "D", "week": "W", "month": "M", "quarter": "Q", "year": "Y"}
 
     def dt(series):
         return pd.to_datetime(series, errors="coerce")
 
     def date_trunc(series, unit):
-        return dt(series).dt.to_period(periods[str(unit).lower()]).astype(str)
+        key = str(unit).lower()
+        if key not in periods:
+            raise ValueError("date_trunc unit must be one of " + str(sorted(periods)))
+        return dt(series).dt.to_period(periods[key]).astype(str)
 
     def substr(series, start, length=None):
         start = int(start)
         stop = start + int(length) if length is not None else None
-        return series.astype(str).str.slice(start, stop)
+        return series.astype(str).str[start:stop]
 
     def concat(*parts):
         out = None
-        for p in parts:
-            s = p.astype(str) if hasattr(p, "astype") else pd.Series([str(p)])
-            out = s if out is None else out.str.cat(s, na_rep="")
+        for part in parts:
+            piece = part.astype(str) if hasattr(part, "astype") else str(part)
+            out = piece if out is None else out + piece
         return out
 
     def if_else(cond, when_true, when_false):
-        return pd.Series(np.where(cond, when_true, when_false), index=getattr(cond, "index", None))
+        return pd.Series(np.where(cond, when_true, when_false), index=cond.index)
 
     def ntile(series, buckets):
-        return pd.qcut(series.rank(method="first"), int(buckets), labels=False) + 1
+        return pd.qcut(series, int(buckets), labels=False, duplicates="drop") + 1
 
-    return {"dt": dt, "date_trunc": date_trunc, "substr": substr,
-            "concat": concat, "if_else": if_else, "ntile": ntile}
+    return {
+        "date_trunc": date_trunc,
+        "year": lambda s: dt(s).dt.year,
+        "month": lambda s: dt(s).dt.month,
+        "quarter": lambda s: dt(s).dt.quarter,
+        "day_of_week": lambda s: dt(s).dt.dayofweek,
+        "lower": lambda s: s.astype(str).str.lower(),
+        "upper": lambda s: s.astype(str).str.upper(),
+        "strip": lambda s: s.astype(str).str.strip(),
+        "substr": substr,
+        "replace": lambda s, old, new: s.astype(str).str.replace(str(old), str(new), regex=False),
+        "contains": lambda s, pat: s.astype(str).str.contains(str(pat), na=False),
+        "concat": concat,
+        "length": lambda s: s.astype(str).str.len(),
+        "abs": lambda s: s.abs(),
+        "round": lambda s, digits=0: s.round(int(digits)),
+        "clip": lambda s, low, high: s.clip(low, high),
+        "log": lambda s: np.log(s.where(s > 0)),
+        "sqrt": lambda s: np.sqrt(s.where(s >= 0)),
+        "if_else": if_else,
+        "coalesce": lambda a, b: a.fillna(b),
+        "is_null": lambda s: s.isna(),
+        "rank_pct": lambda s: s.rank(pct=True),
+        "ntile": ntile,
+    }
 
 
 def _derive_expr(frame, expr):
