@@ -159,3 +159,47 @@ def test_the_desk_instructions_name_every_metric(monkeypatch, function):
     """A capability nothing can discover is the same defect as one nothing reads."""
     monkeypatch.setenv("RESEARCH_MCP_DESK", "1")
     assert function in mcp_server_instructions()
+
+
+def test_the_script_row_accounting_matches_the_engine_ledger(repo, tmp_path):
+    """Luna's review caught this gap: the script prints its coverage and the
+    engine records a ledger, and nothing compared the two. A spec exercising a
+    join, a derive and two row-reducing steps must agree on every step.
+    """
+    import re
+
+    spec = _spec(
+        metrics=[{"function": "count", "as": "n"},
+                 {"function": "mean", "column": "x", "as": "mx"}],
+        transforms=[
+            {"op": "join", "right_dataset_id": "b", "on": ["g"], "how": "inner",
+             "accept_row_loss": True, "collapse": {"strategy": "first"}},
+            {"op": "derive", "as": "x", "expr": "if_else(v > 1, v * r, 0)"},
+            {"op": "filter", "column": "v", "cmp": "gt", "value": 1.0},
+            {"op": "drop_na", "columns": ["x"]},
+        ])
+    engine_result = execute(repo, "job", {"execution_spec": spec, "thread_id": "parity"})
+
+    out = tmp_path / "exported.parquet"
+    script = tmp_path / "exported.py"
+    script.write_text(
+        render_script(spec, {"a": fingerprint_path(repo / "data/a.parquet"),
+                             "b": fingerprint_path(repo / "data/b.parquet")})
+        + f"\nresult.to_parquet({str(out)!r})\n", encoding="utf-8")
+    done = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0, done.stderr[-400:]
+
+    printed = done.stdout
+    source, aggregated = re.search(r"source rows: (\d+)  aggregated over: (\d+)", printed).groups()
+    assert int(source) == engine_result["source_rows"]
+    assert int(aggregated) == engine_result["rows_aggregated"]
+
+    # every step the script reported losing rows on must match the engine's ledger
+    reported = {(op, int(a), int(b)) for op, a, b in
+                re.findall(r"step \d+ (\w+): (\d+) -> (\d+) rows", printed)}
+    expected = {(s["op"], s["rows_in"], s["rows_out"]) for s in engine_result["row_ledger"]
+                if s["rows_in"] != s["rows_out"]}
+    assert reported == expected, f"script {reported} vs engine {expected}"
+
+    # and the numbers must be non-trivial, or this proves nothing
+    assert engine_result["source_rows"] > engine_result["rows_aggregated"] > 0
