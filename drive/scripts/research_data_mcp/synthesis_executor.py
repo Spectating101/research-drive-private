@@ -12,7 +12,13 @@ from typing import Any
 OUTPUT_DATASET_ID = re.compile(r"^synthesis_[a-z0-9][a-z0-9_]{2,117}$")
 MAX_INPUT_BYTES = 512 * 1024 * 1024
 MAX_OUTPUT_ROWS = 1_000_000
-ALLOWED_METRIC_FNS = frozenset({"count", "sum", "mean", "min", "max"})
+# count/sum/mean/min/max could state an effect size and never its spread, so no
+# result the engine produced could be told apart from noise. These are available,
+# not required: the engine does not decide that a question needs dispersion.
+ALLOWED_METRIC_FNS = frozenset(
+    {"count", "sum", "mean", "min", "max", "std", "median", "nunique", "quantile"}
+)
+METRIC_FNS_NEEDING_COLUMN = ALLOWED_METRIC_FNS - {"count"}
 ALLOWED_FILTER_OPS = frozenset({"eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "contains"})
 ALLOWED_TRANSFORM_OPS = frozenset({"filter", "select", "rename", "sort", "head", "drop_na", "join", "join_asof", "derive", "drop_duplicates"})
 # As-of is the point-in-time join: take the most recent right-hand row at or
@@ -55,11 +61,21 @@ def validate_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("execution_spec requires one or more aggregate metrics")
     for metric in metrics:
         if not isinstance(metric, dict) or str(metric.get("function") or "") not in ALLOWED_METRIC_FNS:
-            raise ValueError("metrics only support count, sum, mean, min, or max")
+            raise ValueError("metrics only support " + ", ".join(sorted(ALLOWED_METRIC_FNS)))
         if not str(metric.get("as") or "").strip():
             raise ValueError("each metric requires an output name")
-        if metric.get("function") != "count" and not str(metric.get("column") or "").strip():
+        if metric.get("function") in METRIC_FNS_NEEDING_COLUMN and not str(metric.get("column") or "").strip():
             raise ValueError("non-count metrics require a source column")
+        if metric.get("function") == "quantile":
+            if "q" not in metric:
+                raise ValueError("quantile requires q, a fraction between 0 and 1")
+            try:
+                q = float(metric["q"])
+            except (TypeError, ValueError):
+                raise ValueError("quantile q must be a number between 0 and 1") from None
+            if not 0.0 <= q <= 1.0:
+                raise ValueError("quantile q must be between 0 and 1")
+            metric["q"] = q
     if transforms is None:
         transforms = []
     if not isinstance(transforms, list):
@@ -1049,7 +1065,12 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     output = None
     for metric in spec["metrics"]:
         fn, column, alias = metric["function"], metric.get("column"), metric["as"]
-        series = grouped.size() if fn == "count" else getattr(grouped[column], fn)()
+        if fn == "count":
+            series = grouped.size()
+        elif fn == "quantile":
+            series = grouped[column].quantile(float(metric["q"]))
+        else:
+            series = getattr(grouped[column], fn)()
         series = series.rename(alias)
         output = series.to_frame() if output is None else output.join(series)
     output = output.reset_index(drop=not bool(spec["group_by"]))

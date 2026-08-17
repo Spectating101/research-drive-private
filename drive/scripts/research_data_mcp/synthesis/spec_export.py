@@ -286,7 +286,8 @@ def render_script(
             fn = "size" if group_by else fn
         else:
             column = m.get("column")
-        agg[alias] = (column, fn)
+        # quantile needs its fraction, so the aggfunc carries it rather than a name.
+        agg[alias] = (column, fn, float(m["q"])) if fn == "quantile" else (column, fn, None)
 
     head: list[str] = [
         '"""Reproduces a Research Drive synthesis output.',
@@ -367,16 +368,27 @@ def render_script(
     ]
     body += _transform_lines(spec.get("transforms") or [])
     if group_by and agg:
-        pairs = ", ".join(f"{k}=pd.NamedAgg(column={_py(v[0])}, aggfunc={_py(v[1])})" for k, v in agg.items() if k)
+        pairs = ", ".join(
+            f"{k}=pd.NamedAgg(column={_py(v[0])}, aggfunc=lambda s, _q={v[2]!r}: s.quantile(_q))"
+            if v[1] == "quantile"
+            else f"{k}=pd.NamedAgg(column={_py(v[0])}, aggfunc={_py(v[1])})"
+            for k, v in agg.items()
+            if k
+        )
         body += ["", f"result = frame.groupby({_py(group_by)}, dropna=False).agg({pairs}).reset_index()"]
     elif agg:
         # Ungrouped: the engine aggregates the whole frame to a single row. Emitting
         # the frame here would hand a reviewer a different result than the desk got.
         cells = []
-        for alias, (col, fn) in agg.items():
+        for alias, (col, fn, q) in agg.items():
             if not alias:
                 continue
-            expr = "frame.shape[0]" if fn == "count" else f"frame[{_py(col)}].{fn}()"
+            if fn == "count":
+                expr = "frame.shape[0]"
+            elif fn == "quantile":
+                expr = f"frame[{_py(col)}].quantile({q!r})"
+            else:
+                expr = f"frame[{_py(col)}].{fn}()"
             cells.append(f"{_py(alias)}: [{expr}]")
         body += ["", f"result = pd.DataFrame({{{', '.join(cells)}}})"]
     else:
