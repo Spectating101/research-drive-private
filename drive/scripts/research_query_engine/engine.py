@@ -33,6 +33,14 @@ SEARCH_FIELDS = (
 )
 
 
+def _display_path(path: Path, repo_root: Path) -> str:
+    """Repo-relative when it can be, absolute when the bytes live elsewhere."""
+    try:
+        return str(path.relative_to(repo_root))
+    except ValueError:
+        return str(path)
+
+
 @dataclass
 class QueryResult:
     dataset_id: str
@@ -52,9 +60,29 @@ class ResearchQueryEngine:
         self._reconcile_local_panel_readiness()
 
     def _resolve(self, value: str | Path) -> Path:
+        """Resolve under the repo and storage tiers, then the configured data roots.
+
+        Synthesis honours RESEARCH_DATA_ROOTS and reached 103 datasets while this
+        resolver, which did not, called 101 of them missing — on a desk whose own
+        serving process sets that variable. Of those 101, 96 serve real rows
+        through their declared backend once the path resolves.
+
+        Repo and tier resolution still win, so a local copy is preferred and
+        behaviour is unchanged when the variable is unset.
+        """
         from scripts.research_data_mcp.data_paths import resolve_data_path
 
-        return resolve_data_path(self.repo_root, value)
+        resolved = resolve_data_path(self.repo_root, value)
+        if resolved.exists():
+            return resolved
+        from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+        relative = str(value).lstrip("/")
+        for root in data_roots(self.repo_root):
+            candidate = root / relative
+            if candidate.exists():
+                return candidate
+        return resolved
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
@@ -96,6 +124,23 @@ class ResearchQueryEngine:
             "width_counts": {str(width): count for width, count in sorted(widths.items())},
         }
 
+    @staticmethod
+    def _parquet_footer_observation(path: Path) -> dict[str, Any]:
+        """Does the footer parse? Reads metadata only, never a row group.
+
+        us_sp500_yfinance_daily is 14MB with valid PAR1 magic at both ends and an
+        undeserialisable thrift footer. Size alone called it present, so it
+        claimed instant readiness and raised OSError at query time instead.
+        """
+        try:
+            import pyarrow.parquet as pq
+
+            metadata = pq.ParquetFile(path).metadata
+        except Exception as exc:
+            return {"valid": False, "reason": "parquet_unreadable", "error_type": type(exc).__name__}
+        return {"valid": True, "reason": "ok", "rows": int(metadata.num_rows),
+                "columns": int(metadata.num_columns)}
+
     def _reconcile_local_panel_readiness(self) -> None:
         """Remove stale query-ready claims when local bytes are not materialized.
 
@@ -133,6 +178,13 @@ class ResearchQueryEngine:
                 present = resolved.is_file() and resolved.stat().st_size > 0
                 if backend == "local_file":
                     present = present or (resolved.is_dir() and any(resolved.iterdir()))
+            unusable_reason = ""
+            if present and backend == "local_parquet_panel" and "*" not in local_path:
+                footer = self._parquet_footer_observation(resolved)
+                if not footer.get("valid"):
+                    present = False
+                    unusable_reason = "parquet_unreadable"
+                    dataset["schema_observation"] = footer
             if present:
                 if backend in {"local_csv_file", "local_csv_glob"}:
                     if "*" in local_path:
@@ -185,7 +237,9 @@ class ResearchQueryEngine:
             dataset["analysis_readiness"] = "registered" if has_archive else "metadata_search"
             dataset["collection_status"] = "registered" if has_archive else "metadata_only"
             dataset["field_coverage"] = "metadata-only"
-            dataset["runtime_readiness_reason"] = "local_bytes_missing"
+            # "missing" sends someone looking for an absent file. When the bytes
+            # are present but unusable, say which way they are unusable.
+            dataset["runtime_readiness_reason"] = unusable_reason or "local_bytes_missing"
             dataset["hydrate_required"] = has_archive
 
     def describe(self, dataset_id: str) -> dict[str, Any]:
@@ -905,7 +959,7 @@ class ResearchQueryEngine:
         return QueryResult(
             ds["dataset_id"],
             rows,
-            {"path": str(path.relative_to(self.repo_root)), "returned": len(rows), "params": params},
+            {"path": _display_path(path, self.repo_root), "returned": len(rows), "params": params},
         )
 
     def _query_local_file_tree(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
@@ -915,7 +969,7 @@ class ResearchQueryEngine:
             return QueryResult(ds["dataset_id"], [], {"error": f"missing path: {root}", "params": params})
         rows: list[dict[str, Any]] = []
         if root.is_file():
-            rel = str(root.relative_to(self.repo_root))
+            rel = _display_path(root, self.repo_root)
             rows.append({"path": rel, "file": root.name, "bytes": root.stat().st_size})
             if root.suffix.lower() == ".csv" and str(params.get("read_csv", "false")).lower() in {"1", "true", "yes"}:
                 import pandas as pd
