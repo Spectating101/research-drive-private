@@ -1,11 +1,25 @@
-"""Open every registered dataset's bytes and report what is actually there.
+"""Reconcile what the catalogue claims against what the storage holds.
 
-A registry entry claiming a dataset is available proves nothing about the file.
-us_sp500_yfinance_daily is 14MB with valid PAR1 magic at both ends and a corrupt
-thrift footer; it was registered and unreadable and nothing knew until someone
-opened it. Magic bytes are not a check — only a real read is.
+Two directions, because the failures run both ways.
 
-States what it observed. It does not repair, re-register, or delete anything.
+Registry to bytes: an entry claiming a dataset is available proves nothing about
+the file. us_sp500_yfinance_daily is 14MB with valid PAR1 magic at both ends and
+a corrupt thrift footer; it was registered and unreadable and nothing knew until
+someone opened it.
+
+Bytes to registry: a collection that landed correctly is worthless if no row
+points at it. 32 of 33 directories under data_lake/procured — 18MB of SEC EDGAR
+filings, Taiwan exchange feeds and the Keeling series, content-addressed with
+manifests and validation records — were invisible to the desk because acquisition
+and cataloguing keep separate books and nothing compared them.
+
+A landing describes itself: CURRENT.json carries the dataset_id it expects, its
+revision, file count and content hashes, and the revision manifest carries the
+source URL and validation result. So the comparison is exact rather than a guess
+from directory names.
+
+States what it observed. It does not register, repair, or delete anything —
+deciding that an orphan deserves a catalogue row is the operator's call.
 """
 
 from __future__ import annotations
@@ -108,13 +122,118 @@ def sweep(repo_root: Path, *, deep: bool = False, only: list[str] | None = None)
     }
 
 
+LANDING_ROOTS = ("data_lake/procured", "data_lake/spectator_engine/scrapes")
+STATUS_ORPHAN = "landed_unregistered"
+STATUS_PHANTOM = "registered_absent"
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def landings(repo_root: Path | str, *, roots: tuple[str, ...] = LANDING_ROOTS) -> list[dict[str, Any]]:
+    """Every collection that reached storage, as the landing itself describes it."""
+    repo_root = Path(repo_root).resolve()
+    found: list[dict[str, Any]] = []
+    for rel in roots:
+        base = repo_root / rel
+        if not base.is_dir():
+            continue
+        for entry in sorted(base.iterdir()):
+            if not entry.is_dir():
+                continue
+            current = _read_json(entry / "CURRENT.json")
+            manifest = _read_json(entry / "manifest.json")
+            if not manifest:
+                revisions = sorted((entry / "revisions").glob("*/manifest.json")) if (entry / "revisions").is_dir() else []
+                manifest = _read_json(revisions[-1]) if revisions else {}
+            plan = manifest.get("plan") or {}
+            validation = manifest.get("validation") or {}
+            data_files = [
+                f for f in entry.rglob("*")
+                if f.is_file() and f.suffix.lower() in {".csv", ".json", ".jsonl", ".parquet", ".xpt", ""}
+                and f.name not in {"CURRENT.json", "manifest.json"}
+            ]
+            found.append({
+                "declared_dataset_id": str(current.get("dataset_id") or entry.name),
+                "directory": str(entry.relative_to(repo_root)),
+                "revision": str(current.get("revision_id") or ""),
+                "job_id": str(current.get("job_id") or manifest.get("job_id") or ""),
+                "updated_at": str(current.get("updated_at") or manifest.get("created_at") or ""),
+                "source_url": str(plan.get("url") or ""),
+                "job_type": str(plan.get("job_type") or ""),
+                "validated": bool(validation.get("ok")) if validation else None,
+                "data_files": len(data_files),
+                "bytes": sum(f.stat().st_size for f in data_files if f.exists()),
+                "content_sha256": list(current.get("content_sha256") or []),
+            })
+    return found
+
+
+def reconcile(repo_root: Path | str, *, deep: bool = False) -> dict[str, Any]:
+    """Both directions at once: phantoms in the catalogue, orphans in the storage."""
+    repo_root = Path(repo_root).resolve()
+    forward = sweep(repo_root, deep=deep)
+    registered_ids = {str(r["dataset_id"]) for r in forward["results"]}
+
+    landed = landings(repo_root)
+    orphans = [item for item in landed
+               if item["declared_dataset_id"] not in registered_ids and item["data_files"] > 0]
+    phantoms = [r for r in forward["results"] if r["status"] == STATUS_ABSENT]
+
+    return {
+        "registered": forward["registered"],
+        "counts": forward["counts"],
+        "readable_rows": forward["readable_rows"],
+        "readable_bytes": forward["readable_bytes"],
+        "landings": len(landed),
+        "orphans": orphans,
+        "orphan_bytes": sum(o["bytes"] for o in orphans),
+        "phantoms": phantoms,
+        "corrupt": forward["corrupt"],
+        "results": forward["results"],
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Open every registered dataset and report what is there.")
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--deep", action="store_true", help="scan every row, not just the header")
     parser.add_argument("--json", action="store_true", help="emit the full result as json")
     parser.add_argument("--only", nargs="*", help="limit to these dataset ids")
+    parser.add_argument("--reconcile", action="store_true",
+                        help="also walk storage and report landings with no catalogue row")
     args = parser.parse_args(argv)
+
+    if args.reconcile:
+        report = reconcile(Path(args.repo_root), deep=args.deep)
+        if args.json:
+            print(json.dumps(report, indent=1, default=str))
+            return 1 if (report["corrupt"] or report["orphans"]) else 0
+        counts = report["counts"]
+        print(f"registered {report['registered']}  ·  landings on disk {report['landings']}")
+        for status in (STATUS_READABLE, STATUS_ABSENT, STATUS_UNREADABLE, STATUS_EMPTY):
+            if counts.get(status):
+                print(f"  {status:<11} {counts[status]}")
+        print(f"  {'rows':<11} {report['readable_rows']:,} across {report['readable_bytes'] / 1e6:.1f} MB")
+        if report["orphans"]:
+            print(f"\nheld but not in the catalogue — {len(report['orphans'])} landings, "
+                  f"{report['orphan_bytes'] / 1e6:.1f} MB, invisible to the desk:")
+            for item in sorted(report["orphans"], key=lambda x: -x["bytes"]):
+                print(f"  {item['declared_dataset_id'][:44]:<44} {item['data_files']:>3} files "
+                      f"{item['bytes'] / 1e3:>9.1f} KB  {item['source_url'][:38]}")
+        if report["phantoms"]:
+            print(f"\nin the catalogue with nothing behind it — {len(report['phantoms'])}:")
+            for item in report["phantoms"][:12]:
+                print(f"  {item['dataset_id'][:44]:<44} {str(item['detail'])[:58]}")
+        if report["corrupt"]:
+            print(f"\npresent but unusable — {len(report['corrupt'])}:")
+            for item in report["corrupt"]:
+                print(f"  {item['dataset_id'][:44]:<44} {item['status']:<10} {str(item['detail'])[:44]}")
+        return 1 if (report["corrupt"] or report["orphans"]) else 0
 
     report = sweep(Path(args.repo_root), deep=args.deep, only=args.only)
     if args.json:

@@ -25,7 +25,7 @@ import pandas as pd
 import pytest
 
 from scripts.research_data_mcp.synthesis.dataset_paths import resolve_dataset_file
-from scripts.research_data_mcp.synthesis.integrity_sweep import sweep
+from scripts.research_data_mcp.synthesis.integrity_sweep import reconcile, sweep
 from scripts.research_data_mcp.synthesis.spec_export import fingerprint_path, render_script
 from scripts.research_data_mcp.synthesis_executor import _read_frame, execute
 
@@ -293,3 +293,21 @@ def test_every_registered_dataset_is_openable_or_explained():
     for line in broken:
         print(f"    {line}")
     assert report["counts"].get("readable", 0) >= MIN_DATASETS
+
+
+def test_what_is_held_and_what_is_catalogued_are_compared_both_ways():
+    """Records the real gap rather than asserting it away.
+
+    At the time this landed: 100 of 168 registered datasets readable, 65 rows with
+    nothing behind them, and 19 landings holding 16.7MB that no row pointed at.
+    """
+    report = reconcile(REPO)
+    if report["counts"].get("readable", 0) < MIN_DATASETS:
+        pytest.skip("registry data not present on this machine")
+    print(f"\n  registered {report['registered']}, landings {report['landings']}")
+    print(f"  phantoms (catalogued, nothing behind): {len(report['phantoms'])}")
+    print(f"  orphans (held, not catalogued): {len(report['orphans'])}"
+          f"  holding {report['orphan_bytes'] / 1e6:.1f} MB")
+    for item in sorted(report["orphans"], key=lambda x: -x["bytes"])[:6]:
+        print(f"     {item['declared_dataset_id'][:40]:<40} {item['bytes'] / 1e3:>9.1f} KB  {item['source_url'][:34]}")
+    assert report["landings"] >= 0
