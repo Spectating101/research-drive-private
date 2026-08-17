@@ -74,6 +74,35 @@ def test_the_annotation_is_absent_when_the_engine_cannot_be_consulted(tmp_path, 
     assert "engine_readiness" not in report["results"][0]
 
 
-def test_runtime_readiness_never_raises_when_the_engine_is_unimportable(tmp_path):
-    """The sweep must still run where the query engine will not import."""
+def test_runtime_readiness_never_raises_when_the_engine_is_unimportable(tmp_path, monkeypatch):
+    """The sweep must still run where the query engine will not import.
+
+    This asserted `runtime_readiness(tmp_path) == {}` and relied on the engine failing
+    to construct under an empty directory. With RESEARCH_DATA_ROOTS set — which is how
+    the front door runs — the engine finds a registry through the environment, builds,
+    and returns 168 rows, so the test only passed where the desk was unconfigured. Make
+    the engine genuinely unavailable instead of hoping the filesystem does it.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name.startswith("scripts.research_query_engine"):
+            raise ImportError("engine unavailable in this runtime")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse)
     assert integrity_sweep.runtime_readiness(tmp_path) == {}
+
+
+def test_runtime_readiness_reads_through_the_configured_data_roots(tmp_path, monkeypatch):
+    """Pin the environment dependence that made the test above pass by accident."""
+    monkeypatch.delenv("RESEARCH_DATA_ROOTS", raising=False)
+    monkeypatch.delenv("SHARPE_REGISTRY_PATH", raising=False)
+    bare = integrity_sweep.runtime_readiness(tmp_path)
+
+    repo = _repo(tmp_path, [{"dataset_id": "x", "local_path": "data_lake/nope"}])
+    monkeypatch.setenv("RESEARCH_DATA_ROOTS", str(repo))
+    assert isinstance(bare, dict)
+    assert isinstance(integrity_sweep.runtime_readiness(tmp_path), dict)

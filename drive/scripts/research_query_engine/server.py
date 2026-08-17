@@ -225,12 +225,20 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
 
-    def _serve_static(self, path: str) -> bool:
+    def _serve_static(self, path: str, *, raw_path: str = "") -> bool:
         static_dir = self.static_dir
         if not getattr(self.stack, "serve_ui", False) or not static_dir.is_dir():
             return False
         if is_api_path(path):
             return False
+        # An /api request is an API request even when the route is unknown. Falling
+        # back to index.html answered /api/registry and /api/v1/datasets with 200
+        # HTML, so a status-code health probe could never observe a failure.
+        if str(raw_path or "").startswith("/api"):
+            self._send_json(
+                {"error": "NotFound", "message": f"unknown API route: {path}"}, status=404
+            )
+            return True
         rel = path.lstrip("/")
         if not rel or not Path(rel).suffix:
             rel = "index.html"
@@ -271,7 +279,7 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_json({"status": "ok"}, status=200)
             return
-        if self._serve_static(path):
+        if self._serve_static(path, raw_path=parsed.path):
             return
         if path == "/library/desk/capabilities":
             self._send_json(desk_capability_document(self), status=200)

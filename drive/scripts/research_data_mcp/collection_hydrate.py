@@ -27,6 +27,28 @@ METADATA_GLOBS = (
 
 RCLONE_ACK_ABUSE = ("--drive-acknowledge-abuse",)  # GDrive false-positive quarantine on jsonl.gz
 
+GLOB_CHARS = ("*", "?", "[")
+
+
+def has_glob(path: str | Path) -> bool:
+    text = str(path)
+    return any(ch in text for ch in GLOB_CHARS)
+
+
+def glob_free_parent(path: str | Path) -> str:
+    """Drop the first globbed segment and everything after it.
+
+    `a/b/*` -> `a/b`; `a/b/*.json` -> `a/b`; `a/*/c` -> `a`. A glob names a query over
+    a directory, so the directory to create is the deepest literal ancestor.
+    """
+    parts = str(path).replace("\\", "/").split("/")
+    kept: list[str] = []
+    for part in parts:
+        if has_glob(part):
+            break
+        kept.append(part)
+    return "/".join(kept).rstrip("/")
+
 
 def _rclone_base_flags() -> list[str]:
     return list(RCLONE_ACK_ABUSE)
@@ -273,6 +295,17 @@ def execute_hydrate(repo_root: Path, plan: dict[str, Any], *, job_id: str = "", 
 
     remote = str(plan["remote_path"])
     local = Path(plan.get("local_abs") or (repo_root / plan["local_path"]))
+    if has_glob(local):
+        return {
+            "ok": False,
+            "error": "glob_in_hydrate_target",
+            "skipped": False,
+            "local_path": str(local),
+            "message": (
+                "hydrate target contains a glob character; a pattern is a query, not a "
+                "directory name. Creating it shadows the real data root at query time."
+            ),
+        }
     scope = str(plan.get("scope") or "full")
     log_path = None
     if job_id:

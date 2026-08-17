@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from scripts.research_data_mcp.collection_hydrate import execute_hydrate
+from scripts.research_data_mcp.collection_hydrate import execute_hydrate, glob_free_parent, has_glob
 from scripts.research_data_mcp.procurement_fast import local_path_has_data
 
 
@@ -55,13 +55,13 @@ def build_registry_hydrate_plan(repo_root: Path, spec: dict[str, Any]) -> dict[s
     if local_path_has_data(repo_root, local_rel):
         return {"skip_reason": "already_on_local", "local_path": local_rel}
 
-    local_abs = (repo_root / local_rel).resolve()
-    local_abs.parent.mkdir(parents=True, exist_ok=True)
     remote = remote.rstrip("/")
     did = str(spec.get("dataset_id") or "dataset")
 
     # Single file target: copy file or first matching file from remote folder.
-    if "*" not in local_rel and not local_rel.endswith("/"):
+    if not has_glob(local_rel) and not local_rel.endswith("/"):
+        local_abs = (repo_root / local_rel).resolve()
+        local_abs.parent.mkdir(parents=True, exist_ok=True)
         basename = Path(local_rel).name
         return {
             "title": f"Hydrate {did}",
@@ -77,13 +77,18 @@ def build_registry_hydrate_plan(repo_root: Path, spec: dict[str, Any]) -> dict[s
             "dataset_id": did,
         }
 
+    # A glob is a query over a directory, never a directory name. Derive both the
+    # relative and absolute target from the same stripped path so they cannot drift.
+    target_rel = glob_free_parent(local_rel) or local_rel
+    target_abs = (repo_root / target_rel).resolve()
+    target_abs.mkdir(parents=True, exist_ok=True)
     return {
         "title": f"Hydrate {did}",
         "job_type": "collection_hydrate",
         "scope": "full",
         "remote_path": remote,
-        "local_path": local_rel.rstrip("*").rstrip("/") or local_rel,
-        "local_abs": str(local_abs.parent if local_abs.suffix else local_abs),
+        "local_path": target_rel,
+        "local_abs": str(target_abs),
         "verify": True,
         "launchable": True,
         "timeout_seconds": 1200,

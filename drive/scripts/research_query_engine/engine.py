@@ -69,20 +69,32 @@ class ResearchQueryEngine:
 
         Repo and tier resolution still win, so a local copy is preferred and
         behaviour is unchanged when the variable is unset.
+
+        A pattern is satisfied only where it expands to a file. Plain existence let a
+        directory literally named `*` — created by hydrate before it stripped globs —
+        satisfy the repo candidate and stop the fall-through, hiding 163MB of TWSE
+        data under the real data root.
         """
         from scripts.research_data_mcp.data_paths import resolve_data_path
 
         resolved = resolve_data_path(self.repo_root, value)
-        if resolved.exists():
+        if self._candidate_satisfied(resolved):
             return resolved
         from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
 
         relative = str(value).lstrip("/")
         for root in data_roots(self.repo_root):
             candidate = root / relative
-            if candidate.exists():
+            if self._candidate_satisfied(candidate):
                 return candidate
         return resolved
+
+    @staticmethod
+    def _candidate_satisfied(candidate: Path) -> bool:
+        text = str(candidate)
+        if not any(ch in text for ch in ("*", "?", "[")):
+            return candidate.exists()
+        return any(Path(hit).is_file() for hit in globmod.glob(text))
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
@@ -196,7 +208,9 @@ class ResearchQueryEngine:
             if present:
                 if backend in {"local_csv_file", "local_csv_glob"}:
                     if "*" in local_path:
-                        matches = sorted(Path(p) for p in globmod.glob(str(resolved)))
+                        matches = sorted(
+                            p for p in (Path(x) for x in globmod.glob(str(resolved))) if p.is_file()
+                        )
                         csv_path = next(
                             (path for path in matches if path.suffix.lower() == ".csv"),
                             matches[0] if matches else None,
@@ -941,7 +955,7 @@ class ResearchQueryEngine:
         pattern = str(ds.get("local_path") or "").strip()
         limit = min(int(params.get("limit", 100)), 5000)
         if "*" in pattern:
-            matches = sorted(Path(p) for p in globmod.glob(str(self._resolve(pattern))))
+            matches = sorted(p for p in (Path(x) for x in globmod.glob(str(self._resolve(pattern)))) if p.is_file())
             path = next((p for p in matches if p.suffix.lower() == ".csv"), matches[0] if matches else None)
         else:
             path = self._resolve(pattern)
@@ -1070,7 +1084,7 @@ class ResearchQueryEngine:
         pattern = str(ds.get("local_path") or ds.get("local_glob") or "").strip()
         if not pattern:
             return QueryResult(ds["dataset_id"], [], {"error": "missing local_path glob pattern", "params": params})
-        matches = sorted(Path(p) for p in globmod.glob(str(self._resolve(pattern))))
+        matches = sorted(p for p in (Path(x) for x in globmod.glob(str(self._resolve(pattern)))) if p.is_file())
         ticker = str(params.get("ticker") or params.get("filter_ticker") or "").upper().strip()
         file_name = str(params.get("file") or params.get("filename") or "").strip()
         limit = int(params.get("limit", 50))
