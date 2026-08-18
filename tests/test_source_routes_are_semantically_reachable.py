@@ -2,8 +2,9 @@
 """Procurement is judged on routes, not on the datasets already materialised.
 
 The registry's held datasets are residue; the offering is the 21 routes the desk can
-obtain through. Measured, route discovery named a usable route for only 6 of 13 research
-needs, and the misses were the differentiating ones: Compustat, OpenAlex, Zenodo,
+obtain through. Route discovery reached a usable route for under half the research
+needs in scripts.data_catalog.bench_route_discovery -- run it for the current figure
+rather than trusting this docstring. The misses were the differentiating ones: Compustat, OpenAlex, Zenodo,
 HuggingFace, BigQuery patents, Fama-French, LSEG vol/skew. The semantic index built only
 `registry_dataset` and `queue_task` docs, so no meaning-based path to a source existed.
 """
