@@ -36,7 +36,10 @@ set -u
 backend_root="${SHARPE_REPO_ROOT:-}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 public_root="${YZU_PUBLIC_REPO:-}"
-static_dir="${YZU_DESK_STATIC_DIR:-}"
+# A promotion validates a staged candidate before changing the live dist link.
+# The front-door env intentionally continues to name the live link, so use this
+# separate, explicit override only for that read-only preflight.
+static_dir="${PREFLIGHT_STATIC_DIR:-${YZU_DESK_STATIC_DIR:-}}"
 python_bin="${YZU_PYTHON_BIN:-python3}"
 registry="${SHARPE_REGISTRY_PATH:-config/research_query_registry.json}"
 
@@ -116,10 +119,17 @@ else
   bad "no build identity at $identity"
 fi
 
-# A releases/<sha>/ must sit behind the dist link, or --identity-only cannot write.
-if [ -n "$public_root" ] && [ -n "${YZU_PUBLIC_SHA:-}" ]; then
-  [ -f "$public_root/releases/$YZU_PUBLIC_SHA/index.html" ] \
-    || bad "no releases/$YZU_PUBLIC_SHA/index.html under $public_root; identity regeneration will fail"
+# The candidate static directory must be a complete release.  Its directory
+# name is intentionally not just the UI SHA: one UI commit may be staged with
+# multiple backend commits, and those pair identities must never overwrite one
+# another (including the currently-live release).
+if [ -n "$public_root" ] && [ -n "$static_dir" ]; then
+  candidate_static="$(readlink -f "$static_dir" 2>/dev/null || true)"
+  [ -f "$candidate_static/index.html" ] || bad "candidate static release is incomplete: ${candidate_static:-$static_dir}"
+  case "$candidate_static" in
+    "$public_root"/releases/*) ;;
+    *) bad "candidate static release is outside $public_root/releases: ${candidate_static:-$static_dir}" ;;
+  esac
 fi
 
 reg_abs="$registry"; case "$reg_abs" in /*) ;; *) reg_abs="$backend_root/$registry";; esac

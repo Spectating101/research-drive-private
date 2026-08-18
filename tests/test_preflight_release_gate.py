@@ -44,7 +44,8 @@ def release(tmp_path):
 
     ui = tmp_path / "ui"
     ui_sha = _repo(ui, "app.js")
-    rel = ui / "releases" / ui_sha
+    release_id = f"{ui_sha}--{backend_sha}"
+    rel = ui / "releases" / release_id
     rel.mkdir(parents=True)
     (rel / "index.html").write_text("<!doctype html>", encoding="utf-8")
     (rel / "research-drive-build.json").write_text(
@@ -60,7 +61,8 @@ def release(tmp_path):
         f"SHARPE_REGISTRY_PATH=config/research_query_registry.json\n"
         f"RESEARCH_DATA_ROOTS={tmp_path}\n",
         encoding="utf-8")
-    return {"env": env, "backend": backend, "ui": ui, "backend_sha": backend_sha, "ui_sha": ui_sha}
+    return {"env": env, "backend": backend, "ui": ui, "backend_sha": backend_sha,
+            "ui_sha": ui_sha, "release_id": release_id, "release_dir": rel}
 
 
 def _run(env_file: Path, **extra) -> subprocess.CompletedProcess:
@@ -95,7 +97,7 @@ def test_a_moved_ui_checkout_is_refused(release):
 
 
 def test_a_build_naming_another_backend_is_refused(release):
-    identity = release["ui"] / "releases" / release["ui_sha"] / "research-drive-build.json"
+    identity = release["release_dir"] / "research-drive-build.json"
     identity.write_text(json.dumps({"public_sha": release["ui_sha"], "private_sha": "f" * 40}),
                         encoding="utf-8")
     out = _run(release["env"])
@@ -107,7 +109,7 @@ def test_a_dist_with_no_release_directory_is_refused(release):
     """Outage two: a dist symlink with no releases/<sha>/ behind it."""
     import shutil
 
-    shutil.rmtree(release["ui"] / "releases" / release["ui_sha"])
+    shutil.rmtree(release["release_dir"])
     out = _run(release["env"])
     assert out.returncode != 0
 
@@ -117,6 +119,13 @@ def test_untracked_backend_files_warn_but_do_not_block(release):
     out = _run(release["env"])
     assert out.returncode == 0
     assert "untracked backend path" in out.stdout
+
+
+def test_preflight_can_validate_a_staged_pair_without_changing_live_dist(release):
+    """Promotion must validate its candidate, not the old dist target from front-door.env."""
+    staged = release["ui"] / "releases" / release["release_id"]
+    out = _run(release["env"], PREFLIGHT_STATIC_DIR=staged)
+    assert out.returncode == 0, out.stdout + out.stderr
 
 
 def test_json_mode_reports_readiness_and_the_fingerprint(release):
