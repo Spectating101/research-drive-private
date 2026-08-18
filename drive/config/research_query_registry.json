@@ -3137,11 +3137,11 @@
     {
       "dataset_id": "twse_openapi_taiwan_market_layer",
       "name": "Taiwan TWSE OpenAPI market snapshots",
-      "backend": "local_json_glob",
+      "backend": "local_csv_glob",
       "access_shape": "local_file_tree",
       "analysis_readiness": "instant",
       "grain": "run_snapshot",
-      "local_path": "data_lake/official_disclosures/taiwan_twse/*/*",
+      "local_path": "data_lake/official_disclosures/taiwan_twse/*/derived/twse_security_master.csv",
       "description": "Snapshot dataset of market data published by the Taiwan Stock Exchange through its OpenAPI service. It captures the latest available exchange-level and trading-related information each time the pipeline runs. Use it as a current-state view of TWSE market conditions rather than a fully standardized historical time series.",
       "capabilities": [
         "limit",
@@ -3253,7 +3253,8 @@
         "labeled_by": "copilot-ly",
         "model": "copilot-ly",
         "schema": "vault_meaning_v1"
-      }
+      },
+      "local_file": "twse_security_master.csv"
     },
     {
       "dataset_id": "procured_6ba2b4e795",
@@ -7766,11 +7767,11 @@
     {
       "dataset_id": "mops_governance_panel",
       "name": "Taiwan listed-company governance misconduct events (MOPS)",
-      "backend": "local_json_glob",
+      "backend": "local_csv_glob",
       "access_shape": "local_file_tree",
       "analysis_readiness": "instant",
       "grain": "governance_event",
-      "local_path": "data_lake/official_disclosures/taiwan_mops/*/*",
+      "local_path": "data_lake/official_disclosures/taiwan_mops/*/derived/governance_misconduct_panel.csv",
       "description": "Event-level records of corporate governance misconduct disclosed on Taiwan’s Market Observation Post System (MOPS) for listed companies. Each row represents a governance-related violation or sanction event rather than a full company history. The panel is structured for immediate analysis of when and how governance problems were officially reported.",
       "capabilities": [
         "limit",
@@ -7873,7 +7874,8 @@
         "labeled_by": "cursor_composer",
         "model": "cursor_composer",
         "schema": "vault_meaning_v1"
-      }
+      },
+      "local_file": "governance_misconduct_panel.csv"
     },
     {
       "dataset_id": "opensea_nft_metadata_layer",
