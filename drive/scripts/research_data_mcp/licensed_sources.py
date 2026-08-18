@@ -133,6 +133,13 @@ def _crsp_status(repo_root: Path) -> dict[str, Any]:
     if len(queryable) == len(expected):
         phase = "queryable"
         next_action = "query_or_join"
+    elif ".sas7bdat" in extracted_stats.get("suffixes", {}):
+        phase = "partially_queryable_safe_sas_extract"
+        next_action = (
+            "review_and_promote_crsp_index_registry"
+            if expected.get("crsp_us_index_history", {}).get("queryable")
+            else "run_crsp_sas_index_ingest"
+        )
     elif raw_stats["files"] or extracted_stats["files"]:
         phase = "acquired_pending_parse"
         next_action = "run_crsp_parser_after_format_review"
@@ -153,6 +160,11 @@ def _crsp_status(repo_root: Path) -> dict[str, Any]:
             "extracted": extracted_stats,
             "processed": processed_stats,
             "next_action": next_action,
+            "safe_ingest": {
+                "available": ".sas7bdat" in extracted_stats.get("suffixes", {}),
+                "operation": "crsp_sas_index_ingest",
+                "scope": "readable CRSP index SAS extracts only; daily CIZ binary remains separate",
+            },
             "side_effects": "none — readiness inspection only",
         }
     )
@@ -268,7 +280,8 @@ def inspect_source(repo_root: str | Path, source_id: str = "") -> dict[str, Any]
         }]
     else:
         rows = [_lseg_status(root), _crsp_status(root), _compustat_status(root)] + [
-            inspect_source(root, public_id) for public_id in ("huggingface", "datacite", "zenodo", "openalex", "webfetch")
+            inspect_source(root, public_id)["sources"][0]
+            for public_id in ("huggingface", "datacite", "zenodo", "openalex", "webfetch")
         ]
     return {
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
@@ -373,3 +386,129 @@ def stage_compustat_export(
     }
     (stage / "STAGING.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return {"ok": True, **manifest, "side_effects": "isolated staging root only"}
+
+
+def ingest_crsp_sas_index(
+    repo_root: str | Path,
+    *,
+    destination_root: str | Path | None = None,
+    source_root: str | Path | None = None,
+    write: bool = False,
+    overwrite: bool = False,
+    max_files: int = 32,
+) -> dict[str, Any]:
+    """Materialize readable CRSP index SAS extracts, without touching CIZ binaries.
+
+    CRSP's daily CIZ ``.dat`` files are fixed-format vendor binaries and require a
+    format-specific parser.  The delivered index ``.sas7bdat`` extracts are ordinary
+    SAS tables and can be read safely.  This operation therefore makes a bounded,
+    explicitly labelled index panel queryable while refusing to imply that daily
+    stock data has been parsed.
+
+    ``write=False`` is a validation-only dry run.  ``write=True`` writes the named
+    output and an ingest manifest under ``destination_root``; it never edits the
+    registry or promotes a dataset.
+    """
+    root = Path(repo_root).resolve()
+    roots = _roots(root)
+    search_root = Path(source_root).expanduser().resolve() if source_root else None
+    candidates: list[Path] = []
+    scan_roots = [search_root] if search_root else roots
+    for base in scan_roots:
+        extracted = base / "data_lake/crsp/extracted"
+        if not extracted.is_dir():
+            continue
+        candidates.extend(sorted(extracted.rglob("ds*.sas7bdat")))
+        candidates.extend(sorted(extracted.rglob("dsp500*.sas7bdat")))
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            key = str(path.resolve())
+        except OSError:
+            continue
+        if path.is_file() and key not in seen:
+            seen.add(key)
+            unique.append(path)
+    unique = sorted(unique)[: max(1, min(int(max_files or 32), 128))]
+    if not unique:
+        return {
+            "ok": False,
+            "status": "missing_sas_extracts",
+            "source_roots": [str(p) for p in scan_roots],
+            "side_effects": "none",
+        }
+
+    import pandas as pd
+
+    frames = []
+    files: list[dict[str, Any]] = []
+    for path in unique:
+        try:
+            frame = pd.read_sas(path, format="sas7bdat", encoding="latin1")
+        except Exception as exc:  # noqa: BLE001 - one corrupt extract should be reported
+            files.append({"path": str(path), "status": "error", "error": str(exc)[:200]})
+            continue
+        frame.columns = [str(column).strip().lower() for column in frame.columns]
+        if "caldt" not in frame.columns:
+            files.append({"path": str(path), "status": "skipped", "reason": "missing caldt"})
+            continue
+        frame["caldt"] = pd.to_datetime(frame["caldt"], errors="coerce")
+        frame = frame.dropna(subset=["caldt"]).copy()
+        frame.insert(0, "index_code", path.stem.lower())
+        try:
+            rel = str(path.resolve().relative_to(root.resolve()))
+        except ValueError:
+            rel = str(path)
+        frame.insert(1, "source_file", rel)
+        frames.append(frame)
+        files.append({"path": rel, "status": "read", "rows": int(len(frame)), "columns": [str(c) for c in frame.columns]})
+    if not frames:
+        return {"ok": False, "status": "no_readable_sas_extracts", "files": files, "side_effects": "none"}
+    combined = pd.concat(frames, ignore_index=True, sort=False)
+    output: Path | None = None
+    manifest_path: Path | None = None
+    if write:
+        if destination_root is None:
+            return {"ok": False, "status": "destination_required_for_write", "files": files, "side_effects": "none"}
+        dest = Path(destination_root).expanduser().resolve()
+        output = dest / "data_lake/crsp/processed/us_index_history.parquet"
+        manifest_path = dest / "data_lake/crsp/processed/crsp_index_ingest.json"
+        if output.exists() and not overwrite:
+            return {"ok": False, "status": "output_exists", "output": str(output), "files": files, "side_effects": "none"}
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(prefix="crsp-index-", suffix=".parquet", dir=output.parent, delete=False) as handle:
+            temp_output = Path(handle.name)
+        try:
+            combined.to_parquet(temp_output, index=False)
+            os.replace(temp_output, output)
+        finally:
+            temp_output.unlink(missing_ok=True)
+        digest = hashlib.sha256(output.read_bytes()).hexdigest()
+        manifest = {
+            "status": "staged",
+            "dataset_id": "crsp_us_index_history",
+            "scope": "readable CRSP index SAS extracts",
+            "daily_ciz_included": False,
+            "source_files": files,
+            "output": str(output),
+            "rows": int(len(combined)),
+            "columns": [str(c) for c in combined.columns],
+            "sha256": digest,
+            "promotion": "not performed — reviewed registry promotion required",
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return {
+        "ok": True,
+        "status": "staged" if write else "validated",
+        "dataset_id": "crsp_us_index_history",
+        "scope": "readable CRSP index SAS extracts",
+        "daily_ciz_included": False,
+        "files": files,
+        "rows": int(len(combined)),
+        "columns": [str(c) for c in combined.columns],
+        "output": str(output) if output else None,
+        "manifest": str(manifest_path) if manifest_path else None,
+        "promotion": "not performed — reviewed registry promotion required",
+        "side_effects": "processed output only" if write else "none — validation only",
+    }
