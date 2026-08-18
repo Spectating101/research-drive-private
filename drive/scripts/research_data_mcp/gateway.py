@@ -616,6 +616,11 @@ class ResearchDataGateway:
         return out
 
     def _semantic_candidates(self, query: str, *, limit: int, exclude: set[str]) -> list[dict[str, Any]]:
+        return self._semantic_candidates_with_status(query, limit=limit, exclude=exclude)[0]
+
+    def _semantic_candidates_with_status(
+        self, query: str, *, limit: int, exclude: set[str]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Held datasets found by meaning, shaped like keyword candidates.
 
         Benchmarked on the real registry: keyword retrieval never finds 38-41% of
@@ -627,13 +632,17 @@ class ResearchDataGateway:
         from scripts.research_data_mcp.procurement_fast import local_path_has_data
         from scripts.research_data_mcp.procurement_search import candidate_from_row
 
+        status: dict[str, Any] = {"status": "ok", "error": ""}
         try:
             semantic = self.semantic_discover(query, limit=limit)
-        except Exception:
-            return []
+        except Exception as exc:
+            # A swallowed failure made a broken index look like a catalogue that holds
+            # nothing, sending the caller to procurement for data already on disk.
+            status = {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"[:200]}
+            return [], status
         hits = [r for r in (semantic.get("rows") or []) if str(r.get("dataset_id") or "")]
         if not hits:
-            return []
+            return [], status
         listing = self.list_datasets()
         rows = listing.get("datasets") if isinstance(listing, dict) else listing
         by_id = {str(r.get("dataset_id") or ""): r for r in (rows or []) if isinstance(r, dict)}
@@ -676,7 +685,7 @@ class ResearchDataGateway:
             cand["match_type"] = "semantic"
             out.append(cand)
             exclude.add(dataset_id)
-        return out
+        return out, status
 
     def discover_search(
         self,
@@ -698,7 +707,9 @@ class ResearchDataGateway:
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
         seen = {str(c.get("dataset_id") or "") for c in candidates if c.get("dataset_id")}
-        semantic_rows = self._semantic_candidates(query, limit=limit, exclude=seen)
+        semantic_rows, semantic_status = self._semantic_candidates_with_status(
+            query, limit=limit, exclude=seen
+        )
         semantic_top = max((float(r.get("score") or 0.0) for r in semantic_rows), default=0.0)
         if semantic_rows:
             candidates = semantic_rows + candidates
@@ -744,6 +755,11 @@ class ResearchDataGateway:
                 "semantic": len(semantic_rows),
                 "keyword": len(candidates) - len(semantic_rows),
                 "semantic_top_score": semantic_top,
+                "semantic_status": semantic_status.get("status"),
+                "semantic_error": semantic_status.get("error") or "",
+                "engines_ran": ["keyword"] + (
+                    ["semantic"] if semantic_status.get("status") == "ok" else []
+                ),
             },
             # index_miss stays the keyword signal. A similarity floor cannot decide
             # whether the desk holds a topic: "US patent filings" (absent) scores 0.42

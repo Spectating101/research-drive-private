@@ -67,3 +67,30 @@ def test_a_failing_semantic_index_never_breaks_discover() -> None:
 
     gw = _Broken([], [_registry_row("real")])
     assert gw._semantic_candidates("x", limit=5, exclude=set()) == []
+
+
+def test_an_unavailable_index_is_reported_not_disguised_as_no_matches() -> None:
+    """Synthesis marks enrichment_failed rather than returning a clean empty result.
+
+    Swallowing the exception made a broken embedding index look identical to a catalogue
+    that genuinely holds nothing for the question — the caller would route to
+    procurement for data already on disk.
+    """
+
+    class _Broken(_Gateway):
+        def semantic_discover(self, query: str, *, limit: int = 12) -> dict[str, Any]:
+            raise RuntimeError("index unavailable")
+
+    gw = _Broken([], [_registry_row("real")])
+    rows, status = gw._semantic_candidates_with_status("x", limit=5, exclude=set())
+    assert rows == []
+    assert status["status"] == "unavailable"
+    assert "index unavailable" in status["error"]
+
+
+def test_a_working_index_with_no_hits_is_reported_as_ok() -> None:
+    gw = _Gateway([], [_registry_row("real")])
+    rows, status = gw._semantic_candidates_with_status("x", limit=5, exclude=set())
+    assert rows == []
+    assert status["status"] == "ok"
+    assert status.get("error") in (None, "")

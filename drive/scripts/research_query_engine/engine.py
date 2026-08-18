@@ -1099,17 +1099,41 @@ class ResearchQueryEngine:
                 out.append(candidate)
         return out
 
-    def _glob_data_files(self, pattern: str) -> list[Path]:
-        """Files matching `pattern`, descending if the declared depth holds only directories.
+    def _resolve_glob(self, pattern: str) -> tuple[list[Path], dict[str, Any]]:
+        """Files matching `pattern`, and a report of how they were reached.
 
         27 registry rows name a bare directory and 4 name a glob one level above their
-        files. Both held real bytes and served nothing.
+        files. Descending recovers them, but a caller who is not told it happened cannot
+        tell a precise holding from a lucky one, and the wrong registry entry stays
+        invisible. `registry_drift` is the signal that the catalogue, not the engine,
+        needs the fix.
         """
+        report: dict[str, Any] = {
+            "declared": pattern,
+            "served_pattern": "",
+            # The correction a caller can paste back into the registry. served_pattern is
+            # absolute and root-specific, so it is evidence, not a usable declaration.
+            "served_relative": "",
+            "depth": "none",
+            "matched": 0,
+            "registry_drift": False,
+            "roots_tried": 0,
+        }
+        declared_head, _, declared_tail = str(pattern).rpartition("/")
         candidates = self._glob_candidate_paths(pattern)
+        report["roots_tried"] = len(candidates)
+
         for resolved in candidates:
             matches = sorted(p for p in (Path(x) for x in globmod.glob(resolved)) if p.is_file())
             if matches:
-                return matches
+                report.update(
+                    served_pattern=resolved,
+                    served_relative=pattern,
+                    depth="declared",
+                    matched=len(matches),
+                )
+                return matches, report
+
         for resolved in candidates:
             if not any(ch in resolved for ch in ("*", "?", "[")):
                 root = Path(resolved)
@@ -1121,24 +1145,46 @@ class ResearchQueryEngine:
                     if p.is_file() and p.suffix.lower() in self.DATA_SUFFIXES
                 )
                 if found:
-                    return found
+                    report.update(
+                        served_pattern=f"{resolved}/**",
+                        served_relative=f"{str(pattern).rstrip('/')}/**",
+                        depth="recursive",
+                        matched=len(found),
+                        registry_drift=True,
+                    )
+                    return found, report
                 continue
             head, _, tail = resolved.rpartition("/")
             if not head or not tail:
                 continue
-            for depth in ("/*/", "/*/*/"):
+            for label, depth in (("+1", "/*/"), ("+2", "/*/*/")):
+                served = f"{head}{depth}{tail}"
                 deeper = sorted(
-                    p for p in (Path(x) for x in globmod.glob(f"{head}{depth}{tail}")) if p.is_file()
+                    p for p in (Path(x) for x in globmod.glob(served)) if p.is_file()
                 )
                 if deeper:
-                    return deeper
-        return []
+                    report.update(
+                        served_pattern=served,
+                        served_relative=(
+                            f"{declared_head}{depth}{declared_tail}"
+                            if declared_head and declared_tail
+                            else served
+                        ),
+                        depth=label,
+                        matched=len(deeper),
+                        registry_drift=True,
+                    )
+                    return deeper, report
+        return [], report
+
+    def _glob_data_files(self, pattern: str) -> list[Path]:
+        return self._resolve_glob(pattern)[0]
 
     def _query_local_json_glob(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
         pattern = str(ds.get("local_path") or ds.get("local_glob") or "").strip()
         if not pattern:
             return QueryResult(ds["dataset_id"], [], {"error": "missing local_path glob pattern", "params": params})
-        matches = self._glob_data_files(pattern)
+        matches, resolution = self._resolve_glob(pattern)
         ticker = str(params.get("ticker") or params.get("filter_ticker") or "").upper().strip()
         file_name = str(params.get("file") or params.get("filename") or "").strip()
         limit = int(params.get("limit", 50))
@@ -1175,7 +1221,8 @@ class ResearchQueryEngine:
         if want_preview and not include_payload:
             sample_rows, sample_meta = self._sample_tabular_glob(filtered, limit=min(limit, 100))
             if sample_rows:
-                meta = {"pattern": pattern, "matched": len(matches), "params": params, "preview": True}
+                meta = {"pattern": pattern, "matched": len(matches), "params": params,
+                        "preview": True, "resolution": resolution}
                 meta.update(sample_meta)
                 return QueryResult(ds["dataset_id"], sample_rows, meta)
 
@@ -1211,6 +1258,7 @@ class ResearchQueryEngine:
                 "pattern": pattern,
                 "matched": len(matches),
                 "returned": len(rows),
+                "resolution": resolution,
                 "metadata_only": metadata_only,
                 "params": params,
             },
