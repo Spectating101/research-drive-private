@@ -3,8 +3,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.research_data_mcp.collection_flywheel import CollectionFlywheel
 from scripts.research_data_mcp.registry_promotion import RegistryPromoter
+
+
+@pytest.fixture(autouse=True)
+def _isolate_data_roots(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep this tmp-path promotion test away from a caller's real bulk index."""
+    for var in (
+        "DATACITE_TOPIC_INDEX_ON_BULK",
+        "DATACITE_TOPIC_INDEX_ROOT",
+        "DATACITE_INDEX_V3_ROOT",
+        "DATACITE_LOCAL_ROOT",
+        "RESEARCH_BULK_ROOT",
+        "RESEARCH_DATA_ROOTS",
+    ):
+        monkeypatch.delenv(var, raising=False)
 
 
 def _enable_drive_first(repo: Path) -> None:
