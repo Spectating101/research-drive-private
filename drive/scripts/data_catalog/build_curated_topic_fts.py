@@ -18,7 +18,27 @@ CURATED_DIRS = ("curated_live", "curated", "curated_strict")
 
 
 def topic_index_path(repo_root: Path) -> Path:
-    return Path(repo_root).resolve() / "data_lake/dataset_catalog/_topic_index/curated.sqlite3"
+    """Same resolver the reader uses. Hardcoding repo_root here meant
+    DATACITE_TOPIC_INDEX_ON_BULK moved the reader and not the builder, so the desk
+    searched a stub while the built index sat on the external drive."""
+    from scripts.data_catalog.topic_index_paths import topic_index_root
+
+    return topic_index_root(Path(repo_root)) / "curated.sqlite3"
+
+
+def curated_source_root(repo_root: Path) -> Path:
+    """Where the curated JSONL promotions live.
+
+    Prefer the bulk drive when the topic index is on bulk: the NVMe copies are stubs
+    (40KB curated_live, curated and curated_strict dangling) against 96MB on the drive,
+    and rebuilding from the stub is what produced a 40-row index.
+    """
+    from scripts.data_catalog.topic_index_paths import topic_index_root
+
+    root = topic_index_root(Path(repo_root)).parent
+    if root.is_dir():
+        return root
+    return Path(repo_root).resolve() / "data_lake/dataset_catalog"
 
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -49,7 +69,7 @@ def _body(row: dict[str, Any]) -> str:
 
 
 def _iter_curated_rows(repo_root: Path) -> list[dict[str, Any]]:
-    root = Path(repo_root).resolve() / "data_lake/dataset_catalog"
+    root = curated_source_root(repo_root)
     seen: set[str] = set()
     rows: list[dict[str, Any]] = []
     for subdir in CURATED_DIRS:
@@ -117,7 +137,7 @@ def build_curated_topic_fts(repo_root: Path) -> dict[str, Any]:
         "version": INDEX_VERSION,
         "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "row_count": len(rows),
-        "index_path": str(out.relative_to(repo_root)),
+        "index_path": str(out),
         "sources": list(CURATED_DIRS),
     }
     (out.parent / "curated_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -130,7 +150,7 @@ def index_is_stale(repo_root: Path) -> bool:
     if not out.is_file():
         return True
     mtime = out.stat().st_mtime
-    root = Path(repo_root).resolve() / "data_lake/dataset_catalog"
+    root = curated_source_root(repo_root)
     for subdir in CURATED_DIRS:
         jsonl = root / subdir / "curated_dataset_index.jsonl"
         if jsonl.is_file() and jsonl.stat().st_mtime > mtime:
