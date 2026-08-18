@@ -398,6 +398,30 @@ def _suffix_for_materialized_file(
     return ""
 
 
+def _declared_proxy(materialized: dict[str, Any]) -> dict[str, Any] | None:
+    proxy = materialized.get("proxy")
+    return proxy if isinstance(proxy, dict) and proxy.get("stands_in_for") else None
+
+
+def _materialized_description(job: dict[str, Any], plan: dict[str, Any], materialized: dict[str, Any]) -> str:
+    job_id = str(job.get("id", ""))
+    if plan.get("job_type") != "synthesis_execute":
+        return (
+            f"Procured via http_manifest job `{job_id}` from "
+            f"{plan.get('url') or plan.get('connector_id', 'web')}."
+        )
+    proxy = _declared_proxy(materialized)
+    if not proxy:
+        return f"Materialised by synthesis execution job `{job_id}`."
+    limitations = "; ".join(str(x) for x in proxy.get("limitations") or [])
+    return (
+        f"Proxy for {proxy['stands_in_for']}. This is a constructed stand-in, not a direct "
+        f"measurement. Built as: {proxy['construction']}. Known limitations: {limitations}. "
+        f"Fitness is {proxy.get('fitness') or 'untested'} — this system does not validate "
+        f"proxy fitness. Materialised by synthesis execution job `{job_id}`."
+    )
+
+
 def registry_spec_from_materialized(
     repo_root: Path,
     job: dict[str, Any],
@@ -443,11 +467,7 @@ def registry_spec_from_materialized(
         "analysis_readiness": readiness,
         "grain": str(plan.get("grain") or "procured_snapshot"),
         "local_path": local_path,
-        "description": (
-            f"Materialised by synthesis execution job `{job.get('id', '')}`."
-            if plan.get("job_type") == "synthesis_execute"
-            else f"Procured via http_manifest job `{job.get('id', '')}` from {plan.get('url') or plan.get('connector_id', 'web')}."
-        ),
+        "description": _materialized_description(job, plan, materialized),
         "capabilities": ["limit", "export_json"],
         "recommended_use": f"Inspect files under {local_path}",
         "domain": plan.get("domain") or "procured",
@@ -457,6 +477,9 @@ def registry_spec_from_materialized(
         panel_path = Path(local_path)
         spec["local_root"] = str(panel_path.parent)
         spec["local_file"] = panel_path.name
+    proxy = _declared_proxy(materialized)
+    if proxy:
+        spec["proxy"] = proxy
     if revision_id:
         spec["revision_id"] = revision_id
     if campaign_id:
