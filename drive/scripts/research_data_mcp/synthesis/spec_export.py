@@ -57,22 +57,39 @@ def fingerprint_path(path: Path | str | None) -> dict[str, Any]:
         return {"path": str(p), "fingerprint": None, "files": 0, "bytes": 0, "note": "no data files found"}
 
     truncated = len(files) > FINGERPRINT_FILE_CAP
+    selected = sorted(files)[:FINGERPRINT_FILE_CAP]
+
+    # One file gets the plain hash of its bytes, so the reader can confirm it with
+    # sha256sum and it agrees with the run manifest. Chaining the name in is right for
+    # many files but is not a file hash, so it carries a different label.
+    single = len(selected) == 1
     digest = hashlib.sha256()
     total = 0
-    for f in sorted(files)[:FINGERPRINT_FILE_CAP]:
+    for f in selected:
         try:
             data = f.read_bytes()
         except Exception as exc:  # noqa: BLE001
             return {"path": str(p), "fingerprint": None, "files": len(files), "bytes": 0, "note": f"unreadable: {exc}"}
         total += len(data)
-        digest.update(f.name.encode("utf-8"))
+        if not single:
+            digest.update(f.name.encode("utf-8"))
         digest.update(data)
+
+    notes = []
+    if truncated:
+        notes.append(f"first {FINGERPRINT_FILE_CAP} files only")
+    if single:
+        label = "sha256"
+        notes.append("sha256sum of the file")
+    else:
+        label = "sha256-manifest"
+        notes.append(f"chained over {len(selected)} files by name then bytes; not a single file hash")
     return {
         "path": str(p),
-        "fingerprint": f"sha256:{digest.hexdigest()}",
+        "fingerprint": f"{label}:{digest.hexdigest()}",
         "files": len(files),
         "bytes": total,
-        "note": f"first {FINGERPRINT_FILE_CAP} files only" if truncated else None,
+        "note": "; ".join(notes) or None,
     }
 
 

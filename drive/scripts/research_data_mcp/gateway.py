@@ -615,6 +615,78 @@ class ResearchDataGateway:
             out["routed_via"] = "unified_dataset_search+discover_profile"
         return out
 
+    def _semantic_candidates(self, query: str, *, limit: int, exclude: set[str]) -> list[dict[str, Any]]:
+        return self._semantic_candidates_with_status(query, limit=limit, exclude=exclude)[0]
+
+    def _semantic_candidates_with_status(
+        self, query: str, *, limit: int, exclude: set[str]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Held datasets found by meaning, shaped like keyword candidates.
+
+        Benchmarked on the real registry: keyword retrieval never finds 38-41% of
+        datasets at any depth because its threshold rises with each query word, while
+        semantic reaches 100% recall@10. No case exists of semantic missing what
+        keyword found, so semantic leads and keyword only supplements.
+        """
+        from scripts.research_data_mcp.procureability import registry_procureability
+        from scripts.research_data_mcp.procurement_fast import local_path_has_data
+        from scripts.research_data_mcp.procurement_search import candidate_from_row
+
+        status: dict[str, Any] = {"status": "ok", "error": ""}
+        try:
+            semantic = self.semantic_discover(query, limit=limit)
+        except Exception as exc:
+            # A swallowed failure made a broken index look like a catalogue that holds
+            # nothing, sending the caller to procurement for data already on disk.
+            status = {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"[:200]}
+            return [], status
+        hits = [r for r in (semantic.get("rows") or []) if str(r.get("dataset_id") or "")]
+        if not hits:
+            return [], status
+        listing = self.list_datasets()
+        rows = listing.get("datasets") if isinstance(listing, dict) else listing
+        by_id = {str(r.get("dataset_id") or ""): r for r in (rows or []) if isinstance(r, dict)}
+
+        out: list[dict[str, Any]] = []
+        for hit in hits:
+            dataset_id = str(hit.get("dataset_id"))
+            if dataset_id in exclude:
+                continue
+            row = by_id.get(dataset_id)
+            if not row:
+                continue
+            local_path = str(row.get("local_path") or "")
+            on_disk = local_path_has_data(self.repo_root, local_path) if local_path else False
+            proc = row.get("procureability") or registry_procureability(row)
+            if on_disk:
+                badges = list(proc.get("badges") or [])
+                if "promoted" not in badges:
+                    badges.append("promoted")
+                proc = {**proc, "badges": badges, "can_collect": True, "status": "ready"}
+            item = {
+                "kind": "local_registry",
+                "dataset_id": dataset_id,
+                "title": row.get("name") or hit.get("title") or dataset_id,
+                "source": "registry",
+                "local_path": local_path,
+                "local_ready": on_disk,
+                "analysis_readiness": row.get("analysis_readiness"),
+                "procureability": proc,
+                "tags": row.get("tags") or row.get("keywords") or [],
+                "description": row.get("recommended_use") or row.get("description") or "",
+            }
+            try:
+                score = round(float(hit.get("semantic_score") or 0.0), 4)
+            except (TypeError, ValueError):
+                score = 0.0
+            cand = candidate_from_row(item, 0, score=score)
+            cand["score"] = score
+            cand["kind"] = "registry_dataset"
+            cand["match_type"] = "semantic"
+            out.append(cand)
+            exclude.add(dataset_id)
+        return out, status
+
     def discover_search(
         self,
         query: str,
@@ -634,6 +706,13 @@ class ResearchDataGateway:
         profile = resolve_profile(email=normalize_email(email)) if email else None
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
+        seen = {str(c.get("dataset_id") or "") for c in candidates if c.get("dataset_id")}
+        semantic_rows, semantic_status = self._semantic_candidates_with_status(
+            query, limit=limit, exclude=seen
+        )
+        semantic_top = max((float(r.get("score") or 0.0) for r in semantic_rows), default=0.0)
+        if semantic_rows:
+            candidates = semantic_rows + candidates
         sections: list[dict[str, Any]] = []
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
@@ -672,6 +751,20 @@ class ResearchDataGateway:
             "query": query,
             "sections": sections,
             "total": len(candidates),
+            "retrieval": {
+                "semantic": len(semantic_rows),
+                "keyword": len(candidates) - len(semantic_rows),
+                "semantic_top_score": semantic_top,
+                "semantic_status": semantic_status.get("status"),
+                "semantic_error": semantic_status.get("error") or "",
+                "engines_ran": ["keyword"] + (
+                    ["semantic"] if semantic_status.get("status") == "ok" else []
+                ),
+            },
+            # index_miss stays the keyword signal. A similarity floor cannot decide
+            # whether the desk holds a topic: "US patent filings" (absent) scores 0.42
+            # against the catalogue while "stablecoin depeg events" (held) scores 0.35.
+            # Semantic rows are offered as candidates; the procurement route still fires.
             "index_miss": bool(result.get("index_miss")),
             "weak_match": bool(result.get("weak_match")),
             "sources": result.get("sources") or [],
@@ -1600,7 +1693,7 @@ class ResearchDataGateway:
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_source_search import search_discover_sources
 
-        return search_discover_sources(
+        result = search_discover_sources(
             self.repo_root,
             query,
             limit=limit,
@@ -1609,6 +1702,62 @@ class ResearchDataGateway:
             prefer=prefer,
             prefer_embeddings=prefer_embeddings,
         )
+        if not str(query or "").strip():
+            return result
+        # Keyword route discovery named a usable route for 6 of 13 research needs, and
+        # missed the differentiating ones. Supplement, never displace: a keyword hit on a
+        # source id is the strongest signal there is.
+        existing = {str(r.get("source_id") or "") for r in (result.get("results") or [])}
+        extra = [r for r in self.semantic_source_routes(query, limit=limit) if r["source_id"] not in existing]
+        if extra:
+            result["results"] = list(result.get("results") or []) + extra
+            result["semantic_routes_added"] = len(extra)
+            result["index_miss"] = False
+        return result
+
+    def semantic_source_routes(self, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+        """Procurement routes ranked by meaning, for a need no keyword match reaches."""
+        q = str(query or "").strip()
+        if not q:
+            return []
+        from scripts.research_data_mcp.semantic_index import get_semantic_index
+
+        try:
+            index = get_semantic_index(self)
+            hits = index.semantic_search(q, limit=max(1, min(limit, 24)), kinds={"source_route"})
+        except Exception:
+            return []
+        from scripts.research_data_mcp.candidate_key import slugify_provider
+
+        out: list[dict[str, Any]] = []
+        for hit in hits:
+            meta = dict(hit.get("metadata") or {})
+            source_id = str(hit.get("id") or meta.get("source_id") or "")
+            if not source_id:
+                continue
+            provider = str(meta.get("provider") or "")
+            out.append(
+                {
+                    "kind": "source",
+                    "result_type": "source",
+                    "source_id": source_id,
+                    # Identity and dedupe key; the source contract requires it on every row.
+                    "candidate_key": (
+                        f"source:{slugify_provider(provider)}:{source_id}"
+                        if provider
+                        else f"source:{source_id}"
+                    ),
+                    "label": meta.get("title") or source_id,
+                    "title": meta.get("title") or source_id,
+                    "provider": meta.get("provider") or "",
+                    "access_mode": meta.get("access_mode") or "",
+                    "capabilities": meta.get("capabilities") or [],
+                    "status": meta.get("status") or "",
+                    "match_type": "semantic",
+                    "score": hit.get("score"),
+                }
+            )
+        return out
 
     def discover_source_preview(
         self,

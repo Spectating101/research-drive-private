@@ -840,20 +840,33 @@ def _apply_filter(frame, step: dict[str, Any]):
     return frame[_compare_series(frame[str(step["column"])], str(step["cmp"]), step.get("value"))]
 
 
-def _finite(result, notes: dict[str, int] | None = None, alias: str = ""):
-    """inf is not a measurement. Division or a log that blew up becomes NaN so a
-    downstream mean() cannot report a finite-looking number built on it.
+def _finite(result, notes: dict[str, int] | None = None, alias: str = "", defined_inputs=None):
+    """A derive that cannot produce a number leaves nothing, and the count is recorded.
 
-    How many it masked is recorded in `notes`. Without that count a group whose
-    every value was undefined reports sum() == 0.0, which reads as a measured
-    zero rather than nothing to measure.
+    There are two ways it fails and only one was counted. Arithmetic can overflow to
+    inf (1/0), or the operation can be undefined for its input and return NaN outright
+    (log of a negative). Counting inf alone meant div-by-zero reported honestly while
+    `log(v)` over a column spanning zero reported nothing masked at all — 57 of 120
+    values silently became NaN and the manifest said `{}`.
+
+    Rows whose inputs were already missing are excluded via `defined_inputs`. They had
+    nothing to compute from, so counting them would make every derive over a sparse
+    column look like a failed one.
+
+    Without this count a group whose every value was undefined reports sum() == 0.0,
+    which reads as a measured zero rather than nothing to measure.
     """
     import numpy as np
 
     try:
-        masked = int(np.isinf(result).sum())
+        undefined = ~np.isfinite(result)
     except (TypeError, ValueError):
-        masked = 0
+        undefined = None
+    masked = 0
+    if undefined is not None:
+        if defined_inputs is not None:
+            undefined = undefined & defined_inputs
+        masked = int(undefined.sum())
     if masked and notes is not None and alias:
         notes[alias] = notes.get(alias, 0) + masked
     try:
@@ -875,7 +888,9 @@ def _apply_expression(frame, step: dict[str, Any], notes: dict[str, int] | None 
     code = compile(ast.fix_missing_locations(tree), "<derive>", "eval")
     result = eval(code, {"__builtins__": {}}, namespace)  # noqa: S307 - AST validated above
     frame = frame.copy()
-    frame[alias] = _finite(result, notes, alias)
+    present = [name for name in reads if name in frame.columns]
+    defined = frame[present].notna().all(axis=1) if present else None
+    frame[alias] = _finite(result, notes, alias, defined)
     return frame
 
 
@@ -909,7 +924,8 @@ def _apply_derive(frame, step: dict[str, Any], notes: dict[str, int] | None = No
         elif fn == "mul":
             result = series * right
         elif fn == "div":
-            result = _finite(series / right, notes, alias)
+            right_defined = right.notna() if hasattr(right, "notna") else True
+            result = _finite(series / right, notes, alias, series.notna() & right_defined)
         else:
             raise ValueError(f"unsupported derive fn: {fn}")
     frame = frame.copy()
@@ -1032,7 +1048,10 @@ def _apply_transforms(repo_root: Path, registry: dict[str, Any], frame, transfor
                     "undated_left_rows_dropped": undated_left,
                     "matched_rows": matched,
                     "unmatched_rows": len(frame) - matched,
-                    "match_rate_pct": round(100 * matched / len(frame), 1) if len(frame) else 0.0,
+                    # three decimals, never one: 452 unmatched of 969,392 rounds to "100.0"
+                    # at one decimal, and a coverage figure that reads 100% is the one
+                    # number a research desk must never round up to.
+                    "match_rate_pct": round(100 * matched / len(frame), 3) if len(frame) else 0.0,
                 })
         elif op == "derive":
             frame = _apply_derive(frame, step, notes)

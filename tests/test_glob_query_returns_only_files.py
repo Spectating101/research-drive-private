@@ -12,7 +12,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.research_query_engine.engine import ResearchQueryEngine
+
+@pytest.fixture(autouse=True)
+def _isolate_data_roots(monkeypatch):
+    """tmp_path only. Otherwise the live RESEARCH_DATA_ROOTS supplies real files."""
+    monkeypatch.delenv("RESEARCH_DATA_ROOTS", raising=False)
+    monkeypatch.delenv("SHARPE_REGISTRY_PATH", raising=False)
+
 
 
 def _engine(tmp_path: Path, rows: list[dict]) -> ResearchQueryEngine:

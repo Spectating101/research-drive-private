@@ -94,7 +94,7 @@ class ResearchQueryEngine:
         text = str(candidate)
         if not any(ch in text for ch in ("*", "?", "[")):
             return candidate.exists()
-        return any(Path(hit).is_file() for hit in globmod.glob(text))
+        return any(Path(hit).is_file() for hit in globmod.glob(text, recursive=True))
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
@@ -1080,11 +1080,113 @@ class ResearchQueryEngine:
             "returned": len(rows),
         }
 
+    DATA_SUFFIXES = (".csv", ".parquet", ".json", ".jsonl", ".tsv", ".gz", ".txt", ".xlsx")
+
+    def _glob_candidate_paths(self, pattern: str) -> list[str]:
+        """Every root the resolver would consider, not only the one it settled on.
+
+        _resolve falls back to the repo path when no candidate expands to a file, so a
+        pattern that needs to descend was searched under the wrong root.
+        """
+        from scripts.research_data_mcp.data_paths import resolve_data_path
+        from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+        out = [str(resolve_data_path(self.repo_root, pattern))]
+        relative = str(pattern).lstrip("/")
+        for root in data_roots(self.repo_root):
+            candidate = str(root / relative)
+            if candidate not in out:
+                out.append(candidate)
+        return out
+
+    def _resolve_glob(self, pattern: str) -> tuple[list[Path], dict[str, Any]]:
+        """Files matching `pattern`, and a report of how they were reached.
+
+        27 registry rows name a bare directory and 4 name a glob one level above their
+        files. Descending recovers them, but a caller who is not told it happened cannot
+        tell a precise holding from a lucky one, and the wrong registry entry stays
+        invisible. `registry_drift` is the signal that the catalogue, not the engine,
+        needs the fix.
+        """
+        report: dict[str, Any] = {
+            "declared": pattern,
+            "served_pattern": "",
+            # The correction a caller can paste back into the registry. served_pattern is
+            # absolute and root-specific, so it is evidence, not a usable declaration.
+            "served_relative": "",
+            "depth": "none",
+            "matched": 0,
+            "registry_drift": False,
+            "roots_tried": 0,
+        }
+        declared_head, _, declared_tail = str(pattern).rpartition("/")
+        candidates = self._glob_candidate_paths(pattern)
+        report["roots_tried"] = len(candidates)
+
+        for resolved in candidates:
+            matches = sorted(
+                p for p in (Path(x) for x in globmod.glob(resolved, recursive=True)) if p.is_file()
+            )
+            if matches:
+                report.update(
+                    served_pattern=resolved,
+                    served_relative=pattern,
+                    depth="declared",
+                    matched=len(matches),
+                )
+                return matches, report
+
+        for resolved in candidates:
+            if not any(ch in resolved for ch in ("*", "?", "[")):
+                root = Path(resolved)
+                if not root.is_dir():
+                    continue
+                found = sorted(
+                    p
+                    for p in root.rglob("*")
+                    if p.is_file() and p.suffix.lower() in self.DATA_SUFFIXES
+                )
+                if found:
+                    report.update(
+                        served_pattern=f"{resolved}/**",
+                        served_relative=f"{str(pattern).rstrip('/')}/**",
+                        depth="recursive",
+                        matched=len(found),
+                        registry_drift=True,
+                    )
+                    return found, report
+                continue
+            head, _, tail = resolved.rpartition("/")
+            if not head or not tail:
+                continue
+            for label, depth in (("+1", "/*/"), ("+2", "/*/*/")):
+                served = f"{head}{depth}{tail}"
+                deeper = sorted(
+                    p for p in (Path(x) for x in globmod.glob(served, recursive=True)) if p.is_file()
+                )
+                if deeper:
+                    report.update(
+                        served_pattern=served,
+                        served_relative=(
+                            f"{declared_head}{depth}{declared_tail}"
+                            if declared_head and declared_tail
+                            else served
+                        ),
+                        depth=label,
+                        matched=len(deeper),
+                        registry_drift=True,
+                    )
+                    return deeper, report
+        return [], report
+
+    def _glob_data_files(self, pattern: str) -> list[Path]:
+        return self._resolve_glob(pattern)[0]
+
     def _query_local_json_glob(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
         pattern = str(ds.get("local_path") or ds.get("local_glob") or "").strip()
         if not pattern:
             return QueryResult(ds["dataset_id"], [], {"error": "missing local_path glob pattern", "params": params})
-        matches = sorted(p for p in (Path(x) for x in globmod.glob(str(self._resolve(pattern)))) if p.is_file())
+        matches, resolution = self._resolve_glob(pattern)
         ticker = str(params.get("ticker") or params.get("filter_ticker") or "").upper().strip()
         file_name = str(params.get("file") or params.get("filename") or "").strip()
         limit = int(params.get("limit", 50))
@@ -1121,7 +1223,8 @@ class ResearchQueryEngine:
         if want_preview and not include_payload:
             sample_rows, sample_meta = self._sample_tabular_glob(filtered, limit=min(limit, 100))
             if sample_rows:
-                meta = {"pattern": pattern, "matched": len(matches), "params": params, "preview": True}
+                meta = {"pattern": pattern, "matched": len(matches), "params": params,
+                        "preview": True, "resolution": resolution}
                 meta.update(sample_meta)
                 return QueryResult(ds["dataset_id"], sample_rows, meta)
 
@@ -1157,6 +1260,7 @@ class ResearchQueryEngine:
                 "pattern": pattern,
                 "matched": len(matches),
                 "returned": len(rows),
+                "resolution": resolution,
                 "metadata_only": metadata_only,
                 "params": params,
             },
@@ -1235,8 +1339,23 @@ class ResearchQueryEngine:
         except Exception:
             return s
 
+    @staticmethod
+    def _newest_run_holding(root: Path, file_name: str) -> tuple[Path, Path] | None:
+        """Newest run directory that actually contains `file_name`, or its .csv twin."""
+        runs = sorted(
+            (p for p in root.iterdir() if p.is_dir()),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for run_dir in runs:
+            for candidate in (run_dir / file_name, (run_dir / file_name).with_suffix(".csv")):
+                if candidate.is_file():
+                    return candidate, run_dir
+        return None
+
     def _resolve_panel_path(self, ds: dict[str, Any], params: dict[str, Any]) -> tuple[Path, str]:
-        run_id = str(params.get("run_id") or ds.get("default_run_id") or "").strip()
+        requested_run = str(params.get("run_id") or "").strip()
+        run_id = requested_run or str(ds.get("default_run_id") or "").strip()
         root = self._resolve(ds["local_root"])
         if not root.exists():
             raise FileNotFoundError(f"missing panel root: {root}")
@@ -1267,7 +1386,13 @@ class ResearchQueryEngine:
             if csv_path.exists():
                 path = csv_path
             else:
-                raise FileNotFoundError(f"missing panel file: {path}")
+                # A caller who named a run gets that run or an error, never a
+                # substitute. A stale default_run_id may fall back: ticker_week_*
+                # declare a run that exists without the panel file an older one holds.
+                fallback = None if requested_run else self._newest_run_holding(root, file_name)
+                if fallback is None:
+                    raise FileNotFoundError(f"missing panel file: {path}")
+                path, run_dir = fallback
         return path, run_dir.name
 
     def _query_local_parquet_panel(self, ds: dict[str, Any], params: dict[str, Any]) -> QueryResult:
