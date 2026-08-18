@@ -467,64 +467,111 @@ def discover_sources(
     tavily_live: bool = False,
     extra_queries: list[str] | None = None,
 ) -> dict[str, Any]:
-    queries = [query.strip()]
-    for item in extra_queries or []:
-        item = str(item).strip()
-        if item and item not in queries:
-            queries.append(item)
+    from scripts.research_data_mcp.query_translation import catalogue_query_variants
 
-    merged: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    sources_tried: list[str] = []
-    # Bound the candidate pool, but do not stop after the first provider fills max_results.
+    requested_queries: list[str] = []
+    for item in [query, *(extra_queries or [])]:
+        item = " ".join(str(item or "").split())
+        if item and item.casefold() not in {seen.casefold() for seen in requested_queries}:
+            requested_queries.append(item)
+    if not requested_queries:
+        return {
+            "query": "",
+            "queries_tried": [],
+            "results": [],
+            "sources_tried": [],
+            "provider_attempts": [],
+            "relevance": {"rule": "distinctive_aspect_overlap", "min_query_relevance": 0.0},
+        }
+
+    # Bound the candidate pool, but give every provider a chance to contribute.
     pool_limit = max(int(max_results) * 3, int(max_results), 12)
     per_provider = max(2, min(int(max_results), 4))
-
-    def _merge(hits: list[dict[str, Any]]) -> None:
-        for hit in hits:
-            if len(merged) >= pool_limit:
-                return
-            url = hit.get("url") or ""
-            if not url or url in seen:
-                continue
-            seen.add(url)
-            merged.append(hit)
-
-    providers: list[tuple[str, Callable[[str], list[dict[str, Any]]]]] = [
-        ("datacite", lambda q: _search_datacite(q, per_provider)),
-        ("zenodo_api", lambda q: _search_zenodo_api(q, per_provider)),
-        ("openalex", lambda q: _search_openalex_api(q, per_provider)),
-        ("tavily", lambda q: _search_tavily(repo_root, q, per_provider, live=tavily_live)),
-        ("duckduckgo_html", lambda q: _search_duckduckgo_html(q, per_provider)),
-        ("duckduckgo_instant", lambda q: _search_duckduckgo_instant(q, per_provider)),
+    threshold = min_web_relevance(query)
+    providers: list[tuple[str, Callable[[str], list[dict[str, Any]]], bool]] = [
+        ("datacite", lambda q: _search_datacite(q, per_provider), True),
+        ("zenodo_api", lambda q: _search_zenodo_api(q, per_provider), True),
+        ("openalex", lambda q: _search_openalex_api(q, per_provider), True),
+        # General web engines already accept natural-language requests.  Do not
+        # fan out translated variants here, especially when Tavily is metered.
+        ("tavily", lambda q: _search_tavily(repo_root, q, per_provider, live=tavily_live), False),
+        ("duckduckgo_html", lambda q: _search_duckduckgo_html(q, per_provider), False),
+        ("duckduckgo_instant", lambda q: _search_duckduckgo_instant(q, per_provider), False),
     ]
 
-    for q in queries:
-        for source, fn in providers:
+    provider_buckets: list[list[dict[str, Any]]] = []
+    provider_attempts: list[dict[str, Any]] = []
+    attempted_queries: list[str] = []
+    for source, fn, catalogue_style in providers:
+        plan: list[str] = []
+        for requested in requested_queries:
+            variants = (
+                catalogue_query_variants(requested, provider=source)
+                if catalogue_style
+                else [requested]
+            )
+            for variant in variants:
+                if variant.casefold() not in {seen.casefold() for seen in plan}:
+                    plan.append(variant)
+
+        attempts: list[dict[str, Any]] = []
+        selected: list[dict[str, Any]] = []
+        query_used = ""
+        for phrase in plan:
+            attempted_queries.append(phrase)
+            try:
+                rows = fn(phrase)
+            except Exception as exc:  # provider failure must not stop the rest of Discover
+                attempts.append({"query": phrase, "returned": 0, "accepted": 0, "error": str(exc)[:160]})
+                continue
+            rows = [row for row in (rows or []) if isinstance(row, dict)]
+            accepted = (
+                rank_web_results_by_relevance(rows, query, min_relevance=threshold, limit=per_provider)
+                if threshold > 0
+                else rows[:per_provider]
+            )
+            attempts.append({"query": phrase, "returned": len(rows), "accepted": len(accepted)})
+            if accepted:
+                selected = accepted
+                query_used = phrase
+                break
+        provider_buckets.append(selected)
+        provider_attempts.append(
+            {
+                "source": source,
+                "catalogue_style": catalogue_style,
+                "queries_tried": plan,
+                "query_used": query_used or None,
+                "attempts": attempts,
+                "returned": len(selected),
+            }
+        )
+
+    # Round-robin provider buckets before the final cap: the first catalogue
+    # must not hide results from every other source merely by returning quickly.
+    merged: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    positions = [0] * len(provider_buckets)
+    while len(merged) < pool_limit:
+        progressed = False
+        for index, bucket in enumerate(provider_buckets):
+            while positions[index] < len(bucket):
+                row = bucket[positions[index]]
+                positions[index] += 1
+                url = str(row.get("url") or "").strip()
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                merged.append(row)
+                progressed = True
+                break
             if len(merged) >= pool_limit:
                 break
-            key = f"{source}"
-            if key not in sources_tried:
-                sources_tried.append(key)
-            try:
-                _merge(fn(q))
-            except Exception:
-                # Preserve per-provider failure isolation / timeouts inside providers.
-                pass
-        if len(merged) >= pool_limit:
+        if not progressed:
             break
-
-    if not merged:
-        fallback_q = _datacite_query(query)
-        if fallback_q and fallback_q != query.strip():
-            try:
-                _merge(_search_datacite(fallback_q, per_provider))
-            except Exception:
-                pass
 
     # Collect a bounded multi-provider pool, then deterministically rerank/filter.
     pool = merged[:pool_limit]
-    threshold = min_web_relevance(query)
     ranked = rank_web_results_by_relevance(
         pool,
         query,
@@ -535,9 +582,10 @@ def discover_sources(
     results = ranked if threshold > 0 else pool[:max_results]
     return {
         "query": query,
-        "queries_tried": queries,
+        "queries_tried": list(dict.fromkeys(attempted_queries)),
         "results": results,
-        "sources_tried": sources_tried,
+        "sources_tried": [source for source, _fn, _catalogue_style in providers],
+        "provider_attempts": provider_attempts,
         "relevance": {
             "rule": "distinctive_aspect_overlap",
             "min_query_relevance": threshold,
