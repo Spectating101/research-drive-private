@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """One report saying what state every registry row is actually in.
 
-Headline counts kept disagreeing because they answered different questions: 114 rows serve
-through the engine, 79 resolve to a single file for synthesis, 75 do both. Collapsing the
-rest into "mostly metadata-only" hid absent paths, ambiguous directories, exceptions and
-corrupt files as one category. Every number quoted about this Library should come from here.
+Headline counts kept disagreeing because they answered different questions: serving rows,
+resolving to one file for synthesis, and doing both are three different things. Collapsing
+the remainder into "mostly metadata-only" hid absent paths, ambiguous directories,
+operational status endpoints and remote APIs as one category.
+
+Quote this report, never a figure copied out of a docstring — a hardcoded number here went
+stale within a day and became the contradiction it was written to prevent.
 
     python -m scripts.research_query_engine.library_classification [--json]
 
@@ -23,11 +26,22 @@ STATES = (
     "queryable",          # engine returns rows AND synthesis can address one file
     "engine_only",        # engine returns rows, synthesis cannot address it
     "synthesis_only",     # synthesis can address a file, engine returns nothing
+    "remote_queryable",   # serves rows from a live API, no local bytes to address
+    "operational",        # a status/ops endpoint, not a research dataset
     "ambiguous",          # bytes present, multiple files, no local_file named
     "absent",             # no bytes under any configured data root
     "unreadable",         # bytes present but the reader fails on them
-    "metadata_only",      # declares no local path at all
+    "metadata_only",      # declares no local path and serves nothing
 )
+
+# Status and manifest endpoints. They answer "how is the desk doing", not a research
+# question, so counting them as datasets overstates the Library either way.
+OPERATIONAL_BACKENDS = frozenset({
+    "collection_ops_status",
+    "datacite_local_harvest_status",
+    "ops_json_manifest",
+    "ops_json",
+})
 TIMEOUT_SECONDS = 25
 
 
@@ -68,8 +82,13 @@ def classify(repo_root: Path | str = ".") -> dict[str, Any]:
         reason = str(resolve_err or "")
         addressable = path is not None
 
-        if not declared:
-            state = "metadata_only"
+        backend = str(spec.get("backend") or "")
+        if backend in OPERATIONAL_BACKENDS:
+            # Classified by what it is, before anything about paths.
+            state = "operational"
+        elif not declared:
+            # A live API serves without local bytes; that is not missing metadata.
+            state = "remote_queryable" if served else "metadata_only"
         elif served and addressable:
             state = "queryable"
         elif served:
@@ -86,7 +105,7 @@ def classify(repo_root: Path | str = ".") -> dict[str, Any]:
         rows.append({
             "dataset_id": dataset_id,
             "state": state,
-            "backend": str(spec.get("backend") or ""),
+            "backend": backend,
             "served_rows": served,
             "synthesis_addressable": addressable,
             "declared": declared,
