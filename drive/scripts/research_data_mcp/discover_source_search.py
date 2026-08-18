@@ -27,7 +27,7 @@ _SKIP_ACCESS_MODES = frozenset({"derived_internal"})
 _KIND_RANK = {"source": 0, "provider": 1, "connector": 2, "live_candidate": 3}
 
 # Bounded live adapters already implemented in-tree.
-_LIVE_ADAPTERS = frozenset({"huggingface", "datacite"})
+_LIVE_ADAPTERS = frozenset({"huggingface", "datacite", "zenodo", "openalex"})
 _LIVE_PER_ADAPTER_CAP = 5
 _LIVE_TIMEOUT_SEC = 8
 
@@ -797,12 +797,12 @@ def _domain_capability_affinity(
             score -= 1.05
             signals["domain_mismatch"] = "governance_regulatory"
 
-    if "governance" in domains and not ("onchain" in domains):
+    if "governance" in domains and "onchain" not in domains:
         if caps & _GOVERNANCE_CAPABILITIES:
             score += 0.85
             signals["capability_match"] = sorted(caps & _GOVERNANCE_CAPABILITIES)
 
-    if "news" in domains and not ("onchain" in domains):
+    if "news" in domains and "onchain" not in domains:
         if caps & _NEWS_CAPABILITIES:
             score += 0.9
             signals["capability_match"] = sorted(caps & _NEWS_CAPABILITIES)
@@ -950,8 +950,8 @@ def _diversify_live_hits(
     Diversification rule (deterministic):
     1. Group hits by provider, preserving within-provider relevance order.
     2. Round-robin across providers that returned candidates until `limit`.
-    3. This keeps both Hugging Face and DataCite in normal limits when both
-       have hits, instead of letting the first adapter fill the entire window.
+    3. This keeps more than one provider in normal limits when several have
+       hits, instead of letting the first adapter fill the entire window.
     """
     limit = max(0, int(limit or 0))
     if limit <= 0 or not hits:
@@ -1015,6 +1015,24 @@ def _diversify_live_hits(
             progress = True
 
     return out
+
+
+def _prioritize_live_hits_for_query(hits: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+    """Put the strongest original-question matches first within each provider.
+
+    Provider diversification happens before the global relevance gate.  Without
+    this local ordering, a capped provider bucket can lose its only relevant
+    candidate simply because unrelated results arrived first from its API.
+    """
+    if not str(query or "").strip():
+        return list(hits)
+    scored: list[tuple[float, int, dict[str, Any]]] = []
+    for index, row in enumerate(hits):
+        score, _meta = source_evidence_score(row, query)
+        scored.append((float(score), index, row))
+    # Stable tie-break keeps adapter result order when the evidence is equal.
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return [row for _score, _index, row in scored]
 
 
 def _blob(row: dict[str, Any]) -> str:
@@ -1185,11 +1203,11 @@ def _known_adapter_facts() -> list[dict[str, Any]]:
             "fetch_modes": ["zenodo_api"],
             "capabilities": ["repository_files"],
             "preview_supported": True,
-            "live_search_supported": False,
-            "adapter": "repository_adapters.zenodo_files",
+            "live_search_supported": True,
+            "adapter": "academic_discovery.search_zenodo",
             "external_id": "zenodo",
             "source": "Zenodo",
-            "notes": "File resolve supported for landing URLs; not a registry dataset listing.",
+            "notes": "Live public-record search and file resolve are available via the Zenodo API.",
         },
         {
             "kind": "provider",
@@ -1224,11 +1242,11 @@ def _known_adapter_facts() -> list[dict[str, Any]]:
             "fetch_modes": ["openalex_api"],
             "capabilities": ["scholarly_works"],
             "preview_supported": False,
-            "live_search_supported": False,
+            "live_search_supported": True,
             "adapter": "web_search._search_openalex_api",
             "external_id": "openalex",
             "source": "OpenAlex",
-            "notes": "Catalog fact only on Explore; not part of the bounded live=1 adapter set.",
+            "notes": "Live public dataset-like works search is available through OpenAlex.",
         },
     ]
     for row in facts:
@@ -1658,8 +1676,70 @@ def _live_search_datacite(query: str, *, limit: int) -> tuple[list[dict[str, Any
     return rows_out, meta
 
 
+def _live_search_zenodo(query: str, *, limit: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Search Zenodo's public record API through the existing adapter."""
+    meta: dict[str, Any] = {"adapter": "zenodo", "ok": False, "error": None, "returned": 0}
+    try:
+        from scripts.research_data_mcp.academic_discovery import search_zenodo
+
+        payload = search_zenodo(query, max_results=limit, timeout=_LIVE_TIMEOUT_SEC)
+    except Exception as exc:  # noqa: BLE001 — public adapter failures stay isolated
+        meta["error"] = str(exc)[:300]
+        return [], meta
+    if not isinstance(payload, list):
+        meta["error"] = "zenodo returned non-list"
+        return [], meta
+    rows_out = [
+        _normalize_live_candidate(
+            provider="Zenodo",
+            title=str(raw.get("title") or ""),
+            url=str(raw.get("url") or ""),
+            doi=str(raw.get("doi") or ""),
+            external_id=str(raw.get("doi") or raw.get("url") or ""),
+            capabilities=["repository_files"],
+            availability="public_repository",
+            notes=str(raw.get("snippet") or "")[:200],
+        )
+        for raw in payload
+        if isinstance(raw, dict)
+    ]
+    meta.update({"ok": True, "returned": len(rows_out)})
+    return rows_out, meta
+
+
+def _live_search_openalex(query: str, *, limit: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Search OpenAlex dataset-like works through the existing adapter."""
+    meta: dict[str, Any] = {"adapter": "openalex", "ok": False, "error": None, "returned": 0}
+    try:
+        from scripts.research_data_mcp.academic_discovery import search_openalex_datasets
+
+        payload = search_openalex_datasets(query, max_results=limit, timeout=_LIVE_TIMEOUT_SEC)
+    except Exception as exc:  # noqa: BLE001 — public adapter failures stay isolated
+        meta["error"] = str(exc)[:300]
+        return [], meta
+    if not isinstance(payload, list):
+        meta["error"] = "openalex returned non-list"
+        return [], meta
+    rows_out = [
+        _normalize_live_candidate(
+            provider="OpenAlex",
+            title=str(raw.get("title") or ""),
+            url=str(raw.get("url") or ""),
+            doi=str(raw.get("doi") or ""),
+            external_id=str(raw.get("doi") or raw.get("url") or ""),
+            capabilities=["scholarly_works"],
+            availability="public_openalex",
+            notes=str(raw.get("snippet") or "")[:200],
+        )
+        for raw in payload
+        if isinstance(raw, dict)
+    ]
+    meta.update({"ok": True, "returned": len(rows_out)})
+    return rows_out, meta
+
+
 def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Bounded live search via already-implemented HF + DataCite adapters only.
+    """Bounded live search via the public catalogue adapters already in-tree.
 
     A live catalogue receives the researcher wording plus a few explicit
     catalogue-friendly variants.  Results record the variants tried, so a
@@ -1668,18 +1748,8 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
     q = str(query or "").strip()
     if not q:
         return [], [
-            {
-                "adapter": "huggingface",
-                "ok": False,
-                "error": "empty query",
-                "returned": 0,
-            },
-            {
-                "adapter": "datacite",
-                "ok": False,
-                "error": "empty query",
-                "returned": 0,
-            },
+            {"adapter": name, "ok": False, "error": "empty query", "returned": 0}
+            for name in ("huggingface", "datacite", "zenodo", "openalex")
         ]
     per_adapter = max(1, min(int(per_adapter or _LIVE_PER_ADAPTER_CAP), _LIVE_PER_ADAPTER_CAP))
     from concurrent.futures import ThreadPoolExecutor
@@ -1689,6 +1759,8 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
     adapters = (
         ("huggingface", _live_search_huggingface),
         ("datacite", _live_search_datacite),
+        ("zenodo", _live_search_zenodo),
+        ("openalex", _live_search_openalex),
     )
     plans = [(name, fn, catalogue_query_variants(q, provider=name)) for name, fn in adapters]
     tasks = [(name, fn, variant) for name, fn, variants in plans for variant in variants]
@@ -1757,7 +1829,7 @@ def search_discover_sources(
     """Return normalized Explore results from known source/provider/connector facts.
 
     Default is fast catalog-only with source-level capability dedupe.
-    Optional live=1 federates Hugging Face + DataCite only.
+    Optional live=1 federates Hugging Face, DataCite, Zenodo, and OpenAlex.
     Optional semantic=1 runs embedding/lexical meaning search over source metadata.
     """
     if semantic:
@@ -1773,7 +1845,9 @@ def search_discover_sources(
             lim = max(1, min(int(limit or 24), 100))
             existing = {str(r.get("candidate_key") or "") for r in out["results"]}
             merged = list(out["results"])
-            diversified = _diversify_live_hits(live_hits, limit=max(lim, 1))
+            diversified = _diversify_live_hits(
+                _prioritize_live_hits_for_query(live_hits, query), limit=max(lim, 1)
+            )
             for row in diversified:
                 key = str(row.get("candidate_key") or "")
                 if key and key in existing:
@@ -1808,7 +1882,9 @@ def search_discover_sources(
                 },
                 "live_hits_are_inspect_only": True,
             }
-            out["sources_tried"] = list(out.get("sources_tried") or []) + ["live:huggingface", "live:datacite"]
+            out["sources_tried"] = list(out.get("sources_tried") or []) + [
+                f"live:{report['adapter']}" for report in live_reports
+            ]
         return out
 
     root = Path(repo_root).resolve()
@@ -1906,12 +1982,12 @@ def search_discover_sources(
         "attempted": False,
         "reason": (
             "Explore source-search returns known provider/connector/catalog facts only; "
-            "pass live=1 for bounded Hugging Face + DataCite adapters."
+            "pass live=1 for bounded public catalogue adapters."
         ),
     }
     if live:
         live_hits, live_reports = _run_live_adapters(q, per_adapter=_LIVE_PER_ADAPTER_CAP)
-        sources_tried.extend(["live:huggingface", "live:datacite"])
+        sources_tried.extend(f"live:{report['adapter']}" for report in live_reports)
         remote_search = {
             "attempted": True,
             "adapters": live_reports,
@@ -1923,7 +1999,9 @@ def search_discover_sources(
             "live_hits_are_inspect_only": True,
         }
         existing = {str(r.get("candidate_key") or "") for r in results}
-        diversified = _diversify_live_hits(live_hits, limit=max(limit, 1))
+        diversified = _diversify_live_hits(
+            _prioritize_live_hits_for_query(live_hits, q), limit=max(limit, 1)
+        )
         for row in diversified:
             key = str(row.get("candidate_key") or "")
             if key and key in existing:

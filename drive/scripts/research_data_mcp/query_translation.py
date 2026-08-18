@@ -52,6 +52,8 @@ GEOGRAPHY = frozenset(
     }
 )
 LIGHT_MODIFIERS = frozenset({"annual", "daily", "monthly", "quarterly", "weekly"})
+_RETURN_TERMS = frozenset({"return", "returns"})
+_LISTED_COMPANY_TERMS = frozenset({"listed", "company", "companies", "firm", "firms", "equity", "equities", "share", "shares"})
 
 
 def _tokens(question: str) -> list[str]:
@@ -113,6 +115,13 @@ def catalogue_query_variants(question: str, *, provider: str = "", max_variants:
 
     geography = [term for term in terms if term in GEOGRAPHY]
     subject_terms = [term for term in terms if term not in GEOGRAPHY and term not in LIGHT_MODIFIERS]
+    # This is a narrowly-defined vocabulary bridge, not a general reasoning
+    # system: market-return requests often say "listed companies", whereas
+    # public catalogues label the same material "stock".  Keep the geography
+    # so the derived phrase cannot silently broaden a Taiwan request to global
+    # equities.
+    if geography and (_RETURN_TERMS & set(terms)) and (_LISTED_COMPANY_TERMS & set(terms)):
+        add(f"{geography[-1]} stock")
     # The trailing subject pair is often the useful catalogue phrase: it turns
     # "US patent grants and citations" into "patent citations", rather than
     # making the generic first noun the only fallback.

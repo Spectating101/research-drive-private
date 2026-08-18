@@ -297,7 +297,7 @@ def test_source_search_explicit_connector_request_exposes_connector(stack):
     assert any(r.get("kind") == "connector" and r.get("connector_id") == "bigquery" for r in explicit["results"])
 
 
-def test_source_search_live_federates_hf_and_datacite_with_monkeypatch(stack, monkeypatch):
+def test_source_search_live_federates_public_catalogues_with_monkeypatch(stack, monkeypatch):
     from scripts.research_data_mcp import discover_source_search as mod
     from scripts.research_data_mcp.http_router import handle_get
 
@@ -323,6 +323,14 @@ def test_source_search_live_federates_hf_and_datacite_with_monkeypatch(stack, mo
             {"adapter": "datacite", "ok": True, "error": None, "returned": 1},
         ),
     )
+    for adapter in ("zenodo", "openalex"):
+        monkeypatch.setattr(
+            mod,
+            f"_live_search_{adapter}",
+            lambda query, *, limit, adapter=adapter: (
+                [], {"adapter": adapter, "ok": True, "error": None, "returned": 0}
+            ),
+        )
 
     out = handle_get("/library/discover/sources", {"q": "climate", "live": "1", "limit": "20"}, stack)
     assert out["status"] == 200
@@ -634,6 +642,14 @@ def test_live_results_round_robin_diversify_hf_and_datacite(stack, monkeypatch):
 
     monkeypatch.setattr(mod, "_live_search_huggingface", fake_hf)
     monkeypatch.setattr(mod, "_live_search_datacite", fake_dc)
+    for adapter in ("zenodo", "openalex"):
+        monkeypatch.setattr(
+            mod,
+            f"_live_search_{adapter}",
+            lambda query, *, limit, adapter=adapter: (
+                [], {"adapter": adapter, "ok": True, "error": None, "returned": 0}
+            ),
+        )
 
     # Use a query that does not match local catalog tokens so live fills the window.
     out = handle_get(

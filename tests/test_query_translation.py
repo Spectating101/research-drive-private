@@ -33,6 +33,12 @@ def test_uppercase_us_is_retained_as_geography_not_question_scaffolding():
     assert "us" in content_terms("US company fundamentals")
 
 
+def test_market_return_wording_gets_a_geographically_bounded_catalogue_synonym():
+    variants = catalogue_query_variants("daily returns for Taiwan listed companies")
+    assert "taiwan stock" in variants
+    assert "stock" not in variants
+
+
 def test_datacite_supplements_use_the_same_transparent_plan():
     from scripts.research_data_mcp.procurement_search import datacite_supplement_queries
 
