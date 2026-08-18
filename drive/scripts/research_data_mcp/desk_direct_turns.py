@@ -191,7 +191,12 @@ def try_direct_discover_search_turn(
     query = discover_query_from_message(message, state.get("rail_context"))
     if not query:
         return None
-    live = bool(re.search(r"\blive\b", message or "", re.I))
+    # Discover means looking beyond the local catalogue.  The old path only
+    # queried the public adapters when a researcher happened to type the word
+    # "live", which hid the very capability Discover exists to provide.
+    # API callers can still explicitly request local-only source lookup; this
+    # conversational path is the researcher-facing outward search.
+    live = True
     out = gateway.discover_source_search(query, limit=12, live=live)
     # Shape like research_discover_search for FE/artifacts
     rows = list(out.get("results") or [])
