@@ -55,6 +55,33 @@ class SemanticCatalogIndex:
         self._embeddings: list[list[float]] | None = None
         self._embedding_model = ""
 
+    @staticmethod
+    def _source_routes(gateway: Any) -> list[dict[str, Any]]:
+        """The declared procurement routes, however the gateway can supply them."""
+        supplier = getattr(gateway, "source_routes_for_index", None)
+        if callable(supplier):
+            try:
+                return list(supplier() or [])
+            except Exception:
+                return []
+        try:
+            from scripts.research_data_mcp.databank_sources import load_source_map
+        except Exception:
+            load_source_map = None
+        if load_source_map is not None:
+            try:
+                return list(load_source_map(gateway.repo_root).get("sources") or [])
+            except Exception:
+                pass
+        try:
+            root = Path(getattr(gateway, "repo_root", "."))
+            payload = json.loads(
+                (root / "config/databank_source_map.json").read_text(encoding="utf-8")
+            )
+            return list(payload.get("sources") or [])
+        except Exception:
+            return []
+
     def build(self, gateway: Any) -> None:
         docs: list[dict[str, Any]] = []
         for ds in gateway.engine.list_datasets():
@@ -73,6 +100,46 @@ class SemanticCatalogIndex:
                         "grain": ds.get("grain") or "",
                         "source": ds.get("source") or ds.get("backend") or "registry",
                         "readiness": ds.get("analysis_readiness") or "",
+                    },
+                }
+            )
+
+        # Held datasets are residue; the offering is the routes the desk can obtain
+        # through. Indexing only datasets left no meaning-based path to a source, so
+        # route discovery named a usable route for 6 of 13 research needs.
+        for route in self._source_routes(gateway):
+            route_id = str(route.get("id") or "")
+            if not route_id:
+                continue
+            capabilities = " ".join(
+                str(c).replace("_", " ") for c in (route.get("capabilities") or [])
+            )
+            geographies = " ".join(str(g).replace("_", " ") for g in (route.get("geographies") or []))
+            blob = " ".join(
+                part
+                for part in (
+                    route_id.replace("_", " "),
+                    str(route.get("label") or ""),
+                    str(route.get("provider") or ""),
+                    capabilities,
+                    geographies,
+                    str(route.get("notes") or ""),
+                    str(route.get("access_mode") or "").replace("_", " "),
+                )
+                if part
+            )
+            docs.append(
+                {
+                    "id": route_id,
+                    "kind": "source_route",
+                    "text": blob,
+                    "metadata": {
+                        "source_id": route_id,
+                        "title": route.get("label") or route_id,
+                        "provider": route.get("provider") or "",
+                        "access_mode": route.get("access_mode") or "",
+                        "capabilities": list(route.get("capabilities") or []),
+                        "status": route.get("status") or "",
                     },
                 }
             )

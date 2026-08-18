@@ -11,13 +11,22 @@ from typing import Any
 
 
 def catalog_fingerprint(repo_root: Path, registry_path: Path | None = None) -> str:
-    """Invalidate caches when registry or collection queue changes."""
+    """Invalidate caches when registry, collection queue or source map changes.
+
+    The semantic index is built from the source map as well as the registry. Omitting it
+    meant adding routes to the index could never invalidate the cached snapshot, so the
+    new docs were silently never built.
+    """
     root = Path(repo_root).resolve()
     reg = Path(registry_path) if registry_path else root / "config/research_query_registry.json"
     if not reg.is_absolute():
         reg = (root / reg).resolve()
     parts: list[str] = []
-    for path in (reg, root / "config/data_collection_queue.json"):
+    for path in (
+        reg,
+        root / "config/data_collection_queue.json",
+        root / "config/databank_source_map.json",
+    ):
         if path.exists():
             parts.append(f"{path.name}:{path.stat().st_mtime_ns}:{path.stat().st_size}")
     raw = "|".join(parts) or "empty"

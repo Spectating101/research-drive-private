@@ -1693,7 +1693,7 @@ class ResearchDataGateway:
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_source_search import search_discover_sources
 
-        return search_discover_sources(
+        result = search_discover_sources(
             self.repo_root,
             query,
             limit=limit,
@@ -1702,6 +1702,62 @@ class ResearchDataGateway:
             prefer=prefer,
             prefer_embeddings=prefer_embeddings,
         )
+        if not str(query or "").strip():
+            return result
+        # Keyword route discovery named a usable route for 6 of 13 research needs, and
+        # missed the differentiating ones. Supplement, never displace: a keyword hit on a
+        # source id is the strongest signal there is.
+        existing = {str(r.get("source_id") or "") for r in (result.get("results") or [])}
+        extra = [r for r in self.semantic_source_routes(query, limit=limit) if r["source_id"] not in existing]
+        if extra:
+            result["results"] = list(result.get("results") or []) + extra
+            result["semantic_routes_added"] = len(extra)
+            result["index_miss"] = False
+        return result
+
+    def semantic_source_routes(self, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+        """Procurement routes ranked by meaning, for a need no keyword match reaches."""
+        q = str(query or "").strip()
+        if not q:
+            return []
+        from scripts.research_data_mcp.semantic_index import get_semantic_index
+
+        try:
+            index = get_semantic_index(self)
+            hits = index.semantic_search(q, limit=max(1, min(limit, 24)), kinds={"source_route"})
+        except Exception:
+            return []
+        from scripts.research_data_mcp.candidate_key import slugify_provider
+
+        out: list[dict[str, Any]] = []
+        for hit in hits:
+            meta = dict(hit.get("metadata") or {})
+            source_id = str(hit.get("id") or meta.get("source_id") or "")
+            if not source_id:
+                continue
+            provider = str(meta.get("provider") or "")
+            out.append(
+                {
+                    "kind": "source",
+                    "result_type": "source",
+                    "source_id": source_id,
+                    # Identity and dedupe key; the source contract requires it on every row.
+                    "candidate_key": (
+                        f"source:{slugify_provider(provider)}:{source_id}"
+                        if provider
+                        else f"source:{source_id}"
+                    ),
+                    "label": meta.get("title") or source_id,
+                    "title": meta.get("title") or source_id,
+                    "provider": meta.get("provider") or "",
+                    "access_mode": meta.get("access_mode") or "",
+                    "capabilities": meta.get("capabilities") or [],
+                    "status": meta.get("status") or "",
+                    "match_type": "semantic",
+                    "score": hit.get("score"),
+                }
+            )
+        return out
 
     def discover_source_preview(
         self,
