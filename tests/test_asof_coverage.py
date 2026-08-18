@@ -114,3 +114,26 @@ def test_the_marker_column_never_reaches_the_output(tmp_path):
     execute(repo, "job", {"execution_spec": _spec(), "thread_id": "t"})
     out = pd.read_parquet(repo / "data_lake/synthesis/thread_outputs/t/job/output.parquet")
     assert not any(str(c).startswith("__asof") for c in out.columns)
+
+
+# A coverage figure that reads 100% is the one number a research desk must never
+# round up to. On the Indonesian panel, 452 of 969,392 rows had no prior record —
+# 99.953% — and one decimal place reported it as 100.0. The 452 were the earliest
+# days of newly listed symbols, which is a selection effect worth seeing.
+
+def test_a_near_total_match_does_not_round_up_to_one_hundred(tmp_path):
+    left = pd.DataFrame({"d": ["2023-12-31"] + ["2024-01-06"] * 1999, "id": list(range(2000))})
+    repo = _repo(tmp_path, left=left)
+    result = execute(repo, "job", {"execution_spec": _spec(), "thread_id": "t"})
+    coverage = result["asof_coverage"][0]
+    assert coverage["unmatched_rows"] == 1
+    assert coverage["match_rate_pct"] != 100.0
+    assert coverage["match_rate_pct"] == 99.95
+
+
+def test_a_genuine_total_match_still_reports_one_hundred(tmp_path):
+    repo = _repo(tmp_path)
+    result = execute(repo, "job", {"execution_spec": _spec(), "thread_id": "t"})
+    coverage = result["asof_coverage"][0]
+    assert coverage["unmatched_rows"] == 0
+    assert coverage["match_rate_pct"] == 100.0
