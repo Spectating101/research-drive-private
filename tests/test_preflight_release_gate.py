@@ -120,7 +120,6 @@ def test_untracked_backend_files_warn_but_do_not_block(release):
 
 
 def test_json_mode_reports_readiness_and_the_fingerprint(release):
-    out = _run(release["env"], **{"1": ""})
     proc = subprocess.run(["bash", str(SCRIPT), "--json"], capture_output=True, text=True,
                           env={**__import__("os").environ, "FRONT_DOOR_ENV": str(release["env"])},
                           timeout=120)
@@ -129,3 +128,35 @@ def test_json_mode_reports_readiness_and_the_fingerprint(release):
     assert payload["backend_sha"] == release["backend_sha"]
     assert payload["registry_rows"] == 1
     assert payload["registry_sha256_16"]
+    assert payload["registry_authority"] == "git"
+
+
+def test_expected_runtime_registry_link_is_a_ready_release(release, tmp_path):
+    runtime = tmp_path / "runtime"
+    (runtime / "config").mkdir(parents=True)
+    expected = runtime / "config/research_query_registry.json"
+    expected.write_text(json.dumps({"datasets": [{"dataset_id": "runtime"}]}), encoding="utf-8")
+    local = release["backend"] / "config/research_query_registry.json"
+    local.unlink()
+    local.symlink_to(expected)
+    with release["env"].open("a", encoding="utf-8") as handle:
+        handle.write(f"YZU_RUNTIME_DRIVE_ROOT={runtime}\n")
+    out = _run(release["env"])
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "registry_mode runtime" in out.stdout
+
+
+def test_runtime_registry_link_to_another_target_is_refused(release, tmp_path):
+    runtime = tmp_path / "runtime"
+    (runtime / "config").mkdir(parents=True)
+    (runtime / "config/research_query_registry.json").write_text('{"datasets": []}', encoding="utf-8")
+    other = tmp_path / "other.json"
+    other.write_text(json.dumps({"datasets": [{"dataset_id": "wrong"}]}), encoding="utf-8")
+    local = release["backend"] / "config/research_query_registry.json"
+    local.unlink()
+    local.symlink_to(other)
+    with release["env"].open("a", encoding="utf-8") as handle:
+        handle.write(f"YZU_RUNTIME_DRIVE_ROOT={runtime}\n")
+    out = _run(release["env"])
+    assert out.returncode != 0
+    assert "runtime registry target mismatch" in out.stdout

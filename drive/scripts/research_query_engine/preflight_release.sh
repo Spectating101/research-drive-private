@@ -73,13 +73,18 @@ fi
 note "backend_tracked_dirty=$backend_dirty backend_untracked=$backend_untracked"
 [ "$backend_dirty" != "0" ] && bad "backend has $backend_dirty modified tracked path(s); the runtime is not $backend_sha"
 [ "$backend_untracked" != "0" ] && note "WARN: $backend_untracked untracked backend path(s); they can change imports and test collection"
-if [ "$registry_typechange" = "1" ]; then
-  if [ "${PREFLIGHT_ACK_REGISTRY_SYMLINK:-0}" = "1" ]; then
-    note "WARN: registry differs from Git (symlink to runtime storage), acknowledged"
-  else
-    bad "registry differs from Git (symlink to runtime storage); set PREFLIGHT_ACK_REGISTRY_SYMLINK=1 to deploy anyway, or resolve ownership"
-  fi
-fi
+
+# Collections create registry rows at runtime.  With a runtime drive configured,
+# it is the explicit mutable authority; Git is the validated baseline and CI
+# contract.  Never accept an arbitrary symlink as an acknowledgement shortcut.
+runtime_drive="${YZU_RUNTIME_DRIVE_ROOT:-}"
+registry_authority="${RESEARCH_REGISTRY_AUTHORITY:-}"
+[ -n "$registry_authority" ] || registry_authority=$([ -n "$runtime_drive" ] && echo runtime || echo git)
+case "$registry_authority" in
+  git|runtime) ;;
+  *) bad "unknown RESEARCH_REGISTRY_AUTHORITY=$registry_authority (expected git or runtime)" ;;
+esac
+note "registry_authority=$registry_authority"
 
 [ -n "$public_root" ] || bad "YZU_PUBLIC_REPO unset"
 ui_sha="unknown"
@@ -118,6 +123,16 @@ if [ -n "$public_root" ] && [ -n "${YZU_PUBLIC_SHA:-}" ]; then
 fi
 
 reg_abs="$registry"; case "$reg_abs" in /*) ;; *) reg_abs="$backend_root/$registry";; esac
+if [ "$registry_authority" = "runtime" ]; then
+  [ -n "$runtime_drive" ] || bad "runtime registry authority requires YZU_RUNTIME_DRIVE_ROOT"
+  expected_runtime_registry="$(readlink -f "$runtime_drive/config/research_query_registry.json" 2>/dev/null || true)"
+  actual_runtime_registry="$(readlink -f "$reg_abs" 2>/dev/null || true)"
+  [ -n "$expected_runtime_registry" ] || bad "runtime registry missing: $runtime_drive/config/research_query_registry.json"
+  [ "$actual_runtime_registry" = "$expected_runtime_registry" ] || bad "runtime registry target mismatch: expected $expected_runtime_registry, got ${actual_runtime_registry:-absent}"
+  [ -L "$reg_abs" ] || bad "runtime registry must be linked, not copied: $reg_abs"
+elif [ "$registry_typechange" = "1" ] || [ -L "$reg_abs" ]; then
+  bad "Git registry authority requires a regular tracked registry, not a symlink: $reg_abs"
+fi
 reg_hash="absent"; reg_rows="0"
 if [ -f "$reg_abs" ]; then
   reg_hash="$(sha256sum "$(readlink -f "$reg_abs")" 2>/dev/null | cut -c1-16)"
@@ -131,16 +146,18 @@ roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 [ "$roots" = "<unset>" ] && note "WARN: RESEARCH_DATA_ROOTS unset; holdings counts will read as absent"
 
 if [ "$JSON" = "1" ]; then
-  "$python_bin" - "$backend_sha" "$ui_sha" "$reg_hash" "$reg_rows" "$roots" "$fail" <<'PY'
+  "$python_bin" - "$backend_sha" "$ui_sha" "$reg_hash" "$reg_rows" "$roots" "$fail" "$registry_authority" <<'PY'
 import json,sys
-b,u,h,r,roots,fail=sys.argv[1:7]
+b,u,h,r,roots,fail,authority=sys.argv[1:8]
 print(json.dumps({"ready": fail=="0","backend_sha":b,"ui_sha":u,
-                  "registry_sha256_16":h,"registry_rows":int(r),"data_roots":roots}, indent=2))
+                  "registry_sha256_16":h,"registry_rows":int(r),"data_roots":roots,
+                  "registry_authority":authority}, indent=2))
 PY
 else
   echo "backend_sha   $backend_sha"
   echo "ui_sha        $ui_sha"
   echo "registry      $reg_rows rows, sha256:$reg_hash"
+  echo "registry_mode $registry_authority"
   echo "data_roots    $roots"
   for n in "${notes[@]:-}"; do [ -n "$n" ] && echo "  $n"; done
   [ "$fail" = "0" ] && echo "READY — safe to promote" || echo "NOT READY — do not touch the live service"

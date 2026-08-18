@@ -80,6 +80,12 @@ done
 # Worker promotions write registry + procured bytes there; without this link the
 # desk serves a stale registry (receipt_only) even after a successful collect.
 runtime_drive="${YZU_RUNTIME_DRIVE_ROOT:-}"
+registry_authority="${RESEARCH_REGISTRY_AUTHORITY:-}"
+[[ -n "${registry_authority}" ]] || registry_authority=$([[ -n "${runtime_drive}" ]] && echo runtime || echo git)
+case "${registry_authority}" in
+  git|runtime) ;;
+  *) echo "invalid RESEARCH_REGISTRY_AUTHORITY=${registry_authority} (expected git or runtime)" >&2; exit 2 ;;
+esac
 runtime_linked=0
 runtime_skipped=0
 if [[ -n "${runtime_drive}" ]]; then
@@ -95,6 +101,11 @@ if [[ -n "${runtime_drive}" ]]; then
     rel_dst="${spec##*:}"
     src="${runtime_drive}/${rel_src}"
     dst="${repo_root}/${rel_dst}"
+    if [[ "${rel_dst}" == "drive/config/research_query_registry.json" && "${registry_authority}" == "git" ]]; then
+      printf 'skip_runtime_registry_authority=git\n'
+      runtime_skipped=$((runtime_skipped + 1))
+      continue
+    fi
     if [[ ! -e "${src}" ]]; then
       printf 'runtime_missing_source=%s\n' "${src}"
       missing=$((missing + 1))
@@ -138,6 +149,7 @@ fi
 printf 'repo_root=%s\n' "${repo_root}"
 printf 'linked=%s skipped=%s missing_source=%s dry_run=%s\n' "${linked}" "${skipped}" "${missing}" "${dry_run}"
 printf 'runtime_linked=%s runtime_skipped=%s runtime_drive=%s\n' "${runtime_linked}" "${runtime_skipped}" "${runtime_drive:-unset}"
+printf 'registry_authority=%s\n' "${registry_authority}"
 if [[ "${missing}" -gt 0 ]]; then
   exit 1
 fi

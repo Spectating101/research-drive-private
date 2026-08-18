@@ -25,6 +25,7 @@ def test_runtime_drive_root_dry_run_lists_binds(tmp_path: Path):
     assert "would_runtime_link=data_lake/procured" in out or "ok_runtime_link=data_lake/procured" in out or "skip_runtime_existing=data_lake/procured" in out
     assert "would_runtime_link=data_lake/yzu_cluster" in out or "ok_runtime_link=data_lake/yzu_cluster" in out or "skip_runtime_existing=data_lake/yzu_cluster" in out
     assert f"runtime_drive={runtime.resolve()}" in out
+    assert "registry_authority=runtime" in out
     assert "dry_run=1" in out
 
 
