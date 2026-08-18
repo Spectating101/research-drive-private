@@ -27,6 +27,23 @@ def test_catalog_twse_resolves_to_http_manifest_openapi():
     assert plan.get("launchable") is True
 
 
+def test_selected_huggingface_dataset_keeps_its_dataset_identity():
+    """A live Hub candidate must not collapse to a probe of the Hub homepage."""
+    stack = create_stack()
+    plan = resolve_discover_collect_plan(
+        stack.gateway.procurement,
+        stack.gateway.repo_root,
+        connector_id="huggingface",
+        title="patent_abstract",
+        url="https://huggingface.co/datasets/Pyke/patent_abstract",
+        candidate_key="source:hugging-face:Pyke/patent_abstract",
+    )
+    assert plan["job_type"] == "huggingface_collect"
+    assert plan["hf_dataset_id"] == "Pyke/patent_abstract"
+    assert plan["collect_resolution"] == "huggingface_selected_dataset"
+    assert plan["requires_approval"] is True
+
+
 def test_procurement_manifest_still_preferred_when_available():
     stack = create_stack()
     store = stack.gateway.procurement.store

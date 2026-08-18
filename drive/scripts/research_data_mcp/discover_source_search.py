@@ -28,6 +28,12 @@ _KIND_RANK = {"source": 0, "provider": 1, "connector": 2, "live_candidate": 3}
 
 # Bounded live adapters already implemented in-tree.
 _LIVE_ADAPTERS = frozenset({"huggingface", "datacite", "zenodo", "openalex"})
+_LIVE_CONNECTOR_BY_PROVIDER = {
+    "hugging face": "huggingface",
+    "datacite": "datacite",
+    "zenodo": "zenodo",
+    "openalex": "openalex",
+}
 _LIVE_PER_ADAPTER_CAP = 5
 _LIVE_TIMEOUT_SEC = 8
 
@@ -1569,6 +1575,7 @@ def _normalize_live_candidate(
     notes: str = "",
 ) -> dict[str, Any]:
     provider = str(provider or "").strip() or "unknown"
+    connector_id = _LIVE_CONNECTOR_BY_PROVIDER.get(provider.casefold())
     title = str(title or external_id or doi or url or "untitled").strip()
     external_id = str(external_id or doi or "").strip()
     doi_n = str(doi or "").strip()
@@ -1593,7 +1600,10 @@ def _normalize_live_candidate(
         "doi": doi_n or None,
         "external_id": external_id or None,
         "source_id": None,
-        "connector_id": _slug(provider) if _slug(provider) in _LIVE_ADAPTERS else None,
+        # Provider display names and connector IDs are not always the same
+        # string ("Hugging Face" → ``huggingface``).  Collection needs the
+        # canonical connector ID, not a prettified-name slug.
+        "connector_id": connector_id,
         "capabilities": list(capabilities or [])[:12],
         "availability": availability or "remote_live",
         "preview_supported": bool(url_n or doi_n),

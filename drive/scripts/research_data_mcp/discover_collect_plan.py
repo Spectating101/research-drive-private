@@ -9,7 +9,7 @@ Discover-linked pending job in History — without inventing a harvest.
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 
 def _https_url(value: str) -> str:
@@ -36,6 +36,62 @@ def _host_of(url_or_host: str) -> str:
         return (urlparse(_https_url(text)).hostname or "").lower().removeprefix("www.")
     except Exception:  # noqa: BLE001
         return ""
+
+
+def _huggingface_dataset_id_from_url(value: str) -> str:
+    """Return ``owner/name`` only for a concrete Hugging Face dataset URL.
+
+    A Hub search result is a selected dataset, not the generic Hugging Face
+    homepage.  Preserve that distinction all the way into the collection plan.
+    """
+    try:
+        parsed = urlparse(_https_url(value))
+    except Exception:  # noqa: BLE001
+        return ""
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    if host != "huggingface.co":
+        return ""
+    parts = [unquote(part).strip() for part in (parsed.path or "").split("/") if part.strip()]
+    if len(parts) < 3 or parts[0].lower() != "datasets":
+        return ""
+    owner, name = parts[1:3]
+    if not owner or not name or owner in {"search", "viewer"}:
+        return ""
+    return f"{owner}/{name}"
+
+
+def _huggingface_collect_plan(
+    *,
+    dataset_id: str,
+    title: str,
+    url: str,
+    connector_id: str,
+    source_id: str,
+    candidate_key: str,
+    catalog_connector_id: str,
+) -> dict[str, Any]:
+    """Plan the existing specialised collector for one selected Hub dataset."""
+    return {
+        "title": title or f"Collect Hugging Face {dataset_id}",
+        "job_type": "huggingface_collect",
+        "hf_dataset_id": dataset_id,
+        "split": "train",
+        "max_shards": 2,
+        "partition_id": "acquired.procured",
+        "launchable": True,
+        "requires_approval": True,
+        "timeout_seconds": 3600,
+        "url": url,
+        "connector_id": connector_id or "huggingface",
+        "catalog_connector_id": catalog_connector_id or connector_id or "huggingface",
+        "source_id": source_id or "huggingface",
+        "candidate_key": candidate_key,
+        "collect_resolution": "huggingface_selected_dataset",
+        "collect_note": (
+            "Selected Hugging Face dataset ID is preserved for the specialised "
+            "collector; approval is still required before any download."
+        ),
+    }
 
 
 
@@ -453,9 +509,10 @@ def resolve_discover_collect_plan(
     """Build a launchable plan for ``POST /library/discover/collect``.
 
     Resolution order:
-    1. Procurement ``src_*`` (or any store id) with a bounded file manifest
-    2. Catalog source → matched procurement connector by host/URL
-    3. Catalog / payload URL → ``source_probe`` fallback (still Discover-linked)
+    1. A selected specialised candidate (currently a concrete Hugging Face dataset)
+    2. Procurement ``src_*`` (or any store id) with a bounded file manifest
+    3. Catalog source → matched procurement connector by host/URL
+    4. Catalog / payload URL → ``source_probe`` fallback (still Discover-linked)
     """
     cid = str(connector_id or "").strip()
     sid = str(source_id or "").strip()
@@ -463,6 +520,18 @@ def resolve_discover_collect_plan(
     title_s = str(title or "").strip()
     url_s = _https_url(url)
     ck = str(candidate_key or "").strip()
+
+    hf_dataset_id = _huggingface_dataset_id_from_url(url_s)
+    if hf_dataset_id and (cid.lower() in {"", "huggingface"} or sid.lower() in {"", "huggingface"}):
+        return _huggingface_collect_plan(
+            dataset_id=hf_dataset_id,
+            title=title_s,
+            url=url_s,
+            connector_id=cid or "huggingface",
+            source_id=sid or "huggingface",
+            candidate_key=ck,
+            catalog_connector_id=cid or "huggingface",
+        )
 
     errors: list[str] = []
 

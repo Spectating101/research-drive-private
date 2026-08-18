@@ -50,6 +50,7 @@ def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypat
     assert "patent" in seen_hf
     assert len(hits) == 1
     assert hits[0]["adapter_query"] == "patent"
+    assert hits[0]["connector_id"] == "huggingface"
     hf = next(report for report in reports if report["adapter"] == "huggingface")
     assert "patent" in hf["queries_tried"]
     assert hf["queries_with_results"] == ["patent"]
