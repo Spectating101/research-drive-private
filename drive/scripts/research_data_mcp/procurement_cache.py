@@ -13,9 +13,10 @@ from typing import Any
 def catalog_fingerprint(repo_root: Path, registry_path: Path | None = None) -> str:
     """Invalidate caches when registry, collection queue or source map changes.
 
-    The semantic index is built from the source map as well as the registry. Omitting it
-    meant adding routes to the index could never invalidate the cached snapshot, so the
-    new docs were silently never built.
+    Every file the semantic index reads must be listed here. Omitting one means a change
+    to it can never invalidate the cached snapshot, so the new docs are built and silently
+    discarded — which happened twice: first for the source map, then for the access scope.
+    If an index change appears to have no effect, suspect this list before the code.
     """
     root = Path(repo_root).resolve()
     reg = Path(registry_path) if registry_path else root / "config/research_query_registry.json"
@@ -26,6 +27,7 @@ def catalog_fingerprint(repo_root: Path, registry_path: Path | None = None) -> s
         reg,
         root / "config/data_collection_queue.json",
         root / "config/databank_source_map.json",
+        root / "config/databank_access_scope.json",
     ):
         if path.exists():
             parts.append(f"{path.name}:{path.stat().st_mtime_ns}:{path.stat().st_size}")

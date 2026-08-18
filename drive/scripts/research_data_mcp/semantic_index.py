@@ -78,9 +78,45 @@ class SemanticCatalogIndex:
             payload = json.loads(
                 (root / "config/databank_source_map.json").read_text(encoding="utf-8")
             )
-            return list(payload.get("sources") or [])
+            routes = list(payload.get("sources") or [])
         except Exception:
             return []
+        return SemanticCatalogIndex._with_access_scope(root, routes)
+
+    @staticmethod
+    def _with_access_scope(root: Path, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Fold in what each route can reach, as the access-scope record states it."""
+        try:
+            scope = json.loads(
+                (root / "config/databank_access_scope.json").read_text(encoding="utf-8")
+            )
+        except Exception:
+            return routes
+        by_id = {
+            str(entry.get("source_id") or ""): entry
+            for entry in (scope.get("sources") or [])
+            if isinstance(entry, dict)
+        }
+        merged: list[dict[str, Any]] = []
+        for route in routes:
+            entry = by_id.get(str(route.get("id") or ""))
+            if not entry:
+                merged.append(route)
+                continue
+            notes = [
+                str(cell.get("note") or "")
+                for cell in (entry.get("coverage_cells") or [])
+                if isinstance(cell, dict) and cell.get("note")
+            ]
+            merged.append(
+                {
+                    **route,
+                    "reachable_products": entry.get("reachable_products") or [],
+                    "coverage_notes": notes,
+                    "fetch_modes": entry.get("fetch_modes") or [],
+                }
+            )
+        return merged
 
     def build(self, gateway: Any) -> None:
         docs: list[dict[str, Any]] = []
@@ -111,18 +147,28 @@ class SemanticCatalogIndex:
             route_id = str(route.get("id") or "")
             if not route_id:
                 continue
-            capabilities = " ".join(
-                str(c).replace("_", " ") for c in (route.get("capabilities") or [])
-            )
-            geographies = " ".join(str(g).replace("_", " ") for g in (route.get("geographies") or []))
+            def _words(values: Any) -> str:
+                if not values:
+                    return ""
+                if isinstance(values, str):
+                    return values.replace("_", " ")
+                return " ".join(str(v).replace("_", " ") for v in values)
+
+            # What a route can actually supply is recorded in databank_access_scope:
+            # reachable_products, coverage notes and fetch modes. Without them the source
+            # map alone is a label and a few capability tags, and a need phrased in
+            # research language matched nothing.
             blob = " ".join(
                 part
                 for part in (
                     route_id.replace("_", " "),
                     str(route.get("label") or ""),
                     str(route.get("provider") or ""),
-                    capabilities,
-                    geographies,
+                    _words(route.get("capabilities")),
+                    _words(route.get("geographies")),
+                    _words(route.get("reachable_products")),
+                    _words(route.get("coverage_notes")),
+                    _words(route.get("fetch_modes")),
                     str(route.get("notes") or ""),
                     str(route.get("access_mode") or "").replace("_", " "),
                 )

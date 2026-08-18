@@ -683,6 +683,12 @@ class ResearchDataGateway:
             cand["score"] = score
             cand["kind"] = "registry_dataset"
             cand["match_type"] = "semantic"
+            # Discover exists to surface what the desk does not hold. A held row is
+            # reassurance that something close is already on the shelf, so it is labelled
+            # evidence: DISCOVER_ADAPTIVE_FREEZE keeps Library evidence as chrome and
+            # external offerings as the centre priority.
+            cand["result_role"] = "library_evidence"
+            cand["is_offering"] = False
             out.append(cand)
             exclude.add(dataset_id)
         return out, status
@@ -751,6 +757,13 @@ class ResearchDataGateway:
             "query": query,
             "sections": sections,
             "total": len(candidates),
+            # Held rows answer "do we already have something for this", never
+            # "here is what you can obtain". The count is what the chrome chip renders.
+            "library_evidence": {
+                "count": len(candidates),
+                "is_chrome": True,
+                "note": "held datasets; external offerings are the centre of Discover",
+            },
             "retrieval": {
                 "semantic": len(semantic_rows),
                 "keyword": len(candidates) - len(semantic_rows),
