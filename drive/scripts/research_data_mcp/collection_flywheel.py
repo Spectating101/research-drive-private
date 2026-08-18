@@ -83,6 +83,17 @@ class CollectionFlywheel:
         self.registry_path = Path(registry_path).resolve()
 
     def curated_live_dir(self) -> Path:
+        """Where discoveries accumulate — the same root the reader searches.
+
+        Hardcoding repo_root meant that after the bulk mount was renamed the flywheel
+        appended to a fresh empty file on the NVMe while search read the drive: growth and
+        reads on different files, which is two indexes rather than one that compounds.
+        """
+        from scripts.data_catalog.topic_index_paths import topic_index_root
+
+        shared = topic_index_root(self.repo_root).parent / "curated_live"
+        if shared.parent.is_dir():
+            return shared
         return self.repo_root / CURATED_LIVE
 
     def curated_jsonl(self) -> Path:
