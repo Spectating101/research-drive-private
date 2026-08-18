@@ -542,7 +542,12 @@
         "craft_ready_openalex_1784804533",
         "craft_ready_usgs_1784804533",
         "craft_ready_llama_1784804533",
-        "scrape_63016bd11794"
+        "scrape_63016bd11794",
+        "craft_openapi_twse_com_tw_b3852fe1a8",
+        "craft_openapi_twse_com_tw_cf1ee90e6c",
+        "craft_raw_githubuserconten_2eb2f7cf1f",
+        "procured_0fc91835df",
+        "scrape_80920f79a24e"
       ],
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
       "professor_visible": true
@@ -582,7 +587,9 @@
         "ticker_week_country_broadcast_panel",
         "ticker_week_entity_long_panel",
         "ticker_week_entity_market_panel",
-        "ticker_week_entity_residual_panel"
+        "ticker_week_entity_residual_panel",
+        "keeling_mlo_monthly_clean",
+        "synthesis_keeling_accel_monthly_v1"
       ],
       "professor_label": "Research panels",
       "migrated_at": "2026-06-24T20:08:58.839200+00:00",

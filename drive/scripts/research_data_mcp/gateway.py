@@ -438,25 +438,30 @@ class ResearchDataGateway:
                 "plan": plan,
             }
 
-        from scripts.research_data_mcp.procurement_auto_approve import should_auto_approve_plan
-        from scripts.research_data_mcp.procurement_equipment_bridge import submit_collect_plan
-
         request = {
             "doi": doi,
             "campaign_id": campaign_id or "",
             "add_to_collection": True,
             "mcp": True,
         }
-        approve = bool(
-            auto_execute
-            and should_auto_approve_plan(plan, self.repo_root, orchestrator=self.orchestrator)
+        # Use the canonical job service. The removed procurement bridge made
+        # the DOI tool fail at runtime and created a second submit path outside
+        # the central execution policy. Acquisition remains pending until a
+        # researcher approves it in the desk; ``auto_execute`` is compatibility
+        # input only.
+        submitted = self.jobs.submit(
+            str(plan.get("title") or f"Collect DOI {doi}"),
+            plan,
+            request,
+            auto_approve=False,
         )
-        submitted = submit_collect_plan(self, plan, context=request, auto_approve=approve)
         out = {
             "plan": plan,
             "job": submitted.get("job"),
             "campaign_id": campaign_id,
             "resolved": resolved,
+            "approval_required": True,
+            "auto_executed": False,
         }
         return self._enrich_collect_result(out, doi)
 
@@ -1443,7 +1448,11 @@ class ResearchDataGateway:
         submitted = self.jobs.submit(
             f"Collect HF {hf_id}",
             plan,
-            {"hf_dataset_id": hf_id, "search_goal": f"huggingface {hf_id}"},
+            {
+                "_ops_internal": True,
+                "hf_dataset_id": hf_id,
+                "search_goal": f"huggingface {hf_id}",
+            },
             auto_approve=False,
         )
         job = submitted.get("job") or {}

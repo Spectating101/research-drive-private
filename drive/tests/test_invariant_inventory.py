@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 from pathlib import Path
 
@@ -67,6 +66,27 @@ def test_desk_auth_fail_closed_posts() -> None:
 def test_scheduler_stamps_ops_internal() -> None:
     src = _read("drive/scripts/yzu_cluster/scheduler.py")
     assert '"_ops_internal": True' in src or "'_ops_internal': True" in src
+
+
+def test_every_registry_partitioned_row_is_listed_in_a_collection_partition() -> None:
+    """Partition metadata must not silently drop a registry dataset."""
+    registry = json.loads(_read("config/research_query_registry.json"))
+    partitions = json.loads(_read("config/collection_partitions.json"))
+    listed = {
+        str(dataset_id)
+        for partition in partitions.get("partitions") or []
+        for dataset_id in partition.get("registry_dataset_ids") or []
+    }
+    partitioned = {
+        str(row.get("dataset_id"))
+        for row in registry.get("datasets") or []
+        if row.get("dataset_id")
+        and (
+            row.get("partition_id")
+            or (row.get("collection") or {}).get("partition_id")
+        )
+    }
+    assert partitioned <= listed
 
 
 def test_executor_packages_network_policy_sibling() -> None:

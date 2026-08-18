@@ -84,11 +84,14 @@ def run_scenario(gw: Any, spec: dict[str, Any], *, execute: bool) -> ScenarioRes
             res.detail = f"cands={len(cands)} top={top.get('title','')[:50]} via={top.get('collect_via')}"
 
         elif kind == "plan_collect":
-            from scripts.research_data_mcp.procurement_equipment_bridge import plan_collect_goal
+            from scripts.research_data_mcp.craft_collect import craft_collect_plan
 
-            out = plan_collect_goal(gw, query, full_message=query)
+            target_url = str(spec.get("url") or "")
+            if not target_url:
+                raise ValueError("plan_collect scenario must name an explicit url")
+            out = craft_collect_plan(research_need=query, url=target_url)
             plan = out.get("plan") or {}
-            res.extras["launchable"] = bool(out.get("launchable"))
+            res.extras["launchable"] = bool(plan.get("launchable"))
             res.extras["job_type"] = plan.get("job_type")
             res.extras["task_id"] = plan.get("task_id")
             res.extras["pipeline_id"] = plan.get("pipeline_id")
@@ -97,49 +100,64 @@ def run_scenario(gw: Any, spec: dict[str, Any], *, execute: bool) -> ScenarioRes
             res.guidance_score = 2 if all(t.lower() in blob for t in expect[:2]) else (
                 1 if any(t.lower() in blob for t in expect) else 0
             )
-            if out.get("launchable"):
+            if plan.get("launchable"):
                 res.acquisition_score = 1
-            if execute and out.get("launchable") and spec.get("execute_allowed"):
-                from scripts.research_data_mcp.procurement_equipment_bridge import collect_fast_goal
-
-                collected = collect_fast_goal(gw, query, full_message=query, auto_approve=True)
-                job = collected.get("job") or {}
-                paths = collected.get("paths") or []
+            if execute and plan.get("launchable") and spec.get("execute_allowed"):
+                submitted = gw.jobs.submit(
+                    str(plan.get("title") or "Capability harness collect"),
+                    plan,
+                    {"cli": True, "search_goal": query},
+                    auto_approve=False,
+                )
+                job = submitted.get("job") or {}
+                paths = []
                 res.extras["job_status"] = job.get("status")
                 res.extras["paths"] = paths[:3]
+                res.extras["approval_required"] = job.get("status") == "pending_approval"
                 if paths or job.get("status") == "completed":
                     res.acquisition_score = 3
                     res.ok = True
                 elif job.get("id"):
                     res.acquisition_score = 2
-                    res.ok = job.get("status") in {"queued", "running", "completed"}
+                    res.ok = job.get("status") in {"pending_approval", "queued", "running", "completed"}
             else:
-                res.ok = bool(out.get("launchable")) or res.guidance_score >= int(spec.get("min_guidance", 1))
+                res.ok = bool(plan.get("launchable")) or res.guidance_score >= int(spec.get("min_guidance", 1))
             res.detail = (
-                f"launchable={out.get('launchable')} "
+                f"launchable={plan.get('launchable')} "
                 f"{plan.get('job_type') or ''} {plan.get('task_id') or plan.get('pipeline_id') or ''}"
             ).strip()
 
         elif kind == "collect_fast":
-            from scripts.research_data_mcp.procurement_equipment_bridge import collect_fast_goal
+            from scripts.research_data_mcp.craft_collect import craft_collect_plan
 
+            target_url = str(spec.get("url") or query)
             if not execute:
-                from scripts.research_data_mcp.procurement_equipment_bridge import plan_collect_goal
-
-                out = plan_collect_goal(gw, query, full_message=query)
-                res.guidance_score = 2 if out.get("launchable") else 0
-                res.ok = bool(out.get("launchable"))
-                res.detail = f"dry launchable={out.get('launchable')}"
+                out = craft_collect_plan(research_need=query, url=target_url)
+                plan = out.get("plan") or {}
+                res.guidance_score = 2 if plan.get("launchable") else 0
+                res.ok = bool(plan.get("launchable"))
+                res.extras["job_type"] = plan.get("job_type")
+                res.detail = f"dry launchable={plan.get('launchable')} {plan.get('job_type')}"
             else:
-                out = collect_fast_goal(gw, query, full_message=query, auto_approve=True)
-                paths = list(out.get("paths") or [])
-                job = out.get("job") or {}
+                out = craft_collect_plan(research_need=query, url=target_url)
+                plan = out.get("plan") or {}
+                submitted = gw.jobs.submit(
+                    str(plan.get("title") or "Capability harness collect"),
+                    plan,
+                    {"cli": True, "search_goal": query},
+                    auto_approve=False,
+                )
+                paths = []
+                job = submitted.get("job") or {}
                 res.extras["paths"] = paths[:3]
                 res.extras["job_status"] = job.get("status")
-                res.guidance_score = 2 if out.get("ok") else 0
+                res.extras["approval_required"] = job.get("status") == "pending_approval"
+                res.guidance_score = 2 if plan.get("launchable") else 0
                 res.acquisition_score = 3 if paths else (2 if job.get("status") in {"queued", "running"} else 0)
-                res.ok = bool(paths) or job.get("status") in {"completed", "queued", "running"}
-                res.detail = f"ok={out.get('ok')} status={job.get('status')} paths={len(paths)}"
+                if job.get("status") == "pending_approval":
+                    res.acquisition_score = 2
+                res.ok = bool(paths) or job.get("status") in {"completed", "pending_approval", "queued", "running"}
+                res.detail = f"launchable={plan.get('launchable')} status={job.get('status')} paths={len(paths)}"
 
         elif kind == "probe":
             url = str(spec["url"])
@@ -257,6 +275,7 @@ SCENARIOS: list[dict[str, Any]] = [
         "kind": "plan_collect",
         "query": "refresh taiwan TWSE openapi market layer",
         "expect_tokens": ["twse_openapi", "twse"],
+        "url": "https://openapi.twse.com.tw/",
         "execute_allowed": False,
     },
     {
@@ -265,6 +284,7 @@ SCENARIOS: list[dict[str, Any]] = [
         "kind": "plan_collect",
         "query": "harvest certik skynet stablecoin leaderboard",
         "expect_tokens": ["skynet_stablecoin", "skynet"],
+        "url": "https://skynet.certik.com/leaderboards/stablecoin",
         "execute_allowed": False,
     },
     {
@@ -345,6 +365,7 @@ def main() -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    t = report["totals"]
 
     if args.json:
         print(json.dumps(report, indent=2))
