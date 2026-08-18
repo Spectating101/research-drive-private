@@ -1659,7 +1659,12 @@ def _live_search_datacite(query: str, *, limit: int) -> tuple[list[dict[str, Any
 
 
 def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Bounded live search via already-implemented HF + DataCite adapters only."""
+    """Bounded live search via already-implemented HF + DataCite adapters only.
+
+    A live catalogue receives the researcher wording plus a few explicit
+    catalogue-friendly variants.  Results record the variants tried, so a
+    successful short query never gets presented as a full-sentence API match.
+    """
     q = str(query or "").strip()
     if not q:
         return [], [
@@ -1677,12 +1682,63 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
             },
         ]
     per_adapter = max(1, min(int(per_adapter or _LIVE_PER_ADAPTER_CAP), _LIVE_PER_ADAPTER_CAP))
+    from concurrent.futures import ThreadPoolExecutor
+
+    from scripts.research_data_mcp.discover_query_variants import live_query_variants
+
+    adapters = (
+        ("huggingface", _live_search_huggingface),
+        ("datacite", _live_search_datacite),
+    )
+    plans = [(name, fn, live_query_variants(q, provider=name)) for name, fn in adapters]
+    tasks = [(name, fn, variant) for name, fn, variants in plans for variant in variants]
+    completed: dict[tuple[str, str], tuple[list[dict[str, Any]], dict[str, Any]]] = {}
+    # A slow provider must not multiply request latency by the number of variants.
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(tasks)))) as pool:
+        futures = {(name, variant): pool.submit(fn, variant, limit=per_adapter)
+                   for name, fn, variant in tasks}
+        for key, future in futures.items():
+            try:
+                completed[key] = future.result()
+            except Exception as exc:  # defensive: adapters are meant to isolate failure
+                completed[key] = ([], {"adapter": key[0], "ok": False, "error": str(exc), "returned": 0})
+
     hits: list[dict[str, Any]] = []
     reports: list[dict[str, Any]] = []
-    for fn in (_live_search_huggingface, _live_search_datacite):
-        rows, meta = fn(q, limit=per_adapter)
-        reports.append(meta)
-        hits.extend(rows)
+    for name, _fn, variants in plans:
+        seen: set[str] = set()
+        adapter_hits: list[dict[str, Any]] = []
+        errors: list[str] = []
+        successful = False
+        nonempty: list[str] = []
+        for variant in variants:
+            rows, meta = completed[(name, variant)]
+            if meta.get("ok"):
+                successful = True
+            elif meta.get("error"):
+                errors.append(str(meta["error"])[:300])
+            if rows:
+                nonempty.append(variant)
+            for row in rows:
+                candidate = dict(row)
+                candidate["adapter_query"] = variant
+                key = str(candidate.get("candidate_key") or candidate.get("url") or candidate.get("title") or "")
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                adapter_hits.append(candidate)
+        reports.append(
+            {
+                "adapter": name,
+                "ok": successful,
+                "error": None if successful else "; ".join(dict.fromkeys(errors)) or "adapter failed",
+                "returned": len(adapter_hits),
+                "queries_tried": variants,
+                "queries_with_results": nonempty,
+            }
+        )
+        hits.extend(adapter_hits)
     return hits, reports
 
 
