@@ -279,6 +279,25 @@ class ResearchToolHandlers:
         """Report licensed-source readiness without network access or side effects."""
         return self.gateway.acquisition_status(source_id=source_id)
 
+    def research_acquisition_options(
+        self,
+        query: str,
+        email: str = "",
+        limit: int = 12,
+        live: bool = True,
+        include_web: bool = False,
+        tavily_live: bool = False,
+    ) -> dict[str, Any]:
+        """Gather all acquisition evidence; Composer chooses the candidate."""
+        return self.gateway.acquisition_options(
+            query,
+            email=email,
+            limit=min(max(int(limit), 1), 24),
+            live=bool(live),
+            include_web=bool(include_web),
+            tavily_live=bool(tavily_live),
+        )
+
     def research_webfetch_handoff(
         self,
         research_need: str = "",

@@ -1820,6 +1820,12 @@ class ResearchDataGateway:
 
         return build_acquisition_handoff(self, **kwargs)
 
+    def acquisition_options(self, query: str, **kwargs: Any) -> dict[str, Any]:
+        """Gather held, public, web, and licensed evidence without selecting a source."""
+        from scripts.research_data_mcp.acquisition_options import build_acquisition_options
+
+        return build_acquisition_options(self, query, **kwargs)
+
     def discover_refresh_create(
         self,
         *,

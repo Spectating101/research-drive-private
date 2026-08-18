@@ -7,6 +7,7 @@ from scripts.research_data_mcp.acquisition_handoff import (
     build_acquisition_handoff,
     validate_webfetch_handoff,
 )
+from scripts.research_data_mcp.acquisition_options import build_acquisition_options
 from scripts.research_data_mcp.licensed_sources import inspect_source, stage_compustat_export
 
 
@@ -84,6 +85,33 @@ def test_licensed_status_is_read_only_and_distinguishes_raw_from_queryable(tmp_p
     assert row["status"] == "acquired_pending_parse"
     assert row["queryable"] is False
     assert row["side_effects"].startswith("none")
+
+
+def test_acquisition_options_combines_evidence_but_never_selects(tmp_path: Path) -> None:
+    gateway = SimpleNamespace(
+        repo_root=tmp_path,
+        discover_search=lambda *_a, **_k: {
+            "sections": [{"rows": [{"dataset_id": "held_x", "title": "Held evidence"}]}]
+        },
+        discover_source_search=lambda *_a, **_k: {
+            "results": [{"source_id": "huggingface", "candidate_key": "source:huggingface:hf"}],
+            "sources_tried": ["source_map"],
+            "remote_search": {"attempted": False},
+        },
+    )
+    out = build_acquisition_options(gateway, "patent data", live=False)
+    assert out["ok"] is True
+    assert {section["id"] for section in out["sections"]} == {"library_evidence", "source_options"}
+    assert out["selection_policy"]["model_selects"] is True
+    assert out["selection_policy"]["backend_selects"] is False
+    assert out["side_effects"].startswith("none")
+
+
+def test_acquisition_options_requires_a_research_need(tmp_path: Path) -> None:
+    out = build_acquisition_options(SimpleNamespace(repo_root=tmp_path), "")
+    assert out["ok"] is False
+    assert out["sections"] == []
+    assert out["side_effects"] == "none"
 
 
 def test_compustat_staging_normalizes_to_isolated_root(tmp_path: Path) -> None:

@@ -22,6 +22,7 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
         "research_discover_source_search",
         "research_discover_source_preview",
         "research_acquisition_status",
+        "research_acquisition_options",
         "research_webfetch_handoff",
         "research_web_discover",
         "research_list_datasets",
