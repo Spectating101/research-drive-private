@@ -130,3 +130,20 @@ def test_default_run_that_has_the_file_is_used_unchanged(tmp_path: Path) -> None
     engine = _engine(tmp_path, [_panel_row()])
     result = engine.query("probe_panel", limit=5)
     assert result.meta.get("run_id") == "run_new"
+
+
+def test_a_double_star_declaration_reaches_files_at_mixed_depths(tmp_path: Path) -> None:
+    """`**` is the only declaration that captures a tree with files at several depths.
+
+    Python's glob treats `**` as a single level unless recursive=True. The 27 scrape
+    datasets hold files one and two levels down, so no fixed depth expresses them.
+    """
+    d = tmp_path / "data_lake/scrapes/abc"
+    (d / "nested").mkdir(parents=True)
+    (d / "top.json").write_text("{}", encoding="utf-8")
+    (d / "nested" / "deep.json").write_text("{}", encoding="utf-8")
+    engine = _engine(tmp_path, [_glob_row("data_lake/scrapes/abc/**")])
+    result = engine.query("probe_glob", limit=10)
+    assert sorted(r["file"] for r in result.rows) == ["deep.json", "top.json"]
+    assert result.meta["resolution"]["depth"] == "declared"
+    assert result.meta["resolution"]["registry_drift"] is False

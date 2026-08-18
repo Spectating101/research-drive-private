@@ -94,7 +94,7 @@ class ResearchQueryEngine:
         text = str(candidate)
         if not any(ch in text for ch in ("*", "?", "[")):
             return candidate.exists()
-        return any(Path(hit).is_file() for hit in globmod.glob(text))
+        return any(Path(hit).is_file() for hit in globmod.glob(text, recursive=True))
 
     def list_datasets(self) -> list[dict[str, Any]]:
         return list(self.datasets.values())
@@ -1124,7 +1124,9 @@ class ResearchQueryEngine:
         report["roots_tried"] = len(candidates)
 
         for resolved in candidates:
-            matches = sorted(p for p in (Path(x) for x in globmod.glob(resolved)) if p.is_file())
+            matches = sorted(
+                p for p in (Path(x) for x in globmod.glob(resolved, recursive=True)) if p.is_file()
+            )
             if matches:
                 report.update(
                     served_pattern=resolved,
@@ -1160,7 +1162,7 @@ class ResearchQueryEngine:
             for label, depth in (("+1", "/*/"), ("+2", "/*/*/")):
                 served = f"{head}{depth}{tail}"
                 deeper = sorted(
-                    p for p in (Path(x) for x in globmod.glob(served)) if p.is_file()
+                    p for p in (Path(x) for x in globmod.glob(served, recursive=True)) if p.is_file()
                 )
                 if deeper:
                     report.update(
