@@ -31,6 +31,8 @@ MCP_TOOL_CORE: tuple[str, ...] = (
     "research_semantic_discover",
     "research_discover_source_search",
     "research_discover_source_preview",
+    "research_acquisition_status",
+    "research_webfetch_handoff",
     "research_web_discover",
     "research_list_datasets",
     "research_describe_dataset",

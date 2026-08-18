@@ -1808,6 +1808,18 @@ class ResearchDataGateway:
             limit=limit,
         )
 
+    def acquisition_status(self, source_id: str = "") -> dict[str, Any]:
+        """Read-only readiness for licensed and public acquisition lanes."""
+        from scripts.research_data_mcp.licensed_sources import inspect_source
+
+        return inspect_source(self.repo_root, source_id)
+
+    def webfetch_acquisition_handoff(self, **kwargs: Any) -> dict[str, Any]:
+        """Validate a Cursor/webfetch-selected candidate and build a passive plan."""
+        from scripts.research_data_mcp.acquisition_handoff import build_acquisition_handoff
+
+        return build_acquisition_handoff(self, **kwargs)
+
     def discover_refresh_create(
         self,
         *,

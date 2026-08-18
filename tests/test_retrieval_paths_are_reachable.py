@@ -23,6 +23,8 @@ REQUIRED_RETRIEVAL_TOOLS = (
     "research_list_datasets",
     "research_describe_dataset",
     "research_query_dataset",
+    "research_acquisition_status",
+    "research_webfetch_handoff",
 )
 
 
