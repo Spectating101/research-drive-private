@@ -142,7 +142,8 @@ class SemanticCatalogIndex:
 
         # Held datasets are residue; the offering is the routes the desk can obtain
         # through. Indexing only datasets left no meaning-based path to a source, so
-        # route discovery named a usable route for 6 of 13 research needs.
+        # route discovery reached a usable route for under half the needs in
+        # scripts.data_catalog.bench_route_discovery. Run it for the current figure.
         for route in self._source_routes(gateway):
             route_id = str(route.get("id") or "")
             if not route_id:

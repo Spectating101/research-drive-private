@@ -1717,13 +1717,18 @@ class ResearchDataGateway:
         )
         if not str(query or "").strip():
             return result
-        # Keyword route discovery named a usable route for 6 of 13 research needs, and
-        # missed the differentiating ones. Supplement, never displace: a keyword hit on a
+        # Keyword route discovery reached a usable route for under half the research needs in
+        # scripts.data_catalog.bench_route_discovery, missing the differentiating ones.
+        # Run that benchmark for the current figure. Supplement, never displace: a keyword hit on a
         # source id is the strongest signal there is.
         existing = {str(r.get("source_id") or "") for r in (result.get("results") or [])}
         extra = [r for r in self.semantic_source_routes(query, limit=limit) if r["source_id"] not in existing]
         if extra:
-            result["results"] = list(result.get("results") or []) + extra
+            merged = list(result.get("results") or []) + extra
+            result["results"] = merged
+            # A total that disagrees with the payload is worse than no total: a caller
+            # reading it to decide whether to escalate would see a miss on a real answer.
+            result["total"] = len(merged)
             result["semantic_routes_added"] = len(extra)
             result["index_miss"] = False
         return result
