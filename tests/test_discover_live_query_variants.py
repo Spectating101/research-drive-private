@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from scripts.research_data_mcp.discover_query_variants import live_query_variants
+from scripts.research_data_mcp.query_translation import catalogue_query_variants
 
 
 def test_long_patent_request_keeps_the_original_and_exposes_catalogue_terms():
-    variants = live_query_variants("US patent grants and citations", provider="huggingface")
+    variants = catalogue_query_variants("US patent grants and citations", provider="huggingface")
     assert variants[0] == "US patent grants and citations"
     assert "patent citations" in variants
     assert "patent" in variants
@@ -14,7 +14,7 @@ def test_long_patent_request_keeps_the_original_and_exposes_catalogue_terms():
 
 
 def test_short_query_is_not_needlessly_rewritten():
-    assert live_query_variants("taiwan stock", provider="huggingface") == ["taiwan stock"]
+    assert catalogue_query_variants("taiwan stock", provider="huggingface") == ["taiwan stock"]
 
 
 def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypatch):

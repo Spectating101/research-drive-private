@@ -1684,13 +1684,13 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
     per_adapter = max(1, min(int(per_adapter or _LIVE_PER_ADAPTER_CAP), _LIVE_PER_ADAPTER_CAP))
     from concurrent.futures import ThreadPoolExecutor
 
-    from scripts.research_data_mcp.discover_query_variants import live_query_variants
+    from scripts.research_data_mcp.query_translation import catalogue_query_variants
 
     adapters = (
         ("huggingface", _live_search_huggingface),
         ("datacite", _live_search_datacite),
     )
-    plans = [(name, fn, live_query_variants(q, provider=name)) for name, fn in adapters]
+    plans = [(name, fn, catalogue_query_variants(q, provider=name)) for name, fn in adapters]
     tasks = [(name, fn, variant) for name, fn, variants in plans for variant in variants]
     completed: dict[tuple[str, str], tuple[list[dict[str, Any]], dict[str, Any]]] = {}
     # A slow provider must not multiply request latency by the number of variants.
