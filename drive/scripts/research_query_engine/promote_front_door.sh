@@ -85,6 +85,28 @@ PY
 
 previous="$(current_sha)"
 
+# A promotion that is not preflighted is how the desk went down twice on 2026-08-18: the
+# run script enforces its guards after systemd has already stopped the old process, so a
+# mismatch becomes a restart loop instead of a refusal. Gate here, before the swap.
+preflight="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/preflight_release.sh"
+if [[ "${PROMOTE_SKIP_PREFLIGHT:-0}" == "1" ]]; then
+  echo "preflight=skipped (PROMOTE_SKIP_PREFLIGHT=1)" >&2
+elif [[ -x "${preflight}" || -f "${preflight}" ]]; then
+  if bash "${preflight}" >/tmp/promote_preflight.$$ 2>&1; then
+    echo "preflight=ready"
+  else
+    echo "preflight refused this release; not swapping the live link" >&2
+    sed 's/^/  /' /tmp/promote_preflight.$$ >&2
+    rm -f /tmp/promote_preflight.$$
+    echo "override with PROMOTE_SKIP_PREFLIGHT=1 only when you know why" >&2
+    exit 1
+  fi
+  rm -f /tmp/promote_preflight.$$
+else
+  echo "preflight script absent at ${preflight}; refusing to promote blind" >&2
+  exit 1
+fi
+
 if [[ -e "${live_link}" && ! -L "${live_link}" ]]; then
   echo "refusing to replace a real directory at ${live_link}" >&2
   echo "run migrate_front_door_releases.sh once to convert it to a symlink" >&2

@@ -26,8 +26,12 @@ note() { notes+=("$1"); }
 bad()  { notes+=("FAIL: $1"); fail=1; }
 
 [ -f "$ENV_FILE" ] || { echo "no env file: $ENV_FILE" >&2; exit 2; }
+# Sourcing under `set -u` aborts on any unbound expansion inside the env file, which is the
+# same unsafe-env pattern this script exists to catch. Relax only for the source.
+set +u
 # shellcheck disable=SC1090
 set -a; . "$ENV_FILE"; set +a
+set -u
 
 backend_root="${SHARPE_REPO_ROOT:-}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -37,10 +41,45 @@ python_bin="${YZU_PYTHON_BIN:-python3}"
 registry="${SHARPE_REGISTRY_PATH:-config/research_query_registry.json}"
 
 command -v git >/dev/null 2>&1 || bad "git missing"
-[ -x "$python_bin" ] || bad "python missing: $python_bin"
+command -v "$python_bin" >/dev/null 2>&1 || bad "python not executable: $python_bin"
 
 backend_sha="$(git -C "$backend_root" rev-parse HEAD 2>/dev/null || echo unknown)"
 [ "$backend_sha" = unknown ] && bad "backend is not a git checkout: $backend_root"
+
+# The point of the gate is that the runtime IS the named commit. Checking only the UI let it
+# return ready while backend source differed from the SHA it claimed to be deploying.
+registry_rel="${SHARPE_REGISTRY_PATH:-config/research_query_registry.json}"
+backend_dirty=0
+backend_untracked=0
+registry_typechange=0
+if [ "$backend_sha" != unknown ]; then
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    code="${line:0:2}"
+    path="${line:3}"
+    case "$code" in
+      '??') backend_untracked=$((backend_untracked+1)); continue ;;
+    esac
+    # The registry is a tracked regular file in Git and a symlink in the serving tree. That
+    # is the unresolved ownership question, not an accidental edit, so name it separately.
+    case "$path" in
+      *"$registry_rel"|*research_query_registry.json)
+        registry_typechange=1; continue ;;
+    esac
+    backend_dirty=$((backend_dirty+1))
+    note "backend modified: $path"
+  done < <(git -C "$backend_root" status --porcelain 2>/dev/null)
+fi
+note "backend_tracked_dirty=$backend_dirty backend_untracked=$backend_untracked"
+[ "$backend_dirty" != "0" ] && bad "backend has $backend_dirty modified tracked path(s); the runtime is not $backend_sha"
+[ "$backend_untracked" != "0" ] && note "WARN: $backend_untracked untracked backend path(s); they can change imports and test collection"
+if [ "$registry_typechange" = "1" ]; then
+  if [ "${PREFLIGHT_ACK_REGISTRY_SYMLINK:-0}" = "1" ]; then
+    note "WARN: registry differs from Git (symlink to runtime storage), acknowledged"
+  else
+    bad "registry differs from Git (symlink to runtime storage); set PREFLIGHT_ACK_REGISTRY_SYMLINK=1 to deploy anyway, or resolve ownership"
+  fi
+fi
 
 [ -n "$public_root" ] || bad "YZU_PUBLIC_REPO unset"
 ui_sha="unknown"
