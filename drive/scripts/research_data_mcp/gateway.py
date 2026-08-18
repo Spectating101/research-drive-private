@@ -1673,6 +1673,11 @@ class ResearchDataGateway:
                 title=str(intent.get("title") or ""),
                 url=str(route.get("url") or route.get("source_url") or ""),
                 candidate_key=str(route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or ""),
+                doi=str(route.get("doi") or (state.get("candidate") or {}).get("doi") or ""),
+                external_id=str(route.get("external_id") or (state.get("candidate") or {}).get("external_id") or ""),
+                provider=str(route.get("provider") or (state.get("candidate") or {}).get("provider") or ""),
+                kind=str(route.get("kind") or (state.get("candidate") or {}).get("kind") or ""),
+                dataset_id=str(route.get("dataset_id") or (state.get("candidate") or {}).get("dataset_id") or ""),
             )
         )
         plan.update({"discover_intent_id": intent_id, "candidate_key": route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or "", "destination": route.get("destination") or plan.get("destination") or "", "refresh_strategy": route.get("refresh") or ""})
@@ -2038,6 +2043,11 @@ class ResearchDataGateway:
                     candidate_key=str(row.get("candidate_key") or ""),
                     title=str(row.get("label") or row.get("evidence_id") or ""),
                     limit=8,
+                    doi=str(row.get("doi") or ""),
+                    external_id=str(row.get("external_id") or ""),
+                    provider=str(row.get("provider") or row.get("source") or ""),
+                    kind=str(row.get("kind") or ""),
+                    dataset_id=str(row.get("dataset_id") or ""),
                 )
                 row["resolvable"] = True
                 row["plan_preview"] = {
@@ -2097,6 +2107,11 @@ class ResearchDataGateway:
                         candidate_key=str(intent.get("candidate_key") or ""),
                         title=str(intent.get("label") or eid),
                         limit=min(max(int(limit or 8), 1), 25),
+                        doi=str(intent.get("doi") or ""),
+                        external_id=str(intent.get("external_id") or ""),
+                        provider=str(intent.get("provider") or intent.get("source") or ""),
+                        kind=str(intent.get("kind") or ""),
+                        dataset_id=str(intent.get("dataset_id") or ""),
                     )
                 )
             except Exception as exc:  # noqa: BLE001

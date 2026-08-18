@@ -757,7 +757,19 @@ def parse_intent_request(message: str, rail_context: dict[str, Any] | None = Non
         return None
     selected = _rail_selected(rail_context)
     candidate = {}
-    for key in ("source_id", "connector_id", "candidate_key", "title", "endpoint", "url"):
+    for key in (
+        "source_id",
+        "connector_id",
+        "candidate_key",
+        "title",
+        "endpoint",
+        "url",
+        "doi",
+        "external_id",
+        "provider",
+        "kind",
+        "dataset_id",
+    ):
         if selected.get(key):
             candidate[key] = selected.get(key)
     title = str(selected.get("title") or need[:80])
@@ -929,6 +941,11 @@ def parse_discover_collect_request(message: str, rail_context: dict[str, Any] | 
         "candidate_key": str(selected.get("candidate_key") or "").strip(),
         "title": str(selected.get("title") or selected.get("source_id") or "Discover source").strip(),
         "url": str(selected.get("url") or selected.get("endpoint") or "").strip(),
+        "doi": str(selected.get("doi") or "").strip(),
+        "external_id": str(selected.get("external_id") or "").strip(),
+        "provider": str(selected.get("provider") or selected.get("source") or "").strip(),
+        "kind": str(selected.get("kind") or "").strip(),
+        "dataset_id": str(selected.get("dataset_id") or "").strip(),
     }
 
 
@@ -949,6 +966,11 @@ def try_direct_discover_collect_turn(gateway: Any, message: str, state: dict[str
             title=req["title"],
             url=req["url"],
             candidate_key=req["candidate_key"],
+            doi=req["doi"],
+            external_id=req["external_id"],
+            provider=req["provider"],
+            kind=req["kind"],
+            dataset_id=req["dataset_id"],
         )
     except Exception as exc:  # noqa: BLE001
         return AgentTurn(
