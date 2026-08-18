@@ -87,6 +87,28 @@ def resolve_dataset_file(
             if candidate.is_file():
                 return candidate, None
 
+    # 1b. A wildcard anywhere in local_path. The query engine already expands these, so
+    # refusing here made one dataset resolve to two different files depending on who
+    # asked. One distinct filename across landings is one table: take the newest.
+    if local_path and "*" in local_path:
+        import glob as _glob
+
+        matches: list[Path] = []
+        for base in search:
+            matches.extend(
+                Path(hit) for hit in _glob.glob(str(base / local_path), recursive=True)
+            )
+        matches = [m for m in matches if m.is_file()]
+        if matches:
+            names = {m.name for m in matches}
+            if len(names) > 1:
+                return None, (
+                    f"{dataset_id}: {local_path} matches {len(names)} different filenames "
+                    f"({', '.join(sorted(names)[:3])}...); refusing to guess which is meant"
+                )
+            newest = max(matches, key=lambda m: m.stat().st_mtime)
+            return newest, None
+
     base_rel = local_root or (local_path.rstrip("/*") if local_path else "")
     if not base_rel:
         return None, f"{dataset_id}: registry declares no local_path or local_root"
