@@ -53,6 +53,39 @@ def _alarm(_sig, _frm):
     raise _Timeout()
 
 
+def _fingerprint(root: Path, engine: Any) -> dict[str, Any]:
+    """What this measurement was taken against. Counts without it are not comparable."""
+    import hashlib
+    import os
+    import subprocess
+
+    def _git(*args: str) -> str:
+        try:
+            return subprocess.run(["git", "-C", str(root), *args], capture_output=True,
+                                  text=True, timeout=20).stdout.strip() or "unknown"
+        except Exception:
+            return "unknown"
+
+    registry_path = Path(getattr(engine, "registry_path", "")) if getattr(engine, "registry_path", "") else None
+    registry_sha = "absent"
+    if registry_path and registry_path.is_file():
+        try:
+            registry_sha = hashlib.sha256(registry_path.resolve().read_bytes()).hexdigest()[:16]
+        except OSError:
+            registry_sha = "unreadable"
+    from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+    return {
+        "commit": _git("rev-parse", "HEAD")[:12],
+        "dirty_paths": len([l for l in _git("status", "--porcelain").splitlines() if l]),
+        "registry_path": str(registry_path or ""),
+        "registry_sha256_16": registry_sha,
+        "registry_rows": len(engine.list_datasets()),
+        "data_roots_env": os.environ.get("RESEARCH_DATA_ROOTS", "<unset>"),
+        "data_roots_resolved": [str(p) for p in data_roots(root)],
+    }
+
+
 def classify(repo_root: Path | str = ".") -> dict[str, Any]:
     from scripts.research_data_mcp.synthesis.dataset_paths import resolve_dataset_file
     from scripts.research_query_engine.engine import ResearchQueryEngine
@@ -115,6 +148,9 @@ def classify(repo_root: Path | str = ".") -> dict[str, Any]:
 
     counts = {state: sum(1 for r in rows if r["state"] == state) for state in STATES}
     return {
+        # Without this the counts are unquotable: the same report gives 0 queryable and 163
+        # absent when RESEARCH_DATA_ROOTS is unset, and both readings get cited as facts.
+        "fingerprint": _fingerprint(root, engine),
         "registry_rows": len(rows),
         "counts": counts,
         "end_to_end_capable": counts["queryable"],
