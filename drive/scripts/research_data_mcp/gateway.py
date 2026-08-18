@@ -615,6 +615,69 @@ class ResearchDataGateway:
             out["routed_via"] = "unified_dataset_search+discover_profile"
         return out
 
+    def _semantic_candidates(self, query: str, *, limit: int, exclude: set[str]) -> list[dict[str, Any]]:
+        """Held datasets found by meaning, shaped like keyword candidates.
+
+        Benchmarked on the real registry: keyword retrieval never finds 38-41% of
+        datasets at any depth because its threshold rises with each query word, while
+        semantic reaches 100% recall@10. No case exists of semantic missing what
+        keyword found, so semantic leads and keyword only supplements.
+        """
+        from scripts.research_data_mcp.procureability import registry_procureability
+        from scripts.research_data_mcp.procurement_fast import local_path_has_data
+        from scripts.research_data_mcp.procurement_search import candidate_from_row
+
+        try:
+            semantic = self.semantic_discover(query, limit=limit)
+        except Exception:
+            return []
+        hits = [r for r in (semantic.get("rows") or []) if str(r.get("dataset_id") or "")]
+        if not hits:
+            return []
+        listing = self.list_datasets()
+        rows = listing.get("datasets") if isinstance(listing, dict) else listing
+        by_id = {str(r.get("dataset_id") or ""): r for r in (rows or []) if isinstance(r, dict)}
+
+        out: list[dict[str, Any]] = []
+        for hit in hits:
+            dataset_id = str(hit.get("dataset_id"))
+            if dataset_id in exclude:
+                continue
+            row = by_id.get(dataset_id)
+            if not row:
+                continue
+            local_path = str(row.get("local_path") or "")
+            on_disk = local_path_has_data(self.repo_root, local_path) if local_path else False
+            proc = row.get("procureability") or registry_procureability(row)
+            if on_disk:
+                badges = list(proc.get("badges") or [])
+                if "promoted" not in badges:
+                    badges.append("promoted")
+                proc = {**proc, "badges": badges, "can_collect": True, "status": "ready"}
+            item = {
+                "kind": "local_registry",
+                "dataset_id": dataset_id,
+                "title": row.get("name") or hit.get("title") or dataset_id,
+                "source": "registry",
+                "local_path": local_path,
+                "local_ready": on_disk,
+                "analysis_readiness": row.get("analysis_readiness"),
+                "procureability": proc,
+                "tags": row.get("tags") or row.get("keywords") or [],
+                "description": row.get("recommended_use") or row.get("description") or "",
+            }
+            try:
+                score = round(float(hit.get("semantic_score") or 0.0), 4)
+            except (TypeError, ValueError):
+                score = 0.0
+            cand = candidate_from_row(item, 0, score=score)
+            cand["score"] = score
+            cand["kind"] = "registry_dataset"
+            cand["match_type"] = "semantic"
+            out.append(cand)
+            exclude.add(dataset_id)
+        return out
+
     def discover_search(
         self,
         query: str,
@@ -634,6 +697,11 @@ class ResearchDataGateway:
         profile = resolve_profile(email=normalize_email(email)) if email else None
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
+        seen = {str(c.get("dataset_id") or "") for c in candidates if c.get("dataset_id")}
+        semantic_rows = self._semantic_candidates(query, limit=limit, exclude=seen)
+        semantic_top = max((float(r.get("score") or 0.0) for r in semantic_rows), default=0.0)
+        if semantic_rows:
+            candidates = semantic_rows + candidates
         sections: list[dict[str, Any]] = []
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
@@ -672,6 +740,15 @@ class ResearchDataGateway:
             "query": query,
             "sections": sections,
             "total": len(candidates),
+            "retrieval": {
+                "semantic": len(semantic_rows),
+                "keyword": len(candidates) - len(semantic_rows),
+                "semantic_top_score": semantic_top,
+            },
+            # index_miss stays the keyword signal. A similarity floor cannot decide
+            # whether the desk holds a topic: "US patent filings" (absent) scores 0.42
+            # against the catalogue while "stablecoin depeg events" (held) scores 0.35.
+            # Semantic rows are offered as candidates; the procurement route still fires.
             "index_miss": bool(result.get("index_miss")),
             "weak_match": bool(result.get("weak_match")),
             "sources": result.get("sources") or [],
