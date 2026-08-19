@@ -1748,7 +1748,12 @@ def _live_search_openalex(query: str, *, limit: int) -> tuple[list[dict[str, Any
     return rows_out, meta
 
 
-def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _run_live_adapters(
+    query: str,
+    *,
+    per_adapter: int,
+    query_plan: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Bounded live search via the public catalogue adapters already in-tree.
 
     A live catalogue receives the researcher wording plus a few explicit
@@ -1760,11 +1765,11 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
         return [], [
             {"adapter": name, "ok": False, "error": "empty query", "returned": 0}
             for name in ("huggingface", "datacite", "zenodo", "openalex")
-        ]
+        ], {"mode": "empty", "providers": [], "queries_by_provider": {}, "fallback_reason": None}
     per_adapter = max(1, min(int(per_adapter or _LIVE_PER_ADAPTER_CAP), _LIVE_PER_ADAPTER_CAP))
     from concurrent.futures import ThreadPoolExecutor
 
-    from scripts.research_data_mcp.query_translation import catalogue_query_variants
+    from scripts.research_data_mcp.query_translation import resolve_catalogue_query_plan
 
     adapters = (
         ("huggingface", _live_search_huggingface),
@@ -1772,7 +1777,17 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
         ("zenodo", _live_search_zenodo),
         ("openalex", _live_search_openalex),
     )
-    plans = [(name, fn, catalogue_query_variants(q, provider=name)) for name, fn in adapters]
+    resolved_plan = resolve_catalogue_query_plan(
+        q,
+        query_plan,
+        available_providers=tuple(name for name, _fn in adapters),
+    )
+    selected = set(resolved_plan.get("providers") or [])
+    plans = [
+        (name, fn, list((resolved_plan.get("queries_by_provider") or {}).get(name) or []))
+        for name, fn in adapters
+        if name in selected
+    ]
     tasks = [(name, fn, variant) for name, fn, variants in plans for variant in variants]
     completed: dict[tuple[str, str], tuple[list[dict[str, Any]], dict[str, Any]]] = {}
     # A slow provider must not multiply request latency by the number of variants.
@@ -1821,7 +1836,7 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
             }
         )
         hits.extend(adapter_hits)
-    return hits, reports
+    return hits, reports, resolved_plan
 
 
 def search_discover_sources(
@@ -1835,6 +1850,7 @@ def search_discover_sources(
     semantic: bool = False,
     prefer: str = "",
     prefer_embeddings: bool = True,
+    query_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return normalized Explore results from known source/provider/connector facts.
 
@@ -1850,7 +1866,11 @@ def search_discover_sources(
             prefer_embeddings=prefer_embeddings,
         )
         if live:
-            live_hits, live_reports = _run_live_adapters(query, per_adapter=_LIVE_PER_ADAPTER_CAP)
+            live_hits, live_reports, resolved_plan = _run_live_adapters(
+                query,
+                per_adapter=_LIVE_PER_ADAPTER_CAP,
+                query_plan=query_plan,
+            )
             # Inspect-only live hits; pool then relevance-gate (do not invent access).
             lim = max(1, min(int(limit or 24), 100))
             existing = {str(r.get("candidate_key") or "") for r in out["results"]}
@@ -1858,6 +1878,11 @@ def search_discover_sources(
             diversified = _diversify_live_hits(
                 _prioritize_live_hits_for_query(live_hits, query), limit=max(lim, 1)
             )
+            # A model that explicitly chose a public search plan needs to see
+            # the bounded evidence it asked for, even when the conservative UI
+            # relevance gate would hide it. These remain inspect-only metadata,
+            # never a claim that a source is usable or acquirable.
+            agent_review_candidates: list[dict[str, Any]] = []
             for row in diversified:
                 key = str(row.get("candidate_key") or "")
                 if key and key in existing:
@@ -1865,6 +1890,8 @@ def search_discover_sources(
                 live_row = with_candidate_key(row) or row
                 live_row["inspect_only"] = True
                 live_row["trust_tier"] = "inspect_only"
+                if resolved_plan.get("mode") == "agent_selected":
+                    agent_review_candidates.append(dict(live_row))
                 merged.append(live_row)
                 if key:
                     existing.add(key)
@@ -1885,6 +1912,7 @@ def search_discover_sources(
             out["remote_search"] = {
                 "attempted": True,
                 "adapters": live_reports,
+                "query_plan": resolved_plan,
                 "reason": None,
                 "diversification": {
                     "rule": "round_robin_provider_soft_cap",
@@ -1892,6 +1920,9 @@ def search_discover_sources(
                 },
                 "live_hits_are_inspect_only": True,
             }
+            if resolved_plan.get("mode") == "agent_selected":
+                out["agent_review_candidates"] = agent_review_candidates
+                out["agent_review_candidate_total"] = len(agent_review_candidates)
             out["sources_tried"] = list(out.get("sources_tried") or []) + [
                 f"live:{report['adapter']}" for report in live_reports
             ]
@@ -1995,12 +2026,19 @@ def search_discover_sources(
             "pass live=1 for bounded public catalogue adapters."
         ),
     }
+    resolved_plan: dict[str, Any] = {"mode": "not_requested", "providers": [], "queries_by_provider": {}}
+    agent_review_candidates: list[dict[str, Any]] = []
     if live:
-        live_hits, live_reports = _run_live_adapters(q, per_adapter=_LIVE_PER_ADAPTER_CAP)
+        live_hits, live_reports, resolved_plan = _run_live_adapters(
+            q,
+            per_adapter=_LIVE_PER_ADAPTER_CAP,
+            query_plan=query_plan,
+        )
         sources_tried.extend(f"live:{report['adapter']}" for report in live_reports)
         remote_search = {
             "attempted": True,
             "adapters": live_reports,
+            "query_plan": resolved_plan,
             "reason": None,
             "diversification": {
                 "rule": "round_robin_provider_soft_cap",
@@ -2019,6 +2057,8 @@ def search_discover_sources(
             live_row = with_candidate_key(row) or row
             live_row["inspect_only"] = True
             live_row["trust_tier"] = "inspect_only"
+            if resolved_plan.get("mode") == "agent_selected":
+                agent_review_candidates.append(dict(live_row))
             results.append(live_row)
             if key:
                 existing.add(key)
@@ -2030,6 +2070,8 @@ def search_discover_sources(
         results = results[:limit]
 
     results = stamp_rows(results)
+    if live and resolved_plan.get("mode") == "agent_selected":
+        agent_review_candidates = stamp_rows(agent_review_candidates)
 
     # Guard: never return registry dataset default kind.
     for row in results:
@@ -2038,7 +2080,7 @@ def search_discover_sources(
             row["result_type"] = "source"
 
     relevance_miss = bool(q) and not results
-    return {
+    out = {
         "query": q,
         "result_kind": "source",
         "search_mode": "catalog",
@@ -2065,3 +2107,7 @@ def search_discover_sources(
             "explicit_connector_request": keep_connectors,
         },
     }
+    if live and resolved_plan.get("mode") == "agent_selected":
+        out["agent_review_candidates"] = agent_review_candidates
+        out["agent_review_candidate_total"] = len(agent_review_candidates)
+    return out

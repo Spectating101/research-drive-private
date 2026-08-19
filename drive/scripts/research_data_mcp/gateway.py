@@ -1717,6 +1717,7 @@ class ResearchDataGateway:
         semantic: bool = False,
         prefer: str = "",
         prefer_embeddings: bool = True,
+        query_plan: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         from scripts.research_data_mcp.discover_source_search import search_discover_sources
 
@@ -1728,6 +1729,7 @@ class ResearchDataGateway:
             semantic=semantic,
             prefer=prefer,
             prefer_embeddings=prefer_embeddings,
+            query_plan=query_plan,
         )
         if not str(query or "").strip():
             return result

@@ -7,6 +7,7 @@ from scripts.research_data_mcp.query_translation import (
     catalogue_query_variants,
     content_terms,
     llm_search_terms,
+    resolve_catalogue_query_plan,
     search_terms,
     search_with_backoff,
 )
@@ -109,3 +110,32 @@ def test_a_dead_reasoner_falls_back_to_the_deterministic_ladder():
     assert llm_search_terms("US patent grants and citations", propose=broken) == search_terms(
         "US patent grants and citations"
     )
+
+
+def test_agent_selected_plan_keeps_the_question_but_uses_the_agents_sources_and_terms():
+    plan = resolve_catalogue_query_plan(
+        "US patent grants and citations",
+        {
+            "providers": ["zenodo", "huggingface"],
+            "queries": ["uspto patents", "patent citations"],
+        },
+    )
+
+    assert plan["mode"] == "agent_selected"
+    assert plan["providers"] == ["zenodo", "huggingface"]
+    assert plan["queries_by_provider"]["zenodo"] == [
+        "uspto patents",
+        "patent citations",
+    ]
+    assert plan["queries_by_provider"]["huggingface"] == plan["queries_by_provider"]["zenodo"]
+
+
+def test_invalid_agent_plan_uses_the_deterministic_fallback_and_names_why():
+    plan = resolve_catalogue_query_plan(
+        "US patent grants and citations",
+        {"providers": ["made_up_source"], "queries": ["patent"]},
+    )
+
+    assert plan["mode"] == "deterministic_fallback"
+    assert "supported public providers" in str(plan["fallback_reason"])
+    assert "huggingface" in plan["providers"]

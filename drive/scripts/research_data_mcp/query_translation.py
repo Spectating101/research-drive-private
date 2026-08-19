@@ -55,6 +55,13 @@ LIGHT_MODIFIERS = frozenset({"annual", "daily", "monthly", "quarterly", "weekly"
 _RETURN_TERMS = frozenset({"return", "returns"})
 _LISTED_COMPANY_TERMS = frozenset({"listed", "company", "companies", "firm", "firms", "equity", "equities", "share", "shares"})
 
+# These are transport limits, not a relevance policy.  The model chooses which
+# public catalogues to search and the useful terms for each research need; the
+# backend only limits the fan-out to keep an ordinary Discover request bounded.
+PUBLIC_CATALOGUE_PROVIDERS = frozenset({"huggingface", "datacite", "zenodo", "openalex"})
+MAX_AGENT_QUERY_TERMS = 4
+MAX_AGENT_QUERY_CHARS = 160
+
 
 def _tokens(question: str) -> list[str]:
     seen: set[str] = set()
@@ -137,6 +144,103 @@ def catalogue_query_variants(question: str, *, provider: str = "", max_variants:
 def search_terms(question: str, *, max_variants: int = 4) -> list[str]:
     """A transparent original-to-broader plan for external catalogue calls."""
     return catalogue_query_variants(question, max_variants=max_variants)
+
+
+def resolve_catalogue_query_plan(
+    question: str,
+    agent_plan: dict[str, Any] | None = None,
+    *,
+    available_providers: tuple[str, ...] | list[str] = tuple(PUBLIC_CATALOGUE_PROVIDERS),
+    max_variants: int = MAX_AGENT_QUERY_TERMS,
+) -> dict[str, Any]:
+    """Return the bounded public-catalogue plan chosen by an agent or the fallback.
+
+    An MCP-capable model owns source and query selection.  It may pass::
+
+        {"providers": ["huggingface", "zenodo"],
+         "queries": ["uspto patents", "patent citations"]}
+
+    The supplied terms are used exactly as supplied: they are not interpreted,
+    expanded, ranked, or supplemented by this function.  The original researcher
+    wording remains in the enclosing Discover request for auditability.  This
+    validator only enforces provider allowlists, string hygiene, and bounded
+    fan-out.  Missing or invalid plans use the deterministic ladder so public
+    discovery still works when no model is available.
+    """
+    original = " ".join(str(question or "").split())
+    providers = tuple(
+        name for name in (str(item).strip().lower() for item in available_providers)
+        if name in PUBLIC_CATALOGUE_PROVIDERS
+    )
+    max_variants = max(1, min(int(max_variants or MAX_AGENT_QUERY_TERMS), MAX_AGENT_QUERY_TERMS))
+
+    def fallback(reason: str = "") -> dict[str, Any]:
+        return {
+            "mode": "deterministic_fallback",
+            "providers": list(providers),
+            "queries_by_provider": {
+                name: catalogue_query_variants(original, provider=name, max_variants=max_variants)
+                for name in providers
+            },
+            "fallback_reason": reason or None,
+        }
+
+    if not original:
+        return {
+            "mode": "empty",
+            "providers": [],
+            "queries_by_provider": {},
+            "fallback_reason": None,
+        }
+    if agent_plan is None:
+        return fallback()
+    if not isinstance(agent_plan, dict):
+        return fallback("agent_plan must be an object")
+
+    raw_queries = agent_plan.get("queries", agent_plan.get("terms"))
+    if isinstance(raw_queries, str) or not isinstance(raw_queries, (list, tuple)):
+        return fallback("agent_plan.queries must be a list of strings")
+
+    cleaned_queries: list[str] = []
+    rejected_queries: list[str] = []
+    for raw in raw_queries:
+        if not isinstance(raw, str):
+            rejected_queries.append("non-string query")
+            continue
+        value = " ".join(raw.split())
+        if not value or len(value) > MAX_AGENT_QUERY_CHARS or any(ord(ch) < 32 for ch in value):
+            rejected_queries.append(value[:40] or "invalid query")
+            continue
+        if value.casefold() not in {item.casefold() for item in cleaned_queries}:
+            cleaned_queries.append(value)
+        if len(cleaned_queries) >= max_variants:
+            break
+    if not cleaned_queries:
+        return fallback("agent_plan contained no usable queries")
+
+    raw_providers = agent_plan.get("providers")
+    if isinstance(raw_providers, str) or not isinstance(raw_providers, (list, tuple)):
+        return fallback("agent_plan.providers must be a list of supported providers")
+    selected: list[str] = []
+    rejected_providers: list[str] = []
+    for raw in raw_providers:
+        name = str(raw or "").strip().lower()
+        if name not in providers:
+            rejected_providers.append(name or "invalid provider")
+            continue
+        if name not in selected:
+            selected.append(name)
+    if not selected:
+        return fallback("agent_plan selected no supported public providers")
+
+    return {
+        "mode": "agent_selected",
+        "providers": selected,
+        "queries_by_provider": {name: list(cleaned_queries) for name in selected},
+        "rejected_queries": rejected_queries,
+        "rejected_providers": rejected_providers,
+        "fallback_reason": None,
+    }
 
 
 def llm_search_terms(
