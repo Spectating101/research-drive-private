@@ -191,7 +191,7 @@ class ResearchToolHandlers:
     def research_craft_collect_plan(
         self,
         research_need: str,
-        url: str = "",
+        url: str,
         title: str = "",
         mode: str = "",
         dataset_id: str = "",
@@ -300,7 +300,7 @@ class ResearchToolHandlers:
 
     def research_webfetch_handoff(
         self,
-        research_need: str = "",
+        research_need: str,
         source_id: str = "",
         connector_id: str = "",
         candidate_key: str = "",
