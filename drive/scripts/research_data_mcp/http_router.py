@@ -688,12 +688,21 @@ def _handlers() -> dict[str, Handler]:
             "semantic",
         }
         prefer = str(query.get("prefer") or query.get("kind") or "").strip()
+        plan_queries = str(query.get("plan_queries") or query.get("queries") or "").strip()
+        plan_providers = str(query.get("plan_providers") or query.get("providers") or "").strip()
+        query_plan = None
+        if plan_queries or plan_providers:
+            query_plan = {
+                "queries": [item.strip() for item in plan_queries.split(",") if item.strip()],
+                "providers": [item.strip() for item in plan_providers.split(",") if item.strip()],
+            }
         out = stack.gateway.discover_source_search(
             q,
             limit=_query_int(query, "limit", 24),
             live=live,
             semantic=semantic,
             prefer=prefer,
+            query_plan=query_plan,
         )
         if q.strip():
             _activity(

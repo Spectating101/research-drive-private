@@ -45,7 +45,7 @@ def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypat
                 [], {"adapter": adapter, "ok": True, "error": None, "returned": 0}
             ),
         )
-    hits, reports = mod._run_live_adapters("US patent grants and citations", per_adapter=5)
+    hits, reports, plan = mod._run_live_adapters("US patent grants and citations", per_adapter=5)
 
     assert "patent" in seen_hf
     assert len(hits) == 1
@@ -57,6 +57,38 @@ def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypat
     assert {report["adapter"] for report in reports} == {
         "huggingface", "datacite", "zenodo", "openalex"
     }
+    assert plan["mode"] == "deterministic_fallback"
+
+
+def test_live_adapter_uses_only_the_public_sources_and_terms_selected_by_the_agent(monkeypatch):
+    from scripts.research_data_mcp import discover_source_search as mod
+
+    seen: list[str] = []
+
+    def fake_hf(query, *, limit):
+        seen.append(query)
+        return [], {"adapter": "huggingface", "ok": True, "error": None, "returned": 0}
+
+    monkeypatch.setattr(mod, "_live_search_huggingface", fake_hf)
+    for adapter in ("datacite", "zenodo", "openalex"):
+        monkeypatch.setattr(
+            mod,
+            f"_live_search_{adapter}",
+            lambda *_args, adapter=adapter, **_kwargs: (_ for _ in ()).throw(
+                AssertionError(f"{adapter} was not selected by the agent")
+            ),
+        )
+
+    _hits, reports, plan = mod._run_live_adapters(
+        "US patent grants and citations",
+        per_adapter=5,
+        query_plan={"providers": ["huggingface"], "queries": ["uspto patents"]},
+    )
+
+    assert seen == ["uspto patents"]
+    assert [report["adapter"] for report in reports] == ["huggingface"]
+    assert plan["mode"] == "agent_selected"
+    assert plan["providers"] == ["huggingface"]
 
 
 def test_zenodo_and_openalex_rows_use_the_common_live_candidate_contract(monkeypatch):

@@ -240,16 +240,22 @@ class ResearchToolHandlers:
         limit: int = 24,
         live: bool = False,
         semantic: bool = False,
+        query_plan: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Explore known external sources/providers/connectors — not registry holdings.
 
-        Returns source_id / access_mode / connector_id rows (Discover Explore catalog).
+        When live is true, an agent may choose the public adapters and query terms:
+        query_plan={"providers": ["huggingface", "zenodo"],
+                    "queries": ["patent citations", "uspto patents"]}.
+        The backend records and bounds that plan; it does not choose substitutes.
+        Omit query_plan for the deterministic no-model fallback.
         """
         return self.gateway.discover_source_search(
             query,
             limit=min(max(int(limit), 1), 100),
             live=bool(live),
             semantic=bool(semantic),
+            query_plan=query_plan,
         )
 
     def research_discover_source_preview(
@@ -713,6 +719,7 @@ class ResearchToolHandlers:
         limit: int = 12,
         live: bool = False,
         include_lab: bool = True,
+        query_plan: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Discover Explore catalog first (source_id / access_mode), optional lab registry supplement.
 
@@ -724,6 +731,7 @@ class ResearchToolHandlers:
             query,
             limit=lim,
             live=bool(live),
+            query_plan=query_plan,
         )
         source_rows = list(catalog.get("results") or [])
         sections: list[dict] = []
@@ -762,6 +770,12 @@ class ResearchToolHandlers:
             "lab_total": lab_total,
             "total": len(source_rows) + lab_total,
             "index_miss": not source_rows and lab_total == 0,
+            # These are deliberately outside sections/results: an MCP agent may
+            # inspect the bounded live evidence it selected, while a researcher
+            # still receives only relevance-gated source rows.
+            "remote_search": catalog.get("remote_search") or {},
+            "agent_review_candidates": list(catalog.get("agent_review_candidates") or []),
+            "agent_review_candidate_total": int(catalog.get("agent_review_candidate_total") or 0),
         }
 
     def research_faculty_profile(self, email: str = "", slug: str = "") -> dict[str, Any]:
