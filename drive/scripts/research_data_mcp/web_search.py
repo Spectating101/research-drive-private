@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import threading
 import urllib.parse
 import urllib.request
 from html import unescape
@@ -363,16 +364,34 @@ def _search_tavily(repo_root: Path, query: str, max_results: int, *, live: bool 
             )
         return rows
 
+    # MCP tool handlers may run inside an active AnyIO/asyncio loop.  Calling
+    # asyncio.run (or run_until_complete on a second loop) from there both
+    # fails and leaves the coroutine un-awaited.  Use a short-lived worker
+    # thread in that case so live/disabled Tavily fallback remains callable
+    # over stdio without leaking RuntimeWarnings.
     try:
-        rows = asyncio.run(_run())
+        asyncio.get_running_loop()
     except RuntimeError:
-        loop = asyncio.new_event_loop()
         try:
-            rows = loop.run_until_complete(_run())
-        finally:
-            loop.close()
-    except Exception:
-        return []
+            rows = asyncio.run(_run())
+        except Exception:
+            return []
+    else:
+        result: list[list[dict[str, Any]]] = []
+        errors: list[BaseException] = []
+
+        def _thread_run() -> None:
+            try:
+                result.append(asyncio.run(_run()))
+            except BaseException as exc:  # pragma: no cover - provider/runtime dependent
+                errors.append(exc)
+
+        worker = threading.Thread(target=_thread_run, name="research-tavily-search", daemon=True)
+        worker.start()
+        worker.join(timeout=45)
+        if worker.is_alive() or errors or not result:
+            return []
+        rows = result[0]
     if rows:
         try:
             from scripts.research_data_mcp.desk_activity import record_activity

@@ -185,6 +185,14 @@ def test_gateway_endpoints_share_inventory_fingerprint(tmp_path: Path) -> None:
     assert consolidated["headline"]["registry_datasets"] == 1  # cached headline may lag
     assert consolidated["inventory"]["totals"]["registered"] == 4  # live authority
 
+    from scripts.research_data_mcp.consolidated_state import composer_procurement_snapshot
+
+    snapshot = composer_procurement_snapshot(consolidated)
+    assert snapshot["freshness"]["snapshot_stale"] is True
+    assert snapshot["freshness"]["snapshot_registry_datasets"] == 1
+    assert snapshot["freshness"]["live_registry_datasets"] == 4
+    assert snapshot["freshness"]["authority"] == "inventory.registry_revision + inventory.totals"
+
     assert datasets["inventory"]["totals"] == overview["inventory"]["totals"]
     assert platform["view_scope"]["scope"] == SCOPE_REGISTRY_ALL
     assert overview["view_scope"]["scope"] == SCOPE_DESK_VISIBLE

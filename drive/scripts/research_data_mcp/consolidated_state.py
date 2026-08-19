@@ -137,10 +137,37 @@ def composer_procurement_snapshot(state: dict[str, Any]) -> dict[str, Any]:
     access = state.get("entitlement_summary") or {}
     instant = state.get("instant_probe") or {}
     gaps = state.get("priority_access_gaps") or access.get("priority_gaps") or []
+    inventory = state.get("inventory") if isinstance(state.get("inventory"), dict) else {}
+    inventory_totals = inventory.get("totals") if isinstance(inventory.get("totals"), dict) else {}
+    registry_revision = inventory.get("registry_revision") if isinstance(inventory.get("registry_revision"), dict) else {}
+    snapshot_registered = headline.get("registry_datasets")
+    live_registered = inventory_totals.get("registered")
+    snapshot_stale = bool(
+        state.get("cache_path")
+        and snapshot_registered is not None
+        and live_registered is not None
+        and int(snapshot_registered) != int(live_registered)
+    )
 
     return {
         "generated_at": state.get("generated_at"),
         "live": state.get("live"),
+        "freshness": {
+            "source": "cached_snapshot" if state.get("cache_path") else ("live_recomputed" if state.get("live") else "computed"),
+            "cache_path": state.get("cache_path"),
+            "snapshot_generated_at": state.get("generated_at"),
+            "snapshot_registry_datasets": snapshot_registered,
+            "live_registry_datasets": live_registered,
+            "snapshot_stale": snapshot_stale,
+            "registry_fingerprint": registry_revision.get("fingerprint"),
+            "authority": "inventory.registry_revision + inventory.totals",
+            "note": (
+                "Headline values came from a cached consolidated snapshot; use live=true or the live inventory "
+                "authority before making a collection or readiness decision."
+                if state.get("cache_path")
+                else "Headline values were computed for this request."
+            ),
+        },
         "headline": headline,
         "instant_query_ready": instant.get("instant_query_ready") or headline.get("instant_query_ready"),
         "instant_total": instant.get("instant_total") or headline.get("instant_datasets"),

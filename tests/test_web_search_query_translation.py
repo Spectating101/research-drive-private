@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import sys
+import types
+from pathlib import Path
+
 
 def _hit(title: str, source: str = "datacite") -> dict[str, str]:
     return {
@@ -61,3 +66,22 @@ def test_general_web_engines_keep_the_researcher_wording(tmp_path, monkeypatch):
     assert seen_tavily == [question]
     tavily_attempt = next(item for item in out["provider_attempts"] if item["source"] == "tavily")
     assert tavily_attempt["queries_tried"] == [question]
+
+
+def test_tavily_adapter_is_callable_from_an_active_mcp_event_loop(monkeypatch):
+    from scripts.research_data_mcp import web_search as mod
+
+    class FakeBalancer:
+        async def search(self, query: str, search_depth: str, max_results: int):
+            return [{"title": query, "url": "https://example.org/result", "content": "ok"}]
+
+    fake_module = types.ModuleType("src.utils.tavily_balancer")
+    fake_module.TavilyBalancer = FakeBalancer
+    monkeypatch.setitem(sys.modules, "src.utils.tavily_balancer", fake_module)
+    monkeypatch.setattr(mod, "_optiplex_root", lambda _root: Path("/tmp/optiplex"))
+
+    async def invoke():
+        return mod._search_tavily(Path("/tmp/research-drive"), "patent", 2, live=False)
+
+    rows = asyncio.run(invoke())
+    assert rows[0]["title"] == "patent"
