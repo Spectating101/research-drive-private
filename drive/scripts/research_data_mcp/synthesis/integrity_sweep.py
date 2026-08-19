@@ -58,7 +58,16 @@ def check_dataset(repo_root: Path, source: dict[str, Any], *, deep: bool = False
     path, reason = resolve_dataset_file(repo_root, source)
     if path is None:
         out["detail"] = reason
-        declared = str(source.get("local_path") or source.get("local_root") or "").rstrip("/*")
+        declared_raw = str(source.get("local_path") or source.get("local_root") or "")
+        # A glob-backed dataset is intentionally not reduced to one arbitrary
+        # file.  Still inspect its parent directory so the inventory can say
+        # "held, not one file" instead of incorrectly saying "absent".
+        declared_path = Path(declared_raw)
+        if any(ch in declared_raw for ch in ("*", "?", "[")):
+            wildcard_parts = [i for i, part in enumerate(declared_path.parts) if any(ch in part for ch in ("*", "?", "["))]
+            declared = str(Path(*declared_path.parts[: wildcard_parts[0]])) if wildcard_parts else declared_raw
+        else:
+            declared = declared_raw.rstrip("/")
         if declared:
             from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
 
