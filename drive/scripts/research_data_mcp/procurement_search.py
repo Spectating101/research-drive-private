@@ -223,8 +223,10 @@ def _demote_fixture_rows(candidates: list[dict[str, Any]]) -> list[dict[str, Any
 
 
 def datacite_supplement_queries(query: str) -> list[str]:
-    q = (query or "").strip()
-    return [q] if q else []
+    """Bounded DataCite variants, retaining the original researcher wording."""
+    from scripts.research_data_mcp.query_translation import catalogue_query_variants
+
+    return catalogue_query_variants(query, provider="datacite")
 
 
 def looks_like_index_miss(

@@ -53,7 +53,16 @@ def build_registry_hydrate_plan(repo_root: Path, spec: dict[str, Any]) -> dict[s
     if not local_rel or not remote:
         return None
     if local_path_has_data(repo_root, local_rel):
-        return {"skip_reason": "already_on_local", "local_path": local_rel}
+        # Keep the returned plan canonical even when the bytes are found in a
+        # configured external data root.  Returning the original glob here made
+        # a no-op plan look like it would create a literal `*` directory.
+        existing_path = glob_free_parent(local_rel) if has_glob(local_rel) else local_rel
+        canonical_path = existing_path or local_rel
+        return {
+            "skip_reason": "already_on_local",
+            "local_path": canonical_path,
+            "local_abs": str((repo_root / canonical_path).resolve()),
+        }
 
     remote = remote.rstrip("/")
     did = str(spec.get("dataset_id") or "dataset")

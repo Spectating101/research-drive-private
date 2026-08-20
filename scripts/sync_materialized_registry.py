@@ -67,17 +67,28 @@ def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
     try:
         if backend == "local_parquet_panel":
             path, run_id = engine._resolve_panel_path(ds, {})
+            observation = engine._parquet_footer_observation(path) if path.is_file() else {
+                "valid": False,
+                "reason": "parquet_missing",
+            }
             try:
                 resolved = str(path.relative_to(root))
             except ValueError:
                 resolved = str(path)
             out.update(
                 {
-                    "query_ready": path.is_file() and path.stat().st_size > 0,
+                    "query_ready": bool(
+                        path.is_file()
+                        and path.stat().st_size > 0
+                        and observation.get("valid")
+                    ),
                     "resolved_path": resolved,
                     "run_id": run_id,
+                    "schema_observation": observation,
                 }
             )
+            if not out["query_ready"]:
+                out["reason"] = str(observation.get("reason") or "parquet_unusable")
             return out
         if backend in {"local_gdelt_panel_csv", "local_gdelt_high_priority_csv"}:
             gdelt_root = engine._resolve(ds["local_root"])
@@ -87,7 +98,7 @@ def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
                 if backend == "local_gdelt_panel_csv"
                 else "sample_high_priority.csv"
             )
-            hits = sum(1 for d in month_dirs if (d / fname).is_file())
+            hits = sum(1 for d in month_dirs if (d / fname).is_file() and (d / fname).stat().st_size > 0)
             out.update(
                 {
                     "query_ready": hits > 0,
@@ -98,7 +109,7 @@ def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
             return out
         if backend == "local_json_file":
             path = engine._resolve(ds.get("local_path") or ds.get("local_file") or "")
-            out.update({"query_ready": path.is_file(), "resolved_path": str(path)})
+            out.update({"query_ready": path.is_file() and path.stat().st_size > 0, "resolved_path": str(path)})
             return out
         if backend == "local_json_glob":
             import glob as globmod
@@ -120,14 +131,20 @@ def _probe_dataset(engine, ds: dict[str, Any]) -> dict[str, Any]:
             return out
         if backend == "local_csv_file":
             path = engine._resolve(ds.get("local_path") or "")
-            out.update({"query_ready": path.is_file(), "resolved_path": str(path)})
+            out.update({"query_ready": path.is_file() and path.stat().st_size > 0, "resolved_path": str(path)})
             return out
         if backend == "local_file":
             path = engine._resolve(ds.get("local_path") or "")
-            out.update({"query_ready": path.exists(), "resolved_path": str(path)})
+            out.update(
+                {
+                    "query_ready": path.is_file() and path.stat().st_size > 0,
+                    "resolved_path": str(path),
+                }
+            )
             return out
     except Exception as exc:
         out["error"] = str(exc)[:200]
+        out["reason"] = str(ds.get("runtime_readiness_reason") or "local_materialization_unusable")
     return out
 
 
@@ -181,6 +198,21 @@ def sync_registry(*, dry_run: bool = False, repo_root: Path | None = None) -> di
                 demoted.append(did)
             if ds.get("source_access_mode") == "materialized_instant":
                 ds["source_access_mode"] = "catalog_reference"
+            ds["collection_status"] = "registered" if (
+                ds.get("canonical_remote")
+                or (ds.get("lineage") or {}).get("canonical_remote")
+            ) else "metadata_only"
+            ds["field_coverage"] = "metadata-only"
+            ds["runtime_readiness_reason"] = str(
+                probe.get("reason")
+                or probe.get("error")
+                or ds.get("runtime_readiness_reason")
+                or probe.get("skipped")
+                or "local_materialization_unusable"
+            )
+            ds["hydrate_required"] = bool(
+                ds.get("canonical_remote") or (ds.get("lineage") or {}).get("canonical_remote")
+            )
             continue
 
         if ds.get("analysis_readiness") != "instant":

@@ -15,6 +15,7 @@ def mcp_server_instructions() -> str:
             "If the user message includes a preloaded desk vault brief, trust it — "
             "never call collection_status or run another inventory sweep; "
             "use tools only for samples, query, collect, hydrate, or synthesis. "
+            "Composer owns source selection, including Cursor webfetch. Start a multi-lane need with research_acquisition_options when you want held evidence, source routes, live adapters, web results, and licensed readiness in one response; it does not select for you. For a selected public URL, DOI, Hugging Face dataset, CRSP, Compustat, or LSEG lane, call research_webfetch_handoff with the explicit identity; it validates and plans only, never searches for a substitute or submits a job. For licensed lanes, call research_acquisition_status first; raw/archive bytes are not queryable until a processed table is proven. "
             "For stablecoin multi-source work (Skynet + Etherscan + community growth + security + GDELT): "
             "call research_synthesis_list_profiles, then research_synthesis_run(profile_id='stablecoin_trust_engagement') "
             "— do not manually stitch scripts or paths. "
@@ -73,5 +74,6 @@ def mcp_server_instructions() -> str:
         "Research procurement MCP — passive atomic tools only; Composer plans and calls each step. "
         f"Acquisition ladder: {ladder}. "
         f"{COMPOSER_EXTERNAL_TOOLS_NOTE} "
+        "Cursor webfetch remains model-owned: pass its fetched URL, selected URL, and link/hash evidence to research_webfetch_handoff; the backend never fetches or chooses a replacement. "
         "See .agents/AGENTS.md for the full playbook."
     )

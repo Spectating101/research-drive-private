@@ -8,8 +8,9 @@ Discover-linked pending job in History — without inventing a harvest.
 
 from __future__ import annotations
 
+import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 
 def _https_url(value: str) -> str:
@@ -36,6 +37,211 @@ def _host_of(url_or_host: str) -> str:
         return (urlparse(_https_url(text)).hostname or "").lower().removeprefix("www.")
     except Exception:  # noqa: BLE001
         return ""
+
+
+def _huggingface_dataset_id_from_url(value: str) -> str:
+    """Return ``owner/name`` only for a concrete Hugging Face dataset URL.
+
+    A Hub search result is a selected dataset, not the generic Hugging Face
+    homepage.  Preserve that distinction all the way into the collection plan.
+    """
+    try:
+        parsed = urlparse(_https_url(value))
+    except Exception:  # noqa: BLE001
+        return ""
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    if host != "huggingface.co":
+        return ""
+    parts = [unquote(part).strip() for part in (parsed.path or "").split("/") if part.strip()]
+    if len(parts) < 3 or parts[0].lower() != "datasets":
+        return ""
+    owner, name = parts[1:3]
+    if not owner or not name or owner in {"search", "viewer"}:
+        return ""
+    return f"{owner}/{name}"
+
+
+_DOI_RE = re.compile(r"(?:https?://(?:dx\.)?doi\.org/|doi:\s*)?(10\.\d{4,9}/[^\s<>\"']+)", re.I)
+
+
+def _doi_from_value(value: str) -> str:
+    """Extract a canonical DOI from a selected candidate or its URL."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    match = _DOI_RE.search(text)
+    if not match:
+        return ""
+    return match.group(1).rstrip(".,;)/")
+
+
+def _canonical_live_connector(*values: str) -> str:
+    """Map display/provider names to the connector IDs used by collectors."""
+    for raw in values:
+        value = str(raw or "").strip().lower().replace("_", " ").replace("-", " ")
+        if not value:
+            continue
+        if "hugging face" in value or value in {"hf", "huggingface"}:
+            return "huggingface"
+        if "data cite" in value or value == "datacite":
+            return "datacite"
+        if value == "zenodo" or "zenodo" in value:
+            return "zenodo"
+        if value == "openalex" or "open alex" in value:
+            return "openalex"
+    return ""
+
+
+def _selected_doi_plan(
+    *,
+    repo_root: Any,
+    doi: str,
+    title: str,
+    url: str,
+    connector_id: str,
+    source_id: str,
+    candidate_key: str,
+    catalog_connector_id: str,
+) -> dict[str, Any] | None:
+    """Resolve a selected DOI to the existing generic HTTP collector.
+
+    Resolution is metadata-only: it discovers the repository file and builds a
+    pending plan. No download, job submission, or registry mutation occurs here.
+    """
+    resolution_error = ""
+    try:
+        from scripts.research_data_mcp.doi_resolve_cache import resolve_doi_cached
+        from scripts.research_data_mcp.datacite_repository import build_http_manifest_plan
+
+        resolved = resolve_doi_cached(repo_root, doi)
+        plan = dict(build_http_manifest_plan(resolved))
+    except Exception as exc:  # noqa: BLE001 - preserve a durable unresolved handoff
+        resolution_error = str(exc)
+        plan = None
+        # Zenodo's public record API is a valid repository resolver in its own
+        # right. DataCite metadata can lag or reject a DOI even when the exact
+        # record URL supplied by the model is downloadable.
+        if _host_of(url) == "zenodo.org" and "/records/" in str(url):
+            try:
+                from scripts.research_data_mcp.datacite_repository import build_http_manifest_plan
+                from scripts.research_data_mcp.repository_adapters import zenodo_files
+
+                files = zenodo_files(url)
+                if files:
+                    plan = dict(
+                        build_http_manifest_plan(
+                            {
+                                "doi": doi,
+                                "title": title or doi,
+                                "repository": "zenodo",
+                                "landing_url": url,
+                                "files": files,
+                            }
+                        )
+                    )
+            except Exception as zenodo_exc:  # noqa: BLE001
+                resolution_error = f"{resolution_error}; zenodo: {zenodo_exc}"
+        if plan is None:
+            return {
+                "title": title or f"Resolve DOI {doi}",
+                "job_type": "source_probe",
+                "url": url or f"https://doi.org/{doi}",
+                "doi": doi,
+                "datacite_doi": doi,
+                "launchable": True,
+                "requires_approval": True,
+                "connector_id": connector_id or "datacite",
+                "catalog_connector_id": catalog_connector_id or connector_id or "datacite",
+                "source_id": source_id or connector_id or "datacite",
+                "candidate_key": candidate_key,
+                "collect_resolution": "doi_resolution_required",
+                "collect_note": (
+                    "Selected DOI is preserved, but repository-file resolution must complete "
+                    f"before an HTTP manifest can be built: {resolution_error[:240]}"
+                ),
+            }
+    plan.update(
+        {
+            "title": title or plan.get("title") or f"Collect DOI {doi}",
+            "doi": doi,
+            "datacite_doi": doi,
+            "connector_id": connector_id or plan.get("connector_id") or "datacite",
+            "catalog_connector_id": catalog_connector_id or connector_id or "datacite",
+            "source_id": source_id or str(plan.get("datacite_repository") or connector_id or "datacite"),
+            "candidate_key": candidate_key,
+            "requires_approval": True,
+            "collect_resolution": "datacite_selected_doi",
+            "collect_note": (
+                "Selected DOI resolved to a bounded repository file manifest. "
+                "Approval is still required before download."
+            ),
+        }
+    )
+    return _stamp_public_collect_plan(plan)
+
+
+def _direct_url_manifest_plan(
+    *,
+    url: str,
+    title: str,
+    connector_id: str,
+    source_id: str,
+    candidate_key: str,
+    catalog_connector_id: str,
+) -> dict[str, Any]:
+    """Use the shared URL planner for concrete file/API candidates."""
+    from scripts.research_data_mcp.scrape_plan import build_http_manifest_plan_for_url
+
+    plan = dict(build_http_manifest_plan_for_url(url, title=title or "Discover direct download"))
+    plan.update(
+        {
+            "connector_id": connector_id or catalog_connector_id,
+            "catalog_connector_id": catalog_connector_id or connector_id,
+            "source_id": source_id,
+            "candidate_key": candidate_key,
+            "requires_approval": True,
+            "collect_resolution": "direct_machine_readable_url",
+            "collect_note": (
+                "Selected candidate is a concrete file/API URL; the generic HTTP "
+                "manifest collector will fetch it after approval."
+            ),
+        }
+    )
+    return _stamp_public_collect_plan(plan)
+
+
+def _huggingface_collect_plan(
+    *,
+    dataset_id: str,
+    title: str,
+    url: str,
+    connector_id: str,
+    source_id: str,
+    candidate_key: str,
+    catalog_connector_id: str,
+) -> dict[str, Any]:
+    """Plan the existing specialised collector for one selected Hub dataset."""
+    return {
+        "title": title or f"Collect Hugging Face {dataset_id}",
+        "job_type": "huggingface_collect",
+        "hf_dataset_id": dataset_id,
+        "split": "train",
+        "max_shards": 2,
+        "partition_id": "acquired.procured",
+        "launchable": True,
+        "requires_approval": True,
+        "timeout_seconds": 3600,
+        "url": url,
+        "connector_id": connector_id or "huggingface",
+        "catalog_connector_id": catalog_connector_id or connector_id or "huggingface",
+        "source_id": source_id or "huggingface",
+        "candidate_key": candidate_key,
+        "collect_resolution": "huggingface_selected_dataset",
+        "collect_note": (
+            "Selected Hugging Face dataset ID is preserved for the specialised "
+            "collector; approval is still required before any download."
+        ),
+    }
 
 
 
@@ -449,13 +655,25 @@ def resolve_discover_collect_plan(
     title: str = "",
     url: str = "",
     candidate_key: str = "",
+    doi: str = "",
+    external_id: str = "",
+    provider: str = "",
+    kind: str = "",
+    dataset_id: str = "",
 ) -> dict[str, Any]:
-    """Build a launchable plan for ``POST /library/discover/collect``.
+    """Build a plan for an explicit model-selected Discover candidate.
+
+    The resolver never chooses a candidate or substitutes another result. It only
+    validates the identity supplied by the model/UI and routes it to an existing
+    acquisition mechanism.
 
     Resolution order:
-    1. Procurement ``src_*`` (or any store id) with a bounded file manifest
-    2. Catalog source → matched procurement connector by host/URL
-    3. Catalog / payload URL → ``source_probe`` fallback (still Discover-linked)
+    1. A concrete Hugging Face dataset URL
+    2. A DOI selected from DataCite/Zenodo/OpenAlex, resolved to a repository file
+    3. A direct machine-readable URL
+    4. Procurement ``src_*`` (or any store id) with a bounded file manifest
+    5. Catalog source → matched procurement connector by host/URL
+    6. Catalog / payload URL → ``source_probe`` fallback (still Discover-linked)
     """
     cid = str(connector_id or "").strip()
     sid = str(source_id or "").strip()
@@ -463,6 +681,59 @@ def resolve_discover_collect_plan(
     title_s = str(title or "").strip()
     url_s = _https_url(url)
     ck = str(candidate_key or "").strip()
+    doi_s = _doi_from_value(doi) or _doi_from_value(external_id) or _doi_from_value(url_s)
+    provider_s = str(provider or "").strip()
+    kind_s = str(kind or "").strip().lower()
+    canonical_cid = _canonical_live_connector(cid, sid, provider_s)
+
+    hf_dataset_id = _huggingface_dataset_id_from_url(url_s)
+    if not hf_dataset_id and canonical_cid == "huggingface" and "/" in str(dataset_id or ""):
+        hf_dataset_id = str(dataset_id).strip().strip("/")
+    if hf_dataset_id and (
+        canonical_cid == "huggingface"
+        or cid.lower() in {"", "huggingface"}
+        or sid.lower() in {"", "huggingface"}
+    ):
+        return _huggingface_collect_plan(
+            dataset_id=hf_dataset_id,
+            title=title_s,
+            url=url_s,
+            connector_id=cid or "huggingface",
+            source_id=sid or "huggingface",
+            candidate_key=ck,
+            catalog_connector_id=cid or "huggingface",
+        )
+
+    # DOI is an explicit identity, not a search instruction. Zenodo and
+    # DataCite records share this repository-resolution path.
+    if doi_s and (canonical_cid in {"", "datacite", "zenodo", "openalex"} or kind_s == "live_candidate"):
+        doi_plan = _selected_doi_plan(
+            repo_root=repo_root,
+            doi=doi_s,
+            title=title_s,
+            url=url_s,
+            connector_id=canonical_cid or cid,
+            source_id=sid,
+            candidate_key=ck,
+            catalog_connector_id=cid or canonical_cid,
+        )
+        if doi_plan:
+            return doi_plan
+
+    # A concrete URL is already the model's choice. Only classify its fetch
+    # shape; never replace it with a provider homepage or catalog root.
+    if url_s and (kind_s == "live_candidate" or (not cid and not sid)):
+        from scripts.research_data_mcp.scrape_plan import classify_url
+
+        if classify_url(url_s) == "direct_http":
+            return _direct_url_manifest_plan(
+                url=url_s,
+                title=title_s,
+                connector_id=cid or canonical_cid,
+                source_id=sid,
+                candidate_key=ck,
+                catalog_connector_id=cid or canonical_cid,
+            )
 
     errors: list[str] = []
 
@@ -489,7 +760,7 @@ def resolve_discover_collect_plan(
             errors.append(f"procurement_unusable:{exc}")
             return None
 
-    # 1) Direct procurement / store id when provided
+    # 4) Direct procurement / store id when provided
     if cid:
         plan = try_manifest(cid)
         if plan:
@@ -520,7 +791,7 @@ def resolve_discover_collect_plan(
                 plan["title"] = f"Collect {catalog_title}"
             return _stamp_public_collect_plan(plan)
 
-    # 2b) Known public API manifests (TWSE OpenAPI JSON feeds, etc.)
+    # 5) Known public API manifests (TWSE OpenAPI JSON feeds, etc.)
     known = _known_source_manifest_plan(
         source_id=catalog_sid or sid,
         connector_id=matched or cid or catalog_cid,
@@ -533,7 +804,7 @@ def resolve_discover_collect_plan(
     if known:
         return known
 
-    # 3) Probe / scrape fallback — durable History row without inventing harvest files
+    # 6) Probe / scrape fallback — durable History row without inventing harvest files
     if catalog_url:
         return _probe_fallback_plan(
             url=catalog_url,

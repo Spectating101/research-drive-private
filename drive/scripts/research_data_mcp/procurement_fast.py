@@ -23,29 +23,54 @@ def local_path_has_data(repo_root: Path, pattern: str) -> bool:
     if not pattern:
         return False
     root = Path(repo_root).resolve()
+    # Keep procurement's local-ready flag in the same search space as the query
+    # engine.  A mounted bulk root is a normal deployment arrangement; checking
+    # only the checkout made a queryable CRSP table appear unavailable in Discover
+    # even though query_dataset could serve it.
+    from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+    roots = data_roots(root)
     if "*" in pattern:
-        matches = list(root.glob(pattern))[:24]
-        if not matches:
-            return False
-        for path in matches:
-            if path.is_file() and path.stat().st_size > 0:
-                return True
-            if path.is_dir():
-                try:
-                    if any(path.iterdir()):
-                        return True
-                except OSError:
-                    continue
+        import glob
+
+        for base in roots:
+            matches = [Path(hit) for hit in glob.glob(str(base / pattern), recursive=True)][:24]
+            for path in matches:
+                if path.is_file() and path.stat().st_size > 0:
+                    return True
+                if path.is_dir():
+                    try:
+                        if any(path.iterdir()):
+                            return True
+                    except OSError:
+                        continue
         return False
-    path = root / pattern
-    if path.is_file():
-        return path.stat().st_size > 0
-    if path.is_dir():
-        try:
-            return any(path.iterdir())
-        except OSError:
-            return False
+    for base in roots:
+        path = base / pattern
+        if path.is_file() and path.stat().st_size > 0:
+            return True
+        if path.is_dir():
+            try:
+                if any(path.iterdir()):
+                    return True
+            except OSError:
+                continue
     return False
+
+
+def declared_local_path(row: dict[str, Any]) -> str:
+    """Return the registry's concrete local address, including split fields."""
+    local_path = str(row.get("local_path") or "").strip()
+    if local_path:
+        return local_path
+    local_root = str(row.get("local_root") or "").strip().rstrip("/")
+    local_file = str(row.get("local_file") or "").strip().lstrip("/")
+    run_id = str(row.get("default_run_id") or "").strip().strip("/")
+    if not local_root:
+        return ""
+    if local_file:
+        return "/".join(part for part in (local_root, run_id, local_file) if part)
+    return local_root
 
 
 def queue_output_on_disk(repo_root: Path, task: dict[str, Any]) -> bool:
@@ -298,7 +323,7 @@ def local_search(
         dataset_id = str(row.get("dataset_id") or "")
         if not dataset_id:
             continue
-        local_path = str(row.get("local_path") or "")
+        local_path = declared_local_path(row)
         on_disk = local_path_has_data(gateway.repo_root, local_path) if local_path else False
         if on_disk:
             on_disk_ids.add(dataset_id)
@@ -355,7 +380,6 @@ def local_search(
         cand["score"] = round(float(cand.get("score") or 0) * _collect_score_boost(cand), 2)
         _add(cand)
 
-    datacite_sources: list[str] = []
     from scripts.research_data_mcp.procurement_search import query_topic_tokens, relevance_score
 
     query_tokens = query_topic_tokens(query)
@@ -447,8 +471,6 @@ def local_search(
 
     top = float(candidates[0].get("score") or 0) if candidates else 0.0
     downloadable = [c for c in candidates if str(c.get("collect_via") or "") in DOWNLOADABLE_VIA]
-    from scripts.research_data_mcp.procurement_search import looks_like_index_miss
-
     top_dl = max((float(c.get("score") or 0) for c in downloadable), default=0.0)
     index_miss = looks_like_index_miss(query, candidates, top_dl=top_dl)
     top_rel = float(candidates[0].get("query_relevance") or 0) if candidates else 0.0

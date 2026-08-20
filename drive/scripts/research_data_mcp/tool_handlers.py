@@ -191,7 +191,7 @@ class ResearchToolHandlers:
     def research_craft_collect_plan(
         self,
         research_need: str,
-        url: str = "",
+        url: str,
         title: str = "",
         mode: str = "",
         dataset_id: str = "",
@@ -273,6 +273,63 @@ class ResearchToolHandlers:
             dataset_id=dataset_id,
             name=name,
             limit=limit,
+        )
+
+    def research_acquisition_status(self, source_id: str = "") -> dict[str, Any]:
+        """Report licensed-source readiness without network access or side effects."""
+        return self.gateway.acquisition_status(source_id=source_id)
+
+    def research_acquisition_options(
+        self,
+        query: str,
+        email: str = "",
+        limit: int = 12,
+        live: bool = True,
+        include_web: bool = False,
+        tavily_live: bool = False,
+    ) -> dict[str, Any]:
+        """Gather all acquisition evidence; Composer chooses the candidate."""
+        return self.gateway.acquisition_options(
+            query,
+            email=email,
+            limit=min(max(int(limit), 1), 24),
+            live=bool(live),
+            include_web=bool(include_web),
+            tavily_live=bool(tavily_live),
+        )
+
+    def research_webfetch_handoff(
+        self,
+        research_need: str,
+        source_id: str = "",
+        connector_id: str = "",
+        candidate_key: str = "",
+        title: str = "",
+        provider: str = "",
+        kind: str = "live_candidate",
+        dataset_id: str = "",
+        doi: str = "",
+        url: str = "",
+        webfetch: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Validate a Cursor-owned webfetch/source choice and return a passive collect plan.
+
+        The model must choose the candidate.  This tool never searches, follows links,
+        submits a job, downloads bytes, or promotes a registry row.
+        """
+        return self.gateway.webfetch_acquisition_handoff(
+            research_need=research_need,
+            source_id=source_id,
+            connector_id=connector_id,
+            candidate_key_value=candidate_key,
+            title=title,
+            provider=provider,
+            kind=kind,
+            dataset_id=dataset_id,
+            doi=doi,
+            url=url,
+            selection_authority="cursor_composer",
+            webfetch=webfetch,
         )
 
     def research_discover_history(self, limit: int = 50, kind: str = "", session_id: str = "") -> dict[str, Any]:

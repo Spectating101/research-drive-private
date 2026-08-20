@@ -446,3 +446,89 @@ def _search_vault_topics_legacy(repo_root: Path, query: str, *, limit: int = 10)
     from scripts.research_data_mcp.datacite_prefetch import search_curated_datasets
 
     return search_curated_datasets(repo_root, query, limit=limit)
+
+_SEMANTIC_MODELS: dict[str, Any] = {}
+
+
+def _semantic_model(name: str) -> Any:
+    """Cache the encoder. Loading it per query cost 4-9 seconds a call."""
+    if name not in _SEMANTIC_MODELS:
+        from sentence_transformers import SentenceTransformer
+
+        _SEMANTIC_MODELS[name] = SentenceTransformer(name)
+    return _SEMANTIC_MODELS[name]
+
+
+def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+    """Meaning-based retrieval over the whole curated corpus.
+
+    FTS is the binding constraint, not ranking: it finds 4 documents for "stock returns"
+    and 14 for "patent" out of 60,610, so re-ranking its candidates cannot help. This scans
+    every embedded row instead, which is the only thing that widens recall.
+
+    Returns [] when the vector index is absent or stale against the FTS index, so a missing
+    build degrades to keyword rather than to a wrong answer.
+    """
+    query = str(query or "").strip()
+    if not query:
+        return []
+    try:
+        import json as _json
+
+        import numpy as np
+
+        from scripts.data_catalog.build_curated_semantic_index import paths as _paths
+    except Exception:
+        return []
+
+    db, vec_path, meta_path = _paths(Path(repo_root))
+    if not (vec_path.is_file() and meta_path.is_file() and db.is_file()):
+        return []
+    try:
+        meta = _json.loads(meta_path.read_text(encoding="utf-8"))
+        rowids = [int(r) for r in (meta.get("rowids") or [])]
+        matrix = np.load(vec_path, mmap_mode="r")
+    except Exception:
+        return []
+    if matrix.shape[0] != len(rowids) or not rowids:
+        return []
+
+    try:
+        model = _semantic_model(str(meta.get("model") or ""))
+        qv = model.encode(query, normalize_embeddings=True, convert_to_numpy=True).astype("float32")
+    except Exception:
+        return []
+
+    scores = np.asarray(matrix) @ qv
+    top = np.argsort(-scores)[: max(1, min(limit, 50))]
+    wanted = {rowids[int(i)]: float(scores[int(i)]) for i in top}
+    if not wanted:
+        return []
+
+    conn = _connect(db)
+    try:
+        placeholders = ",".join("?" for _ in wanted)
+        rows = conn.execute(
+            f"""SELECT rowid, doi, dataset_id, source_dir, title, body, payload_json
+                FROM curated_fts WHERE rowid IN ({placeholders})""",
+            tuple(wanted),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        conn.close()
+        return []
+    conn.close()
+
+    hits: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except json.JSONDecodeError:
+            payload = {"title": row["title"], "doi": row["doi"]}
+        payload.setdefault("title", row["title"])
+        payload.setdefault("doi", row["doi"])
+        payload["dataset_id"] = payload.get("dataset_id") or row["dataset_id"]
+        payload["match_type"] = "semantic"
+        payload["semantic_score"] = round(wanted[int(row["rowid"])], 4)
+        hits.append(payload)
+    hits.sort(key=lambda h: -float(h.get("semantic_score") or 0.0))
+    return hits[:limit]

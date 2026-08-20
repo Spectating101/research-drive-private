@@ -21,7 +21,6 @@ from scripts.research_data_mcp.scrape_plan import (
     build_http_manifest_plan_for_url,
     classify_url,
     extract_urls,
-    plan_for_url,
 )
 
 # Only these job types are legal outputs of craft.
@@ -101,6 +100,9 @@ OPS_JOB_TYPES = frozenset(
         "registered_pipeline",
         "collection_queue_task",
         "collection_queue_batch",
+        # Exact selected HF dataset connector. This is an internal worker
+        # operation, but the resulting acquisition still requires approval.
+        "huggingface_collect",
     }
 )
 

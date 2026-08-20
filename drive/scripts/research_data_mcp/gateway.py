@@ -438,25 +438,30 @@ class ResearchDataGateway:
                 "plan": plan,
             }
 
-        from scripts.research_data_mcp.procurement_auto_approve import should_auto_approve_plan
-        from scripts.research_data_mcp.procurement_equipment_bridge import submit_collect_plan
-
         request = {
             "doi": doi,
             "campaign_id": campaign_id or "",
             "add_to_collection": True,
             "mcp": True,
         }
-        approve = bool(
-            auto_execute
-            and should_auto_approve_plan(plan, self.repo_root, orchestrator=self.orchestrator)
+        # Use the canonical job service. The removed procurement bridge made
+        # the DOI tool fail at runtime and created a second submit path outside
+        # the central execution policy. Acquisition remains pending until a
+        # researcher approves it in the desk; ``auto_execute`` is compatibility
+        # input only.
+        submitted = self.jobs.submit(
+            str(plan.get("title") or f"Collect DOI {doi}"),
+            plan,
+            request,
+            auto_approve=False,
         )
-        submitted = submit_collect_plan(self, plan, context=request, auto_approve=approve)
         out = {
             "plan": plan,
             "job": submitted.get("job"),
             "campaign_id": campaign_id,
             "resolved": resolved,
+            "approval_required": True,
+            "auto_executed": False,
         }
         return self._enrich_collect_result(out, doi)
 
@@ -1443,7 +1448,11 @@ class ResearchDataGateway:
         submitted = self.jobs.submit(
             f"Collect HF {hf_id}",
             plan,
-            {"hf_dataset_id": hf_id, "search_goal": f"huggingface {hf_id}"},
+            {
+                "_ops_internal": True,
+                "hf_dataset_id": hf_id,
+                "search_goal": f"huggingface {hf_id}",
+            },
             auto_approve=False,
         )
         job = submitted.get("job") or {}
@@ -1673,6 +1682,11 @@ class ResearchDataGateway:
                 title=str(intent.get("title") or ""),
                 url=str(route.get("url") or route.get("source_url") or ""),
                 candidate_key=str(route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or ""),
+                doi=str(route.get("doi") or (state.get("candidate") or {}).get("doi") or ""),
+                external_id=str(route.get("external_id") or (state.get("candidate") or {}).get("external_id") or ""),
+                provider=str(route.get("provider") or (state.get("candidate") or {}).get("provider") or ""),
+                kind=str(route.get("kind") or (state.get("candidate") or {}).get("kind") or ""),
+                dataset_id=str(route.get("dataset_id") or (state.get("candidate") or {}).get("dataset_id") or ""),
             )
         )
         plan.update({"discover_intent_id": intent_id, "candidate_key": route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or "", "destination": route.get("destination") or plan.get("destination") or "", "refresh_strategy": route.get("refresh") or ""})
@@ -1802,6 +1816,24 @@ class ResearchDataGateway:
             name=name,
             limit=limit,
         )
+
+    def acquisition_status(self, source_id: str = "") -> dict[str, Any]:
+        """Read-only readiness for licensed and public acquisition lanes."""
+        from scripts.research_data_mcp.licensed_sources import inspect_source
+
+        return inspect_source(self.repo_root, source_id)
+
+    def webfetch_acquisition_handoff(self, **kwargs: Any) -> dict[str, Any]:
+        """Validate a Cursor/webfetch-selected candidate and build a passive plan."""
+        from scripts.research_data_mcp.acquisition_handoff import build_acquisition_handoff
+
+        return build_acquisition_handoff(self, **kwargs)
+
+    def acquisition_options(self, query: str, **kwargs: Any) -> dict[str, Any]:
+        """Gather held, public, web, and licensed evidence without selecting a source."""
+        from scripts.research_data_mcp.acquisition_options import build_acquisition_options
+
+        return build_acquisition_options(self, query, **kwargs)
 
     def discover_refresh_create(
         self,
@@ -2038,6 +2070,11 @@ class ResearchDataGateway:
                     candidate_key=str(row.get("candidate_key") or ""),
                     title=str(row.get("label") or row.get("evidence_id") or ""),
                     limit=8,
+                    doi=str(row.get("doi") or ""),
+                    external_id=str(row.get("external_id") or ""),
+                    provider=str(row.get("provider") or row.get("source") or ""),
+                    kind=str(row.get("kind") or ""),
+                    dataset_id=str(row.get("dataset_id") or ""),
                 )
                 row["resolvable"] = True
                 row["plan_preview"] = {
@@ -2097,6 +2134,11 @@ class ResearchDataGateway:
                         candidate_key=str(intent.get("candidate_key") or ""),
                         title=str(intent.get("label") or eid),
                         limit=min(max(int(limit or 8), 1), 25),
+                        doi=str(intent.get("doi") or ""),
+                        external_id=str(intent.get("external_id") or ""),
+                        provider=str(intent.get("provider") or intent.get("source") or ""),
+                        kind=str(intent.get("kind") or ""),
+                        dataset_id=str(intent.get("dataset_id") or ""),
                     )
                 )
             except Exception as exc:  # noqa: BLE001

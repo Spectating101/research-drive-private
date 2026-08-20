@@ -46,10 +46,20 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      # Semantic route discovery is a release capability, not an optional
+      # developer convenience.  Cache the declared model so the contract tests
+      # the same embedding path on every clean checkout without redownloading
+      # weights on every run.
+      - name: Cache semantic retrieval model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: semantic-model-${{ runner.os }}-all-MiniLM-L6-v2-v1
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn hmmlearn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance ruff
+          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn hmmlearn pyarrow networkx python-dotenv pydantic fastapi uvicorn structlog asyncpg redis prometheus-fastapi-instrumentator stripe email-validator openai paramiko aiohttp tabulate yfinance ruff sentence-transformers==5.2.0
 
       - name: Install UI dependencies
         run: npm ci

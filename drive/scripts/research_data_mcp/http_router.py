@@ -519,6 +519,11 @@ def _handlers() -> dict[str, Handler]:
                 title=str(payload.get("name") or payload.get("title") or "").strip(),
                 url=str(payload.get("url") or payload.get("source_url") or "").strip(),
                 candidate_key=str(payload.get("candidate_key") or "").strip(),
+                doi=str(payload.get("doi") or "").strip(),
+                external_id=str(payload.get("external_id") or "").strip(),
+                provider=str(payload.get("provider") or payload.get("source") or "").strip(),
+                kind=str(payload.get("kind") or "").strip(),
+                dataset_id=str(payload.get("dataset_id") or "").strip(),
             )
         except KeyError as exc:
             return {

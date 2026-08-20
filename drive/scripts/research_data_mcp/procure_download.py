@@ -18,8 +18,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
-from pathlib import Path
 from typing import Any
 from sharpe_kernel.paths import repo_root_from_file
 
@@ -27,17 +25,7 @@ ROOT = repo_root_from_file(__file__)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.research_data_mcp.procurement_constants import DOWNLOADABLE_VIA
-
-
-def _wait_job(gateway: Any, job_id: str, *, ticks: int = 100, sleep: float = 0.2) -> dict[str, Any]:
-    for _ in range(ticks):
-        gateway.jobs.tick()
-        job = gateway.get_yzu_job(job_id)
-        if job.get("status") in {"completed", "failed", "cancelled"}:
-            return job
-        time.sleep(sleep)
-    return gateway.get_yzu_job(job_id)
+from scripts.research_data_mcp.procurement_constants import DOWNLOADABLE_VIA  # noqa: E402
 
 
 def _files_from_job(gateway: Any, job: dict[str, Any]) -> list[dict[str, Any]]:
@@ -72,12 +60,15 @@ def download_url(gateway: Any, url: str, *, title: str = "") -> dict[str, Any]:
     plan = gateway.orchestrator.validate_plan(plan)
     if plan.get("validation_error"):
         return {"status": "failed", "error": plan["validation_error"], "url": url}
-    submitted = gateway.jobs.submit(plan.get("title", "Download"), plan, {"cli": True}, auto_approve=True)
+    # A URL collect is an acquisition side effect.  Submit it through the
+    # normal policy and return the pending handoff; only the desk UI may
+    # approve it.  Waiting here used to make a CLI call look hung while the
+    # job was intentionally waiting for approval.
+    submitted = gateway.jobs.submit(plan.get("title", "Download"), plan, {"cli": True}, auto_approve=False)
     job = submitted.get("job") or {}
     job_id = str(job.get("id") or "")
     if not job_id:
         return {"status": "failed", "error": "job not submitted", "url": url}
-    job = _wait_job(gateway, job_id)
     files = _files_from_job(gateway, job) if job.get("status") == "completed" else []
     return {
         "status": job.get("status", "unknown"),
@@ -87,6 +78,7 @@ def download_url(gateway: Any, url: str, *, title: str = "") -> dict[str, Any]:
         "files": files,
         "error": job.get("error"),
         "destination": plan.get("destination"),
+        "approval_required": job.get("status") == "pending_approval",
     }
 
 
@@ -161,8 +153,13 @@ def download_search(gateway: Any, query: str, *, pick: int = 1) -> dict[str, Any
             "launchable": True,
             "title": str(choice.get("title") or "queue task"),
         }
-        submitted = gateway.jobs.submit(plan["title"], plan, {"cli": True}, auto_approve=True)
-        job = _wait_job(gateway, str((submitted.get("job") or {}).get("id")))
+        submitted = gateway.jobs.submit(
+            plan["title"],
+            plan,
+            {"_ops_internal": True, "cli": True},
+            auto_approve=False,
+        )
+        job = submitted.get("job") or {}
         return {
             "status": job.get("status", "unknown"),
             "query": query,
@@ -170,6 +167,7 @@ def download_search(gateway: Any, query: str, *, pick: int = 1) -> dict[str, Any
             "picked": {"index": choice.get("index"), "title": choice.get("title"), "via": via},
             "error": job.get("error"),
             "result": job.get("result"),
+            "approval_required": job.get("status") == "pending_approval",
         }
     return {
         "status": "failed",
@@ -192,9 +190,9 @@ def download_message(gateway: Any, message: str) -> dict[str, Any]:
             str(plan.get("title") or "Collect"),
             plan,
             {"cli": True, "message": message},
-            auto_approve=True,
+            auto_approve=False,
         )
-        job = _wait_job(gateway, str((submitted.get("job") or {}).get("id")))
+        job = submitted.get("job") or {}
         files = _files_from_job(gateway, job) if job.get("status") == "completed" else []
         return {
             "status": job.get("status", "unknown"),
@@ -203,28 +201,49 @@ def download_message(gateway: Any, message: str) -> dict[str, Any]:
             "job_type": plan.get("job_type"),
             "files": files,
             "error": job.get("error"),
+            "approval_required": job.get("status") == "pending_approval",
         }
 
-    from scripts.research_data_mcp.procurement_equipment_bridge import plan_collect_goal, submit_collect_plan
+    # There is deliberately no heuristic fallback planner.  If Composer did
+    # not provide a concrete target, ask it to select one (or use webfetch)
+    # and then pass that explicit URL through craft_collect_plan.
+    from scripts.research_data_mcp.craft_collect import craft_collect_plan
+    from scripts.research_data_mcp.scrape_plan import extract_urls
 
-    planned = plan_collect_goal(gateway, message, full_message=message)
-    plan = planned.get("plan")
-    if not plan or not planned.get("launchable"):
+    urls = extract_urls(message)
+    if not urls:
         return {
             "status": "failed",
             "message": message,
-            "error": planned.get("validation_error")
-            or "no launchable plan — use Research Drive chat (Composer + MCP) or yzu_submit_job(plan_json)",
-            "candidates": planned.get("candidates") or [],
+            "error": (
+                "no concrete source URL — use Discover/Composer or webfetch to select a target, "
+                "then submit the explicit URL with research_craft_collect_plan"
+            ),
         }
-    submitted = submit_collect_plan(
-        gateway,
+    try:
+        plan = craft_collect_plan(
+            research_need=message,
+            url=urls[0],
+            title=f"Collect selected source · {urls[0]}",
+        )
+        plan = gateway.orchestrator.validate_plan(plan)
+    except Exception as exc:
+        return {"status": "failed", "message": message, "error": str(exc), "url": urls[0]}
+    if not plan.get("launchable", True):
+        return {
+            "status": "failed",
+            "message": message,
+            "url": urls[0],
+            "error": plan.get("validation_error") or "collect plan is not launchable",
+            "plan": plan,
+        }
+    submitted = gateway.jobs.submit(
+        str(plan.get("title") or "Collect selected source"),
         plan,
-        context={"cli": True, "message": message, "search_goal": message},
-        auto_approve=True,
-        goal=message,
+        {"cli": True, "message": message, "search_goal": message},
+        auto_approve=False,
     )
-    job = _wait_job(gateway, str((submitted.get("job") or {}).get("id")))
+    job = submitted.get("job") or {}
     files = _files_from_job(gateway, job) if job.get("status") == "completed" else []
     return {
         "status": job.get("status", "unknown"),
@@ -233,6 +252,8 @@ def download_message(gateway: Any, message: str) -> dict[str, Any]:
         "job_type": plan.get("job_type"),
         "files": files,
         "error": job.get("error"),
+        "approval_required": job.get("status") == "pending_approval",
+        "url": urls[0],
     }
 
 
