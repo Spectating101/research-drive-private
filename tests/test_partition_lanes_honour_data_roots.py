@@ -140,3 +140,33 @@ def test_an_authored_nav_still_wins_over_the_fallback(tmp_path):
     )
     shelves = professor_shelves(repo)
     assert [s["id"] for s in shelves] == ["news_events"]
+
+
+def test_lanes_are_attributed_to_the_derived_shelves(tmp_path, monkeypatch):
+    """Deriving shelves is only half the nav: a lane still needs its shelf_id, or
+    every shelf renders a count of zero over lanes that plainly exist."""
+    from scripts.yzu_cluster.partition_lanes import partition_lanes, professor_shelves
+
+    repo = tmp_path / "checkout"
+    data = tmp_path / "elsewhere"
+    for name in ("news", "markets"):
+        (data / f"data_lake/{name}").mkdir(parents=True)
+        (data / f"data_lake/{name}/rows.csv").write_text("a\n1\n", encoding="utf-8")
+    _write_config(
+        repo,
+        [
+            {"id": "news.gdelt", "domain": "news", "status": "held",
+             "legacy_local_path": "data_lake/news"},
+            {"id": "markets.equities", "domain": "markets", "status": "held",
+             "legacy_local_path": "data_lake/markets"},
+        ],
+    )
+    monkeypatch.setenv("RESEARCH_DATA_ROOTS", str(data))
+
+    lanes = partition_lanes(repo)
+    assert {l["partition_id"]: l.get("shelf_id") for l in lanes} == {
+        "news.gdelt": "news",
+        "markets.equities": "markets",
+    }
+    shelf_ids = {s["id"] for s in professor_shelves(repo)}
+    assert {l.get("shelf_id") for l in lanes} <= shelf_ids, "a lane must land on a real shelf"

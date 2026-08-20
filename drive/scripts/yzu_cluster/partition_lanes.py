@@ -120,6 +120,20 @@ def _shelf_index(cfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
         }
         for pid in shelf.get("partition_ids") or []:
             out[str(pid)] = shelf_meta
+    if out:
+        return out
+    # No authored nav: attribute each lane to the domain shelf derived from the
+    # same config, or every derived shelf renders zero over lanes that exist.
+    for shelf in _shelves_from_domain(cfg):
+        shelf_meta = {
+            "shelf_id": shelf["id"],
+            "shelf_label": shelf["label"],
+            "shelf_blurb": shelf["blurb"],
+            "shelf_sort": shelf["sort"],
+            "shelf_visible": True,
+        }
+        for pid in shelf["partition_ids"]:
+            out[str(pid)] = shelf_meta
     return out
 
 
