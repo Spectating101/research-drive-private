@@ -35,6 +35,12 @@ def _local_storage_path(repo_root: Path, part: dict[str, Any]) -> Path | None:
     raw = part.get("legacy_local_path")
     if not raw:
         return None
+    from scripts.research_data_mcp.synthesis.dataset_paths import data_roots
+
+    for root in data_roots(repo_root):
+        candidate = root / str(raw)
+        if candidate.exists():
+            return candidate
     return Path(repo_root).resolve() / str(raw)
 
 
@@ -220,7 +226,31 @@ def professor_shelves(repo_root: Path) -> list[dict[str, Any]]:
             }
         )
     shelves.sort(key=lambda s: (s.get("sort", 500), s.get("label") or ""))
-    return shelves
+    return shelves or _shelves_from_domain(cfg)
+
+
+def _shelves_from_domain(cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """No config has ever carried professor_nav, so shelf-first nav rendered nothing
+    over 25 partitions. `domain` is the taxonomy the partitions already declare."""
+    grouped: dict[str, list[str]] = {}
+    for part in cfg.get("partitions") or []:
+        if part.get("professor_visible") is False:
+            continue
+        domain = str(part.get("domain") or "").strip()
+        pid = str(part.get("id") or "").strip()
+        if domain and pid:
+            grouped.setdefault(domain, []).append(pid)
+    return [
+        {
+            "id": domain,
+            "label": domain.replace("_", " ").replace("-", " ").title(),
+            "blurb": "",
+            "sort": 500,
+            "partition_ids": pids,
+            "derived_from": "domain",
+        }
+        for domain, pids in sorted(grouped.items())
+    ]
 
 
 def partition_lanes(repo_root: Path) -> list[dict[str, Any]]:
