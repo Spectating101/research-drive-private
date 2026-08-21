@@ -17,6 +17,10 @@
 set -u -o pipefail
 
 ENV_FILE="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
+# Preserve an explicit candidate checkout before the service environment is
+# sourced. The env file names the normal live checkout; preflight needs to be
+# able to validate a clean, staged candidate without mutating that authority.
+preflight_public_root="${YZU_PUBLIC_REPO:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -35,7 +39,7 @@ set -u
 
 backend_root="${SHARPE_REPO_ROOT:-}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-public_root="${YZU_PUBLIC_REPO:-}"
+public_root="${preflight_public_root:-${YZU_PUBLIC_REPO:-}}"
 # A promotion validates a staged candidate before changing the live dist link.
 # The front-door env intentionally continues to name the live link, so use this
 # separate, explicit override only for that read-only preflight.
