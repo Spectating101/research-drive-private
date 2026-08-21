@@ -539,6 +539,62 @@ def test_http_thread_routes_roundtrip(stack, tmp_path: Path, monkeypatch):
     assert profiles["status"] == 200
     assert "profiles" in profiles["body"]
 
+
+def test_http_evidence_map_requires_review_before_persisting(stack, tmp_path: Path, monkeypatch):
+    """Semantic retrieval may propose held inputs; only an explicit POST maps them."""
+    from scripts.research_data_mcp.http_router import handle_get, handle_post
+    from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore
+
+    isolated = SynthesisThreadStore(tmp_path / "evidence_map_threads.sqlite3")
+    monkeypatch.setattr(stack.gateway, "_synthesis_threads_store", isolated, raising=False)
+    monkeypatch.setattr(
+        stack.gateway,
+        "semantic_discover",
+        lambda objective, *, limit=12: {
+            "rows": [{"dataset_id": "idn_fry_daily_cross_section", "title": "Indonesia daily cross-section"}],
+        },
+    )
+    monkeypatch.setattr(
+        stack.gateway,
+        "describe_dataset",
+        lambda dataset_id: {
+            "readiness": "query_ready",
+            "materialization": {"query_ready": True, "grain": "ric-day"},
+            "coverage": "2020–2026",
+        },
+    )
+
+    created = handle_post(
+        "/library/synthesis/threads",
+        {"objective": "Do Indonesian microstructure signals precede revision changes?"},
+        stack,
+    )
+    assert created["status"] == 200
+    tid = created["body"]["id"]
+
+    preview = handle_get(f"/library/synthesis/threads/{tid}/evidence-map", {}, stack)
+    assert preview["status"] == 200
+    assert preview["body"]["writes"] is False
+    assert [node["dataset_id"] for node in preview["body"]["nodes"]] == ["idn_fry_daily_cross_section"]
+    assert handle_get(f"/library/synthesis/threads/{tid}", {}, stack)["body"]["state"]["nodes"] == []
+
+    applied = handle_post(
+        f"/library/synthesis/threads/{tid}/evidence-map",
+        {"dataset_ids": ["idn_fry_daily_cross_section"]},
+        stack,
+    )
+    assert applied["status"] == 200
+    assert [node["dataset_id"] for node in applied["body"]["thread"]["state"]["nodes"]] == ["idn_fry_daily_cross_section"]
+    assert applied["body"]["thread"]["state"]["nodes"][0]["query_ready"] is True
+
+    # A stale or client-invented identity cannot become a Synthesis input.
+    rejected = handle_post(
+        f"/library/synthesis/threads/{tid}/evidence-map",
+        {"dataset_ids": ["external_unheld_candidate"]},
+        stack,
+    )
+    assert rejected["status"] == 400
+
 def test_link_conversation_persists_session_and_optional_conversation(store):
     created = store.create(
         objective="Construct a defensible longitudinal attention signal.",

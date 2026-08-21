@@ -2003,6 +2003,82 @@ class ResearchDataGateway:
     def synthesis_thread_set_proposal(self, thread_id: str, proposal: dict | None) -> dict:
         return self._synthesis_thread_store().set_proposal(thread_id, proposal)
 
+    def synthesis_thread_evidence_map(self, thread_id: str, *, limit: int = 6) -> dict:
+        """Return a reviewable, held-only evidence-map proposal for one thread.
+
+        This is intentionally a read: semantic retrieval may identify useful
+        Library assets, but deciding that they belong in a construction remains
+        a researcher action.  Existing nodes are removed from the proposal so a
+        reload never reads as a second, duplicate map.
+        """
+        from scripts.research_data_mcp.synthesis.evidence_map import propose_evidence_nodes
+
+        thread = self._synthesis_thread_store().get(thread_id)
+        proposed = propose_evidence_nodes(
+            self,
+            str(thread.get("objective") or thread.get("state", {}).get("objective") or ""),
+            limit=max(1, min(int(limit or 6), 12)),
+        )
+        state = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+        existing = {
+            str(node.get("dataset_id") or node.get("id") or "")
+            for node in (state.get("nodes") or [])
+            if isinstance(node, dict)
+        }
+        nodes = [
+            node for node in (proposed.get("nodes") or [])
+            if str(node.get("dataset_id") or node.get("id") or "") not in existing
+        ]
+        reason = str(proposed.get("reason") or "")
+        if not nodes and not reason and existing:
+            reason = "all held matches are already mapped to this construction"
+        return {
+            "thread_id": thread_id,
+            "objective": proposed.get("objective") or thread.get("objective") or "",
+            "nodes": nodes,
+            "reason": reason,
+            "review_required": bool(proposed.get("review_required", False)),
+            "writes": False,
+        }
+
+    def synthesis_thread_apply_evidence_map(
+        self,
+        thread_id: str,
+        *,
+        dataset_ids: list | None = None,
+    ) -> dict:
+        """Persist only the exact held inputs a researcher reviewed and chose."""
+        proposal = self.synthesis_thread_evidence_map(thread_id, limit=12)
+        candidates = {
+            str(node.get("dataset_id") or node.get("id") or ""): node
+            for node in (proposal.get("nodes") or [])
+            if isinstance(node, dict) and str(node.get("dataset_id") or node.get("id") or "")
+        }
+        requested = []
+        for raw in dataset_ids or []:
+            value = str(raw or "").strip()
+            if value and value not in requested:
+                requested.append(value)
+        if not requested:
+            raise ValueError("Select one or more proposed held inputs before adding them to the map.")
+        unknown = [value for value in requested if value not in candidates]
+        if unknown:
+            raise ValueError("Only inputs in the current held-evidence proposal can be added to this map.")
+
+        operations = [{"op": "add_node", "node": candidates[value]} for value in requested]
+        operations.append(
+            {
+                "op": "append_activity",
+                "message": f"Added {len(requested)} reviewed held input{'s' if len(requested) != 1 else ''} to the evidence map.",
+            }
+        )
+        thread = self.synthesis_thread_apply_patch(
+            thread_id,
+            decision="apply",
+            operations=operations,
+        )
+        return {"thread": thread, "added": [candidates[value] for value in requested]}
+
     def synthesis_thread_propose_state(
         self,
         thread_id: str,
