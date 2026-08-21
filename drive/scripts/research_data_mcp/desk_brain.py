@@ -868,6 +868,11 @@ def run_cursor_composer_turn(
 
         for model_idx, model_id in enumerate(model_candidates):
             send_started = False
+            # A retry may be useful for a provider-side failure, but it must never
+            # replay a turn after the first model began an MCP action. In that
+            # case the existing post-run handling inspects durable artifacts
+            # instead of risking a duplicated proposal, collection, or job.
+            tool_call_started = False
             try:
                 agent_opts = sdk.agent_options(
                     model=sdk.model_selection(id=model_id),
@@ -921,9 +926,18 @@ def run_cursor_composer_turn(
                 or getattr(run, "status", "") == "error"
                 or (not reply and not prime)
             )
-            if not is_model_error or model_idx == len(model_candidates) - 1:
+            can_try_fallback_model = (
+                is_model_error
+                and model_idx < len(model_candidates) - 1
+                and not tool_call_started
+            )
+            if not can_try_fallback_model:
                 break
-            break
+            agent_id = ""
+            state.pop("cursor_agent_id", None)
+            run = None
+            reply = ""
+            continue
 
         if not reply:
             reply = EMPTY_REPLY_FALLBACK
