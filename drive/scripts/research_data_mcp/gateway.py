@@ -724,6 +724,26 @@ class ResearchDataGateway:
         semantic_top = max((float(r.get("score") or 0.0) for r in semantic_rows), default=0.0)
         if semantic_rows:
             candidates = semantic_rows + candidates
+        # profile_score_adjustment has existed unreachable: the desk loaded a
+        # researcher's domain_tags and ranked nothing by them. Boosts only.
+        #
+        # Its demote half is deliberately not applied. Measured on this desk, a
+        # "carbon emissions by country" query demoted FaIR climate calibration by
+        # -1.20 because climate is not one of the profile's domains — burying the
+        # best answer to the question actually asked. Promoting what a researcher
+        # works on is helpful; hiding what they explicitly asked for is not.
+        if profile and candidates:
+            from scripts.research_data_mcp.faculty_profile import profile_score_adjustment
+
+            for candidate in candidates:
+                try:
+                    boost = profile_score_adjustment(candidate, query, profile)
+                except Exception:
+                    continue
+                if boost > 0:
+                    candidate["score"] = float(candidate.get("score") or 0.0) + boost
+                    candidate["profile_boost"] = round(boost, 3)
+            candidates.sort(key=lambda c: float(c.get("score") or 0.0), reverse=True)
         sections: list[dict[str, Any]] = []
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
