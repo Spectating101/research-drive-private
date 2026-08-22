@@ -2003,6 +2003,34 @@ class ResearchDataGateway:
     def synthesis_thread_set_proposal(self, thread_id: str, proposal: dict | None) -> dict:
         return self._synthesis_thread_store().set_proposal(thread_id, proposal)
 
+    def synthesis_thread_measurements(self, thread_id: str, *, max_inputs: int = 4) -> dict:
+        """What a thread's mapped evidence states without a reasoning model.
+
+        column_profiles, unit_conflict and join_candidates are measurements of
+        held bytes, so they are available while the Composer runtime is down.
+        A thread with nothing mapped yet is measured against its own evidence-map
+        proposal, which keeps the panels honest before a researcher has accepted
+        anything: the figures are real, and `from_proposal` says they describe
+        candidate inputs rather than accepted ones.
+        """
+        from scripts.research_data_mcp.synthesis.evidence_map import propose_evidence_nodes
+        from scripts.research_data_mcp.synthesis.measured_state import measured_state
+
+        thread = self._synthesis_thread_store().get(thread_id)
+        state = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+        nodes = [n for n in (state.get("nodes") or []) if isinstance(n, dict)]
+        from_proposal = False
+        if not nodes:
+            objective = str(thread.get("objective") or state.get("objective") or "")
+            nodes = propose_evidence_nodes(self, objective, limit=max_inputs).get("nodes") or []
+            from_proposal = True
+
+        out = measured_state(self, nodes, max_inputs=max(1, min(int(max_inputs or 4), 8)))
+        out["thread_id"] = thread_id
+        out["from_proposal"] = from_proposal
+        out["writes"] = False
+        return out
+
     def synthesis_thread_evidence_map(self, thread_id: str, *, limit: int = 6) -> dict:
         """Return a reviewable, held-only evidence-map proposal for one thread.
 

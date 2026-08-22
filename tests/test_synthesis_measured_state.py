@@ -125,3 +125,32 @@ def test_joins_are_only_probed_when_both_sides_were_measured(tmp_path):
     out = ms.measured_state(gw, [{"dataset_id": "left"}, {"dataset_id": "right"}])
     assert "join_candidates" not in out
     assert out["unmeasured"]
+
+
+def test_the_route_is_registered_so_the_ui_can_reach_it():
+    """A producer nothing exposes is the defect this repo keeps repeating:
+    written, tested, imported by nothing."""
+    from scripts.research_data_mcp.http_router import ROUTE_CATALOG
+
+    paths = {(r["method"], r["path"]) for r in ROUTE_CATALOG}
+    assert ("GET", "/library/synthesis/threads/{thread_id}/measurements") in paths
+
+
+def test_the_handler_exists_for_that_route():
+    from scripts.research_data_mcp.http_router import ROUTE_CATALOG, _handlers
+
+    handlers = _handlers()
+    named = {r["handler"] for r in ROUTE_CATALOG}
+    assert "library_synthesis_thread_measurements" in named
+    assert "library_synthesis_thread_measurements" in handlers, (
+        "a route naming a handler that does not exist registers nothing and fails at call time"
+    )
+
+
+def test_the_gateway_method_exists_and_never_writes():
+    from scripts.research_data_mcp.gateway import ResearchDataGateway
+    import inspect
+
+    assert hasattr(ResearchDataGateway, "synthesis_thread_measurements")
+    src = inspect.getsource(ResearchDataGateway.synthesis_thread_measurements)
+    assert '"writes"] = False' in src or '"writes": False' in src
