@@ -467,7 +467,13 @@ def _semantic_floor() -> float:
         return 0.40
 
 
-def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+def search_curated_semantic(
+    repo_root: Path,
+    query: str,
+    *,
+    limit: int = 8,
+    require_resident_model: bool = True,
+) -> list[dict[str, Any]]:
     """Meaning-based retrieval over the whole curated corpus.
 
     FTS is the binding constraint, not ranking: it finds 4 documents for "stock returns"
@@ -501,8 +507,14 @@ def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> l
     if matrix.shape[0] != len(rowids) or not rowids:
         return []
 
+    model_name = str(meta.get("model") or "")
+    if require_resident_model and model_name not in _SEMANTIC_MODELS:
+        # Loading the encoder costs ~9s. The startup warmup owns that; a user
+        # request must never pay it, so an unwarmed desk answers from keyword
+        # layers and picks semantic up on the next search.
+        return []
     try:
-        model = _semantic_model(str(meta.get("model") or ""))
+        model = _semantic_model(model_name)
         qv = model.encode(query, normalize_embeddings=True, convert_to_numpy=True).astype("float32")
     except Exception:
         return []

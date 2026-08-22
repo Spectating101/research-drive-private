@@ -46,6 +46,11 @@ STOPWORDS = frozenset(
 )
 
 
+def _require_resident_embedding_model() -> bool:
+    raw = (os.environ.get("RESEARCH_SEMANTIC_BLOCK_ON_COLD_MODEL") or "").strip().lower()
+    return raw not in {"1", "true", "on"}
+
+
 def warm_embedding_model(model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
     """Load the sentence-transformer ahead of traffic. ~9s, paid once per process."""
     try:
@@ -300,6 +305,11 @@ class SemanticCatalogIndex:
     ) -> list[dict[str, Any]]:
         """Embedding retrieval for research questions, distinct from token catalog lookup."""
         if not self._built or not query.strip():
+            return []
+        if _require_resident_embedding_model() and model_name not in _EMBEDDING_MODELS:
+            # ~9s to load the encoder plus ~5s to embed the corpus. The startup
+            # warmup owns both; a user request answers from keyword retrieval
+            # rather than blocking, and picks semantic up once warm.
             return []
         self._ensure_embeddings(model_name=model_name)
         model = self._embedding_model_instance(model_name)

@@ -37,7 +37,7 @@ def warm_search_indexes(repo_root: Path) -> dict[str, Any]:
     try:
         from scripts.research_data_mcp.datacite_vault_search import search_curated_semantic
 
-        search_curated_semantic(root, "warmup", limit=1)
+        search_curated_semantic(root, "warmup", limit=1, require_resident_model=False)
         status["semantic_vectors"] = True
     except Exception:
         status["semantic_vectors"] = False
