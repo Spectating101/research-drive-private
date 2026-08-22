@@ -10,6 +10,7 @@ no callers, so the panels rendered absence over data the desk could read.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -154,3 +155,60 @@ def test_the_gateway_method_exists_and_never_writes():
     assert hasattr(ResearchDataGateway, "synthesis_thread_measurements")
     src = inspect.getsource(ResearchDataGateway.synthesis_thread_measurements)
     assert '"writes"] = False' in src or '"writes": False' in src
+
+
+def test_thread_measurements_use_only_durable_mapped_evidence(tmp_path):
+    """A retrieval proposal is not part of the construction until reviewed."""
+    from scripts.research_data_mcp.gateway import ResearchDataGateway
+
+    _frame(tmp_path, "panel.parquet")
+    thread = {
+        "id": "thread-1",
+        "objective": "Build a panel",
+        "state": {"nodes": [{"dataset_id": "panel", "layer": "evidence"}]},
+    }
+    gateway = ResearchDataGateway.__new__(ResearchDataGateway)
+    gateway.repo_root = tmp_path
+    gateway._synthesis_thread_store = lambda: type("Store", (), {"get": lambda _self, _id: thread})()
+    gateway.describe_dataset = lambda dataset_id: {"local_path": "data_lake/panel.parquet"}
+
+    out = gateway.synthesis_thread_measurements("thread-1")
+    assert out["input_dataset_ids"] == ["panel"]
+    assert out["measured_inputs"] == 1
+    assert out["measurement_basis"] == "mapped_evidence"
+    assert out["writes"] is False
+
+
+def test_thread_without_mapped_evidence_does_not_measure_candidates(tmp_path):
+    from scripts.research_data_mcp.gateway import ResearchDataGateway
+
+    thread = {"id": "thread-1", "objective": "Build a panel", "state": {"nodes": []}}
+    gateway = ResearchDataGateway.__new__(ResearchDataGateway)
+    gateway.repo_root = tmp_path
+    gateway._synthesis_thread_store = lambda: type("Store", (), {"get": lambda _self, _id: thread})()
+    gateway.describe_dataset = lambda _dataset_id: pytest.fail("no candidate may be measured")
+
+    out = gateway.synthesis_thread_measurements("thread-1")
+    assert out["input_dataset_ids"] == []
+    assert out["column_profiles"] == []
+    assert out["reason"] == "no mapped evidence to measure"
+
+
+def test_measurements_route_dispatches_the_thread_and_bound():
+    from scripts.research_data_mcp.http_router import handle_get
+
+    calls = []
+
+    class Gateway:
+        def synthesis_thread_measurements(self, thread_id, *, max_inputs):
+            calls.append((thread_id, max_inputs))
+            return {"thread_id": thread_id, "writes": False}
+
+    response = handle_get(
+        "/library/synthesis/threads/thread-42/measurements",
+        {"max_inputs": "3"},
+        SimpleNamespace(gateway=Gateway()),
+    )
+    assert response["status"] == 200
+    assert response["body"] == {"thread_id": "thread-42", "writes": False}
+    assert calls == [("thread-42", 3)]
