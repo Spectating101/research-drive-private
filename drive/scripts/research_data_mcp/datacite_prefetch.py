@@ -27,8 +27,11 @@ def prefetch_budget_seconds() -> float:
 def warm_search_indexes(repo_root: Path) -> dict[str, Any]:
     """Prepare NVMe indexes before serving traffic (replaces background-only warmup)."""
     from scripts.research_data_mcp.desk_runtime import prepare_desk_indexes
+    from scripts.research_data_mcp.semantic_index import warm_embedding_model
 
-    return prepare_desk_indexes(Path(repo_root).resolve())
+    status = prepare_desk_indexes(Path(repo_root).resolve())
+    status["embedding_model"] = warm_embedding_model()
+    return status
 
 CURATED_SPECS = (
     ("curated_live", "curated_live"),

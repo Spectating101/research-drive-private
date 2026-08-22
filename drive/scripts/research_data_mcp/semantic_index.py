@@ -46,6 +46,15 @@ STOPWORDS = frozenset(
 )
 
 
+def warm_embedding_model(model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+    """Load the sentence-transformer ahead of traffic. ~9s, paid once per process."""
+    try:
+        SemanticCatalogIndex._embedding_model_instance(model_name)
+        return True
+    except Exception:
+        return False
+
+
 class SemanticCatalogIndex:
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
