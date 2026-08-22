@@ -29,8 +29,18 @@ def warm_search_indexes(repo_root: Path) -> dict[str, Any]:
     from scripts.research_data_mcp.desk_runtime import prepare_desk_indexes
     from scripts.research_data_mcp.semantic_index import warm_embedding_model
 
-    status = prepare_desk_indexes(Path(repo_root).resolve())
+    root = Path(repo_root).resolve()
+    status = prepare_desk_indexes(root)
     status["embedding_model"] = warm_embedding_model()
+    # The curated vector matrix lives on the bulk drive; paging it in costs
+    # ~11s there and ~0.1s once resident. Never on a user's first search.
+    try:
+        from scripts.research_data_mcp.datacite_vault_search import search_curated_semantic
+
+        search_curated_semantic(root, "warmup", limit=1)
+        status["semantic_vectors"] = True
+    except Exception:
+        status["semantic_vectors"] = False
     return status
 
 CURATED_SPECS = (
@@ -303,6 +313,31 @@ def _merge_datacite_rows(*groups: list[dict[str, Any]], limit: int) -> list[dict
     return merged
 
 
+def _held_reserve() -> int:
+    raw = (os.environ.get("RESEARCH_HELD_RESERVE") or "").strip()
+    try:
+        return max(0, int(raw)) if raw else 3
+    except ValueError:
+        return 3
+
+
+def _held_count(rows: list[dict[str, Any]]) -> int:
+    return sum(1 for r in rows if r.get("dataset_id"))
+
+
+def _has_dataset(rows: list[dict[str, Any]], dataset_id: str) -> bool:
+    return any(str(r.get("dataset_id") or "") == str(dataset_id) for r in rows)
+
+
+# Keyword rows already in hand rank first; semantic only ever fills what the
+# authoritative layers left empty.
+_LAYER_AUTHORITY = ("datacite_api", "scrape_fts", "vault_shards", "curated_semantic")
+
+
+def semantic_fill_enabled() -> bool:
+    return (os.environ.get("RESEARCH_SEMANTIC_FILL") or "1").strip().lower() not in {"0", "false", "off"}
+
+
 def prefetch_datacite_layer(
     repo_root: Path,
     query: str,
@@ -327,15 +362,25 @@ def prefetch_datacite_layer(
         search_curated_datasets(repo_root, query, limit=min(6, limit)),
         limit=limit,
     )
-    if len(fast_rows) >= limit:
+    if len(fast_rows) >= limit and _held_count(fast_rows) >= _held_reserve():
         return fast_rows
 
     api_limit = max(4, limit - len(fast_rows))
-    pool = ThreadPoolExecutor(max_workers=2)
+    pool = ThreadPoolExecutor(max_workers=3)
     futures: dict[Any, str] = {
         pool.submit(search_datacite_api, query, limit=api_limit, locator_dois=locator_dois): "datacite_api",
         pool.submit(search_scrape_snippets_fts, repo_root, query, limit=min(6, limit)): "scrape_fts",
     }
+    # Keyword recall is the binding constraint on this corpus, not ranking, so a
+    # thin FTS pass is widened by meaning. Rows stay labelled match_type=semantic.
+    if semantic_fill_enabled():
+        from scripts.research_data_mcp.datacite_vault_search import search_curated_semantic
+
+        futures[
+            # Fetch wider than the reserve: only held rows are kept, and a held
+            # dataset can rank below the top few by cosine. Scoring is ~0.06s warm.
+            pool.submit(search_curated_semantic, repo_root, query, limit=max(limit, 16))
+        ] = "curated_semantic"
     if deep_vault:
         from scripts.research_data_mcp.datacite_vault_search import search_vault_topics_deep
 
@@ -349,26 +394,63 @@ def prefetch_datacite_layer(
                 interactive=False,
             )
         ] = "vault_shards"
+    # Buffer per source, then merge in authority order. Merging in completion
+    # order let whichever layer finished first fill `limit` and cancel the rest —
+    # and semantic is the fastest layer once its matrix is resident, so the
+    # supplementary layer would routinely displace keyword and API results.
+    collected: dict[str, list[dict[str, Any]]] = {}
     try:
-        while futures and len(fast_rows) < limit:
+        while futures:
             rem = deadline - time.monotonic()
             if rem <= 0:
                 break
             try:
                 for fut in as_completed(futures, timeout=rem):
-                    futures.pop(fut)
+                    label = futures.pop(fut)
                     try:
-                        rows = fut.result()
-                        if rows:
-                            fast_rows = _merge_datacite_rows(fast_rows, rows, limit=limit)
+                        collected[label] = list(fut.result() or [])
                     except Exception:
-                        pass
-                    if len(fast_rows) >= limit or not futures:
+                        collected[label] = []
+                    if not futures:
                         break
             except TimeoutError:
                 break
     finally:
         pool.shutdown(wait=False, cancel_futures=bool(futures))
+
+    authoritative = fast_rows
+    for label in _LAYER_AUTHORITY:
+        rows = collected.get(label)
+        if not rows:
+            continue
+        if label == "curated_semantic":
+            continue
+        authoritative = _merge_datacite_rows(authoritative, rows, limit=limit)
+
+    # Keyword layers index text, so they rank external DOI references highly and
+    # routinely return nothing the desk actually holds. A held dataset can be
+    # queried today; a reference has to be acquired first. Semantic rows that
+    # resolve to held datasets therefore get a bounded reserve — they never
+    # cancel or outrank the authoritative head, they occupy the tail.
+    reserve = _held_reserve()
+    held_new = [
+        row
+        for row in (collected.get("curated_semantic") or [])
+        if row.get("dataset_id") and not _has_dataset(authoritative, row["dataset_id"])
+    ][:reserve]
+    if held_new:
+        head = authoritative[: max(0, limit - len(held_new))]
+        fast_rows = _merge_datacite_rows(head, held_new, limit=limit)
+        fast_rows = _merge_datacite_rows(fast_rows, authoritative, limit=limit)
+    else:
+        fast_rows = authoritative
+
+    # Held rows earn a reserve; the rest of the semantic pass is still ordinary
+    # fill for space the authoritative layers genuinely left empty.
+    if len(fast_rows) < limit:
+        remaining = collected.get("curated_semantic") or []
+        if remaining:
+            fast_rows = _merge_datacite_rows(fast_rows, remaining, limit=limit)
 
     if fast_rows:
         return fast_rows[:limit]

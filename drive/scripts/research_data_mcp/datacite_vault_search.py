@@ -459,6 +459,14 @@ def _semantic_model(name: str) -> Any:
     return _SEMANTIC_MODELS[name]
 
 
+def _semantic_floor() -> float:
+    raw = (os.environ.get("RESEARCH_SEMANTIC_MIN_SCORE") or "").strip()
+    try:
+        return float(raw) if raw else 0.40
+    except ValueError:
+        return 0.40
+
+
 def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
     """Meaning-based retrieval over the whole curated corpus.
 
@@ -500,8 +508,18 @@ def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> l
         return []
 
     scores = np.asarray(matrix) @ qv
+    # Measured over this corpus: gibberish tops out at 0.29-0.34 while real
+    # subject queries reach 0.47-0.59, so the floor removes noise. It does NOT
+    # separate "corpus has this" from "corpus has nothing like this" — an absent
+    # topic still scores ~0.46. Hits stay labelled match_type=semantic and are
+    # used to widen a thin keyword pass, never as a relevance claim.
+    floor = _semantic_floor()
     top = np.argsort(-scores)[: max(1, min(limit, 50))]
-    wanted = {rowids[int(i)]: float(scores[int(i)]) for i in top}
+    wanted = {
+        rowids[int(i)]: float(scores[int(i)])
+        for i in top
+        if float(scores[int(i)]) >= floor
+    }
     if not wanted:
         return []
 
