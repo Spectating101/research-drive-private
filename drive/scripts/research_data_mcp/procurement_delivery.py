@@ -67,8 +67,14 @@ def build_scrape_card(gateway: Any, job_id: str) -> dict[str, Any] | None:
     }
 
 
-def format_ready_delivery(gateway: Any, campaign_id: str) -> tuple[str, dict[str, Any]]:
-    """Build reply + artifacts when a campaign is ready or has deliverables."""
+def format_ready_delivery(
+    gateway: Any, campaign_id: str, *, read_only: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """Build reply + artifacts when a campaign is ready or has deliverables.
+
+    read_only suppresses auto-archive: reporting what happened must never itself
+    create a job.
+    """
     artifacts: dict[str, Any] = {}
     lines: list[str] = [f"**Campaign `{campaign_id}` is ready.**"]
     state_patch: dict[str, Any] = {"campaign_id": campaign_id, "last_handle": f"campaign:{campaign_id}"}
@@ -128,7 +134,7 @@ def format_ready_delivery(gateway: Any, campaign_id: str) -> tuple[str, dict[str
     try:
         from scripts.research_data_mcp.procurement_archive import archive_from_card
 
-        if card:
+        if card and not read_only:
             archived = archive_from_card(gateway, card, campaign_id=campaign_id)
             if archived:
                 jid = (archived.get("archive_job") or {}).get("job", {}).get("id", "")
@@ -139,15 +145,19 @@ def format_ready_delivery(gateway: Any, campaign_id: str) -> tuple[str, dict[str
     return "\n".join(lines) + archive_note, {**artifacts, "state_patch": state_patch}
 
 
-def format_campaign_status(gateway: Any, campaign_id: str, state: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    advance_workers(gateway)
+def format_campaign_status(
+    gateway: Any, campaign_id: str, state: dict[str, Any], *, read_only: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """read_only makes this a pure snapshot — no worker ticks, no archive jobs."""
+    if not read_only:
+        advance_workers(gateway)
     cfg = getattr(getattr(gateway, "orchestrator", None), "cfg", {}) or {}
     campaign = gateway.get_campaign(campaign_id)
     phase = str(campaign.get("phase") or "")
     payload = campaign.get("payload") or {}
 
     if phase == "ready":
-        return format_ready_delivery(gateway, campaign_id)
+        return format_ready_delivery(gateway, campaign_id, read_only=read_only)
 
     lines = [
         f"**Campaign `{campaign_id}`**",

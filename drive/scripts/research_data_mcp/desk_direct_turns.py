@@ -394,15 +394,32 @@ def try_direct_status_turn(
         except Exception as exc:  # noqa: BLE001
             lines.append(f"Pending job `{pending_job_id[:12]}…` — could not load status ({exc}).")
     campaign_id = str(state.get("campaign_id") or "").strip()
+    action_result: dict[str, Any] = {"action": "status", "fast_path": True}
+    prompts = ["Search vault for related datasets", "Probe a candidate URL"]
     if campaign_id:
-        lines.append(f"Active campaign: `{campaign_id[:16]}…`")
+        # The campaign already knows its phase, jobs, recommendations and
+        # delivered files. Reporting a truncated id instead made the operator
+        # ask Composer for what the desk could answer itself. Asking for status
+        # must not advance workers or queue archives, hence read_only.
+        try:
+            from scripts.research_data_mcp.procurement_delivery import format_campaign_status
+
+            summary, artifacts = format_campaign_status(
+                gateway, campaign_id, state, read_only=True
+            )
+            lines.append(summary)
+            if isinstance(artifacts, dict):
+                action_result.update(artifacts)
+            prompts = ["Show the campaign artifacts", "Query the delivered dataset"]
+        except Exception as exc:  # noqa: BLE001
+            lines.append(f"Active campaign: `{campaign_id[:16]}…` — status unavailable ({exc}).")
     if not lines:
         lines.append("No pending Composer turn or collection job for this session.")
     return AgentTurn(
         plan={"action": "status", "fast_path": True},
-        action_result={"action": "status", "fast_path": True},
+        action_result=action_result,
         reply="\n".join(lines),
-        suggested_prompts=["Search vault for related datasets", "Probe a candidate URL"],
+        suggested_prompts=prompts,
         tool_name="desk_status",
     )
 
