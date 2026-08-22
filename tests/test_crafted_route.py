@@ -105,3 +105,51 @@ def test_the_store_is_written_atomically(tmp_path):
     assert p.is_file()
     assert not p.with_suffix(".json.tmp").exists(), "temp file must not survive the write"
     json.loads(p.read_text(encoding="utf-8"))
+
+
+def test_identity_is_the_source_not_the_job():
+    """The reusable thing is "this desk can read api.opensea.io", not "job 7cc25
+    succeeded once"."""
+    from scripts.research_data_mcp.crafted_route import route_identity
+
+    assert route_identity({"url": "https://api.opensea.io/v2/events?cursor=x"}) == "api.opensea.io"
+    assert route_identity({"url": "https://www.upwork.com/jobs"}) == "upwork.com"
+    assert route_identity({"job_type": "scraper_run"}) == "scraper_run"
+    assert route_identity({}) == ""
+
+
+def test_recording_is_wired_into_the_collection_path():
+    """A store nothing writes to is the defect this repo keeps repeating."""
+    import inspect
+
+    from scripts.research_data_mcp import bootstrap
+
+    src = inspect.getsource(bootstrap)
+    assert "record_attempt" in src, "successful collections must record their route"
+    assert "route_identity" in src
+
+
+def test_recording_never_fails_a_collection_that_worked():
+    """A bookkeeping failure must not turn a successful collection into an error.
+
+    Parsed rather than string-matched: the call must sit inside a try whose
+    handler swallows the failure.
+    """
+    import ast
+    import inspect
+
+    from scripts.research_data_mcp import bootstrap
+
+    tree = ast.parse(inspect.getsource(bootstrap))
+    guarded = False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        calls = {
+            n.func.id
+            for n in ast.walk(node)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        }
+        if "record_attempt" in calls and node.handlers:
+            guarded = True
+    assert guarded, "route recording must be wrapped so it cannot fail a collection"

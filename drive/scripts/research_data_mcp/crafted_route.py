@@ -33,6 +33,24 @@ PROVEN = "proven"
 FAILING = "failing"
 
 
+def route_identity(plan: dict[str, Any]) -> str:
+    """What a crafted route is *about*, so a later need can find it.
+
+    The host, not the job id: the reusable thing is "this desk knows how to read
+    api.opensea.io", not "job 7cc25aff succeeded once". A plan with no URL falls
+    back to its job type, which is still worth keeping — a working scraper_run
+    recipe is a capability even when the target moves.
+    """
+    from urllib.parse import urlparse
+
+    url = _text((plan or {}).get("url"))
+    if url:
+        host = urlparse(url).netloc.strip().lower()
+        if host:
+            return host.removeprefix("www.")
+    return _text((plan or {}).get("job_type"))
+
+
 def store_path(repo_root: Path | str) -> Path:
     return Path(repo_root) / "data_lake" / "procurement_memory" / "crafted_routes.json"
 
