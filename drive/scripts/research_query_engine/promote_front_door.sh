@@ -6,8 +6,9 @@
 # that changes what users see, by re-pointing the `dist` symlink.
 #
 # The swap is atomic (mv -T over a symlink), so there is no window where the
-# served bundle is half-old and half-new, and rollback is the same operation
-# pointed at an earlier sha.
+# served bundle is half-old and half-new. A rollback must restore the staged
+# UI/backend pair's matching checkout and environment pins, promote it, and
+# restart the service; flipping only the static link is not a complete rollback.
 #
 #   promote_front_door.sh <release_id>     promote that UI/backend pair
 #   promote_front_door.sh --list           show staged releases and which is live
@@ -133,4 +134,7 @@ mv -Tf "${tmp_link}" "${live_link}"
 
 printf 'promoted=%s\n' "${target_id}"
 printf 'previous=%s\n' "${previous}"
-printf 'rollback=promote_front_door.sh %s\n' "${previous}"
+if [[ "${previous}" != "unlinked" ]]; then
+  printf 'rollback_candidate=%s\n' "${previous}"
+  printf 'rollback_note=restore this candidate matching UI/backend checkout and environment pins, run preflight, promote, then restart the service\n'
+fi
