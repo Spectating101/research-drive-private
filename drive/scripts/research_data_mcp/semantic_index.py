@@ -54,6 +54,38 @@ def _semantic_relevance_floor() -> float:
         return 0.25
 
 
+def _semantic_tail_drop() -> float:
+    """Maximum cosine drop from the best hit retained in one result set."""
+    raw = (os.environ.get("RESEARCH_SEMANTIC_TAIL_DROP") or "").strip()
+    try:
+        return max(0.0, float(raw)) if raw else 0.16
+    except ValueError:
+        return 0.16
+
+
+def _query_has_subject_signal(query: str, vocabulary: set[str] | None = None) -> bool:
+    """Reject embedding-shaped noise without rejecting exact research identifiers.
+
+    Sentence encoders map every string somewhere, including keyboard noise.  A
+    query is eligible for semantic widening when it contains a token already
+    observed in the indexed corpus, a word-like token with at least two vowels,
+    or CJK text.  Exact identifiers that do not meet this boundary remain
+    available through the keyword index.
+    """
+    text = str(query or "").strip()
+    if not text:
+        return False
+    if re.search(r"[\u3400-\u9fff]", text):
+        return True
+    known = vocabulary or set()
+    for token in re.findall(r"[a-z][a-z0-9_]{2,}", text.lower()):
+        if token in known:
+            return True
+        if sum(char in "aeiouy" for char in token) >= 2:
+            return True
+    return False
+
+
 def _require_resident_embedding_model() -> bool:
     raw = (os.environ.get("RESEARCH_SEMANTIC_BLOCK_ON_COLD_MODEL") or "").strip().lower()
     return raw not in {"1", "true", "on"}
@@ -359,14 +391,18 @@ class SemanticCatalogIndex:
         ranked.sort(key=lambda pair: pair[0], reverse=True)
         if not ranked:
             return []
-        # Nearest-neighbour retrieval always returns its top-k, so a query with
-        # no subject in the corpus came back with a full page of results.
-        # Measured on this corpus: real subject queries top out at 0.26-0.48,
-        # nonsense at 0.12-0.24. The gate is on the query, not each row, so a
-        # query that clears it keeps its whole ranked tail.
-        if ranked[0][0] < _semantic_relevance_floor():
+        # Nearest-neighbour retrieval always returns its top-k, even for random
+        # text.  An absolute score alone is not sufficient: the live corpus
+        # scored ``zzqvjjk plmxxc`` at 0.2725, above the old 0.25 boundary.
+        # Require a subject signal in the original query, then keep only the
+        # coherent neighbourhood around the best result instead of presenting
+        # the unrelated tail as additional evidence.
+        top_score = ranked[0][0]
+        floor = _semantic_relevance_floor()
+        if top_score < floor or not _query_has_subject_signal(query, set(self._df)):
             return []
-        return [item for _score, item in ranked[:limit]]
+        row_floor = max(floor - 0.05, top_score - _semantic_tail_drop())
+        return [item for score, item in ranked if score >= row_floor][:limit]
 
     def confidence(self, query: str, top: dict[str, Any] | None) -> str:
         if not top:
