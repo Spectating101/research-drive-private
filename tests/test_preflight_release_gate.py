@@ -128,6 +128,33 @@ def test_preflight_can_validate_a_staged_pair_without_changing_live_dist(release
     assert out.returncode == 0, out.stdout + out.stderr
 
 
+def test_restartability_check_is_part_of_the_release_gate_when_required(release, tmp_path):
+    probe = tmp_path / "restart-probe.sh"
+    probe.write_text("#!/usr/bin/env bash\necho restartability=ready\n", encoding="utf-8")
+    probe.chmod(0o755)
+    out = _run(
+        release["env"],
+        PREFLIGHT_CHECK_RESTARTABILITY="1",
+        PREFLIGHT_RESTARTABILITY_SCRIPT=probe,
+    )
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "restartability=ready" in out.stdout
+
+
+def test_failed_restartability_check_refuses_promotion_preflight(release, tmp_path):
+    probe = tmp_path / "restart-probe.sh"
+    probe.write_text("#!/usr/bin/env bash\necho unit-not-enabled\nexit 1\n", encoding="utf-8")
+    probe.chmod(0o755)
+    out = _run(
+        release["env"],
+        PREFLIGHT_CHECK_RESTARTABILITY="1",
+        PREFLIGHT_RESTARTABILITY_SCRIPT=probe,
+    )
+    assert out.returncode != 0
+    assert "restartability preflight failed" in out.stdout
+    assert "unit-not-enabled" in out.stdout
+
+
 def test_json_mode_reports_readiness_and_the_fingerprint(release):
     proc = subprocess.run(["bash", str(SCRIPT), "--json"], capture_output=True, text=True,
                           env={**__import__("os").environ, "FRONT_DOOR_ENV": str(release["env"])},

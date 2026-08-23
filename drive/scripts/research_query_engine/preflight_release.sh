@@ -159,6 +159,19 @@ fi
 roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 [ "$roots" = "<unset>" ] && note "WARN: RESEARCH_DATA_ROOTS unset; holdings counts will read as absent"
 
+if [ "${PREFLIGHT_CHECK_RESTARTABILITY:-0}" = "1" ]; then
+  restart_probe="${PREFLIGHT_RESTARTABILITY_SCRIPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify_front_door_restartability.sh}"
+  if [ ! -f "$restart_probe" ]; then
+    bad "restartability probe missing: $restart_probe"
+  elif FRONT_DOOR_ENV="$ENV_FILE" bash "$restart_probe" --check >/tmp/restartability_preflight.$$ 2>&1; then
+    note "restartability=ready"
+  else
+    bad "restartability preflight failed"
+    while IFS= read -r line; do note "restartability: $line"; done </tmp/restartability_preflight.$$
+  fi
+  rm -f /tmp/restartability_preflight.$$
+fi
+
 if [ "$JSON" = "1" ]; then
   "$python_bin" - "$backend_sha" "$ui_sha" "$reg_hash" "$reg_rows" "$roots" "$fail" "$registry_authority" <<'PY'
 import json,sys
