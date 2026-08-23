@@ -17,6 +17,34 @@ def _read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
+def _deployed_build_path() -> Path:
+    explicit = os.environ.get("RESEARCH_DRIVE_BUILD_JSON")
+    if explicit:
+        return Path(explicit).expanduser()
+
+    static_dir = os.environ.get("YZU_DESK_STATIC_DIR")
+    if not static_dir:
+        env_path = Path(
+            os.environ.get(
+                "FRONT_DOOR_ENV",
+                Path.home() / ".config/research-drive/front-door.env",
+            )
+        ).expanduser()
+        if env_path.is_file():
+            for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+                key, separator, value = raw_line.partition("=")
+                if separator and key.strip() == "YZU_DESK_STATIC_DIR":
+                    static_dir = value.strip().strip('"\'')
+                    break
+
+    if static_dir:
+        configured = Path(static_dir).expanduser() / "research-drive-build.json"
+        if configured.is_file():
+            return configured
+
+    return Path.home() / ".cache/research-drive/front-door-ui/current/research-drive-build.json"
+
+
 def test_orchestrator_submit_always_enforces_execution_policy() -> None:
     src = _read("drive/scripts/yzu_cluster/orchestrator.py")
     assert "enforce_execution_submit" in src
@@ -101,7 +129,7 @@ def test_backend_sha_matches_build_json_when_required() -> None:
     """
     if os.environ.get("RESEARCH_DRIVE_SKIP_SHA_GATE") == "1":
         pytest.skip("explicit skip")
-    build_path = Path.home() / ".cache/research-drive/front-door-ui/current/research-drive-build.json"
+    build_path = _deployed_build_path()
     if not build_path.is_file():
         pytest.skip("no deployed build.json on this host")
     build = json.loads(build_path.read_text(encoding="utf-8"))
