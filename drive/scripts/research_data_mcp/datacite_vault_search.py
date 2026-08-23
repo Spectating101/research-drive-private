@@ -448,14 +448,20 @@ def _search_vault_topics_legacy(repo_root: Path, query: str, *, limit: int = 10)
     return search_curated_datasets(repo_root, query, limit=limit)
 
 _SEMANTIC_MODELS: dict[str, Any] = {}
+_CURATED_SEMANTIC_READY: set[tuple[str, int, int]] = set()
+
+
+def _curated_semantic_key(vec_path: Path) -> tuple[str, int, int]:
+    stat = vec_path.stat()
+    return (str(vec_path.resolve()), int(stat.st_size), int(stat.st_mtime_ns))
 
 
 def _semantic_model(name: str) -> Any:
-    """Cache the encoder. Loading it per query cost 4-9 seconds a call."""
+    """Reuse the desk encoder; two module-local copies doubled cold startup."""
     if name not in _SEMANTIC_MODELS:
-        from sentence_transformers import SentenceTransformer
+        from scripts.research_data_mcp.semantic_index import SemanticCatalogIndex
 
-        _SEMANTIC_MODELS[name] = SentenceTransformer(name)
+        _SEMANTIC_MODELS[name] = SemanticCatalogIndex._embedding_model_instance(name)
     return _SEMANTIC_MODELS[name]
 
 
@@ -502,16 +508,19 @@ def search_curated_semantic(
         meta = _json.loads(meta_path.read_text(encoding="utf-8"))
         rowids = [int(r) for r in (meta.get("rowids") or [])]
         matrix = np.load(vec_path, mmap_mode="r")
+        ready_key = _curated_semantic_key(vec_path)
     except Exception:
         return []
     if matrix.shape[0] != len(rowids) or not rowids:
         return []
 
     model_name = str(meta.get("model") or "")
-    if require_resident_model and model_name not in _SEMANTIC_MODELS:
-        # Loading the encoder costs ~9s. The startup warmup owns that; a user
-        # request must never pay it, so an unwarmed desk answers from keyword
-        # layers and picks semantic up on the next search.
+    if require_resident_model and (
+        model_name not in _SEMANTIC_MODELS or ready_key not in _CURATED_SEMANTIC_READY
+    ):
+        # Model residency and vector-page residency are separate. The encoder
+        # becomes available first; traffic must still degrade to keyword until
+        # the startup scan has paged the 89 MB matrix into memory.
         return []
     try:
         model = _semantic_model(model_name)
@@ -520,6 +529,8 @@ def search_curated_semantic(
         return []
 
     scores = np.asarray(matrix) @ qv
+    if not require_resident_model:
+        _CURATED_SEMANTIC_READY.add(ready_key)
     # Measured over this corpus: gibberish tops out at 0.29-0.34 while real
     # subject queries reach 0.47-0.59, so the floor removes noise. It does NOT
     # separate "corpus has this" from "corpus has nothing like this" — an absent

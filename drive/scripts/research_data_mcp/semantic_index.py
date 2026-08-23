@@ -271,6 +271,22 @@ class SemanticCatalogIndex:
         self._embeddings = values.tolist()
         self._embedding_model = model_name
 
+    def embeddings_ready(self, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+        return bool(
+            model_name in _EMBEDDING_MODELS
+            and self._embeddings is not None
+            and self._embedding_model == model_name
+            and len(self._embeddings) == len(self._docs)
+        )
+
+    def warm_embeddings(self, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+        """Build the registry vectors only from the startup warmup thread."""
+        try:
+            self._ensure_embeddings(model_name=model_name)
+            return self.embeddings_ready(model_name=model_name)
+        except Exception:
+            return False
+
     def _score(self, query_tokens: list[str], doc_tokens: list[str]) -> float:
         if not query_tokens or not doc_tokens:
             return 0.0
@@ -302,14 +318,15 @@ class SemanticCatalogIndex:
         limit: int = 8,
         kinds: set[str] | None = None,
         model_name: str = DEFAULT_EMBEDDING_MODEL,
+        require_ready: bool = True,
     ) -> list[dict[str, Any]]:
         """Embedding retrieval for research questions, distinct from token catalog lookup."""
         if not self._built or not query.strip():
             return []
-        if _require_resident_embedding_model() and model_name not in _EMBEDDING_MODELS:
-            # ~9s to load the encoder plus ~5s to embed the corpus. The startup
-            # warmup owns both; a user request answers from keyword retrieval
-            # rather than blocking, and picks semantic up once warm.
+        if require_ready and _require_resident_embedding_model() and not self.embeddings_ready(model_name=model_name):
+            # The encoder can become resident several seconds before the corpus
+            # vectors finish. Treat the pair as one readiness boundary so a user
+            # request never races the warmup by building the same corpus again.
             return []
         self._ensure_embeddings(model_name=model_name)
         model = self._embedding_model_instance(model_name)
@@ -367,6 +384,11 @@ def get_semantic_index(gateway: Any, *, ttl_hours: float = 168) -> SemanticCatal
 
     _INDEX_SINGLETON[cache_key] = index
     return index
+
+
+def warm_semantic_index(gateway: Any, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+    """Make the registry semantic index resident before it is used by traffic."""
+    return get_semantic_index(gateway).warm_embeddings(model_name=model_name)
 
 
 def invalidate_semantic_index() -> None:

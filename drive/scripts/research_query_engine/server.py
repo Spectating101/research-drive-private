@@ -418,8 +418,10 @@ def _start_search_warmup(stack) -> None:
         started = _time.time()
         try:
             from scripts.research_data_mcp.datacite_prefetch import warm_search_indexes
+            from scripts.research_data_mcp.semantic_index import warm_semantic_index
 
             status = warm_search_indexes(stack.repo_root)
+            status["registry_semantic"] = warm_semantic_index(stack.gateway)
             stack.gateway.discover_search("warmup", limit=1)
             print(
                 f"search_warmup=ready model={status.get('embedding_model')} "
