@@ -46,6 +46,14 @@ STOPWORDS = frozenset(
 )
 
 
+def _semantic_relevance_floor() -> float:
+    raw = (os.environ.get("RESEARCH_SEMANTIC_QUERY_FLOOR") or "").strip()
+    try:
+        return float(raw) if raw else 0.25
+    except ValueError:
+        return 0.25
+
+
 def _require_resident_embedding_model() -> bool:
     raw = (os.environ.get("RESEARCH_SEMANTIC_BLOCK_ON_COLD_MODEL") or "").strip().lower()
     return raw not in {"1", "true", "on"}
@@ -349,6 +357,15 @@ class SemanticCatalogIndex:
                 )
             )
         ranked.sort(key=lambda pair: pair[0], reverse=True)
+        if not ranked:
+            return []
+        # Nearest-neighbour retrieval always returns its top-k, so a query with
+        # no subject in the corpus came back with a full page of results.
+        # Measured on this corpus: real subject queries top out at 0.26-0.48,
+        # nonsense at 0.12-0.24. The gate is on the query, not each row, so a
+        # query that clears it keeps its whole ranked tail.
+        if ranked[0][0] < _semantic_relevance_floor():
+            return []
         return [item for _score, item in ranked[:limit]]
 
     def confidence(self, query: str, top: dict[str, Any] | None) -> str:
