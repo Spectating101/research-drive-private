@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_monthly_pattern_discovery.py

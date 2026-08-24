@@ -1,0 +1,57 @@
+---
+description: Rules for implementing Figma designs for Research Drive — React desk, drive-visual tokens, OSS comparison targets.
+globs: "src/**/*.{jsx,css}"
+alwaysApply: false
+---
+
+# Research Drive — Figma implementation rules
+
+## Component map
+
+- Shell: `src/main.jsx` (`App`, nav sections, view routing)
+- Styles: `src/drive-visual.css` (desk tokens), `src/styles.css` (legacy)
+- Data: `src/driveTree.js`, `src/profileDrive.js`
+- Comparison board: `docs/status/generated/research-drive-oss-comparison.html`
+
+## Design tokens (use these — never hardcode hex in new UI)
+
+From `drive-visual.css`:
+
+- Surfaces: `--nav`, `--surface`, `--surface2`, `--surface3`
+- Text: `--text`, `--muted`, `--faint`
+- Accent: `--accent`, `--accent2`
+- Lines: `--line`, `--line2`
+- Spacing: `--space-*`, radius: `--radius-md`
+
+## IA (signed direction — do not regress)
+
+**Internal:** Home, Recent, Starred, Drive, Cluster  
+**Procure:** Discover → Browse (HF-style, not built yet)  
+**Tools:** Chat (full page), Activity  
+
+- One L1 per screen (list, map, chat thread)
+- Inspector = Details only on browse; Chat is not a rail tab
+- Procure CTAs: header Chat, Discover footnote, Chat page — not duplicate cards on Drive
+
+## Figma MCP workflow (required when implementing from Figma)
+
+1. `get_design_context` + `get_screenshot` for target node
+2. Map to existing classes (`rd-catalog-table`, `rd-page-bar`, `yzu-sidebar`, etc.)
+3. Validate against `node scripts/rd_oss_comparison_page.mjs` captures
+4. Run `npm run build` + Playwright `e2e/desk.spec.js`
+
+## OSS parity targets
+
+| Surface | Steal from | Not done until |
+|---------|------------|----------------|
+| Drive | Google Drive list + HF dataset rows | Browse route with Overview/Files/Schema |
+| Discover | HF hub search + filters | Rec grid + drill to Browse |
+| Cluster | Cite-Agent Coverage map | Domain brief, gap cards, promote timeline |
+| Chat | Cite-Agent `/chat` | Workbench layout, not dropped procure card |
+
+## Do not
+
+- Re-add folder tree rail on Drive
+- Stack Smart Procure card above catalog list
+- Use Source tab in inspector (use Chat nav)
+- Claim visual sign-off without screenshot review at 1440×900

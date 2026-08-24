@@ -1,0 +1,22 @@
+[Unit]
+Description=Conservative local DataCite harvest for y2025_q3 (offload Windows .84)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+Environment=DATACITE_LOCAL_SHARD=y2025_q3
+Environment=DATACITE_LOCAL_CREATED=2025
+Environment="DATACITE_LOCAL_QUERY=created:[2025-07-01 TO 2025-09-30]"
+Environment=DATACITE_LOCAL_SLEEP=0.20
+Environment=DATACITE_LOCAL_PAGE_SIZE=500
+Environment=DATACITE_LOCAL_MIN_FREE_GB=4
+Environment=DATACITE_LOCAL_UPLOAD_CHUNKS=1
+Environment=DATACITE_LOCAL_DELETE_AFTER_UPLOAD=1
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/data_catalog/run_datacite_local_shard.sh
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

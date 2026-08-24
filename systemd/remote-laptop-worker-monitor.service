@@ -1,0 +1,12 @@
+[Unit]
+Description=Monitor remote laptop worker resources
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+Environment=CLUSTER_INVENTORY=/home/phyrexian/cluster-lab-logs/windows-cluster-inventory.csv
+Environment=CLUSTER_KEY=/home/phyrexian/.ssh/id_rsa
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/monitor_remote_laptop_workers.sh
+Nice=12
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

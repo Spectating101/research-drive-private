@@ -2,26 +2,30 @@
   "version": 2,
   "notes": [
     "Magic procurement: index hit → query; index miss → research → probe → optional collect.",
-    "Heavy pipelines stay advise-only unless force_execute is set."
+    "Heavy pipelines stay advise-only unless force_execute is set.",
+    "2026-07-23: faculty acquisition requires researcher approve; named vendor pipelines quarantined.",
+    "2026-07-23: faculty acquisition requires researcher approve; named vendor pipelines quarantined."
   ],
   "auto_approve": {
-    "job_types": ["source_probe", "harvest_shard"],
-    "harvest_shard_actions": ["status"],
-    "queue_task_ids": [
-      "sec_company_tickers",
-      "twse_openapi_taiwan_market_layer",
-      "mops_governance_panel"
+    "job_types": [
+      "source_probe"
     ],
+    "harvest_shard_actions": [
+      "status"
+    ],
+    "queue_task_ids": [],
     "pipeline_ids": [],
     "queue_task_max_runtime_minutes": 10,
-    "agent_spectator_scrape": true
+    "agent_spectator_scrape": false
   },
   "execute": {
     "wait_seconds": 120,
     "poll_seconds": 2,
     "tick_worker": true,
     "sync_wait_max_minutes": 2,
-    "auto_execute_job_types": ["source_probe", "harvest_shard"]
+    "auto_execute_job_types": [
+      "source_probe"
+    ]
   },
   "discovery": {
     "enabled": true,
@@ -46,22 +50,22 @@
     "auto_acquire_on_miss": false,
     "auto_probe": true,
     "auto_collect": false,
-    "auto_collect_chat": true,
-    "auto_scrape_chat": true,
-    "auto_collect_datacite": true
+    "auto_collect_chat": false,
+    "auto_scrape_chat": false,
+    "auto_collect_datacite": false
   },
   "flywheel": {
     "auto_promote_curated": true,
     "rebuild_search_index": true,
-    "auto_follow_scrape_downloads": true,
-    "auto_approve_scrape_downloads": true
+    "auto_follow_scrape_downloads": false,
+    "auto_approve_scrape_downloads": false
   },
   "agent": {
     "max_sourcing_chain_steps": 6,
     "auto_registry_fallback": true,
-    "auto_scrape_after_acquire": true,
-    "auto_follow_scrape_harvest": true,
-    "auto_approve_probe_collect": true,
+    "auto_scrape_after_acquire": false,
+    "auto_follow_scrape_harvest": false,
+    "auto_approve_probe_collect": false,
     "harvest_parallel_probes": 3,
     "sync_wait_scrape_seconds": 120
   },

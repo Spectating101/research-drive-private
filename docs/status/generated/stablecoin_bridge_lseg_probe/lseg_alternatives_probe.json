@@ -1,0 +1,675 @@
+{
+  "generated_at": "2026-07-12T17:53:17.853436+00:00",
+  "probes": [
+    {
+      "name": "available_scopes_snippet",
+      "status": "captured",
+      "error": "Insufficient scope for key=/data/news/v1/headlines, method=GET.\nRequired scopes: {'trapi.data.news.read'}\nAvailable scopes: {'trapi.alerts.subscription.crud', 'trapi.metadata.read', 'trapi.searchcore.metadata.read', 'trapi.sdbold', 'trapi.data.get.data.read', 'trapi.platform.iam.guiss', 'trapi.userdata.portfolio-management.read', 'trapi.streaming.synthetic.read', 'trapi.data.wealth-clients.advisor_dashboard', 'trapi.research-analytics.fx-impact-intelligence', 'trapi.data.quantitative-analytics.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.user-framework.workspace.marval', 'trapi.streaming.prcperf.read', 'trapi.alerts.history.crud', 'trapi.data.portfolios.write', 'trapi.synthetic.crud', 'trapi.search.metadata.read', 'trapi.metadata.nsa.read', 'trapi.data.wealth-clients.wfdca', 'trapi.messenger', 'trapi.streaming.pricing.read', 'trapi.data.portfolios.read', 'trapi.user-framework.application-metadata.raplib', 'trapi.platform.iam.acl_service', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.data.historical-pricing.summaries.read', 'trapi.user-framework.mobile.crud', 'trapi.tradefeedr.basic.read', 'trapi.user-framework.recently-used.crud', 'trapi.alerts.preferences.crud', 'trapi.search.read', 'trapi.graphql.subscriber.access', 'trapi.platform.iam.groups', 'trapi.commodities.yesenergy.read', 'trapi.user-framework.workspace.crud', 'trapi.userdata.lists.write', 'trapi.alerts.publication.crud', 'trapi.data.benchmark.bmk_read', 'trapi.data.api.msr_read', 'trapi.userdata.lists.read', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.search.explore.read', 'trapi.data.symbology.advanced.read', 'trapi.frtb.sentimarization', 'trapi.auth.cloud-credentials', 'trapi.cfs.claimcheck.read', 'trapi.searchcore.lookup.read'}\nMissing scopes: {'trapi.data.news.read'}",
+      "scopes_raw": "{'trapi.alerts.subscription.crud', 'trapi.metadata.read', 'trapi.searchcore.metadata.read', 'trapi.sdbold', 'trapi.data.get.data.read', 'trapi.platform.iam.guiss', 'trapi.userdata.portfolio-management.read', 'trapi.streaming.synthetic.read', 'trapi.data.wealth-clients.advisor_dashboard', 'trapi.research-analytics.fx-impact-intelligence', 'trapi.data.quantitative-analytics.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.user-framework.workspace.marval', 'trapi.streaming.prcperf.read', 'trapi.alerts.history.crud', 'trapi.data.portfolios.write', 'trapi.synthetic.crud', 'trapi.search.metadata.read', 'trapi.metadata.nsa.read', 'trapi.data.wealth-clients.wfdca', 'trapi.messenger', 'trapi.streaming.pricing.read', 'trapi.data.portfolios.read', 'trapi.user-framework.application-metadata.raplib', 'trapi.platform.iam.acl_service', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.data.historical-pricing.summaries.read', 'trapi.user-framework.mobile.crud', 'trapi.tradefeedr.basic.read', 'trapi.user-framework.recently-used.crud', 'trapi.alerts.preferences.crud', 'trapi.search.read', 'trapi.graphql.subscriber.access', 'trapi.platform.iam.groups', 'trapi.commodities.yesenergy.read', 'trapi.user-framework.workspace.crud', 'trapi.userdata.lists.write', 'trapi.alerts.publication.crud', 'trapi.data.benchmark.bmk_read', 'trapi.data.api.msr_read', 'trapi.userdata.lists.read', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.search.explore.read', 'trapi.data.symbology.advanced.read', 'trapi.frtb.sentimarization', 'trapi.auth.cloud-credentials', 'trapi.cfs.claimcheck.read', 'trapi.searchcore.lookup.read'}"
+    },
+    {
+      "name": "fx_hist::USDT=",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        322,
+        2
+      ],
+      "columns": [
+        "BID",
+        "ASK"
+      ],
+      "sample": [
+        {
+          "BID": "0.99981",
+          "ASK": "0.99982"
+        },
+        {
+          "BID": "1.00002",
+          "ASK": "1.00005"
+        }
+      ],
+      "nonnull_hits": {
+        "BID": 322,
+        "ASK": 322
+      }
+    },
+    {
+      "name": "fx_hist::USDC=",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        322,
+        2
+      ],
+      "columns": [
+        "BID",
+        "ASK"
+      ],
+      "sample": [
+        {
+          "BID": "0.99975",
+          "ASK": "0.99976"
+        },
+        {
+          "BID": "0.99969",
+          "ASK": "0.99981"
+        }
+      ],
+      "nonnull_hits": {
+        "BID": 322,
+        "ASK": 322
+      }
+    },
+    {
+      "name": "fx_hist::DAI=",
+      "status": "fail",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "fx_hist::TUSD=",
+      "status": "fail",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "fx_hist::BUSD=",
+      "status": "fail",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "fx_hist::FDUSD=",
+      "status": "fail",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "fx_hist::USDE=",
+      "status": "fail",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "fx_hist::EURT=",
+      "status": "fail",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "issuer::CRCL.O",
+      "status": "fail",
+      "label": "Circle IPO / CRCL if listed",
+      "error": "Unable to resolve all requested identifiers in ['CRCL.O']."
+    },
+    {
+      "name": "issuer::CRCL.N",
+      "status": "ok",
+      "label": "Circle IPO / CRCL if listed",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "CRCL.N",
+          "Company Common Name": "Circle Internet Group Inc",
+          "Price Close": "66.14",
+          "Company Market Cap": "16440818624.2",
+          "ESG Score": "<NA>",
+          "P/E (Daily Time Series Ratio)": "<NA>"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1
+      }
+    },
+    {
+      "name": "issuer::CRCL.K",
+      "status": "ok",
+      "label": "Circle IPO / CRCL if listed",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "CRCL.K",
+          "Company Common Name": "Circle Internet Group Inc",
+          "Price Close": "66.14",
+          "Company Market Cap": "16440818624.2",
+          "ESG Score": "<NA>",
+          "P/E (Daily Time Series Ratio)": "<NA>"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1
+      }
+    },
+    {
+      "name": "issuer::COIN.O",
+      "status": "ok",
+      "label": "Coinbase",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "COIN.O",
+          "Company Common Name": "Coinbase Global Inc",
+          "Price Close": "159.07",
+          "Company Market Cap": "41908704047.62",
+          "ESG Score": "30.7490962384861",
+          "P/E (Daily Time Series Ratio)": "60.4449679858644"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1,
+        "ESG Score": 1,
+        "P/E (Daily Time Series Ratio)": 1
+      }
+    },
+    {
+      "name": "issuer::MSTR.O",
+      "status": "ok",
+      "label": "Riot/MSTR crypto-adjacent",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "MSTR.O",
+          "Company Common Name": "Strategy Inc",
+          "Price Close": "94.64",
+          "Company Market Cap": "33866068906.3177",
+          "ESG Score": "14.1191078251154",
+          "P/E (Daily Time Series Ratio)": "<NA>"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1,
+        "ESG Score": 1
+      }
+    },
+    {
+      "name": "issuer::RIOT.O",
+      "status": "ok",
+      "label": "Riot/MSTR crypto-adjacent",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "RIOT.O",
+          "Company Common Name": "Riot Platforms Inc",
+          "Price Close": "20.965",
+          "Company Market Cap": "7927940536.95",
+          "ESG Score": "27.7479098681906",
+          "P/E (Daily Time Series Ratio)": "<NA>"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1,
+        "ESG Score": 1
+      }
+    },
+    {
+      "name": "issuer::2330.TW",
+      "status": "ok",
+      "label": "Taiwan/Asia controls we know work",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "2330.TW",
+          "Company Common Name": "Taiwan Semiconductor Manufacturing Co Ltd",
+          "Price Close": "2415",
+          "Company Market Cap": "62851499443117.3",
+          "ESG Score": "92.0396618464281",
+          "P/E (Daily Time Series Ratio)": "31.9887081846984"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1,
+        "ESG Score": 1,
+        "P/E (Daily Time Series Ratio)": 1
+      }
+    },
+    {
+      "name": "issuer::BBCA.JK",
+      "status": "ok",
+      "label": "Taiwan/Asia controls we know work",
+      "empty": false,
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ],
+      "sample": [
+        {
+          "Instrument": "BBCA.JK",
+          "Company Common Name": "Bank Central Asia Tbk PT",
+          "Price Close": "6175",
+          "Company Market Cap": "753611199412500",
+          "ESG Score": "75.857497360624",
+          "P/E (Daily Time Series Ratio)": "13.0940802776327"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1,
+        "Company Market Cap": 1,
+        "ESG Score": 1,
+        "P/E (Daily Time Series Ratio)": 1
+      }
+    },
+    {
+      "name": "symbology_convert",
+      "status": "fail",
+      "error": "The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all()."
+    },
+    {
+      "name": "search_org::Circle Internet Financial",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        5,
+        4
+      ],
+      "columns": [
+        "RIC",
+        "DocumentTitle",
+        "BusinessEntity",
+        "TickerSymbol"
+      ],
+      "sample": [
+        {
+          "RIC": "<NA>",
+          "DocumentTitle": "Circle Internet Group Inc, Public Company",
+          "BusinessEntity": "ORGANISATION",
+          "TickerSymbol": "<NA>"
+        },
+        {
+          "RIC": "CRCL.K",
+          "DocumentTitle": "Circle Internet Group Inc, Ordinary Share, Class A, NYSE Consolidated",
+          "BusinessEntity": "QUOTExEQUITY",
+          "TickerSymbol": "CRCL"
+        }
+      ],
+      "nonnull_hits": {
+        "RIC": 4,
+        "DocumentTitle": 5,
+        "BusinessEntity": 5,
+        "TickerSymbol": 4
+      }
+    },
+    {
+      "name": "search_org::Tether Limited",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        5,
+        2
+      ],
+      "columns": [
+        "DocumentTitle",
+        "BusinessEntity"
+      ],
+      "sample": [
+        {
+          "DocumentTitle": "Tether Operations Limited, Private Company",
+          "BusinessEntity": "ORGS"
+        },
+        {
+          "DocumentTitle": "Tether Holdings Limited, Private Company",
+          "BusinessEntity": "ORGS"
+        }
+      ],
+      "nonnull_hits": {
+        "DocumentTitle": 5,
+        "BusinessEntity": 5
+      }
+    },
+    {
+      "name": "search_org::MakerDAO",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        3,
+        2
+      ],
+      "columns": [
+        "DocumentTitle",
+        "BusinessEntity"
+      ],
+      "sample": [
+        {
+          "DocumentTitle": "Maker Ecosystem Growth Holdings Inc, Private Company",
+          "BusinessEntity": "ORGS"
+        },
+        {
+          "DocumentTitle": "MakerDAO Inc, Private Company",
+          "BusinessEntity": "ORGS"
+        }
+      ],
+      "nonnull_hits": {
+        "DocumentTitle": 3,
+        "BusinessEntity": 3
+      }
+    },
+    {
+      "name": "search_org::Ethena USDe",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        5,
+        3
+      ],
+      "columns": [
+        "RIC",
+        "DocumentTitle",
+        "BusinessEntity"
+      ],
+      "sample": [
+        {
+          "RIC": "USDEUSDT=CCCL",
+          "DocumentTitle": "Ethena USDe/Tether FX Cross Rate, FX Cross Rate, CoinDesk Data and Indices",
+          "BusinessEntity": "STIR"
+        },
+        {
+          "RIC": "USDEUSDT=KUCN",
+          "DocumentTitle": "Ethena USDe/Tether FX Spot Rate, FX Spot Rate, Kucoin",
+          "BusinessEntity": "STIR"
+        }
+      ],
+      "nonnull_hits": {
+        "RIC": 5,
+        "DocumentTitle": 5,
+        "BusinessEntity": 5
+      }
+    },
+    {
+      "name": "search_org::First Digital USD",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        5,
+        3
+      ],
+      "columns": [
+        "RIC",
+        "DocumentTitle",
+        "BusinessEntity"
+      ],
+      "sample": [
+        {
+          "RIC": "NEIROONETH=DARN",
+          "DocumentTitle": "First Neiro on Ethereum/US Dollar FX Spot Rates, FX Spot Rate, DIGITAL ASSET RESEARCH",
+          "BusinessEntity": "STIR"
+        },
+        {
+          "RIC": "FDUSD=FTHR",
+          "DocumentTitle": "First Digital USD/US Dollar FX Spot Rates, FX Spot Rate, FTSE RUSSELL",
+          "BusinessEntity": "STIR"
+        }
+      ],
+      "nonnull_hits": {
+        "RIC": 5,
+        "DocumentTitle": 5,
+        "BusinessEntity": 5
+      }
+    },
+    {
+      "name": "corp_actions_coin",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        1,
+        4
+      ],
+      "columns": [
+        "Instrument",
+        "Capital Change Ex Date",
+        "Capital Change Announcement Date",
+        "Adjustment Factor"
+      ],
+      "sample": [
+        {
+          "Instrument": "COIN.O",
+          "Capital Change Ex Date": "NaT",
+          "Capital Change Announcement Date": "NaT",
+          "Adjustment Factor": "<NA>"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1
+      }
+    },
+    {
+      "name": "volume_analytics_coin",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        1,
+        2
+      ],
+      "columns": [
+        "Instrument",
+        "Volume"
+      ],
+      "sample": [
+        {
+          "Instrument": "COIN.O",
+          "Volume": "6133940"
+        }
+      ],
+      "nonnull_hits": {
+        "Instrument": 1,
+        "Volume": 1
+      }
+    },
+    {
+      "name": "estimates_hist_coin",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        34,
+        2
+      ],
+      "columns": [
+        "Earnings Per Share - Mean",
+        "Revenue - Mean"
+      ],
+      "sample": [
+        {
+          "Earnings Per Share - Mean": "-0.76729",
+          "Revenue - Mean": "2948927040"
+        },
+        {
+          "Earnings Per Share - Mean": "1.63978",
+          "Revenue - Mean": "4246373040"
+        }
+      ],
+      "nonnull_hits": {
+        "Earnings Per Share - Mean": 29,
+        "Revenue - Mean": 29
+      }
+    }
+  ],
+  "usable_from_lseg_now": [
+    {
+      "asset": "fx_hist::USDT=",
+      "use": "long daily BID/ASK peg proxy for that stable/FX ric",
+      "shape": [
+        322,
+        2
+      ]
+    },
+    {
+      "asset": "fx_hist::USDC=",
+      "use": "long daily BID/ASK peg proxy for that stable/FX ric",
+      "shape": [
+        322,
+        2
+      ]
+    },
+    {
+      "asset": "issuer::CRCL.N",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap"
+      ]
+    },
+    {
+      "asset": "issuer::CRCL.K",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap"
+      ]
+    },
+    {
+      "asset": "issuer::COIN.O",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ]
+    },
+    {
+      "asset": "issuer::MSTR.O",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score"
+      ]
+    },
+    {
+      "asset": "issuer::RIOT.O",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score"
+      ]
+    },
+    {
+      "asset": "issuer::2330.TW",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ]
+    },
+    {
+      "asset": "issuer::BBCA.JK",
+      "use": "issuer equity/ESG/market data if relevant",
+      "hits": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close",
+        "Company Market Cap",
+        "ESG Score",
+        "P/E (Daily Time Series Ratio)"
+      ]
+    }
+  ]
+}

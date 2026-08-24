@@ -1,0 +1,12 @@
+entity_id,date,timestamp,category,magnitude,keyMetric,headline,security_keyword_flag
+gemini-dollar,2025-12-11,1765411200,Institutional,High,Designated contract market license granted,Gemini affiliate secures US prediction markets license,1
+origin-dollar,2025-10-03,1759449600,Expansion,High,From Lido treasury,Secured 3M Lido Allocation to ARM,1
+origin-dollar,2025-08-26,1756166400,Expansion,High,Treasury yield strategy,Secured ETH Strategy Allocation to OETH,1
+ripple-usd,2026-01-14,1768348800,Institutional,High,Scales Payments across EU,Secured preliminary EMI license in Luxembourg,1
+ripple-usd,2026-01-09,1767916800,Institutional,High,Regulated payments in UK,Secured EMI and Cryptoasset licenses from FCA,1
+ripple-usd,2025-11-07,1762473600,Institutional,High,$500 million at $40 billion valuation,Ripple Labs secures $500 million funding led by Wall Street firms,1
+susd,2026-04-22,1776816000,Technical,Medium,4/4 verification configuration,Ethena restores LayerZero cross-chain bridge for sUSDe and USDe with enhanced security,1
+tether,2026-03-27,1774569600,Institutional,High,First comprehensive audit,Tether hires KPMG for first full USDT audit,1
+tether,2026-02-07,1770422400,Institutional,High,"$544 million frozen, 1,800+ cases across 62 countries",Tether helps Turkish authorities freeze $544 million in crypto assets,1
+world-liberty-financial-usd,2025-08-11,1754870400,Institutional,High,$1.5B for WLFI treasury,Secured $1.5B funding offering,1
+xsgd,2024-07-18,1721260800,Institutional,High,Public XUSD access,Secured MAS MPI licences for XUSD access,1

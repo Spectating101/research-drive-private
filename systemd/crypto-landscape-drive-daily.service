@@ -1,0 +1,17 @@
+[Unit]
+Description=Sharpe-Renaissance Drive-first crypto landscape snapshot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/run_crypto_landscape_drive_snapshot.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+StandardOutput=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/crypto_landscape_drive_systemd.log
+StandardError=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/crypto_landscape_drive_systemd.log
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,1 @@
+../drive/scripts/run_synthesis.py

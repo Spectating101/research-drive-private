@@ -362,6 +362,33 @@ export function V2App() {
     browseTarget && browseCollect.key === browseTargetKey(browseTarget)
       ? browseCollect
       : { key: "", loading: false, error: "" };
+  const probeByKey = useMemo(() => {
+    const map = {};
+    if (browseProbe?.key && browseProbe?.result) map[browseProbe.key] = browseProbe.result;
+    if (browseRow?.candidate_key && browseRow?.probe_snapshot) {
+      map[browseRow.candidate_key] = browseRow.probe_snapshot;
+    }
+    return map;
+  }, [browseProbe, browseRow]);
+
+  const handleSourceCollectionQueued = useCallback(
+    (job, offering) => {
+      if (job?.id) {
+        const key = offering?.candidate_key || browseTargetKey(offering) || "";
+        if (key) setBrowseJobBindings((prev) => ({ ...prev, [key]: job.id }));
+      }
+      refreshBackend();
+      showToast(
+        job?.status === "pending_approval"
+          ? "Source route queued — review and approve in Resources"
+          : job?.id
+            ? `Collection job queued (${job.id})`
+            : "Collection job queued",
+      );
+    },
+    [refreshBackend, showToast],
+  );
+
   const browseProbeState =
     browseProbe.key && browseProbe.key === browseTargetKey(browseTarget)
       ? browseProbe
@@ -409,10 +436,14 @@ export function V2App() {
           : nextTab === "browse"
             ? discoverMode
             : "search";
+      // Only Home/Discover/Library carry a selected dataset in the URL — other
+      // tabs (Resources, Profile, Synthesis, Settings) don't use it, and letting
+      // it ride along leaks a stale selection into unrelated deep links.
+      const datasetOwnsTab = nextTab === "home" || nextTab === "browse" || nextTab === "library";
       const next = {
         tab: nextTab,
         folder: patch.folder ?? folderId,
-        dataset: patch.dataset ?? selectedId,
+        dataset: datasetOwnsTab ? (patch.dataset ?? selectedId) : "",
         preview: patch.preview ?? previewOpen,
         q: nextQ,
         mode: nextTab === "browse" ? nextMode : undefined,
@@ -1058,6 +1089,9 @@ export function V2App() {
           historyEvents={mergeHistoryEvents(durableHistoryEvents, resourcesRollup?.activity?.events || [])}
           selectedHistoryId={activeObject?.kind === "history_event" ? activeObject.id : ""}
           onSelectHistoryEvent={selectHistoryEvent}
+          probeByKey={probeByKey}
+          discoverDestination={discoverDestination}
+          onSourceCollectionQueued={handleSourceCollectionQueued}
         />
       );
       break;

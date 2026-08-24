@@ -1,0 +1,92 @@
+/* ─────────────────────────────────────────────────────────────────
+   Research Drive v2  —  single-file stylesheet
+   Reference: docs/design/references/desk-v2-1440.html
+   Layout spec: docs/design/LAYOUT_SPEC.md
+   ───────────────────────────────────────────────────────────────── */
+
+/* ── 1. Design tokens ─────────────────────────────────────────── */
+/* Palette: Google Drive precision — crisp, neutral, unambiguous */
+:root {
+  --rd-sidebar-min: 224px;
+  --rd-sidebar-ideal: 18vw;
+  --rd-sidebar-max: 280px;
+  --rd-rail-min: 360px;
+  --rd-rail-ideal: 30vw;
+  --rd-rail-max: 480px;
+  --rd-sidebar: clamp(var(--rd-sidebar-min), var(--rd-sidebar-ideal), var(--rd-sidebar-max));
+  --rd-rail: clamp(var(--rd-rail-min), var(--rd-rail-ideal), var(--rd-rail-max));
+  --rd-header:   56px;
+  --rd-main-pad-x: 24px;
+  --rd-main-pad-y: 18px;
+
+  --rd-canvas:     #f7f9fc;  /* frozen mock canvas */
+  --rd-surface:    #FFFFFF;
+  --rd-sidebar-bg: #f8fafd;  /* frozen mock sidebar */
+  --rd-border:     #E8EAED;  /* GDrive divider */
+  --rd-border2:    #DADCE0;  /* stronger divider */
+  --rd-text:       #202124;  /* GDrive primary text */
+  --rd-body:       #3C4043;  /* GDrive body text */
+  --rd-muted:      #5F6368;  /* GDrive secondary text */
+  --rd-accent:     #1A73E8;  /* GDrive blue */
+  --rd-link:       #1A73E8;
+
+  --rd-hover:       #F8F9FA;  /* very subtle row hover */
+  --rd-active-bg:   #E8F0FE;  /* GDrive selected item blue wash */
+  --rd-active-fg:   #1A73E8;
+  --rd-active-border: #C5D9FD;
+
+  --rd-ready-bg:  #E6F4EA; --rd-ready-fg:  #137333;
+  --rd-conn-bg:   #E8F0FE; --rd-conn-fg:   #1A73E8;
+  --rd-review-bg: #FEF7E0; --rd-review-fg: #B06000;
+  --rd-fail-bg:   #FCE8E6; --rd-fail-fg:   #C5221F;
+  --rd-ext-bg:    #F1F3F4; --rd-ext-fg:    #5F6368;
+
+  --rd-row-h: 48px;
+  --rd-radius: 4px;  /* tighter — more professional */
+  --rd-font: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --rd-mono: "IBM Plex Mono", "Roboto Mono", ui-monospace, monospace;
+}
+
+.rd-v2-shell,
+.rd-v2-shell * ,
+.rd-v2-shell *::before,
+.rd-v2-shell *::after {
+  box-sizing: border-box;
+}
+
+/* ── 2. Shell grid — adaptive sidebar | work surface | anchor rail ─ */
+.rd-v2-shell {
+  display: grid;
+  grid-template-columns: var(--rd-sidebar) minmax(0, 1fr) var(--rd-rail);
+  grid-template-rows: var(--rd-header) minmax(0, 1fr);
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  background: var(--rd-canvas);
+  font-family: var(--rd-font);
+  font-size: 14px;
+  color: var(--rd-body);
+}
+
+/* ── 3. Header ────────────────────────────────────────────────── */
+.rd-v2-header {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: var(--rd-sidebar) minmax(0, min(52vw, 720px)) auto auto;
+  align-items: center;
+  gap: 16px;
+  height: var(--rd-header);
+  padding: 0 18px;
+  background: var(--rd-surface);
+  border-bottom: 1px solid var(--rd-border);
+}
+
+.yzu-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 0;
+  curs

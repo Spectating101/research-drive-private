@@ -1,0 +1,1 @@
+../alpha/scripts/stock_investment_data_status.py

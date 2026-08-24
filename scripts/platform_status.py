@@ -1,0 +1,1 @@
+../alpha/scripts/platform_status.py

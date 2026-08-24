@@ -1,0 +1,149 @@
+{
+  "comment": "Major stablecoin depeg / trust shock events (curated, free sources).",
+  "incidents": [
+    {
+      "entity_id": "terrausd",
+      "event_date": "2022-05-09",
+      "event_type": "depeg",
+      "severity": 5,
+      "summary": "TerraUSD (UST) lost peg amid LUNA death spiral",
+      "source_url": "https://en.wikipedia.org/wiki/TerraUSD"
+    },
+    {
+      "entity_id": "terrausd",
+      "event_date": "2022-05-12",
+      "event_type": "depeg",
+      "severity": 5,
+      "summary": "UST traded well below $1; ecosystem collapse",
+      "source_url": "https://en.wikipedia.org/wiki/TerraUSD"
+    },
+    {
+      "entity_id": "usd-coin",
+      "event_date": "2023-03-11",
+      "event_type": "depeg",
+      "severity": 4,
+      "summary": "USDC depegged after Silicon Valley Bank exposure",
+      "source_url": "https://en.wikipedia.org/wiki/USD_Coin"
+    },
+    {
+      "entity_id": "usd-coin",
+      "event_date": "2023-03-12",
+      "event_type": "depeg",
+      "severity": 3,
+      "summary": "USDC recovery as Circle disclosed reserves",
+      "source_url": "https://en.wikipedia.org/wiki/USD_Coin"
+    },
+    {
+      "entity_id": "dai",
+      "event_date": "2023-03-11",
+      "event_type": "depeg",
+      "severity": 2,
+      "summary": "DAI brief premium/discount during USDC contagion",
+      "source_url": "https://en.wikipedia.org/wiki/Dai_(cryptocurrency)"
+    },
+    {
+      "entity_id": "tether",
+      "event_date": "2022-05-12",
+      "event_type": "depeg",
+      "severity": 3,
+      "summary": "USDT traded below $1 during crypto market stress",
+      "source_url": "https://en.wikipedia.org/wiki/Tether_(cryptocurrency)"
+    },
+    {
+      "entity_id": "fei-usd",
+      "event_date": "2022-04-18",
+      "event_type": "depeg",
+      "severity": 4,
+      "summary": "FEI lost peg; protocol wound down PCV mechanics",
+      "source_url": "https://en.wikipedia.org/wiki/Fei_Protocol"
+    },
+    {
+      "entity_id": "husd",
+      "event_date": "2022-10-27",
+      "event_type": "depeg",
+      "severity": 4,
+      "summary": "HUSD redemptions halted; sustained depeg",
+      "source_url": "https://www.coindesk.com/markets/2022/11/18/husd-stablecoin-loses-peg-as-huobi-faces-liquidity-issues/"
+    },
+    {
+      "entity_id": "true-usd",
+      "event_date": "2023-03-10",
+      "event_type": "depeg",
+      "severity": 2,
+      "summary": "TUSD volatility amid banking sector stress",
+      "source_url": "https://en.wikipedia.org/wiki/TrueUSD"
+    },
+    {
+      "entity_id": "usdd",
+      "event_date": "2022-06-17",
+      "event_type": "depeg",
+      "severity": 3,
+      "summary": "USDD traded below peg during market turmoil",
+      "source_url": "https://en.wikipedia.org/wiki/USDD_(cryptocurrency)"
+    },
+    {
+      "entity_id": "fraxfinance",
+      "event_date": "2023-03-11",
+      "event_type": "depeg",
+      "severity": 2,
+      "summary": "FRAX peg stress during USDC depeg weekend",
+      "source_url": "https://en.wikipedia.org/wiki/Frax_Finance"
+    },
+    {
+      "entity_id": "crvusd",
+      "event_date": "2023-03-11",
+      "event_type": "depeg",
+      "severity": 1,
+      "summary": "crvUSD minor peg deviation during USDC event",
+      "source_url": "https://docs.curve.fi/crvusd/overview/"
+    },
+    {
+      "entity_id": "binance-usd",
+      "event_date": "2023-02-13",
+      "event_type": "regulation",
+      "severity": 3,
+      "summary": "Paxos ordered to stop BUSD issuance by NYDFS",
+      "source_url": "https://www.dfs.ny.gov/reports_and_publications/press_releases/pr2023021301"
+    },
+    {
+      "entity_id": "neutrino-usd",
+      "event_date": "2022-04-04",
+      "event_type": "depeg",
+      "severity": 4,
+      "summary": "USDN lost peg on Waves; Neutrino crisis",
+      "source_url": "https://en.wikipedia.org/wiki/Neutrino_Protocol"
+    },
+    {
+      "entity_id": "fantom-usd",
+      "event_date": "2022-10-25",
+      "event_type": "depeg",
+      "severity": 4,
+      "summary": "FUSD depeg amid Alameda/FTX contagion concerns",
+      "source_url": "https://cointelegraph.com/news/fantom-stablecoin-depegs-after-alameda-research-wallet-dumps-40m-ftm"
+    },
+    {
+      "entity_id": "magic-internet-money",
+      "event_date": "2022-06-17",
+      "event_type": "depeg",
+      "severity": 2,
+      "summary": "MIM brief depeg during June 2022 stress",
+      "source_url": "https://en.wikipedia.org/wiki/Magic_Internet_Money"
+    },
+    {
+      "entity_id": "celo-dollar",
+      "event_date": "2022-05-12",
+      "event_type": "depeg",
+      "severity": 2,
+      "summary": "cUSD peg deviation during UST contagion",
+      "source_url": "https://docs.celo.org/learn/celo-dollar"
+    },
+    {
+      "entity_id": "usde",
+      "event_date": "2024-04-13",
+      "event_type": "depeg",
+      "severity": 2,
+      "summary": "USDe brief deviation during funding rate shock",
+      "source_url": "https://docs.ethena.fi/"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=Sharpe-Renaissance GDELT DOC URL enrichment after headline backfill
+Wants=network-online.target
+After=network-online.target news-shock-headline-backfill.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/run_news_shock_url_enrichment_after_headlines.sh
+TimeoutStartSec=infinity
+Restart=on-failure
+RestartSec=600
+Nice=12
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+StandardOutput=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/news_shock_taxonomy/systemd.log
+StandardError=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/news_shock_taxonomy/systemd.log
+
+[Install]
+WantedBy=default.target

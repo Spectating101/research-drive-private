@@ -1,0 +1,12 @@
+- LibraryPage displays hierarchical dataset/folder browser with search, sort, filter, and action menus for research data intake.
+- Helper functions handle dataset transformation, sorting (name/updated), filtering (all/query-ready), and status labels with no error boundaries.
+- `LibraryNewMenu` attaches global mousedown listener to close menu; cleanup depends on `[open, onClose]` — risks stale closure if parent doesn't stabilize deps.
+- `itemUpdatedTime()` silently returns 0 on NaN; missing dates hide schema inconsistencies instead of surfacing them.
+- Heavy useMemo chains (vaultDatasets, selectedDataset, tree, trail, filteredItems) — stale parent updates could cause closure stalls or re-renders.
+- No try/catch on tree building, breadcrumb traversal, or dataset lookups; malformed data crashes silently.
+- Menu accessibility uses semantic ARIA roles but hardcoded disabled "New folder" lacks visible reason or placeholder state.
+- Large dataset lists (1000+ rows) not paginated; `sortItems()` and filter re-render full list on every state change.
+- Zero unit tests for helpers (datasetListItem, itemName, branchStatusNote, toolbarCountLabel); plural pluralization logic fragile.
+- No test coverage for edge cases: empty datasets, null dates, missing drill-down, rapid filter toggles.
+- Search highlighting and match logic not shown in stub; search perf on large trees unknown.
+- `useMemo` deps don't include all captured vars; cluster mutation not subscribed; inconsistent trail re-calcs on folderId shifts.

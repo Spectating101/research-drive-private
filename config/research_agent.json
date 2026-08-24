@@ -1,0 +1,17 @@
+{
+  "inventory": "/home/phyrexian/cluster-lab-logs/windows-cluster-inventory.csv",
+  "ssh_key": "/home/phyrexian/.ssh/id_rsa",
+  "jobs_root": "data_lake/agent_jobs",
+  "max_cluster_workers": 4,
+  "remote_python": "py",
+  "pipelines": {
+    "coingecko_daily": {
+      "label": "CoinGecko daily refresh",
+      "command": ["bash", "scripts/run_coingecko_network_coordinator.sh"]
+    },
+    "datacite_watchdog": {
+      "label": "DataCite cluster watchdog",
+      "command": ["bash", "scripts/data_catalog/datacite_cluster_watchdog.sh"]
+    }
+  }
+}

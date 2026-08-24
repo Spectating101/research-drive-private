@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_name_type_refresh.py

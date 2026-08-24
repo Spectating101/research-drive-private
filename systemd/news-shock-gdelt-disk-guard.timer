@@ -1,0 +1,11 @@
+[Unit]
+Description=Run GDELT disk headroom guard periodically
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=30min
+AccuracySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

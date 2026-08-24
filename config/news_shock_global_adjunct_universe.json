@@ -1,0 +1,70 @@
+{
+  "description": "Global financial-center adjunct to Asia GDELT universe — US/EU/MENA news for crypto/stablecoin and cross-border macro coverage.",
+  "countries": [
+    {"iso3": "USA", "fips": "US", "name": "United States", "terms": ["United States", "U.S.", "US Treasury", "Washington", "Federal Reserve", "Wall Street", "New York"]},
+    {"iso3": "GBR", "fips": "UK", "name": "United Kingdom", "terms": ["United Kingdom", "Britain", "British", "London", "Bank of England"]},
+    {"iso3": "CHE", "fips": "SZ", "name": "Switzerland", "terms": ["Switzerland", "Swiss", "Zurich", "Geneva"]},
+    {"iso3": "DEU", "fips": "GM", "name": "Germany", "terms": ["Germany", "German", "Berlin", "Frankfurt", "Bundesbank"]},
+    {"iso3": "FRA", "fips": "FR", "name": "France", "terms": ["France", "French", "Paris"]},
+    {"iso3": "ARE", "fips": "AE", "name": "United Arab Emirates", "terms": ["United Arab Emirates", "UAE", "Dubai", "Abu Dhabi"]}
+  ],
+  "include_theme_substrings": [
+    "ECON",
+    "EPU_",
+    "TRADE",
+    "TAX",
+    "SANCTION",
+    "REGULATION",
+    "LEGAL",
+    "FINANCIAL",
+    "CYBER",
+    "SECURITY"
+  ],
+  "exclude_text_substrings": [
+    "variety.com",
+    "hollywoodreporter.com",
+    "celebrity",
+    "entertainment",
+    "sports",
+    "football",
+    "soccer",
+    "basketball"
+  ],
+  "shock_theme_map": {
+    "macro_policy": ["ECON", "EPU_", "TAX_ECON", "MONETARY", "FISCAL", "INFLATION", "INTEREST_RATE", "POLICY"],
+    "governance_corruption": ["CORRUPTION", "LEGAL", "REGULATION", "JUSTICE", "INVESTIGATION"],
+    "political_instability": ["POLITICAL", "ELECTION", "PROTEST", "UNREST"],
+    "geopolitical_security": ["MILITARY", "ARMEDCONFLICT", "TERROR", "SECURITY", "SANCTION"],
+    "financial_stress": ["FINANCIAL", "BANK", "DEBT", "CURRENCY", "FOREX"]
+  },
+  "source_domain_tiers": {
+    "official_public": [
+      "federalreserve.gov",
+      "sec.gov",
+      "treasury.gov",
+      "cftc.gov",
+      "bankofengland.co.uk",
+      "snb.ch",
+      "bundesbank.de",
+      "banque-france.fr",
+      "centralbank.ae"
+    ],
+    "tier1_global_journalism": [
+      "apnews.com",
+      "bbc.com",
+      "bloomberg.com",
+      "ft.com",
+      "reuters.com",
+      "wsj.com",
+      "cnbc.com"
+    ],
+    "market_business": [
+      "coindesk.com",
+      "cointelegraph.com",
+      "decrypt.co",
+      "theblock.co",
+      "finance.yahoo.com",
+      "marketwatch.com"
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "checks": [
+    {
+      "name": "env_cursor_composer",
+      "ok": true,
+      "brain": "(default)",
+      "env_files": [
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/.env.local",
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/.env.local"
+      ],
+      "note": "CURSOR_API_KEY loaded"
+    },
+    {
+      "name": "api_health",
+      "ok": true,
+      "status": "ok",
+      "datasets": 158,
+      "brain": "cursor_composer",
+      "composer_configured": true
+    },
+    {
+      "name": "registry_datasets",
+      "ok": true,
+      "count": 158
+    },
+    {
+      "name": "faculty_profile",
+      "ok": true,
+      "email": "drkong@saturn.yzu.edu.tw",
+      "faculty_name": "Kong, De-Rong"
+    },
+    {
+      "name": "ui_proxy_datasets",
+      "ok": false,
+      "error": "HTTP Error 404: Not Found",
+      "hint": "npm run dev on :5178 or run_yzu_cluster.sh"
+    },
+    {
+      "name": "discover_search",
+      "ok": true,
+      "total": 3
+    }
+  ],
+  "api": "http://127.0.0.1:8765",
+  "ui": "http://127.0.0.1:5178"
+}

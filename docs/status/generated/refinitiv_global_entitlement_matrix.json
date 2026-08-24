@@ -1,0 +1,1206 @@
+{
+  "generated_at": "2026-07-06",
+  "probes": {
+    "US_large": "NVDA.O",
+    "US_index": ".SPX",
+    "US_vol": ".VIX",
+    "EU_large": "SAP.DE",
+    "JP_large": "7203.T",
+    "TW_large": "2330.TW",
+    "ID_large": "BBCA.JK",
+    "ID_index": ".JKSE",
+    "EM_ETF": "EIDO",
+    "FX": "USDJPY=",
+    "CMDTY": "LCOc1"
+  },
+  "results": [
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.Volatility30D",
+      "snapshot": {
+        "US_large": 39.7087330405592,
+        "US_index": 14.4028575783925,
+        "US_vol": 120.659456441991,
+        "EU_large": "ERR:LDError",
+        "JP_large": 26.8394891783125,
+        "TW_large": 31.1117519671179,
+        "ID_large": 61.4735498533818,
+        "ID_index": 41.5397092471145,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1,
+        "TW": 1,
+        "ID": 1
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "0/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 0.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.Volatility90D",
+      "snapshot": {
+        "US_large": 39.0295963039494,
+        "US_index": 14.5587967372705,
+        "US_vol": 123.148075272896,
+        "EU_large": "ERR:LDError",
+        "JP_large": 32.777939724166,
+        "TW_large": 35.4121497125212,
+        "ID_large": 43.1379529951617,
+        "ID_index": 32.1228960236582,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1,
+        "TW": 1,
+        "ID": 1
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "0/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 0.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.Volatility360D",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {
+        "US": "ERR:LDError",
+        "TW": "ERR:LDError",
+        "ID": "ERR:LDError"
+      },
+      "snapshot_fill": "0/0",
+      "history_fill": "0/3",
+      "snapshot_pct": 0.0,
+      "history_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.ImpVolPutDelta25",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {
+        "US": "ERR:LDError",
+        "TW": "ERR:LDError",
+        "ID": "ERR:LDError"
+      },
+      "snapshot_fill": "0/0",
+      "history_fill": "0/3",
+      "snapshot_pct": 0.0,
+      "history_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.ImpVolDelta25",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {
+        "US": "ERR:LDError",
+        "TW": "ERR:LDError",
+        "ID": "ERR:LDError"
+      },
+      "snapshot_fill": "0/0",
+      "history_fill": "0/3",
+      "snapshot_pct": 0.0,
+      "history_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.ImpliedVolatility",
+      "snapshot": {
+        "US_large": null,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": null,
+        "TW_large": null,
+        "ID_large": null,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 0,
+        "TW": 0,
+        "ID": 0
+      },
+      "snapshot_fill": "0/8",
+      "history_fill": "0/3",
+      "snapshot_pct": 0.0,
+      "history_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.PutCallRatio",
+      "snapshot": {
+        "US_large": null,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": null,
+        "TW_large": null,
+        "ID_large": null,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 0,
+        "TW": 0,
+        "ID": 0
+      },
+      "snapshot_fill": "0/8",
+      "history_fill": "0/3",
+      "snapshot_pct": 0.0,
+      "history_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.ShortInterest",
+      "snapshot": {
+        "US_large": "299666309",
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": null,
+        "TW_large": null,
+        "ID_large": null,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1176,
+        "TW": 0,
+        "ID": 0
+      },
+      "snapshot_fill": "1/8",
+      "history_fill": "1/3",
+      "snapshot_pct": 12.5,
+      "history_pct": 33.3,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.ShortInterestRatio",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {
+        "US": "ERR:LDError",
+        "TW": "ERR:LDError",
+        "ID": "ERR:LDError"
+      },
+      "snapshot_fill": "0/0",
+      "history_fill": "0/3",
+      "snapshot_pct": 0.0,
+      "history_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_risk_vol",
+      "field": "TR.ShortInterestPct",
+      "snapshot": {
+        "US_large": 1.23829053305785,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": null,
+        "TW_large": null,
+        "ID_large": null,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1176,
+        "TW": 0,
+        "ID": 0
+      },
+      "snapshot_fill": "1/8",
+      "history_fill": "1/3",
+      "snapshot_pct": 12.5,
+      "history_pct": 33.3,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.Revenue",
+      "snapshot": {
+        "US_large": "215938000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "50684952000000",
+        "TW_large": "3809054272000",
+        "ID_large": null,
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "3/4",
+      "snapshot_pct": 75.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.NetIncome",
+      "snapshot": {
+        "US_large": "120067000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "3848098000000",
+        "TW_large": "1717882627000",
+        "ID_large": "57537287000000",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/4",
+      "snapshot_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.EPS",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.BookValuePerShare",
+      "snapshot": {
+        "US_large": 6.4572847818,
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": 3062.8416747557,
+        "TW_large": 209.0227256266,
+        "ID_large": 2283.7966516439,
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/4",
+      "snapshot_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.TotalDebt",
+      "snapshot": {
+        "US_large": "8468000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "43205469000000",
+        "TW_large": "1068415716000",
+        "ID_large": "2112436000000",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/4",
+      "snapshot_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.ROE",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.ROA",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.FreeCashFlow",
+      "snapshot": {
+        "US_large": "115939000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": 220806999999.996,
+        "TW_large": 654156479999.999,
+        "ID_large": 20118870999999.9,
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/4",
+      "snapshot_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.F.TotRevenue",
+      "snapshot": {
+        "US_large": "215938000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "50684952000000",
+        "TW_large": "3809054272000",
+        "ID_large": "109360346000000",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/4",
+      "snapshot_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.F.NetIncome",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_fundamentals_snapshot",
+      "field": "TR.F.EPS",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.NumOfEstimates",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.RecommendationMean",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.RecommendMean",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.PriceTargetMean",
+      "snapshot": {
+        "US_large": 296.79737,
+        "US_index": 7711.76471,
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": 3714.7,
+        "TW_large": 2661.52941,
+        "ID_large": 8468.35294,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "5/7",
+      "snapshot_pct": 71.4,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.PriceTargetHigh",
+      "snapshot": {
+        "US_large": "500",
+        "US_index": "8300",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "4500",
+        "TW_large": "3500",
+        "ID_large": "10900",
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "5/7",
+      "snapshot_pct": 71.4,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.PriceTargetLow",
+      "snapshot": {
+        "US_large": "180",
+        "US_index": "7000",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "2900",
+        "TW_large": "480",
+        "ID_large": "6000",
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "5/7",
+      "snapshot_pct": 71.4,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.EPSMean",
+      "snapshot": {
+        "US_large": 8.91749,
+        "US_index": 328.70882,
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": 303.22271,
+        "TW_large": 99.60497,
+        "ID_large": 486.91144,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "5/7",
+      "snapshot_pct": 71.4,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.RevenueMean",
+      "snapshot": {
+        "US_large": "393355764380",
+        "US_index": null,
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "52535449420000",
+        "TW_large": "5212273336030",
+        "ID_large": "117850840290000",
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "4/7",
+      "snapshot_pct": 57.1,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_analyst",
+      "field": "TR.EPSSurprisePct",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.CommonName",
+      "snapshot": {
+        "US_large": "NVIDIA Corp",
+        "US_index": "Cboe Exchange Inc",
+        "US_vol": "Cboe Exchange Inc",
+        "EU_large": "ERR:LDError",
+        "JP_large": "Toyota Motor Corp",
+        "TW_large": "Taiwan Semiconductor Manufacturing Co Ltd",
+        "ID_large": "Bank Central Asia Tbk PT",
+        "ID_index": "Bursa Efek Indonesia PT",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "7/8",
+      "snapshot_pct": 87.5,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.ISIN",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.ExchangeTicker",
+      "snapshot": {
+        "US_large": "NVDA",
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": null,
+        "JP_large": "7203",
+        "TW_large": "2330",
+        "ID_large": "BBCA",
+        "ID_index": null,
+        "EM_ETF": null,
+        "FX": null,
+        "CMDTY": "BRN"
+      },
+      "history": {},
+      "snapshot_fill": "5/11",
+      "snapshot_pct": 45.5,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.TRBCEconomicSector",
+      "snapshot": {
+        "US_large": "Technology",
+        "US_index": "Financials",
+        "US_vol": "Financials",
+        "EU_large": "ERR:LDError",
+        "JP_large": "Consumer Cyclicals",
+        "TW_large": "Technology",
+        "ID_large": "Financials",
+        "ID_index": "Financials",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "7/8",
+      "snapshot_pct": 87.5,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.TRBCIndustry",
+      "snapshot": {
+        "US_large": "Semiconductors",
+        "US_index": "Financial & Commodity Market Operators & Service Providers",
+        "US_vol": "Financial & Commodity Market Operators & Service Providers",
+        "EU_large": "ERR:LDError",
+        "JP_large": "Auto & Truck Manufacturers",
+        "TW_large": "Semiconductors",
+        "ID_large": "Banks",
+        "ID_index": "Financial & Commodity Market Operators & Service Providers",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "7/8",
+      "snapshot_pct": 87.5,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.CompanyMarketCap",
+      "snapshot": {
+        "US_large": "4714886000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": 41346366388455.7,
+        "TW_large": 63486175014140.1,
+        "ID_large": "738355911975000",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "4/5",
+      "snapshot_pct": 80.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.SharesOutstanding",
+      "snapshot": {
+        "US_large": "24200000000",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "11841688412",
+        "TW_large": "25932370067",
+        "ID_large": "122876240600",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "4/5",
+      "snapshot_pct": 80.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.FreeFloat",
+      "snapshot": {
+        "US_large": "23229930868",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "10474996694",
+        "TW_large": "24272878922",
+        "ID_large": "47425039401",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "4/5",
+      "snapshot_pct": 80.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.FreeFloatPct",
+      "snapshot": {
+        "US_large": 95.9914,
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": 88.5207,
+        "TW_large": 93.6007,
+        "ID_large": 38.9869,
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {},
+      "snapshot_fill": "4/5",
+      "snapshot_pct": 80.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_reference",
+      "field": "TR.ExchangeCountryCode",
+      "snapshot": {
+        "US_large": "US",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "JP",
+        "TW_large": "TW",
+        "ID_large": "ID",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "GB"
+      },
+      "history": {},
+      "snapshot_fill": "5/5",
+      "snapshot_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "S_esg_supply",
+      "field": "TR.TRESGScore",
+      "snapshot": {
+        "US_large": 73.9979096103518,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": 70.7989954229842,
+        "TW_large": 92.0519866814309,
+        "ID_large": 76.3009344882583,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/7",
+      "snapshot_pct": 57.1,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_esg_supply",
+      "field": "TR.ESGScore",
+      "snapshot": {
+        "US_large": 3.319756,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": 3.846154,
+        "TW_large": 4.185096,
+        "ID_large": 3.147651,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/7",
+      "snapshot_pct": 57.1,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_esg_supply",
+      "field": "TR.EnvironmentPillarScore",
+      "snapshot": {
+        "US_large": 63.0714764538294,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": 86.1698894166111,
+        "TW_large": 92.6128193041195,
+        "ID_large": 58.3131639614783,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "4/7",
+      "snapshot_pct": 57.1,
+      "scale": "SELECTIVE"
+    },
+    {
+      "tier": "S_esg_supply",
+      "field": "TR.Supplier",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_esg_supply",
+      "field": "TR.Customer",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "S_esg_supply",
+      "field": "TR.InstitutionalHoldingPercentage",
+      "snapshot": {
+        "US_large": "ERR:LDError",
+        "US_index": "ERR:LDError",
+        "US_vol": "ERR:LDError",
+        "EU_large": "ERR:LDError",
+        "JP_large": "ERR:LDError",
+        "TW_large": "ERR:LDError",
+        "ID_large": "ERR:LDError",
+        "ID_index": "ERR:LDError",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": "ERR:LDError"
+      },
+      "history": {},
+      "snapshot_fill": "0/0",
+      "snapshot_pct": 0.0,
+      "scale": "SKIP"
+    },
+    {
+      "tier": "A_price_history",
+      "field": "TR.PriceClose",
+      "snapshot": {
+        "US_large": 194.83,
+        "US_index": 7483.24,
+        "US_vol": 18.71,
+        "EU_large": "ERR:LDError",
+        "JP_large": "2828",
+        "TW_large": "2445",
+        "ID_large": "6050",
+        "ID_index": 5875.78,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1128,
+        "TW": 1089,
+        "ID": 1073
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "3/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "A_price_history",
+      "field": "TR.PriceOpen",
+      "snapshot": {
+        "US_large": 197.14,
+        "US_index": 7495.14,
+        "US_vol": 18.89,
+        "EU_large": "ERR:LDError",
+        "JP_large": "2839",
+        "TW_large": "2415",
+        "ID_large": "5925",
+        "ID_index": 5806.167,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1128,
+        "TW": 1089,
+        "ID": 1073
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "3/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "A_price_history",
+      "field": "TR.PriceHigh",
+      "snapshot": {
+        "US_large": 200.055,
+        "US_index": 7540.75,
+        "US_vol": 19.35,
+        "EU_large": "ERR:LDError",
+        "JP_large": 2856.5,
+        "TW_large": "2465",
+        "ID_large": "6150",
+        "ID_index": 5899.302,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1128,
+        "TW": 1089,
+        "ID": 1073
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "3/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "A_price_history",
+      "field": "TR.PriceLow",
+      "snapshot": {
+        "US_large": 192.35,
+        "US_index": 7427.55,
+        "US_vol": 18.46,
+        "EU_large": "ERR:LDError",
+        "JP_large": "2813",
+        "TW_large": "2415",
+        "ID_large": "5900",
+        "ID_index": 5805.922,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1128,
+        "TW": 1089,
+        "ID": 1073
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "3/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "A_price_history",
+      "field": "TR.Volume",
+      "snapshot": {
+        "US_large": "142385548",
+        "US_index": "0",
+        "US_vol": "0",
+        "EU_large": "ERR:LDError",
+        "JP_large": "23428700",
+        "TW_large": "32905868",
+        "ID_large": "200465200",
+        "ID_index": "15800601000",
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1129,
+        "TW": 1090,
+        "ID": 1074
+      },
+      "snapshot_fill": "7/8",
+      "history_fill": "3/3",
+      "snapshot_pct": 87.5,
+      "history_pct": 100.0,
+      "scale": "BULK"
+    },
+    {
+      "tier": "A_price_history",
+      "field": "TR.TotalReturn1Mo",
+      "snapshot": {
+        "US_large": -12.4617383965934,
+        "US_index": null,
+        "US_vol": null,
+        "EU_large": "ERR:LDError",
+        "JP_large": -1.83963901423118,
+        "TW_large": 1.09360984717526,
+        "ID_large": 9.85127363847773,
+        "ID_index": null,
+        "EM_ETF": "ERR:LDError",
+        "FX": "ERR:LDError",
+        "CMDTY": null
+      },
+      "history": {
+        "US": 1129,
+        "TW": 1090,
+        "ID": 1074
+      },
+      "snapshot_fill": "4/8",
+      "history_fill": "3/3",
+      "snapshot_pct": 50.0,
+      "history_pct": 100.0,
+      "scale": "BULK"
+    }
+  ]
+}

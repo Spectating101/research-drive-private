@@ -1,0 +1,22 @@
+[Unit]
+Description=Sharpe-Renaissance Asia news-market modeling trial
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/run_asia_news_market_modeling_trial.sh
+TimeoutStartSec=1800
+MemoryAccounting=true
+MemoryHigh=2G
+MemoryMax=3G
+CPUQuota=150%
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+StandardOutput=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/asia_news_market_modeling/systemd.log
+StandardError=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/asia_news_market_modeling/systemd.log
+
+[Install]
+WantedBy=default.target

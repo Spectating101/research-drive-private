@@ -1,0 +1,14 @@
+variable,non_null_rows,non_null_share
+code_security_score,16832,0.901408
+google_trends_index,18340,0.982167
+attention_proxy_index,18360,0.983238
+peg_deviation,10273,0.550153
+peg_below_99_flag,10273,0.550153
+supply_usd,9859,0.527982
+supply_growth,9829,0.526375
+incident_count,18673,1.0
+depeg_dummy,18673,1.0
+sector_shock_flag,18673,1.0
+security_event_flag,18673,1.0
+gdelt_entity_mention_rows,2498,0.133776
+wikipedia_pageviews_sum,3827,0.204948

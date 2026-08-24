@@ -1,0 +1,189 @@
+{
+  "product": "Research Drive (YZU Cluster procurement desk)",
+  "captured_at": "2026-07-07T17:24:10.379Z",
+  "base_url": "http://127.0.0.1:5179",
+  "github_repo": "Spectating101/yzu-cluster",
+  "github_screenshots_path": "docs/screenshots-review/",
+  "git_head": "7eb4271",
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 900
+    },
+    "tablet": {
+      "width": 900,
+      "height": 1200
+    },
+    "mobile": {
+      "width": 390,
+      "height": 1200
+    }
+  },
+  "routes": [
+    {
+      "slug": "home",
+      "path": "/?tab=home",
+      "label": "Home"
+    },
+    {
+      "slug": "home-signed-in",
+      "path": "/?tab=home",
+      "label": "Home · faculty profile prompts"
+    },
+    {
+      "slug": "library-connections-queue",
+      "path": "/?tab=library&folder=connections&dataset=collection_queue_status",
+      "label": "Library · Apps & connections · collection queue"
+    },
+    {
+      "slug": "library",
+      "path": "/?tab=library",
+      "label": "Library root"
+    },
+    {
+      "slug": "library-stablecoin",
+      "path": "/?tab=library&folder=research_panels/stablecoin_trust_engagement/panel_weekly&dataset=stablecoin_trust_engagement_weekly",
+      "label": "Library · Stablecoin derived panel"
+    },
+    {
+      "slug": "library-stablecoin-preview",
+      "path": "/?tab=library&folder=research_panels/stablecoin_trust_engagement/panel_weekly&dataset=stablecoin_trust_engagement_weekly",
+      "label": "Library · Stablecoin preview modal"
+    },
+    {
+      "slug": "library-stablecoin-ask",
+      "path": "/?tab=library&folder=research_panels/stablecoin_trust_engagement/panel_weekly&dataset=stablecoin_trust_engagement_weekly",
+      "label": "Library · Stablecoin Ask rail"
+    },
+    {
+      "slug": "profile",
+      "path": "/?tab=profile",
+      "label": "Profile"
+    },
+    {
+      "slug": "discover",
+      "path": "/?tab=browse",
+      "label": "Discover"
+    },
+    {
+      "slug": "discover-search",
+      "path": "/?tab=browse&q=TWSE",
+      "label": "Discover · TWSE search (in-lab hits)"
+    },
+    {
+      "slug": "discover-acquire",
+      "path": "/?tab=browse",
+      "label": "Discover · external acquisition candidate"
+    },
+    {
+      "slug": "discover-probe",
+      "path": "/?tab=browse",
+      "label": "Discover · probe result in rail"
+    },
+    {
+      "slug": "discover-ask",
+      "path": "/?tab=browse",
+      "label": "Discover · Add to lab → Ask"
+    },
+    {
+      "slug": "resources",
+      "path": "/?tab=resources",
+      "label": "Resources"
+    }
+  ],
+  "files": [
+    "desktop-discover-acquire-viewport.png",
+    "desktop-discover-acquire-full.png",
+    "desktop-discover-probe-viewport.png",
+    "desktop-discover-probe-full.png",
+    "desktop-discover-ask-viewport.png",
+    "desktop-discover-ask-full.png",
+    "desktop-home-viewport.png",
+    "desktop-home-full.png",
+    "desktop-home-signed-in-viewport.png",
+    "desktop-home-signed-in-full.png",
+    "desktop-library-connections-queue-viewport.png",
+    "desktop-library-connections-queue-full.png",
+    "desktop-library-viewport.png",
+    "desktop-library-full.png",
+    "desktop-library-stablecoin-viewport.png",
+    "desktop-library-stablecoin-full.png",
+    "desktop-library-stablecoin-preview-viewport.png",
+    "desktop-library-stablecoin-preview-full.png",
+    "desktop-library-stablecoin-ask-viewport.png",
+    "desktop-library-stablecoin-ask-full.png",
+    "desktop-profile-viewport.png",
+    "desktop-profile-full.png",
+    "desktop-discover-viewport.png",
+    "desktop-discover-full.png",
+    "desktop-discover-search-viewport.png",
+    "desktop-discover-search-full.png",
+    "desktop-resources-viewport.png",
+    "desktop-resources-full.png",
+    "tablet-discover-acquire-viewport.png",
+    "tablet-discover-acquire-full.png",
+    "tablet-discover-probe-viewport.png",
+    "tablet-discover-probe-full.png",
+    "tablet-discover-ask-viewport.png",
+    "tablet-discover-ask-full.png",
+    "tablet-home-viewport.png",
+    "tablet-home-full.png",
+    "tablet-home-signed-in-viewport.png",
+    "tablet-home-signed-in-full.png",
+    "tablet-library-connections-queue-viewport.png",
+    "tablet-library-connections-queue-full.png",
+    "tablet-library-viewport.png",
+    "tablet-library-full.png",
+    "tablet-library-stablecoin-viewport.png",
+    "tablet-library-stablecoin-full.png",
+    "tablet-library-stablecoin-preview-viewport.png",
+    "tablet-library-stablecoin-preview-full.png",
+    "tablet-library-stablecoin-ask-viewport.png",
+    "tablet-library-stablecoin-ask-full.png",
+    "tablet-profile-viewport.png",
+    "tablet-profile-full.png",
+    "tablet-discover-viewport.png",
+    "tablet-discover-full.png",
+    "tablet-discover-search-viewport.png",
+    "tablet-discover-search-full.png",
+    "tablet-resources-viewport.png",
+    "tablet-resources-full.png",
+    "mobile-discover-acquire-viewport.png",
+    "mobile-discover-acquire-full.png",
+    "mobile-discover-probe-viewport.png",
+    "mobile-discover-probe-full.png",
+    "mobile-discover-ask-viewport.png",
+    "mobile-discover-ask-full.png",
+    "mobile-home-viewport.png",
+    "mobile-home-full.png",
+    "mobile-home-signed-in-viewport.png",
+    "mobile-home-signed-in-full.png",
+    "mobile-library-connections-queue-viewport.png",
+    "mobile-library-connections-queue-full.png",
+    "mobile-library-viewport.png",
+    "mobile-library-full.png",
+    "mobile-library-stablecoin-viewport.png",
+    "mobile-library-stablecoin-full.png",
+    "mobile-library-stablecoin-preview-viewport.png",
+    "mobile-library-stablecoin-preview-full.png",
+    "mobile-library-stablecoin-ask-viewport.png",
+    "mobile-library-stablecoin-ask-full.png",
+    "mobile-profile-viewport.png",
+    "mobile-profile-full.png",
+    "mobile-discover-viewport.png",
+    "mobile-discover-full.png",
+    "mobile-discover-search-viewport.png",
+    "mobile-discover-search-full.png",
+    "mobile-resources-viewport.png",
+    "mobile-resources-full.png"
+  ],
+  "require_live": true,
+  "notes": [
+    "Screenshots committed under docs/screenshots-review/ for ChatGPT + GitHub connector review.",
+    "Zip at repo root: research-drive-screenshots.zip (screenshots only)",
+    "Full ChatGPT packet: research-drive-chatgpt-packet.zip (screenshots + markdown evidence)",
+    "Set YZU_REQUIRE_LIVE=1 to fail capture unless header shows Live registry (API on :8765)."
+  ],
+  "acquire_query": "drkong@saturn.yzu.edu.tw",
+  "monorepo_git_head": "6809d3f"
+}

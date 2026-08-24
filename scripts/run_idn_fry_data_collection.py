@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_fry_data_collection.py

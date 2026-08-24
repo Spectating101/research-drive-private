@@ -97,7 +97,7 @@
         "job_boards"
       ],
       "exclude_from_cluster_ops": true,
-      "notes": "Personal machine \u2014 not used by procurement routing (windows_lab only)."
+      "notes": "Personal machine — not used by procurement routing (windows_lab only)."
     }
   },
   "spectator_engine": {
@@ -175,7 +175,7 @@
       ]
     },
     "datacite_drive_pipeline": {
-      "label": "DataCite Windows pull \u2192 GDrive",
+      "label": "DataCite Windows pull → GDrive",
       "pool": "optiplex",
       "command": [
         "bash",
@@ -195,12 +195,14 @@
     "coingecko_daily": {
       "label": "CoinGecko daily refresh",
       "pool": "windows_lab",
-      "enabled": true,
-      "procurement_triggered": true,
+      "enabled": false,
+      "procurement_triggered": false,
       "command": [
         "bash",
         "scripts/run_coingecko_network_coordinator.sh"
-      ]
+      ],
+      "legacy_quarantine": true,
+      "disabled_reason": "Named vendor product lane demoted; use craft http_manifest/scraper_run/source_probe"
     },
     "collection_queue": {
       "label": "Public data collection queue",
@@ -215,32 +217,36 @@
     "ethereum_usdt_rpc_pilot": {
       "label": "Ethereum USDT ERC-20 transfer RPC pilot (Etherscan-style sample)",
       "pool": "optiplex",
-      "enabled": true,
-      "procurement_triggered": true,
+      "enabled": false,
+      "procurement_triggered": false,
       "command": [
         ".venv/bin/python",
         "scripts/usdt_catalogue/rpc_usdt_transfer_pilot.py"
-      ]
+      ],
+      "legacy_quarantine": true,
+      "disabled_reason": "Named vendor product lane demoted; use craft http_manifest/scraper_run/source_probe"
     },
     "skynet_stablecoin_harvest": {
       "label": "CertiK Skynet stablecoin leaderboard security scores harvest",
       "pool": "optiplex",
-      "enabled": true,
-      "procurement_triggered": true,
+      "enabled": false,
+      "procurement_triggered": false,
       "command": [
         ".venv/bin/python",
         "stablecoin_skynet/collect_skynet_stablecoins.py",
         "harvest",
         "--limit",
         "25"
-      ]
+      ],
+      "legacy_quarantine": true,
+      "disabled_reason": "Named vendor product lane demoted; use craft http_manifest/scraper_run/source_probe"
     },
     "refinitiv_derived_panels": {
       "label": "Refinitiv derived panel rebuild (frozen release)",
       "pool": "optiplex",
       "enabled": false,
       "procurement_triggered": false,
-      "notes": "Manual only \u2014 do not bulk re-harvest. Rebuilds research_panels/refinitiv from frozen raw.",
+      "notes": "Manual only — do not bulk re-harvest. Rebuilds research_panels/refinitiv from frozen raw.",
       "command": [
         ".venv-refinitiv/bin/python",
         "scripts/refinitiv_build_derived_panels.py",

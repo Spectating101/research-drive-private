@@ -1,0 +1,11 @@
+[Unit]
+Description=Run remote laptop worker monitor periodically
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+AccuracySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

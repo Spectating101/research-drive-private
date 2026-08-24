@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_fry_gdelt_crossref.py

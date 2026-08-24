@@ -1,0 +1,19 @@
+{
+  "id": "20260718_234251_93f55d",
+  "state": "running",
+  "instruction": "Read-only frontend delivery review. Do not edit or write any file. The current clean branch is /tmp/yzu-product-convergence and desktop screenshots are /tmp/yzu-product-convergence-{home,library,browse,synthesis,resources,profile,settings}.png. Produce a concise whole-product implementation inventory for Home, Library, Discover, Synthesis, Resources, Profile, Settings, and shared Detail|Ask. For each page: current rendered maturity, primary mismatch against the frozen product model, truth/backend dependency, and recommended delivery wave. Preserve the frozen Discover Explore|History and Synthesis S-04 designs. End with a non-overlapping worker plan.",
+  "files": [
+    "/tmp/yzu-product-convergence/drive/src/v2",
+    "/tmp/yzu-product-convergence/e2e"
+  ],
+  "stakes": "high",
+  "kind": "review",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260718_234251_93f55d.output.txt",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260718_234251_93f55d.integrate.json",
+  "created_at": 1784389371.3141239,
+  "pid": 2038708,
+  "log_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260718_234251_93f55d.log",
+  "updated_at": 1784389371.3623476
+}

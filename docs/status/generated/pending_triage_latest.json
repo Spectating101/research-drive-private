@@ -1,0 +1,9 @@
+{
+  "pending_total": 22,
+  "approved": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "recovered_stale_running": 0,
+  "dry_run": true,
+  "sample": []
+}

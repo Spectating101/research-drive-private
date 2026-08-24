@@ -1,0 +1,16 @@
+[Unit]
+Description=YZU Cluster job worker (spectator, windows_lab, campaigns)
+After=network-online.target yzu-cluster-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@SR_DIR@
+Environment=PYTHONPATH=@KERNEL_DIR@:@ALPHA_DIR@:@DRIVE_DIR@:@SR_DIR@
+ExecStart=@VENV_PYTHON@ -m scripts.yzu_cluster.worker --poll 2
+Restart=always
+RestartSec=3
+Nice=10
+
+[Install]
+WantedBy=default.target

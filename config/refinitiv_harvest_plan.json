@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "created_at": "2026-05-20",
+  "notes": [
+    "Phased Refinitiv/LSEG harvest aligned with docs/research_handoffs/refinitiv_agent_mode_handoff_20260520.md",
+    "P1 uses indonesia_liquid_core from config/markets/asia_yfinance_universes.json plus .JKSE"
+  ],
+  "universes_config": "config/markets/asia_yfinance_universes.json",
+  "probe_rics": [
+    "BBCA.JK",
+    "BBRI.JK",
+    "BMRI.JK",
+    "TLKM.JK",
+    ".JKSE",
+    "2330.TW",
+    "NVDA.O",
+    ".SPX",
+    ".VIX",
+    "USDIDR=",
+    "XAU=",
+    "LCOc1"
+  ],
+  "phases": {
+    "p1_idx_core": {
+      "title": "Indonesia / IDX core",
+      "universe_id": "indonesia_liquid_core",
+      "extra_rics": [".JKSE"],
+      "daily_history": {
+        "batch_size": 8,
+        "start": "2015-01-01",
+        "interval": "daily",
+        "adjustments": null,
+        "fields": [
+          "TR.PriceOpen",
+          "TR.PriceHigh",
+          "TR.PriceLow",
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "output": "idx_prices_daily.parquet"
+      },
+      "metadata_snapshot": {
+        "fields": [
+          "TR.CommonName",
+          "TR.ISIN",
+          "TR.ExchangeTicker",
+          "TR.TRBCEconomicSector",
+          "TR.TRBCIndustry",
+          "TR.CompanyMarketCap",
+          "TR.SharesOutstanding",
+          "TR.FreeFloatPct",
+          "TR.ExchangeCountryCode",
+          "TR.Currency"
+        ],
+        "output": "idx_metadata.parquet"
+      },
+      "fundamentals_snapshot": {
+        "fields": [
+          "TR.Revenue",
+          "TR.NetIncome",
+          "TR.EPS",
+          "TR.BookValuePerShare",
+          "TR.TotalDebt",
+          "TR.ROE",
+          "TR.ROA",
+          "TR.GrossMargin",
+          "TR.OperatingMargin",
+          "TR.FreeCashFlow"
+        ],
+        "output": "idx_fundamentals_snapshot.parquet"
+      },
+      "analyst_snapshot": {
+        "fields": [
+          "TR.NumOfEstimates",
+          "TR.RecommendationMean",
+          "TR.PriceTargetMean",
+          "TR.PriceTargetHigh",
+          "TR.PriceTargetLow"
+        ],
+        "output": "idx_analyst_snapshot.parquet"
+      }
+    },
+    "p2_global_backbone": {
+      "title": "Global cross-asset market backbone",
+      "rics": [
+        ".SPX",
+        ".NDX",
+        ".RUT",
+        ".N225",
+        ".TOPX",
+        ".TWII",
+        ".KS11",
+        ".STOXX50E",
+        ".JKSE",
+        "SPY",
+        "QQQ",
+        "EEM",
+        "EIDO",
+        "EWY",
+        "EWT",
+        "EWM",
+        "INDA",
+        "EWZ",
+        "EZA",
+        "USDIDR=",
+        "EUR=",
+        "GBP=",
+        "JPY=",
+        "SGD=",
+        "US10YT=RR",
+        "US2YT=RR",
+        "LCOc1",
+        "CLc1",
+        "GCc1",
+        "HGc1",
+        "XAU="
+      ],
+      "daily_history": {
+        "batch_size": 8,
+        "start": "2010-01-01",
+        "interval": "daily",
+        "adjustments": null,
+        "fields": [
+          "TR.PriceOpen",
+          "TR.PriceHigh",
+          "TR.PriceLow",
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "output": "global_cross_asset_daily.parquet"
+      }
+    },
+    "p3_risk_derivatives": {
+      "title": "Derivatives / risk fields",
+      "universe_id": "indonesia_liquid_core",
+      "extra_rics": [".JKSE", ".SPX", "NVDA.O"],
+      "snapshot": {
+        "fields": [
+          "TR.Volatility30D",
+          "TR.Volatility90D",
+          "TR.Volatility360D",
+          "TR.ImpVolPutDelta25",
+          "TR.ImpVolDelta25",
+          "TR.ShortInterestRatio",
+          "TR.PutCallRatio"
+        ],
+        "output": "derivatives_risk_panel.parquet"
+      }
+    },
+    "p4_analyst": {
+      "title": "Analyst estimates / recommendations",
+      "universe_id": "indonesia_liquid_core",
+      "extra_rics": ["NVDA.O", "2330.TW"],
+      "snapshot": {
+        "fields": [
+          "TR.NumOfEstimates",
+          "TR.RecommendationMean",
+          "TR.PriceTargetMean",
+          "TR.PriceTargetHigh",
+          "TR.PriceTargetLow",
+          "TR.EPSMean",
+          "TR.RevenueMean",
+          "TR.EPSActValue",
+          "TR.EPSSurprisePct"
+        ],
+        "output": "analyst_estimates.parquet"
+      }
+    }
+  },
+  "entitlement_probe": {
+    "basic_fields": ["TR.CommonName", "TR.PriceClose", "TR.Volume"],
+    "history_fields": ["TR.PriceClose", "TR.Volume"],
+    "history_start": "2024-01-01",
+    "history_interval": "daily"
+  }
+}

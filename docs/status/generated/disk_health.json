@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-07-12T17:39:14Z",
+  "epoch": 1783877954.1240013,
+  "level": "ok",
+  "usb_dev": "/dev/sda",
+  "nvme_dev": "/dev/nvme0n1",
+  "usb_temp_c": 30,
+  "usb_temp_max_lifetime_c": 30,
+  "nvme_temp_c": 32,
+  "usb": {
+    "smart_passed": true,
+    "temp_c": 30,
+    "temp_max_c": 30,
+    "reallocated": 0,
+    "pending": 0,
+    "uncorrectable": 0,
+    "udma_crc": 0,
+    "power_on_hours": 0,
+    "load_cycle_count": 7254
+  },
+  "nvme": {
+    "smart_passed": true,
+    "temp_c": 32,
+    "percent_used": 20,
+    "media_errors": 0,
+    "critical_warning": "0x00",
+    "unsafe_shutdowns": 111
+  },
+  "notes": [],
+  "guard_cmd": "bash scripts/ops/desk_io_guard.sh",
+  "fleet_stop_cmd": "bash scripts/run_news_shock_gkg_expanded_fleet.sh stop"
+}

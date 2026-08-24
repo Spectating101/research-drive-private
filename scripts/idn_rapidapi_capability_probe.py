@@ -1,0 +1,1 @@
+../alpha/scripts/idn_rapidapi_capability_probe.py

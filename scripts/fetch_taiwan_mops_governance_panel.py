@@ -1,0 +1,1 @@
+../drive/scripts/fetch_taiwan_mops_governance_panel.py

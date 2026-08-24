@@ -1,0 +1,417 @@
+From ccba7365c51d5604699668ee55623c578c544945 Mon Sep 17 00:00:00 2001
+From: spectating101 <s1133958@mail.yzu.edu.tw>
+Date: Sat, 11 Jul 2026 02:15:00 +0800
+Subject: [PATCH] fix(discover): D0.1 source_identity contract and shared
+ golden vectors
+
+Normalize collect source_identity (legacy source accepted) and lock
+JS/Python candidate_key parity to one hashed fixture.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../scripts/research_data_mcp/http_router.py  |   7 +-
+ tests/fixtures/candidate_key_vectors.json     | 128 ++++++++++++++++
+ tests/test_discover_candidate_identity.py     | 142 +++++++-----------
+ 3 files changed, 185 insertions(+), 92 deletions(-)
+ create mode 100644 tests/fixtures/candidate_key_vectors.json
+
+diff --git a/drive/scripts/research_data_mcp/http_router.py b/drive/scripts/research_data_mcp/http_router.py
+index 1c3066f..a4d73e3 100644
+--- a/drive/scripts/research_data_mcp/http_router.py
++++ b/drive/scripts/research_data_mcp/http_router.py
+@@ -397,13 +397,17 @@ def _handlers() -> dict[str, Handler]:
+             plan["destination"] = dest
+ 
+         requested_key = str(payload.get("candidate_key") or "").strip()
++        # Public field is source_identity; legacy `source` still accepted and normalized.
++        source_identity = str(
++            payload.get("source_identity") or payload.get("source") or payload.get("provider") or ""
++        ).strip()
+         identity_row = {
+             "candidate_key": requested_key,
+             "dataset_id": payload.get("dataset_id"),
+             "doi": payload.get("doi"),
+             "url": payload.get("url") or payload.get("source_url"),
+             "title": payload.get("name") or payload.get("title"),
+-            "source": payload.get("source") or payload.get("provider"),
++            "source": source_identity,
+             "provider": payload.get("provider"),
+             "external_id": payload.get("external_id"),
+             "kind": payload.get("kind"),
+@@ -426,7 +430,6 @@ def _handlers() -> dict[str, Handler]:
+             val = payload.get(field)
+             if val is not None and str(val).strip():
+                 request[field] = val
+-        source_identity = str(payload.get("source") or "").strip()
+         if source_identity:
+             request["source_identity"] = source_identity
+ 
+diff --git a/tests/fixtures/candidate_key_vectors.json b/tests/fixtures/candidate_key_vectors.json
+new file mode 100644
+index 0000000..18f8594
+--- /dev/null
++++ b/tests/fixtures/candidate_key_vectors.json
+@@ -0,0 +1,128 @@
++{
++  "version": 1,
++  "description": "Cross-language Discover candidateKey golden vectors (D0.1). JS and Python tests must consume this file identically.",
++  "canonicalize_doi": [
++    { "input": "DOI:10.5281/ZENODO.1", "expected": "10.5281/zenodo.1" },
++    { "input": "https://doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" },
++    { "input": "http://dx.doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" }
++  ],
++  "canonicalize_url": [
++    {
++      "input": "HTTPS://Example.COM:443/path#frag",
++      "expected": "https://example.com/path"
++    },
++    {
++      "input": "http://Example.COM:80/a?b=1",
++      "expected": "http://example.com/a?b=1"
++    },
++    {
++      "input": "https://example.com/data?page=2&q=keep",
++      "expected": "https://example.com/data?page=2&q=keep"
++    }
++  ],
++  "candidate_key": [
++    {
++      "name": "server_key_first",
++      "row": { "candidate_key": "dataset:server", "dataset_id": "other", "title": "T" },
++      "expected": "dataset:server"
++    },
++    {
++      "name": "dataset_id_precedence",
++      "row": {
++        "dataset_id": "mops_financial_statements_ext",
++        "title": "MOPS financial statements",
++        "doi": "10.1/x",
++        "url": "https://mops.twse.com.tw/example"
++      },
++      "expected": "dataset:mops_financial_statements_ext"
++    },
++    {
++      "name": "doi_canonical_resolver",
++      "row": {
++        "title": "Some paper",
++        "doi": "https://doi.org/10.5281/ZENODO.9",
++        "url": "https://example.com/x"
++      },
++      "expected": "doi:10.5281/zenodo.9"
++    },
++    {
++      "name": "resolved_url_over_original_url",
++      "row": {
++        "title": "Redirected dataset",
++        "url": "https://short.example/x",
++        "resolved_url": "HTTPS://CDN.Example.com:443/final/data.csv#frag",
++        "source": "web"
++      },
++      "expected": "url:https://cdn.example.com/final/data.csv"
++    },
++    {
++      "name": "source_url_over_url",
++      "row": {
++        "title": "Source preferred",
++        "url": "https://original.example/a",
++        "source_url": "https://canonical.example/b",
++        "source": "web"
++      },
++      "expected": "url:https://canonical.example/b"
++    },
++    {
++      "name": "url_keeps_query_params",
++      "row": {
++        "title": "Paged",
++        "url": "https://api.example.com/v1/items?page=2&q=keep",
++        "source": "web"
++      },
++      "expected": "url:https://api.example.com/v1/items?page=2&q=keep"
++    },
++    {
++      "name": "huggingface_source",
++      "row": { "kind": "huggingface", "id": "org/demo", "title": "Demo" },
++      "expected": "source:huggingface:org/demo"
++    },
++    {
++      "name": "title_mops",
++      "row": { "title": "Same Title", "source": "MOPS" },
++      "expected": "title:mops:same title"
++    },
++    {
++      "name": "title_twse",
++      "row": { "title": "Same Title", "source": "TWSE" },
++      "expected": "title:twse:same title"
++    },
++    {
++      "name": "title_fallback_namespaced",
++      "row": { "title": "Alone" },
++      "expected": "title:unknown:alone"
++    },
++    {
++      "name": "unicode_title_provider",
++      "row": { "title": "財報 資料集", "source": "公開資訊觀測站" },
++      "expected": "title:unknown:財報 資料集"
++    },
++    {
++      "name": "empty_identity",
++      "row": {},
++      "expected": ""
++    }
++  ],
++  "action_url": [
++    {
++      "name": "resolved_preferred_for_probe_and_collect",
++      "row": {
++        "title": "Redirected dataset",
++        "url": "https://short.example/x",
++        "resolved_url": "https://cdn.example.com/final/data.csv",
++        "source_url": "https://ignored.example/y",
++        "source": "web"
++      },
++      "expected_url": "https://cdn.example.com/final/data.csv",
++      "expected_key": "url:https://cdn.example.com/final/data.csv"
++    },
++    {
++      "name": "doi_resolver_fallback",
++      "row": { "title": "DOI only", "doi": "10.5281/zenodo.42" },
++      "expected_url": "https://doi.org/10.5281/zenodo.42",
++      "expected_key": "doi:10.5281/zenodo.42"
++    }
++  ]
++}
+diff --git a/tests/test_discover_candidate_identity.py b/tests/test_discover_candidate_identity.py
+index 8e206c5..851e7b9 100644
+--- a/tests/test_discover_candidate_identity.py
++++ b/tests/test_discover_candidate_identity.py
+@@ -1,84 +1,57 @@
+ #!/usr/bin/env python3
+-"""D0b — candidate identity propagation + JS/Python contract parity."""
++"""D0b/D0.1 — candidate identity propagation + shared golden fixture parity."""
+ 
+ from __future__ import annotations
+ 
++import hashlib
++import json
+ from pathlib import Path
+ 
+ import pytest
+ 
+ REPO = Path(__file__).resolve().parents[1]
++FIXTURE = REPO / "tests/fixtures/candidate_key_vectors.json"
++# Must match yzu-cluster drive/src/v2/fixtures/candidate_key_vectors.json
++EXPECTED_FIXTURE_SHA256 = "8170d7de2ba0b0d3a4cf5d71102319869b6e4337a54d025c8575ad1467358edc"
+ 
+ 
+-# Shared vectors — must match drive/src/v2/candidateKey.test.js (yzu-cluster D0a).
+-CONTRACT_VECTORS = [
+-    {
+-        "name": "server_key_first",
+-        "row": {"candidate_key": "dataset:server", "dataset_id": "other", "title": "T"},
+-        "expected": "dataset:server",
+-    },
+-    {
+-        "name": "dataset_id_precedence",
+-        "row": {
+-            "dataset_id": "mops_financial_statements_ext",
+-            "title": "MOPS financial statements",
+-            "doi": "10.1/x",
+-            "url": "https://mops.twse.com.tw/example",
+-        },
+-        "expected": "dataset:mops_financial_statements_ext",
+-    },
+-    {
+-        "name": "doi_canonical",
+-        "row": {
+-            "title": "Some paper",
+-            "doi": "https://doi.org/10.5281/ZENODO.9",
+-            "url": "https://example.com/x",
+-        },
+-        "expected": "doi:10.5281/zenodo.9",
+-    },
+-    {
+-        "name": "huggingface_source",
+-        "row": {"kind": "huggingface", "id": "org/demo", "title": "Demo"},
+-        "expected": "source:huggingface:org/demo",
+-    },
+-    {
+-        "name": "url_before_title",
+-        "row": {
+-            "title": "Example open dataset",
+-            "url": "HTTPS://Example.com/dataset#x",
+-            "source": "web",
+-        },
+-        "expected": "url:https://example.com/dataset",
+-    },
+-    {
+-        "name": "title_mops",
+-        "row": {"title": "Same Title", "source": "MOPS"},
+-        "expected": "title:mops:same title",
+-    },
+-    {
+-        "name": "title_twse",
+-        "row": {"title": "Same Title", "source": "TWSE"},
+-        "expected": "title:twse:same title",
+-    },
+-]
+-
+-
+-def test_candidate_key_contract_vectors():
+-    from scripts.research_data_mcp.candidate_key import candidate_key
++@pytest.fixture(scope="module")
++def vectors():
++    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    digest = hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
++    assert digest == EXPECTED_FIXTURE_SHA256, f"fixture hash mismatch: {digest}"
++    return payload
+ 
+-    for case in CONTRACT_VECTORS:
+-        assert candidate_key(case["row"]) == case["expected"], case["name"]
+-    assert candidate_key(CONTRACT_VECTORS[-2]["row"]) != candidate_key(CONTRACT_VECTORS[-1]["row"])
++
++@pytest.fixture(scope="module")
++def stack():
++    from scripts.research_data_mcp.bootstrap import create_stack
++
++    return create_stack(repo_root=REPO)
+ 
+ 
+-def test_canonicalize_doi_and_url():
++def test_shared_fixture_hash(vectors):
++    assert vectors["version"] == 1
++    assert len(vectors["candidate_key"]) >= 8
++
++
++def test_canonicalize_from_fixture(vectors):
+     from scripts.research_data_mcp.candidate_key import canonicalize_doi, canonicalize_url
+ 
+-    assert canonicalize_doi("DOI:10.5281/ZENODO.1") == "10.5281/zenodo.1"
+-    assert canonicalize_doi("https://doi.org/10.5281/zenodo.1") == "10.5281/zenodo.1"
+-    assert canonicalize_doi("http://dx.doi.org/10.5281/zenodo.1") == "10.5281/zenodo.1"
+-    assert canonicalize_url("HTTPS://Example.COM:443/path#frag") == "https://example.com/path"
+-    assert canonicalize_url("http://Example.COM:80/a?b=1") == "http://example.com/a?b=1"
++    for row in vectors["canonicalize_doi"]:
++        assert canonicalize_doi(row["input"]) == row["expected"]
++    for row in vectors["canonicalize_url"]:
++        assert canonicalize_url(row["input"]) == row["expected"]
++
++
++def test_candidate_key_from_fixture(vectors):
++    from scripts.research_data_mcp.candidate_key import candidate_key
++
++    for row in vectors["candidate_key"]:
++        assert candidate_key(row["row"]) == row["expected"], row["name"]
++    a = next(r for r in vectors["candidate_key"] if r["name"] == "title_mops")
++    b = next(r for r in vectors["candidate_key"] if r["name"] == "title_twse")
++    assert candidate_key(a["row"]) != candidate_key(b["row"])
+ 
+ 
+ def test_discover_search_stamps_candidate_key(stack):
+@@ -97,16 +70,6 @@ def test_discover_search_stamps_candidate_key(stack):
+         assert ":" in row["candidate_key"]
+ 
+ 
+-def test_similar_titles_remain_distinct():
+-    from scripts.research_data_mcp.candidate_key import candidate_key
+-
+-    a = candidate_key({"title": "Financial statements", "source": "MOPS", "url": "https://a.example/mops"})
+-    b = candidate_key({"title": "Financial statements", "source": "TWSE", "url": "https://b.example/twse"})
+-    assert a != b
+-    assert a.startswith("url:") or a.startswith("title:")
+-    assert b.startswith("url:") or b.startswith("title:")
+-
+-
+ def test_probe_echoes_candidate_key_and_connector_id(stack, monkeypatch):
+     from scripts.research_data_mcp import http_router
+ 
+@@ -162,10 +125,10 @@ def test_probe_accepts_legacy_without_candidate_key(stack, monkeypatch):
+     )
+     assert out["status"] == 200
+     assert out["body"]["connector_id"] == "src_legacy"
+-    assert out["body"]["candidate_key"]  # computed fallback
++    assert out["body"]["candidate_key"]
+ 
+ 
+-def test_collect_stores_candidate_key(stack, monkeypatch):
++def test_collect_stores_source_identity_and_candidate_key(stack, monkeypatch):
+     from scripts.research_data_mcp import http_router
+ 
+     plan = {"title": "Collect example", "job_type": "http_manifest", "connector_id": "src_c", "launchable": True}
+@@ -198,8 +161,9 @@ def test_collect_stores_candidate_key(stack, monkeypatch):
+             "connector_id": "src_c",
+             "candidate_key": "url:https://example.com/data.csv",
+             "url": "https://example.com/data.csv",
+-            "source": "web",
+-            "dataset_id": "",
++            "source_identity": "web",
++            "dataset_id": "demo_ds",
++            "doi": "10.5281/zenodo.1",
+         },
+         stack,
+     )
+@@ -207,12 +171,15 @@ def test_collect_stores_candidate_key(stack, monkeypatch):
+     assert captured["request"]["candidate_key"] == "url:https://example.com/data.csv"
+     assert captured["request"]["connector_id"] == "src_c"
+     assert captured["request"]["source_identity"] == "web"
++    assert captured["request"]["dataset_id"] == "demo_ds"
++    assert captured["request"]["doi"] == "10.5281/zenodo.1"
++    assert captured["request"]["url"] == "https://example.com/data.csv"
+     job = out["body"]["job"]
+     assert job["candidate_key"] == "url:https://example.com/data.csv"
+     assert job["connector_id"] == "src_c"
+ 
+ 
+-def test_collect_legacy_without_candidate_key(stack, monkeypatch):
++def test_collect_legacy_source_normalizes_to_source_identity(stack, monkeypatch):
+     from scripts.research_data_mcp import http_router
+ 
+     plan = {"title": "Collect legacy", "job_type": "http_manifest", "connector_id": "src_l", "launchable": True}
+@@ -221,10 +188,12 @@ def test_collect_legacy_without_candidate_key(stack, monkeypatch):
+         "manifest_plan_from_connector",
+         lambda cid, limit=200: dict(plan),
+     )
++    captured = {}
+     monkeypatch.setattr(
+         stack.jobs,
+         "submit",
+-        lambda title, plan_arg, request=None, *, auto_approve=False: {
++        lambda title, plan_arg, request=None, *, auto_approve=False: captured.update(request=request or {})
++        or {
+             "job": {
+                 "id": "joblegacy1",
+                 "status": "pending_approval",
+@@ -238,10 +207,11 @@ def test_collect_legacy_without_candidate_key(stack, monkeypatch):
+     )
+     out = http_router.handle_post(
+         "/library/discover/collect",
+-        {"connector_id": "src_l"},
++        {"connector_id": "src_l", "source": "MOPS"},
+         stack,
+     )
+     assert out["status"] == 200
++    assert captured["request"]["source_identity"] == "MOPS"
+     assert out["body"]["job"]["connector_id"] == "src_l"
+ 
+ 
+@@ -265,7 +235,6 @@ def test_jobs_expose_identity_fields_exactly():
+     assert enriched["registered_dataset_id"] is None
+     assert enriched["output_manifest_id"] is None
+ 
+-    # Similar title must not invent a key
+     bare = enrich_job_identity(
+         {
+             "id": "xyz",
+@@ -293,10 +262,3 @@ def test_promotion_attaches_registered_dataset_id():
+     enriched = enrich_job_identity(job)
+     assert enriched["registered_dataset_id"] == "datacite_10_5281_zenodo_1"
+     assert enriched["candidate_key"] == "doi:10.5281/zenodo.1"
+-
+-
+-@pytest.fixture(scope="module")
+-def stack():
+-    from scripts.research_data_mcp.bootstrap import create_stack
+-
+-    return create_stack(repo_root=REPO)
+-- 
+2.47.3
+

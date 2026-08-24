@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research Drive v2 — full preview (1440×900)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 40px;
+      font: 13px/1.45 "IBM Plex Sans", system-ui, sans-serif;
+      color: #e2e8f0;
+    }
+    .topbar { text-align: center; max-width: 1440px; margin-bottom: 16px; }
+    .topbar h1 { font-size: 18px; font-weight: 600; color: #f8fafc; margin-bottom: 6px; }
+    .topbar p { color: #94a3b8; font-size: 13px; }
+    .topbar kbd { background: #334155; padding: 2px 6px; border-radius: 4px; font: 11px "IBM Plex Mono", monospace; }
+    .hint { margin-top: 8px; font-size: 12px; color: #64748b; }
+
+  /* === ARTBOARD 1440 × 900 === */
+    .artboard {
+      width: 1440px;
+      height: 900px;
+      display: grid;
+      grid-template-columns: 220px 860px 360px;
+      grid-template-rows: 56px 844px;
+      background: #f7f9fc;
+      color: #1f2937;
+      box-shadow: 0 0 0 2px #3b82f6, 0 24px 80px rgba(0,0,0,.5);
+      position: relative;
+      overflow: hidden;
+    }
+    .artboard.dimmed::after {
+      content: "";
+      position: absolute; inset: 56px 0 0 0;
+      background: rgba(15,23,42,.45);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* A — header */
+    .header {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 200px 1fr auto;
+      align-items: center;
+      padding: 0 18px;
+      background: #fff;
+      border-bottom: 1px solid #edf1f6;
+    }
+    .brand { font-weight: 600; font-size: 17px; }
+    .brand span { display: block; font-size: 11px; color: #64748b; font-weight: 400; }
+    .search-wrap { display: flex; justify-content: center; }
+    .search {
+      width: min(520px, 100%); height: 40px; background: #edf2fa; border-radius: 20px;
+      display: flex; align-items: center; padding: 0 16px; color: #64748b; font-size: 14px;
+      border: 0; outline: none;
+    }
+    .hdr-actions { display: flex; align-items: center; gap: 10px; }
+    .status-strip { font: 11px "IBM Plex Mono", monospace; color: #64748b; }
+    .status-strip .warn { color: #d97706; }
+    .btn-hdr {
+      height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #d9e1ec;
+      background: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: #e8f0fe; color: #174ea6; font-size: 11px; font-weight: 700; border: 0; cursor: pointer; display: grid; place-items: center; }
+
+    /* B — sidebar */
+    .sidebar {
+      grid-row: 2; grid-column: 1;
+      background: #f8fafd; border-right: 1px solid #edf1f6;
+      padding: 14px 12px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .nav-btn {
+      height: 36px; border-radius: 18px; padding: 0 13px; border: 0; background: transparent;
+      text-align: left; font-size: 14px; color: #334155; cursor: pointer; width: 100%;
+    }
+    .nav-btn:hover { background: #f1f5f9; }
+    .nav-btn.on { background: #e8f0fe; color: #174ea6; font-weight: 600; }
+    .nav-note { margin-top: auto; padding: 12px 8px; font-size: 11px; color: #94a3b8; line-height: 1.4; }
+
+    /* C — main */
+    .main {
+      grid-row: 2; grid-column: 2;
+      padding: 0 28px 28px; overflow: auto; display: flex; flex-direction: column; min-height: 0;
+    }
+    .page { display: none; flex-direction: column; flex: 1; min-height: 0; padding-top: 24px; }
+    .page.on { display: flex; }
+    .page-title { font-size: 28px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 4px; }
+    .page-sub { font-size: 14px; color: #64748b; margin-bottom: 16px; }
+    .breadcrumb { font-size: 13px; color: #64748b; margin-bottom: 12px; }
+    .breadcrumb strong { color: #1f2937; }
+    .toolbar { min-height: 44px; display: flex; align-items: center; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; }
+    .chip {
+      height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #d9e1ec;
+      background: #fff; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer;
+      display: inline-flex; align-items: center;
+    }
+    .chip.on { background: #e8f0fe; color: #174ea6; border-color: #c6dafc; }
+    .chip.ext { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+
+    .card {
+      background: #fff; border: 1px solid #edf1f6; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px;
+    }
+    .card h3 { font-size: 14px; margin-bottom: 4px; }
+    .card p { font-size: 13px; color: #64748b; }
+    .card .acts { margin-top: 10px; display: flex; gap: 8px; }
+
+    .strip-row { display: flex; align-items: center; gap: 16px; font-size: 13px; flex-wrap: wrap; }
+    .prog { display: inline-flex; align-items: center; gap: 8px; }
+    .prog-bar { width: 100px; height: 8px; background: #edf2fa; border-radius: 4px; overflow: hidden; }
+    .prog-bar span { display: block; height: 100%; background: #1a73e8; border-radius: 4px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; }
+    .dot.warn { background: #f59e0b; }
+    .dot.idle { background: #94a3b8; }
+
+    .section-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 14px; font-weight: 600; }
+    .section-head a { color: #1a73e8; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+    .table-wrap {
+      flex: 1; background: #fff; border: 1px solid #edf1f6; border-radius: 18px;
+      overflow: auto; min-height: 0;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    th { height: 38px; text-align: left; padding: 0 14px; font-size: 12px; color: #64748b; background: #fbfdff; border-bottom: 1px solid #edf1f6; position: sticky; top: 0; }
+    td { height: 52px; padding: 0 14px; border-bottom: 1px solid #edf1f6; vertical-align: middle; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover td { background: #f8fbff; }
+    tbody tr.sel td { background: #e8f0fe; }
+    .row-name { font-weight: 500; }
+    .row-sub { font: 11px "IBM Plex Mono", monospace; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .group-row td { background: #fbfdff; font-weight: 600; font-size: 12px; color: #475569; height: 40px; }
+    .indent td:first-child { padding-left: 28px; }
+    .indent2 td:first-child { padding-left: 44px; }
+
+    .col-name { width: 32%; }
+    .col-loc { width: 18%; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #64748b; }
+    .col-ready { width: 12%; }
+    .col-src { width: 12%; }
+    .col-upd { width: 10%; }
+
+    /* Cluster */
+    .timeline { margin-bottom: 16px; }
+    .timeline-labels { display: flex; justify-content: space-between; font: 11px "IBM Plex Mono", monospace; color: #64748b; margin-bottom: 8px; padding: 0 4px; }
+    .tl-row { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 12px; }
+    .tl-bar { height: 10px; background: #edf2fa; border-radius: 5px; overflow: hidden; }
+    .tl-bar span { display: block; height: 100%; background: linear-gradient(90deg, #93c5fd, #1a73e8); border-radius: 5px; }
+    .venn-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; }
+    .venn-panel {
+      background: #fff; border: 1px solid #edf1f6; border-radius: 14px; padding: 18px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    }
+    .venn-diagram { position: relative; width: 200px; height: 120px; margin: 12px 0; }
+    .venn-a, .venn-b {
+      position: absolute; width: 100px; height: 100px; border-radius: 50%;
+      border: 2px solid #1a73e8; background: rgba(26,115,232,.12); opacity: .85;
+    }
+    .venn-a { left: 20px; top: 10px; }
+    .venn-b { left: 80px; top: 10px; border-color: #7c3aed; background: rgba(124,58,237,.12); }
+    .venn-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-30%); font-weight: 700; font-size: 18px; color: #1a73e8; }
+    .gap-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+    /* Resources / Profile blocks */
+    .blocks { display: flex; flex-direction: column; gap: 14px; flex: 1; overflow: auto; }
+    .block { background: #fff; border: 1px solid #edf1f6; border-radius: 14px; overflow: hidden; }
+    .block-h { padding: 12px 16px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; background: #fbfdff; border-bottom: 1px solid #edf1f6; font-family: "IBM Plex Mono", monospace; }
+    .block table td { height: 44px; font-size: 13px; }
+    .ok { color: #137333; }
+    .warn-t { color: #d97706; }
+
+    .form-grid { display: grid; gap: 14px; }
+    .form-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #edf1f6; font-size: 13px; }
+    .form-row:last-child { border-bottom: 0; }
+    .radio-group { display: flex; gap: 12px; font-size: 12px; color: #64748b; }
+    .radio-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+    /* D — rail */
+    .rail {
+      grid-row: 2; grid-column: 3;
+      background: #fff; border-left: 1px solid #edf1f6;
+      display: flex; flex-direction: column; min-height: 0; z-index: 5;
+    }
+    .rail-toggle { height: 44px; padding: 8px 12px; display: flex; gap: 4px; border-bottom: 1px solid #edf1f6; flex-shrink: 0; }
+    .rail-toggle button {
+      flex: 1; height: 28px; border: 1px solid #d9e1ec; border-radius: 6px;
+      background: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .rail-toggle button.on { background: #e8f0fe; color: #174ea6; border-color: #c6dafc; }
+    .rail-pane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+    .rail-pane[hidden] { display: none !important; }
+    .detail { padding: 16px 18px; }
+    .detail h2 { font-size: 17px; margin-bottom: 8px; line-height: 1.3; }
+    .pill { display: inline-block; font: 700 10px/1 "IBM Plex Mono", monospace; padding: 4px 8px; border-radius: 8px; background: #e6f4ea; color: #137333; margin-right: 4px; }
+    .pill.ext { background: #fff7ed; color: #c2410c; }
+    .field { margin: 12px 0; }
+    .field label { display: block; font: 700 10px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+    .field div { font-size: 13px; }
+    .acts { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .btn {
+      height: 32px; border-radius: 16px; border: 1px solid #d9e1ec; background: #fff;
+      font-size: 12px; font-weight: 600; cursor: pointer; padding: 0 14px;
+    }
+    .btn.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .idle-msg { padding: 24px 18px; color: #64748b; font-size: 13px; }
+
+    .ask { padding: 12px 14px; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .thread { flex: 1; overflow: auto; display: grid; gap: 8px; margin-bottom: 10px; }
+    .bubble { border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; max-width: 95%; }
+    .bubble.user { background: #e8f0fe; color: #174ea6; margin-left: auto; }
+    .bubble.bot { background: #fbfdff; border: 1px solid #edf1f6; }
+    .ask-input { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .ask-input textarea { min-height: 52px; border: 1px solid #d9e1ec; border-radius: 10px; padding: 8px 10px; resize: vertical; font: inherit; }
+
+    /* Preview modal */
+    .modal-backdrop {
+      position: absolute; inset: 56px 0 0 0; z-index: 30;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(15,23,42,.4);
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: 720px; max-height: 560px; background: #fff; border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #edf1f6; }
+    .modal-tabs { display: flex; gap: 4px; }
+    .modal-tabs button { height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #d9e1ec; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .modal-tabs button.on { background: #e8f0fe; color: #174ea6; border-color: #c6dafc; }
+    .modal-close { border: 0; background: transparent; font-size: 20px; color: #64748b; cursor: pointer; line-height: 1; }
+    .modal-body { flex: 1; overflow: auto; padding: 0; }
+    .modal-body table { font-size: 12px; }
+    .modal-foot { padding: 10px 18px; border-top: 1px solid #edf1f6; font-size: 12px; color: #64748b; display: flex; justify-content: space-between; }
+
+    .controls { margin-top: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Research Drive v2 — interactive preview</h1>
+    <p>Fixed artboard <strong>1440 × 900</strong> · sidebar <kbd>220</kbd> · main <kbd>860</kbd> · rail <kbd>360</kbd> · Set browser zoom to <strong>100%</strong></p>
+    <p class="hint">Click sidebar tabs · select a Library row · toggle Detail | Ask · Preview rows opens modal · <kbd>Esc</kbd> closes modal</p>
+  </div>
+
+  <div class="artboard" id="artboard">
+    <header class="header">
+      <div class="brand">Research Drive<span>v2 preview · static mock</span></div>
+      <div class="search-wrap">
+        <input class="search" id="searchInput" placeholder="Search datasets in library · ⌘K" />
+      </div>
+      <div class="hdr-actions">
+        <span class="status-strip">78 ds · 1 job · <span class="warn">WARN</span></span>
+        <button type="button" class="btn-hdr">New</button>
+        <button type="button" class="avatar" title="Account">YZ</button>
+      </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main">
+      <!-- HOME -->
+      <div class="page on" id="page-home" data-page="Home">
+        <div class="page-title">Home</div>
+        <div class="page-sub">Desk digest — orient in under 10 seconds</div>
+        <div class="card">
+          <h3>Continue · Asia daily news-risk panel</h3>
+          <p>Last action: Preview · 2 hours ago</p>
+          <div class="acts"><button type="button" class="btn primary" data-go="Library">Resume in Library</button></div>
+        </div>
+        <div class="card strip-row">
+          <span class="prog"><span class="dot"></span> GDELT overlay <span class="prog-bar"><span style="width:18%"></span></span> 18/99 mo</span>
+          <span class="prog"><span class="dot warn"></span> DataCite queue · 4 workers</span>
+          <span><span class="dot idle"></span> collection-sync · idle 6h</span>
+        </div>
+        <div class="toolbar" style="margin-bottom:8px">
+          <span class="chip">TWSE</span><span class="chip">USDT</span><span class="chip">GDELT</span><span class="chip">+</span>
+        </div>
+        <div class="section-head"><span>Recent</span><a data-go="Library">See all → Library</a></div>
+        <div class="table-wrap" style="flex:0 0 280px">
+          <table>
+            <thead><tr><th class="col-name">Name</th><th class="col-ready">Ready</th><th class="col-upd">Updated</th></tr></thead>
+            <tbody id="homeRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LIBRARY -->
+      <div class="page" id="page-library" data-page="Library">
+        <div class="page-title">Library</div>
+        <div class="page-sub">128 datasets in Lab Drive vault</div>
+        <div class="breadcrumb">Lab › <strong>research_panels</strong> › gdelt › asia</div>
+        <div class="toolbar" id="libChips">
+          <span class="chip on">All</span><span class="chip on">Panels</span><span class="chip">News</span><span class="chip">Crypto</span><span class="chip">Stable</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-name">Name</th><th class="col-loc">Location</th><th class="col-ready">Ready</th><th class="col-src">Source</th><th class="col-upd">Updated</th>
+              </tr>
+            </thead>
+            <tbody id="libRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CLUSTER -->
+      <div class="page" id="page-cluster" data-page="Cluster">
+        <div class="page-title">Cluster</div>
+        <div class="page-sub">Coverage timeline · set overlaps · gap chips (not a force graph)</div>
+        <div class="toolbar">
+          <span class="chip on">All</span><span class="chip on">Asia</span><span class="chip">Crypto</span><span class="chip">TW</span><span class="chip">NFT</span>
+        </div>
+        <div class="timeline">
+          <div class="timeline-labels"><span>2018</span><span>2020</span><span>2022</span><span>2024</span><span>now</span></div>
+          <div class="tl-row"><span>GDELT</span><div class="tl-bar"><span style="width:92%"></span></div></div>
+          <div class="tl-row"><span>CoinG</span><div class="tl-bar"><span style="width:68%;margin-left:22%"></span></div></div>
+          <div class="tl-row"><span>USDT</span><div class="tl-bar"><span style="width:55%;margin-left:35%"></span></div></div>
+        </div>
+        <div class="venn-wrap">
+          <div class="venn-panel">
+            <h3 style="font-size:15px;margin-bottom:4px">Venn overlap</h3>
+            <p style="font-size:12px;color:#64748b">GDELT Asia × Ticker week</p>
+            <div class="venn-diagram">
+              <div class="venn-a"></div><div class="venn-b"></div>
+              <div class="venn-mid">82%</div>
+            </div>
+            <p style="font-size:12px">Joint keys: <code style="font-family:IBM Plex Mono,monospace">date · country</code> · 41k rows</p>
+          </div>
+          <div class="venn-panel" style="align-items:flex-start;text-align:left">
+            <h3 style="font-size:15px;margin-bottom:8px">Join matrix</h3>
+            <div style="font-size:13px;line-height:2;color:#475569;width:100%">
+              GDELT × Ticker &nbsp; date,country &nbsp; <strong>0.82</strong><br>
+              GDELT × Cross &nbsp; date,country &nbsp; <strong>0.79</strong><br>
+              Ticker × Cross &nbsp; date,ticker &nbsp; <strong>0.71</strong>
+            </div>
+            <div class="gap-chips">
+              <span class="chip">TWSE</span><span class="chip">MOPS</span><span class="chip">Election</span><span class="chip">HF Taiwan</span>
+            </div>
+            <p style="font-size:12px;color:#64748b;margin-top:12px">Gaps → Browse or Ask to procure</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- BROWSE -->
+      <div class="page" id="page-browse" data-page="Browse">
+        <div class="page-title">Browse</div>
+        <div class="page-sub">External catalogue — same table grammar as Library</div>
+        <div class="toolbar">
+          <span class="chip ext on">EXTERNAL</span>
+          <span class="chip">DataCite</span><span class="chip">HF</span><span class="chip">SEC</span><span class="chip">Trends</span><span class="chip">arXiv</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th class="col-name">Name</th><th class="col-src">Source</th><th class="col-ready">State</th><th class="col-upd">Updated</th></tr></thead>
+            <tbody id="browseRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RESOURCES -->
+      <div class="page" id="page-resources" data-page="Resources">
+        <div class="page-title">Resources</div>
+        <div class="page-sub">Capacity ledger · <span class="ok">OK 11</span> · <span class="warn-t">WARN 2</span> · FAIL 0 &nbsp; <button type="button" class="btn" style="height:28px">Refresh</button></div>
+        <div class="blocks">
+          <div class="block">
+            <div class="block-h">Compute</div>
+            <table><tbody>
+              <tr><td>yzu-controller</td><td>molina-optiplex</td><td class="ok">● UI</td><td>—</td></tr>
+              <tr><td>windows_lab</td><td>192.168.1.44</td><td class="ok">● busy</td><td>3/12 jobs</td></tr>
+              <tr><td>gdelt_worker</td><td>local</td><td class="ok">● idle</td><td>0/4</td></tr>
+            </tbody></table>
+          </div>
+          <div class="block">
+            <div class="block-h">Storage · storage_tiers.json</div>
+            <table><tbody>
+              <tr><td>GDrive vault canon</td><td>2.1 TB / 5 TB</td><td class="ok">● OK</td></tr>
+              <tr><td>NVMe hot staging</td><td>68% / 412 GB</td><td class="warn-t">● WARN</td></tr>
+              <tr><td>USB bulk cold</td><td>1.8 TB / 2 TB</td><td class="ok">● OK</td></tr>
+            </tbody></table>
+          </div>
+          <div class="block">
+            <div class="block-h">Data plane</div>
+            <table><tbody>
+              <tr><td>Query engine :8765</td><td>128 datasets · idx v3</td><td class="ok">●</td></tr>
+              <tr><td>BigQuery SA</td><td>dry-run · 42 GB / 30d</td><td class="ok">●</td></tr>
+              <tr><td>DataCite API</td><td>token missing</td><td class="warn-t">○ WARN</td></tr>
+            </tbody></table>
+          </div>
+          <div class="block">
+            <div class="block-h">Pipelines & timers</div>
+            <table><tbody>
+              <tr><td>GDELT backfill</td><td><span class="prog-bar" style="width:80px;display:inline-block;vertical-align:middle"><span style="width:18%"></span></span> 18/99 mo</td><td class="ok">●</td></tr>
+              <tr><td>alpha-live · scorecard · partition-sync</td><td>systemd timers</td><td class="ok">●</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div class="page" id="page-profile" data-page="Profile">
+        <div class="page-title">Profile</div>
+        <div class="page-sub">Research context for ranking & Ask scope — not a social profile</div>
+        <div class="blocks">
+          <div class="block" style="padding:16px 18px">
+            <div class="block-h" style="margin:-16px -18px 12px;padding:12px 18px">Affiliation</div>
+            <strong>Prof. Kong</strong> · Yuan Ze University · Finance<br>
+            <span style="color:#64748b;font-size:13px">kong@yzu.edu.tw · ORCID · Scholar · SSRN</span>
+          </div>
+          <div class="block" style="padding:16px 18px">
+            <div class="block-h" style="margin:-16px -18px 12px;padding:12px 18px">Research program</div>
+            <ol style="padding-left:18px;font-size:13px;line-height:1.8;color:#475569">
+              <li>Crypto / NFT microstructure</li>
+              <li>Asia news shock · GDELT linkage</li>
+              <li>Taiwan governance · TWSE / MOPS panels</li>
+            </ol>
+            <p style="font-size:12px;color:#64748b;margin-top:8px">Publications: peer 12 · WP 3 · Grants 2</p>
+          </div>
+          <div class="block">
+            <div class="block-h">Corpus scope</div>
+            <table><tbody>
+              <tr><td>News shock</td><td>14 datasets</td><td class="ok">—</td></tr>
+              <tr><td>Stablecoin / DeFi</td><td>22 datasets</td><td class="warn-t">BQ gap</td></tr>
+              <tr><td>Taiwan equity</td><td>3 datasets</td><td class="warn-t">TWSE stub</td></tr>
+            </tbody></table>
+          </div>
+          <div class="block">
+            <div class="block-h">Pinned corpora</div>
+            <table><tbody>
+              <tr><td>gdelt_asia_daily_country</td><td>Asia shock</td><td class="col-loc">gdelt/asia/…</td></tr>
+              <tr><td>ethereum_usdt_catalogue</td><td>DeFi</td><td class="col-loc">onchain/…</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings" data-page="Settings">
+        <div class="page-title">Settings</div>
+        <div class="page-sub">Account · credentials · display · integration</div>
+        <div class="blocks">
+          <div class="block form-grid" style="padding:16px 18px">
+            <div class="form-row"><span>kong@yzu.edu.tw</span><button type="button" class="btn">Rotate token</button></div>
+          </div>
+          <div class="block form-grid" style="padding:16px 18px">
+            <div class="form-row"><span>BigQuery SA</span><span class="ok">● configured</span><button type="button" class="btn">Test</button></div>
+            <div class="form-row"><span>GDrive rclone</span><span class="ok">● configured</span><button type="button" class="btn">Test</button></div>
+            <div class="form-row"><span>DataCite API</span><span class="warn-t">○ missing</span><button type="button" class="btn primary">Add</button></div>
+          </div>
+          <div class="block form-grid" style="padding:16px 18px">
+            <div class="form-row"><span>Density</span><div class="radio-group"><label><input type="radio" checked /> Comfortable</label><label><input type="radio" /> Compact</label></div></div>
+            <div class="form-row"><span>Default tab</span><div class="radio-group"><label><input type="radio" checked /> Library</label><label><input type="radio" /> Home</label></div></div>
+            <div class="form-row"><span>Rail on select</span><div class="radio-group"><label><input type="radio" checked /> Detail</label><label><input type="radio" /> Ask</label></div></div>
+          </div>
+          <div class="block form-grid" style="padding:16px 18px">
+            <div class="form-row"><span>Query API :8765</span><span class="ok">● OK</span><button type="button" class="btn">Test</button></div>
+            <div class="form-row"><span>UI :5178</span><span class="ok">● OK</span><button type="button" class="btn">Open</button></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="rail">
+      <div class="rail-toggle" role="tablist">
+        <button type="button" role="tab" id="tabDetail" class="on">Detail</button>
+        <button type="button" role="tab" id="tabAsk">Ask</button>
+      </div>
+      <div class="rail-pane" id="paneDetail"><div class="detail" id="detailBody"></div></div>
+      <div class="rail-pane" id="paneAsk" hidden>
+        <div class="ask">
+          <div class="thread" id="thread"></div>
+          <div class="ask-input">
+            <textarea id="askInput" placeholder="Ask the librarian… (Composer + MCP in production)"></textarea>
+            <button type="button" class="btn primary" id="askSend">Send</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="modal-backdrop" id="modalBackdrop">
+      <div class="modal" role="dialog" aria-labelledby="modalTitle">
+        <div class="modal-head">
+          <div>
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;font-family:IBM Plex Mono,monospace" id="modalTitle">Preview</div>
+            <strong style="font-size:15px" id="modalDataset">Asia daily news-risk panel</strong>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="modal-tabs">
+              <button type="button" class="on" data-mtab="preview">Preview</button>
+              <button type="button" data-mtab="schema">Schema</button>
+              <button type="button" data-mtab="query">Query</button>
+            </div>
+            <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+          </div>
+        </div>
+        <div class="modal-body" id="modalBody">
+          <table>
+            <thead><tr><th>date</th><th>country</th><th>shock</th><th>rows</th></tr></thead>
+            <tbody>
+              <tr><td>2026-04-01</td><td>TWN</td><td>0.42</td><td>1.2M</td></tr>
+              <tr><td>2026-04-01</td><td>SGP</td><td>0.18</td><td>890K</td></tr>
+              <tr><td>2026-04-01</td><td>JPN</td><td>0.31</td><td>2.1M</td></tr>
+              <tr><td>2026-04-01</td><td>KOR</td><td>0.22</td><td>980K</td></tr>
+              <tr><td>2026-03-31</td><td>TWN</td><td>0.39</td><td>1.1M</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-foot">
+          <span>GET /query/gdelt_asia?limit=10 · grain country·day</span>
+          <button type="button" class="btn primary" style="height:28px">Run query</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label><input type="checkbox" id="scaleToggle" /> Fit to window (scale down artboard)</label>
+    <span style="font-size:12px;color:#64748b">File: docs/design/references/desk-v2-preview.html</span>
+  </div>
+
+<script>
+const TABS = ["Home", "Library", "Cluster", "Browse", "Resources", "Profile", "Settings"];
+
+const DATASETS = [
+  { id: "gdelt_asia", name: "Asia daily news-risk panel", sub: "gdelt_asia_daily_country_panel", loc: "gdelt/asia", ready: "Query-ready", src: "GDELT", upd: "2d", source: "GDELT GKG", access: "Local + GDrive", coverage: "2018–2026", grain: "country · day", vault: "gdelt/asia/daily", use: "Asia news shock research" },
+  { id: "coingecko", name: "CoinGecko market archive", sub: "coingecko_simple_price", loc: "crypto/cg", ready: "Query-ready", src: "CoinGecko", upd: "1d", source: "CoinGecko API", access: "SQLite + Drive", coverage: "2009–present", grain: "asset · day", vault: "crypto/coingecko", use: "Crypto market baseline" },
+  { id: "cross_asset", name: "Cross-asset country-week", sub: "cross_asset_fused_primary_panel", loc: "fused/cross", ready: "Query-ready", src: "Fused", upd: "3d", source: "Lab fused", access: "Local", coverage: "10yr · c-week", grain: "country · week", vault: "fused/cross", use: "Multi-asset shock panel" },
+  { id: "usdt", name: "USDT transfer catalogue", sub: "ethereum_usdt_transfers", loc: "onchain/usdt", ready: "Stored", src: "On-chain", upd: "1w", source: "BigQuery", access: "Remote query", coverage: "2015–present", grain: "tx · event", vault: "onchain/usdt", use: "Stablecoin flow research" },
+];
+
+const BROWSE = [
+  { id: "sec", name: "SEC crypto enforcement", src: "SEC", state: "External", upd: "—" },
+  { id: "dc", name: "DataCite finance corpus", src: "DataCite", state: "Indexed", upd: "2d" },
+  { id: "hf", name: "HF taiwan-equity", src: "HF", state: "Indexed", upd: "1w" },
+  { id: "twse", name: "TWSE OpenAPI panel", src: "TWSE", state: "External", upd: "—" },
+];
+
+const state = {
+  route: "Home",
+  rail: "detail",
+  datasetId: "gdelt_asia",
+  thread: [{ role: "bot", text: "Ask lives in the right rail — not a sidebar tab. Toggle Detail anytime; thread is preserved." }],
+};
+
+const $ = (id) => document.getElementById(id);
+
+function setRoute(tab) {
+  state.route = tab;
+  $("sidebar").innerHTML = TABS.map((t) =>
+    `<button type="button" class="nav-btn${t === tab ? " on" : ""}" data-tab="${t}">${t}</button>`
+  ).join("") + `<div class="nav-note">Ask is in the rail →<br>Preview = modal on Library</div>`;
+  $("sidebar").querySelectorAll(".nav-btn").forEach((btn) => {
+    btn.onclick = () => setRoute(btn.dataset.tab);
+  });
+  document.querySelectorAll(".page").forEach((p) => p.classList.toggle("on", p.dataset.page === tab));
+}
+
+function setRail(mode) {
+  state.rail = mode;
+  $("tabDetail").classList.toggle("on", mode === "detail");
+  $("tabAsk").classList.toggle("on", mode === "ask");
+  $("paneDetail").hidden = mode !== "detail";
+  $("paneAsk").hidden = mode !== "ask";
+}
+
+function selectDataset(id) {
+  state.datasetId = id;
+  setRail("detail");
+  renderDetail();
+  renderLibRows();
+  renderHomeRows();
+}
+
+function renderDetail() {
+  const d = DATASETS.find((x) => x.id === state.datasetId);
+  if (!d) {
+    $("detailBody").innerHTML = `<div class="idle-msg">Select a row in Library or Recent to inspect metadata.</div>`;
+    return;
+  }
+  const ext = d.ready === "External";
+  $("detailBody").innerHTML = `
+    <h2>${d.name}</h2>
+    <span class="pill${ext ? " ext" : ""}">${d.ready}</span>
+    <div class="field"><label>Source</label><div>${d.source}</div></div>
+    <div class="field"><label>Access</label><div>${d.access}</div></div>
+    <div class="field"><label>Coverage</label><div>${d.coverage}</div></div>
+    <div class="field"><label>Grain</label><div>${d.grain}</div></div>
+    <div class="field"><label>Vault</label><div style="font-family:IBM Plex Mono,monospace;font-size:12px">${d.vault}</div></div>
+    <div class="field"><label>Use</label><div>${d.use}</div></div>
+    <div class="acts">
+      <button type="button" class="btn primary" id="btnPreview">Preview rows</button>
+      <button type="button" class="btn" data-go="Cluster">See on Cluster</button>
+      <button type="button" class="btn" id="btnAskDs">Ask about this</button>
+    </div>`;
+  $("btnPreview").onclick = openModal;
+  $("btnAskDs").onclick = () => { setRail("ask"); $("askInput").value = `Tell me about ${d.name}`; $("askInput").focus(); };
+  $("detailBody").querySelector("[data-go]")?.addEventListener("click", () => setRoute("Cluster"));
+}
+
+function rowHtml(d, sel) {
+  return `<tr data-id="${d.id}" class="${sel ? "sel" : ""}"><td><div class="row-name">${d.name}</div><div class="row-sub">${d.sub}</div></td><td class="col-loc">${d.loc}</td><td>${d.ready}</td><td>${d.src}</td><td>${d.upd}</td></tr>`;
+}
+
+function renderLibRows() {
+  const groups = [
+    { label: "▾ research_panels (12)", rows: DATASETS },
+    { label: "▾ news_shock (8)", rows: [] },
+    { label: "▾ crypto (24)", rows: [] },
+  ];
+  let html = "";
+  groups.forEach((g, gi) => {
+    html += `<tr class="group-row"><td colspan="5">${g.label}</td></tr>`;
+    g.rows.forEach((d) => { html += `<tr class="indent2" data-id="${d.id}" class="${d.id === state.datasetId ? "sel indent2" : "indent2"}">${rowHtml(d, d.id === state.datasetId).replace(/^<tr[^>]*>/,"").replace(/<\/tr>$/,"")}</tr>`.replace(/<tr/data-id/, `<tr data-id`); });
+  });
+  // simpler: flat with first group
+  html = `<tr class="group-row"><td colspan="5">▾ research_panels · vault/research (12)</td></tr>`;
+  DATASETS.forEach((d) => {
+    const cls = d.id === state.datasetId ? "sel indent2" : "indent2";
+    html += `<tr class="${cls}" data-id="${d.id}"><td><div class="row-name">${d.name}</div><div class="row-sub">${d.sub}</div></td><td class="col-loc">${d.loc}</td><td>${d.ready}</td><td>${d.src}</td><td>${d.upd}</td></tr>`;
+  });
+  html += `<tr class="group-row"><td colspan="5">▾ crypto · vault/crypto (24)</td></tr>`;
+  html += `<tr class="indent2"><td><div class="row-name">OpenSea metadata graph</div><div class="row-sub">opensea_nft_graph</div></td><td class="col-loc">nft/os</td><td>Stored</td><td>OpenSea</td><td>5d</td></tr>`;
+  $("libRows").innerHTML = html;
+  $("libRows").querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.onclick = () => selectDataset(tr.dataset.id);
+  });
+}
+
+function renderHomeRows() {
+  $("homeRows").innerHTML = DATASETS.slice(0, 5).map((d) =>
+    `<tr data-id="${d.id}" class="${d.id === state.datasetId ? "sel" : ""}"><td><div class="row-name">${d.name}</div></td><td>${d.ready}</td><td>${d.upd}</td></tr>`
+  ).join("");
+  $("homeRows").querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.onclick = () => selectDataset(tr.dataset.id);
+  });
+}
+
+function renderBrowse() {
+  $("browseRows").innerHTML = BROWSE.map((b) =>
+    `<tr data-bid="${b.id}"><td>${b.name}</td><td>${b.src}</td><td><span class="pill ext">External</span></td><td>${b.upd}</td></tr>`
+  ).join("");
+  $("browseRows").querySelectorAll("tr").forEach((tr) => {
+    tr.onclick = () => {
+      $("detailBody").innerHTML = `
+        <h2>${tr.cells[0].textContent}</h2><span class="pill ext">External</span>
+        <div class="field"><label>Source</label><div>${tr.cells[1].textContent}</div></div>
+        <p style="color:#64748b;font-size:13px;margin-top:12px">Not in lab vault yet.</p>
+        <div class="acts"><button type="button" class="btn primary" id="btnAddLab">Add to lab</button><button type="button" class="btn" id="btnAskExt">Ask</button></div>`;
+      $("btnAddLab").onclick = () => { setRail("ask"); $("askInput").value = `Procure ${tr.cells[0].textContent} from ${tr.cells[1].textContent}`; };
+      $("btnAskExt").onclick = () => { setRail("ask"); $("askInput").focus(); };
+      setRail("detail");
+    };
+  });
+}
+
+function renderThread() {
+  $("thread").innerHTML = state.thread.map((m) =>
+    `<div class="bubble ${m.role}">${m.text.replace(/</g,"&lt;")}</div>`
+  ).join("");
+  $("thread").scrollTop = $("thread").scrollHeight;
+}
+
+function sendAsk() {
+  const text = $("askInput").value.trim();
+  if (!text) return;
+  state.thread.push({ role: "user", text });
+  const ctx = state.datasetId ? ` (context: ${state.datasetId})` : "";
+  state.thread.push({ role: "bot", text: `Preview reply for “${text}”${ctx}. Production → POST /library/chat/stream + MCP tools.` });
+  $("askInput").value = "";
+  renderThread();
+}
+
+function openModal() {
+  const d = DATASETS.find((x) => x.id === state.datasetId);
+  $("modalDataset").textContent = d?.name || "Dataset";
+  $("modalBackdrop").classList.add("open");
+  $("artboard").classList.add("dimmed");
+  setRoute("Library");
+}
+
+function closeModal() {
+  $("modalBackdrop").classList.remove("open");
+  $("artboard").classList.remove("dimmed");
+}
+
+$("tabDetail").onclick = () => setRail("detail");
+$("tabAsk").onclick = () => setRail("ask");
+$("askSend").onclick = sendAsk;
+$("askInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAsk(); } };
+$("modalClose").onclick = closeModal;
+$("modalBackdrop").onclick = (e) => { if (e.target === $("modalBackdrop")) closeModal(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+document.querySelectorAll("[data-go]").forEach((el) => {
+  el.addEventListener("click", () => setRoute(el.dataset.go));
+});
+
+$("searchInput").onkeydown = (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  if (e.shiftKey) { setRail("ask"); $("askInput").value = $("searchInput").value; $("askInput").focus(); }
+  else { setRoute("Library"); }
+};
+
+document.querySelectorAll(".modal-tabs button").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".modal-tabs button").forEach((b) => b.classList.remove("on"));
+    btn.classList.add("on");
+    const tab = btn.dataset.mtab;
+    if (tab === "preview") {
+      $("modalBody").innerHTML = `<table><thead><tr><th>date</th><th>country</th><th>shock</th><th>rows</th></tr></thead><tbody><tr><td>2026-04-01</td><td>TWN</td><td>0.42</td><td>1.2M</td></tr><tr><td>2026-04-01</td><td>SGP</td><td>0.18</td><td>890K</td></tr></tbody></table>`;
+    } else if (tab === "schema") {
+      $("modalBody").innerHTML = `<div style="padding:18px;font-size:13px"><p><strong>Grain:</strong> country · day</p><p style="margin-top:12px;color:#64748b">Columns: date, country, shock_score, article_count, …</p></div>`;
+    } else {
+      $("modalBody").innerHTML = `<div style="padding:18px"><textarea style="width:100%;min-height:120px;font-family:IBM Plex Mono,monospace;font-size:12px;border:1px solid #d9e1ec;border-radius:8px;padding:10px">SELECT date, country, shock_score\nFROM gdelt_asia\nLIMIT 10</textarea></div>`;
+    }
+  };
+});
+
+$("scaleToggle").onchange = (e) => {
+  const ab = $("artboard");
+  if (e.target.checked) {
+    const s = Math.min(1, (window.innerWidth - 40) / 1440);
+    ab.style.transform = `scale(${s})`;
+    ab.style.transformOrigin = "top center";
+  } else {
+    ab.style.transform = "";
+  }
+};
+
+setRoute("Home");
+renderLibRows();
+renderHomeRows();
+renderBrowse();
+renderDetail();
+renderThread();
+</script>
+</body>
+</html>

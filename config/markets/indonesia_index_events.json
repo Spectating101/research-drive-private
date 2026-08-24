@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "id": "msci_202605_rebalance",
+      "effective_date": "2026-05-29",
+      "type": "msci_rebalance",
+      "title": "MSCI May 2026 index rebalancing (effective close 29 May 2026)",
+      "removed_msci_global_standard": ["AMMN.JK", "BREN.JK", "TPIA.JK", "DSSA.JK", "CUAN.JK", "AMRT.JK"],
+      "narrative": "Passive funds adjust MSCI weights; removals often imply foreign outflow pressure, but domestic buyers sometimes absorb at ARA ahead of effective date (seen in BREN/TPIA/CUAN May 2026)."
+    }
+  ]
+}

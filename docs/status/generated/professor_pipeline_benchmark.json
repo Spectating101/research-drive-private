@@ -1,0 +1,205 @@
+{
+  "generated_at": "2026-06-24T18:40:12.445076+00:00",
+  "pilot_professor": "drkong@saturn.yzu.edu.tw",
+  "bigquery_status": {
+    "dependency": "installed",
+    "credentials": "available",
+    "project": "search-485108",
+    "location": "US",
+    "credential_type": "Credentials",
+    "default_max_bytes_billed": 10737418240,
+    "hard_max_bytes_billed": 107374182400
+  },
+  "tier_definitions": {
+    "T1_instant": {
+      "label": "Instant registry query",
+      "professor_analogy": "GDELT panel, CoinGecko snapshot \u2014 rows in seconds",
+      "stack_depth": "research_query_dataset(limit=N)",
+      "typical_latency": "sub-second to few seconds"
+    },
+    "T2_vault": {
+      "label": "Vault partition / local corpus",
+      "professor_analogy": "OpenSea NFT graph, Skynet harvest \u2014 lab already collected",
+      "stack_depth": "describe + partition browse; optional plan_collect for refresh",
+      "typical_latency": "seconds (metadata); hours-days if refresh"
+    },
+    "T3_guarded_remote": {
+      "label": "Guarded BigQuery / remote SQL",
+      "professor_analogy": "USDT on-chain history \u2014 Etherscan-scale without cloning chain",
+      "stack_depth": "dry_run \u2192 confirm run \u2192 optional archive to GDrive",
+      "typical_latency": "seconds dry-run; minutes guarded export"
+    },
+    "T4_procure_miss": {
+      "label": "Hard miss procurement",
+      "professor_analogy": "Obscure paper URL, niche wash-trading panel not in registry",
+      "stack_depth": "web_discover \u2192 probe \u2192 plan_collect",
+      "typical_latency": "minutes planning; depends on source"
+    },
+    "T5_job_acquire": {
+      "label": "Cluster job + vault archive",
+      "professor_analogy": "Spectator scrape, long backfill, GDrive promotion",
+      "stack_depth": "yzu_submit_job \u2192 worker \u2192 archive_upload",
+      "typical_latency": "minutes to hours"
+    }
+  },
+  "cases": [
+    {
+      "id": "t1_gdelt",
+      "query": "GDELT Asia daily country news panel",
+      "expected_tier": "T1_instant",
+      "observed_tier": "T1_instant",
+      "tier_match": true,
+      "tier_label": "Instant registry query",
+      "latency_ms": 372,
+      "summary": {
+        "query": "GDELT Asia daily country news panel",
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "relevance_miss": false,
+        "top_title": "GDELT Asia Daily Country News Shock Panel",
+        "top_dataset_id": "gdelt_asia_daily_country_panel",
+        "top_collect_via": "local_open",
+        "web_hits": 0,
+        "next_tools": 5,
+        "followthrough_ran": [
+          "describe",
+          "pipeline_tier",
+          "sample_query"
+        ],
+        "plan_launchable": false,
+        "sample_rows": 3,
+        "bigquery_within_guard": null,
+        "bigquery_gib": null,
+        "pipeline_tier": "T1_instant"
+      },
+      "bigquery": {
+        "ran": false,
+        "within_guard": null,
+        "gib": null,
+        "project": null
+      },
+      "web_hits": 0,
+      "plan_launchable": false
+    },
+    {
+      "id": "t2_opensea",
+      "query": "opensea nft metadata graph rarity network",
+      "expected_tier": "T2_vault",
+      "observed_tier": "T2_vault",
+      "tier_match": true,
+      "tier_label": "Vault partition / local corpus",
+      "latency_ms": 352,
+      "summary": {
+        "query": "opensea nft metadata graph rarity network",
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "relevance_miss": false,
+        "top_title": "OpenSea NFT metadata graph",
+        "top_dataset_id": "",
+        "top_collect_via": "local_open",
+        "web_hits": 0,
+        "next_tools": 5,
+        "followthrough_ran": [
+          "pipeline_tier",
+          "plan_collect"
+        ],
+        "plan_launchable": false,
+        "sample_rows": 0,
+        "bigquery_within_guard": null,
+        "bigquery_gib": null,
+        "pipeline_tier": "T2_vault"
+      },
+      "bigquery": {
+        "ran": false,
+        "within_guard": null,
+        "gib": null,
+        "project": null
+      },
+      "web_hits": 0,
+      "plan_launchable": false
+    },
+    {
+      "id": "t3_usdt_bq",
+      "query": "ethereum USDT stablecoin on-chain flows token taxonomy",
+      "expected_tier": "T3_guarded_remote",
+      "observed_tier": "T3_guarded_remote",
+      "tier_match": true,
+      "tier_label": "Guarded BigQuery / remote SQL",
+      "latency_ms": 1540,
+      "summary": {
+        "query": "ethereum USDT stablecoin on-chain flows token taxonomy",
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "relevance_miss": false,
+        "top_title": "Ethereum USDT ERC-20 transfer RPC pilot sample",
+        "top_dataset_id": "ethereum_usdt_rpc_pilot",
+        "top_collect_via": "local_open",
+        "web_hits": 0,
+        "next_tools": 6,
+        "followthrough_ran": [
+          "bigquery_dry_run",
+          "describe",
+          "pipeline_tier"
+        ],
+        "plan_launchable": false,
+        "sample_rows": 0,
+        "bigquery_within_guard": true,
+        "bigquery_gib": 0.004180635673037614,
+        "pipeline_tier": "T3_guarded_remote"
+      },
+      "bigquery": {
+        "ran": true,
+        "within_guard": true,
+        "gib": 0.004180635673037614,
+        "project": "search-485108"
+      },
+      "web_hits": 0,
+      "plan_launchable": false
+    },
+    {
+      "id": "t4_wash_miss",
+      "query": "yzu saturn lab skynet ethereum nft wash trading dataset 2019-2021",
+      "expected_tier": "T4_procure_miss",
+      "observed_tier": "T4_procure_miss",
+      "tier_match": true,
+      "tier_label": "Hard miss procurement",
+      "latency_ms": 49317,
+      "summary": {
+        "query": "yzu saturn lab skynet ethereum nft wash trading dataset 2019-2021",
+        "ladder_reached": "web_discover",
+        "index_miss": true,
+        "relevance_miss": true,
+        "top_title": "Detecting and Quantifying Wash Trading on Decentralized Cryptocurrency Exchanges",
+        "top_dataset_id": "",
+        "top_collect_via": "http_manifest",
+        "web_hits": 5,
+        "next_tools": 6,
+        "followthrough_ran": [
+          "pipeline_tier",
+          "plan_collect",
+          "probe",
+          "scrape_hint"
+        ],
+        "plan_launchable": true,
+        "sample_rows": 0,
+        "bigquery_within_guard": null,
+        "bigquery_gib": null,
+        "pipeline_tier": "T4_procure_miss"
+      },
+      "bigquery": {
+        "ran": false,
+        "within_guard": null,
+        "gib": null,
+        "project": null
+      },
+      "web_hits": 5,
+      "plan_launchable": true
+    }
+  ],
+  "summary": {
+    "cases": 4,
+    "tier_match_rate": 1.0,
+    "bigquery_ready": true,
+    "bq_cases_within_guard": 1
+  }
+}

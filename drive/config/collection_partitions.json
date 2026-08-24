@@ -1,26 +1,26 @@
 {
-  "version": 2,
+  "version": 3,
   "canonical_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data",
   "collection_root": "data_lake/collection",
   "target_drive_prefix": "collection",
   "write_target": "gdrive_partition",
   "legacy_local_path_role": "ephemeral_staging_only",
-  "summary": "Professor-facing Drive tree under collection/ only. All new downloads finalize to collection/{partition}/ on GDrive before jobs complete. legacy_local_path is staging/hydrate only.",
+  "summary": "Professor vault: browse by shelf (professor_nav), not by ops folder names. Physical Drive paths under collection/ stay stable; shelves are the readable map.",
   "professor_share_root": "collection",
   "backend_roots": [
     "datacite_catalog"
   ],
   "domains": {
-    "markets": "What traded \u2014 stock/crypto prices, universes, DeFi & NFT snapshots",
-    "news": "What happened in the world \u2014 GDELT news graph & country shock panels",
-    "official": "Authoritative filings \u2014 TWSE exchange data, macro baselines, MOPS-style governance",
-    "reference": "Join keys & lookup tables \u2014 tickers, entities, SEC IDs (not time-series panels)",
-    "social": "Crowd text \u2014 Reddit ingest and sentiment archives",
-    "catalog": "Browsable dataset indexes (curated lists; not operator bulk harvest)",
-    "acquired": "Lab downloads \u2014 DOI collects, chat procurement, campaign one-offs",
-    "derived": "Ready-to-model tables \u2014 merged panels and saved trial outputs",
-    "ops": "Pipeline operator files \u2014 manifests & job logs (skip unless you run jobs)",
-    "backend": "Operator-only bulk metadata (DataCite harvest) \u2014 never share with professors"
+    "markets": "Prices & traded assets — stocks, crypto, NFT snapshots",
+    "news": "What happened — news graphs and country shock panels",
+    "official": "Official filings & exchange dumps — TWSE, MOPS, macro baselines",
+    "reference": "Join keys & institutional masters — tickers, SEC IDs, CRSP/Compustat/Refinitiv",
+    "social": "Crowd text — Reddit and sentiment archives",
+    "catalog": "Find more data — curated indexes (not the raw harvest)",
+    "acquired": "Downloads for your project — desk/DOI/web collects",
+    "derived": "Ready to analyze — merged panels and model trial outputs",
+    "ops": "Staff / pipeline only — manifests and job logs",
+    "backend": "Staff only — bulk metadata harvest (never share)"
   },
   "partitions": [
     {
@@ -47,10 +47,12 @@
         "gdelt_gkg_events"
       ],
       "replaces_legacy_name": "news_shock_taxonomy",
-      "professor_label": "Asia news events (GDELT)",
+      "professor_label": "Asia news shocks (GDELT)",
       "migrated_at": "2026-06-24T20:07:02.523018+00:00",
       "status": "migrated",
-      "professor_visible": true
+      "professor_visible": true,
+      "professor_sort": 10,
+      "professor_blurb": "Daily country shock panels + Asia GKG shards for event studies."
     },
     {
       "id": "news.gdelt-expanded",
@@ -70,130 +72,224 @@
       "registry_dataset_ids": [
         "gdelt_high_priority_urls"
       ],
-      "professor_label": "Expanded global news (GDELT)",
+      "professor_label": "Global news adjunct (GDELT)",
       "status": "active",
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
-      "professor_visible": true
+      "professor_visible": true,
+      "professor_sort": 11,
+      "professor_blurb": "US/EU/MENA adjunct + crypto overlay next to the Asia GDELT core."
     },
     {
-      "id": "catalog.datacite-harvest",
-      "domain": "backend",
-      "path": "datacite_catalog/harvest",
-      "title": "DataCite metadata harvest (operator bulk)",
-      "description": "Sharded JSONL of DataCite records for procurement search \u2014 operator desk only. Professors use curated indexes or live DOI collect instead.",
-      "legacy_drive_path": "collection/catalog/datacite/harvest/index_v3",
-      "target_drive_path": "datacite_catalog/harvest/index_v3",
-      "legacy_local_path": "data_lake/dataset_catalog/index_v3",
-      "tier": "cache",
-      "drive_size_hint": "32 GiB",
-      "shard_manifest": "scripts/data_catalog/datacite_y2025_parallel_shards.list",
-      "shard_layout": "index_v3/{shard}/datacite_*.jsonl*",
-      "subfolders": [
-        "y2025_q1",
-        "y2025_q2",
-        "y2025_q3",
-        "y2025_q4",
-        "y2026"
-      ],
-      "replaces_legacy_name": "dataset_catalog/datacite/index_v3",
-      "migrated_at": "2026-06-24T15:29:44.534886+00:00",
-      "status": "migrated",
-      "professor_visible": false,
-      "vault_sibling": true,
-      "operator_notes": "Backend only. Do not share. Avoid rclone move (GDrive false-flags datacite_*.jsonl.gz). Relocate: scripts/ops/relocate_datacite_to_sibling.py",
-      "professor_label": "DataCite bulk (backend)"
-    },
-    {
-      "id": "catalog.curated-index",
-      "domain": "catalog",
-      "path": "catalog/curated",
-      "title": "Curated dataset index (human-readable)",
-      "description": "Hand-picked and promoted dataset cards (tiered), watchdog/quarantine lists, and external catalog seeds \u2014 the readable face of the library.",
-      "legacy_drive_path": "collection/catalog/curated",
-      "target_drive_path": "collection/catalog/curated",
-      "legacy_local_path": "data_lake/dataset_catalog",
-      "tier": "cache",
-      "drive_size_hint": "3 GiB",
-      "subfolders": [
-        "curated",
-        "curated_live",
-        "curated_strict",
-        "full_index",
-        "watchdog",
-        "quarantine"
-      ],
-      "notes": "Shares parent dir with harvest on disk today \u2014 split on Drive at migration",
-      "replaces_legacy_name": "dataset_catalog (non-index_v3)",
-      "migrated_at": "2026-06-24T16:19:52.247601+00:00",
-      "status": "migrated",
-      "professor_label": "Curated dataset lists",
-      "registry_dataset_ids": [
-        "external_dataset_catalog",
-        "external_dataset_catalog_curated",
-        "procurement_source_registry",
-        "scrape_00c3f389a0f5",
-        "scrape_0a9bad731050",
-        "scrape_0c67e9fe6aa9",
-        "scrape_14ed2ca60b01",
-        "scrape_223a87fe29cc",
-        "scrape_2392043d5ab2",
-        "scrape_249e1056398b",
-        "scrape_249fa2f7be08",
-        "scrape_29fc8a842221",
-        "scrape_2ab8a1037525",
-        "scrape_414948fc1fe5",
-        "scrape_49be869dc3a1",
-        "scrape_54af347e1ceb",
-        "scrape_55e1b9f339b1",
-        "scrape_5e12ac8e7adb",
-        "scrape_65277762bee2",
-        "scrape_792e48a33e7e",
-        "scrape_7fc8fd6673ee",
-        "scrape_80ebf999e4ec",
-        "scrape_89259ee1dfcc",
-        "scrape_8b5d6829503a",
-        "scrape_9cd5f3c23156",
-        "scrape_9e3b4b53ebbd",
-        "scrape_9fa111de3278",
-        "scrape_a36a691349c4",
-        "scrape_a781e409e461",
-        "scrape_accd8e1bc04a",
-        "scrape_b673c7029eb2",
-        "scrape_c34cb3b17983",
-        "scrape_c7aeb7c5f278",
-        "scrape_d1904509b183",
-        "scrape_d1cc38729356",
-        "scrape_e2084b36a959",
-        "scrape_e7874de36111",
-        "scrape_f122a9ad3e11",
-        "sec_sp500_submissions",
-        "skynet_stablecoin_harvest",
-        "test_sec"
-      ],
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
-      "professor_visible": true
-    },
-    {
-      "id": "markets.crypto-landscape",
+      "id": "markets.equities-asia",
       "domain": "markets",
-      "path": "markets/crypto-landscape",
-      "title": "Crypto landscape snapshots (ops vault slot)",
-      "description": "Periodic snapshots of protocols, tokens, and DeFi landscape metrics. Use for taxonomy, regime, and cross-protocol comparison studies.",
-      "legacy_drive_path": "collection/markets/crypto-landscape",
-      "target_drive_path": "collection/markets/crypto-landscape",
-      "legacy_local_path": "data_lake/crypto_pipeline",
+      "path": "markets/equities-asia",
+      "title": "Asia equity prices & ticker universes",
+      "description": "Daily prices and investable universes for Taiwan, Indonesia, and broader Asia (yfinance and sourced broker lists). Use for momentum, ML, and cross-market equity research.",
+      "legacy_drive_path": "collection/markets/equities-asia",
+      "target_drive_path": "collection/markets/equities-asia",
+      "legacy_local_path": "data_lake/markets",
       "tier": "cache",
-      "drive_size_hint": "3.5 GiB",
+      "drive_size_hint": "2.0 GiB",
       "subfolders": [
-        "runs",
-        "latest",
-        "historical_backfill"
+        "yfinance_asia",
+        "sourced_universes"
       ],
-      "replaces_legacy_name": "crypto_landscape / crypto_pipeline",
-      "migrated_at": "2026-06-24T19:40:53.578964+00:00",
+      "replaces_legacy_name": "market_data / markets",
+      "migrated_at": "2026-06-24T19:59:54.274571+00:00",
       "status": "migrated",
-      "professor_label": "Crypto landscape (ops slot)",
-      "professor_visible": false
+      "professor_label": "Asia stock price panels",
+      "professor_visible": true,
+      "professor_sort": 20,
+      "professor_blurb": "Taiwan/Indonesia/Asia equity prices and investable universes."
+    },
+    {
+      "id": "official.exchange-disclosures",
+      "domain": "official",
+      "path": "official/exchange-disclosures",
+      "title": "Taiwan TWSE exchange OpenAPI snapshots",
+      "description": "Official Taiwan Stock Exchange OpenAPI dumps: listings, sectors, material information, penalties, income statements, and ESG board fields. Base layer for Taiwan equity and disclosure research.",
+      "legacy_drive_path": "collection/official/exchange-disclosures",
+      "target_drive_path": "collection/official/exchange-disclosures",
+      "legacy_local_path": "data_lake/official_disclosures",
+      "tier": "hot",
+      "drive_size_hint": "63 MiB",
+      "subfolders": [
+        "taiwan_twse"
+      ],
+      "registry_dataset_ids": [
+        "twse_openapi_taiwan_market_layer"
+      ],
+      "migrated_at": "2026-06-24T20:00:35.041307+00:00",
+      "status": "migrated",
+      "professor_label": "Taiwan TWSE official data",
+      "professor_visible": true,
+      "professor_sort": 21,
+      "professor_blurb": "TWSE OpenAPI listings, disclosures, and ESG board fields."
+    },
+    {
+      "id": "official.mops-disclosures",
+      "domain": "official",
+      "path": "official/mops-disclosures",
+      "title": "Taiwan MOPS & governance procured files",
+      "description": "Governance and misconduct-related files landed by the procurement desk (filings, panels, web collects). Grows automatically when you ask for MOPS or Taiwan governance data.",
+      "legacy_drive_path": null,
+      "target_drive_path": "collection/official/mops-disclosures",
+      "legacy_local_path": "data_lake/official_disclosures/taiwan_mops",
+      "tier": "hot",
+      "registry_dataset_ids": [
+        "mops_governance_panel"
+      ],
+      "status": "procurement_wired",
+      "professor_label": "Taiwan MOPS / governance",
+      "last_registry_wired_at": "2026-06-25T07:56:25+00:00",
+      "professor_visible": true,
+      "professor_sort": 22,
+      "professor_blurb": "MOPS and governance files landed by procurement."
+    },
+    {
+      "id": "official.macro-asia",
+      "domain": "official",
+      "path": "official/macro-asia",
+      "title": "Asia public macro & market baselines",
+      "description": "Downloaded public macro and cross-market baseline packs for Asia research — rates, risk proxies, and comparable market indicators.",
+      "legacy_drive_path": "collection/official/macro-asia",
+      "target_drive_path": "collection/official/macro-asia",
+      "legacy_local_path": "data_lake/public_macro_market_baseline",
+      "tier": "hot",
+      "drive_size_hint": "68 MiB",
+      "subfolders": [
+        "public_macro_market_baseline"
+      ],
+      "replaces_legacy_name": "official_macro_asia / public_macro_market_baseline",
+      "migrated_at": "2026-06-24T20:01:51.261108+00:00",
+      "status": "migrated",
+      "professor_label": "Asia macro baselines",
+      "registry_dataset_ids": [
+        "public_macro_ff_factors_daily"
+      ],
+      "last_registry_wired_at": "2026-07-07T09:25:32+00:00",
+      "professor_visible": true,
+      "professor_sort": 23,
+      "professor_blurb": "Public macro and cross-market baseline packs for Asia."
+    },
+    {
+      "id": "reference.crsp-moveit",
+      "domain": "reference",
+      "path": "reference/crsp-moveit",
+      "title": "CRSP US Stock & Index (MOVEit)",
+      "description": "CRSP subscriber bulk delivery: US Stock 2.5 CIZ, index history, CCM link. Licensed via crsp.moveitcloud.com.",
+      "legacy_drive_path": "collection/reference/crsp-moveit",
+      "target_drive_path": "collection/reference/crsp-moveit",
+      "legacy_local_path": "data_lake/crsp",
+      "tier": "hot",
+      "status": "wired",
+      "professor_label": "US equity history (CRSP)",
+      "subfolders": [
+        "raw",
+        "processed",
+        "manifests"
+      ],
+      "registry_dataset_ids": [
+        "crsp_moveit_catalog_status",
+        "crsp_us_stock_daily_ciz",
+        "crsp_us_index_history",
+        "crsp_compustat_ccm_link"
+      ],
+      "last_registry_wired_at": "2026-07-07T09:25:32+00:00",
+      "professor_visible": true,
+      "professor_sort": 30,
+      "professor_blurb": "CRSP US stock/index history via MOVEit delivery."
+    },
+    {
+      "id": "reference.compustat-capitaliq",
+      "domain": "reference",
+      "path": "reference/compustat-capitaliq",
+      "title": "Compustat fundamentals (Capital IQ export)",
+      "description": "US GAAP fundamentals exported from S&P Capital IQ / Compustat. Manual or scripted export — no WRDS on this desk.",
+      "legacy_drive_path": "collection/reference/compustat-capitaliq",
+      "target_drive_path": "collection/reference/compustat-capitaliq",
+      "legacy_local_path": "data_lake/compustat",
+      "tier": "hot",
+      "status": "pending_export",
+      "professor_label": "US fundamentals (Compustat)",
+      "subfolders": [
+        "raw",
+        "processed"
+      ],
+      "registry_dataset_ids": [
+        "compustat_na_fundamentals_annual"
+      ],
+      "professor_visible": true,
+      "professor_sort": 31,
+      "professor_blurb": "Compustat/Capital IQ fundamentals exports."
+    },
+    {
+      "id": "reference.refinitiv-backfill",
+      "domain": "markets",
+      "path": "markets/institutional-refinitiv",
+      "title": "Refinitiv complete harvest 2026-07-06 (frozen)",
+      "description": "YZU EDP institutional spine: security master, PIT index membership, risk tape, estimate revisions, fundamentals, consensus, ESG. US vol/skew from desktop rescue. Bulk harvest STOP — query-ready release.",
+      "legacy_drive_path": "refinitiv_backfill",
+      "target_drive_path": "refinitiv_backfill/2026-07-06-complete",
+      "legacy_local_path": "data_lake/refinitiv_backfill",
+      "tier": "hot",
+      "status": "frozen_release",
+      "professor_label": "Refinitiv institutional spine",
+      "subfolders": [
+        "2026-07-06-complete/processed",
+        "2026-07-06-complete/qa",
+        "rescued_desktop_20251215",
+        "derived"
+      ],
+      "registry_dataset_ids": [
+        "refinitiv_security_master",
+        "refinitiv_index_membership_pit",
+        "refinitiv_index_membership_current",
+        "refinitiv_corporate_actions_snapshot",
+        "refinitiv_risk_tape_daily",
+        "refinitiv_estimate_revisions_daily",
+        "refinitiv_fundamentals_snapshot",
+        "refinitiv_analyst_consensus_snapshot",
+        "refinitiv_esg_snapshot",
+        "refinitiv_rescued_us_risk_desktop",
+        "refinitiv_survivorship_universe_panel",
+        "refinitiv_us_risk_overlay",
+        "refinitiv_estimate_revision_panel",
+        "refinitiv_fundamental_annual_panel",
+        "refinitiv_entity_market_spine"
+      ],
+      "notes": "Do not schedule bulk re-harvest. See docs/status/generated/REFINITIV_2026_07_06_COMPLETE_RELEASE.md",
+      "professor_visible": true,
+      "professor_sort": 32,
+      "professor_blurb": "Security master, PIT index membership, risk, estimates, fundamentals, ESG."
+    },
+    {
+      "id": "markets.ethereum-usdt",
+      "domain": "markets",
+      "path": "markets/ethereum-usdt",
+      "title": "On-chain stablecoin flow holdings (ops vault slot)",
+      "description": "Optional vault slot for on-chain transfer panels landed by custom procure / BigQuery jobs. Not a USDT product module — craft a collect or dry-run for the concrete target.",
+      "legacy_drive_path": null,
+      "target_drive_path": "collection/markets/ethereum-usdt",
+      "legacy_local_path": "data/usdt_catalogue",
+      "tier": "hot",
+      "professor_visible": true,
+      "registry_dataset_ids": [
+        "ethereum_usdt_rpc_pilot",
+        "ethereum_usdt_transfers",
+        "spk_v1_payment_ledger",
+        "spk_v1_sepolia_runtime"
+      ],
+      "subfolders": [
+        "professor_package",
+        "bigquery_history",
+        "raw_transfers"
+      ],
+      "professor_label": "USDT / on-chain transfers",
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "status": "ops_holding_slot",
+      "professor_sort": 41,
+      "professor_blurb": "Ethereum USDT transfer samples and BigQuery catalogue entry points."
     },
     {
       "id": "markets.crypto-coingecko",
@@ -207,7 +303,7 @@
       "tier": "cache",
       "status": "ops_holding_slot",
       "subfolders": [],
-      "professor_label": "Crypto market history (held bytes only)",
+      "professor_label": "Crypto market history",
       "drive_last_synced_at": "2026-06-25T05:55:46.866935+00:00",
       "drive_mirror": true,
       "registry_dataset_ids": [
@@ -241,54 +337,33 @@
       ],
       "last_procurement_wired_at": "2026-06-25T08:08:00.261377+00:00",
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
-      "professor_visible": false
+      "professor_visible": true,
+      "professor_sort": 42,
+      "professor_blurb": "Held crypto market history panels (CoinGecko-landed bytes)."
     },
     {
-      "id": "markets.ethereum-usdt",
+      "id": "markets.crypto-landscape",
       "domain": "markets",
-      "path": "markets/ethereum-usdt",
-      "title": "On-chain stablecoin flow holdings (ops vault slot)",
-      "description": "Optional vault slot for on-chain transfer panels landed by custom procure / BigQuery jobs. Not a USDT product module \u2014 craft a collect or dry-run for the concrete target.",
-      "legacy_drive_path": null,
-      "target_drive_path": "collection/markets/ethereum-usdt",
-      "legacy_local_path": "data/usdt_catalogue",
-      "tier": "hot",
-      "professor_visible": false,
-      "registry_dataset_ids": [
-        "ethereum_usdt_rpc_pilot",
-        "ethereum_usdt_transfers",
-        "spk_v1_payment_ledger",
-        "spk_v1_sepolia_runtime"
-      ],
-      "subfolders": [
-        "professor_package",
-        "bigquery_history",
-        "raw_transfers"
-      ],
-      "professor_label": "On-chain flows (held bytes only)",
-      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
-      "status": "ops_holding_slot"
-    },
-    {
-      "id": "markets.equities-asia",
-      "domain": "markets",
-      "path": "markets/equities-asia",
-      "title": "Asia equity prices & ticker universes",
-      "description": "Daily prices and investable universes for Taiwan, Indonesia, and broader Asia (yfinance and sourced broker lists). Use for momentum, ML, and cross-market equity research.",
-      "legacy_drive_path": "collection/markets/equities-asia",
-      "target_drive_path": "collection/markets/equities-asia",
-      "legacy_local_path": "data_lake/markets",
+      "path": "markets/crypto-landscape",
+      "title": "Crypto landscape snapshots (ops vault slot)",
+      "description": "Periodic snapshots of protocols, tokens, and DeFi landscape metrics. Use for taxonomy, regime, and cross-protocol comparison studies.",
+      "legacy_drive_path": "collection/markets/crypto-landscape",
+      "target_drive_path": "collection/markets/crypto-landscape",
+      "legacy_local_path": "data_lake/crypto_pipeline",
       "tier": "cache",
-      "drive_size_hint": "2.0 GiB",
+      "drive_size_hint": "3.5 GiB",
       "subfolders": [
-        "yfinance_asia",
-        "sourced_universes"
+        "runs",
+        "latest",
+        "historical_backfill"
       ],
-      "replaces_legacy_name": "market_data / markets",
-      "migrated_at": "2026-06-24T19:59:54.274571+00:00",
+      "replaces_legacy_name": "crypto_landscape / crypto_pipeline",
+      "migrated_at": "2026-06-24T19:40:53.578964+00:00",
       "status": "migrated",
-      "professor_label": "Asia stock panels",
-      "professor_visible": true
+      "professor_label": "Crypto landscape snapshots",
+      "professor_visible": true,
+      "professor_sort": 43,
+      "professor_blurb": "Protocol/token landscape snapshots for taxonomy and regime work."
     },
     {
       "id": "markets.nft-opensea",
@@ -301,78 +376,40 @@
       "legacy_local_path": "data_lake/opensea",
       "tier": "cache",
       "status": "example_slot",
-      "professor_label": "NFT metadata (ops slot)",
+      "professor_label": "NFT marketplace metadata",
       "drive_last_synced_at": "2026-06-25T06:03:37.738446+00:00",
       "drive_mirror": true,
       "registry_dataset_ids": [
         "opensea_nft_metadata_layer"
       ],
       "last_registry_wired_at": "2026-06-25T07:56:25+00:00",
-      "professor_visible": false
+      "professor_visible": false,
+      "professor_sort": 44,
+      "professor_blurb": "Optional NFT metadata slot — sparse; staff/demo only unless populated."
     },
     {
-      "id": "official.exchange-disclosures",
-      "domain": "official",
-      "path": "official/exchange-disclosures",
-      "title": "Taiwan TWSE exchange OpenAPI snapshots",
-      "description": "Official Taiwan Stock Exchange OpenAPI dumps: listings, sectors, material information, penalties, income statements, and ESG board fields. Base layer for Taiwan equity and disclosure research.",
-      "legacy_drive_path": "collection/official/exchange-disclosures",
-      "target_drive_path": "collection/official/exchange-disclosures",
-      "legacy_local_path": "data_lake/official_disclosures",
+      "id": "reference.sec-edgar",
+      "domain": "reference",
+      "path": "reference/sec-edgar",
+      "title": "US SEC EDGAR ticker ↔ CIK reference",
+      "description": "Public SEC company_tickers.json and related EDGAR reference extracts. Required join key before pulling US filing histories.",
+      "legacy_drive_path": "collection/reference/sec-edgar",
+      "target_drive_path": "collection/reference/sec-edgar",
+      "legacy_local_path": "data_lake/sec",
       "tier": "hot",
-      "drive_size_hint": "63 MiB",
+      "drive_size_hint": "1 MiB",
       "subfolders": [
-        "taiwan_twse"
+        "company_tickers.json"
       ],
-      "registry_dataset_ids": [
-        "twse_openapi_taiwan_market_layer"
-      ],
-      "migrated_at": "2026-06-24T20:00:35.041307+00:00",
+      "professor_label": "SEC ticker ↔ CIK map",
+      "migrated_at": "2026-06-24T20:09:59.041254+00:00",
       "status": "migrated",
-      "professor_label": "TWSE official market data",
-      "professor_visible": true
-    },
-    {
-      "id": "official.mops-disclosures",
-      "domain": "official",
-      "path": "official/mops-disclosures",
-      "title": "Taiwan MOPS & governance procured files",
-      "description": "Governance and misconduct-related files landed by the procurement desk (filings, panels, web collects). Grows automatically when you ask for MOPS or Taiwan governance data.",
-      "legacy_drive_path": null,
-      "target_drive_path": "collection/official/mops-disclosures",
-      "legacy_local_path": "data_lake/official_disclosures/taiwan_mops",
-      "tier": "hot",
       "registry_dataset_ids": [
-        "mops_governance_panel"
+        "procured_src_ace4a0fb8e9e"
       ],
-      "status": "procurement_wired",
-      "professor_label": "MOPS / governance procured",
-      "last_registry_wired_at": "2026-06-25T07:56:25+00:00",
-      "professor_visible": true
-    },
-    {
-      "id": "official.macro-asia",
-      "domain": "official",
-      "path": "official/macro-asia",
-      "title": "Asia public macro & market baselines",
-      "description": "Downloaded public macro and cross-market baseline packs for Asia research \u2014 rates, risk proxies, and comparable market indicators.",
-      "legacy_drive_path": "collection/official/macro-asia",
-      "target_drive_path": "collection/official/macro-asia",
-      "legacy_local_path": "data_lake/public_macro_market_baseline",
-      "tier": "hot",
-      "drive_size_hint": "68 MiB",
-      "subfolders": [
-        "public_macro_market_baseline"
-      ],
-      "replaces_legacy_name": "official_macro_asia / public_macro_market_baseline",
-      "migrated_at": "2026-06-24T20:01:51.261108+00:00",
-      "status": "migrated",
-      "professor_label": "Asia macro baselines",
-      "registry_dataset_ids": [
-        "public_macro_ff_factors_daily"
-      ],
-      "last_registry_wired_at": "2026-07-07T09:25:32+00:00",
-      "professor_visible": true
+      "professor_visible": true,
+      "professor_sort": 50,
+      "professor_blurb": "US company ticker to CIK reference for EDGAR pulls."
     },
     {
       "id": "reference.entity-mapping-asia",
@@ -390,68 +427,10 @@
       ],
       "migrated_at": "2026-06-24T16:21:46.150726+00:00",
       "status": "migrated",
-      "professor_label": "Asia entity mapping",
-      "professor_visible": true
-    },
-    {
-      "id": "reference.sec-edgar",
-      "domain": "reference",
-      "path": "reference/sec-edgar",
-      "title": "US SEC EDGAR ticker \u2194 CIK reference",
-      "description": "Public SEC company_tickers.json and related EDGAR reference extracts. Required join key before pulling US filing histories.",
-      "legacy_drive_path": "collection/reference/sec-edgar",
-      "target_drive_path": "collection/reference/sec-edgar",
-      "legacy_local_path": "data_lake/sec",
-      "tier": "hot",
-      "drive_size_hint": "1 MiB",
-      "subfolders": [
-        "company_tickers.json"
-      ],
-      "professor_label": "SEC ticker map",
-      "migrated_at": "2026-06-24T20:09:59.041254+00:00",
-      "status": "migrated",
-      "registry_dataset_ids": [
-        "procured_src_ace4a0fb8e9e"
-      ],
-      "professor_visible": true
-    },
-    {
-      "id": "reference.refinitiv-backfill",
-      "domain": "markets",
-      "path": "markets/institutional-refinitiv",
-      "title": "Refinitiv complete harvest 2026-07-06 (frozen)",
-      "description": "YZU EDP institutional spine: security master, PIT index membership, risk tape, estimate revisions, fundamentals, consensus, ESG. US vol/skew from desktop rescue. Bulk harvest STOP \u2014 query-ready release.",
-      "legacy_drive_path": "refinitiv_backfill",
-      "target_drive_path": "refinitiv_backfill/2026-07-06-complete",
-      "legacy_local_path": "data_lake/refinitiv_backfill",
-      "tier": "hot",
-      "status": "frozen_release",
-      "professor_label": "Institutional market data (Refinitiv)",
-      "subfolders": [
-        "2026-07-06-complete/processed",
-        "2026-07-06-complete/qa",
-        "rescued_desktop_20251215",
-        "derived"
-      ],
-      "registry_dataset_ids": [
-        "refinitiv_security_master",
-        "refinitiv_index_membership_pit",
-        "refinitiv_index_membership_current",
-        "refinitiv_corporate_actions_snapshot",
-        "refinitiv_risk_tape_daily",
-        "refinitiv_estimate_revisions_daily",
-        "refinitiv_fundamentals_snapshot",
-        "refinitiv_analyst_consensus_snapshot",
-        "refinitiv_esg_snapshot",
-        "refinitiv_rescued_us_risk_desktop",
-        "refinitiv_survivorship_universe_panel",
-        "refinitiv_us_risk_overlay",
-        "refinitiv_estimate_revision_panel",
-        "refinitiv_fundamental_annual_panel",
-        "refinitiv_entity_market_spine"
-      ],
-      "notes": "Do not schedule bulk re-harvest. See docs/status/generated/REFINITIV_2026_07_06_COMPLETE_RELEASE.md",
-      "professor_visible": true
+      "professor_label": "Asia ticker ↔ entity maps",
+      "professor_visible": true,
+      "professor_sort": 60,
+      "professor_blurb": "Join keys before merging news headlines to price panels."
     },
     {
       "id": "social.reddit",
@@ -468,10 +447,78 @@
         "raw"
       ],
       "replaces_legacy_name": "social_reddit / sentiment",
-      "professor_label": "Reddit sentiment",
+      "professor_label": "Reddit sentiment archive",
       "migrated_at": "2026-06-24T20:10:48.071533+00:00",
       "status": "migrated",
-      "professor_visible": true
+      "professor_visible": true,
+      "professor_sort": 70,
+      "professor_blurb": "Reddit posts/comments and derived sentiment panels."
+    },
+    {
+      "id": "derived.research-panels",
+      "domain": "derived",
+      "path": "derived/research-panels",
+      "title": "Merged research panels (analysis-ready)",
+      "description": "Derived tables built in-house — e.g. Asia news × market trial panels. Start here when reproducing internal empirical notebooks.",
+      "legacy_drive_path": "collection/derived/research-panels",
+      "target_drive_path": "collection/derived/research-panels",
+      "legacy_local_path": "data_lake/research_panels",
+      "tier": "hot",
+      "drive_size_hint": "59 MiB",
+      "subfolders": [
+        "asia_news_market",
+        "refinitiv/2026-07-06-complete"
+      ],
+      "registry_dataset_ids": [
+        "asia_country_week_news_market_primary",
+        "asia_entity_ticker_mapping_layer",
+        "cross_asset_fused_primary_panel",
+        "daily_ticker_entity_shock_panel",
+        "idn_episode_reward_daily",
+        "idn_fry_daily_cross_section",
+        "idn_fry_episode_gdelt_features",
+        "jkse_pit_idn_microstructure_revisions",
+        "pit_index_revision_momentum",
+        "refinitiv_entity_market_spine",
+        "refinitiv_entity_market_spine_expanded",
+        "refinitiv_estimate_revision_panel",
+        "refinitiv_fundamental_annual_panel",
+        "refinitiv_survivorship_universe_panel",
+        "refinitiv_us_risk_overlay",
+        "stablecoin_trust_engagement_weekly",
+        "ticker_week_country_broadcast_panel",
+        "ticker_week_entity_long_panel",
+        "ticker_week_entity_market_panel",
+        "ticker_week_entity_residual_panel"
+      ],
+      "professor_label": "Merged research panels",
+      "migrated_at": "2026-06-24T20:08:58.839200+00:00",
+      "status": "migrated",
+      "last_registry_wired_at": "2026-07-07T16:12:34+00:00",
+      "professor_visible": true,
+      "professor_sort": 80,
+      "professor_blurb": "Analysis-ready tables (news×market, Indonesia, Refinitiv-derived)."
+    },
+    {
+      "id": "derived.research-models",
+      "domain": "derived",
+      "path": "derived/research-models",
+      "title": "Saved model outputs & trial artifacts",
+      "description": "Checkpointed model runs and trial exports (e.g. Asia news-market modeling). Drive-only until hydrated locally.",
+      "legacy_drive_path": "collection/derived/research-models",
+      "target_drive_path": "collection/derived/research-models",
+      "legacy_local_path": null,
+      "tier": "canonical_only",
+      "drive_size_hint": "324 MiB",
+      "subfolders": [
+        "asia_news_market_modeling"
+      ],
+      "migrated_at": "2026-06-24T20:02:58.522202+00:00",
+      "status": "migrated",
+      "professor_label": "Model trial outputs",
+      "professor_visible": true,
+      "professor_sort": 81,
+      "professor_blurb": "Saved modeling runs and trial exports."
     },
     {
       "id": "acquired.procured",
@@ -486,7 +533,7 @@
       "drive_size_hint": "6 MiB",
       "migrated_at": "2026-06-24T20:02:34.284341+00:00",
       "status": "migrated",
-      "professor_label": "Procured one-offs",
+      "professor_label": "Your project downloads",
       "registry_dataset_ids": [
         "datacite_10.17608_k6.auckland.24773262",
         "datacite_10.4122_1.1000000967",
@@ -542,79 +589,157 @@
         "craft_ready_openalex_1784804533",
         "craft_ready_usgs_1784804533",
         "craft_ready_llama_1784804533",
-        "scrape_63016bd11794"
+        "scrape_63016bd11794",
+        "robust_openalex_1784808768",
+        "robust_usgs_1784808768",
+        "robust_llama_1784808768",
+        "robust_coingecko_1784808768",
+        "robust_sec_1784808768",
+        "scrape_80920f79a24e",
+        "craft_api_openalex_org_08b15f5138",
+        "craft_earthquake_usgs_gov_a1b0139ff2",
+        "craft_api_coingecko_com_c7724c3de8",
+        "ssrf3_public_ok_1784810587",
+        "rev_live_1784812524",
+        "rev_live2_1784812800"
       ],
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
-      "professor_visible": true
+      "professor_visible": true,
+      "professor_sort": 90,
+      "professor_blurb": "Desk/DOI/web collects for a specific research ask — not a curated catalog."
     },
     {
-      "id": "derived.research-panels",
-      "domain": "derived",
-      "path": "derived/research-panels",
-      "title": "Merged research panels (analysis-ready)",
-      "description": "Derived tables built in-house \u2014 e.g. Asia news \u00d7 market trial panels. Start here when reproducing internal empirical notebooks.",
-      "legacy_drive_path": "collection/derived/research-panels",
-      "target_drive_path": "collection/derived/research-panels",
-      "legacy_local_path": "data_lake/research_panels",
+      "id": "acquired.professor-ra",
+      "domain": "acquired",
+      "path": "acquired/professor-ra",
+      "title": "Professor RA lane — source material and coin bundles",
+      "description": "Everything the RA lane received from or produced for the professor: her original Investing.com index CSVs, the Cryptocurrencies workbook, the NFT collection list, and the CoinGecko professor bundles. Backed up out of her shared Dropbox, which is a 2 GiB Basic account we hold editor (not owner) rights on and therefore cannot treat as storage.",
+      "legacy_drive_path": "collection/acquired/professor-ra",
+      "target_drive_path": "collection/acquired/professor-ra",
+      "legacy_local_path": "data_lake/professor_ra",
       "tier": "hot",
-      "drive_size_hint": "59 MiB",
+      "drive_size_hint": "355 MiB",
       "subfolders": [
-        "asia_news_market",
-        "refinitiv/2026-07-06-complete"
+        "sources",
+        "bundles"
       ],
-      "registry_dataset_ids": [
-        "asia_country_week_news_market_primary",
-        "asia_entity_ticker_mapping_layer",
-        "cross_asset_fused_primary_panel",
-        "daily_ticker_entity_shock_panel",
-        "idn_episode_reward_daily",
-        "idn_fry_daily_cross_section",
-        "idn_fry_episode_gdelt_features",
-        "jkse_pit_idn_microstructure_revisions",
-        "pit_index_revision_momentum",
-        "refinitiv_entity_market_spine",
-        "refinitiv_entity_market_spine_expanded",
-        "refinitiv_estimate_revision_panel",
-        "refinitiv_fundamental_annual_panel",
-        "refinitiv_survivorship_universe_panel",
-        "refinitiv_us_risk_overlay",
-        "stablecoin_trust_engagement_weekly",
-        "ticker_week_country_broadcast_panel",
-        "ticker_week_entity_long_panel",
-        "ticker_week_entity_market_panel",
-        "ticker_week_entity_residual_panel"
-      ],
-      "professor_label": "Research panels",
-      "migrated_at": "2026-06-24T20:08:58.839200+00:00",
+      "migrated_at": "2026-08-03T08:31:59.571935+00:00",
       "status": "migrated",
-      "last_registry_wired_at": "2026-07-07T16:12:34+00:00",
-      "professor_visible": true
+      "professor_visible": true,
+      "professor_label": "Your RA data (sources & bundles)",
+      "professor_sort": 95,
+      "professor_blurb": "Your own source files and the CoinGecko coin bundles prepared for you.",
+      "operator_notes": "professor_crypto_bundle.zip (Part 1, 1,062 coins) was sole-copy in Dropbox until 2026-08-03. Part 2 (professor_crypto_bundle_continuation.zip, remainder of 15,390 coins) still lives only under Sharpe-Renaissance-trash-rescue-20260521/. bundles/professor_crypto_bundle_extracted/professor_crypto_panel.csv is DAMAGED - 1,048,576 rows (Excel 2^20 cap), 497 of 1,062 coins - retained as evidence only. Use the zip.",
+      "registry_dataset_ids": []
     },
     {
-      "id": "derived.research-models",
-      "domain": "derived",
-      "path": "derived/research-models",
-      "title": "Saved model outputs & trial artifacts",
-      "description": "Checkpointed model runs and trial exports (e.g. Asia news-market modeling). Drive-only until hydrated locally.",
-      "legacy_drive_path": "collection/derived/research-models",
-      "target_drive_path": "collection/derived/research-models",
-      "legacy_local_path": null,
-      "tier": "canonical_only",
-      "drive_size_hint": "324 MiB",
+      "id": "catalog.curated-index",
+      "domain": "catalog",
+      "path": "catalog/curated",
+      "title": "Curated dataset index (human-readable)",
+      "description": "Hand-picked and promoted dataset cards (tiered), watchdog/quarantine lists, and external catalog seeds — the readable face of the library.",
+      "legacy_drive_path": "collection/catalog/curated",
+      "target_drive_path": "collection/catalog/curated",
+      "legacy_local_path": "data_lake/dataset_catalog",
+      "tier": "cache",
+      "drive_size_hint": "3 GiB",
       "subfolders": [
-        "asia_news_market_modeling"
+        "curated",
+        "curated_live",
+        "curated_strict",
+        "full_index",
+        "watchdog",
+        "quarantine"
       ],
-      "migrated_at": "2026-06-24T20:02:58.522202+00:00",
+      "notes": "Shares parent dir with harvest on disk today — split on Drive at migration",
+      "replaces_legacy_name": "dataset_catalog (non-index_v3)",
+      "migrated_at": "2026-06-24T16:19:52.247601+00:00",
       "status": "migrated",
-      "professor_label": "Model trial outputs",
-      "professor_visible": true
+      "professor_label": "Curated dataset finder",
+      "registry_dataset_ids": [
+        "external_dataset_catalog",
+        "external_dataset_catalog_curated",
+        "procurement_source_registry",
+        "scrape_00c3f389a0f5",
+        "scrape_0a9bad731050",
+        "scrape_0c67e9fe6aa9",
+        "scrape_14ed2ca60b01",
+        "scrape_223a87fe29cc",
+        "scrape_2392043d5ab2",
+        "scrape_249e1056398b",
+        "scrape_249fa2f7be08",
+        "scrape_29fc8a842221",
+        "scrape_2ab8a1037525",
+        "scrape_414948fc1fe5",
+        "scrape_49be869dc3a1",
+        "scrape_54af347e1ceb",
+        "scrape_55e1b9f339b1",
+        "scrape_5e12ac8e7adb",
+        "scrape_65277762bee2",
+        "scrape_792e48a33e7e",
+        "scrape_7fc8fd6673ee",
+        "scrape_80ebf999e4ec",
+        "scrape_89259ee1dfcc",
+        "scrape_8b5d6829503a",
+        "scrape_9cd5f3c23156",
+        "scrape_9e3b4b53ebbd",
+        "scrape_9fa111de3278",
+        "scrape_a36a691349c4",
+        "scrape_a781e409e461",
+        "scrape_accd8e1bc04a",
+        "scrape_b673c7029eb2",
+        "scrape_c34cb3b17983",
+        "scrape_c7aeb7c5f278",
+        "scrape_d1904509b183",
+        "scrape_d1cc38729356",
+        "scrape_e2084b36a959",
+        "scrape_e7874de36111",
+        "scrape_f122a9ad3e11",
+        "sec_sp500_submissions",
+        "skynet_stablecoin_harvest",
+        "test_sec"
+      ],
+      "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
+      "professor_visible": true,
+      "professor_sort": 100,
+      "professor_blurb": "Human-readable indexes for discovering external datasets."
+    },
+    {
+      "id": "catalog.datacite-harvest",
+      "domain": "backend",
+      "path": "datacite_catalog/harvest",
+      "title": "DataCite metadata harvest (operator bulk)",
+      "description": "Sharded JSONL of DataCite records for procurement search — operator desk only. Professors use curated indexes or live DOI collect instead.",
+      "legacy_drive_path": "collection/catalog/datacite/harvest/index_v3",
+      "target_drive_path": "datacite_catalog/harvest/index_v3",
+      "legacy_local_path": "data_lake/dataset_catalog/index_v3",
+      "tier": "cache",
+      "drive_size_hint": "32 GiB",
+      "shard_manifest": "scripts/data_catalog/datacite_y2025_parallel_shards.list",
+      "shard_layout": "index_v3/{shard}/datacite_*.jsonl*",
+      "subfolders": [
+        "y2025_q1",
+        "y2025_q2",
+        "y2025_q3",
+        "y2025_q4",
+        "y2026"
+      ],
+      "replaces_legacy_name": "dataset_catalog/datacite/index_v3",
+      "migrated_at": "2026-06-24T15:29:44.534886+00:00",
+      "status": "migrated",
+      "professor_visible": false,
+      "vault_sibling": true,
+      "operator_notes": "Backend only. Do not share. Avoid rclone move (GDrive false-flags datacite_*.jsonl.gz). Relocate: scripts/ops/relocate_datacite_to_sibling.py",
+      "professor_label": "DataCite bulk harvest (staff)",
+      "professor_sort": 900,
+      "professor_blurb": "Operator-only bulk metadata. Do not share."
     },
     {
       "id": "ops.pipeline-manifests",
       "domain": "ops",
       "path": "ops/pipeline-manifests",
       "title": "Pipeline & queue operator manifests",
-      "description": "JSON manifests for scheduled data jobs \u2014 operator visibility only.",
+      "description": "JSON manifests for scheduled data jobs — operator visibility only.",
       "legacy_drive_path": "collection/ops/pipeline-manifests",
       "target_drive_path": "collection/ops/pipeline-manifests",
       "legacy_local_path": null,
@@ -625,24 +750,28 @@
       ],
       "migrated_at": "2026-06-24T19:59:01.588598+00:00",
       "status": "migrated",
-      "professor_label": "Ops manifests",
-      "professor_visible": false
+      "professor_label": "Pipeline manifests (staff)",
+      "professor_visible": false,
+      "professor_sort": 910,
+      "professor_blurb": "Operator manifests only."
     },
     {
       "id": "ops.spectator-archives",
       "domain": "ops",
       "path": "ops/spectator-archives",
       "title": "Web scrape archives (local USB)",
-      "description": "Historical Spectator scrape bundles on local USB \u2014 not in the shared Drive map.",
+      "description": "Historical Spectator scrape bundles on local USB — not in the shared Drive map.",
       "legacy_drive_path": null,
       "target_drive_path": "collection/ops/spectator-archives",
       "legacy_local_path": "data_lake/spectator_archives",
       "tier": "cache",
       "status": "synced",
-      "professor_label": "Scrape archives (local)",
+      "professor_label": "Scrape archives (staff)",
       "drive_last_synced_at": "2026-06-25T15:24:59.387465+00:00",
       "drive_mirror": true,
-      "professor_visible": false
+      "professor_visible": false,
+      "professor_sort": 920,
+      "professor_blurb": "Local scrape bundles — not professor vault."
     },
     {
       "id": "ops.collection-queue",
@@ -658,7 +787,7 @@
       "replaces_legacy_name": "collection_queue",
       "migrated_at": "2026-06-24T15:29:50.433038+00:00",
       "status": "migrated",
-      "professor_label": "Collection job archives",
+      "professor_label": "Collection job archives (staff)",
       "registry_dataset_ids": [
         "collection_queue_status",
         "datacite_local_harvest_status",
@@ -671,69 +800,158 @@
         "investment_thesis_gates_latest"
       ],
       "last_registry_wired_at": "2026-07-06T15:51:38+00:00",
-      "professor_visible": false
+      "professor_visible": false,
+      "professor_sort": 930,
+      "professor_blurb": "Queue job outputs for operators."
     },
     {
       "id": "ops.cluster-jobs",
       "domain": "ops",
       "path": "ops/cluster-jobs",
       "title": "YZU cluster job state (local only)",
-      "description": "Worker SQLite and logs \u2014 never part of the research vault.",
+      "description": "Worker SQLite and logs — never part of the research vault.",
       "legacy_drive_path": null,
       "target_drive_path": null,
       "legacy_local_path": "data_lake/yzu_cluster",
       "tier": "ops",
       "status": "local_only",
-      "professor_label": "Cluster jobs (local)",
-      "professor_visible": false
-    },
-    {
-      "id": "reference.crsp-moveit",
-      "domain": "reference",
-      "path": "reference/crsp-moveit",
-      "title": "CRSP US Stock & Index (MOVEit)",
-      "description": "CRSP subscriber bulk delivery: US Stock 2.5 CIZ, index history, CCM link. Licensed via crsp.moveitcloud.com.",
-      "legacy_drive_path": "collection/reference/crsp-moveit",
-      "target_drive_path": "collection/reference/crsp-moveit",
-      "legacy_local_path": "data_lake/crsp",
-      "tier": "hot",
-      "status": "wired",
-      "professor_label": "US equity history (CRSP)",
-      "subfolders": [
-        "raw",
-        "processed",
-        "manifests"
-      ],
-      "registry_dataset_ids": [
-        "crsp_compustat_ccm_link",
-        "crsp_moveit_catalog_status",
-        "crsp_us_index_history",
-        "crsp_us_stock_daily_ciz",
-        "public_equity_us_sp500_yfinance_daily"
-      ],
-      "last_registry_wired_at": "2026-07-07T09:25:32+00:00",
-      "professor_visible": true
-    },
-    {
-      "id": "reference.compustat-capitaliq",
-      "domain": "reference",
-      "path": "reference/compustat-capitaliq",
-      "title": "Compustat fundamentals (Capital IQ export)",
-      "description": "US GAAP fundamentals exported from S&P Capital IQ / Compustat. Manual or scripted export \u2014 no WRDS on this desk.",
-      "legacy_drive_path": "collection/reference/compustat-capitaliq",
-      "target_drive_path": "collection/reference/compustat-capitaliq",
-      "legacy_local_path": "data_lake/compustat",
-      "tier": "hot",
-      "status": "pending_export",
-      "professor_label": "US fundamentals (Compustat)",
-      "subfolders": [
-        "raw",
-        "processed"
-      ],
-      "registry_dataset_ids": [
-        "compustat_na_fundamentals_annual"
-      ],
-      "professor_visible": true
+      "professor_label": "Cluster jobs (staff)",
+      "professor_visible": false,
+      "professor_sort": 940,
+      "professor_blurb": "Worker state — never part of the research vault."
     }
-  ]
+  ],
+  "professor_nav": {
+    "version": 1,
+    "how_to_read": "Open a shelf first. Each shelf groups partitions that answer the same research question. Staff shelves stay hidden.",
+    "shelves": [
+      {
+        "id": "news_events",
+        "label": "News & market events",
+        "blurb": "Headline graphs and country shock panels for event studies.",
+        "sort": 10,
+        "partition_ids": [
+          "news.gdelt-asia",
+          "news.gdelt-expanded"
+        ]
+      },
+      {
+        "id": "asia_stocks",
+        "label": "Asia stocks & exchanges",
+        "blurb": "Asia price panels plus Taiwan exchange and governance disclosures.",
+        "sort": 20,
+        "partition_ids": [
+          "markets.equities-asia",
+          "official.exchange-disclosures",
+          "official.mops-disclosures",
+          "official.macro-asia"
+        ]
+      },
+      {
+        "id": "us_markets",
+        "label": "US markets & fundamentals",
+        "blurb": "CRSP history, Compustat fundamentals, and Refinitiv institutional spine.",
+        "sort": 30,
+        "partition_ids": [
+          "reference.crsp-moveit",
+          "reference.compustat-capitaliq",
+          "reference.refinitiv-backfill"
+        ]
+      },
+      {
+        "id": "crypto_onchain",
+        "label": "Crypto & on-chain flows",
+        "blurb": "Stablecoin/USDT transfers, crypto market history, and landscape snapshots.",
+        "sort": 40,
+        "partition_ids": [
+          "markets.ethereum-usdt",
+          "markets.crypto-coingecko",
+          "markets.crypto-landscape",
+          "markets.nft-opensea"
+        ]
+      },
+      {
+        "id": "filings_disclosures",
+        "label": "Filings & company IDs",
+        "blurb": "SEC ticker↔CIK map and related filing reference extracts.",
+        "sort": 50,
+        "partition_ids": [
+          "reference.sec-edgar"
+        ]
+      },
+      {
+        "id": "lookups_ids",
+        "label": "Tickers & join keys",
+        "blurb": "Entity/ticker maps you need before joining news to prices.",
+        "sort": 60,
+        "partition_ids": [
+          "reference.entity-mapping-asia"
+        ]
+      },
+      {
+        "id": "crowd_sentiment",
+        "label": "Crowd & sentiment",
+        "blurb": "Reddit ingest and sentiment panels.",
+        "sort": 70,
+        "partition_ids": [
+          "social.reddit"
+        ]
+      },
+      {
+        "id": "analysis_ready",
+        "label": "Ready-to-analyze panels",
+        "blurb": "Merged research tables and saved model trial outputs.",
+        "sort": 80,
+        "partition_ids": [
+          "derived.research-panels",
+          "derived.research-models"
+        ]
+      },
+      {
+        "id": "project_downloads",
+        "label": "Your project downloads",
+        "blurb": "One-off DOI/web/desk collects landed for a specific ask.",
+        "sort": 90,
+        "partition_ids": [
+          "acquired.procured"
+        ]
+      },
+      {
+        "id": "find_datasets",
+        "label": "Find more datasets",
+        "blurb": "Curated indexes to discover external sources (not the bulk harvest).",
+        "sort": 100,
+        "partition_ids": [
+          "catalog.curated-index"
+        ]
+      },
+      {
+        "id": "staff_only",
+        "label": "Staff / pipeline",
+        "blurb": "Operator manifests, job archives, and bulk harvest — hide from professors.",
+        "sort": 900,
+        "professor_visible": false,
+        "partition_ids": [
+          "catalog.datacite-harvest",
+          "ops.pipeline-manifests",
+          "ops.spectator-archives",
+          "ops.collection-queue",
+          "ops.cluster-jobs"
+        ]
+      }
+    ]
+  },
+  "professor_guide": {
+    "start_here": [
+      "news_events",
+      "asia_stocks",
+      "us_markets",
+      "crypto_onchain",
+      "analysis_ready"
+    ],
+    "avoid_unless_staff": [
+      "staff_only"
+    ],
+    "note": "Shelf labels are for Library navigation. dataset_id values stay stable for API/query; display names come from Copilot label pass."
+  }
 }

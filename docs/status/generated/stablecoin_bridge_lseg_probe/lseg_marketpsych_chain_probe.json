@@ -1,0 +1,47 @@
+{
+  "get_data_0#MARKETPSYCH_['TR.CommonName', 'TR.RIC']": [
+    {
+      "Instrument": "0#MARKETPSYCH",
+      "Company Common Name": "<NA>",
+      "RIC": "0#MARKETPSYCH"
+    }
+  ],
+  "get_data_MARKETPSYCH_['TR.CommonName', 'TR.RIC']": [
+    {
+      "Instrument": "MARKETPSYCH",
+      "Company Common Name": "<NA>",
+      "RIC": "<NA>"
+    }
+  ],
+  "hist_USDT=": {
+    "shape": [
+      52,
+      2
+    ],
+    "cols": [
+      "BID",
+      "ASK"
+    ]
+  },
+  "hist_BTC=": {
+    "shape": [
+      52,
+      2
+    ],
+    "cols": [
+      "BID",
+      "ASK"
+    ]
+  },
+  "hist_USDT=BFNX": {
+    "shape": [
+      53,
+      3
+    ],
+    "cols": [
+      "BID",
+      "ASK",
+      "TRDPRC_1"
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_spike_pattern_mining.py

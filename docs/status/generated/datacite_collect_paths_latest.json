@@ -1,0 +1,57 @@
+{
+  "steps": [
+    {
+      "step": "agent_datacite_search",
+      "ok": true,
+      "hits": 8
+    },
+    {
+      "step": "agent_pick_doi",
+      "ok": true,
+      "doi": "10.5281/zenodo.7545157"
+    },
+    {
+      "step": "agent_resolve_repository",
+      "ok": true,
+      "repository": "zenodo",
+      "files": 1
+    },
+    {
+      "step": "agent_collect_doi",
+      "ok": true,
+      "status": "completed",
+      "campaign_id": "4a3fcd103f6f",
+      "phase": "collecting"
+    },
+    {
+      "step": "agent_artifacts",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "step": "ui_one_click_collect",
+      "ok": true,
+      "status": "completed",
+      "campaign_id": "23a76d82d15c",
+      "file": "calibrated_constrained_parameters.csv"
+    },
+    {
+      "step": "ui_artifacts",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "step": "ui_download",
+      "ok": true,
+      "bytes": 200
+    },
+    {
+      "step": "magic_add_to_collection",
+      "ok": true,
+      "phase": "collecting",
+      "doi": "10.5281/zenodo.7545157"
+    }
+  ],
+  "ok": true,
+  "doi": "10.5281/zenodo.7545157"
+}

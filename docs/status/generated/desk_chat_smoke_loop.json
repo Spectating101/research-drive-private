@@ -1,0 +1,38 @@
+{
+  "session_id": "f8936157490246e6",
+  "turns": [
+    {
+      "question": "What TWSE data do we already have in the vault?",
+      "words": 149,
+      "action": "composer",
+      "brain": "cursor_composer",
+      "flags": [],
+      "natural_heuristic": true,
+      "preview": "We already hold two Taiwan exchange\u2013sourced layers, both query-ready on disk.  The **TWSE OpenAPI market layer** is a snapshot from the official TWSE Open API: listed companies, sector groupings, and disclosure-adjacent market metadata. It\u2019s meant for Taiwan equity work and event",
+      "seconds": 29.1,
+      "session_id": "f8936157490246e6"
+    },
+    {
+      "question": "Give me a short plain answer \u2014 no paths or registry IDs.",
+      "words": 63,
+      "action": "composer",
+      "brain": "cursor_composer",
+      "flags": [],
+      "natural_heuristic": true,
+      "preview": "We have three Taiwan-related holdings ready to use.  **Official TWSE data:** a market snapshot (listings, sectors, disclosure-related fields) and a governance panel (penalties, material disclosures, board/ESG structure).  **Price data:** Taiwan stocks are included in our Asia equ",
+      "seconds": 8.1,
+      "session_id": "f8936157490246e6"
+    },
+    {
+      "question": "Show 3 sample rows from daily trading if you can.",
+      "words": 106,
+      "action": "composer",
+      "brain": "cursor_composer",
+      "flags": [],
+      "natural_heuristic": true,
+      "preview": "Here are three sample rows from our Taiwan daily trading panel (Yahoo Finance OHLCV):  | Date | Ticker | Open | High | Low | Close | Volume | |------|--------|------|------|-----|-------|--------| | 2016-05-26 | 0050.TW | 15.51 | 15.54 | 15.45 | 15.54 | 104,179,588 | | 2016-05-27",
+      "seconds": 44.6,
+      "session_id": "f8936157490246e6"
+    }
+  ]
+}

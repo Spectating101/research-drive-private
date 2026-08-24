@@ -1,0 +1,278 @@
+entity_id,date,timestamp,category,magnitude,keyMetric,headline,security_keyword_flag
+alchemix-usd,2026-05-19,1779148800,Technical,Medium,New bridges with v3 alchemists,Alchemix introduces v3 architecture with new cross-chain bridges,0
+angle-protocol,2026-03-04,1772582400,Technical,Medium,One-year transition period,"Angle Protocol community votes to phase out EURA and USDA stablecoins, implementing a one-year transition with 1:1 redemption for EURC and USDC.",0
+binance-idr,2026-01-15,1768435200,Expansion,Medium,Supports multiple crypto assets,Launched USD1 trading pairs,0
+binance-idr,2026-01-14,1768348800,Expansion,High,Reached thousands in 8 cities,Completed Web3 University Tour,0
+binance-idr,2025-07-31,1753920000,Expansion,Medium,New gaming Web3 token,Listed SKYA token,0
+binance-idr,2024-09-18,1726617600,Expansion,High,Popular memecoin addition,Listed Baby Doge Coin,0
+binance-usd,2026-05-08,1778198400,Expansion,Medium,Binance.US revival proposal,Binance founder CZ proposes reviving Binance.US for US users,0
+binance-usd,2026-03-12,1773273600,Institutional,Medium,New CEO appointment,Binance.US appoints Stephen Gregory as new CEO,0
+binance-usd,2026-03-04,1772582400,Expansion,Low,New trading pair added,Binance.US lists NPC token and opens NPC/USDT trading pair for transactions.,0
+binance-usd,2026-01-30,1769731200,Institutional,High,$1 billion fund converted to USDC,Binance transferred its $1 billion SAFU fund to a new wallet and converted all assets to USDC for stability.,0
+binance-usd,2026-01-26,1769385600,Expansion,Medium,5x leverage on TSLA contracts,Binance relaunches Tesla stock trading with leveraged perpetual contracts after five-year hiatus.,0
+binance-usd,2026-01-26,1769385600,Expansion,Medium,5x leverage on Tesla perpetual contracts,Binance relaunches Tesla stock trading with leveraged perpetual contracts,0
+binance-usd,2025-12-24,1766534400,Technical,High,Multi-stablecoin collateral basket,"Binance launches new $U stablecoin backed by multiple stablecoins including USDC, USDT, and USD1.",0
+binance-usd,2025-12-12,1765497600,Expansion,Medium,Zero-fee USD1 trading pairs,Binance integrates Trump-linked USD1 stablecoin with zero-fee trading pairs and collateral backing.,0
+binance-usd,2025-12-11,1765411200,Technical,Medium,Multiple zero-fee trading pairs established,Binance integrates Trump-linked stablecoin with zero-fee trading,0
+dam-finance,2022-08-19,1660867200,Growth,High,Raised $1.8M,Raised $1.8M in Pre-Seed Round led by Arrington XRP Capital,0
+euro-coin,2026-04-21,1776729600,Institutional,High,12 major European banks involved,Qivalis consortium of 12 European banks advances euro stablecoin development with Fireblocks partnership,0
+fdusd,2026-02-12,1770854400,Expansion,Medium,Delisted 10+ trading pairs across multiple dates,Binance systematically delists multiple spot and margin trading pairs to optimize exchange offerings,0
+fdusd,2025-12-18,1766016000,Institutional,Medium,CZ labels FDUSD as 1.5 generation stablecoin,Binance Founder CZ Highlights FDUSD as 1.5 Generation Stablecoin with Growth Potential,0
+fdusd,2025-11-04,1762214400,Technical,Medium,Multiple delisting rounds affecting 100+ trading pairs,Binance systematically delists low-performing trading pairs,0
+fdusd,2025-10-31,1761868800,Expansion,Medium,KITE listed with FDUSD staking,Binance Launchpool lists Kite (KITE) with FDUSD staking option,0
+fei-usd,2021-03-08,1615161600,Growth,High,Raised $19.0M,Raised $19.0M in Series A Round led by Coinbase Ventures,0
+fraxfinance,2026-01-15,1768435200,Expansion,High,"Earn, Buy Crypto, Spot, Margin, Futures live",Launched FRAX trading features on Binance,0
+fraxfinance,2026-01-12,1768176000,Expansion,High,FRAX/USDT pair live,Activated FRAX spot trading on Bybit,0
+fraxfinance,2026-01-08,1767830400,Expansion,Medium,Up to 200% APY incentives,Launched frxUSD PegKeeper pool with pmUSD,0
+fraxfinance,2026-01-07,1767744000,Expansion,Medium,"Trading, deposits, withdrawals supported",Upgraded FXS to FRAX on Crypto.com,0
+fraxfinance,2025-12-26,1766707200,Expansion,High,Mainnet swap and rebranding live,Supported FXS to FRAX upgrade on Binance,0
+fraxfinance,2025-12-23,1766448000,Expansion,Medium,Token swap and rebranding supported,Upgraded FXS to FRAX on MEXC,0
+fraxfinance,2025-12-20,1766188800,Technical,Medium,Commemorative NFTs backed by assets,Launched Fraxiversary NFT collection,0
+fraxfinance,2025-12-17,1765929600,Expansion,Medium,Up to 50% APR staking,Launched frxUSD/fxUSD PegKeeper pool,0
+fraxfinance,2025-12-11,1765411200,Expansion,High,First Korean won stablecoin,Launched KRWQ on FraxNet,0
+fraxfinance,2025-12-08,1765152000,Growth,Medium,Incentives live on Deli Swap,Activated frxUSD/wBLT pool incentives,0
+fraxfinance,2025-12-05,1764892800,Expansion,Medium,Token swap supported,Upgraded FXS to FRAX on Bitget,0
+fraxfinance,2025-11-13,1762992000,Technical,Medium,Private transactions enabled,Launched frxUSD on Privacy Pools,0
+fraxfinance,2025-11-11,1762819200,Expansion,Medium,sfrxUSD collateral with rewards,Launched incentives on Featherlend SeiNetwork,0
+fraxfinance,2025-10-30,1761782400,Technical,Medium,frxUSD vault and sfrxUSD market live,Deployed assets on Morpho Katana,0
+fraxfinance,2025-10-16,1760572800,Expansion,Medium,sfrxUSD as collateral with 91.5% LTV,Launched Featherlend on SeiNetwork,0
+fraxfinance,2025-09-19,1758240000,Expansion,Medium,"$4M supplied, low borrow rates",Launched frxUSD on Euler Finance,0
+gemini-dollar,2026-01-10,1768003200,Technical,High,"Supports BTC/USD, ETH/USD, SOL/USD, XRP/USD pairs",Launched margin trading with 5x leverage,0
+gemini-dollar,2025-12-29,1766966400,Expansion,Medium,Deposits and withdrawals enabled,Listed BNB for trading and deposits,0
+gemini-dollar,2025-12-11,1765411200,Institutional,High,Designated contract market license granted,Gemini affiliate secures US prediction markets license,1
+gemini-dollar,2025-09-08,1757289600,Growth,High,Raised $50.0M,Raised $50.0M in Private Sale Round,0
+global-dollar,2026-01-14,1768348800,Expansion,High,6.4% supply incentives,Launched USDG on Aave,0
+global-dollar,2026-01-08,1767830400,Expansion,Medium,Turkey-based exchange integration,Kuantist joined Global Dollar Network,0
+global-dollar,2026-01-07,1767744000,Expansion,Medium,Solana DeFi yield expansion,Launched USDG vault on Elemental,0
+global-dollar,2025-12-18,1766016000,Expansion,Medium,Solana liquidity deepening,Integrated USDG with BiLira,0
+global-dollar,2025-12-11,1765411200,Expansion,Medium,170+ countries on-ramp,Launched USDG on AlchemyPay ramp,0
+global-dollar,2025-12-05,1764892800,Expansion,High,Secure exchange integration,Listed USDG on Gemini,0
+global-dollar,2025-12-04,1764806400,Growth,High,Ecosystem expansion milestone,Achieved 100+ network members,0
+global-dollar,2025-12-03,1764720000,Expansion,Medium,Yield-bearing asset conversion,Integrated USDG with OnRe Finance,0
+global-dollar,2025-11-26,1764115200,Expansion,High,40M user access expansion,KuCoin joined Global Dollar Network,0
+global-dollar,2025-11-20,1763596800,Technical,High,Staking rewards in USDG,Launched Marinade SOL-to-USDG Recipe,0
+global-dollar,2025-11-18,1763424000,Technical,High,LayerZero-powered expansion,Launched USDG0 multi-chain infrastructure,0
+global-dollar,2025-11-14,1763078400,Expansion,Medium,RWA collateral integration,Launched USDG credit on Loopscale,0
+global-dollar,2025-11-12,1762905600,Expansion,Medium,New trading pair launch,Listed USDG on Gate exchange,0
+global-dollar,2025-10-29,1761696000,Expansion,Medium,Multi-chain settlements,Alpaca joined Global Dollar Network,0
+global-dollar,2025-10-16,1760572800,Expansion,Medium,Liquidity rewards integration,Launched USDG on Velodrome,0
+global-dollar,2025-10-13,1760313600,Expansion,Medium,New trading pairs,Listed USDG on Bullish exchange,0
+global-dollar,2025-09-26,1758844800,Expansion,Medium,Multi-chain ecosystem growth,Launched USDG on X Layer,0
+global-dollar,2025-09-22,1758499200,Expansion,Medium,10M+ user on-ramps,Listed USDG on Transak,0
+hedge-usd,2022-04-21,1650499200,Growth,High,Raised $3.7M,Raised $3.7M in Seed Round,0
+mstable,2026-05-25,1779667200,Expansion,Medium,New yield source added,mStable integrates Apyx Finance into Stacked Yield vault,0
+mstable,2026-01-07,1767744000,Technical,Medium,$6 million new capacity addition,mStable expands high-yield product access with $6 million new capacity addition,0
+origin-dollar,2025-12-09,1765238400,Growth,High,80% in last six months,Achieved 50 Million OGN Buyback,0
+origin-dollar,2025-12-02,1764633600,Technical,High,Removed oracle dependencies,Upgraded OETH Staking System,0
+origin-dollar,2025-11-04,1762214400,Technical,High,Merkle proof validation,Deployed OETH Staking Upgrade,0
+origin-dollar,2025-10-03,1759449600,Expansion,High,From Lido treasury,Secured 3M Lido Allocation to ARM,1
+origin-dollar,2025-08-26,1756166400,Expansion,High,Treasury yield strategy,Secured ETH Strategy Allocation to OETH,1
+origin-dollar,2025-07-21,1753056000,Growth,High,$200K weekly buy pressure,Activated OGN Buyback Blitz,0
+paypal-usd,2026-04-30,1777507200,Institutional,High,Crypto unit becomes standalone division,"PayPal restructures, elevates crypto and stablecoin PYUSD as core business unit",0
+paypal-usd,2026-03-17,1773705600,Expansion,High,Available in 70 countries globally,"PayPal expands PYUSD stablecoin availability to users across 70 countries worldwide, aiming to reduce cross-border transaction fees.",0
+paypal-usd,2026-02-27,1772150400,Technical,High,Custom stablecoin creation platform,"PayPal, MoonPay, and M0 launch PYUSDx platform enabling developers to create custom stablecoins backed by PayPal USD.",0
+paypal-usd,2026-02-24,1771891200,Institutional,High,Potential acquisition by Stripe,"Stripe explores potential acquisition of PayPal, which could reshape the global payments industry.",0
+paypal-usd,2026-02-04,1770163200,Institutional,High,New CEO appointment effective March 1,"PayPal appoints Enrique Lores as new CEO effective March 1, 2026.",0
+paypal-usd,2026-01-28,1769558400,Growth,High,39-40% of US merchants accept cryptocurrency payments,PayPal survey shows 39-40% of US merchants accept crypto payments,0
+paypal-usd,2026-01-13,1768262400,Expansion,High,Agentic commerce milestone,Supported Google's Universal Commerce Protocol,0
+paypal-usd,2026-01-08,1767830400,Technical,High,Seamless purchase integration,Powered Microsoft's Copilot Checkout launch,0
+paypal-usd,2025-12-16,1765843200,Institutional,High,Plans to establish PayPal Bank for expanded services,Applies for Utah industrial bank charter,0
+paypal-usd,2025-12-15,1765756800,Technical,High,Expands financial services beyond payment processing,PayPal launches PYUSD savings vault and applies for industrial bank license,0
+paypal-usd,2025-12-12,1765497600,Expansion,High,US creators can opt for PYUSD payouts,Enables YouTube creators to receive revenue via PYUSD,0
+paypal-usd,2025-12-09,1765238400,Growth,High,224% growth since September,PayPal's PYUSD stablecoin surpasses $3.8 billion in circulation,0
+paypal-usd,2025-10-29,1761696000,Technical,High,AI-driven shopping for small businesses,Launched agentic commerce services,0
+paypal-usd,2025-10-28,1761609600,Expansion,High,Stock surged 13.5% on announcement,PayPal partners with OpenAI as payment wallet for ChatGPT,0
+paypal-usd,2025-09-25,1758758400,Expansion,High,$135 million initial deposits on Spark,PayPal partners with Spark to expand PYUSD liquidity to $1 billion,0
+paypal-usd,2025-09-19,1758240000,Expansion,High,"8+ blockchain networks including Tron, Avalanche, Stellar, Sei",Expands PYUSD stablecoin to multiple blockchain networks,0
+paypal-usd,2025-09-18,1758153600,Technical,High,"Expands to Tron, Avalanche, Sei, Aptos, Stellar",PayPal expands PYUSD stablecoin to multiple blockchain networks,0
+paypal-usd,2025-09-15,1757894400,Technical,High,"Supports Bitcoin, Ethereum, and PYUSD transfers",Launches cryptocurrency P2P payment system in US,0
+ripple-usd,2026-04-02,1775088000,Expansion,High,Unified fiat and digital asset dashboard,Ripple launches enterprise crypto treasury management system integrating XRP and RLUSD,0
+ripple-usd,2026-02-12,1770854400,Expansion,High,Deposit services enabled for RLUSD,Binance completes Ripple USD integration on XRP network and opens deposit services,0
+ripple-usd,2026-01-27,1769472000,Expansion,High,Partnership with major Saudi financial institution,Ripple partners with Riyad Bank's innovation unit to explore blockchain payment and custody applications,0
+ripple-usd,2026-01-15,1768435200,Expansion,High,$150 million investment for institutional integration,Ripple invests $150 million in LMAX to advance RLUSD stablecoin for institutional settlement,0
+ripple-usd,2026-01-14,1768348800,Institutional,High,Scales Payments across EU,Secured preliminary EMI license in Luxembourg,1
+ripple-usd,2026-01-09,1767916800,Institutional,High,Regulated payments in UK,Secured EMI and Cryptoasset licenses from FCA,1
+ripple-usd,2025-12-17,1765929600,Expansion,High,First European bank adoption of Ripple's payment solution,Ripple partners with Swiss crypto bank AMINA Bank to offer cross-border settlement services,0
+ripple-usd,2025-12-13,1765584000,Institutional,High,National trust bank approval for RLUSD services,U.S. OCC conditionally approves Ripple National Trust Bank application for digital asset services,0
+ripple-usd,2025-12-11,1765411200,Technical,High,End-to-end stablecoin solution,Completed Rail acquisition,0
+ripple-usd,2025-12-01,1764547200,Institutional,High,Expanded Major Payment Institution license scope,Ripple Labs gains MAS approval to expand regulated payment services in Singapore,0
+ripple-usd,2025-11-27,1764201600,Institutional,High,Approved for regulated activities in ADGM,Ripple's RLUSD stablecoin receives regulatory approval for use in Abu Dhabi's ADGM,0
+ripple-usd,2025-11-07,1762473600,Institutional,High,$500 million at $40 billion valuation,Ripple Labs secures $500 million funding led by Wall Street firms,1
+ripple-usd,2025-11-06,1762387200,Growth,High,$1 billion market capitalization milestone,Ripple's RLUSD stablecoin surpasses $1 billion market cap within first year,0
+ripple-usd,2025-11-05,1762300800,Technical,High,With Mastercard and Gemini,Launched RLUSD settlement for payments,0
+ripple-usd,2025-11-03,1762128000,Technical,High,OTC for XRP and RLUSD,Launched US spot prime brokerage,0
+ripple-usd,2025-10-24,1761264000,Expansion,High,Acquisition transforms company into global multi-asset prime broker,"Completes acquisition of Hidden Road, rebrands as Ripple Prime",0
+ripple-usd,2025-09-23,1758585600,Expansion,High,Integration with major tokenized investment products,Ripple's RLUSD stablecoin selected as exchange channel for BlackRock and VanEck tokenized funds,0
+ripple-usd,2025-09-18,1758153600,Expansion,High,Trading and lending services with major banks,DBS Bank partners with Franklin Templeton and Ripple to list tokenized funds on digital exchange,0
+ripple-usd,2025-09-04,1756944000,Expansion,High,"With Chipper Cash, VALR, Yellow Card",Launched RLUSD in Africa,0
+sperax-usd,2026-01-09,1767916800,Expansion,Medium,Full .sperax and key .os domains secured,Launched .sperax TLD on Handshake,0
+sperax-usd,2026-01-07,1767744000,Technical,High,"MCP server for USDs, SPA, veSPA ecosystem",Listed on Anthropic MCP Registry,0
+sperax-usd,2025-12-30,1767052800,Expansion,High,Deployed AI agents on Alibaba Marketplace,Joined Alibaba Cloud Partner Alliances,0
+sperax-usd,2025-12-17,1765929600,Technical,High,Real-time translation in under 4 seconds,Launched multilingual AI agent framework,0
+sperax-usd,2025-10-22,1761091200,Expansion,Medium,USDT/SPA and BTCB/SPA markets on BNB Chain,Launched SPA Vault with Lista DAO,0
+sperax-usd,2025-10-09,1759968000,Expansion,High,Full Sperax tech stack accessible worldwide,Launched on Alibaba Cloud Marketplace,0
+sperax-usd,2025-09-10,1757462400,Institutional,High,Institutional-grade custody for SPA,Added support by Anchorage Digital,0
+sperax-usd,2025-07-24,1753315200,Expansion,Medium,Multichain Web3 identities for ecosystem,Registered .bnb domains with SpaceID,0
+sperax-usd,2025-07-21,1753056000,Technical,Medium,Liquid-staked veSPA yielding 20.88% APR,Launched plsSPA on Arbitrum,0
+sperax-usd,2025-07-17,1752710400,Expansion,Medium,"Seamless swap, send, receive for 200M+ users",Listed as verified asset on Trust Wallet,0
+sperax-usd,2025-07-14,1752451200,Expansion,High,$550K rewards trading competition,Launched on Binance Alpha,0
+susd,2026-05-28,1779926400,Expansion,Medium,"$300,000+ incentives",sUSDD launches on Pendle Ethereum fixed income market with multi-incentives,0
+susd,2026-04-22,1776816000,Technical,Medium,4/4 verification configuration,Ethena restores LayerZero cross-chain bridge for sUSDe and USDe with enhanced security,1
+terrausd,2025-12-05,1764892800,Institutional,High,Prosecutors seek 12-year sentence,Legal proceedings continue for Terraform Labs co-founder Do Kwon in fraud case related to TerraUSD collapse,0
+terrausd,2025-11-27,1764201600,Institutional,Low,Legal proceedings ongoing,Do Kwon argues for maximum five-year sentence,0
+tether-cnht,2026-02-23,1771804800,Technical,Medium,Stablecoin product discontinued,Tether discontinues CNH₮ stablecoin as part of operational streamlining.,0
+tether,2026-06-11,1781136000,Institutional,High,$1.4B funding led,Tether leads $1.4B funding round in German robotics firm Neura,0
+tether,2026-06-03,1780444800,Expansion,High,Up to $1M XAUT rewards,Tether launches world's first gold-backed Visa card with XAUT rewards,0
+tether,2026-03-27,1774569600,Institutional,High,First comprehensive audit,Tether hires KPMG for first full USDT audit,1
+tether,2026-03-15,1773532800,Institutional,High,$1.6+ billion invested,"Tether discloses over $1.6 billion in recent investments across multiple companies including Rumble, Juventus FC, and Elemental Royalty.",0
+tether,2026-03-13,1773360000,Expansion,High,New USAT stablecoin for US market,"Tether launches USAT stablecoin for the US market while expanding investments across cryptocurrency, energy, AI, and media sectors.",0
+tether,2026-02-25,1771977600,Expansion,High,$200 million investment for 18M+ users,"Tether invests $200 million in Whop marketplace to integrate stablecoin payment solutions for its 18+ million users, enabling crypto payments.",0
+tether,2026-02-24,1771891200,Institutional,High,EU regulatory approval and European expansion,Tether-backed Bit2Me obtains EU MiCA license and expands banking services across Europe,0
+tether,2026-02-20,1771545600,Growth,High,$6.5 billion in transfers with 0.0016% fees,Tether's tokenized gold XAUT facilitated $6.5 billion in transfers with minimal fees over six months,0
+tether,2026-02-13,1770940800,Institutional,High,$28.2 billion in US Treasury bonds,Tether becomes seventh largest foreign buyer of US Treasury bonds in 2025,0
+tether,2026-02-10,1770681600,Technical,High,3.5 billion USDT burned,Tether destroys 3.5 billion USDT on Ethereum mainnet,0
+tether,2026-02-09,1770595200,Growth,High,$23 billion in gold reserves (148 tons),Tether holds $23 billion in gold reserves ranking among top global holders,0
+tether,2026-02-07,1770422400,Institutional,High,"$544 million frozen, 1,800+ cases across 62 countries",Tether helps Turkish authorities freeze $544 million in crypto assets,1
+tether,2026-02-05,1770249600,Growth,High,"$192.9B reserves, 96,184 BTC, 127.5t gold",Tether's Q4 2025 report shows USDT reaches record highs,0
+tether,2026-01-31,1769817600,Growth,High,$10.1 billion income and $10.9 billion dividends,Tether reports over $10 billion profit in 2025,0
+tether,2026-01-28,1769558400,Institutional,High,"Compliant with GENIUS Act, issued by Anchorage",Tether launches USAT stablecoin under US federal regulation,0
+tether,2026-01-27,1769472000,Institutional,High,Cantor Fitzgerald as custodian,Tether launches USA₮ stablecoin under US federal regulation,0
+tether,2025-12-09,1765238400,Institutional,High,Approved as fiat-referenced token by ADGM,Tether's USDT receives regulatory recognition in Abu Dhabi,0
+tether,2025-10-31,1761868800,Growth,High,USDT circulation reaches $174 billion,Tether reports over $10 billion net profit in first three quarters,0
+tether,2025-10-21,1761004800,Growth,High,500 million users milestone,Tether announces USDT user base surpasses 500 million,0
+tether,2025-10-17,1760659200,Technical,High,"Supports Bitcoin, Ethereum, Arbitrum, Polygon, TON, and Solana",Tether releases fully open-source wallet development kit WDK,0
+tether,2025-10-02,1759363200,Institutional,High,Predicts $100B valuation within five years,Tether launches USA₮ stablecoin in US market,0
+tether,2025-10-01,1759276800,Growth,High,35% use it as savings accounts,Tether CEO reveals USDT has 500 million users,0
+tether,2025-09-17,1758067200,Growth,High,$13.7B profit last year,Tether CEO reports 99% profit margin with $13.7 billion earnings,0
+tether,2025-09-16,1757980800,Expansion,High,Goal to replicate overseas success in US,Tether re-enters US market aiming to become dominant stablecoin issuer,0
+tether,2025-09-12,1757635200,Institutional,High,"Compliant under GENIUS Act, transparent reserves","Tether launches USAT stablecoin in US, appoints Bo Hines as CEO",0
+united-stables,2026-03-19,1773878400,Expansion,Medium,Up to 10% APY,United Stables launches second phase of Binance Earn program with up to 10% APY,0
+usd-coin,2026-06-16,1781568000,Growth,High,3.5 billion USDC minted,Circle mints 3.5 billion USDC on Solana in a week,0
+usd-coin,2026-05-27,1779840000,Expansion,High,60 million users,"Cash App adds USDC support on Ethereum, Solana, Polygon, Arbitrum",0
+usd-coin,2026-05-25,1779667200,Growth,High,"$73M+ settled, 98.6% USDC","AI agents settle $73M+ in on-chain payments, 98.6% in USDC",0
+usd-coin,2026-05-21,1779321600,Growth,High,500M USDC minted,Circle mints 500M USDC on Solana in 24 hours,0
+usd-coin,2026-05-15,1778803200,Growth,High,500M USDC minted,Circle mints 500M USDC on Solana in 24 hours,0
+usd-coin,2026-05-14,1778716800,Expansion,High,500K HYPE staked,"Circle deepens Hyperliquid partnership, deploys USDC as aligned quote asset",0
+usd-coin,2026-05-12,1778544000,Technical,High,Agent Stack toolkit launched,Circle launches Agent Stack toolkit for AI agents to autonomously use USDC funds,0
+usd-coin,2026-05-11,1778457600,Institutional,High,"Revenue $694M, volume $21.5T","Circle reports Q1 2026 revenue of $694M, USDC on-chain volume up 263%",0
+usd-coin,2026-04-20,1776643200,Expansion,High,Over 2.17 billion USDC loans issued,"Coinbase launches USDC crypto-backed loans for UK users, allowing BTC, ETH, and cbETH as collateral.",0
+usd-coin,2026-04-17,1776384000,Technical,High,Direct cross-chain transfers via burn-and-mint,Circle launches USDC Bridge service enabling direct cross-chain transfers with automatic gas fee handling.,0
+usd-coin,2026-04-07,1775520000,Growth,High,$550 million USDC issued in 12 hours,"Circle issues $550 million USDC on Solana network in 12 hours, part of $10.19 billion monthly issuance.",0
+usd-coin,2026-04-06,1775433600,Growth,High,$3.25 billion weekly issuance,Circle issues record $3.25 billion USDC on Solana network in largest weekly stablecoin mint of 2026,0
+usd-coin,2026-03-15,1773532800,Growth,High,1.7 billion token circulation increase,USDC circulation increases by approximately 1.7 billion tokens in one week.,0
+usd-coin,2026-03-11,1773187200,Technical,High,Gas-free micropayments as low as $0.000001,Circle launches nanopayments testnet enabling gas-free USDC micropayments as low as $0.000001.,0
+usd-coin,2026-03-07,1772841600,Technical,High,$68 million settlements in 30 minutes,Circle uses USDC for $68 million internal settlements across eight entities in 30 minutes via Circle Mint.,0
+usd-coin,2026-02-20,1771545600,Growth,High,613 million monthly USDC transactions,Circle expands native USDC support to 30 blockchains as transaction volume grows 20-fold in 18 months,0
+usd-coin,2026-02-17,1771286400,Growth,High,28 million weekly USDC transactions,"Polygon surpasses Solana as most active USDC chain with 28 million weekly transactions, capturing 46% market share.",0
+usd-coin,2026-02-12,1770854400,Expansion,High,$920 million in USDC deposits,Lighter partners with Circle to share yield from $920 million USDC deposits,0
+usd-coin,2026-02-05,1770249600,Institutional,High,"$500,000 in USDC per startup",Y Combinator to offer USDC investment option for startups starting in 2026,0
+usd-coin,2026-02-02,1769990400,Growth,High,750 million USDC minted,Circle issues 750 million USDC on Solana network,0
+usd-coin,2026-01-30,1769731200,Institutional,High,$1 billion fund held in USDC,Binance's $1 billion SAFU fund converted to USDC for stability,0
+usd-coin,2026-01-28,1769558400,Institutional,High,OCC conditional approval for national trust bank,Circle gains regulatory approval and expands USDC market share,0
+usd-coin,2026-01-16,1768521600,Institutional,High,24/7 account funding,Interactive Brokers launches 24/7 USDC account funding for trading,0
+usd-coin,2026-01-09,1767916800,Growth,High,$18.3 trillion USDC transaction volume,"Stablecoin Trading Volume Hits Record $33 Trillion in 2025, Led by USDC.",0
+usd-coin,2025-12-18,1766016000,Expansion,High,Multi-year partnership with Intuit,Intuit integrates USDC stablecoin payments into TurboTax and QuickBooks software.,0
+usd-coin,2025-12-16,1765843200,Institutional,High,$3.5 billion annualized settlement volume,Visa expands USDC settlement to U.S. banks via Solana blockchain,0
+usd-coin,2025-12-15,1765756800,Institutional,High,Conditional OCC approval for national trust bank,Circle receives conditional OCC approval to establish national trust bank for USDC oversight.,0
+usd-coin,2025-12-11,1765411200,Institutional,High,$50 million tokenized bond,JPMorgan issues Galaxy Digital short-term bond on Solana using USDC,0
+usd-coin,2025-11-12,1762905600,Institutional,High,Direct USDC payouts to creators,Visa launches stablecoin payment pilot enabling direct USDC payouts,0
+usd-coin,2025-10-31,1761868800,Growth,High,72% USDC market cap growth in 2025,JPMorgan reports USDC surpasses USDT in chain activity and market cap growth.,0
+usd-coin,2025-10-30,1761782400,Growth,High,72% market cap growth vs USDT's 32%,JPMorgan reports USDC surpasses USDT in growth due to institutional adoption,0
+usd-coin,2025-10-04,1759536000,Growth,High,75 billion USDC circulation,"USDC circulation surpasses 75 billion tokens, capturing 24.9% market share.",0
+usd-coin,2025-09-30,1759190400,Growth,High,USDC market cap surged to $73.7 billion,JPMorgan reports USDC stablecoin gained market share after GENIUS Act signing.,0
+usd-coin,2025-06-03,1748908800,Growth,High,Raised $1.1B,Raised $1.1B in IPO Round,0
+usdd,2026-06-09,1780963200,Growth,High,"Circulation $1.44B, Collateral $2.2B","USDD circulation reaches $1.44B with $2.2B collateral, overcollateralization ratio 154.65%",0
+usdd,2026-05-28,1779926400,Expansion,High,91-day market with $300K+ incentives,sUSDD launches on Pendle Ethereum fixed income market,0
+usdd,2026-05-12,1778544000,Growth,High,TVL $2.23B ATH,USDD launches Whales Hub; TVL hits $2.23B ATH,0
+usdd,2026-05-09,1778284800,Growth,High,Supply $1.558B,"USDD April supply exceeds 1.5B, collateral ratio 146%",0
+usdd,2026-04-29,1777420800,Growth,High,$16M cumulative returns,"USDD Smart Allocator reports $16M returns, 81.5% TVL growth",0
+usdd,2026-04-24,1776988800,Growth,High,$16M cumulative returns,USDD Smart Allocator cumulative investment returns exceed $16 million,0
+usdd,2026-04-18,1776470400,Growth,High,"$6.3M revenue, $6.14M profit",USDD reports Q1 2026 revenue of $6.3M and profit of $6.14M,0
+usdd,2026-04-09,1775692800,Technical,High,"2 vaults, 130%-150% collateral",USDD launches WBTC Vaults on TRON for Bitcoin-backed minting,0
+usdd,2026-04-01,1775001600,Growth,High,"$2B TVL, $1.53B circulation",USDD TVL surpasses $2 billion with record circulation of $1.53B,0
+usdd,2026-01-20,1768867200,Technical,High,Chainlink oracle integration completed,USDD stablecoin integrates Chainlink for cross-chain price feeds,0
+usdd,2026-01-16,1768521600,Expansion,High,"Curated by Gauntlet, enables USDT looping for yield",Launched sUSDD/USDT market on Morpho,0
+usdd,2026-01-14,1768348800,Growth,High,100% TVL growth in less than 2 months,Achieved $1B TVL milestone,0
+usdd,2026-01-10,1768003200,Expansion,High,"500,000 USDD reward pool, no lock-up",Launched Phase 2 strategy on Binance Wallet,0
+usdd,2026-01-06,1767657600,Growth,High,Supply approaching 1 billion milestone,USDD stablecoin supply nears 1 billion as multi-chain deployment drives growth,0
+usdd,2025-09-08,1757289600,Expansion,High,Native deployment on Ethereum completed,USDD natively deploys on Ethereum blockchain with airdrop program,0
+usde,2026-06-12,1781222400,Expansion,High,Available in Coinbase App,Ethena launches USDe stablecoin yield pool on Morpho via Coinbase partnership,0
+usde,2026-06-09,1780963200,Institutional,High,Investment from major asset manager,"Janus Henderson invests in ENA, plans USDe distribution via Ethena",0
+usde,2026-06-04,1780531200,Expansion,High,100M+ Coinbase users,Ethena's USDe to be available on Coinbase next week,0
+usde,2025-12-04,1764806400,Institutional,High,Federally chartered bank partnership,Ethena Labs partners with federally chartered Anchorage Digital Bank,0
+usde,2025-09-26,1758844800,Growth,High,Deposits surge to billions,Binance USDe deposits surge following 12% APY program,0
+usde,2025-09-23,1758585600,Expansion,High,First US exchange listing,USDe debuts on Kraken exchange in first US listing,0
+usde,2025-09-19,1758240000,Institutional,High,YZi Labs investment expansion,YZi Labs increases investment in Ethena Labs to expand USDe stablecoin adoption,0
+usde,2025-09-19,1758240000,Expansion,High,$14 billion market cap,Ethena partners with Flowdesk as USDe reaches $14B market cap,0
+usde,2025-09-12,1757635200,Growth,High,15 billion total stablecoin issuance,Ethena's stablecoins USDe and USDtb surpass 15 billion in total issuance,0
+usde,2025-09-12,1757635200,Growth,High,15 billion total issuance,Ethena's USDe and USDtb surpass 15 billion total issuance,0
+usde,2025-09-09,1757376000,Expansion,High,Major exchange listing,Binance lists USDe with multiple trading features,0
+usdh,2026-05-14,1778716800,Institutional,High,USDC treasury deployer,"Coinbase becomes official USDC treasury deployer on Hyperliquid, acquires USDH brand assets",0
+usdh,2025-11-22,1763769600,Technical,Medium,Enhanced interoperability across platforms,Native Markets upgrades USDH to comply with Aligned Quote Asset standards,0
+usdh,2025-09-28,1759017600,Technical,High,USDH first permissionless quote asset,Hyperliquid launches permissionless spot quote assets with USDH as first enabled asset,0
+usdh,2025-09-27,1758931200,Growth,High,$8.7 million HYPE tokens staked,"Native Markets stakes 200,000 HYPE tokens worth $8.7 million to enable USDH",0
+usdh,2025-09-24,1758672000,Technical,High,$2.2 million initial trading volume,Hyperliquid launches USDH stablecoin with $2.2 million initial trading volume,0
+usdh,2025-09-14,1757808000,Institutional,High,Won competitive bid against multiple firms,Native Markets wins USDH stablecoin bid through validator vote,0
+usds,2026-03-26,1774483200,Institutional,High,$1 billion deployed for USDS yields,"Obex deploys $1 billion to boost USDS stablecoin yields through real-world asset investments in credit, energy, and AI assets.",0
+usds,2026-03-15,1773532800,Institutional,High,70 million USDS allocated,"Sky Protocol approves 70 million USDS for remaining launch phase of Sky Agents, with funds under protocol control.",0
+usds,2026-01-12,1768176000,Growth,High,100 million USDS spent,Achieved 100 million USDS buybacks,0
+usds,2026-01-09,1767916800,Growth,High,10 billion USDS,Surpassed 10 billion USDS supply,0
+usds,2026-01-08,1767830400,Expansion,High,Up to 12.75% APR,Launched SKY on Binance Simple Earn,0
+usds,2025-12-09,1765238400,Expansion,High,$2.5B USDS backing,Launched Obex incubator program,0
+usds,2025-12-02,1764633600,Growth,High,$4.19 billion TVL,Achieved sUSDS all-time high,0
+usds,2025-11-18,1763424000,Institutional,High,$37 million raised,Led $37M Obex funding round,0
+usds,2025-11-11,1762819200,Growth,High,63% monthly growth,Reached $4 billion Savings TVL,0
+usds,2025-11-03,1762128000,Technical,High,65% APY rewards,Launched SKY-to-SKY staking,0
+usds,2025-10-22,1761091200,Growth,High,$1B in 48 hours,Reached $3.9 billion SSR deposits,0
+usds,2025-10-21,1761004800,Growth,High,9.13 billion USDS,Surpassed 9 billion USDS supply,0
+usdtb,2026-01-05,1767571200,Technical,High,"90% USDtb, 10% USDC",Jupiter launches JupUSD stablecoin backed by USDtb and USDC reserves,0
+usdtb,2025-12-04,1764806400,Expansion,High,Partnership with federally chartered cryptocurrency bank,Partners with Anchorage Digital for USDtb and USDe rewards,0
+usdtb,2025-12-04,1764806400,Expansion,Medium,Partnership with Anchorage Digital,Ethena Labs partners with Anchorage Digital for USDtb and USDe rewards,0
+usdtb,2025-10-14,1760400000,Institutional,High,First federally regulated stablecoin,Ethena Labs transfers USDtb smart contract to Anchorage Digital under GENIUS Act,0
+usdtb,2025-10-14,1760400000,Institutional,High,First federally regulated stablecoin under GENIUS Act,Transfers USDtb smart contract to Anchorage Digital under GENIUS Act,0
+usdtb,2025-10-11,1760140800,Expansion,Medium,4.10% annualized daily airdrop,Bybit users receive 4.10% annualized daily airdrop for USDtb,0
+usdtb,2025-09-19,1758240000,Institutional,Medium,Investment expansion for product deployment,YZi Labs increases investment to expand USDe and USDtb products,0
+usdtb,2025-09-19,1758240000,Institutional,Medium,Investment from YZi Labs,YZi Labs increases investment in Ethena Labs to expand USDe and USDtb,0
+usdtb,2025-09-12,1757635200,Growth,High,Total issuance > $15B,Ethena's stablecoins USDe and USDtb surpass 15 billion in total issuance,0
+usdtb,2025-09-12,1757635200,Growth,High,15 billion total issuance,USDe and USDtb surpass 15 billion in total issuance,0
+usdtb,2025-09-08,1757289600,Institutional,Medium,Investment in Based,Ethena Labs invests millions in Based to advance USDe and USDtb ecosystem,0
+usdtb,2025-09-08,1757289600,Institutional,Medium,Millions invested in ecosystem development,Invests millions in Based to advance USDe and USDtb ecosystem,0
+usual-usd,2026-01-14,1768348800,Technical,Medium,Enables USL position migration,Launched UZR Migrator to Fira,0
+usual-usd,2025-12-16,1765843200,Technical,Medium,Upgraded to Uniswap v3,Completed USD0 liquidity transition,0
+usual-usd,2025-12-15,1765756800,Growth,High,Eliminated 1B tokens via UIP,Reduced USUAL max supply to 3B,0
+usual-usd,2025-11-06,1762387200,Expansion,High,ZK-proof airdrops in USD0,Integrated Brevis for USUALx rewards,0
+usual-usd,2025-11-04,1762214400,Technical,High,sUSD0 and sEUR0 yield wrappers,Launched Usual Savings products,0
+usual-usd,2025-08-15,1755216000,Expansion,Medium,Via LayerZero OFT standard,Deployed USD0 on TAC blockchain,0
+usual-usd,2025-08-14,1755129600,Technical,Medium,Uniswap V4 auto-rebalancing,Launched Bunni USD0/USD0++ pool,0
+world-liberty-financial-usd,2026-01-15,1768435200,Expansion,High,Supports 65K+ workers globally,Integrated USD1 into Zebec payroll suite,0
+world-liberty-financial-usd,2026-01-12,1768176000,Technical,High,Powered by Dolomite for lending/borrowing,Launched World Liberty Markets platform,0
+world-liberty-financial-usd,2026-01-07,1767744000,Institutional,High,For USD1 issuance and custody,Submitted OCC charter application,0
+world-liberty-financial-usd,2025-12-25,1766620800,Growth,High,$3B market cap milestone,Achieved $3B USD1 market cap,0
+world-liberty-financial-usd,2025-12-10,1765324800,Expansion,High,BNB/ETH/SOL pairs with zero fees,Expanded USD1 pairs on Binance,0
+world-liberty-financial-usd,2025-11-26,1764115200,Growth,High,Billions in USD1 volume achieved,Executed $10M WLFI buyback,0
+world-liberty-financial-usd,2025-10-11,1760140800,Growth,High,$10M WLFI purchased,Completed $10M WLFI buyback,0
+world-liberty-financial-usd,2025-09-26,1758844800,Growth,High,"3.1M burned, 3.8M bought back",Burned and bought back WLFI tokens,0
+world-liberty-financial-usd,2025-09-01,1756684800,Expansion,High,Live on Coinbase exchange,Listed WLFI on Coinbase,0
+world-liberty-financial-usd,2025-08-25,1756080000,Technical,High,Enables token unlock process,Launched WLFI Lockbox,0
+world-liberty-financial-usd,2025-08-20,1755648000,Growth,High,$205M USD1 minted,Minted $205M USD1 for treasury,0
+world-liberty-financial-usd,2025-08-11,1754870400,Institutional,High,$1.5B for WLFI treasury,Secured $1.5B funding offering,1
+world-liberty-financial-usd,2025-07-16,1752624000,Technical,High,Overwhelming community vote,Approved WLFI tradability via governance,0
+world-liberty-financial-usd,2025-07-09,1752019200,Expansion,High,Live spot trading with prizes,Listed USD1 on Bybit,0
+world-liberty-financial-usd,2025-06-29,1751155200,Growth,High,3rd largest stablecoin by volume,Reached $1.25B USD1 trading volume ATH,0
+world-liberty-financial-usd,2025-06-04,1748995200,Growth,High,$4M distributed to eligible holders,Airdropped $4M USD1 to holders,0
+xsgd,2026-03-31,1774915200,Technical,High,Direct on-chain currency conversion capability,StraitsX launches XSGD and XUSD stablecoins on Solana blockchain for Singapore dollar and US dollar conversions,0
+xsgd,2025-12-02,1764633600,Expansion,High,Spending at 175M+ Visa merchants,Launched UPay stablecoin spending integration,0
+xsgd,2025-11-13,1762992000,Technical,High,Interoperable stablecoin suite,Introduced StraitsX ON network,0
+xsgd,2025-11-12,1762905600,Expansion,High,QR interoperability via XSGD,Debuted Project BLOOM with KASIKORNBANK,0
+xsgd,2025-10-24,1761264000,Growth,High,Raised $10.0M,Raised $10.0M in a Funding Round led by NTT DOCOMO,0
+xsgd,2025-10-23,1761177600,Growth,High,$9B on-chain transactions,Achieved 5-year milestone for XSGD,0
+xsgd,2025-10-03,1759449600,Expansion,High,Live on Coinbase and Base L2,Launched XSGD on Coinbase,0
+xsgd,2025-09-30,1759190400,Expansion,High,USDT/USDC at Grab merchants,Launched OKX Pay scan-to-pay service,0
+xsgd,2025-07-15,1752537600,Expansion,High,1.6B users at 100K+ merchants,Launched Alipay+ Grab payment integration,0
+xsgd,2025-06-13,1749772800,Expansion,High,Fast low-cost XRPL transactions,Launched XSGD on XRP Ledger,0
+xsgd,2025-05-28,1748390400,Growth,High,US$10B gross transaction volume,Achieved $10B on-chain GTV,0
+xsgd,2025-02-18,1739836800,Institutional,High,Enhanced cash management,Partnered StanChart for stablecoin custody,0
+xsgd,2025-02-17,1739750400,Expansion,High,Arbitrum L2 integration,Launched XSGD on Arbitrum,0
+xsgd,2024-11-05,1730764800,Expansion,High,XSGD settlement on AVAX,Deployed Grab-Alipay+ stablecoin system,0
+xsgd,2024-07-18,1721260800,Institutional,High,Public XUSD access,Secured MAS MPI licences for XUSD access,1
+xsgd,2024-06-26,1719360000,Expansion,High,AVAX DeFi integration,Launched XSGD on Avalanche C-Chain,0

@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_winner_patterns.py

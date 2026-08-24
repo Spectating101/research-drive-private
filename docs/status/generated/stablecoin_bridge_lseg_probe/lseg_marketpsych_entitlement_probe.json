@@ -1,0 +1,550 @@
+{
+  "generated_at": "2026-07-12T17:48:23.879819+00:00",
+  "goal": "MarketPsych / crypto sentiment entitlement probe after password fix",
+  "probes": [
+    {
+      "name": "session_open",
+      "status": "ok"
+    },
+    {
+      "name": "baseline_aapl",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        1,
+        3
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "Price Close"
+      ],
+      "nonnull": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "Price Close": 1
+      },
+      "sample": [
+        {
+          "Instrument": "AAPL.O",
+          "Company Common Name": "Apple Inc",
+          "Price Close": "315.32"
+        }
+      ]
+    },
+    {
+      "name": "crypto_price_BTC=",
+      "status": "fail",
+      "universe": "BTC=",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TSCC.QS.UserRequestError.90006, The universe does not support the following fields: [TRDPRC_1])"
+    },
+    {
+      "name": "crypto_price_ETH=",
+      "status": "fail",
+      "universe": "ETH=",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TSCC.QS.UserRequestError.90006, The universe does not support the following fields: [TRDPRC_1])"
+    },
+    {
+      "name": "crypto_price_USDT=",
+      "status": "fail",
+      "universe": "USDT=",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TSCC.QS.UserRequestError.90006, The universe does not support the following fields: [TRDPRC_1])"
+    },
+    {
+      "name": "crypto_price_USDC=",
+      "status": "fail",
+      "universe": "USDC=",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TSCC.QS.UserRequestError.90006, The universe does not support the following fields: [TRDPRC_1])"
+    },
+    {
+      "name": "crypto_price_BTC.CMB=",
+      "status": "fail",
+      "universe": "BTC.CMB=",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "crypto_price_USDT.CMB=",
+      "status": "fail",
+      "universe": "USDT.CMB=",
+      "error": "No data to return, please check errors: ERROR: No successful response.\n(TS.Interday.UserRequestError.70005, The universe is not found)"
+    },
+    {
+      "name": "search::MarketPsych",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        10,
+        4
+      ],
+      "columns": [
+        "BusinessEntity",
+        "DocumentTitle",
+        "PI",
+        "RIC"
+      ],
+      "nonnull": {
+        "BusinessEntity": 10,
+        "DocumentTitle": 10,
+        "PI": 10,
+        "RIC": 1
+      },
+      "sample": [
+        {
+          "BusinessEntity": "QUOTExCOMMODITY",
+          "DocumentTitle": "MarketPsych, Source is an LSEG Contributor",
+          "PI": "572126745",
+          "RIC": "0#MARKETPSYCH"
+        },
+        {
+          "BusinessEntity": "ORGS",
+          "DocumentTitle": "Marketpsych Advisor, LLC, Private Company",
+          "PI": "5055476484",
+          "RIC": "<NA>"
+        },
+        {
+          "BusinessEntity": "ORGS",
+          "DocumentTitle": "Marketpsych Pte Ltd, Private Company",
+          "PI": "5090715965",
+          "RIC": "<NA>"
+        }
+      ]
+    },
+    {
+      "name": "search::MarketPsych Bitcoin",
+      "status": "empty",
+      "empty": true,
+      "shape": [
+        0,
+        0
+      ],
+      "columns": []
+    },
+    {
+      "name": "search::MarketPsych USDT",
+      "status": "empty",
+      "empty": true,
+      "shape": [
+        0,
+        0
+      ],
+      "columns": []
+    },
+    {
+      "name": "search::Bitcoin cryptocurrency",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        10,
+        5
+      ],
+      "columns": [
+        "BusinessEntity",
+        "DocumentTitle",
+        "PermID",
+        "PI",
+        "RIC"
+      ],
+      "nonnull": {
+        "BusinessEntity": 10,
+        "DocumentTitle": 10,
+        "PermID": 1,
+        "PI": 10,
+        "RIC": 1
+      },
+      "sample": [
+        {
+          "BusinessEntity": "ORGANISATION",
+          "DocumentTitle": "American Bitcoin Corp, Public Company",
+          "PermID": "<NA>",
+          "PI": "32603658",
+          "RIC": "<NA>"
+        },
+        {
+          "BusinessEntity": "ORGANISATION",
+          "DocumentTitle": "Osprey Bitcoin Trust, Fund Entity",
+          "PermID": "<NA>",
+          "PI": "32940685",
+          "RIC": "<NA>"
+        },
+        {
+          "BusinessEntity": "ORGANISATION",
+          "DocumentTitle": "Bitcoin Bancorp Inc, Public Company",
+          "PermID": "<NA>",
+          "PI": "124406",
+          "RIC": "<NA>"
+        }
+      ]
+    },
+    {
+      "name": "search::Tether USDT",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        10,
+        5
+      ],
+      "columns": [
+        "BusinessEntity",
+        "DocumentTitle",
+        "PermID",
+        "PI",
+        "RIC"
+      ],
+      "nonnull": {
+        "BusinessEntity": 10,
+        "DocumentTitle": 10,
+        "PermID": 10,
+        "PI": 10,
+        "RIC": 10
+      },
+      "sample": [
+        {
+          "BusinessEntity": "STIR",
+          "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, REFINITIV",
+          "PermID": "47063805692",
+          "PI": "47063805692",
+          "RIC": "USDT="
+        },
+        {
+          "BusinessEntity": "STIR",
+          "DocumentTitle": "Time/Tether FX Spot Rate, FX Spot Rate, Kucoin",
+          "PermID": "47057918456",
+          "PI": "47057918456",
+          "RIC": "TIMEUSDT=KUCN"
+        },
+        {
+          "BusinessEntity": "STIR",
+          "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, BITFINEX",
+          "PermID": "47055955966",
+          "PI": "47055955966",
+          "RIC": "USDT=BFNX"
+        }
+      ]
+    },
+    {
+      "name": "search::USD Coin USDC",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        10,
+        5
+      ],
+      "columns": [
+        "BusinessEntity",
+        "DocumentTitle",
+        "PermID",
+        "PI",
+        "RIC"
+      ],
+      "nonnull": {
+        "BusinessEntity": 10,
+        "DocumentTitle": 10,
+        "PermID": 10,
+        "PI": 10,
+        "RIC": 10
+      },
+      "sample": [
+        {
+          "BusinessEntity": "STIR",
+          "DocumentTitle": "USD Coin/US Dollar FX Spot Rate, FX Spot Rate, Exmo",
+          "PermID": "47057510727",
+          "PI": "47057510727",
+          "RIC": "USDC=EXME"
+        },
+        {
+          "BusinessEntity": "STIR",
+          "DocumentTitle": "USD Coin/US Dollar FX Spot Rate, FX Spot Rate, Bank Of Tokyo Mitsubishi",
+          "PermID": "36300180776",
+          "PI": "36300180776",
+          "RIC": "USDC=BTMJ"
+        },
+        {
+          "BusinessEntity": "STIR",
+          "DocumentTitle": "USD Coin/US Dollar FX Spot Rate, FX Spot Rate, CoinDesk Data and Indices",
+          "PermID": "47056886618",
+          "PI": "47056886618",
+          "RIC": "USDC=CCCL"
+        }
+      ]
+    },
+    {
+      "name": "get_data::BTC=::mp_classic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPSENTIMENT', 'TR.MPBUZZ', 'TR.MPMENTIONS', 'TR.MPOPTIMISM', 'TR.MPFEAR', 'TR.MPJOY', 'TR.MPTRUST', 'TR.MPANGER', 'TR.MPSURPRISE', 'TR.MPDISGUST']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::BTC=::mp_crypto_themes",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPADOPTION', 'TR.MPATTACK', 'TR.MPCODESENTIMENT', 'TR.MPCODEUPGRADE', 'TR.MPDEVELOPERSENTIMENT', 'TR.MPFOMO', 'TR.MPHODL', 'TR.MPREGULATORYCRACKDOWN', 'TR.MPSCAM', 'TR.MPTRANSACTIONSPEED']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::BTC=::social_news_generic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.SOCIALSENTIMENT', 'TR.NEWSSENTIMENT', 'TR.NEWSSENTIMENTVOLUME', 'TR.SENTIMENT', 'TR.BUZZ', 'TR.SOCIALMEDIACOUNT']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::BTC=::trna_like",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.NEWSANALYTICSSENTIMENT', 'TR.NEWSANALYTICSNOVELTY', 'TR.NEWSANALYTICSRELEVANCE', 'TR.HNASENTIMENT', 'TR.HNAVOLUME']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::BTC=::identity",
+      "status": "ok",
+      "hits": {
+        "Instrument": 1,
+        "RIC": 1,
+        "Asset Category Description": 1
+      },
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "RIC",
+        "Instrument Type",
+        "Asset Category Description",
+        "Ticker Symbol"
+      ],
+      "sample": [
+        {
+          "Instrument": "BTC=",
+          "Company Common Name": "<NA>",
+          "RIC": "BTC=",
+          "Instrument Type": "<NA>",
+          "Asset Category Description": "FX Spot Rate",
+          "Ticker Symbol": "<NA>"
+        }
+      ]
+    },
+    {
+      "name": "get_data::AAPL.O::mp_classic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPSENTIMENT', 'TR.MPBUZZ', 'TR.MPMENTIONS', 'TR.MPOPTIMISM', 'TR.MPFEAR', 'TR.MPJOY', 'TR.MPTRUST', 'TR.MPANGER', 'TR.MPSURPRISE', 'TR.MPDISGUST']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::AAPL.O::mp_crypto_themes",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPADOPTION', 'TR.MPATTACK', 'TR.MPCODESENTIMENT', 'TR.MPCODEUPGRADE', 'TR.MPDEVELOPERSENTIMENT', 'TR.MPFOMO', 'TR.MPHODL', 'TR.MPREGULATORYCRACKDOWN', 'TR.MPSCAM', 'TR.MPTRANSACTIONSPEED']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::AAPL.O::social_news_generic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.SOCIALSENTIMENT', 'TR.NEWSSENTIMENT', 'TR.NEWSSENTIMENTVOLUME', 'TR.SENTIMENT', 'TR.BUZZ', 'TR.SOCIALMEDIACOUNT']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::AAPL.O::trna_like",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.NEWSANALYTICSSENTIMENT', 'TR.NEWSANALYTICSNOVELTY', 'TR.NEWSANALYTICSRELEVANCE', 'TR.HNASENTIMENT', 'TR.HNAVOLUME']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::AAPL.O::identity",
+      "status": "ok",
+      "hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "RIC": 1,
+        "Instrument Type": 1,
+        "Asset Category Description": 1,
+        "Ticker Symbol": 1
+      },
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "RIC",
+        "Instrument Type",
+        "Asset Category Description",
+        "Ticker Symbol"
+      ],
+      "sample": [
+        {
+          "Instrument": "AAPL.O",
+          "Company Common Name": "Apple Inc",
+          "RIC": "AAPL.O",
+          "Instrument Type": "Ordinary Shares",
+          "Asset Category Description": "Ordinary Share",
+          "Ticker Symbol": "AAPL"
+        }
+      ]
+    },
+    {
+      "name": "get_data::USDT=::mp_classic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPSENTIMENT', 'TR.MPBUZZ', 'TR.MPMENTIONS', 'TR.MPOPTIMISM', 'TR.MPFEAR', 'TR.MPJOY', 'TR.MPTRUST', 'TR.MPANGER', 'TR.MPSURPRISE', 'TR.MPDISGUST']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::USDT=::mp_crypto_themes",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPADOPTION', 'TR.MPATTACK', 'TR.MPCODESENTIMENT', 'TR.MPCODEUPGRADE', 'TR.MPDEVELOPERSENTIMENT', 'TR.MPFOMO', 'TR.MPHODL', 'TR.MPREGULATORYCRACKDOWN', 'TR.MPSCAM', 'TR.MPTRANSACTIONSPEED']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::USDT=::social_news_generic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.SOCIALSENTIMENT', 'TR.NEWSSENTIMENT', 'TR.NEWSSENTIMENTVOLUME', 'TR.SENTIMENT', 'TR.BUZZ', 'TR.SOCIALMEDIACOUNT']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::USDT=::trna_like",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.NEWSANALYTICSSENTIMENT', 'TR.NEWSANALYTICSNOVELTY', 'TR.NEWSANALYTICSRELEVANCE', 'TR.HNASENTIMENT', 'TR.HNAVOLUME']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::USDT=::identity",
+      "status": "ok",
+      "hits": {
+        "Instrument": 1,
+        "RIC": 1,
+        "Asset Category Description": 1
+      },
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "RIC",
+        "Instrument Type",
+        "Asset Category Description",
+        "Ticker Symbol"
+      ],
+      "sample": [
+        {
+          "Instrument": "USDT=",
+          "Company Common Name": "<NA>",
+          "RIC": "USDT=",
+          "Instrument Type": "<NA>",
+          "Asset Category Description": "FX Spot Rate",
+          "Ticker Symbol": "<NA>"
+        }
+      ]
+    },
+    {
+      "name": "get_data::MSFT.O::mp_classic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPSENTIMENT', 'TR.MPBUZZ', 'TR.MPMENTIONS', 'TR.MPOPTIMISM', 'TR.MPFEAR', 'TR.MPJOY', 'TR.MPTRUST', 'TR.MPANGER', 'TR.MPSURPRISE', 'TR.MPDISGUST']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::MSFT.O::mp_crypto_themes",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPADOPTION', 'TR.MPATTACK', 'TR.MPCODESENTIMENT', 'TR.MPCODEUPGRADE', 'TR.MPDEVELOPERSENTIMENT', 'TR.MPFOMO', 'TR.MPHODL', 'TR.MPREGULATORYCRACKDOWN', 'TR.MPSCAM', 'TR.MPTRANSACTIONSPEED']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::MSFT.O::social_news_generic",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.SOCIALSENTIMENT', 'TR.NEWSSENTIMENT', 'TR.NEWSSENTIMENTVOLUME', 'TR.SENTIMENT', 'TR.BUZZ', 'TR.SOCIALMEDIACOUNT']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::MSFT.O::trna_like",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.NEWSANALYTICSSENTIMENT', 'TR.NEWSANALYTICSNOVELTY', 'TR.NEWSANALYTICSRELEVANCE', 'TR.HNASENTIMENT', 'TR.HNAVOLUME']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_data::MSFT.O::identity",
+      "status": "ok",
+      "hits": {
+        "Instrument": 1,
+        "Company Common Name": 1,
+        "RIC": 1,
+        "Instrument Type": 1,
+        "Asset Category Description": 1,
+        "Ticker Symbol": 1
+      },
+      "shape": [
+        1,
+        6
+      ],
+      "columns": [
+        "Instrument",
+        "Company Common Name",
+        "RIC",
+        "Instrument Type",
+        "Asset Category Description",
+        "Ticker Symbol"
+      ],
+      "sample": [
+        {
+          "Instrument": "MSFT.O",
+          "Company Common Name": "Microsoft Corp",
+          "RIC": "MSFT.O",
+          "Instrument Type": "Ordinary Shares",
+          "Asset Category Description": "Ordinary Share",
+          "Ticker Symbol": "MSFT"
+        }
+      ]
+    },
+    {
+      "name": "get_history_mp::BTC=",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPSENTIMENT', 'TR.MPBUZZ', 'TR.SOCIALSENTIMENT', 'TR.NEWSSENTIMENT', 'TR.MPADOPTION', 'TR.MPMENTIONS']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "get_history_mp::AAPL.O",
+      "status": "fail",
+      "error": "Unable to resolve all requested fields in ['TR.MPSENTIMENT', 'TR.MPBUZZ', 'TR.SOCIALSENTIMENT', 'TR.NEWSSENTIMENT', 'TR.MPADOPTION', 'TR.MPMENTIONS']. The formula must contain at least one field or function."
+    },
+    {
+      "name": "news_headlines::USDT",
+      "status": "fail",
+      "error": "Insufficient scope for key=/data/news/v1/headlines, method=GET.\nRequired scopes: {'trapi.data.news.read'}\nAvailable scopes: {'trapi.userdata.lists.write', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.alerts.subscription.crud', 'trapi.data.symbology.advanced.read', 'trapi.streaming.pricing.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.platform.iam.guiss', 'trapi.metadata.nsa.read', 'trapi.user"
+    },
+    {
+      "name": "news_headlines::Tether",
+      "status": "fail",
+      "error": "Insufficient scope for key=/data/news/v1/headlines, method=GET.\nRequired scopes: {'trapi.data.news.read'}\nAvailable scopes: {'trapi.userdata.lists.write', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.alerts.subscription.crud', 'trapi.data.symbology.advanced.read', 'trapi.streaming.pricing.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.platform.iam.guiss', 'trapi.metadata.nsa.read', 'trapi.user"
+    },
+    {
+      "name": "news_headlines::USDC",
+      "status": "fail",
+      "error": "Insufficient scope for key=/data/news/v1/headlines, method=GET.\nRequired scopes: {'trapi.data.news.read'}\nAvailable scopes: {'trapi.userdata.lists.write', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.alerts.subscription.crud', 'trapi.data.symbology.advanced.read', 'trapi.streaming.pricing.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.platform.iam.guiss', 'trapi.metadata.nsa.read', 'trapi.user"
+    },
+    {
+      "name": "news_headlines::Bitcoin",
+      "status": "fail",
+      "error": "Insufficient scope for key=/data/news/v1/headlines, method=GET.\nRequired scopes: {'trapi.data.news.read'}\nAvailable scopes: {'trapi.userdata.lists.write', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.alerts.subscription.crud', 'trapi.data.symbology.advanced.read', 'trapi.streaming.pricing.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.platform.iam.guiss', 'trapi.metadata.nsa.read', 'trapi.user"
+    },
+    {
+      "name": "news_headlines::MarketPsych",
+      "status": "fail",
+      "error": "Insufficient scope for key=/data/news/v1/headlines, method=GET.\nRequired scopes: {'trapi.data.news.read'}\nAvailable scopes: {'trapi.userdata.lists.write', 'trapi.search.lookup.read', 'trapi.searchcore.read', 'trapi.alerts.subscription.crud', 'trapi.data.symbology.advanced.read', 'trapi.streaming.pricing.read', 'trapi.data.average-volume-analytics.ava_read', 'trapi.data.historical-pricing.events.read', 'trapi.data.symbology.read', 'trapi.platform.iam.guiss', 'trapi.metadata.nsa.read', 'trapi.user"
+    },
+    {
+      "name": "control_esg_aapl",
+      "status": "ok",
+      "empty": false,
+      "shape": [
+        1,
+        3
+      ],
+      "columns": [
+        "Instrument",
+        "ESG Score",
+        "Company Market Cap"
+      ],
+      "nonnull": {
+        "Instrument": 1,
+        "ESG Score": 1,
+        "Company Market Cap": 1
+      },
+      "sample": [
+        {
+          "Instrument": "AAPL.O",
+          "ESG Score": "71.0745205422911",
+          "Company Market Cap": "4631217093920"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "platform_session": "ok",
+    "crypto_price_rics_working": [],
+    "news_headlines_working": false,
+    "marketpsych_or_sentiment_field_hits": [],
+    "marketpsych_entitled_guess": "NO_OR_NOT_VIA_TR_FIELDS",
+    "next": "If NO: MarketPsych likely not on YZU EDP TR.* catalog; may need dedicated MarketPsych API or different content set. News headlines entitlement is separate and useful for event enrichment if working."
+  }
+}

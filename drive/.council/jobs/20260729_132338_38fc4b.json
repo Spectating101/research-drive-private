@@ -1,0 +1,22 @@
+{
+  "id": "20260729_132338_38fc4b",
+  "state": "running",
+  "instruction": "Review the post-PR23 backend changes as a convergence gate. Compare the synthesis AI contract implementation on /tmp/rd-synthesis-ai-contract with the Discover evidence backend on /tmp/rd-discover-evidence-main and the runtime hardening branch /tmp/sharpe-merge-ready.ICAHQO. Identify concrete correctness, security, API-contract, truthfulness, and CI gaps; recommend a safe integration order and focused fixes. Do not propose heuristic Python planning: Python must remain passive atomic MCP equipment. Return file:line evidence and GO/HOLD.",
+  "files": [
+    "/tmp/rd-synthesis-ai-contract/drive/scripts/research_data_mcp/desk_brain.py",
+    "/tmp/rd-synthesis-ai-contract/drive/scripts/research_data_mcp/desk_composer_health.py",
+    "/tmp/rd-synthesis-ai-contract/drive/scripts/research_data_mcp/desk_synthesis_contract.py",
+    "/tmp/rd-discover-evidence-main/drive/scripts/research_data_mcp/discover_assessment.py",
+    "/tmp/sharpe-merge-ready.ICAHQO/drive/scripts/research_data_mcp/http_router.py"
+  ],
+  "stakes": "high",
+  "kind": "review",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260729_132338_38fc4b.output.txt",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260729_132338_38fc4b.integrate.json",
+  "created_at": 1785302618.4445922,
+  "pid": 1972000,
+  "log_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260729_132338_38fc4b.log",
+  "updated_at": 1785302618.4902735
+}

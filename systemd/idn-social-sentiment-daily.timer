@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily IDX public sentiment archive (Jakarta morning)
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

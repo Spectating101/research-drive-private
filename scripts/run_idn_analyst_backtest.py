@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_analyst_backtest.py

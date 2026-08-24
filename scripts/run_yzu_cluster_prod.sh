@@ -1,0 +1,1 @@
+../drive/scripts/run_yzu_cluster_prod.sh

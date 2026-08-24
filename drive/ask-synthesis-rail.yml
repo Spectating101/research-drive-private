@@ -1,0 +1,186 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - button "RD Research Drive" [ref=e6] [cursor=pointer]:
+      - generic [ref=e7]: RD
+      - strong [ref=e9]: Research Drive
+    - button "Account" [ref=e11] [cursor=pointer]: DO
+  - complementary "Research Drive navigation" [ref=e12]:
+    - navigation "Faculty destinations" [ref=e13]:
+      - button "Home" [ref=e14] [cursor=pointer]
+      - button "Library" [ref=e18] [cursor=pointer]
+      - button "Discover" [ref=e22] [cursor=pointer]
+      - button "Synthesis" [ref=e26] [cursor=pointer]
+      - button "Resources" [ref=e33] [cursor=pointer]
+    - navigation "Account" [ref=e36]:
+      - button "Profile" [ref=e37] [cursor=pointer]
+      - button "Settings" [ref=e41] [cursor=pointer]
+  - main [ref=e45]:
+    - generic [ref=e213]:
+      - generic [ref=e214]:
+        - heading "Synthesis" [level=1] [ref=e215]
+        - paragraph [ref=e216]: Reason from Library evidence to a reviewable research construct, then preserve the method and its proof.
+      - generic [ref=e218]:
+        - complementary "Synthesis threads" [ref=e219]:
+          - generic [ref=e220]:
+            - generic [ref=e221]:
+              - generic [ref=e222]: Research construction
+              - generic [ref=e223]: 1 threads
+            - button "+ New" [ref=e224] [cursor=pointer]
+          - button "S Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), b Exploring" [ref=e225] [cursor=pointer]:
+            - generic [ref=e226]: S
+            - generic [ref=e227]:
+              - strong [ref=e228]: Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), b
+              - generic [ref=e229]: Exploring
+          - generic [ref=e230]:
+            - generic [ref=e231]: Thread memory
+            - paragraph [ref=e232]: Methods, review decisions, execution state, and registered outputs stay attached to the research object.
+        - main [ref=e233]:
+          - generic [ref=e234]:
+            - generic [ref=e235]:
+              - generic [ref=e236]: Exploring
+              - heading "Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), b" [level=1] [ref=e237]
+              - paragraph [ref=e238]: Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), build a monthly Keeling Curve acceleration indicator. Derive the 12-month CO₂ change and the change in that annual rate over 24 months. Keep the original monthly observations, mark interpolated values, and state the missing-month rule.
+            - emphasis [ref=e239]: Nothing registered
+          - generic [ref=e240]:
+            - generic [ref=e241]:
+              - generic [ref=e242]: Current record
+              - text: Persist Mauna Loa evidence map and acceleration method
+            - generic [ref=e243]:
+              - generic [ref=e244]: Required grain
+              - text: month
+          - list "Synthesis project stages" [ref=e245]:
+            - listitem [ref=e246]:
+              - generic [ref=e247]: ✓
+              - generic: Define
+              - generic: Research object
+            - listitem [ref=e248]:
+              - generic [ref=e249]: "2"
+              - generic: Ground
+              - generic: Library evidence
+            - listitem [ref=e250]:
+              - generic [ref=e251]: "3"
+              - generic: Review
+              - generic: Method decision
+            - listitem [ref=e252]:
+              - generic [ref=e253]: "4"
+              - generic: Build
+              - generic: Execution record
+            - listitem [ref=e254]:
+              - generic [ref=e255]: "5"
+              - generic: Reuse
+              - generic: Library asset
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - generic [ref=e258]:
+                - generic [ref=e259]: Evidence map
+                - heading "Research construction" [level=2] [ref=e260]
+              - emphasis [ref=e261]: 1 mapped inputs
+            - img "The current Synthesis evidence map" [ref=e262]:
+              - article [ref=e264]:
+                - generic [ref=e265]: Sole primary evidence — monthly levels
+                - strong [ref=e266]: Mauna Loa monthly CO₂ (Custom collect · raw.githubusercontent.com)
+                - generic [ref=e267]: month · 1958-03 to 2026-06 continuous in held revision
+              - generic [ref=e268]: ↓
+              - strong [ref=e269]: Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), build a monthly Keeling Curve acceleration indicator. Derive the 12-month CO₂ change and the change in that annual rate over 24 months. Keep the original monthly observations, mark interpolated values, and state the missing-month rule.
+            - generic [ref=e270]:
+              - article [ref=e271]:
+                - generic [ref=e272]: Research object
+                - strong [ref=e273]: Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), build a monthly Keeling Curve acceleration indicator. Derive the 12-month CO₂ change and the change in that annual rate over 24 months. Keep the original monthly observations, mark interpolated values, and state the missing-month rule.
+                - paragraph [ref=e274]: Ask can refine the object before a method proposal is accepted.
+              - article [ref=e275]:
+                - generic [ref=e276]: Library holdings mapped
+                - strong [ref=e277]: 1 in Library
+                - paragraph [ref=e278]: Mauna Loa monthly CO₂ (Custom collect · raw.githubusercontent.com)
+              - article [ref=e279]:
+                - generic [ref=e280]: Unresolved evidence
+                - strong [ref=e281]: No missing source is recorded
+                - paragraph [ref=e282]: This is not a claim of complete coverage.
+            - generic [ref=e283]:
+              - paragraph [ref=e284]:
+                - generic [ref=e285]: Next
+                - text: Ask proposes reviewable changes. It cannot silently accept a method or register an output.
+              - button "Discuss construction in Ask" [ref=e286] [cursor=pointer]
+  - complementary "Inspector" [ref=e139]:
+    - generic [ref=e140]:
+      - tablist "Inspector mode" [ref=e142]:
+        - tab "Detail" [ref=e143] [cursor=pointer]
+        - tab "Ask" [active] [selected] [ref=e144] [cursor=pointer]
+      - generic [ref=e326]:
+        - generic [ref=e327]:
+          - paragraph [ref=e328]: Ask · synthesis thread
+          - strong [ref=e329]: Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), b
+          - paragraph [ref=e330]: Continuing · Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), b
+        - generic [ref=e331]:
+          - paragraph [ref=e332]: New messages use this Synthesis thread and its current accepted state.
+          - generic [ref=e333]:
+            - generic [ref=e334]: You
+            - generic [ref=e335]: "Interpret this research objective. Separate supported evidence, proposed proxy choices, and unresolved limitations, then ask the one highest-value clarification question: Using the Library asset Custom collect · raw.githubusercontent.com (dataset_id craft_raw_githubuserconten_2eb2f7cf1f), build a monthly Keeling Curve acceleration indicator. Derive the 12-month CO₂ change and the change in that annual rate over 24 months. Keep the original monthly observations, mark interpolated values, and state the missing-month rule."
+          - article [ref=e336]:
+            - generic [ref=e337]:
+              - generic [ref=e338]: Grounded answer
+              - heading "Provisional reading:" [level=3] [ref=e340]
+            - generic [ref=e341]:
+              - paragraph [ref=e342]:
+                - text: you want a *proposed* monthly Mauna Loa panel that keeps the observed CO₂ series, adds a 12‑month change (ppm over the prior year), then an acceleration term as the change in that annual rate over 24 months—with explicit flags for any interpolated inputs and a stated missing‑month rule. That acceleration indicator does
+                - strong [ref=e343]: not
+                - text: exist yet; only the source series is held.
+              - paragraph [ref=e344]:
+                - strong [ref=e345]: "Strongest Library asset:"
+                - text: the Custom collect from raw.githubusercontent.com is query‑ready Mauna Loa monthly CO₂ (
+                - code [ref=e346]: co2-mm-mlo
+                - text: "), ~820 continuous months from 1958‑03 through 2026‑06. Role: sole primary evidence for levels and derived rates. Other indexed candidates (GDELT, Etherscan, SST, etc.) have no role in this construct."
+              - paragraph [ref=e347]:
+                - strong [ref=e348]: "Supported:"
+                - text: continuous monthly calendar (no month gaps in this revision); a populated monthly Average series; a second ppm‑like column; early rows carry NOAA‑style quality sentinels on day‑count / uncertainty fields; header names 6 fields while every row has 7, so labels are not fully trustworthy.
+                - strong [ref=e349]: "Proposed (not fixed):"
+                - text: treat Average as the observation; define annual rate as level(t) − level(t−12); define acceleration as that rate at t minus the same rate at t−24; flag any values we fill ourselves.
+                - strong [ref=e350]: "Unresolved:"
+                - text: which column is the scientific “Interpolated” series vs deseasonalized trend; how to treat months with bad Average if a future revision has them; exact window alignment (inclusive lags / first valid acceleration month).
+              - paragraph [ref=e351]: Should the 12‑month change and the 24‑month acceleration be computed on the raw monthly Average, or on the seasonally adjusted second ppm column?
+            - generic "Suggested next steps" [ref=e352]:
+              - paragraph [ref=e353]: Next steps
+              - generic [ref=e354]:
+                - button "Interpret the construct and identify the highest-value ambiguity" [ref=e355] [cursor=pointer]
+                - button "Map the strongest Library evidence to roles in this construct" [ref=e356] [cursor=pointer]
+                - button "Compare defensible proxy definitions and their limitations" [ref=e357] [cursor=pointer]
+            - generic [ref=e358]:
+              - generic [ref=e359]: Evidence-bound
+              - generic [ref=e360]: ·
+              - generic [ref=e361]: search
+          - generic [ref=e362]:
+            - generic [ref=e363]: You
+            - generic [ref=e364]: "Use the seasonally adjusted second ppm series for both derived rates, while preserving Average as the observed reference. Do not fill missing months: leave a derived value null whenever t, t-12, or t-24 is absent. Treat negative sentinel values as missing, and only emit acceleration once all three lagged observations exist. Now persist the evidence mapping and propose the smallest reviewable construction method."
+          - article [ref=e365]:
+            - generic [ref=e366]: Grounded answer
+            - paragraph [ref=e370]: Ask timed out after 150s waiting for Composer (limit 150s). No collection or approval was started. Try a direct command (search, probe, status) or ask about the selected object.
+            - generic "Suggested next steps" [ref=e371]:
+              - paragraph [ref=e372]: Next steps
+              - generic [ref=e373]:
+                - button "status" [ref=e374] [cursor=pointer]
+                - button "Search vault for related datasets" [ref=e375] [cursor=pointer]
+                - button "What do we know about this?" [ref=e376] [cursor=pointer]
+            - generic [ref=e377]:
+              - generic [ref=e378]: Evidence-bound
+              - generic [ref=e379]: ·
+              - generic [ref=e380]: composer timeout
+          - generic [ref=e381]:
+            - generic [ref=e382]: You
+            - generic [ref=e383]: "Decision: use the seasonally adjusted second ppm series for both rates; keep Average only as reference. Do not impute. Derived values are null unless t, t-12, and t-24 exist; negative sentinels are missing. Persist the evidence map and smallest reviewable method proposal now."
+          - article [ref=e384]:
+            - generic [ref=e385]: Grounded answer
+            - paragraph [ref=e389]: The Synthesis agent did not return a usable reasoning turn (response_contract). I have not inferred a construct, selected proxies, or changed the project. Please retry; the same research context remains attached.
+            - generic "Suggested next steps" [ref=e390]:
+              - paragraph [ref=e391]: Next steps
+              - generic [ref=e392]:
+                - button "Interpret the construct and identify the highest-value ambiguity" [ref=e393] [cursor=pointer]
+                - button "Map the strongest Library evidence to roles in this construct" [ref=e394] [cursor=pointer]
+                - button "Compare defensible proxy definitions and their limitations" [ref=e395] [cursor=pointer]
+            - generic [ref=e396]:
+              - generic [ref=e397]: Evidence-bound
+              - generic [ref=e398]: ·
+              - generic [ref=e399]: composer error
+        - generic [ref=e400]:
+          - textbox "Correct the interpretation, add a constraint, or ask…" [ref=e401]
+          - generic [ref=e402]:
+            - generic [ref=e403]: Enter to send · ⇧↵ newline
+            - button "Send" [disabled] [ref=e404]

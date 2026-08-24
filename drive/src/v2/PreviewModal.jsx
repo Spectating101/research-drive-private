@@ -31,20 +31,35 @@ export function PreviewModal({
     setLoading(true);
     setError("");
     setDemoNotice("");
-    queryDataset(dataset.dataset_id, 50)
+    queryDataset(dataset.dataset_id, 25)
       .then((data) => {
-        if (!cancelled) setRows(data.rows || []);
+        if (cancelled) return;
+        const rows = data?.rows || [];
+        setRows(rows);
+        if (!rows.length) {
+          const msg = data?.meta?.message || data?.message;
+          if (msg) setError(String(msg));
+        }
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
         if (usingSeed) {
           const sample = previewSampleRows(dataset);
           setRows(sample);
           setDemoNotice("Demo sample — connect the query engine for live rows.");
           setError("");
+          return;
+        }
+        setRows([]);
+        const msg = String(err?.message || "");
+        if (/not present in the loaded query catalog|reconciliation|not query_ready|query_ready/i.test(msg)) {
+          setError(
+            "Registered in the vault, but not query-ready yet. Open Ask to hydrate from GDrive or reconcile the registry row.",
+          );
+        } else if (/Unauthorized|Desk access token/i.test(msg)) {
+          setError("Desk session missing — reload after desk auth bootstrap.");
         } else {
-          setRows([]);
-          setError("Preview unavailable. The query engine may be offline.");
+          setError(msg || "Preview unavailable. The query engine may be offline.");
         }
       })
       .finally(() => {
@@ -127,7 +142,7 @@ export function PreviewModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {dataset.source_preview.sample_rows.slice(0, 12).map((row, i) => (
+                        {dataset.source_preview.sample_rows.slice(0, 25).map((row, i) => (
                           <tr key={i}>
                             {Object.keys(dataset.source_preview.sample_rows[0] || {}).slice(0, 8).map((c) => (
                               <td key={c}>{String(row[c] ?? "")}</td>
@@ -164,7 +179,7 @@ export function PreviewModal({
               )}
               {demoNotice ? <p className="rd-v2-preview-demo">{demoNotice}</p> : null}
               {!loading && !error && rows.length === 0 && (
-                <p className="rd-v2-preview-muted">No rows returned. Try the Query tab or Ask.</p>
+                <p className="rd-v2-preview-muted">No sample rows yet for this asset (vault/metadata-only, missing local file, or preview timed out). Try an instant dataset like SEC tickers or GDELT, or Ask to hydrate.</p>
               )}
               {rows.length > 0 && (
                 <table className="rd-v2-preview-table">
@@ -172,7 +187,7 @@ export function PreviewModal({
                     <tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {rows.slice(0, 12).map((row, i) => (
+                    {rows.slice(0, 25).map((row, i) => (
                       <tr key={i}>
                         {cols.map((c) => (
                           <td key={c}>{String(row[c] ?? "").slice(0, 80)}</td>

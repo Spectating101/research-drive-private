@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "description": "Public / retail sentiment sources for IDX operator brief.",
+  "output_json": "data_lake/sentiment/idn_public_sentiment_latest.json",
+  "output_parquet": "data_lake/sentiment/idn_public_sentiment_panel.parquet",
+  "rapidapi": {
+    "enabled": true,
+    "host": "indonesia-stock-exchange-idx.p.rapidapi.com",
+    "env_key": "RAPIDAPI_KEY",
+    "rate_limit_seconds": 1.2,
+    "deep_dive_top_n": 8,
+    "endpoints": {
+      "trending": "/api/main/trending",
+      "top_broker": "/api/market-detector/top-broker",
+      "top_stock": "/api/market-detector/top-stock",
+      "emiten_info": "/api/emiten/{symbol}/info",
+      "technical": "/api/analysis/technical/{symbol}",
+      "accumulation": "/api/bandarmology/accumulation-detector/{symbol}",
+      "distribution": "/api/bandarmology/distribution-detector/{symbol}",
+      "smart_money": "/api/bandarmology/smart-money-flow/{symbol}",
+      "retail_bandar": "/api/sentiment/retail-bandar-divergence/{symbol}"
+    }
+  },
+  "reddit": {
+    "enabled": true,
+    "subreddits": ["finansial", "indonesia", "Indostock", "reksadana"],
+    "sort_modes": ["new", "hot", "top"],
+    "top_time": "week",
+    "max_pages": 3,
+    "sleep_seconds": 1.5,
+    "user_agent": "SharpeRenaissanceIDX/1.0 (research)",
+    "oauth_env": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
+    "raw_cache_dir": "data_lake/sentiment/reddit_idx/raw"
+  },
+  "stocktwits_macro": {
+    "enabled": true,
+    "symbols": ["SPY", "BTC.X", "EWJ"],
+    "sleep_seconds": 0.8
+  },
+  "retail_lexicon": {
+    "bullish": [
+      "beli", "buy", "bullish", "accum", "akumulasi", "tekan", "breakout", "naik", "moon",
+      "rocket", "goreng", "fomo", "hold", "tahan", "support", "oversold", "murah", "bagus",
+      "rebound", "bounce", "all in", "top pick", "target"
+    ],
+    "bearish": [
+      "jual", "sell", "bearish", "distribusi", "distribution", "dump", "turun", "crash",
+      "rugi", "overbought", "mahal", "avoid", "hindari", "cut loss", "stop loss", "bubble",
+      "pump", "exit", "take profit"
+    ]
+  },
+  "ticker_aliases_file": "config/ticker_entity_aliases_v2.json",
+  "liquid_universe_id": "indonesia_liquid_core"
+}

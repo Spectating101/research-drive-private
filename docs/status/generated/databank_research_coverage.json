@@ -1,0 +1,680 @@
+{
+  "generated_at": "2026-07-07T11:19:04+00:00",
+  "headline": {
+    "registry_datasets": 158,
+    "instant_datasets": 94,
+    "registry_family_counts": {
+      "gdelt_news": 2,
+      "ops_metadata_other": 27,
+      "crypto_security": 2,
+      "live_api": 1,
+      "asia_derived_panels": 10,
+      "procured_catalog": 36,
+      "web_scrape_catalog": 61,
+      "refinitiv_institutional": 16,
+      "indonesia_regional": 3
+    },
+    "instant_family_counts": {
+      "gdelt_news": 2,
+      "ops_metadata_other": 12,
+      "asia_derived_panels": 7,
+      "web_scrape_catalog": 29,
+      "procured_catalog": 25,
+      "refinitiv_institutional": 16,
+      "indonesia_regional": 3
+    },
+    "entity_bridge_pct": 10.9
+  },
+  "coverage_matrix": {
+    "US": {
+      "daily_prices": 2,
+      "country_news_shocks": 1,
+      "entity_news_shocks": 1,
+      "fundamentals": 2,
+      "estimates_revisions": 3,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 2,
+      "social_sentiment": 1,
+      "onchain_crypto": 2
+    },
+    "Taiwan": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 2,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "Indonesia": {
+      "daily_prices": 3,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 2,
+      "fundamentals": 2,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 2,
+      "governance_regulatory": 2,
+      "social_sentiment": 2,
+      "onchain_crypto": 1
+    },
+    "Japan": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "Korea": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 3,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "HK_SG_ASEAN": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 1,
+      "estimates_revisions": 2,
+      "index_pit_survivorship": 2,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 1,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 1
+    },
+    "Asia_multi_13": {
+      "daily_prices": 2,
+      "country_news_shocks": 3,
+      "entity_news_shocks": 2,
+      "fundamentals": 1,
+      "estimates_revisions": 1,
+      "index_pit_survivorship": 2,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 2,
+      "governance_regulatory": 1,
+      "social_sentiment": 1,
+      "onchain_crypto": 2
+    },
+    "Crypto_global": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 2,
+      "fundamentals": 0,
+      "estimates_revisions": 0,
+      "index_pit_survivorship": 0,
+      "risk_overlay": 2,
+      "entity_join_gdelt_ric": 2,
+      "governance_regulatory": 1,
+      "social_sentiment": 2,
+      "onchain_crypto": 3
+    },
+    "Macro_global": {
+      "daily_prices": 2,
+      "country_news_shocks": 2,
+      "entity_news_shocks": 1,
+      "fundamentals": 0,
+      "estimates_revisions": 0,
+      "index_pit_survivorship": 0,
+      "risk_overlay": 1,
+      "entity_join_gdelt_ric": 0,
+      "governance_regulatory": 0,
+      "social_sentiment": 0,
+      "onchain_crypto": 1
+    }
+  },
+  "coverage_score_legend": {
+    "0": "—",
+    "1": "thin",
+    "2": "partial",
+    "3": "strong"
+  },
+  "geography_average": {
+    "US": 1.82,
+    "Taiwan": 1.55,
+    "Indonesia": 2.09,
+    "Japan": 1.45,
+    "Korea": 1.45,
+    "HK_SG_ASEAN": 1.36,
+    "Asia_multi_13": 1.73,
+    "Crypto_global": 1.45,
+    "Macro_global": 0.64
+  },
+  "capability_average": {
+    "daily_prices": 2.11,
+    "country_news_shocks": 2.0,
+    "entity_news_shocks": 1.33,
+    "fundamentals": 1.0,
+    "estimates_revisions": 1.56,
+    "index_pit_survivorship": 2.11,
+    "risk_overlay": 1.44,
+    "entity_join_gdelt_ric": 1.22,
+    "governance_regulatory": 1.22,
+    "social_sentiment": 1.11,
+    "onchain_crypto": 1.44
+  },
+  "time_depth": [
+    {
+      "source": "Refinitiv estimate revisions",
+      "start": "2017-10-19",
+      "end": "2026-07-06",
+      "entities": 222,
+      "note": "222 RICs; US-heavy"
+    },
+    {
+      "source": "Refinitiv index membership PIT",
+      "start": "2010-01-15",
+      "end": "2026-06-15",
+      "entities": 6,
+      "note": ".SPX .JKSE .TWII .N225 .KS11 .STI"
+    },
+    {
+      "source": "IDN FRY daily cross-section",
+      "start": "2019-07-16 00:00:00",
+      "end": "2026-05-18 00:00:00",
+      "entities": 635,
+      "note": "635 IDX yahoo symbols"
+    },
+    {
+      "source": "Asia country-week news+market",
+      "start": "2018-01-05 00:00:00",
+      "end": "2026-05-29 00:00:00",
+      "entities": 13,
+      "note": "13 ISO3 countries"
+    },
+    {
+      "source": "Cross-asset fused primary",
+      "start": "2018-01-05 00:00:00",
+      "end": "2026-05-29 00:00:00",
+      "entities": 13,
+      "note": "112 feature cols"
+    },
+    {
+      "source": "Daily ticker entity shock (slice)",
+      "start": "2026-05-01 00:00:00",
+      "end": "2026-05-25 00:00:00",
+      "entities": 455,
+      "note": "25 trading days only"
+    },
+    {
+      "source": "GDELT normalized bulk",
+      "start": "2015",
+      "end": "2026",
+      "entities": null,
+      "note": "~165 GiB events/GKG; not all rolled to instant country CSV"
+    }
+  ],
+  "probe_facts": {
+    "paths": {
+      "entity_spine": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/refinitiv/2026-07-06-complete/entity_market_spine.parquet",
+      "pit": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/refinitiv_backfill/2026-07-06-complete/processed/index_membership_pit.parquet",
+      "estimate_rev": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/refinitiv/2026-07-06-complete/estimate_revision_panel.parquet",
+      "fund_annual": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/refinitiv/2026-07-06-complete/fundamental_annual_panel.parquet",
+      "idn_daily": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/idn_fry_episode/daily_cross_section.parquet",
+      "idn_gdelt": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/idn_fry_episode/episode_gdelt_features.parquet",
+      "asia_week": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/asia_news_market/asia_news_market_auto_latest/asia_country_week_news_market_primary_panel.parquet",
+      "cross_asset": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/cross_asset_fused/fused_20260610_v2/cross_asset_fused_primary_panel.parquet",
+      "ticker_shock": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/research_panels/ticker_news_market/ticker_20260615/daily_ticker_entity_shock_panel.parquet"
+    },
+    "missing": [],
+    "spine_rics": 570,
+    "spine_gdelt_bridged": 62,
+    "spine_bridge_pct": 10.9,
+    "spine_in_jkse": 50,
+    "spine_in_ks11": 0,
+    "spine_in_n225": 3,
+    "spine_in_spx": 4,
+    "spine_in_twii": 3,
+    "pit_by_index": {
+      ".TWII": 197802,
+      ".JKSE": 180774,
+      ".SPX": 99594,
+      ".N225": 44550,
+      ".KS11": 19800,
+      ".STI": 5940
+    },
+    "pit_rows": 548460,
+    "pit_date_min": "2010-01-15",
+    "pit_date_max": "2026-06-15",
+    "estimate_rev_rows": 98873,
+    "estimate_rev_rics": 222,
+    "estimate_rev_by_country": {
+      "US": 79631,
+      "ID": 12017,
+      "KR": 2268,
+      "JP": 1914,
+      "TW": 1801,
+      "HK": 1242
+    },
+    "estimate_rev_date_min": "2017-10-19",
+    "estimate_rev_date_max": "2026-07-06",
+    "fund_annual_rows": 227,
+    "fund_annual_rics": 227,
+    "idn_daily_rows": 1043042,
+    "idn_tickers": 635,
+    "idn_date_min": "2019-07-16 00:00:00",
+    "idn_date_max": "2026-05-18 00:00:00",
+    "idn_gdelt_episodes": 5734,
+    "asia_week_rows": 5671,
+    "asia_week_countries": [
+      "AUS",
+      "CHN",
+      "HKG",
+      "IDN",
+      "IND",
+      "JPN",
+      "KOR",
+      "MYS",
+      "PHL",
+      "SGP",
+      "THA",
+      "TWN",
+      "VNM"
+    ],
+    "asia_week_week_min": "2018-01-05 00:00:00",
+    "asia_week_week_max": "2026-05-29 00:00:00",
+    "asia_week_weeks": 438,
+    "cross_asset_rows": 5694,
+    "cross_asset_countries": [
+      "AUS",
+      "CHN",
+      "HKG",
+      "IDN",
+      "IND",
+      "JPN",
+      "KOR",
+      "MYS",
+      "PHL",
+      "SGP",
+      "THA",
+      "TWN",
+      "VNM"
+    ],
+    "cross_asset_week_min": "2018-01-05 00:00:00",
+    "cross_asset_week_max": "2026-05-29 00:00:00",
+    "cross_asset_weeks": 438,
+    "ticker_shock_rows": 6659,
+    "ticker_shock_days": 25,
+    "ticker_shock_tickers": 455,
+    "ticker_shock_date_min": "2026-05-01 00:00:00",
+    "ticker_shock_date_max": "2026-05-25 00:00:00",
+    "alpha_panel_rows": 34421,
+    "alpha_instruments": 13
+  },
+  "join_graph": {
+    "spine_rics": 570,
+    "gdelt_bridged": 62,
+    "pit_indices": {
+      ".TWII": 197802,
+      ".JKSE": 180774,
+      ".SPX": 99594,
+      ".N225": 44550,
+      ".KS11": 19800,
+      ".STI": 5940
+    },
+    "estimate_rev_by_country": {
+      "US": 79631,
+      "ID": 12017,
+      "KR": 2268,
+      "JP": 1914,
+      "TW": 1801,
+      "HK": 1242
+    }
+  },
+  "live_connectors": [
+    "lseg_edp",
+    "wrds",
+    "crsp_moveit",
+    "capital_iq",
+    "gdelt",
+    "sec_edgar",
+    "twse",
+    "mops",
+    "yfinance",
+    "macro_public",
+    "coingecko",
+    "bigquery",
+    "datacite",
+    "huggingface",
+    "open_research",
+    "reddit",
+    "web_generic",
+    "gdrive_vault"
+  ],
+  "synthesis_catalog": [
+    {
+      "id": "jkse_pit_idn_microstructure_revisions",
+      "title": "JKSE PIT universe × IDN microstructure × estimate revisions",
+      "status": "built",
+      "inputs": [
+        "refinitiv_index_membership_pit (.JKSE)",
+        "idn_fry_daily_cross_section",
+        "refinitiv_estimate_revision_panel",
+        "refinitiv_entity_market_spine (country_code=ID)"
+      ],
+      "output_grain": "ric × as_of_month",
+      "output_path": "data_lake/research_panels/jkse_pit_idn/jkse_pit_idn_microstructure_revisions.parquet",
+      "join_keys": [
+        "constituent_ric",
+        "yahoo_symbol",
+        "as_of_month"
+      ],
+      "assumptions": [
+        "JKSE PIT membership defines investable IDX set at rebalance.",
+        "IDN FRY bandar/volume features proxy local informed-flow regime.",
+        "Refinitiv revisions for ID names reflect sell-side reaction to same regime."
+      ],
+      "known_bias": "RIC↔yahoo symbol map needed; no GDELT entity bridge required.",
+      "priority": "high"
+    },
+    {
+      "id": "pit_survivorship_revision_momentum",
+      "title": "PIT survivorship × estimate revision momentum factor",
+      "status": "built",
+      "inputs": [
+        "refinitiv_index_membership_pit",
+        "refinitiv_estimate_revision_panel",
+        "refinitiv_entity_market_spine"
+      ],
+      "output_grain": "index_ric × constituent_ric × as_of_month",
+      "output_path": "data_lake/research_panels/pit_revision_momentum/pit_index_revision_momentum.parquet",
+      "join_keys": [
+        "constituent_ric",
+        "date",
+        "index_ric"
+      ],
+      "assumptions": [
+        "Revision momentum is a valid alpha signal within PIT-filtered universes."
+      ],
+      "known_bias": "Pure institutional lane; no event overlay.",
+      "priority": "high"
+    },
+    {
+      "id": "gdelt_shock_to_estimate_revision",
+      "title": "GDELT entity shock → analyst revision response",
+      "status": "recipe",
+      "inputs": [
+        "daily_ticker_entity_shock_panel (extend history)",
+        "refinitiv_entity_market_spine",
+        "refinitiv_estimate_revision_panel",
+        "refinitiv_index_membership_pit"
+      ],
+      "output_grain": "ric × shock_event × window_day",
+      "join_keys": [
+        "ric",
+        "shock_date",
+        "gdelt_entity_id"
+      ],
+      "assumptions": [
+        "Entity bridge from GDELT to RIC is correct for the shocked name.",
+        "Analyst EPSMean revisions within [-5, +30] days proxy information absorption.",
+        "PIT index filter defines investable universe at shock date."
+      ],
+      "known_bias": "US bridge thin (10.9% of spine); short ticker-shock window today.",
+      "priority": "high"
+    },
+    {
+      "id": "country_shock_broadcast_returns",
+      "title": "Country-week macro shock → ticker return attribution",
+      "status": "partial",
+      "inputs": [
+        "asia_country_week_news_market_primary",
+        "idn_fry_daily_cross_section / yfinance panels",
+        "ticker_week_country_broadcast_panel"
+      ],
+      "output_grain": "ticker × week",
+      "join_keys": [
+        "country_iso3",
+        "week_end"
+      ],
+      "assumptions": [
+        "Country-level shock score loads on all liquid domestic equities equally (broadcast proxy).",
+        "Not name-specific attribution — use for macro beta, not single-name alpha."
+      ],
+      "known_bias": "Ticker-level entity panel only 25 days; broadcast panels need run_id refresh.",
+      "priority": "medium"
+    },
+    {
+      "id": "pit_event_study_universe",
+      "title": "Survivorship-correct event-study universe",
+      "status": "ready",
+      "inputs": [
+        "refinitiv_index_membership_pit",
+        "any event panel with date + ric or index"
+      ],
+      "output_grain": "constituent_ric × event_date",
+      "join_keys": [
+        "index_ric",
+        "as_of_date",
+        "constituent_ric"
+      ],
+      "assumptions": [
+        "Index membership at month-end defines who was investable when the event fired."
+      ],
+      "known_bias": "Monthly PIT granularity; delistings between month-ends not captured intra-month.",
+      "priority": "high"
+    },
+    {
+      "id": "idn_fry_episode_outcome",
+      "title": "IDN bandar episode + GDELT regime → forward reward",
+      "status": "built",
+      "inputs": [
+        "idn_fry_episode_gdelt_features",
+        "idn_fry_daily_cross_section",
+        "idn_episode_reward_daily"
+      ],
+      "output_grain": "episode × horizon_day",
+      "join_keys": [
+        "episode_id",
+        "yahoo_symbol",
+        "trigger_date"
+      ],
+      "assumptions": [
+        "GDELT country dot acceleration around trigger proxies information/noise regime.",
+        "Bandar labels from broker-flow heuristics approximate informed-flow episodes."
+      ],
+      "known_bias": "5734 episodes; IDX-specific, not portable.",
+      "priority": "medium"
+    },
+    {
+      "id": "cross_asset_country_risk_factor",
+      "title": "Cross-asset country risk factor panel",
+      "status": "built",
+      "inputs": [
+        "cross_asset_fused_primary_panel"
+      ],
+      "output_grain": "country_iso3 × week",
+      "join_keys": [
+        "country_iso3",
+        "week_end"
+      ],
+      "assumptions": [
+        "Fused news, equity, FX, rates, and crypto columns share a common weekly calendar.",
+        "Factors are comparable across the 13-country Asia set."
+      ],
+      "known_bias": "No US/EU; macro cols are proxy not official national accounts.",
+      "priority": "medium"
+    },
+    {
+      "id": "estimate_revision_momentum",
+      "title": "Estimate revision momentum factor",
+      "status": "built",
+      "inputs": [
+        "refinitiv_estimate_revision_panel"
+      ],
+      "output_grain": "ric × date",
+      "join_keys": [
+        "ric",
+        "date"
+      ],
+      "assumptions": [
+        "Δ EPSMean is a slow-moving analyst sentiment proxy."
+      ],
+      "known_bias": "US-dominated sample; sparse Asia names.",
+      "priority": "low"
+    },
+    {
+      "id": "us_si_risk_overlay",
+      "title": "US short-interest + vol risk overlay",
+      "status": "built",
+      "inputs": [
+        "refinitiv_us_risk_overlay",
+        "refinitiv_rescued_us_risk_desktop"
+      ],
+      "output_grain": "ric × date",
+      "join_keys": [
+        "ric",
+        "date"
+      ],
+      "assumptions": [
+        "SI% and vol skew proxy crowding and tail risk for US equities in sample."
+      ],
+      "known_bias": "Rescued desktop merge; not full StarMine entitlement.",
+      "priority": "low"
+    },
+    {
+      "id": "stablecoin_trust_engagement",
+      "title": "Stablecoin trust ↔ engagement multi-source synthesis",
+      "status": "profile_defined",
+      "inputs": [
+        "skynet_stablecoin_harvest",
+        "etherscan scrapes",
+        "defillama maps",
+        "gdelt_crypto_overlay",
+        "github/wikipedia/incident configs"
+      ],
+      "output_grain": "entity_id × week",
+      "join_keys": [
+        "entity_id",
+        "primary_ethereum_address"
+      ],
+      "assumptions": [
+        "Security score + on-chain adoption + attention proxies jointly measure trust vs hype."
+      ],
+      "known_bias": "Skynet/Etherscan join gaps; GDELT entity coverage uneven per coin.",
+      "priority": "medium"
+    },
+    {
+      "id": "pit_constituent_country_shock",
+      "title": "Index constituent × country-week shock (broadcast, no entity bridge)",
+      "status": "recipe",
+      "inputs": [
+        "refinitiv_index_membership_pit",
+        "asia_country_week_news_market_primary",
+        "entity_market_spine (country_code only)"
+      ],
+      "output_grain": "constituent_ric × week",
+      "join_keys": [
+        "country_code",
+        "week_end",
+        "constituent_ric"
+      ],
+      "assumptions": [
+        "All index members in a country share the country shock (weaker than entity join).",
+        "Uses fused country-week panel (news + market), not GDELT bulk directly."
+      ],
+      "known_bias": "Ecological fallacy for single-name events; good for macro index hedging studies.",
+      "priority": "medium"
+    },
+    {
+      "id": "sec_filing_drift_proxy",
+      "title": "SEC filing date → short-horizon return drift",
+      "status": "metadata_only",
+      "inputs": [
+        "sec_edgar index (metadata)",
+        "yfinance / alpha price panel"
+      ],
+      "output_grain": "cik × filing_date",
+      "join_keys": [
+        "ticker",
+        "filing_date"
+      ],
+      "assumptions": [
+        "Filing publication date is the information event (ignores leak/anticipation)."
+      ],
+      "known_bias": "No PIT link at scale; US only; metadata not instant panel.",
+      "priority": "low"
+    },
+    {
+      "id": "bigquery_usdt_liquidity_regime",
+      "title": "BigQuery USDT flow → crypto liquidity regime",
+      "status": "live_query",
+      "inputs": [
+        "desk BigQuery ADC",
+        "coingecko prices"
+      ],
+      "output_grain": "day",
+      "join_keys": [
+        "date"
+      ],
+      "assumptions": [
+        "Stablecoin mint/burn aggregates signal crypto liquidity conditions."
+      ],
+      "known_bias": "Not materialized in registry instant layer; query cost + cache discipline.",
+      "priority": "low"
+    },
+    {
+      "id": "expand_entity_spine_fuzzy",
+      "title": "Expand GDELT↔RIC bridge via ticker/name fuzzy match",
+      "status": "recipe",
+      "inputs": [
+        "entity_market_spine",
+        "gdelt entity master",
+        "ticker_entity_aliases_v2"
+      ],
+      "output_grain": "ric × gdelt_entity_id",
+      "join_keys": [
+        "exchange_ticker",
+        "country_code",
+        "company_name"
+      ],
+      "assumptions": [
+        "Same ticker in same country maps to same economic entity (false positives possible)."
+      ],
+      "known_bias": "Current bridge 10.9%; US SPX needs this most.",
+      "priority": "high"
+    }
+  ],
+  "synthesis_built": [
+    "jkse_pit_idn_microstructure_revisions",
+    "pit_survivorship_revision_momentum",
+    "idn_fry_episode_outcome",
+    "cross_asset_country_risk_factor",
+    "estimate_revision_momentum",
+    "us_si_risk_overlay"
+  ],
+  "synthesis_recipes": [
+    "gdelt_shock_to_estimate_revision",
+    "country_shock_broadcast_returns",
+    "pit_constituent_country_shock",
+    "expand_entity_spine_fuzzy"
+  ],
+  "top_gaps": [
+    "Event-source ↔ market-instrument bridge is thin (10.9% of spine); not a GDELT-only problem.",
+    "Instant-query center of gravity is Refinitiv institutional (15/39 cards), not GDELT (3/39).",
+    "US entity-linked event coverage lags Asia despite strong estimate/PIT lanes.",
+    "Ticker entity shock panel is a 25-day slice — not yet a longitudinal series.",
+    "104 registry cards are metadata/search — coverage score counts instant panels only."
+  ]
+}

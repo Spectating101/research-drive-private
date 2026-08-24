@@ -1,0 +1,21 @@
+[Unit]
+Description=IDX fry incremental data collector (attention + broker backfill)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@SR_DIR@
+Environment=PYTHONPATH=@KERNEL_DIR@:@ALPHA_DIR@:@DRIVE_DIR@:@SR_DIR@
+Environment=IDN_FRY_BG_BROKER_MAX_CALLS=15
+Environment=IDN_FRY_BG_STRUCTURAL_MAX_CALLS=0
+Environment=IDN_FRY_BG_TECHNICAL_MAX_CALLS=10
+Environment=IDN_FRY_BG_TECHNICAL_TRIGGER_MAX=8
+Environment=IDN_FRY_BG_REFRESH_REPORT=1
+ExecStart=/usr/bin/bash @SR_DIR@/scripts/run_idn_fry_background_collector.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+TimeoutStartSec=3600
+StandardOutput=append:@SR_DIR@/logs/idn_fry_background_collector.log
+StandardError=append:@SR_DIR@/logs/idn_fry_background_collector.log

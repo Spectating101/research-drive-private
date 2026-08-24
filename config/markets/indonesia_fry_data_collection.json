@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "description": "Self-serve fry research data lanes (RapidAPI IDX + broker cache + social).",
+  "fry_episode_dir": "data_lake/research_panels/idn_fry_episode",
+  "emiten_cache_dir": "data_lake/research_panels/idn_fry_episode/emiten_cache",
+  "outputs": {
+    "structural_panel": "data_lake/research_panels/idn_fry_episode/fry_structural_panel.parquet",
+    "attention_panel": "data_lake/research_panels/idn_fry_episode/fry_attention_panel.parquet",
+    "technical_panel": "data_lake/research_panels/idn_fry_episode/fry_technical_panel.parquet",
+    "technical_trigger_panel": "data_lake/research_panels/idn_fry_episode/fry_technical_trigger_panel.parquet",
+    "triggers_enriched": "data_lake/research_panels/idn_fry_episode/trigger_enriched_structural.parquet",
+    "collection_manifest": "data_lake/research_panels/idn_fry_episode/fry_data_collection_manifest.json",
+    "broker_queue": "data_lake/research_panels/idn_fry_episode/fry_trigger_broker_queue.json",
+    "trending_history": "data_lake/sentiment/idn_fry_trending_history.parquet",
+    "reddit_mentions": "data_lake/sentiment/idn_fry_reddit_mentions.parquet"
+  },
+  "rapidapi": {
+    "profile_path": "/api/emiten/{symbol}/profile",
+    "insider_path": "/api/emiten/{symbol}/insider",
+    "info_path": "/api/emiten/{symbol}/info",
+    "technical_path": "/api/analysis/technical/{symbol}",
+    "trending_path": "/api/main/trending",
+    "cache_ttl_sec": 86400,
+    "min_interval_sec": 1.15
+  },
+  "broker_backfill": {
+    "default_max_calls": 200,
+    "delay_sec": 3.5
+  },
+  "reddit": {
+    "enabled": false,
+    "subreddits": ["finansial", "indonesia", "Indostock", "reksadana"],
+    "note": "Public JSON returns 403 without OAuth; leave disabled until REDDIT_CLIENT_ID/SECRET configured"
+  }
+}

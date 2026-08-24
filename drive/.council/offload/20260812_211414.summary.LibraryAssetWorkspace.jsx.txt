@@ -1,0 +1,11 @@
+- React component displays library dataset assets with metadata inspection, data previews, and query access.
+- `value()` utility provides fallback chain for missing fields; defaults to "Not declared".
+- `fieldNames()` extracts/dedupes dataset fields or columns, caps at 12; no truncation warning shown.
+- `AssetOverlay()` modal shows fields or provenance tabs; dismiss via backdrop click only (no Escape key).
+- `DataGlimpse()` fetches 3-row preview via `queryDataset()` API; displays 5 columns max in table.
+- Race condition risk: API promise can resolve after component unmounts despite `cancelled` flag cleanup.
+- Error handling swallows all `queryDataset()` failures generically; no retry, timeout, or granular messaging.
+- No unit tests visible; untested: `value()` fallback, `fieldNames()` deduping, state transitions, overlay logic.
+- Missing mocks for `queryDataset`, `detailFields`, `displayName`, `statusPillKind` imports; async behavior untestable.
+- Accessibility verified via aria attributes (modal, labels) but modal escape-key handler absent.
+- Assumes dataset structure (optional chaining mitigates); validates implicitly on `Object.keys(rows[0])`.

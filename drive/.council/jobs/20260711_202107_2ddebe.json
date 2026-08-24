@@ -1,0 +1,23 @@
+{
+  "id": "20260711_202107_2ddebe",
+  "state": "running",
+  "instruction": "Adversarial read-only design freeze review. Identify only material contradictions inside the proposed UI authority, missing interaction states likely to produce a weak/rigid frontend, and requirements impossible under the current frontend/backend contract. Give severity-ranked findings and GO/HOLD.",
+  "files": [
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/docs/UI_PRODUCT_AUTHORITY.md",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/docs/RESEARCH_DRIVE_RIGHT_RAIL_CONTRACT.md",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/docs/status/generated/research_drive_ui_handoff_20260710.md",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/src/v2/App.jsx",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/src/v2/api.js",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/research_data_mcp/http_router.py"
+  ],
+  "stakes": "high",
+  "kind": "review",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260711_202107_2ddebe.output.txt",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260711_202107_2ddebe.integrate.json",
+  "created_at": 1783772467.571166,
+  "pid": 2922585,
+  "log_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260711_202107_2ddebe.log",
+  "updated_at": 1783772467.6359065
+}

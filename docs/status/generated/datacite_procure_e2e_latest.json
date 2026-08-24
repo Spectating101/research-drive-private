@@ -1,0 +1,61 @@
+{
+  "steps": [
+    {
+      "step": "datacite_search",
+      "ok": true,
+      "detail": "8 hits total=12"
+    },
+    {
+      "step": "pick_doi",
+      "ok": true,
+      "doi": "10.5281/zenodo.7545157",
+      "landing": "https://zenodo.org/record/7545157"
+    },
+    {
+      "step": "datacite_get_doi",
+      "ok": true,
+      "title": "FaIR calibration data"
+    },
+    {
+      "step": "repository_files",
+      "ok": true,
+      "file_count": 1,
+      "chosen": "calibrated_constrained_parameters.csv"
+    },
+    {
+      "step": "source_probe_landing",
+      "ok": true,
+      "status": "completed",
+      "discovered_files": 0
+    },
+    {
+      "step": "http_manifest_collect",
+      "ok": true,
+      "status": "completed",
+      "files": [
+        "calibrated_constrained_parameters.csv"
+      ],
+      "registry_promotion": 1
+    },
+    {
+      "step": "artifacts_list",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "step": "artifacts_download",
+      "ok": true,
+      "preview": ",gamma,c1,c2,c3,kappa1,kappa2,kappa3,epsilon,sigma_eta,sigma_xi,F_4xCO2,r0,rU,rT,rA,ari BC,ari CH4,a"
+    },
+    {
+      "step": "magic_auto_route",
+      "ok": false,
+      "phase": "awaiting_approval",
+      "recommendations": []
+    }
+  ],
+  "ok": true,
+  "campaign_id": "f7744b8666aa",
+  "doi": "10.5281/zenodo.7545157",
+  "delivery_note": "DataCite API = metadata. Payload files resolved via repository (Zenodo API). Bulk harvest shards remain metadata-only."
+}

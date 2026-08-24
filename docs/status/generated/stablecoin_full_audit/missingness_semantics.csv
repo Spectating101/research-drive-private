@@ -1,0 +1,13 @@
+variable,missing_means,zero_ambiguous
+google_trends_index_mean,unknown/unavailable OR not harvested; WARNING: observed 0.0 often means low/zero Trends index not missing,True
+reddit_submissions_sum,no PullPush hits in month OR not mapped; 0 may mean zero posts if present,True
+twitter_followers_end,outside short Skynet visual window OR harvest gap — NOT lifetime missingness,False
+holder_count_end,Skynet holder series sparse; API holdersCountHistory empty in harvest JSON,False
+community_growth_index,no component z-scores that week; BUT constant-zero Trends still yields 0.0 via stdev==0 branch,True
+code_security_score,no governance_strength in harvest; value is snapshot repeated across weeks (pseudo time series),False
+skynet_score,Skynet overall score only on subset (~9) with summary endpoint,False
+gdelt_entity_mention_rows,no alias hit that week OR entity unmapped; not proof of zero news globally,True
+wikipedia_pageviews_sum,entity not in wikipedia map OR no pageviews; not in attention_proxy formula,False
+supply_usd_end,DeFiLlama unmapped or pre-listing; check defillama map,False
+peg_deviation_abs_max,no DeFiLlama price that week / unmapped,False
+incident_count,"0 means no curated incident that week (semantic zero), not missing",False

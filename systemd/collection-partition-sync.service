@@ -1,0 +1,18 @@
+[Unit]
+Description=Sharpe-Renaissance collection partition sync (local/cache → GDrive)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@SR_DIR@
+Environment=PYTHONPATH=@KERNEL_DIR@:@ALPHA_DIR@:@DRIVE_DIR@:@SR_DIR@
+ExecStart=@SR_DIR@/scripts/ops/run_partition_sync.sh --pretty
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+StandardOutput=append:@SR_DIR@/logs/partition_sync_systemd.log
+StandardError=append:@SR_DIR@/logs/partition_sync_systemd.log
+
+[Install]
+WantedBy=default.target

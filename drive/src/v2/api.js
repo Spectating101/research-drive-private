@@ -38,8 +38,8 @@ export function describeDataset(datasetId) {
   return fetchJson(`/datasets/${encodeURIComponent(datasetId)}`);
 }
 
-export function queryDataset(datasetId, limit = 50) {
-  return fetchJson(`/query/${encodeURIComponent(datasetId)}?limit=${limit}`);
+export function queryDataset(datasetId, limit = 25) {
+  return fetchJson(`/query/${encodeURIComponent(datasetId)}?limit=${limit}`, { timeoutMs: 12000 });
 }
 
 export function deskHealth(live = false) {
@@ -116,6 +116,67 @@ export function previewDiscoverSource({
       limit,
     }),
     timeoutMs: 15000,
+  });
+}
+
+export function createResearchNeed(spec) {
+  return fetchJson("/library/discover/research-needs", {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify(spec || {}),
+  });
+}
+
+export function getResearchNeedShortlist(needId) {
+  return fetchJson(`/library/discover/research-needs/${encodeURIComponent(needId)}`);
+}
+
+export function recordSourceOffering(needId, offering) {
+  return fetchJson(`/library/discover/research-needs/${encodeURIComponent(needId)}/offerings`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ offering }),
+  });
+}
+
+export function rejectSourceOffering(needId, offeringId, reason) {
+  return fetchJson(
+    `/library/discover/research-needs/${encodeURIComponent(needId)}/offerings/${encodeURIComponent(offeringId)}/reject`,
+    { method: "POST", headers: deskHeaders(), body: JSON.stringify({ reason }) },
+  );
+}
+
+export function selectSourceOfferingRoute(needId, offeringId, { route, rationale = "" } = {}) {
+  return fetchJson(
+    `/library/discover/research-needs/${encodeURIComponent(needId)}/offerings/${encodeURIComponent(offeringId)}/route`,
+    { method: "POST", headers: deskHeaders(), body: JSON.stringify({ route, rationale }) },
+  );
+}
+
+export function submitSourceOfferingCollect(needId, offeringId, { limit = 200, destination = "" } = {}) {
+  return fetchJson(
+    `/library/discover/research-needs/${encodeURIComponent(needId)}/offerings/${encodeURIComponent(offeringId)}/collect`,
+    {
+      method: "POST",
+      headers: deskHeaders(),
+      body: JSON.stringify({ limit, destination: destination || undefined }),
+    },
+  );
+}
+
+export function syncSourceOfferingOutcome(offeringId, jobId = "") {
+  return fetchJson(`/library/discover/offerings/${encodeURIComponent(offeringId)}/sync`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify({ job_id: jobId || undefined }),
+  });
+}
+
+export function recordSourceOfferingOutcome(offeringId, outcome) {
+  return fetchJson(`/library/discover/offerings/${encodeURIComponent(offeringId)}/outcomes`, {
+    method: "POST",
+    headers: deskHeaders(),
+    body: JSON.stringify(outcome || {}),
   });
 }
 

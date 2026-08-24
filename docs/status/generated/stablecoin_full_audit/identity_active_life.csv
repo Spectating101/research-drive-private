@@ -1,0 +1,72 @@
+entity_id,canonical_name,symbol,coingecko_id,ethereum_address,etherscan_join_suspect,first_supply_week_in_panel,first_peg_week_in_panel,first_trends_week_in_panel,panel_weeks,balanced_grid_note
+tether,Tether,,,,False,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usdd,USDD (Decentralized USD),,,,False,2023-W11,2022-W18,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usd-coin,Usd Coin,,bridged-usd-coin-scroll,,False,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usds,Usds,,,,False,2024-W38,2024-W39,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+world-liberty-financial-usd,World Liberty Financial Usd,,,,False,2026-W03,2025-W18,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usde,Usde,,,,False,2023-W50,2023-W50,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+global-dollar,Global Dollar,,global-dollar,,False,2025-W11,2025-W30,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+paypal-usd,Paypal Usd,,paypal-usd,,False,2024-W04,2023-W33,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+ripple-usd,Ripple Usd,,,,False,2025-W47,2025-W14,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+united-stables,United Stables,,united-stables,,False,2025-W24,2026-W02,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usdtb,Usdtb,,,,False,2024-W50,2024-W51,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usual-usd,Usual Usd,,usual-usd,,False,2024-W12,2024-W26,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+euro-coin,Euro Coin,,,,False,,2022-W32,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+fdusd,Fdusd,,first-digital-usd,,False,2024-W18,2023-W30,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+fraxfinance,Frax,,,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+rupiahtoken,Rupiah Token,,,,True,,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usdk,USDK,,usdkg,,True,2022-W16,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+stasis,STASIS EURO,,,,True,,2022-W27,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+mstable,mStable,,musd,,True,2021-W24,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+angle-protocol,Angle Protocol,,,,True,,2022-W28,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+binance-usd,Binance Usd,,,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+cad-coin,Cad Coin,,cad-coin,,True,,2023-W49,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+czodiac-stabletoken,Czodiac Stabletoken,,,,True,2023-W15,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+euro-tether,Euro Tether,,,,True,,2022-W27,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+euroe-stablecoin,Euroe Stablecoin,,,,True,2021-W36,2023-W10,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+gemini-dollar,Gemini Dollar,,gemini-dollar,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+gyen,Gyen,,,,True,2021-W24,2023-W32,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+inverse-finance-dola-stablecoin,Inverse Finance Dola Stablecoin,,dola-usd,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+liquity-usd,Liquity Usd,,,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+mai,Mai,,,,True,2022-W41,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+monerium,Monerium,,monerium-eur-money-2,,True,,2023-W11,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+origin-dollar,Origin Dollar,,,,True,2022-W17,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+sperax-usd,Sperax Usd,,sperax-usd,,True,,2021-W52,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+susd,Susd,,nusd,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+terrausd,Terrausd,,terrausd-wormhole,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+tether-cnht,Tether Cnht,,,,True,,2025-W27,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+tether-mxnt,Tether Mxnt,,,,True,,2025-W26,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+vai,Vai,,,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+xsgd,Xsgd,,xsgd,,True,2021-W24,2025-W29,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+alchemix-usd,Alchemix Usd,,alchemix-usd,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+defi-franc,DeFi Franc,,,,True,,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+fei-usd,Fei Usd,,fei-usd,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+tor,TOR,,,,True,2022-W03,2022-W07,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+coin98-dollar,Coin98 Dollar,,,,True,2022-W07,2023-W10,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+cryptofranc,Cryptofranc,,,,True,,2023-W13,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+neutrino-usd,Neutrino Usd,,,,True,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+nxusd,Nxusd,,,,True,2021-W36,2023-W11,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+seur,Seur,,seur,,True,,2022-W27,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+token-force-usd,Token Force Usd,,,,True,2022-W26,2021-W30,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+baconcoin-token,Baconcoin Token,,,,True,,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+binance-idr,Binance Idr,,,,True,2024-W03,2024-W03,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+dam-finance,Dam Finance,,,,True,,2023-W15,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+digitaldollar,Digitaldollar,,,,True,2022-W28,2022-W32,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+fantom-usd,Fantom Usd,,,,True,2021-W24,2022-W31,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+husd,Husd,,husd,,True,2021-W36,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+interest-protocol,Interest Protocol,,,,True,2022-W29,2022-W33,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+poundtoken,Poundtoken,,,,True,,2025-W49,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+spiceusd,Spiceusd,,,,True,2022-W17,2022-W21,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+straitsx-indonesia-rupiah,Straitsx Indonesia Rupiah,,,,True,2025-W29,2025-W29,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+trueaud,Trueaud,,,,True,,2024-W10,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+truecad,Truecad,,,,True,,2026-W11,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+truegbp,Truegbp,,,,True,,2025-W30,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+yusd-stablecoin,Yusd Stablecoin,,yusd-stablecoin,,True,2022-W26,2022-W15,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+zusd,Zusd,,,,True,2021-W24,2021-W24,,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+celo-dollar,Celo Dollar,,moola-celo-dollars,,False,2021-W24,2021-W24,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+celo-euro,Celo Euro,,,,False,2021-W24,2022-W28,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usdh,Usdh,,usdh-2,,False,2022-W15,2022-W31,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+usdtez,Usdtez,,usdtez,,False,2021-W24,2022-W33,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+hedge-usd,Hedge Usd,,,,False,2021-W30,2022-W28,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+parrot-usd,Parrot Usd,,,,False,2022-W22,2021-W37,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active
+ratio-stable-coin,Ratio Stable Coin,,,,False,,,2021-W24,263,professor/research weekly is balanced 263 weeks from 2021-W24 even if pre-active

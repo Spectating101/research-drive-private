@@ -1,0 +1,245 @@
+{
+  "marketpsych_search": [
+    {
+      "RIC": "0#MARKETPSYCH",
+      "DocumentTitle": "MarketPsych, Source is an LSEG Contributor",
+      "BusinessEntity": "QUOTExCOMMODITY"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "Marketpsych Advisor, LLC, Private Company",
+      "BusinessEntity": "ORGS"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "Marketpsych Pte Ltd, Private Company",
+      "BusinessEntity": "ORGS"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "Marketpsych Inc, Private Company",
+      "BusinessEntity": "ORGS"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych Data via SFTP: News and Social Media Feeds",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych ESG Analytics",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych API: News and Social Media Feeds",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych: Using AI on News to Predict Price Action",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych NLP Engine",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "Deep Dive into LSEG MarketPsych NLP Engine",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych Analytics for Companies and Company Groups",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych Transcript Analytics",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych Analytics for Agriculture Commodities",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych Analytics",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych: Conflict and Crude Oil in Action",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych Analytics for Currencies",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPysch Transcript Analytics: Introduction and Use Cases",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "LSEG MarketPsych Analytics for Energy and Material",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych: Media Sentiment Reversals",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych: LSEG MarketPsych NLP Engine",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych: Cross-Asset Effects of Geopolitical Events",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "StarMine Text Mining Credit Model (TMCR)",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "MarketPsych: From Unstructured to Structured Data",
+      "BusinessEntity": "HELPxVIDEO"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "How do I understand TimeUrgency field in MarketPsych Indices tables MPICmpApacData, MPICmpAmerData and MPICmpEmeaData?",
+      "BusinessEntity": "FAQ"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "Getting Started with Machine Readable News (MRN)",
+      "BusinessEntity": "HELPxVIDEO"
+    }
+  ],
+  "search_Tether": [
+    {
+      "RIC": "USDT=",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, REFINITIV",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "XAUT=FTSE",
+      "DocumentTitle": "Gold/US Dollar FX Spot Rate, FX Spot Rate, FTSE INTERNATIONAL",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "BTCUSDT=BITS",
+      "DocumentTitle": "Bitcoin/US Dollar FX Cross Rate, FX Cross Rate, Bitso",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "TIMEUSDT=KUCN",
+      "DocumentTitle": "Time/Tether FX Spot Rate, FX Spot Rate, Kucoin",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=BFNX",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, BITFINEX",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=CCCL",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, CoinDesk Data and Indices",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=BTSP",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, Bitstamp",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "SANDUSDT=CCCL",
+      "DocumentTitle": "The Sandbox/Tether FX Spot Rate, FX Spot Rate, CoinDesk Data and Indices",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "BUSDUSDT=CCCL",
+      "DocumentTitle": "Binance USD/Tether FX Spot Rate, FX Spot Rate, CoinDesk Data and Indices",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "RUNEUSDT=KUCN",
+      "DocumentTitle": "Thor Chain/Tether FX Spot Rate, FX Spot Rate, Kucoin",
+      "BusinessEntity": "STIR"
+    }
+  ],
+  "search_USDT stablecoin": [
+    {
+      "RIC": "STABLECOINUSDT=FTSE",
+      "DocumentTitle": "Stable/Tether FX Cross Rate, FX Cross Rate, FTSE INTERNATIONAL",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "<NA>",
+      "DocumentTitle": "Capital Protected Bitcoin Linked USDT Stablecoin SP-Blockberry, Private Company",
+      "BusinessEntity": "ORGS"
+    }
+  ],
+  "search_USD Tether": [
+    {
+      "RIC": "USDT=",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, REFINITIV",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "XAUT=FTSE",
+      "DocumentTitle": "Gold/US Dollar FX Spot Rate, FX Spot Rate, FTSE INTERNATIONAL",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=BFNX",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, BITFINEX",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=CCCL",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, CoinDesk Data and Indices",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=BTSP",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, Bitstamp",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "TONUSDT=BQNT",
+      "DocumentTitle": "Toncoin/Tether FX Cross Rate, FX Cross Rate, Bequant",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "EURT=BTSPd",
+      "DocumentTitle": "Euro Tether/US Dollar FX Spot Rate, FX Spot Rate, Bitstamp",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=KRKN",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, KRAKEN",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=CJAR",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, CoinJar",
+      "BusinessEntity": "STIR"
+    },
+    {
+      "RIC": "USDT=IDRE",
+      "DocumentTitle": "Tether/US Dollar FX Spot Rate, FX Spot Rate, Independent Reserve",
+      "BusinessEntity": "STIR"
+    }
+  ]
+}

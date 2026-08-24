@@ -1,0 +1,71 @@
+{
+  "cases": [
+    {
+      "id": "true_miss_kayak",
+      "source": "desk_chat",
+      "tier": "T4_procure_miss",
+      "plan_launchable": false,
+      "note": "validated via desk chat turn 3"
+    },
+    {
+      "id": "true_miss_patent",
+      "latency_ms": 5255,
+      "top": "external_dataset_catalog_curated",
+      "tier": "T2_vault",
+      "index_miss": false,
+      "web_hits": 0,
+      "plan_launchable": false,
+      "probe": false,
+      "plan_collect": false,
+      "sample_rows": 25
+    },
+    {
+      "id": "opensea_exact",
+      "latency_ms": 1840,
+      "top": "opensea_nft_metadata_layer",
+      "tier": "T1_instant",
+      "index_miss": false,
+      "web_hits": 0,
+      "plan_launchable": false,
+      "probe": false,
+      "plan_collect": false,
+      "sample_rows": 2
+    },
+    {
+      "id": "datacite_zenodo",
+      "latency_ms": 6239292,
+      "top": "datacite_10.5281_zenodo.7545157",
+      "tier": "T1_instant",
+      "index_miss": false,
+      "web_hits": 0,
+      "plan_launchable": false,
+      "probe": false,
+      "plan_collect": false,
+      "sample_rows": 0
+    },
+    {
+      "id": "spk_testnet",
+      "latency_ms": 2410,
+      "top": "spk_v1_payment_ledger",
+      "tier": "T1_instant",
+      "index_miss": false,
+      "web_hits": 0,
+      "plan_launchable": false,
+      "probe": false,
+      "plan_collect": false,
+      "sample_rows": 3
+    },
+    {
+      "id": "gdelt_urls",
+      "latency_ms": 2409,
+      "top": "gdelt_high_priority_urls",
+      "tier": "T1_instant",
+      "index_miss": false,
+      "web_hits": 0,
+      "plan_launchable": false,
+      "probe": false,
+      "plan_collect": false,
+      "sample_rows": 3
+    }
+  ]
+}

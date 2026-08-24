@@ -8,6 +8,20 @@ export function normalizeDiscoverMode(raw = "") {
   return "explore";
 }
 
+/** Catalogue text (e.g. OpenAlex abstracts) often carries raw markup — strip it before it reaches the UI. */
+function cleanDescription(value) {
+  return String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function endpointToUrl(endpoint) {
   const text = String(endpoint || "").trim();
   if (!text) return "";
@@ -29,7 +43,7 @@ export function sourceResultToCandidate(row = {}) {
     source: row.provider || row.source || row.label,
     publisher: row.provider || row.publisher || row.source,
     description:
-      row.description ||
+      cleanDescription(row.description) ||
       [row.access_mode, ...caps.slice(0, 3)].filter(Boolean).join(" · "),
     access_mode: row.access_mode || row.access || "",
     collect_via: collect[0] || row.collect_via || "",
@@ -42,9 +56,26 @@ export function sourceResultToCandidate(row = {}) {
   };
 }
 
+function candidateDedupeKey(candidate) {
+  return String(
+    candidate.candidate_key || candidate.source_id || candidate.url || candidate.title || "",
+  )
+    .trim()
+    .toLowerCase();
+}
+
 export function sourcesResponseToRows(data) {
   const results = Array.isArray(data?.results) ? data.results : [];
-  return results.map(sourceResultToCandidate);
+  const seen = new Set();
+  const out = [];
+  for (const row of results) {
+    const candidate = sourceResultToCandidate(row);
+    const key = candidateDedupeKey(candidate);
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(candidate);
+  }
+  return out;
 }
 
 export function durableHistoryToEvents(data) {

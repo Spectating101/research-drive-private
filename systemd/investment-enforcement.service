@@ -1,0 +1,14 @@
+[Unit]
+Description=Sharpe-Renaissance investment enforcement and operator dashboard refresh
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@SR_DIR@
+Environment=PYTHONPATH=@KERNEL_DIR@:@ALPHA_DIR@:@DRIVE_DIR@:@SR_DIR@
+ExecStart=@VENV_PYTHON@ scripts/investment_enforcement_cycle.py
+ExecStart=@VENV_PYTHON@ scripts/investment_operator_dashboard.py
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6

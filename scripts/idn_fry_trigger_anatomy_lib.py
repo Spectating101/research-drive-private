@@ -1,0 +1,1 @@
+../alpha/scripts/idn_fry_trigger_anatomy_lib.py

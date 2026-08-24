@@ -1,0 +1,1 @@
+../alpha/scripts/run_research_spine.sh

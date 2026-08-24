@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Sharpe-Renaissance Asia news-market modeling trial twice daily
+
+[Timer]
+OnCalendar=*-*-* 09,21:15:00
+Persistent=true
+Unit=asia-news-market-modeling-trial.service
+
+[Install]
+WantedBy=timers.target

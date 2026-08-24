@@ -1,0 +1,1 @@
+../drive/scripts/reclaim_gdelt_gkg_local_after_drive_ok.sh

@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-07-06T07:29:26Z",
+  "queue_complete_months": 66,
+  "queue_total_months": 102,
+  "expanded_window_dirs": {
+    "normalized": 69,
+    "processed": 69
+  },
+  "current_gb": {
+    "normalized_expanded_gb": 157.91,
+    "normalized_asia_legacy_gb": 6.99,
+    "processed_expanded_gb": 173.93,
+    "derived_gb": 0.64,
+    "raw_gb": 0.25,
+    "total_taxonomy_gb": 339.72,
+    "stablecoin_dataset_gb": 0.04
+  },
+  "scenarios_at_102_months_gb": {
+    "A_full_pipeline_at_102mo_gb": 520.72,
+    "B_drop_processed_keep_normalized_gb": 251.92,
+    "C_derived_and_datasets_local_only_gb": 0.68
+  },
+  "notes": [
+    "343GB is normalized+processed pipeline bulk, not raw GDELT zips.",
+    "Target products: derived/ overlays + data/datasets/stablecoin_trust_engagement.",
+    "See docs/GDELT_RETENTION_PLAN.md"
+  ]
+}

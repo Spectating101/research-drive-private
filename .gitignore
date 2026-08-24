@@ -59,6 +59,16 @@ backtests/outputs/
 reports/
 Sharpe-Renaissance/
 
+# Bulk research outputs — canonical copies live in the GDrive vault, not Git.
+data/
+stablecoin_skynet/
+From-refinitiv/
+scrapes/
+QUARANTINE_DO_NOT_SEND/
+
+# Runtime lock state
+.locks/
+
 # Local generated installs
 sharpe_rust/
 
@@ -78,6 +88,20 @@ drive/logs/
 drive/.playwright-mcp/
 drive/docs/status/generated/
 drive/config/*.local.json
+
+# Node and Python environments
+node_modules/
+.venv/
+.venv-*/
+
+# Browser-automation and test scratch
+.tmp-pw/
+.playwright-mcp/
+test-results/
+
+# Stray artifacts from mis-run commands
+MagicMock/
+importlib
 
 # OS/editor noise
 .DS_Store

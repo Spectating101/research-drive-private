@@ -1,0 +1,1 @@
+../drive/scripts/build_asia_ticker_watchlist_from_news.py

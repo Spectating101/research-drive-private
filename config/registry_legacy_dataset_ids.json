@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "notes": "Backward-compatible dataset_id aliases after production renames.",
+  "aliases": {
+    "ethereum_usdt_rpc_pilot": "ethereum_usdt_rpc_sample"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "verdict": "NEEDS_EDIT",
+  "summary": "4 blocker/high issue(s) \u2014 fix before merge.",
+  "kind": "review",
+  "target_file": "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryAssetWorkspace.jsx",
+  "blockers": [
+    "[line 6] Race condition in DataGlimpse where API promise may resolve after unmount causing state updates/unhandled rejections",
+    "[line 7] Error handling swallows all queryDataset() failures",
+    "[line 6] Race condition in DataGlimpse where API promise may resolve after unmount causing state updates/unhandled rejections: Use AbortController or cancellable promise pattern and guard setState with isMounted/ref in cleanup; add CI test to assert no setState-after-unmount. [voted by: copilot-spectator]",
+    "[line 7] Error handling swallows all queryDataset() failures: Replace silent catch with typed/observable errors, add timeout + limited retries in a central query wrapper, and surface explicit error state to disable or annotate dependent actions so the UI never claims capabilities that aren't confirmed. [voted by: copilot-ly]"
+  ],
+  "code_blocks": [],
+  "has_structured_critique": true,
+  "cursor_action": "Fix blockers first, optionally re-run council validate.",
+  "recommendation": "NEEDS_DATA",
+  "confidence": 55.0
+}

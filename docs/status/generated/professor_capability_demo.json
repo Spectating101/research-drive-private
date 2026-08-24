@@ -1,0 +1,211 @@
+{
+  "generated_at": "2026-06-23T14:15:30Z",
+  "library": {
+    "latency_ms": 6,
+    "total_datasets": 53,
+    "ready_datasets": null,
+    "runnable_queue_tasks": 7,
+    "gdrive_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data"
+  },
+  "panel_query": {
+    "latency_ms": 0,
+    "error": "'ResearchDataGateway' object has no attribute 'query_overview'"
+  },
+  "scenarios": [
+    {
+      "id": "local_gdelt",
+      "label": "Use what we have — GDELT Asia panel",
+      "query": "query GDELT asia daily country panel for Taiwan news shock events",
+      "search": {
+        "latency_ms": 102397,
+        "index_miss": false,
+        "candidate_count": 2,
+        "top": {
+          "title": "Asia GDELT GKG monthly news-shock backlog, 2024-present",
+          "collect_via": "queue",
+          "local_ready": null,
+          "kind": "queue_task"
+        },
+        "lines": [
+          "Asia GDELT GKG monthly news-shock backlog, 2024-present",
+          "GDELT Interface for Communication Research (iCoRe)"
+        ]
+      }
+    },
+    {
+      "id": "local_twse",
+      "label": "Use what we have — Taiwan market layer",
+      "query": "TWSE Taiwan stock market daily prices OpenAPI",
+      "search": {
+        "latency_ms": 47841,
+        "index_miss": false,
+        "candidate_count": 1,
+        "top": {
+          "title": "Taiwan TWSE OpenAPI market, sector, and disclosure-adjacent layer",
+          "collect_via": "queue",
+          "local_ready": null,
+          "kind": "queue_task"
+        },
+        "lines": [
+          "Taiwan TWSE OpenAPI market, sector, and disclosure-adjacent layer"
+        ]
+      }
+    },
+    {
+      "id": "vault_datacite",
+      "label": "Search our DataCite vault (hydrated FTS)",
+      "query": "climate ocean temperature dataset",
+      "search": {
+        "latency_ms": 45182,
+        "index_miss": false,
+        "candidate_count": 2,
+        "top": {
+          "title": "Aprubt climate change events in the Northeastern Atlantic Ocean",
+          "collect_via": "none",
+          "local_ready": null,
+          "kind": "datacite"
+        },
+        "lines": [
+          "Aprubt climate change events in the Northeastern Atlantic Ocean",
+          "Age model, stable isotopes of planktic and benthic foraminifera, Sea Surface Temperatures "
+        ]
+      },
+      "vault": {
+        "latency_ms": 13,
+        "hit_count": 5,
+        "top": [
+          {
+            "doi": "10.1594/pangaea.763908",
+            "title": "Seawater carbonate chemistry duirng experiments with sea urchin Paracentrotus li",
+            "shard": null
+          },
+          {
+            "doi": "10.1594/pangaea.763566",
+            "title": "Age model, stable isotopes of planktic and benthic foraminifera, Sea Surface Tem",
+            "shard": null
+          },
+          {
+            "doi": "10.1594/pangaea.733406",
+            "title": "Constraints on the magnitude and patterns of ocean cooling at the Last Glacial M",
+            "shard": null
+          },
+          {
+            "doi": "10.1594/pangaea.55761",
+            "title": "Calculated sea surface temperature of sediment core M35003-4",
+            "shard": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "external_flight",
+      "label": "Source externally — US airfare history",
+      "query": "historical US domestic airline ticket prices by route BTS DB1B",
+      "search": {
+        "latency_ms": 58729,
+        "index_miss": true,
+        "candidate_count": 7,
+        "top": {
+          "title": "Design full acquisition pipeline (probe → scrape → collect)",
+          "collect_via": "magic",
+          "local_ready": null,
+          "kind": "acquisition_plan"
+        },
+        "lines": [
+          "Design full acquisition pipeline (probe → scrape → collect)",
+          "Parameter Estimation of the Nonlinear Muskingum Model Using Ant Colony Optimization",
+          "Decarbonizing primary steel production : Techno-economic assessment of a hydrogen based gr",
+          "Decarbonizing primary steel production : Techno-economic assessment of a hydrogen based gr"
+        ]
+      },
+      "procure": {
+        "latency_ms": 52498,
+        "index_miss": true,
+        "phase": "collecting",
+        "message": "The local catalog lacks the BTS DB1B bulk data files needed for historical US domestic airline ticket prices by route. The best approach is to directly download the DB1B Coupon, Market, and Ticket tables from the BTS TranStats bulk download site. Existing scrapes of the field selection page can be i",
+        "probe_urls": [
+          "https://www.transtats.bts.gov/DL_SelectFields.asp?Table_ID=247",
+          "https://www.transtats.bts.gov/DL_SelectFields.asp?Table_ID=292",
+          "https://www.transtats.bts.gov/DL_SelectFields.aspx"
+        ],
+        "recommendation_count": 3,
+        "top_rec_action": "approve_collect"
+      }
+    },
+    {
+      "id": "external_obscure",
+      "label": "Source externally — earthquake catalog",
+      "query": "global earthquake catalog CSV open data USGS EMSC",
+      "search": {
+        "latency_ms": 61629,
+        "index_miss": true,
+        "candidate_count": 7,
+        "top": {
+          "title": "Design full acquisition pipeline (probe → scrape → collect)",
+          "collect_via": "magic",
+          "local_ready": null,
+          "kind": "acquisition_plan"
+        },
+        "lines": [
+          "Design full acquisition pipeline (probe → scrape → collect)",
+          "Public yfinance 10-year global drilldown market panel",
+          "INTERACTION OF DENSITY FLOW AND GEOCHEMICAL PROCESSES ON ISLANDS IN THE OKAVANGO DELTA, BO",
+          "INTERACTION OF DENSITY FLOW AND GEOCHEMICAL PROCESSES ON ISLANDS IN THE OKAVANGO DELTA, BO"
+        ]
+      },
+      "procure": {
+        "latency_ms": 22575,
+        "index_miss": false,
+        "phase": "collecting",
+        "message": "We have two USGS Earthquake Catalog CSV datasets already procured and available locally. They are not analysis-ready instantly (metadata_search only), but you can inspect and export them. For EMSC, we only have a PDF activity report, not a catalog. If you need a global earthquake catalog from EMSC, ",
+        "probe_urls": [],
+        "recommendation_count": 0,
+        "top_rec_action": null
+      }
+    }
+  ],
+  "chat_flows": [
+    {
+      "latency_ms": 36288,
+      "action": "search",
+      "reply": "We have a queue task for a Taiwan TWSE OpenAPI dataset that covers market, sector, and disclosure-adjacent data. It's not yet collected, but it's directly relevant to your interest in Taiwan equity. I've queued it for collection under job ID `twse_openapi_taiwan_market_layer`. It should be ready within a few hours, depending on the API rate limits.",
+      "error": null
+    },
+    {
+      "latency_ms": 21633,
+      "action": "acquire",
+      "reply": "Local catalog match for: source this for me: open flight route airport data\n\nCampaign `dc35cf835bfa` · phase **ready**\n\nActive job `8f821f779316` · completed\n\nSay **status** for updates, or **approve** when a collect step is ready.",
+      "error": null
+    }
+  ],
+  "collect": {
+    "latency_ms": 1455,
+    "status": "completed",
+    "output_hint": "",
+    "error": ""
+  },
+  "hydration": {
+    "shard_indexes": [
+      {
+        "shard": "y2025",
+        "size_mb": 12644.7
+      },
+      {
+        "shard": "y2025_q1",
+        "size_mb": 8261.1
+      },
+      {
+        "shard": "y2025_q2",
+        "size_mb": 3202.3
+      },
+      {
+        "shard": "y2025_q3",
+        "size_mb": 9374.7
+      },
+      {
+        "shard": "y2026",
+        "size_mb": 2204.9
+      }
+    ]
+  }
+}

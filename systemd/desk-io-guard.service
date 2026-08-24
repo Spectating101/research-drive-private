@@ -1,0 +1,8 @@
+[Unit]
+Description=Deprioritize GDELT/gzip disk I/O for Research Desk responsiveness
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/ops/desk_io_guard.sh
+Nice=19

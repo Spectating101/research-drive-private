@@ -1,4 +1,6 @@
-# Desk activation backlog (operational — not inventory)
+# Desk activation backlog (historical operational snapshot)
+
+> **Historical backlog:** This ordering was recorded on 2026-07-06. It is useful context, not an active product or deployment authority. Start with [CURRENT_STATE.md](CURRENT_STATE.md) and verify live state before acting on any item below.
 
 **This is not `DATABANK_STATE.md`.**  
 Read [`DATABANK_STATE.md`](DATABANK_STATE.md) for neutral truth: what exists, where it lives, coverage axes.

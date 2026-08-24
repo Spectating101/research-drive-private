@@ -1,0 +1,12 @@
+[Unit]
+Description=Monitor and recover DataCite cluster workers
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+Environment=DATACITE_AUTO_REBALANCE=1
+Environment=DATACITE_REBALANCE_STEAL_ACTIVE=0
+Environment=CLUSTER_OPS_TIMEOUT=1800
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/yzu_cluster/run_on_ops_host.sh bash scripts/data_catalog/datacite_cluster_watchdog.sh
+

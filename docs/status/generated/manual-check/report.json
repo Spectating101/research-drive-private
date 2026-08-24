@@ -1,0 +1,69 @@
+{
+  "base": "http://127.0.0.1:5178",
+  "at": "2026-06-23T17:18:09.832Z",
+  "steps": [
+    {
+      "name": "home",
+      "ok": true,
+      "h1": "Research data, organized like files.",
+      "subtitle": "Browse Lab Drive and My Drive. Ask the assistant to source datasets not in the library yet.",
+      "greenHero": false,
+      "headerSourceBtn": [
+        "New",
+        "Activity",
+        "YZ"
+      ],
+      "tiles": [
+        "Lab Drive",
+        "My Drive",
+        "Discover",
+        "Activity"
+      ],
+      "assistantTab": [
+        "Details",
+        "Assistant"
+      ],
+      "assistantH3": "Assistant",
+      "placeholder": "Search library or ask to source",
+      "signIn": true,
+      "llmWarn": false,
+      "recentRows": 0
+    },
+    {
+      "name": "new-sheet",
+      "ok": true,
+      "dialog": true,
+      "labels": [
+        "Source dataset",
+        "Upload file"
+      ]
+    },
+    {
+      "name": "discover",
+      "ok": true,
+      "h1": "Search and source"
+    },
+    {
+      "name": "lab-drive",
+      "ok": true,
+      "rows": 3
+    },
+    {
+      "name": "search-ask",
+      "ok": true,
+      "assistantH3": "Assistant",
+      "chatMessages": 2,
+      "bodySnippet": "RD\nResearch Drive\nresearch library\nAsk\nNew\nActivity\nYZ\n+ New\nHome\nSTART\nMy Drive\n13\nLab Drive\n6\nDiscover\n4\nActivity\nLIVE\nLab admin\nYZ\nSign in\nPERSONALIZE YOUR DESK\nVAULT · GDRIVE\nCACHE · 1741.57 GB FREE\nDESK · 63 GB\nSign in with your YZU email\n\nPersonalized dataset matches and collect approvals.\n\nSign in\nResearch data, organized like files.\n\nBrowse Lab Drive and My Drive. Ask the assistant to source datasets not in the library yet.\n\nLab Drive\n38 datasets\nMy Drive\nYour uploads\nDiscover\nSearch and"
+    },
+    {
+      "name": "dataset-detail",
+      "ok": true,
+      "hasOverview": true,
+      "navButtons": [],
+      "inspectorCount": 1,
+      "url": "http://127.0.0.1:5178/",
+      "mainHeading": "Lab Drive"
+    }
+  ],
+  "issues": []
+}

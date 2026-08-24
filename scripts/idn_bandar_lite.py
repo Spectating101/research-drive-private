@@ -1,0 +1,1 @@
+../alpha/scripts/idn_bandar_lite.py

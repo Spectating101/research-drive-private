@@ -1,0 +1,21 @@
+{
+  "comment": "Explicit entity_id -> GitHub owner/repo (no guessing). Skynet links + manual protocol repos.",
+  "repos": {
+    "defi-franc": "defifranc/defifranc",
+    "fraxfinance": "FraxFinance/frax-solidity",
+    "mstable": "mstable/mStable-contracts",
+    "rupiahtoken": "rupiah-token/rupiah-token",
+    "stasis": "stasisnet/stasis-contracts",
+    "usdd": "usddvip/usdd",
+    "liquity-usd": "liquity/dev",
+    "inverse-finance-dola-stablecoin": "InverseFinance/inverse-protocol",
+    "origin-dollar": "OriginProtocol/origin-dollar",
+    "angle-protocol": "AngleProtocol/angle-solidity",
+    "crvusd": "curvefi/curve-stablecoin",
+    "fei-usd": "fei-protocol/fei-protocol-core",
+    "gho": "aave/gho-core",
+    "dai": "makerdao/dss",
+    "paypal-usd": "paxosglobal/pyusd-contract",
+    "usual-usd": "usual-dao/pegasus"
+  }
+}

@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "description": "IDX shock/turnaround schools — decomposed into testable feature rules. Sources browsed Jun 2026.",
+  "schools": [
+    {
+      "id": "astronacci_gema",
+      "name": "Astronacci / Dr. Gema Goeyardi",
+      "sources": [
+        "https://astronacci.com/blog/read/metode-astronacci-cara-membaca-market",
+        "https://www.youtube.com/watch?v=qe8SWZ2-hW8",
+        "https://timesindonesia.co.id/ekonomi/530560/optimistis-kinerja-bank-pemerintah-dr-gema-tak-perlu-takut-bbri-rontok"
+      ],
+      "core_claim": "Reversal needs confluence: macro + quality + price structure + TIME cycle + psychology.",
+      "layers": ["macro", "fundamental", "technical_sr", "time_cycle", "psychology"],
+      "actionable_for_us": ["confluence_gate", "moon_window", "support_pick_bottom", "event_exhaustion"]
+    },
+    {
+      "id": "stockbit_bandarmology",
+      "name": "Stockbit Bandar Detector / Nadhizky",
+      "sources": [
+        "https://help.stockbit.com/id/article/bandar-detector-pengenalan-teori-ilmu-bandarmology-11kn0hl/",
+        "https://snips.stockbit.com/investasi/aplikasi-bandarmology",
+        "https://stockbit.com/post/21401912"
+      ],
+      "core_claim": "Broker summary net buy/sell clusters reveal acc vs dist; multi-broker masking; phases acc→markup→dist.",
+      "layers": ["flow_broker", "volume_price", "technical_sr"],
+      "actionable_for_us": ["bandar_lite_proxy", "acc_volume_pattern", "dist_volume_divergence"]
+    },
+    {
+      "id": "stocksahamharian",
+      "name": "stocksahamharian (Stockbit community)",
+      "sources": ["https://www.kabarbursa.com/makro/trader-sering-salah-paham-support-resistance-bukan-titik-pasti"],
+      "core_claim": "Support/resistance are ZONES not lines; validity = rejection + volume + retests, not pretty charts.",
+      "layers": ["technical_structure"],
+      "actionable_for_us": ["support_zone_proximity", "resistance_zone_proximity", "volume_at_level"]
+    },
+    {
+      "id": "faisalwibawa",
+      "name": "Muhamad Faisal / FaisalWibawa (Stockbit)",
+      "sources": ["https://stockbit.com/post/16079956"],
+      "core_claim": "Swing highs/lows define floor/ceiling; price bounces between support and resistance.",
+      "layers": ["technical_sr"],
+      "actionable_for_us": ["swing_low_support", "swing_high_resistance"]
+    },
+    {
+      "id": "bandarmology_net",
+      "name": "Bandarmology.Net",
+      "sources": ["https://bandarmology.net/"],
+      "core_claim": "Broker average buy price = bandar cost basis; S/R validated by accumulation volume.",
+      "layers": ["flow_broker", "technical_sr"],
+      "actionable_for_us": ["bandar_lite_proxy", "support_zone_proximity"]
+    },
+    {
+      "id": "ihsgscreener",
+      "name": "IHSG Screener / Quant Terminal",
+      "sources": ["https://ihsgscreener.com/"],
+      "core_claim": "ARA setup = foreign acc + volume + near support; bull divergence at 52w low; ceiling = extended + vol spike.",
+      "layers": ["flow_foreign", "technical_momentum", "ara_mechanics"],
+      "actionable_for_us": ["bull_divergence_52w", "ara_candidate_floor", "early_breakout_ceiling", "pct_to_ara"]
+    },
+    {
+      "id": "idxscreener",
+      "name": "IDXScreener",
+      "sources": ["https://idxscreener.com/"],
+      "core_claim": "Foreign flow + volume anomaly + momentum before ARA; RS vs IHSG for swing.",
+      "layers": ["flow_foreign", "momentum"],
+      "actionable_for_us": ["rel_strength_ihsg", "vol_anomaly", "ara_candidate_floor"]
+    },
+    {
+      "id": "poems_bandarmology",
+      "name": "POEMS / Phillip Sekuritas education",
+      "sources": ["https://www.poems.co.id/htm/Freeducation/Newsletter/v26/Vol126_bandarmology.html"],
+      "core_claim": "Mark-up WITHOUT accumulation = trap; sell-on-strength after FOMO; mark-down without dist = shakeout.",
+      "layers": ["flow_proxy", "psychology"],
+      "actionable_for_us": ["markup_without_acc_trap", "sell_on_strength", "shakeout_markdown"]
+    },
+    {
+      "id": "ajaib_smart_money",
+      "name": "Ajaib smart-money education",
+      "sources": [
+        "https://ajaib.co.id/belajar/investasi/cara-menghindari-saham-sedang-dibuang-smart-money",
+        "https://ajaib.co.id/belajar/investasi/cara-mengetahui-saham-yang-sedang-diakumulasi-atau-distribusi"
+      ],
+      "core_claim": "Price up + money flow down = distribution; acc is quiet at bottom, dist is optimistic at top.",
+      "layers": ["flow_proxy", "volume_price"],
+      "actionable_for_us": ["dist_volume_divergence", "acc_quiet_base"]
+    },
+    {
+      "id": "sell_side_conditional",
+      "name": "Sell-side brokers (Trimegah, CGS, Ciptadana)",
+      "sources": [
+        "https://money.kompas.com/read/2026/06/02/140504326/sentimen-msci-sudah-lewat-analis-sebut-fundamental-jadi-penentu-prospek-bbca",
+        "https://www.bareksa.com/berita/saham/2026-06-05/rekomendasi-saham-hari-ini-bbca-bumi-mbma-tkim-ihsg-berpotensi-rebound-terbatas"
+      ],
+      "core_claim": "Public conditional rules: if hold support X then rebound to Y; event overhang (MSCI) peaks then fundamentals matter.",
+      "layers": ["event", "technical_sr"],
+      "actionable_for_us": ["event_exhaustion", "support_hold_bounce", "ihsg_support_rebound"]
+    },
+    {
+      "id": "decuan_macro",
+      "name": "DE'CUAN / macro backbone framing",
+      "sources": ["https://www.youtube.com/watch?v=ld8_0ZDVJ10"],
+      "core_claim": "IDX backbone = banks + coal/energy/mining; cut loss above, re-buy at strong support; hype themes rotate.",
+      "layers": ["macro", "sector", "psychology"],
+      "actionable_for_us": ["regime_washout_banks", "compounder_support_rsi"]
+    },
+    {
+      "id": "idx_retail_playbook",
+      "name": "Sharpe retail playbook (coded replication)",
+      "sources": ["scripts/idn_retail_strategies.py"],
+      "core_claim": "Compounder support+RSI and IHSG washout→banks are best OOS rules we have.",
+      "layers": ["technical_sr", "regime"],
+      "actionable_for_us": ["compounder_support_rsi", "ihsg_washout_banks", "bluechip_support"]
+    },
+    {
+      "id": "ngomongin_uang_bandar",
+      "name": "Ngomongin Uang (YouTube) / retail bandar lore",
+      "sources": ["https://www.receh.in/2024/06/mengenal-analisis-bandarmologi-dan-cara.html"],
+      "core_claim": "Big money buy precedes move; use broker movement/value/volume indicators from sekuritas platforms.",
+      "layers": ["flow_broker", "psychology"],
+      "actionable_for_us": ["bandar_lite_proxy", "vol_ratio_20d"]
+    },
+    {
+      "id": "chartbit_pivot",
+      "name": "Stockbit Chartbit pivot / supertrend",
+      "sources": ["https://help.stockbit.com/id/article/chartbit-bagaimana-cara-membuat-support-dan-resistance-zgw9i3/"],
+      "core_claim": "Pivot points and supertrend flips for reversal entry and stop placement.",
+      "layers": ["technical_sr"],
+      "actionable_for_us": ["support_zone_proximity", "resistance_zone_proximity"]
+    }
+  ],
+  "signal_rules": [
+    {
+      "id": "floor_compounder_support_rsi",
+      "school_ids": ["idx_retail_playbook", "decuan_macro", "astronacci_gema"],
+      "turn_type": "floor",
+      "name_type_filter": ["compounder"],
+      "conditions": {
+        "symbol_scope": "compounders",
+        "near_support_60d": true,
+        "rsi14_max": 35
+      },
+      "hold_days": 20,
+      "notes": "Data-classified compounders: top-quartile ADV, spike<1%, vol<=p60, at 60d support + RSI<35."
+    },
+    {
+      "id": "floor_bull_divergence",
+      "school_ids": ["ihsgscreener", "ajaib_smart_money"],
+      "turn_type": "floor",
+      "name_type_filter": ["fry", "standard"],
+      "conditions": {
+        "pos_52w_range_max": 0.55,
+        "return_1d_min": 0.03,
+        "vol_ratio_20d_min": 2.0
+      },
+      "hold_days": 5,
+      "notes": "IHSG screener bull divergence proxy."
+    },
+    {
+      "id": "floor_event_exhaustion",
+      "school_ids": ["sell_side_conditional", "astronacci_gema"],
+      "turn_type": "floor",
+      "name_type_filter": ["compounder", "standard"],
+      "conditions": {
+        "in_index_event_window": true,
+        "near_support_60d": true,
+        "dd_60d_max": -0.08
+      },
+      "hold_days": 10,
+      "notes": "MSCI-style event + support (BBCA Jun 2026 archetype)."
+    },
+    {
+      "id": "floor_regime_banks",
+      "school_ids": ["decuan_macro", "idx_retail_playbook", "astronacci_gema"],
+      "turn_type": "floor",
+      "name_type_filter": ["compounder"],
+      "conditions": {
+        "ihsg_regime_in": ["washout", "recovery"],
+        "symbol_scope": "banks"
+      },
+      "hold_days": 20,
+      "notes": "Index washout/recovery → bank sleeve."
+    },
+    {
+      "id": "floor_quiet_acc",
+      "school_ids": ["stockbit_bandarmology", "bandarmology_net", "ajaib_smart_money"],
+      "turn_type": "floor",
+      "name_type_filter": ["fry", "standard"],
+      "conditions": {
+        "bandar_lite_label_in": ["quiet_volume_build", "squeeze_from_drawdown"],
+        "near_support_40d": true
+      },
+      "hold_days": 5,
+      "notes": "Pre-spike quiet accumulation proxy (bandar_lite)."
+    },
+    {
+      "id": "floor_moon_window",
+      "school_ids": ["astronacci_gema"],
+      "turn_type": "floor",
+      "name_type_filter": ["compounder", "standard", "fry"],
+      "conditions": {
+        "days_since_new_moon_max": 3,
+        "near_support_60d": true
+      },
+      "hold_days": 14,
+      "notes": "Moon trading window — test vs random calendar control."
+    },
+    {
+      "id": "ceiling_ara_streak",
+      "school_ids": ["ihsgscreener", "poems_bandarmology"],
+      "turn_type": "ceiling",
+      "name_type_filter": ["fry"],
+      "conditions": {
+        "consecutive_ara_days_min": 2,
+        "name_type": "fry"
+      },
+      "hold_days": 5,
+      "notes": "Fade after ARA limit hits (short-horizon reward negative = edge)."
+    },
+    {
+      "id": "ceiling_dist_divergence",
+      "school_ids": ["poems_bandarmology", "ajaib_smart_money", "stockbit_bandarmology"],
+      "turn_type": "ceiling",
+      "name_type_filter": ["fry", "standard"],
+      "conditions": {
+        "return_5d_min": 0.15,
+        "vol_ratio_up_down_lt": 0.8,
+        "near_resistance_60d": true
+      },
+      "hold_days": 5,
+      "notes": "Price up but volume weaker on up days vs down days."
+    },
+    {
+      "id": "ceiling_markup_trap",
+      "school_ids": ["poems_bandarmology"],
+      "turn_type": "ceiling",
+      "name_type_filter": ["fry", "standard"],
+      "conditions": {
+        "return_5d_min": 0.25,
+        "bandar_lite_label_in": ["chase_into_spike", "momentum_chase"],
+        "bandar_lite_label_not_in": ["quiet_volume_build"]
+      },
+      "hold_days": 5,
+      "notes": "Mark-up without prior quiet acc."
+    },
+    {
+      "id": "ceiling_extended_bounce",
+      "school_ids": ["astronacci_gema", "sell_side_conditional"],
+      "turn_type": "ceiling",
+      "name_type_filter": ["compounder", "standard"],
+      "conditions": {
+        "ihsg_regime_in": ["extended_bounce"],
+        "return_5d_min": 0.08
+      },
+      "hold_days": 10,
+      "notes": "Trim chase risk when index extended."
+    }
+  ],
+  "annotated_cases": [
+    {
+      "id": "compounder_rebound_jun2026",
+      "symbol": "BBCA.JK",
+      "window_start": "2026-05-25",
+      "window_end": "2026-06-12",
+      "turn_type": "floor",
+      "narrative": "MSCI rebalance pressure peaked; support 5300-5400; foreign sell eased; blue-chip catch-up on IHSG relief rally.",
+      "public_calls": [
+        "Trimegah: hold 5700 → rebound 5850-6000",
+        "Ciptadana/Bareksa: support 5300-5400 speculative buy",
+        "Astronacci: IHSG target 5981 support touched, first rebound zone"
+      ],
+      "layers_observed": ["event_exhaustion", "support_zone", "foreign_flow_flip", "regime_recovery"]
+    },
+    {
+      "id": "bbri_bottom_feb2025_gema",
+      "symbol": "BBRI.JK",
+      "date_claimed": "2025-02-28",
+      "turn_type": "floor",
+      "narrative": "Gema called bottom 3300-3400 on new moon; verify vs calendar control.",
+      "public_calls": ["Astronacci Time Trading: bottom Feb 28 2025"],
+      "layers_observed": ["moon_window", "support_zone", "fundamental_backbone"]
+    }
+  ]
+}

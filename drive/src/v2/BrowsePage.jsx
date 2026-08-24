@@ -15,7 +15,9 @@ import { loadUserEmail } from "@/v2/deskSession";
 import { discoverDemoSearch } from "@/v2/deskSeed";
 import { DiscoverHistoryPanel } from "@/v2/DiscoverHistoryPanel";
 import { DiscoverEmptyState, DiscoverSuggestedCards } from "@/v2/DiscoverEmptyState";
+import { SourceIntelligenceWorkbench } from "@/v2/SourceIntelligenceWorkbench";
 import { discoverSuggestedRows } from "@/v2/discoverSuggested";
+import { assessDiscoverCandidate } from "@/v2/discoverCompare";
 import { displayName, formatMetaValue, isEmptyishMetaValue } from "@/v2/datasetMeta";
 import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
 
@@ -249,6 +251,23 @@ function candidateBadgeLine(row, state) {
 
 function candidateSnippet(row) {
   return shortText(row?.description || row?.recommended_use || row?.subtitle || "", 140);
+}
+
+/** Turn the backend's raw ranking signals into a plain-language "why this result" line
+ *  instead of leaving rank order unexplained. */
+function candidateRankReason(row) {
+  const signals = row?.rank_signals;
+  if (signals && typeof signals === "object") {
+    const hits = Array.isArray(signals.identity_term_hits) ? signals.identity_term_hits : [];
+    if (hits.length) return `Matches ${hits.slice(0, 3).join(", ")}`;
+    const domains = Array.isArray(signals.domains) ? signals.domains : [];
+    if (domains.length) return `Matches domain ${domains.slice(0, 2).join(", ")}`;
+  }
+  if (typeof row?.rank_explanation === "string" && row.rank_explanation.trim()) {
+    const idHits = row.rank_explanation.match(/id_hits=([^;]+)/);
+    if (idHits) return `Matches ${idHits[1].split(",").slice(0, 3).join(", ")}`;
+  }
+  return "";
 }
 
 /** Single provenance line under the snippet — publisher once, then grain/format. */
@@ -498,16 +517,24 @@ function stateLabel(state) {
   if (state.key === "in_lab") return "In lab";
   if (state.key === "awaiting") return "Awaiting you";
   if (state.key === "queued") return state.label || "Running";
+  if (state.key === "reference_only") return "Reference only";
   return "External";
 }
 
-function DiscoverCandidateRow({ row, labIds, jobs, selectedId, onSelectRow }) {
+function DiscoverCandidateRow({ row, labIds, jobs, catalog, selectedId, onSelectRow }) {
   const state = row.discover_state || discoverCandidateState(row, labIds, jobs);
   const selected = selectedId === candidateId(row);
   const ribbonSource = row.source || row.collect_via || row.source_route || row.publisher || row.backend;
   const badges = candidateBadgeLine(row, state);
   const snippet = candidateSnippet(row);
   const meta = candidateMetaLine(row);
+  const rankReason = candidateRankReason(row);
+  // Duplicate-acquisition risk is the single most important fact for a procurement
+  // call — surface it above the fold, not as a footnote in the meta line.
+  const labMatch =
+    state.key === "in_lab"
+      ? null
+      : assessDiscoverCandidate({ target: row, catalog, labIds }).labMatch;
 
   return (
     <li className={selected ? "rd-v2-row-on" : undefined}>
@@ -526,17 +553,28 @@ function DiscoverCandidateRow({ row, labIds, jobs, selectedId, onSelectRow }) {
           <span className="rd-v2-discover-candidate-top">
             <strong>{candidateTitle(row)}</strong>
           </span>
+          {labMatch ? (
+            <span className="rd-v2-discover-overlap" data-testid="discover-lab-overlap">
+              {labMatch.overlap.pct}% overlap with lab holding “{displayName(labMatch.dataset)}” — confirm gap before collecting
+            </span>
+          ) : null}
           {snippet ? <span className="rd-v2-discover-snippet">{snippet}</span> : null}
+          {rankReason ? <span className="rd-v2-discover-rank-reason">{rankReason}</span> : null}
           {badges ? <span className="rd-v2-discover-badges">{badges}</span> : null}
           {meta ? <span className="rd-v2-discover-route">{meta}</span> : null}
         </span>
-        <span className={`rd-v2-pill ${state.className}`}>{stateLabel(state)}</span>
+        <span className="rd-v2-discover-status-col">
+          <span className={`rd-v2-pill ${state.className}`}>{stateLabel(state)}</span>
+          {state.nextAction ? (
+            <span className="rd-v2-discover-next">{state.nextAction}</span>
+          ) : null}
+        </span>
       </button>
     </li>
   );
 }
 
-function DiscoverCandidateList({ rows, labIds, jobs, selectedId, onSelectRow }) {
+function DiscoverCandidateList({ rows, labIds, jobs, catalog, selectedId, onSelectRow }) {
   return (
     <ul className="rd-v2-catalog rd-v2-discover-candidates" aria-label="Discover candidates">
       {rows.map((row) => (
@@ -545,6 +583,7 @@ function DiscoverCandidateList({ rows, labIds, jobs, selectedId, onSelectRow }) 
           row={row}
           labIds={labIds}
           jobs={jobs}
+          catalog={catalog}
           selectedId={selectedId}
           onSelectRow={onSelectRow}
         />
@@ -631,6 +670,9 @@ export function BrowsePage({
   historyEvents = [],
   selectedHistoryId = "",
   onSelectHistoryEvent,
+  probeByKey = {},
+  discoverDestination = "",
+  onSourceCollectionQueued,
 }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1073,6 +1115,19 @@ export function BrowsePage({
           onSelectJob={(row) => onSelectRow?.(row)}
         />
       ) : null}
+      {isExplore && showSearchResults && searchQuery?.trim() ? (
+        <SourceIntelligenceWorkbench
+          query={searchQuery}
+          candidates={merged}
+          probeByKey={probeByKey}
+          destination={discoverDestination}
+          onSelectCandidate={(offering) => {
+            const row = merged.find((candidate) => candidate.candidate_key === offering.candidate_key);
+            if (row) onSelectRow?.(row);
+          }}
+          onCollectionQueued={onSourceCollectionQueued}
+        />
+      ) : null}
       {showHistory ? (
         <DiscoverHistoryPanel
           events={historyEvents}
@@ -1171,6 +1226,7 @@ export function BrowsePage({
               rows={filtered}
               labIds={labIds}
               jobs={jobs}
+              catalog={catalog}
               selectedId={selectedId}
               onSelectRow={onSelectRow}
             />

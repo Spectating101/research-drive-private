@@ -1,0 +1,18 @@
+{
+  "logs": {
+    "level": "info",
+    "transports": {
+      "console": {
+        "enabled": true
+      }
+    }
+  },
+  "sessions": {
+    "default": "desktop.workspace",
+    "desktop": {
+      "workspace": {
+        "app-key": "<PUT_DESKTOP_APP_KEY_HERE>"
+      }
+    }
+  }
+}

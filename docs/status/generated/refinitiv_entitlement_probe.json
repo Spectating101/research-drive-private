@@ -1,0 +1,347 @@
+{
+  "generated_at": "2026-07-06T06:29:09.263513+00:00",
+  "plan_path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/config/refinitiv_harvest_plan.json",
+  "summary": {
+    "tiers_total": 5,
+    "tiers_ok": 5,
+    "tiers_failed": 0,
+    "all_ok": true
+  },
+  "tiers": [
+    {
+      "tier": "probe_rics",
+      "description": "Handoff probe instruments",
+      "rics": [
+        "BBCA.JK",
+        "BBRI.JK",
+        "BMRI.JK",
+        "TLKM.JK",
+        ".JKSE",
+        "2330.TW",
+        "NVDA.O",
+        ".SPX",
+        ".VIX",
+        "USDIDR=",
+        "XAU=",
+        "LCOc1"
+      ],
+      "snapshot": {
+        "ok": true,
+        "method": "get_data",
+        "rics": [
+          "BBCA.JK",
+          "BBRI.JK",
+          "BMRI.JK",
+          "TLKM.JK",
+          ".JKSE",
+          "2330.TW",
+          "NVDA.O",
+          ".SPX",
+          ".VIX",
+          "USDIDR=",
+          "XAU=",
+          "LCOc1"
+        ],
+        "fields": [
+          "TR.CommonName",
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "summary": {
+          "rows": 12,
+          "cols": 4,
+          "columns": [
+            "Instrument",
+            "Company Common Name",
+            "Price Close",
+            "Volume"
+          ]
+        },
+        "error": null
+      },
+      "history": {
+        "ok": true,
+        "method": "get_history",
+        "rics": [
+          "BBCA.JK",
+          "BBRI.JK",
+          "BMRI.JK"
+        ],
+        "fields": [
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "start": "2024-01-01",
+        "interval": "daily",
+        "summary": {
+          "rows": 2,
+          "cols": 6,
+          "columns": [
+            "('BBCA.JK', 'Price Close')",
+            "('BBCA.JK', 'Volume')",
+            "('BBRI.JK', 'Price Close')",
+            "('BBRI.JK', 'Volume')",
+            "('BMRI.JK', 'Price Close')",
+            "('BMRI.JK', 'Volume')"
+          ]
+        },
+        "error": null
+      },
+      "ok": true
+    },
+    {
+      "tier": "p1_idx_core",
+      "description": "Indonesia / IDX core",
+      "rics": [
+        "BBCA.JK",
+        "BBRI.JK",
+        ".JKSE"
+      ],
+      "snapshot": {
+        "ok": true,
+        "method": "get_data",
+        "rics": [
+          "BBCA.JK",
+          "BBRI.JK",
+          ".JKSE"
+        ],
+        "fields": [
+          "TR.CommonName",
+          "TR.ISIN",
+          "TR.ExchangeTicker",
+          "TR.TRBCEconomicSector",
+          "TR.TRBCIndustry",
+          "TR.CompanyMarketCap",
+          "TR.SharesOutstanding",
+          "TR.FreeFloatPct",
+          "TR.ExchangeCountryCode",
+          "TR.Currency"
+        ],
+        "summary": {
+          "rows": 3,
+          "cols": 10,
+          "columns": [
+            "Instrument",
+            "Company Common Name",
+            "ISIN",
+            "Exchange Ticker",
+            "TRBC Economic Sector Name",
+            "TRBC Industry Name",
+            "Company Market Cap",
+            "Outstanding Shares",
+            "Free Float (Percent)",
+            "Exchange Country Code"
+          ]
+        },
+        "error": null
+      },
+      "history": {
+        "ok": true,
+        "method": "get_history",
+        "rics": [
+          "BBCA.JK",
+          "BBRI.JK",
+          ".JKSE"
+        ],
+        "fields": [
+          "TR.PriceOpen",
+          "TR.PriceHigh",
+          "TR.PriceLow",
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "start": "2015-01-01",
+        "interval": "daily",
+        "summary": {
+          "rows": 2,
+          "cols": 15,
+          "columns": [
+            "('BBCA.JK', 'Price Open')",
+            "('BBCA.JK', 'Price High')",
+            "('BBCA.JK', 'Price Low')",
+            "('BBCA.JK', 'Price Close')",
+            "('BBCA.JK', 'Volume')",
+            "('BBRI.JK', 'Price Open')",
+            "('BBRI.JK', 'Price High')",
+            "('BBRI.JK', 'Price Low')",
+            "('BBRI.JK', 'Price Close')",
+            "('BBRI.JK', 'Volume')",
+            "('.JKSE', 'Price Open')",
+            "('.JKSE', 'Price High')",
+            "('.JKSE', 'Price Low')",
+            "('.JKSE', 'Price Close')",
+            "('.JKSE', 'Volume')"
+          ]
+        },
+        "error": null
+      },
+      "ok": true
+    },
+    {
+      "tier": "p2_global_backbone",
+      "description": "Global cross-asset market backbone",
+      "rics": [
+        ".SPX",
+        ".NDX",
+        ".RUT",
+        ".N225",
+        ".TOPX",
+        ".TWII"
+      ],
+      "snapshot": {
+        "ok": true,
+        "method": "get_data",
+        "rics": [
+          ".SPX",
+          ".NDX",
+          ".RUT",
+          ".N225",
+          ".TOPX",
+          ".TWII"
+        ],
+        "fields": [
+          "TR.CommonName",
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "summary": {
+          "rows": 6,
+          "cols": 4,
+          "columns": [
+            "Instrument",
+            "Company Common Name",
+            "Price Close",
+            "Volume"
+          ]
+        },
+        "error": null
+      },
+      "history": {
+        "ok": true,
+        "method": "get_history",
+        "rics": [
+          ".SPX",
+          ".NDX",
+          ".RUT"
+        ],
+        "fields": [
+          "TR.PriceOpen",
+          "TR.PriceHigh",
+          "TR.PriceLow",
+          "TR.PriceClose",
+          "TR.Volume"
+        ],
+        "start": "2010-01-01",
+        "interval": "daily",
+        "summary": {
+          "rows": 2,
+          "cols": 15,
+          "columns": [
+            "('.SPX', 'Price Open')",
+            "('.SPX', 'Price High')",
+            "('.SPX', 'Price Low')",
+            "('.SPX', 'Price Close')",
+            "('.SPX', 'Volume')",
+            "('.NDX', 'Price Open')",
+            "('.NDX', 'Price High')",
+            "('.NDX', 'Price Low')",
+            "('.NDX', 'Price Close')",
+            "('.NDX', 'Volume')",
+            "('.RUT', 'Price Open')",
+            "('.RUT', 'Price High')",
+            "('.RUT', 'Price Low')",
+            "('.RUT', 'Price Close')",
+            "('.RUT', 'Volume')"
+          ]
+        },
+        "error": null
+      },
+      "ok": true
+    },
+    {
+      "tier": "p3_risk_derivatives",
+      "description": "Derivatives / risk fields",
+      "rics": [
+        "BBCA.JK",
+        ".SPX",
+        "NVDA.O"
+      ],
+      "snapshot": {
+        "ok": true,
+        "method": "get_data",
+        "rics": [
+          "BBCA.JK",
+          ".SPX",
+          "NVDA.O"
+        ],
+        "fields": [
+          "TR.Volatility30D",
+          "TR.Volatility90D",
+          "TR.Volatility360D",
+          "TR.ImpVolPutDelta25",
+          "TR.ImpVolDelta25",
+          "TR.ShortInterestRatio",
+          "TR.PutCallRatio"
+        ],
+        "summary": {
+          "rows": 3,
+          "cols": 4,
+          "columns": [
+            "Instrument",
+            "Volatility - 30 days",
+            "Volatility - 90 days",
+            "Put Call Ratio"
+          ]
+        },
+        "error": null
+      },
+      "history": null,
+      "ok": true
+    },
+    {
+      "tier": "p4_analyst",
+      "description": "Analyst estimates / recommendations",
+      "rics": [
+        "BBCA.JK",
+        "NVDA.O",
+        "2330.TW"
+      ],
+      "snapshot": {
+        "ok": true,
+        "method": "get_data",
+        "rics": [
+          "BBCA.JK",
+          "NVDA.O",
+          "2330.TW"
+        ],
+        "fields": [
+          "TR.NumOfEstimates",
+          "TR.RecommendationMean",
+          "TR.PriceTargetMean",
+          "TR.PriceTargetHigh",
+          "TR.PriceTargetLow",
+          "TR.EPSMean",
+          "TR.RevenueMean",
+          "TR.EPSActValue",
+          "TR.EPSSurprisePct"
+        ],
+        "summary": {
+          "rows": 3,
+          "cols": 7,
+          "columns": [
+            "Instrument",
+            "Price Target - Mean",
+            "Price Target - High",
+            "Price Target - Low",
+            "Earnings Per Share - Mean",
+            "Revenue - Mean",
+            "Earnings Per Share - Actual"
+          ]
+        },
+        "error": null
+      },
+      "history": null,
+      "ok": true
+    }
+  ]
+}

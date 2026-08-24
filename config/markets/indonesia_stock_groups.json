@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "groups": {
+    "barito_prajogo": {
+      "label": "Barito / Prajogo Pangestu complex",
+      "tickers": ["BREN.JK", "TPIA.JK", "CUAN.JK", "BRPT.JK", "CDIA.JK", "PTRO.JK"]
+    },
+    "coal_mining": {
+      "label": "Coal miners",
+      "tickers": ["ADRO.JK", "PTBA.JK", "ITMG.JK", "HRUM.JK", "BYAN.JK"]
+    },
+    "nickel_mining": {
+      "label": "Nickel / battery metals",
+      "tickers": ["INCO.JK", "ANTM.JK", "MDKA.JK", "AMMN.JK"]
+    },
+    "banks_large": {
+      "label": "Large IDX banks",
+      "tickers": ["BBCA.JK", "BBRI.JK", "BMRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK", "ARTO.JK"]
+    }
+  }
+}

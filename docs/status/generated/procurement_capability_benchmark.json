@@ -1,0 +1,117 @@
+{
+  "generated_at": "2026-06-25T08:02:36.044476+00:00",
+  "cases": {
+    "http_workflow": {
+      "status": 200,
+      "has_workflow": true,
+      "plan_job_type": "scraper_run",
+      "scrape_mode": "catalog"
+    },
+    "non_fintech": [
+      {
+        "id": "mops_governance",
+        "query": "Taiwan MOPS corporate misconduct governance panel",
+        "latency_ms": 1942,
+        "tier": "T1_instant",
+        "index_miss": false,
+        "web_hits": 0,
+        "plan_launchable": false,
+        "join_hint": null,
+        "top_dataset_id": "mops_governance_panel"
+      },
+      {
+        "id": "twse_momentum",
+        "query": "Taiwan TWSE momentum machine learning equity panel",
+        "latency_ms": 2994,
+        "tier": "T1_instant",
+        "index_miss": false,
+        "web_hits": 0,
+        "plan_launchable": false,
+        "join_hint": null,
+        "top_dataset_id": "twse_openapi_taiwan_market_layer"
+      },
+      {
+        "id": "nft_replication",
+        "query": "NFT emotional dividends deep learning replication dataset",
+        "latency_ms": 2087,
+        "tier": "T1_instant",
+        "index_miss": false,
+        "web_hits": 0,
+        "plan_launchable": false,
+        "join_hint": null,
+        "top_dataset_id": "opensea_nft_metadata_layer"
+      },
+      {
+        "id": "multi_join",
+        "query": "join USDT on-chain flows with CoinGecko and Skynet scores for token taxonomy",
+        "latency_ms": 12617,
+        "tier": "T3_guarded_remote",
+        "index_miss": false,
+        "web_hits": 0,
+        "plan_launchable": false,
+        "join_hint": {
+          "dataset_ids": [
+            "scrape_54af347e1ceb",
+            "datacite_10.4122_1.1000000967",
+            "datacite_10.5281_zenodo.8346843",
+            "datacite_10.6084_m9.figshare.9933536",
+            "skynet_stablecoin_harvest"
+          ],
+          "note": "No single fused registry row \u2014 merge panels offline by token_id / date."
+        },
+        "top_dataset_id": "scrape_54af347e1ceb"
+      }
+    ],
+    "catalog_pilot_auto": {
+      "job_id": "68caee63c848",
+      "status": "completed",
+      "latency_ms": 104772,
+      "harvested": null,
+      "listing_tokens": null,
+      "pages": null,
+      "csv_clean": false,
+      "archive_jobs": 1,
+      "archive_detail": [
+        {
+          "ok": true,
+          "verified": true,
+          "local_path": "data_lake/spectator_engine/scrapes/68caee63c848",
+          "remote_path": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/markets/crypto-coingecko/scrape_68caee63c848",
+          "remote_suffix": "collection/markets/crypto-coingecko/scrape_68caee63c848",
+          "dataset_id": "scrape_68caee63c848"
+        }
+      ],
+      "catalog_dir": null
+    },
+    "catalog_medium": {
+      "job_id": "3100006a13ed",
+      "status": "completed",
+      "latency_ms": 177032,
+      "harvested": null,
+      "listing_tokens": null,
+      "pages": null,
+      "csv_clean": false,
+      "archive_jobs": 1,
+      "archive_detail": [
+        {
+          "ok": true,
+          "verified": true,
+          "local_path": "data_lake/spectator_engine/scrapes/3100006a13ed",
+          "remote_path": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data/collection/markets/crypto-coingecko/scrape_3100006a13ed",
+          "remote_suffix": "collection/markets/crypto-coingecko/scrape_3100006a13ed",
+          "dataset_id": "scrape_3100006a13ed"
+        }
+      ],
+      "catalog_dir": null
+    }
+  },
+  "summary": {
+    "http_workflow_ok": true,
+    "catalog_pilot_ok": true,
+    "catalog_medium_ok": true,
+    "csv_quality_ok": false,
+    "archive_jobs_medium": 1,
+    "non_fintech_miss_rate": 0.0,
+    "join_hint_emitted": true
+  }
+}

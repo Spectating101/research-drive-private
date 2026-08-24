@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "at": "2026-06-24T13:10:00.517Z",
+    "desk": "http://127.0.0.1:8765"
+  },
+  "refs": [
+    {
+      "id": "hf-datasets",
+      "label": "Hugging Face — Datasets",
+      "steal": "Catalog rows, filter chips, dataset card density",
+      "url": "https://huggingface.co/datasets",
+      "wait": 4000,
+      "fullPage": false,
+      "file": "hf-datasets.png",
+      "ok": true
+    },
+    {
+      "id": "hf-dataset-detail",
+      "label": "Hugging Face — Dataset repo",
+      "steal": "Overview / Files / Schema tabs, README hero, Add to collection",
+      "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SmartSpaces",
+      "wait": 4000,
+      "fullPage": false,
+      "file": "hf-dataset-detail.png",
+      "ok": true
+    }
+  ],
+  "rd": [
+    {
+      "id": "rd-home",
+      "nav": null,
+      "label": "RD — Home",
+      "file": "rd-home.png",
+      "ok": true
+    },
+    {
+      "id": "rd-drive",
+      "nav": "Drive",
+      "label": "RD — Drive (All)",
+      "file": "rd-drive.png",
+      "ok": true
+    },
+    {
+      "id": "rd-chat",
+      "nav": "Chat",
+      "label": "RD — Chat",
+      "file": "rd-chat.png",
+      "ok": true
+    },
+    {
+      "id": "rd-cluster",
+      "nav": "Cluster",
+      "label": "RD — Cluster",
+      "file": "rd-cluster.png",
+      "ok": true
+    },
+    {
+      "id": "rd-discover",
+      "nav": "Discover",
+      "label": "RD — Discover",
+      "file": "rd-discover.png",
+      "ok": true
+    }
+  ],
+  "gaps": [
+    {
+      "surface": "Drive list",
+      "oss": "HF / KohakuHub",
+      "have": "Flat catalog table, scope chips",
+      "miss": "Repo-style Browse drill-in; README preview; file tree in left facet column",
+      "priority": "P0"
+    },
+    {
+      "surface": "Nav rail",
+      "oss": "Google Drive",
+      "have": "Internal / Procure / Tools blocks",
+      "miss": "Calmer density; no duplicate job badges on Chat+Activity; collapsed admin",
+      "priority": "P1"
+    },
+    {
+      "surface": "Cluster",
+      "oss": "Cite-Agent Coverage",
+      "have": "Domain cards + pipeline strip",
+      "miss": "Topic map, domain brief, gap synthesis, timeline of promotes",
+      "priority": "P0"
+    },
+    {
+      "surface": "Chat",
+      "oss": "Cite-Agent /chat + Gemini",
+      "have": "Full-page procure thread",
+      "miss": "Workbench composition; scoped context strip; warm state when holdings exist",
+      "priority": "P1"
+    },
+    {
+      "surface": "Discover",
+      "oss": "HF hub search",
+      "have": "Search + source filters + result rows",
+      "miss": "Recommended datasets grid; transition into Browse layout",
+      "priority": "P1"
+    },
+    {
+      "surface": "Details rail",
+      "oss": "Drive inspector",
+      "have": "Metadata-only inspector",
+      "miss": "Single L2 panel; no chip swarm; star inline in row only",
+      "priority": "P2"
+    }
+  ]
+}

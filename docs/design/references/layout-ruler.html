@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Research Drive v2 — layout ruler 1440×900</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      font: 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+      color: #e2e8f0;
+    }
+    .meta { margin-bottom: 12px; text-align: center; max-width: 1440px; }
+    .meta strong { color: #f8fafc; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tabs button {
+      font: inherit; cursor: pointer; padding: 8px 14px; border-radius: 8px;
+      border: 1px solid #475569; background: #334155; color: #f1f5f9;
+    }
+    .tabs button.on { background: #2563eb; border-color: #2563eb; }
+    /* === FIXED ARTBOARD 1440 × 900 === */
+    .artboard-wrap { position: relative; }
+    .artboard {
+      width: 1440px;
+      height: 900px;
+      display: grid;
+      grid-template-columns: 220px 860px 360px;
+      grid-template-rows: 56px 844px;
+      background: #f7f9fc;
+      color: #1f2937;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      position: relative;
+      box-shadow: 0 0 0 2px #f59e0b, 0 20px 60px rgba(0,0,0,.45);
+    }
+    .dim { position: absolute; pointer-events: none; font: 11px/1 "IBM Plex Mono", monospace; color: #b45309; font-weight: 600; z-index: 99; }
+    .dim-h { border-top: 1px dashed #f59e0b; }
+    .dim-v { border-left: 1px dashed #f59e0b; }
+    .zone-label {
+      position: absolute; font: 700 10px/1 "IBM Plex Mono", monospace;
+      letter-spacing: .08em; color: #fff; background: #f59e0b; padding: 3px 6px; z-index: 98;
+    }
+    /* A */
+    .header {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: 200px 1fr auto;
+      align-items: center;
+      padding: 0 18px;
+      background: #fff;
+      border-bottom: 1px solid #edf1f6;
+      font-size: 14px;
+    }
+    .brand { font-weight: 600; font-size: 17px; }
+    .brand span { display: block; font-size: 11px; color: #64748b; font-weight: 400; }
+    .search {
+      max-width: 520px; height: 40px; margin: 0 auto; width: 100%;
+      background: #edf2fa; border-radius: 20px; display: flex; align-items: center; padding: 0 16px; color: #64748b;
+    }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: #f1f5f9; border: 1px solid #d9e1ec; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+    /* B */
+    .sidebar {
+      grid-row: 2; grid-column: 1;
+      background: #f8fafd; border-right: 1px solid #edf1f6; padding: 14px 12px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .nav { height: 36px; border-radius: 18px; padding: 0 13px; display: flex; align-items: center; font-size: 14px; color: #334155; }
+    .nav.on { background: #e8f0fe; color: #174ea6; font-weight: 600; }
+    /* C */
+    .main {
+      grid-row: 2; grid-column: 2;
+      padding: 24px 28px; overflow: hidden; display: flex; flex-direction: column;
+      position: relative;
+    }
+    .page-title { font-size: 28px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 4px; }
+    .page-sub { font-size: 14px; color: #64748b; margin-bottom: 16px; }
+    .toolbar { height: 44px; display: flex; align-items: center; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; }
+    .chip { height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #d9e1ec; background: #fff; font-size: 12px; font-weight: 600; color: #475569; display: inline-flex; align-items: center; }
+    .chip.on { background: #e8f0fe; color: #174ea6; border-color: #c6dafc; }
+    .table-wrap { flex: 1; background: #fff; border: 1px solid #edf1f6; border-radius: 18px; overflow: hidden; min-height: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    th { height: 38px; text-align: left; padding: 0 14px; font-size: 12px; color: #64748b; background: #fbfdff; border-bottom: 1px solid #edf1f6; }
+    td { height: 52px; padding: 0 14px; border-bottom: 1px solid #edf1f6; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    tr.sel td { background: #f8fbff; }
+    .col-name { width: 34%; }
+    .col-ready { width: 12%; }
+    .col-cov { width: 18%; }
+    .col-src { width: 12%; }
+    .col-upd { width: 12%; }
+    .sub { font-size: 11px; color: #64748b; font-family: "IBM Plex Mono", monospace; }
+    /* Home blocks */
+    .continue { height: 88px; background: #fff; border: 1px solid #edf1f6; border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
+    .strip { height: 56px; background: #fff; border: 1px solid #edf1f6; border-radius: 14px; padding: 12px 18px; margin-bottom: 12px; font-size: 13px; }
+    .pins { height: 48px; display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .pin { height: 32px; padding: 0 12px; border-radius: 16px; background: #fff; border: 1px solid #edf1f6; font-size: 12px; }
+    .section-head { height: 32px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+    /* Cluster */
+    .cluster-canvas { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 0; }
+    .lane { background: #fff; border: 1px solid #edf1f6; border-radius: 14px; padding: 16px; }
+    .lane h3 { font-size: 15px; margin-bottom: 8px; }
+    .bar { height: 8px; background: #edf2fa; border-radius: 4px; margin-bottom: 12px; }
+    .bar span { display: block; height: 100%; width: 70%; background: #1a73e8; border-radius: 4px; }
+    /* D */
+    .rail {
+      grid-row: 2; grid-column: 3;
+      background: #fff; border-left: 1px solid #edf1f6;
+      display: flex; flex-direction: column;
+    }
+    .rail-toggle { height: 44px; padding: 8px 12px; display: flex; gap: 4px; border-bottom: 1px solid #edf1f6; }
+    .rail-toggle button { flex: 1; height: 28px; border: 1px solid #d9e1ec; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 600; cursor: default; }
+    .rail-toggle button.on { background: #e8f0fe; color: #174ea6; border-color: #c6dafc; }
+    .rail-body { flex: 1; padding: 16px 18px; font-size: 13px; overflow: auto; }
+    .rail-body h2 { font-size: 17px; margin-bottom: 8px; }
+    .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: #e6f4ea; color: #137333; margin-right: 4px; }
+    .field { margin: 12px 0; }
+    .field label { display: block; font: 700 10px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+    .acts { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+    .btn { height: 32px; border-radius: 16px; border: 1px solid #d9e1ec; background: #fff; font-size: 12px; font-weight: 600; }
+    .btn.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .page { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    .page.on { display: flex; }
+    .grid-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(to right, rgba(245,158,11,.15) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(245,158,11,.15) 1px, transparent 1px);
+      background-size: 20px 20px; opacity: 0; transition: opacity .2s;
+    }
+    .artboard.show-grid .grid-overlay { opacity: 1; }
+    .controls { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+    .controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="meta">
+    <strong>Layout ruler — 1440 × 900 px</strong> (v2 target) · Set browser zoom to <strong>100%</strong> ·
+    Sidebar <strong>220</strong> · Main <strong>860</strong> · Rail <strong>360</strong> · Header <strong>56</strong>
+  </div>
+  <div class="tabs">
+    <button type="button" class="on" data-page="library">Library</button>
+    <button type="button" data-page="home">Home</button>
+    <button type="button" data-page="cluster">Cluster</button>
+  </div>
+  <div class="artboard-wrap">
+    <div class="artboard" id="artboard">
+      <div class="grid-overlay"></div>
+      <!-- dimension callouts -->
+      <div class="zone-label" style="left:4px;top:4px">A 1440×56</div>
+      <div class="zone-label" style="left:4px;top:60px">B 220×844</div>
+      <div class="zone-label" style="left:224px;top:60px">C 860×844</div>
+      <div class="zone-label" style="left:1080px;top:60px">D 360×844</div>
+      <div class="dim dim-h" style="left:0;top:56px;width:1440px"></div>
+      <div class="dim" style="left:680px;top:58px">56px header</div>
+      <div class="dim dim-v" style="left:220px;top:56px;height:844px"></div>
+      <div class="dim" style="left:222px;top:200px;writing-mode:vertical-rl">220</div>
+      <div class="dim dim-v" style="left:1080px;top:56px;height:844px"></div>
+      <div class="dim" style="left:1082px;top:400px;writing-mode:vertical-rl">360 rail</div>
+      <div class="dim" style="left:500px;top:878px">860 main</div>
+
+      <header class="header">
+        <div class="brand">Research Drive<span>layout ruler</span></div>
+        <div class="search">Search datasets in the library</div>
+        <div class="avatar">YZ</div>
+      </header>
+
+      <aside class="sidebar">
+        <div class="nav">Home</div>
+        <div class="nav on" id="navActive">Library</div>
+        <div class="nav">Cluster</div>
+        <div class="nav">Browse</div>
+        <div class="nav">Resources</div>
+        <div class="nav">Profile</div>
+        <div class="nav">Settings</div>
+      </aside>
+
+      <main class="main">
+        <div class="page on" id="page-library">
+          <div class="page-title">Library</div>
+          <div class="page-sub">Data you can use now. · PageHeader 72px · pad 28px</div>
+          <div class="toolbar">
+            <span class="chip on">All</span><span class="chip">Query-ready</span><span class="chip">Connected</span><span class="chip">crypto</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th class="col-name">Name 34%</th><th class="col-ready">Ready</th><th class="col-cov">Coverage</th><th class="col-src">Source</th><th class="col-upd">Updated</th>
+              </tr></thead>
+              <tbody>
+                <tr class="sel"><td><div>Asia daily news-risk panel</div><div class="sub">gdelt_asia_daily_country_panel</div></td><td>Query-ready</td><td>2018–26·c-day</td><td>GDELT</td><td>2d ago</td></tr>
+                <tr><td><div>CoinGecko crypto market</div><div class="sub">coingecko_simple_price</div></td><td>Connected</td><td>2009–pres</td><td>CoinGecko</td><td>Daily</td></tr>
+                <tr><td><div>USDT transfer catalogue</div><div class="sub">ethereum_usdt_transfers</div></td><td>Sample</td><td>2015–pres</td><td>BigQuery</td><td>—</td></tr>
+                <tr><td><div>Cross-asset country-week</div><div class="sub">cross_asset_fused_primary_panel</div></td><td>Query-ready</td><td>10yr·c-week</td><td>Lab</td><td>1w ago</td></tr>
+                <tr><td><div>Asia ticker news-market</div><div class="sub">ticker_week_country_broadcast_panel</div></td><td>Query-ready</td><td>3yr·t-week</td><td>GDELT</td><td>3d ago</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="page" id="page-home">
+          <div class="page-title">Home</div>
+          <div class="page-sub">Continue + running + recent (not full catalog)</div>
+          <div class="continue"><strong>Continue</strong> · Asia daily news-risk panel · 88px card</div>
+          <div class="strip">● GDELT overlay 18/99 mo · ● DataCite 4 workers · 56px strip</div>
+          <div class="pins"><span class="pin">pin: TWSE</span><span class="pin">pin: USDT</span><span class="pin">48px row</span></div>
+          <div class="section-head"><span>Recent</span><span style="color:#1a73e8;font-size:12px">See all → Library</span></div>
+          <div class="table-wrap" style="flex:0 0 280px">
+            <table>
+              <thead><tr><th>Name</th><th>Ready</th><th>Updated</th></tr></thead>
+              <tbody>
+                <tr><td>Asia daily news-risk</td><td>Query-ready</td><td>2d ago</td></tr>
+                <tr><td>CoinGecko market</td><td>Query-ready</td><td>Daily</td></tr>
+                <tr><td>USDT catalogue</td><td>Sample</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="page" id="page-cluster">
+          <div class="page-title">Cluster</div>
+          <div class="page-sub">Map canvas — no full table</div>
+          <div class="toolbar"><span class="chip on">Map</span><span class="chip">Timeline</span></div>
+          <div class="cluster-canvas">
+            <div class="lane"><h3>Asia / news</h3><div class="bar"><span></span></div><ul style="font-size:13px;color:#64748b;line-height:1.8"><li>GDELT country panel</li><li>Ticker week panel</li></ul></div>
+            <div class="lane"><h3>Crypto / markets</h3><div class="bar"><span style="width:55%"></span></div><ul style="font-size:13px;color:#64748b;line-height:1.8"><li>CoinGecko</li><li>USDT catalogue</li></ul></div>
+          </div>
+        </div>
+      </main>
+
+      <aside class="rail">
+        <div class="rail-toggle"><button type="button" class="on">Detail</button><button type="button">Ask</button></div>
+        <div class="rail-body">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Country-day panel</div>
+          <h2>Asia daily news-risk panel</h2>
+          <p style="color:#64748b;margin-bottom:12px">Rail 360px · toggle 44px · body scroll</p>
+          <span class="pill">Query-ready</span><span class="pill" style="background:#e8f0fe;color:#174ea6">Verified</span>
+          <div class="field"><label>Source</label>GDELT GKG</div>
+          <div class="field"><label>Coverage</label>2018–2026 · country-day</div>
+          <div class="field"><label>Access</label>Local + Drive</div>
+          <div class="acts">
+            <button type="button" class="btn primary">Open Analyze</button>
+            <button type="button" class="btn">Ask about this</button>
+            <button type="button" class="btn">See on Cluster</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="gridToggle" /> 20px grid overlay</label>
+    <span>Open file directly or: <code>python3 -m http.server 8766</code> in this folder</span>
+  </div>
+  <script>
+    const pages = { library: ["Library", "page-library"], home: ["Home", "page-home"], cluster: ["Cluster", "page-cluster"] };
+    document.querySelectorAll(".tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+        const [nav, id] = pages[btn.dataset.page];
+        document.getElementById("navActive").textContent = nav;
+        document.getElementById("navActive").classList.toggle("on", true);
+        document.querySelectorAll(".sidebar .nav").forEach((n) => n.classList.toggle("on", n.textContent === nav));
+        document.querySelectorAll(".page").forEach((p) => p.classList.remove("on"));
+        document.getElementById(id).classList.add("on");
+      });
+    });
+    document.getElementById("gridToggle").addEventListener("change", (e) => {
+      document.getElementById("artboard").classList.toggle("show-grid", e.target.checked);
+    });
+  </script>
+</body>
+</html>

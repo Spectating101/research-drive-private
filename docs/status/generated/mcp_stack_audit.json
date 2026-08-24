@@ -1,0 +1,585 @@
+{
+  "mcp_definition": "full data procurement toolbox (not protocol-only)",
+  "orchestrator": "Composer via protocol tools; Python is passive equipment",
+  "acquisition_ladder": [
+    "vault_dictionary",
+    "registry_catalog",
+    "datacite_local_prefetch",
+    "discover_search",
+    "web_discover",
+    "probe_url",
+    "shell_direct_http",
+    "spectator_playwright",
+    "cluster_jobs"
+  ],
+  "composer_external_tools": "Composer Playwright / webfetch / web search are valid for probe and debug. For vault-backed procurement: research_craft_collect_plan (generic http_manifest/scraper_run/source_probe only) → yzu_submit_job so flywheel + registry promotion run. Never submit named vendor pipelines (skynet_*, opensea_*, …) — craft a custom plan for the URL.",
+  "registry": {
+    "total": 168,
+    "by_readiness": {
+      "instant": 106,
+      "metadata_search": 54,
+      "procurement_planning": 1,
+      "minutes_rate_limited": 1,
+      "dry_run_before_execution": 1,
+      "query_ready": 5
+    },
+    "by_backend": {
+      "local_gdelt_panel_csv": 1,
+      "local_gdelt_high_priority_csv": 1,
+      "local_jsonl_catalog": 3,
+      "coingecko_simple_price_api": 1,
+      "usdt_bigquery_catalogue": 1,
+      "local_json_file": 51,
+      "local_jsonl_payment_ledger": 1,
+      "local_parquet_panel": 35,
+      "collection_ops_status": 1,
+      "datacite_local_harvest_status": 1,
+      "local_json_glob": 36,
+      "local_csv_file": 7,
+      "local_file": 25,
+      "local_csv_glob": 2,
+      "ops_json_manifest": 1,
+      "?": 1
+    },
+    "no_query_handler_count": 36,
+    "instant_query_smoke": {
+      "ok": 106,
+      "failed": []
+    }
+  },
+  "vault": {
+    "partitions": 26
+  },
+  "queue": {
+    "total": 35,
+    "enabled_public": 18
+  },
+  "protocol_tools": {
+    "total": 86,
+    "core": [
+      "research_mcp_stack_status",
+      "research_platform_consolidated",
+      "research_library_overview",
+      "research_faculty_profile",
+      "collection_status",
+      "research_discover_search",
+      "research_discover_source_search",
+      "research_discover_source_preview",
+      "research_web_discover",
+      "research_list_datasets",
+      "research_describe_dataset",
+      "research_query_dataset",
+      "research_analyze_dataset",
+      "research_collection_hydrate",
+      "research_synthesis_list_profiles",
+      "research_synthesis_run",
+      "research_synthesis_pair",
+      "research_synthesis_propose_state",
+      "research_synthesis_preflight_spec",
+      "research_synthesis_discover_handoff",
+      "research_synthesis_collect_missing",
+      "research_synthesis_materialisation",
+      "research_synthesis_submit_execution",
+      "research_discover_create_intent",
+      "research_discover_get_intent",
+      "research_discover_propose_intent",
+      "research_discover_history",
+      "research_discover_create_refresh_subscription",
+      "research_discover_pause_refresh_subscription",
+      "research_discover_resume_refresh_subscription",
+      "research_discover_stop_refresh_subscription",
+      "research_discover_tick_refresh_subscriptions",
+      "research_quant_brief",
+      "procurement_probe_public_source"
+    ],
+    "acquire": [
+      "research_craft_collect_plan",
+      "research_craft_discover_proposal",
+      "research_procure_resume_campaign",
+      "research_procure_campaign_artifacts",
+      "research_procure_approve_collect",
+      "datacite_collect_doi",
+      "datacite_search_and_resolve",
+      "huggingface_collect_dataset",
+      "procurement_submit_collection_job",
+      "procurement_approve_job",
+      "yzu_submit_job",
+      "yzu_approve_job",
+      "bigquery_dry_run",
+      "bigquery_read_query"
+    ],
+    "ops": [
+      "datacite_search",
+      "datacite_get",
+      "datacite_resolve_repository",
+      "datacite_scope",
+      "datacite_backfill_spec",
+      "datacite_local_harvest_status",
+      "bigquery_status",
+      "bigquery_list_datasets",
+      "bigquery_list_tables",
+      "bigquery_table_schema",
+      "research_unified_search",
+      "research_search_catalog",
+      "research_ops_status",
+      "collection_queue_status",
+      "research_procurement_catalog",
+      "research_advise_datasets",
+      "research_plan_sources",
+      "huggingface_search",
+      "procurement_list_connectors",
+      "procurement_approve_connector",
+      "procurement_prepare_collection",
+      "procurement_list_jobs",
+      "procurement_get_job",
+      "procurement_cancel_job",
+      "research_dataset_card",
+      "research_open_dataset",
+      "research_list_pins",
+      "research_pin_dataset",
+      "research_procure_chat",
+      "research_procure_chat_session",
+      "yzu_cluster_status",
+      "yzu_list_acquisitions",
+      "yzu_cluster_components",
+      "yzu_list_queue_tasks",
+      "yzu_cancel_job",
+      "yzu_get_job",
+      "yzu_list_jobs",
+      "yzu_archive_to_gdrive"
+    ],
+    "unlisted": []
+  },
+  "cluster_jobs": {
+    "pending_approval": 11,
+    "queued": 0,
+    "running": 0,
+    "completed": 103,
+    "failed": 15,
+    "cancelled": 156,
+    "total": 285,
+    "lifetime": {
+      "pending_approval": 11,
+      "queued": 0,
+      "running": 0,
+      "completed": 103,
+      "failed": 15,
+      "cancelled": 156
+    },
+    "actionable": {
+      "pending_approval": 11,
+      "queued": 0,
+      "running": 0,
+      "failed_recent_days": 7,
+      "failed_recent": 2,
+      "failed_actionable": 2,
+      "failed_ops_noise": 0,
+      "failed_buckets": {
+        "other": 2
+      },
+      "cancelled_recent": 0,
+      "pending_oldest_age_days": 21.4
+    },
+    "failed_recent": 2,
+    "failed_actionable": 2,
+    "failed_ops_noise": 0,
+    "failed_buckets": {
+      "other": 2
+    },
+    "cancelled_recent": 0,
+    "recent_days": 7,
+    "semantics": "pending_approval/queued/running are live; failed/cancelled are lifetime totals — use failed_actionable (excludes canary/discover spam) for desk debt"
+  },
+  "cluster_status": {
+    "cluster": "yzu-cluster",
+    "controller": "optiplex",
+    "generated_at": "2026-08-18T19:25:30.920899+00:00",
+    "disk": {
+      "free_gb": "69",
+      "used_pct": "84%",
+      "total_gb": "444"
+    },
+    "worker_pools": {
+      "windows_lab": {
+        "joined": 3,
+        "total": 6,
+        "note": "joined is inventory; see /yzu/workers for effective online/idle/stale"
+      }
+    },
+    "datacite": {
+      "completed_lanes": [
+        {
+          "lane": "y2023_2024",
+          "records": 37859227
+        },
+        {
+          "lane": "y2025_q1",
+          "records": 8676535
+        },
+        {
+          "lane": "y2025_q2",
+          "records": 6379230
+        },
+        {
+          "lane": "y2025_q4",
+          "records": 9801987
+        },
+        {
+          "lane": "y2026",
+          "records": 20769049
+        }
+      ],
+      "y2025_shards": [
+        {
+          "shard": "y2025_q1",
+          "host": "100.102.0.84",
+          "status": "cached_pending",
+          "progress": 0,
+          "target": 8676544,
+          "percent": 0.0,
+          "rate_per_sec": 0.0,
+          "eta_hours": null,
+          "updated_at": ""
+        },
+        {
+          "shard": "y2025_q2",
+          "host": "100.83.34.59",
+          "status": "cached_pending",
+          "progress": 0,
+          "target": 6379119,
+          "percent": 0.0,
+          "rate_per_sec": 0.0,
+          "eta_hours": null,
+          "updated_at": ""
+        },
+        {
+          "shard": "y2025_q3",
+          "host": "100.92.237.90",
+          "status": "cached_pending",
+          "progress": 0,
+          "target": 11925091,
+          "percent": 0.0,
+          "rate_per_sec": 0.0,
+          "eta_hours": null,
+          "updated_at": ""
+        },
+        {
+          "shard": "y2025_q4",
+          "host": "100.83.34.59",
+          "status": "cached_pending",
+          "progress": 0,
+          "target": 9801492,
+          "percent": 0.0,
+          "rate_per_sec": 0.0,
+          "eta_hours": null,
+          "updated_at": ""
+        }
+      ],
+      "y2025_percent": 0.0,
+      "y2025_progress": 0,
+      "y2025_target": 36782246,
+      "total_progress": 83486028,
+      "total_target": 129292246,
+      "total_percent": 64.6,
+      "shard_cache_at": "",
+      "shard_cache_fresh": false
+    },
+    "gdelt": {
+      "ok_months": 74,
+      "pending_upload_months": 23,
+      "fleet_running": false
+    },
+    "jobs": {
+      "pending_approval": 11,
+      "queued": 0,
+      "running": 0,
+      "completed": 103,
+      "failed": 15,
+      "cancelled": 156,
+      "total": 285,
+      "lifetime": {
+        "pending_approval": 11,
+        "queued": 0,
+        "running": 0,
+        "completed": 103,
+        "failed": 15,
+        "cancelled": 156
+      },
+      "actionable": {
+        "pending_approval": 11,
+        "queued": 0,
+        "running": 0,
+        "failed_recent_days": 7,
+        "failed_recent": 2,
+        "failed_actionable": 2,
+        "failed_ops_noise": 0,
+        "failed_buckets": {
+          "other": 2
+        },
+        "cancelled_recent": 0,
+        "pending_oldest_age_days": 21.4
+      },
+      "failed_recent": 2,
+      "failed_actionable": 2,
+      "failed_ops_noise": 0,
+      "failed_buckets": {
+        "other": 2
+      },
+      "cancelled_recent": 0,
+      "recent_days": 7,
+      "semantics": "pending_approval/queued/running are live; failed/cancelled are lifetime totals — use failed_actionable (excludes canary/discover spam) for desk debt"
+    },
+    "storage": {
+      "local_staging": "data_lake",
+      "acquisitions_root": "data_lake/yzu_cluster/acquisitions",
+      "procured_root": "data_lake/procured",
+      "drive_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data",
+      "drive_total_tb": 5,
+      "archive_quota_tb": 3,
+      "upload_policy": "copy_verify",
+      "auto_archive_procured": true,
+      "archive_collection_outputs": true,
+      "drive_first": true,
+      "compact_local_after_archive": true,
+      "completion_requires_drive_verify": true,
+      "notes": "Drive-first: downloads land in collection/{partition}/ on GDrive before a job is complete. Local data_lake paths are ephemeral staging; hydrate via collection_hydrate when analysis needs bytes on desk."
+    },
+    "runtime": {
+      "cluster": {
+        "workers": [
+          {
+            "id": "optiplex",
+            "pool": "optiplex",
+            "status": "online",
+            "capabilities": [
+              "archive",
+              "browser",
+              "controller",
+              "http",
+              "orchestration",
+              "pipeline",
+              "python"
+            ],
+            "capacity": {
+              "cpu_cores": 6.0,
+              "disk_mb": 70475.16,
+              "gpu_count": 0.0,
+              "memory_mb": 31898.89
+            },
+            "heartbeat_at": "2026-08-18T19:25:29.398878Z",
+            "updated_at": "2026-08-18T19:25:29.398878Z",
+            "stored_status": "online",
+            "freshness": {
+              "state": "fresh",
+              "age_seconds": 1.521526,
+              "stale_after_seconds": 300
+            },
+            "capacity_normalized": {
+              "cpu_cores": 6.0,
+              "memory_mb": 31898.89,
+              "disk_mb": 70475.16,
+              "network_mb": null,
+              "gpu_count": 0.0
+            },
+            "reserved": {
+              "cpu_cores": 0.0,
+              "memory_mb": 0.0,
+              "disk_mb": 0.0,
+              "network_mb": 0.0,
+              "gpu_count": 0.0
+            }
+          },
+          {
+            "id": "optiplex-temp-http-20260819",
+            "pool": "windows_lab",
+            "status": "offline",
+            "capabilities": [
+              "http",
+              "python"
+            ],
+            "capacity": {},
+            "heartbeat_at": "2026-08-18T17:35:48.328472Z",
+            "updated_at": "2026-08-18T17:35:48.328472Z",
+            "stored_status": "offline",
+            "freshness": {
+              "state": "fresh",
+              "age_seconds": 6582.592056,
+              "stale_after_seconds": 300
+            },
+            "capacity_normalized": {
+              "cpu_cores": null,
+              "memory_mb": null,
+              "disk_mb": null,
+              "network_mb": null,
+              "gpu_count": null
+            },
+            "reserved": {
+              "cpu_cores": 0.0,
+              "memory_mb": 0.0,
+              "disk_mb": 0.0,
+              "network_mb": 0.0,
+              "gpu_count": 0.0
+            }
+          },
+          {
+            "id": "windows-01",
+            "pool": "windows_lab",
+            "status": "stale",
+            "capabilities": [
+              "http",
+              "python"
+            ],
+            "capacity": {
+              "cpu_cores": 16.0,
+              "disk_mb": 123321.93,
+              "gpu_count": 0.0,
+              "memory_mb": 8840.85
+            },
+            "heartbeat_at": "2026-08-07T02:53:19.157509Z",
+            "updated_at": "2026-08-07T02:53:19.157509Z",
+            "stored_status": "online",
+            "freshness": {
+              "state": "stale",
+              "age_seconds": 1009931.763076,
+              "stale_after_seconds": 300
+            },
+            "capacity_normalized": {
+              "cpu_cores": 16.0,
+              "memory_mb": 8840.85,
+              "disk_mb": 123321.93,
+              "network_mb": null,
+              "gpu_count": 0.0
+            },
+            "reserved": {
+              "cpu_cores": 0.0,
+              "memory_mb": 0.0,
+              "disk_mb": 0.0,
+              "network_mb": 0.0,
+              "gpu_count": 0.0
+            }
+          },
+          {
+            "id": "windows-02",
+            "pool": "windows_lab",
+            "status": "stale",
+            "capabilities": [
+              "http",
+              "python"
+            ],
+            "capacity": {
+              "cpu_cores": 16.0,
+              "disk_mb": 128628.21,
+              "gpu_count": 0.0,
+              "memory_mb": 11866.94
+            },
+            "heartbeat_at": "2026-07-30T03:32:06.068936Z",
+            "updated_at": "2026-07-30T03:32:06.068936Z",
+            "stored_status": "online",
+            "freshness": {
+              "state": "stale",
+              "age_seconds": 1698804.851692,
+              "stale_after_seconds": 300
+            },
+            "capacity_normalized": {
+              "cpu_cores": 16.0,
+              "memory_mb": 11866.94,
+              "disk_mb": 128628.21,
+              "network_mb": null,
+              "gpu_count": 0.0
+            },
+            "reserved": {
+              "cpu_cores": 0.0,
+              "memory_mb": 0.0,
+              "disk_mb": 0.0,
+              "network_mb": 0.0,
+              "gpu_count": 0.0
+            }
+          },
+          {
+            "id": "windows-03",
+            "pool": "windows_lab",
+            "status": "stale",
+            "capabilities": [
+              "http",
+              "python"
+            ],
+            "capacity": {
+              "cpu_cores": 16.0,
+              "disk_mb": 315617.82,
+              "gpu_count": 0.0,
+              "memory_mb": 10832.56
+            },
+            "heartbeat_at": "2026-08-07T02:53:20.883017Z",
+            "updated_at": "2026-08-07T02:53:20.883017Z",
+            "stored_status": "online",
+            "freshness": {
+              "state": "stale",
+              "age_seconds": 1009930.037656,
+              "stale_after_seconds": 300
+            },
+            "capacity_normalized": {
+              "cpu_cores": 16.0,
+              "memory_mb": 10832.56,
+              "disk_mb": 315617.82,
+              "network_mb": null,
+              "gpu_count": 0.0
+            },
+            "reserved": {
+              "cpu_cores": 0.0,
+              "memory_mb": 0.0,
+              "disk_mb": 0.0,
+              "network_mb": 0.0,
+              "gpu_count": 0.0
+            }
+          }
+        ],
+        "worker_pools": {
+          "optiplex": {
+            "total": 1,
+            "online": 1,
+            "stale": 0
+          },
+          "windows_lab": {
+            "total": 4,
+            "online": 0,
+            "stale": 3
+          }
+        },
+        "usage": {
+          "cpu_seconds": 0,
+          "network_bytes": 5541798.0,
+          "api_calls": 33.0,
+          "storage_bytes": 0
+        }
+      },
+      "desk": {
+        "connectors": {
+          "total": 0
+        },
+        "jobs": {
+          "active": 105,
+          "blocked": 57,
+          "completed": 45,
+          "failed": 45,
+          "pending_approval": 3,
+          "registered": 58
+        },
+        "worker_pools": {
+          "total": 5,
+          "busy": 0,
+          "stale": 3
+        }
+      }
+    },
+    "live": false
+  },
+  "health": {
+    "ok": true,
+    "notes": [
+      "Composer: start with research_discover_search — see docs/COMPOSER_PROCUREMENT.md",
+      "Use research_discover_search + research_faculty_profile for profiled search.",
+      "Prefer yzu_submit_job(plan); magic_procure is legacy campaign resume only.",
+      "Spectator scraper_run is the durable web extraction path (not ad-hoc browser)."
+    ]
+  }
+}

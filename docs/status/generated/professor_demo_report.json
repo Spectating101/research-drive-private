@@ -1,0 +1,17 @@
+{
+  "meta": {
+    "product": "Research Drive — YZU procurement desk",
+    "faculty_email": "drkong@saturn.yzu.edu.tw",
+    "search_query": "TWSE",
+    "known_dataset": "gdelt_asia_daily_country_panel",
+    "api": "http://127.0.0.1:8765",
+    "composer_configured": true,
+    "brain": "cursor_composer",
+    "registry_count": 50,
+    "captured_at": "2026-07-10T13:20:01.501Z",
+    "passed": 0,
+    "total": 0,
+    "all_passed": false
+  },
+  "scenarios": []
+}

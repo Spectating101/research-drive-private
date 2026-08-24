@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research Data Catalogue</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+    :root {
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --surface-2: #f9fafc;
+      --line: #d8dee8;
+      --line-soft: #e9edf3;
+      --text: #142033;
+      --muted: #657184;
+      --faint: #8b95a5;
+      --navy: #172a4a;
+      --blue: #2457a7;
+      --blue-soft: #e8f0ff;
+      --green: #16794f;
+      --green-soft: #e7f5ee;
+      --amber: #9a6410;
+      --amber-soft: #fff4df;
+      --red: #a73a32;
+      --red-soft: #fdeceb;
+      --shadow: 0 10px 28px rgba(20, 32, 51, 0.08);
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+      --sans: "IBM Plex Sans", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+    }
+
+    .topbar {
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--navy);
+      color: white;
+      display: grid;
+      place-items: center;
+      font: 600 13px/1 var(--mono);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.1;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      min-height: calc(100vh - 56px);
+    }
+
+    .sidebar {
+      background: #fbfcfe;
+      border-right: 1px solid var(--line);
+      padding: 18px 14px;
+    }
+
+    .nav-group {
+      margin-bottom: 24px;
+    }
+
+    .nav-label {
+      font: 600 11px/1 var(--mono);
+      color: var(--faint);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0 10px;
+      margin: 6px 0 8px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 10px;
+      border-radius: 8px;
+      color: #334155;
+      margin-bottom: 2px;
+      cursor: pointer;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .nav-link small {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .content {
+      padding: 22px 24px 40px;
+      min-width: 0;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    .lead {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 860px;
+      line-height: 1.5;
+    }
+
+    .button {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 8px;
+      height: 36px;
+      padding: 0 12px;
+      font: 600 13px/1 var(--sans);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .button.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.kpis {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 16px;
+    }
+
+    .grid.main {
+      grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.85fr);
+      align-items: start;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .card-header {
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--line-soft);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+
+    .card-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .card-body {
+      padding: 16px;
+    }
+
+    .kpi {
+      padding: 15px 16px;
+    }
+
+    .kpi label {
+      display: block;
+      color: var(--muted);
+      font: 600 11px/1 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .kpi strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+      margin-top: 11px;
+      letter-spacing: -0.025em;
+    }
+
+    .kpi p {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .status {
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      font: 600 11px/1 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status.ready {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status.running {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .status.blocked {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .status.archive {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) 180px 150px;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 8px;
+      min-height: 36px;
+      padding: 8px 10px;
+      font: 400 13px/1.4 var(--sans);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(36, 87, 167, 0.12);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line-soft);
+      padding: 11px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font: 600 11px/1 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--surface-2);
+    }
+
+    td {
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .dataset-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 7px;
+      color: var(--muted);
+      font: 500 11px/1 var(--mono);
+      background: var(--surface);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .detail-item {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      padding: 11px;
+      background: var(--surface-2);
+    }
+
+    .detail-item label {
+      display: block;
+      color: var(--muted);
+      font: 600 11px/1 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 7px;
+    }
+
+    .detail-item strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .pipeline-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .pipeline-step {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      padding: 12px;
+      background: var(--surface-2);
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 11px;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      display: grid;
+      place-items: center;
+      font: 600 12px/1 var(--mono);
+    }
+
+    .pipeline-step strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+
+    .pipeline-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .query-area {
+      min-height: 160px;
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.55;
+      resize: vertical;
+    }
+
+    .query-output {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #101827;
+      color: #dbe6f7;
+      padding: 12px;
+      min-height: 112px;
+      white-space: pre-wrap;
+      font: 400 12px/1.55 var(--mono);
+    }
+
+    .assistant-box {
+      display: grid;
+      gap: 12px;
+    }
+
+    .chat-log {
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: var(--surface-2);
+      min-height: 240px;
+      max-height: 340px;
+      overflow: auto;
+      padding: 12px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .message {
+      border-radius: 10px;
+      padding: 10px 11px;
+      line-height: 1.45;
+      font-size: 13px;
+      max-width: 94%;
+    }
+
+    .message.bot {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      justify-self: start;
+    }
+
+    .message.user {
+      background: var(--blue);
+      color: white;
+      justify-self: end;
+    }
+
+    .chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .prompt-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .prompt-row button {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 999px;
+      height: 28px;
+      padding: 0 10px;
+      color: var(--muted);
+      font: 500 12px/1 var(--sans);
+      cursor: pointer;
+    }
+
+    .scope-note {
+      border: 1px solid #cdd8e8;
+      background: #f2f6fc;
+      border-radius: 12px;
+      padding: 14px;
+      color: #34455e;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .scope-note strong {
+      color: var(--navy);
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 18px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1180px) {
+      .grid.kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid.main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .toolbar,
+      .detail-grid,
+      .grid.kpis,
+      .page-header {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+
+      .content {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">RD</div>
+        <div>
+          <strong>Research Data Catalogue</strong>
+          <span>Institutional prototype · internal research infrastructure</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span>Environment: local prototype</span>
+        <button class="button">Export brief</button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="nav-group">
+          <div class="nav-label">Workspace</div>
+          <a class="nav-link active" href="#overview">Overview <small>01</small></a>
+          <a class="nav-link" href="#datasets">Datasets <small>02</small></a>
+          <a class="nav-link" href="#detail">Dataset detail <small>03</small></a>
+          <a class="nav-link" href="#query">Query workspace <small>04</small></a>
+          <a class="nav-link" href="#assistant">Assistant <small>05</small></a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Data domains</div>
+          <a class="nav-link" data-filter-shortcut="chain">On-chain <small>3</small></a>
+          <a class="nav-link" data-filter-shortcut="news">News shocks <small>1</small></a>
+          <a class="nav-link" data-filter-shortcut="labor">Labor markets <small>2</small></a>
+          <a class="nav-link" data-filter-shortcut="market">Market data <small>2</small></a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Build status</div>
+          <a class="nav-link">Data API <small>planned</small></a>
+          <a class="nav-link">DuckDB cache <small>pilot</small></a>
+          <a class="nav-link">BigQuery <small>blocked</small></a>
+          <a class="nav-link">GDrive archive <small>ready</small></a>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="page-header" id="overview">
+          <div>
+            <h1>Research database interface for curated data products</h1>
+            <p class="lead">
+              This is a professional product shell for the research infrastructure:
+              dataset registry, coverage/status monitoring, query workspace, exports,
+              and an assistant that answers through controlled metadata and API calls.
+            </p>
+          </div>
+          <div>
+            <button class="button primary">Open selected dataset</button>
+            <button class="button">View manifest</button>
+          </div>
+        </section>
+
+        <div class="scope-note">
+          <strong>Scope clarification:</strong>
+          the website should not be a decorative dashboard over CSV files. It should be a controlled access layer over datasets:
+          browse catalogue, inspect lineage, run constrained queries, export research tables, monitor live pipelines, and ask an assistant that cites dataset metadata.
+        </div>
+
+        <section class="grid kpis">
+          <div class="card kpi">
+            <label>Registered datasets</label>
+            <strong>7</strong>
+            <p>Prototype registry covering on-chain, news, labor, and market-data lanes.</p>
+          </div>
+          <div class="card kpi">
+            <label>USDT pilot rows</label>
+            <strong>14,289</strong>
+            <p>Decoded transfers from 100 finalized Ethereum blocks.</p>
+          </div>
+          <div class="card kpi">
+            <label>GDELT marked OK</label>
+            <strong>34 / 72</strong>
+            <p>Backfill fleet active, upload queue running.</p>
+          </div>
+          <div class="card kpi">
+            <label>Critical blocker</label>
+            <strong>GCP</strong>
+            <p>BigQuery historical source requires authenticated project access.</p>
+          </div>
+        </section>
+
+        <section class="grid main">
+          <div class="card" id="datasets">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Dataset catalogue</h2>
+                <p class="card-subtitle">A registry of data products, not merely folders. Each row should eventually link to schema, lineage, refresh status, and query endpoints.</p>
+              </div>
+              <span class="status archive">Prototype</span>
+            </div>
+            <div class="card-body">
+              <div class="toolbar">
+                <input id="search" placeholder="Search datasets, domains, sources..." />
+                <select id="status">
+                  <option value="all">All statuses</option>
+                  <option value="ready">Ready</option>
+                  <option value="running">Running</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="archive">Archive</option>
+                </select>
+                <select id="domain">
+                  <option value="all">All domains</option>
+                  <option value="chain">On-chain</option>
+                  <option value="news">News</option>
+                  <option value="labor">Labor</option>
+                  <option value="market">Market</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Dataset</th>
+                      <th>Status</th>
+                      <th>Source</th>
+                      <th>Current interface</th>
+                      <th>Next requirement</th>
+                    </tr>
+                  </thead>
+                  <tbody id="datasetRows"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <aside class="card" id="detail">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Selected dataset</h2>
+                <p class="card-subtitle">Dataset profile, scope, access model, and research utility.</p>
+              </div>
+              <span class="status ready" id="detailStatus">Ready</span>
+            </div>
+            <div class="card-body">
+              <h3 id="detailTitle" style="margin: 0 0 6px;">Ethereum USDT Transfer Catalogue</h3>
+              <p class="muted" id="detailText" style="margin: 0 0 14px; line-height: 1.5;">
+                Narrow on-chain research dataset for USDT Transfer events. Historical scale should use BigQuery; live tail uses RPC.
+              </p>
+
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <label>Grain</label>
+                  <strong id="detailGrain">One row per Transfer event</strong>
+                </div>
+                <div class="detail-item">
+                  <label>Primary key</label>
+                  <strong id="detailKey">chain_id + tx_hash + log_index</strong>
+                </div>
+                <div class="detail-item">
+                  <label>Storage</label>
+                  <strong id="detailStorage">Parquet + DuckDB cache</strong>
+                </div>
+                <div class="detail-item">
+                  <label>Refresh</label>
+                  <strong id="detailRefresh">RPC live updater planned</strong>
+                </div>
+              </div>
+
+              <div style="margin-top: 16px;">
+                <h3 class="card-title">Pipeline responsibilities</h3>
+                <div class="pipeline-list" style="margin-top: 10px;">
+                  <div class="pipeline-step">
+                    <div class="step-num">1</div>
+                    <div>
+                      <strong>Historical source</strong>
+                      <p>BigQuery query/export, once GCP access exists. No Etherscan bulk scraping.</p>
+                    </div>
+                  </div>
+                  <div class="pipeline-step">
+                    <div class="step-num">2</div>
+                    <div>
+                      <strong>Live source</strong>
+                      <p>Ethereum RPC eth_getLogs with finalized-block checkpointing.</p>
+                    </div>
+                  </div>
+                  <div class="pipeline-step">
+                    <div class="step-num">3</div>
+                    <div>
+                      <strong>Research layer</strong>
+                      <p>Daily/monthly panels, address-day flows, large-transfer tables, validation reports.</p>
+                    </div>
+                  </div>
+                  <div class="pipeline-step">
+                    <div class="step-num">4</div>
+                    <div>
+                      <strong>Delivery</strong>
+                      <p>Website/API for use; GDrive for archived outputs and manifests only.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="grid main" style="margin-top: 16px;">
+          <div class="card" id="query">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Query workspace</h2>
+                <p class="card-subtitle">A proper version would send this to a FastAPI endpoint backed by DuckDB or BigQuery with dry-run/cost guards.</p>
+              </div>
+              <button class="button primary" id="runQuery">Run preview</button>
+            </div>
+            <div class="card-body">
+              <textarea class="query-area" id="queryText">SELECT
+  date,
+  transfer_count,
+  gross_volume_usdt,
+  active_senders,
+  active_receivers
+FROM daily_usdt_flows
+ORDER BY date DESC
+LIMIT 10;</textarea>
+              <div class="query-output" id="queryOutput">No query run yet. Preview mode uses the local USDT pilot summary.</div>
+            </div>
+          </div>
+
+          <div class="card" id="assistant">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Research assistant</h2>
+                <p class="card-subtitle">Secondary interface. It should summarize metadata, suggest queries, and call controlled tools.</p>
+              </div>
+              <span class="status archive">Mock</span>
+            </div>
+            <div class="card-body assistant-box">
+              <div class="chat-log" id="chatLog">
+                <div class="message bot">
+                  I can explain dataset status, suggest the first professor-facing deliverable, or clarify why BigQuery is different from Etherscan.
+                </div>
+              </div>
+              <div class="prompt-row">
+                <button data-prompt="What should this website actually do?">Website scope</button>
+                <button data-prompt="What should we show professor first?">Professor first</button>
+                <button data-prompt="What is blocked?">Blocked</button>
+              </div>
+              <form class="chat-form" id="chatForm">
+                <input id="chatInput" placeholder="Ask about scope, USDT, BigQuery, GDrive..." />
+                <button class="button primary" type="submit">Ask</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <p class="footer">
+          Product direction: this website should become a thin professional application over a real data API.
+          It should not hide poor scope with visuals. The immediate engineering target is FastAPI + DuckDB reading the current USDT pilot package and GDELT status manifests.
+        </p>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const datasets = [
+      {
+        id: "usdt",
+        name: "Ethereum USDT Transfer Catalogue",
+        domain: "chain",
+        status: "ready",
+        source: "Ethereum RPC pilot; BigQuery planned",
+        interface: "Parquet package + prototype tables",
+        requirement: "GCP access for historical scale",
+        grain: "One row per ERC-20 Transfer event",
+        key: "chain_id + tx_hash + log_index",
+        storage: "Parquet + DuckDB cache",
+        refresh: "RPC finalized-block updater planned",
+        description: "Narrow on-chain research dataset for USDT Transfer events. Historical scale should use BigQuery; live tail uses RPC.",
+        tags: ["USDT", "Ethereum", "RPC", "BigQuery"]
+      },
+      {
+        id: "gdelt",
+        name: "GDELT Asia News Shock Backfill",
+        domain: "news",
+        status: "running",
+        source: "GDELT GKG public files",
+        interface: "Queue status + local data lake",
+        requirement: "Expose worker/upload status in API",
+        grain: "Monthly Asia-filtered GKG windows",
+        key: "run_id + article/url identifiers",
+        storage: "data_lake + GDrive archive",
+        refresh: "Backfill queue active",
+        description: "Large news-shock dataset currently being backfilled across workers with upload and compaction.",
+        tags: ["GDELT", "News", "Asia", "Backfill"]
+      },
+      {
+        id: "upwork",
+        name: "Upwork / Freelance Labor Archive",
+        domain: "labor",
+        status: "archive",
+        source: "Scraping archive",
+        interface: "Raw archive registered later",
+        requirement: "Schema audit and dedup manifest",
+        grain: "Job posting / scraped observation",
+        key: "source + scrape_time + job_id",
+        storage: "Spectator archive + Drive backups",
+        refresh: "Not currently scheduled",
+        description: "Labor-market scraping archive needs careful catalogue registration before more analysis.",
+        tags: ["Labor", "Scraping", "Jobs"]
+      },
+      {
+        id: "coingecko",
+        name: "CoinGecko Market Panels",
+        domain: "market",
+        status: "ready",
+        source: "CoinGecko scheduled job",
+        interface: "Daily tables",
+        requirement: "Register lineage and schedule status",
+        grain: "Asset-day market observation",
+        key: "asset_id + date",
+        storage: "Local daily outputs",
+        refresh: "Daily scheduled run",
+        description: "Crypto-market panels can become control variables for USDT and event-study research.",
+        tags: ["Crypto", "Prices", "Market"]
+      },
+      {
+        id: "opensea",
+        name: "OpenSea / NFT Market Archive",
+        domain: "market",
+        status: "archive",
+        source: "Existing pipeline/archive",
+        interface: "Not yet registered",
+        requirement: "Document pipeline and schema",
+        grain: "Collection/event depending source",
+        key: "source-specific",
+        storage: "Archive storage",
+        refresh: "Unknown",
+        description: "Existing NFT market work should be normalized into catalogue form before further claims.",
+        tags: ["NFT", "OpenSea", "Archive"]
+      },
+      {
+        id: "labels",
+        name: "Address Labels / Entity Intelligence",
+        domain: "chain",
+        status: "blocked",
+        source: "Manual/public/paid labels",
+        interface: "Not available",
+        requirement: "Professor must confirm entity-analysis need",
+        grain: "Address or entity label",
+        key: "chain_id + address + label_source",
+        storage: "Planned reference table",
+        refresh: "Manual or provider-dependent",
+        description: "High-value but difficult layer. Do not promise Etherscan-level labels without funding/source confirmation.",
+        tags: ["Labels", "Exchange", "Entities"]
+      },
+      {
+        id: "bigquery",
+        name: "BigQuery Historical Blockchain Backend",
+        domain: "chain",
+        status: "blocked",
+        source: "Google Blockchain Analytics",
+        interface: "SQL dry-run runner ready",
+        requirement: "Authenticated GCP project",
+        grain: "Depends on query/export",
+        key: "Depends on selected table",
+        storage: "Remote warehouse; exported results only",
+        refresh: "Google-managed",
+        description: "Historical source for USDT panels/full archive. Blocked only by credentials, not by implementation.",
+        tags: ["BigQuery", "Google", "Warehouse"]
+      }
+    ];
+
+    const datasetRows = document.getElementById("datasetRows");
+    const search = document.getElementById("search");
+    const statusFilter = document.getElementById("status");
+    const domainFilter = document.getElementById("domain");
+    const detailStatus = document.getElementById("detailStatus");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailText = document.getElementById("detailText");
+    const detailGrain = document.getElementById("detailGrain");
+    const detailKey = document.getElementById("detailKey");
+    const detailStorage = document.getElementById("detailStorage");
+    const detailRefresh = document.getElementById("detailRefresh");
+    const queryOutput = document.getElementById("queryOutput");
+    const chatLog = document.getElementById("chatLog");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+
+    function statusClass(status) {
+      return {
+        ready: "ready",
+        running: "running",
+        blocked: "blocked",
+        archive: "archive"
+      }[status] || "archive";
+    }
+
+    function renderDatasets() {
+      const term = search.value.toLowerCase().trim();
+      const status = statusFilter.value;
+      const domain = domainFilter.value;
+
+      const rows = datasets.filter(item => {
+        const haystack = [item.name, item.source, item.interface, item.requirement, item.description, ...item.tags].join(" ").toLowerCase();
+        return (status === "all" || item.status === status)
+          && (domain === "all" || item.domain === domain)
+          && haystack.includes(term);
+      });
+
+      datasetRows.innerHTML = rows.map(item => `
+        <tr data-id="${item.id}">
+          <td>
+            <div class="dataset-name">${item.name}</div>
+            <div class="tags">${item.tags.map(tag => `<span class="tag">${tag}</span>`).join("")}</div>
+          </td>
+          <td><span class="status ${statusClass(item.status)}">${item.status}</span></td>
+          <td>${item.source}</td>
+          <td>${item.interface}</td>
+          <td>${item.requirement}</td>
+        </tr>
+      `).join("");
+
+      datasetRows.querySelectorAll("tr").forEach(row => {
+        row.addEventListener("click", () => selectDataset(row.dataset.id));
+      });
+    }
+
+    function selectDataset(id) {
+      const item = datasets.find(dataset => dataset.id === id) || datasets[0];
+      detailStatus.className = `status ${statusClass(item.status)}`;
+      detailStatus.textContent = item.status;
+      detailTitle.textContent = item.name;
+      detailText.textContent = item.description;
+      detailGrain.textContent = item.grain;
+      detailKey.textContent = item.key;
+      detailStorage.textContent = item.storage;
+      detailRefresh.textContent = item.refresh;
+    }
+
+    function runQueryPreview() {
+      const query = document.getElementById("queryText").value.toLowerCase();
+      if (query.includes("large")) {
+        queryOutput.textContent = [
+          "preview_source: USDT pilot package",
+          "table: large_usdt_transfers",
+          "rows: 41",
+          "threshold: 1,000,000 USDT",
+          "note: production endpoint would enforce row limits and source citation."
+        ].join("\n");
+      } else if (query.includes("address")) {
+        queryOutput.textContent = [
+          "preview_source: USDT pilot package",
+          "table: address_day_usdt_flows_top",
+          "rows: 5,000",
+          "grain: address-day",
+          "note: production endpoint should support address lookup and event windows."
+        ].join("\n");
+      } else {
+        queryOutput.textContent = [
+          "preview_source: USDT pilot package",
+          "table: daily_usdt_flows",
+          "date: 2026-06-04",
+          "transfer_count: 14,289",
+          "gross_volume_usdt: 415,039,291.63",
+          "active_senders: 5,247",
+          "active_receivers: 6,435"
+        ].join("\n");
+      }
+    }
+
+    function addMessage(role, text) {
+      const message = document.createElement("div");
+      message.className = `message ${role}`;
+      message.textContent = text;
+      chatLog.appendChild(message);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function assistantAnswer(text) {
+      const q = text.toLowerCase();
+      if (q.includes("website") || q.includes("scope")) {
+        return "The website should be an access layer: dataset registry, schema/lineage, query workspace, export controls, pipeline health, and a constrained assistant. It should not be merely charts over CSV.";
+      }
+      if (q.includes("professor")) {
+        return "First professor-facing output should be a USDT research workspace: daily panel, large-transfer view, address lookup, validation report, and a decision note on whether full historical export is necessary.";
+      }
+      if (q.includes("blocked") || q.includes("bigquery") || q.includes("gcp")) {
+        return "Main blocker is GCP authentication for BigQuery. RPC and local research-package generation already work. Address/entity labels are a separate scope and should not be promised yet.";
+      }
+      if (q.includes("gdrive")) {
+        return "GDrive should be cold archive and delivery storage: Parquet packages, manifests, reports, notebooks. It should not be the query engine.";
+      }
+      return "Best next implementation step is FastAPI plus DuckDB over the existing USDT pilot package, then add GDELT status endpoints. The UI can then become live without waiting for BigQuery.";
+    }
+
+    search.addEventListener("input", renderDatasets);
+    statusFilter.addEventListener("change", renderDatasets);
+    domainFilter.addEventListener("change", renderDatasets);
+    document.getElementById("runQuery").addEventListener("click", runQueryPreview);
+
+    document.querySelectorAll("[data-filter-shortcut]").forEach(link => {
+      link.addEventListener("click", () => {
+        domainFilter.value = link.dataset.filterShortcut;
+        renderDatasets();
+      });
+    });
+
+    chatForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      addMessage("user", text);
+      chatInput.value = "";
+      setTimeout(() => addMessage("bot", assistantAnswer(text)), 120);
+    });
+
+    document.querySelectorAll("[data-prompt]").forEach(button => {
+      button.addEventListener("click", () => {
+        chatInput.value = button.dataset.prompt;
+        chatForm.dispatchEvent(new Event("submit"));
+      });
+    });
+
+    renderDatasets();
+    selectDataset("usdt");
+  </script>
+</body>
+</html>

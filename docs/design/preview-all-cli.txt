@@ -1,0 +1,408 @@
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  HOME · desk digest                                                    | y 56 Detail | Ask        |
+| y 76 *Home   |y 76  WARN  DataCite token not set → Resources · 1 issue                    | y 76 ─────────────────   |
+| y 96  Library|y 96  ┌─ Continue ─────────────────────────────────────┐                    | y 96 (idle — select Recen|
+| y116  Cluster|y116  │ Asia daily news-risk panel                    │                     | y116 Row → Detail auto   |
+| y136  Browse |y136  │ Last: Preview rows · Schema tab · 2h ago [Go]│                      | y136 Toggle Ask anytime  |
+| y156  Resourc|y156  └──────────────────────────────────────────────┘                      | y156 WARN → Resources tab|
+| y176  Profile|── RUNNING JOBS ─────────────────────────────────────────────────────────── | y176                     |
+| y196  Setting|y196  GDELT crypto overlay  [████░░░░░░░░░░░░░░░░] 18/99 months             | y196 [Ask desk brief]    |
+| y216 Ask → ra|y216  DataCite harvest Q   [████████░░░░░░░░░░░░] 4 partitions queued       | y216                     |
+|              |y236  collection-sync      ● idle · last ok 6h ago                          | y236                     |
+|              |── PINS ─────────────────────────────────────────────────────────────────── | y256                     |
+|              |y276  TWSE governance × · USDT flows × · GDELT Asia × · +                   | y276                     |
+|              |── RECENT  (Library columns: Name · Location · Ready · Updated) ─────────── | y296                     |
+|              |y316 +----------------------------------------------------------------------| y316                     |
+|              |y336  Name                 Location      Ready     Upd                      | y336                     |
+|              |y356  Asia daily news      gdelt/asia    ● Q-rdy    2d                      | y356                     |
+|              |y376  CoinGecko daily      crypto/cg     ● Q-rdy   Dly                      | y376                     |
+|              |y396  Cross-asset week     fused/cross   ● Q-rdy    1w                      | y396                     |
+|              |y416  GDELT URL index      gdelt/urls    ● Q-rdy    3d                      | y416                     |
+|              |y436  USDT catalogue       onchain/bq    ○ Sample    —                      | y436                     |
+|              |y456  OpenSea trades       nft/os        ○ Sample    —                      | y456                     |
+|              |y476  Stablecoin incidents stable/inc    ● Q-rdy    1w                      | y476                     |
+|              |y496  TWSE governance      —             ○ External  —                      | y496                     |
+|              |y516 +----------------------------------------------------------------------| y516                     |
+|              |── SUGGESTED (from Profile track gaps) ──────────────────────────────────── | y536                     |
+|              |y556  TWSE daily panel · MOPS governance · Browse →                         | y556                     |
+|              |y576  ⌘K search · Enter → Ask · See all → Library tab                       | y576                     |
+|              |── PLATFORM STRIP  (mirrors Resources WARNs) ────────────────────────────── | y596                     |
+|              |y616  Query :8765 ● · GDrive 2.1/5TB ● · workers 4 ● · BQ ●                 | y616                     |
+|              |y636  DataCite ○ WARN · GDELT job 18% · LLM desk ●                          | y636                     |
+|              |y656                                                                        | y656                     |
+|              |y776   (main canvas — whitespace to y916)                                   | y676                     |
+|              |y896                                                                        | y696                     |
+|              |                                                                            | y716                     |
+|              |                                                                            | y736                     |
+|              |                                                                            | y756                     |
+|              |                                                                            | y776                     |
+|              |                                                                            | y796                     |
+|              |                                                                            | y816                     |
+|              |                                                                            | y836                     |
+|              |                                                                            | y856                     |
+|              |                                                                            | y876                     |
+|              |                                                                            | y896                     |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=home
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  LIBRARY · Lab Drive                                                   | y 56 Detail | Ask        |
+| y 76  Home   |y 76  Lab Drive › Research panels › gdelt › asia   ⌕ updated ↓              | y 76 ─────────────────   |
+| y 96 *Library|y 96  [All] [Panels*] [News] [Crypto] [Stable] [Onchain] [Procured]         | y 96 Asia daily news-risk|
+| y116  Cluster|y116 +----------------------------------------------------------------------| y116 gdelt_asia_daily_cou|
+| y136  Browse |y136  Name                      Location         Ready                      | y136 ● Query-ready  ○ Sam|
+| y156  Resourc|y156  ▾ research_panels         vault/…/panels   (12)                       | y156 SOURCE     GDELT GKG|
+| y176  Profile|y176    ▸ Asia daily news*      gdelt/asia       ● Q-rdy                    | y176 ACCESS     local pan|
+| y196  Setting|y196      gdelt_asia_daily_country_panel                                    | y196 COVERAGE   2018-01 –|
+| y216 Ask → ra|y216      GDELT shock scored    gdelt/scored     ● Q-rdy                    | y216 GRAIN      country ·|
+|              |y236      Cross-asset week      fused/cross      ● Q-rdy                    | y236 VAULT PATH collectio|
+|              |y256      CoinGecko daily       crypto/cg        ● Q-rdy                    | y256 USE        news shoc|
+|              |y276      Public macro baseline macro/bl         ● Q-rdy                    | y276 LIMIT      Asia ISO3|
+|              |y296  ▾ news_shock              vault/…/news     (8)                        | y296 UPDATED    2 days ag|
+|              |y316      GDELT URL index       gdelt/urls       ● Q-rdy                    | y316 PARTITION  news_shoc|
+|              |y336      Asia entity map       entity/asia      ● Q-rdy                    | y336                     |
+|              |y356      News shock taxonomy   news/tax         ● Q-rdy                    | y356 [Preview rows]  open|
+|              |y376  ▾ crypto                  vault/…/crypto   (24)                       | y376 [See on Cluster]    |
+|              |y396      USDT catalogue        onchain/bq       ○ Smpl                     | y396 [Ask about this]    |
+|              |y416      ETH transfers BQ      bq/eth           ● Remote                   | y416                     |
+|              |y436      OpenSea graph         nft/graph        ○ Smpl                     | y436 Rail toggle persists|
+|              |y456      CoinGecko archive     crypto/cg        ● Q-rdy                    |                          |
+|              |y476  ▾ stablecoin              vault/…/stable   (6)                        |                          |
+|              |y496      Incident registry     stable/inc       ● Q-rdy                    |                          |
+|              |y516      DeFiLlama map         stable/dl        ● Q-rdy                    |                          |
+|              |y536  ▸ connections             vault/…/conn     (1)                        |                          |
+|              |y556      Fused cross-asset     fused/root       ● Q-rdy                    |                          |
+|              |y576  ▸ procured                vault/…/proc     (3)                        |                          |
+|              |y596      DataCite shard        dc/fin           ● Indexed                  |                          |
+|              |y616                                                                        |                          |
+|              |y636                                                                        |                          |
+|              |y656                                                                        |                          |
+|              |y676                                                                        |                          |
+|              |y696                                                                        |                          |
+|              |y716                                                                        |                          |
+|              |y736                                                                        |                          |
+|              |y756                                                                        |                          |
+|              |y776                                                                        |                          |
+|              |y796                                                                        |                          |
+|              |y816                                                                        |                          |
+|              |y836 +----------------------------------------------------------------------|                          |
+|              |y856  128 datasets · 6 partitions · * = selected row                        |                          |
+|              |y876  Click → Detail rail · Preview opens modal · ⌘K                        |                          |
+|              |y896  Footer y896 · main zone C ends                                        |                          |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=library
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  CLUSTER · coverage & joins                                            | y 56 Detail | Ask        |
+| y 76  Home   |y 76  Domains [All*] [Asia] [Crypto] [Taiwan] [Stablecoin] [NFT]            | y 76 ─────────────────   |
+| y 96  Library|── TIMELINE  registry + partition manifests ─────────────────────────────── | y 96 VENN COMPARE        |
+| y116 *Cluster|y116            2018      2020      2022      2024    now                   | y116 A: GDELT Asia       |
+| y136  Browse |y136  GDELT Asia  ████████████████████████████████████████                  | y136 B: Ticker week      |
+| y156  Resourc|y156  CoinGecko   ░░░░░░░░░░░░░░░░████████████████████████                  | y156 Joint 82% dates     |
+| y176  Profile|y176  USDT BQ     ░░░░░░░░░░░░░░░░░░░░░░░░████████████████                  | y176 71% countries       |
+| y196  Setting|y196  Fused week  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░████████████                  | y196 Keys date·country   |
+| y216 Ask → ra|y216  OpenSea     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░██████░░                  | y216 Only-A shock_score  |
+|              |y236  SEC filings ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░███░                   | y236 Only-B ret_1w       |
+|              |── OVERLAP · Venn (set intersection) ────────────────────────────────────── | y256 Joint rows 41,208   |
+|              |y276             ╭── GDELT Asia ──╮   ╭── Ticker week ──╮                   | y276 [Open Library]      |
+|              |y296             │ shock_score    │ ∩ │ ret_1w         │                    | y296 [Ask re gap]        |
+|              |y316             ╰───────┬────────╯   ╰────────┬───────╯                    | y316                     |
+|              |y336                     ╰──── 82% dates · 71% countries ──╯                | y336                     |
+|              |y356  joint keys: date · country_iso3 · 41,208 rows                         | y356                     |
+|              |y376  Compare [GDELT Asia] [Ticker week] [Cross-asset] [+]                  | y376                     |
+|              |── JOIN MATRIX (likely keys) ────────────────────────────────────────────── | y396                     |
+|              |y416  GDELT × Ticker   date,country  0.82                                   | y416                     |
+|              |y436  GDELT × Cross    date,country  0.79                                   | y436                     |
+|              |y456  Ticker × Cross   date,ticker   0.71                                   | y456                     |
+|              |── GAPS  profile recommended − registry ─────────────────────────────────── | y476                     |
+|              |y496  [TWSE daily] [MOPS governance] [Election poll] [HF TW]                | y496                     |
+|              |y516  gap click → Browse prefilled · Ask → procure plan                     | y516                     |
+|              |y536  47/128 datasets mapped to tracks · 3 gaps · 6 domains                 | y536                     |
+|              |y556                                                                        | y556                     |
+|              |y576                                                                        | y576                     |
+|              |y596                                                                        | y596                     |
+|              |y616                                                                        | y616                     |
+|              |y636                                                                        | y636                     |
+|              |y656                                                                        | y656                     |
+|              |y676                                                                        | y676                     |
+|              |y696                                                                        | y696                     |
+|              |y716                                                                        | y716                     |
+|              |y736                                                                        | y736                     |
+|              |y756                                                                        | y756                     |
+|              |y776                                                                        | y776                     |
+|              |y796                                                                        | y796                     |
+|              |y816                                                                        | y816                     |
+|              |y836                                                                        | y836                     |
+|              |y856                                                                        | y856                     |
+|              |y876                                                                        | y876                     |
+|              |y896  Footer · cluster canvas zone C                                        | y896                     |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=cluster
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  BROWSE · external & not-in-vault                                      | y 56 Detail | Ask        |
+| y 76  Home   |y 76  Same table as Library · Detail ribbon: External                       | y 76 ─────────────────   |
+| y 96  Library|y 96  [All] [DataCite] [HF] [Web] [SEC] [Trends] [arXiv]                    | y 96 SEC crypto enforce  |
+| y116  Cluster|y116 +----------------------------------------------------------------------| y116 ◌ EXTERNAL          |
+| y136 *Browse |y136  Name                      Source  State      Fit                      | y136 Source SEC EDGAR    |
+| y156  Resourc|y156  SEC crypto enforcement    SEC    ◌ External registry window           | y156 [Add to lab]        |
+| y176  Profile|y176  DataCite finance corpus   DC     ◉ Indexed  metadata                  | y176 → Ask prefilled     |
+| y196  Setting|y196  HF taiwan-equity panel    HF     ◉ Indexed  TW equities               | y196 [Ask]               |
+| y216 Ask → ra|y216  Google Trends BYD         Trends ◉ Connectedbrand signal              | y216                     |
+|              |y236  TWSE OpenAPI governance   TWSE   ◌ External gov panel                 | y236                     |
+|              |y256  Stablecoin BQ public      BQ     ◉ Remote   on-chain                  | y256                     |
+|              |y276  Ken French factors        KF     ◉ Indexed  factor research           | y276                     |
+|              |y296  Wikipedia stablecoin      Wiki   ◉ Connectedincidents                 | y296                     |
+|              |y316  arXiv crypto micro        arXiv  ◌ External papers                    | y316                     |
+|              |y336  GDELT global backup       GDELT  ◌ External news expand               | y336                     |
+|              |y356 +----------------------------------------------------------------------| y356                     |
+|              |y376  Profile track scope boosts TW / Asia / crypto hits                    | y376                     |
+|              |y396  Select → Detail · Add to lab → Ask (prefilled yzu job)                | y396                     |
+|              |y416  Indexed = catalog stub · External = procure needed                    | y416                     |
+|              |y436                                                                        | y436                     |
+|              |y456                                                                        | y456                     |
+|              |y476                                                                        | y476                     |
+|              |y496                                                                        | y496                     |
+|              |y516                                                                        | y516                     |
+|              |y536                                                                        | y536                     |
+|              |y556                                                                        | y556                     |
+|              |y576                                                                        | y576                     |
+|              |y596                                                                        | y596                     |
+|              |y616                                                                        | y616                     |
+|              |y636                                                                        | y636                     |
+|              |y656                                                                        | y656                     |
+|              |y676                                                                        | y676                     |
+|              |y696                                                                        | y696                     |
+|              |y716                                                                        | y716                     |
+|              |y736                                                                        | y736                     |
+|              |y756                                                                        | y756                     |
+|              |y776                                                                        | y776                     |
+|              |y796                                                                        | y796                     |
+|              |y816                                                                        | y816                     |
+|              |y836                                                                        | y836                     |
+|              |y856                                                                        | y856                     |
+|              |y876                                                                        | y876                     |
+|              |y896 Footer · browse table zone C                                           | y896                     |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=browse
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  RESOURCES · capacity ledger (live /health)                            | y 56 Detail | Ask        |
+| y 76  Home   |y 76  OK 11 · WARN 2 · FAIL 0 · refreshed 30s ago [Refresh]                 | y 76 ─────────────────   |
+| y 96  Library|── COMPUTE  yzu_cluster.json ────────────────────────────────────────────── | y 96 Row drill-down      |
+| y116  Cluster|y116 +----------------------------------------------------------------------| y116 BigQuery: 42GB/mo   |
+| y136  Browse |y136  Pool          Hosts  State              Queue                         | y136 dry-run on          |
+| y156 *Resourc|y156  controller    1      ● optiplex UI       —                            | y156 Creds → Settings    |
+| y176  Profile|y176  windows_lab   4      ● 2 busy / 2 idle   3 run 12 pend                | y176 [Ask ops]           |
+| y196  Setting|y196  capabilities  http_collect·gdelt·scrape·sqlite·puppeteer              | y196                     |
+| y216 Ask → ra|y216  spectator     —      ○ excluded personal host                         | y216                     |
+|              |── STORAGE  storage_tiers.json ──────────────────────────────────────────── | y236                     |
+|              |y256 +----------------------------------------------------------------------| y256                     |
+|              |y276  Tier            Used           Cap         Status                     | y276                     |
+|              |y296  GDrive canon    2.1 TB         5.0 TB      ● OK                       | y296                     |
+|              |y316  archive quota   1.8 TB         3.0 TB      verify on                  | y316                     |
+|              |y336  NVMe hot desk   68% (412 GB fr) 1.2 TB      ● headroom                | y336                     |
+|              |y356  USB bulk cache  1.8 TB         2.0 TB      ● mounted                  | y356                     |
+|              |y376  staging policy  compact after canonical verify                        | y376                     |
+|              |── DATA PLANE ───────────────────────────────────────────────────────────── | y396                     |
+|              |y416  Query engine    :8765  ● up   128 datasets · index v3                 | y416                     |
+|              |y436  Partitions      6 active · catalog sync ● 6h ago                      | y436                     |
+|              |y456  BigQuery        ● SA   dry-run on · ~42 GB scanned (30d)              | y456                     |
+|              |y476  Public routes   USDT·ETH·goog_blockchain (3 tables)                   | y476                     |
+|              |── PROCUREMENT & DESK ───────────────────────────────────────────────────── | y496                     |
+|              |y516  Composer MCP    ● 62 tools · 12 sessions (7d)                         | y516                     |
+|              |y536  DataCite        ○ WARN token missing · harvest idle                   | y536                     |
+|              |y556  LLM desk        ● configured · model via env                          | y556                     |
+|              |── PIPELINES & TIMERS ───────────────────────────────────────────────────── | y576                     |
+|              |y596  GDELT overlay   [██░░░░░░░░░░] 18/99 mo                               | y596                     |
+|              |y616  DataCite rows   11.4M ingested · last run ok                          | y616                     |
+|              |y636  Timers          alpha-live ● scorecard ● coll-sync ●                  | y636                     |
+|              |y656  Alpha paper     ledger ● signal 2026-04 · scorecard ●                 | y656                     |
+|              |y676  Local staging   data_lake 17GB · procured 2.4GB                       | y676                     |
+|              |y696                                                                        | y696                     |
+|              |y716                                                                        | y716                     |
+|              |y736                                                                        | y736                     |
+|              |y756                                                                        | y756                     |
+|              |y776                                                                        | y776                     |
+|              |y796                                                                        | y796                     |
+|              |y816                                                                        | y816                     |
+|              |y836                                                                        | y836                     |
+|              |y856                                                                        | y856                     |
+|              |y876                                                                        | y876                     |
+|              |y896  Footer · resources ledger scroll end                                  | y896                     |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=resources
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  PROFILE · research context (faculty_profile)                          | y 56 Detail | Ask        |
+| y 76  Home   |y 76  System memory for ranking & procure — not a social profile            | y 76 ─────────────────   |
+| y 96  Library|── AFFILIATION ──────────────────────────────────────────────────────────── | y 96 Track 2 · Asia shock|
+| y116  Cluster|y116  Prof. Kong · Yuan Ze University · Department of Finance               | y116 14 holdings         |
+| y136  Browse |y136  kong@yzu.edu.tw                                                       | y136 Ask uses scope      |
+| y156  Resourc|y156  ORCID 0000-0002-…. · Google Scholar · SSRN author page                | y156 [Ask]               |
+| y176 *Profile|── RESEARCH PROGRAM  research_tracks ────────────────────────────────────── | y176                     |
+| y196  Setting|y196  1  Crypto & NFT market microstructure                                 | y196                     |
+| y216 Ask → ra|y216  2  Asia news shock · cross-market linkage                             | y216                     |
+|              |y236  3  Taiwan governance & disclosure panels                              | y236                     |
+|              |y256  Publications  peer n=12 · WP n=3 · Grants n=2 · SSRN n=8              | y256                     |
+|              |── CORPUS SCOPE  tracks × registry holdings ─────────────────────────────── | y276                     |
+|              |y296 +----------------------------------------------------------------------| y296                     |
+|              |y316  Track                  Holdings   Gap / note                          | y316                     |
+|              |y336  News shock             14 ds      —                                   | y336                     |
+|              |y356  Stablecoin / DeFi      22 ds      BQ quota monitoring                 | y356                     |
+|              |y376  Taiwan equity           3 ds      TWSE daily panel                    | y376                     |
+|              |y396  NFT / OpenSea           8 ds      sample only                         | y396                     |
+|              |── PINNED CORPORA  editable ─────────────────────────────────────────────── | y416                     |
+|              |y436 +----------------------------------------------------------------------| y436                     |
+|              |y456  dataset_id                      Label                                 | y456                     |
+|              |y476  gdelt_asia_daily_country_panel  Asia shock                            | y476                     |
+|              |y496  ethereum_usdt_catalogue         USDT flows                            | y496                     |
+|              |y516  coingecko_market_daily          Crypto mkt                            | y516                     |
+|              |── PROCUREMENT DEFAULTS  Browse / Ask scope ─────────────────────────────── | y536                     |
+|              |y556  TWSE governance panel · USDT on-chain · GDELT Asia ext                | y556                     |
+|              |y576  DataCite finance · HF taiwan-equity when indexed                      | y576                     |
+|              |y596  [Edit tracks] [Sync Scholar] [Export scope JSON]                      | y596                     |
+|              |y616                                                                        | y616                     |
+|              |y636                                                                        | y636                     |
+|              |y656                                                                        | y656                     |
+|              |y676                                                                        | y676                     |
+|              |y696                                                                        | y696                     |
+|              |y716                                                                        | y716                     |
+|              |y736                                                                        | y736                     |
+|              |y756                                                                        | y756                     |
+|              |y776                                                                        | y776                     |
+|              |y796                                                                        | y796                     |
+|              |y816                                                                        | y816                     |
+|              |y836                                                                        | y836                     |
+|              |y856                                                                        | y856                     |
+|              |y876                                                                        | y876                     |
+|              |y896  Footer · profile academic scope                                       | y896                     |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=profile
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  SETTINGS                                                              | y 56 Detail | Ask        |
+| y 76  Home   |── ACCOUNT ──────────────────────────────────────────────────────────────── | y 76 ─────────────────   |
+| y 96  Library|y 96  Email           kong@yzu.edu.tw                                       | y 96 Admin → legacy views|
+| y116  Cluster|y116  Desk API token  ********········  [Rotate]                            | y116 [Ask]               |
+| y136  Browse |y136  Session         active · signed in via desk auth                      | y136                     |
+| y156  Resourc|── CREDENTIALS  data_lake/procurement_memory/ ───────────────────────────── | y156                     |
+| y176  Profile|y176  BigQuery SA          ● configured                                     | y176                     |
+| y196 *Setting|y196  GDrive rclone        ● configured                                     | y196                     |
+| y216 Ask → ra|y216  DataCite API         ○ not set  [Add]                                 | y216                     |
+|              |y236  RapidAPI / misc      ○ optional                                       | y236                     |
+|              |── ADMIN  legacy main-canvas views ──────────────────────────────────────── | y256                     |
+|              |y276  Workers pool live status · Jobs queue · Activity log                  | y276                     |
+|              |y296  Credentials vault editor · Collection sync status                     | y296                     |
+|              |── DISPLAY & DEFAULTS ───────────────────────────────────────────────────── | y316                     |
+|              |y336  Density          (●) Comfortable  ( ) Compact                         | y336                     |
+|              |y356  Default tab        ( ) Home  (●) Library  ( ) Cluster                 | y356                     |
+|              |y376  Rail on select     (●) Detail  ( ) Stay on Ask                        | y376                     |
+|              |y396  Table columns      Name·Location·Ready·Updated                        | y396                     |
+|              |── NOTIFICATIONS & INTEGRATION ──────────────────────────────────────────── | y416                     |
+|              |y436  Job failure alert     ● on                                            | y436                     |
+|              |y456  WARN digest email     ○ off                                           | y456                     |
+|              |y476  API endpoint          http://127.0.0.1:8765  [Test]                   | y476                     |
+|              |y496  Vite UI               http://127.0.0.1:5178  [Open]                   | y496                     |
+|              |y516  Platform manifest     backtests/outputs/platform/latest.json          | y516                     |
+|              |y536                                                                        | y536                     |
+|              |y556                                                                        | y556                     |
+|              |y576                                                                        | y576                     |
+|              |y596                                                                        | y596                     |
+|              |y616                                                                        | y616                     |
+|              |y636                                                                        | y636                     |
+|              |y656                                                                        | y656                     |
+|              |y676                                                                        | y676                     |
+|              |y696                                                                        | y696                     |
+|              |y716                                                                        | y716                     |
+|              |y736                                                                        | y736                     |
+|              |y756                                                                        | y756                     |
+|              |y776                                                                        | y776                     |
+|              |y796                                                                        | y796                     |
+|              |y816                                                                        | y816                     |
+|              |y836                                                                        | y836                     |
+|              |y856                                                                        | y856                     |
+|              |y876                                                                        | y876                     |
+|              |y896  Footer · settings zone C                                              | y896                     |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=settings
+====================================================================================================
++--------------+----------------------------------------------------------------------------+--------------------------+
+| y  0 RD Resea| y  0 [ Search datasets in the library... ⌘K ]                              | y  0 YZ ▾                |
++--------------+----------------------------------------------------------------------------+--------------------------+
+  ARTBOARD 1440×900px  header=56  body=844  sidebar=220  main=860  rail=360  rows=43                                    
+| y 56 SIDEBAR |y 56  ░░ library table dimmed behind modal ░░                               | y 56 Detail | Ask        |
+| y 76  Home   |y 76  ░░ library table dimmed behind modal ░░                               | y 76 ─────────────────   |
+| y 96 *Library|y 96    ╔════════════════════════════════════════════════════════╗          | y 96 Asia daily news-risk|
+| y116  Cluster|y116    ║ Preview · gdelt_asia_daily_country_panel  [×] ║                   | y116 gdelt_asia_daily_cou|
+| y136  Browse |y136    ║ [Preview*] [Schema] [Query]                   ║                   | y136 ● Query-ready  ○ Sam|
+| y156  Resourc|y156    ║────────────────────────────────────────────────────────║          | y156 SOURCE     GDELT GKG|
+| y176  Profile|y176    ║ date       ctry  shock_score  n_rows         ║                    | y176 ACCESS     local pan|
+| y196  Setting|y196    ║ 2026-04-01 TWN  0.42       1.2M           ║                       | y196 COVERAGE   2018-01 –|
+| y216 Ask → ra|y216    ║ 2026-04-01 SGP  0.18       890K           ║                       | y216 GRAIN      country ·|
+|              |y236    ║ 2026-04-01 JPN  0.31       2.1M           ║                       | y236 VAULT PATH collectio|
+|              |y256    ║ 2026-04-01 KOR  0.22       980K           ║                       | y256 USE        news shoc|
+|              |y276    ║ 2026-04-01 HKG  0.15       440K           ║                       | y276 LIMIT      Asia ISO3|
+|              |y296    ║ 2026-03-31 TWN  0.39       1.1M           ║                       | y296 UPDATED    2 days ag|
+|              |y316    ║ 2026-03-31 SGP  0.16       870K           ║                       | y316 PARTITION  news_shoc|
+|              |y336    ║ 2026-03-31 JPN  0.28       2.0M           ║                       | y336                     |
+|              |y356    ║────────────────────────────────────────────────────────║          | y356 [Preview rows]  open|
+|              |y376    ║ 8 rows · limit 10 · GET /query/…?limit=10   ║                     | y376 [See on Cluster]    |
+|              |y396    ║ [Export CSV] [Query tab] [Copy SQL]          ║                    | y396 [Ask about this]    |
+|              |y416    ╚════════════════════════════════════════════════════════╝          | y416                     |
+|              |── MODAL CONTRACT ───────────────────────────────────────────────────────── | y436 Rail toggle persists|
+|              |y456  ~720×560 centered · Esc closes · NOT a sidebar route                  | y356 modal open          |
+|              |y476  Schema: grain country·day · cols from registry+preview                | y376 Esc to close        |
+|              |y496  Query tab: SQL editor · expand modal for wide results                 |                          |
+|              |y516  Shell unchanged: sidebar + rail + breadcrumb preserved                |                          |
+|              |y536                                                                        |                          |
+|              |y556                                                                        |                          |
+|              |y576                                                                        |                          |
+|              |y596                                                                        |                          |
+|              |y616                                                                        |                          |
+|              |y636                                                                        |                          |
+|              |y656                                                                        |                          |
+|              |y676                                                                        |                          |
+|              |y696                                                                        |                          |
+|              |y716                                                                        |                          |
+|              |y736                                                                        |                          |
+|              |y756                                                                        |                          |
+|              |y776                                                                        |                          |
+|              |y796                                                                        |                          |
+|              |y816                                                                        |                          |
+|              |y836                                                                        |                          |
+|              |y856                                                                        |                          |
+|              |y876                                                                        |                          |
+|              |y896  Footer · modal overlay zone C                                         |                          |
++--------------+----------------------------------------------------------------------------+--------------------------+
+
+terminal 120 cols · artboard 1440×900 · body 43 rows · page=preview
+====================================================================================================

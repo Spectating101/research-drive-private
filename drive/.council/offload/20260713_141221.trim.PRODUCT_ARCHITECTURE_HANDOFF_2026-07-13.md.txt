@@ -1,0 +1,99 @@
+# Research Drive product architecture handoff — 2026-07-13
+
+## Purpose of this freeze
+
+This document freezes the product interpretation reached after the premium frontend pass, Library/Discover contract work, the first-class Synthesis studio, and the subsequent Synthesis construction-graph exploration.
+
+Use this as the starting authority for the next product-design chat. Do not re-derive the app as one linear workflow and do not expand Resources into an operations console.
+
+## Product thesis
+
+Research Drive is a set of purpose-built research workspaces connected by the same data objects, AI context, source knowledge, and institutional state.
+
+Core principle:
+
+> workspace-specific excellence with shared intelligence
+
+The app is not an AI chat product with tabs. It is not one global workflow. Ask is the contextual reasoning layer across specialised workspaces.
+
+## Whole-product model
+
+- **Home** resumes and orients.
+- **Library** remembers what research assets the lab owns.
+- **Discover** understands the external evidence universe and designs how evidence can be sourced.
+- **Synthesis** designs how defensible research assets, measures, proxies, panels, event sets, and derived constructs can be built.
+- **Resources** reports the lab's available capability, usage, spend, and demonstrated value.
+- **Profile** stores transparent researcher context.
+- **Ask** reasons around the current workspace, object, and institutional context.
+
+The two main differentiation/moat surfaces are **Discover** and **Synthesis**.
+
+## Home
+
+Role: Drive Home / workspace start.
+
+It should answer:
+
+1. What was I working on?
+2. What needs attention?
+3. Where can I begin?
+
+Keep it restrained. Current recent-work/attention/start composition is broadly correct, although equal Search/Discover/Ask launchers can still feel generic.
+
+Do not turn Home into a workflow dashboard.
+
+## Library
+
+Role: the lab's owned research-data estate.
+
+Mental model:
+
+> Google Drive for research data, where every object understands research-data concepts.
+
+Library owns organisation and memory:
+
+- folders/collections;
+- list/grid;
+- sorting/filtering;
+- selection;
+- preview;
+- breadcrumbs;
+- move/rename/organise;
+- contextual actions;
+- recent/shared assets;
+- distinction between raw, acquired, cleaned, and derived assets.
+
+Research object truth remains important:
+
+- readiness;
+- provenance;
+- grain;
+- coverage;
+- access state;
+- ownership;
+- source identity.
+
+Unknown state must never default to Query ready. Only Query ready exposes Preview rows.
+
+Do not add giant lineage graphs or metadata walls to Library.
+
+## Discover — moat surface 1
+
+Discover is larger than a catalogue.
+
+Its governing question is:
+
+> What evidence exists, and how can the lab obtain it?
+
+### Discover mode A: index / browse / Focus
+
+This is the current source and dataset universe.
+
+It answers:
+
+- what exists;
+- who provides it;
+- what it covers;
+- whether the lab already has it;
+- whether the lab can access it;
+- whether it is usable/ac

@@ -1,0 +1,65 @@
+{
+  "universes": [
+    {
+      "as_of": "2026-05-31",
+      "n_tickers": 2,
+      "notes": "Generated from alpha_live_cycle panel.",
+      "source": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/daily_alpha_panel.csv",
+      "tickers": [
+        "BTC-USD",
+        "ETH-USD"
+      ],
+      "universe_hash": "be01a4fdf137f27465cfe73f9620a44a79fd032b40b1dae051dbd531b9b998d7",
+      "universe_id": "global_alpha_panel",
+      "updated_at": "2026-07-02T13:21:54+00:00"
+    },
+    {
+      "as_of": "2026-06-27",
+      "n_tickers": 13,
+      "notes": "",
+      "source": "data_lake/daily_alpha_panel.csv",
+      "tickers": [
+        "BIL",
+        "BTC-USD",
+        "DBC",
+        "EEM",
+        "EFA",
+        "ETH-USD",
+        "GLD",
+        "IEF",
+        "IWM",
+        "QQQ",
+        "SPY",
+        "TLT",
+        "VNQ"
+      ],
+      "universe_hash": "1550ae6f3fcfc10341d1c206493d1abfd80612cd86c82f1bbe42c8fb9486f488",
+      "universe_id": "global_alpha_panel",
+      "updated_at": "2026-06-27T08:47:43+00:00"
+    },
+    {
+      "as_of": "2026-06-30",
+      "n_tickers": 13,
+      "notes": "Generated from alpha_live_cycle panel.",
+      "source": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake/daily_alpha_panel.csv",
+      "tickers": [
+        "BIL",
+        "BTC-USD",
+        "DBC",
+        "EEM",
+        "EFA",
+        "ETH-USD",
+        "GLD",
+        "IEF",
+        "IWM",
+        "QQQ",
+        "SPY",
+        "TLT",
+        "VNQ"
+      ],
+      "universe_hash": "1550ae6f3fcfc10341d1c206493d1abfd80612cd86c82f1bbe42c8fb9486f488",
+      "universe_id": "global_alpha_panel",
+      "updated_at": "2026-07-19T16:16:37+00:00"
+    }
+  ]
+}

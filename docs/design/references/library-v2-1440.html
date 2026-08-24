@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1440" />
+  <title>Research Drive v2 — Library (1440×900)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      color: #1f2937;
+    }
+    .hint {
+      max-width: 1440px;
+      width: 100%;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #475569;
+      text-align: center;
+    }
+    .hint code { font-size: 12px; }
+  </style>
+  <link rel="stylesheet" href="library-v2-1440.css" />
+</head>
+<body>
+  <p class="hint">
+    <strong>Library @ 1440×900</strong> — main list and Detail rail scroll independently; actions stick at rail bottom.
+    Open at <strong>100% zoom</strong>. File: <code>docs/design/references/library-v2-1440.html</code>
+  </p>
+
+  <div class="rd-artboard" role="application" aria-label="Research Drive Library">
+    <!-- ZONE A -->
+    <header class="rd-header">
+      <div class="rd-brand"><span class="rd-mark">RD</span> Research Drive</div>
+      <div class="rd-search">Search lab + discover <kbd>⌘K</kbd></div>
+      <div class="rd-header-meta">128 ds</div>
+      <button type="button" class="rd-btn-new">New ▾</button>
+      <div class="rd-avatar" title="Account">YZ</div>
+    </header>
+
+    <!-- ZONE B -->
+    <nav class="rd-sidebar" aria-label="Main">
+      <a class="rd-nav" href="#">Home</a>
+      <a class="rd-nav rd-nav-on" href="#">Library</a>
+      <a class="rd-nav" href="#">Cluster</a>
+      <a class="rd-nav" href="#">Browse</a>
+      <a class="rd-nav" href="#">Resources</a>
+      <a class="rd-nav" href="#">Profile</a>
+      <a class="rd-nav" href="#">Settings</a>
+    </nav>
+
+    <!-- ZONE C -->
+    <main class="rd-main">
+      <div class="rd-main-head">
+        <h1>Library</h1>
+        <nav class="rd-crumb" aria-label="Breadcrumb">
+          <button type="button">Lab</button>
+          <span class="sep">›</span>
+          <button type="button">research_panels</button>
+          <span class="sep">›</span>
+          <span class="here">gdelt</span>
+        </nav>
+      </div>
+      <div class="rd-toolbar">
+        <span class="rd-chip rd-chip-on">≡ list</span>
+        <span class="rd-chip">Name ▾</span>
+        <span class="rd-chip">Last modified ▾</span>
+        <span class="rd-chip">Filter ▾</span>
+        <span class="rd-toolbar-note">4 items · ↓ scroll</span>
+      </div>
+      <div class="rd-list-wrap">
+        <ul class="rd-list">
+          <li class="rd-folder">
+            <button type="button"><span class="ico">📁</span><span class="name">archive</span><span class="meta">2</span></button>
+          </li>
+          <li class="rd-row rd-row-on">
+            <button type="button">
+              <span class="ico">📄</span>
+              <span class="text">
+                <span class="title">Asia daily news-risk panel</span>
+                <span class="sub">gdelt_asia_daily · country-day · 2018–2026</span>
+              </span>
+              <span class="pill">Query-ready</span>
+            </button>
+          </li>
+          <li class="rd-row">
+            <button type="button">
+              <span class="ico">📄</span>
+              <span class="text">
+                <span class="title">GDELT scored country panel</span>
+                <span class="sub">gdelt_scored_country · country-day</span>
+              </span>
+              <span class="pill">Query-ready</span>
+            </button>
+          </li>
+          <li class="rd-row">
+            <button type="button">
+              <span class="ico">📄</span>
+              <span class="text">
+                <span class="title">Cross-asset fused panel</span>
+                <span class="sub">cross_asset_fused · multi-asset week</span>
+              </span>
+              <span class="pill">Query-ready</span>
+            </button>
+          </li>
+          <li class="rd-row">
+            <button type="button">
+              <span class="ico">📄</span>
+              <span class="text">
+                <span class="title">CoinGecko market archive</span>
+                <span class="sub">coingecko_daily_archive · daily OHLCV</span>
+              </span>
+              <span class="pill">Query-ready</span>
+            </button>
+          </li>
+          <li class="rd-row rd-row-fade">
+            <button type="button" tabindex="-1">
+              <span class="ico">📄</span>
+              <span class="text"><span class="title">… more rows below fold</span></span>
+            </button>
+          </li>
+        </ul>
+        <div class="rd-scroll-hint">↓ list scrolls in 728px content area</div>
+      </div>
+    </main>
+
+    <!-- ZONE D -->
+    <aside class="rd-rail">
+      <div class="rd-rail-toggle">
+        <button type="button" class="on">Detail</button>
+        <button type="button">Ask</button>
+      </div>
+      <div class="rd-rail-scroll">
+        <p class="rd-rail-id mono">gdelt_asia_daily</p>
+        <h2 class="rd-rail-title">Asia daily news-risk panel</h2>
+        <p class="rd-rail-pills"><span class="pill">Query-ready</span><span class="pill pill-muted">local vault</span></p>
+        <dl class="rd-fields">
+          <div><dt>Source</dt><dd>GDELT GKG · scored country-day panel</dd></div>
+          <div><dt>Access</dt><dd>Query engine :8765 · parquet on NVMe</dd></div>
+          <div><dt>Coverage</dt><dd>2018-01 – 2026-04 · 42 countries · daily</dd></div>
+          <div><dt>Grain</dt><dd>country × day · ISO3 + date</dd></div>
+          <div><dt>Vault path</dt><dd class="mono wrap">gdrive:…/collection/research_panels/gdelt/asia_daily</dd></div>
+          <div><dt>Use</dt><dd>News shock overlay · Asia equity event studies</dd></div>
+          <div><dt>Limitations</dt><dd>TWSE names not joined · lag T+1</dd></div>
+        </dl>
+        <p class="rd-rail-more">↓ fields scroll above sticky actions</p>
+      </div>
+      <div class="rd-rail-sticky">
+        <button type="button" class="rd-btn primary">Preview rows</button>
+        <button type="button" class="rd-btn">Ask about this →</button>
+        <button type="button" class="rd-btn">See on Cluster</button>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

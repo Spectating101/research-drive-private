@@ -1,4 +1,6 @@
-# YZU Cluster — Databank State (equal-weight inventory)
+# YZU Cluster — Databank State (historical inventory snapshot)
+
+> **Historical snapshot:** This document records the estate as of 2026-07-06. Do not use its counts, paths, deployment statements, or readiness claims as live truth. Start with [CURRENT_STATE.md](CURRENT_STATE.md), then regenerate the relevant report or query the live API.
 
 **Snapshot:** 2026-07-06  
 **Audience:** Operators and researchers — what exists, where it lives, how to query it.  
@@ -31,7 +33,7 @@ YZU Cluster is a **research databank with three simultaneous jobs**:
 
 Physical files, metadata cards, and live remote connectors are **different layers of the same inventory**, not separate products.
 
-Related scope docs: [`DESK_STATUS.md`](DESK_STATUS.md) (faculty desk), [`STORAGE_ARCHITECTURE.md`](STORAGE_ARCHITECTURE.md) (tiers), [`PROCUREMENT_PIPELINE.md`](PROCUREMENT_PIPELINE.md) (MCP/HTTP).
+For current desk, runtime, and deployment authority, use [CURRENT_STATE.md](CURRENT_STATE.md) and [REPO_AUTHORITY.md](REPO_AUTHORITY.md). The inventory below is retained as a dated record only.
 
 ---
 
@@ -107,7 +109,7 @@ Tier policy: `config/storage_tiers.json` — **GDrive vault = canonical**, NVMe 
 ### 5.2 Canonical vault (GDrive)
 
 `gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data`  
-Professor share: `collection/` only — see [`VAULT_LAYOUT.md`](VAULT_LAYOUT.md), [`GDRIVE_WHERE_TO_LOOK.md`](GDRIVE_WHERE_TO_LOOK.md).
+Professor share: `collection/` only. Verify current vault layout and access through live deployment configuration rather than this snapshot.
 
 ### 5.3 Bulk cache (USB / Transcend)
 
@@ -366,8 +368,8 @@ Authority: `config/data_collection_queue.json` (enabled tasks only):
 
 | Doc | Role |
 |-----|------|
-| [`DESK_ACTIVATION.md`](DESK_ACTIVATION.md) | Operational backlog (profile-filtered priorities) |
-| [`DESK_STATUS.md`](DESK_STATUS.md) | Faculty desk scope and commands |
+| [CURRENT_STATE.md](CURRENT_STATE.md) | Current product and authority map |
+| [`DESK_ACTIVATION.md`](DESK_ACTIVATION.md) | Historical operational backlog |
 | `drive/docs/status/generated/platform_progress.json` | Machine-readable progress + incomplete items |
 
 ---

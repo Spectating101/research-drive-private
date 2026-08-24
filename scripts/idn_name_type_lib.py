@@ -1,0 +1,1 @@
+../alpha/scripts/idn_name_type_lib.py

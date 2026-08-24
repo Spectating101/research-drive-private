@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_retail_generalization.py

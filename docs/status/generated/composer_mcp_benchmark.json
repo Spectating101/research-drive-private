@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-06-24T18:23:43.572399+00:00",
+  "orchestrator": "Composer + MCP",
+  "start_tool": "research_composer_session",
+  "cases": [
+    {
+      "id": "kong_usdt",
+      "query": "ethereum USDT on-chain flows token taxonomy for FinTech research",
+      "latency_ms": 199,
+      "summary": {
+        "query": "ethereum USDT on-chain flows token taxonomy for FinTech research",
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "relevance_miss": false,
+        "top_title": "Ethereum USDT ERC-20 transfer RPC pilot sample",
+        "top_dataset_id": "ethereum_usdt_rpc_pilot",
+        "top_collect_via": "local_open",
+        "web_hits": 0,
+        "next_tools": 4,
+        "followthrough_ran": [
+          "describe"
+        ],
+        "plan_launchable": false,
+        "sample_rows": 0
+      },
+      "metrics": {
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "top_title": "Ethereum USDT ERC-20 transfer RPC pilot sample",
+        "top_dataset_id": "ethereum_usdt_rpc_pilot",
+        "web_hits": 0,
+        "sample_rows": 0,
+        "plan_launchable": false,
+        "followthrough": [
+          "describe"
+        ],
+        "expect_hits": [
+          "ethereum_usdt",
+          "usdt"
+        ],
+        "expect_hit_rate": 1.0,
+        "has_probe": false,
+        "has_plan": false,
+        "has_describe": true
+      }
+    },
+    {
+      "id": "gdelt_panel",
+      "query": "GDELT Asia daily country news panel for cross-asset research",
+      "latency_ms": 369,
+      "summary": {
+        "query": "GDELT Asia daily country news panel for cross-asset research",
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "relevance_miss": false,
+        "top_title": "GDELT Asia Daily Country News Shock Panel",
+        "top_dataset_id": "gdelt_asia_daily_country_panel",
+        "top_collect_via": "local_open",
+        "web_hits": 0,
+        "next_tools": 5,
+        "followthrough_ran": [
+          "describe",
+          "sample_query"
+        ],
+        "plan_launchable": false,
+        "sample_rows": 3
+      },
+      "metrics": {
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "top_title": "GDELT Asia Daily Country News Shock Panel",
+        "top_dataset_id": "gdelt_asia_daily_country_panel",
+        "web_hits": 0,
+        "sample_rows": 3,
+        "plan_launchable": false,
+        "followthrough": [
+          "describe",
+          "sample_query"
+        ],
+        "expect_hits": [
+          "gdelt",
+          "asia"
+        ],
+        "expect_hit_rate": 1.0,
+        "has_probe": false,
+        "has_plan": false,
+        "has_describe": true
+      }
+    },
+    {
+      "id": "opensea_vault",
+      "query": "opensea nft metadata graph rarity network",
+      "latency_ms": 181,
+      "summary": {
+        "query": "opensea nft metadata graph rarity network",
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "relevance_miss": false,
+        "top_title": "OpenSea NFT metadata graph",
+        "top_dataset_id": "",
+        "top_collect_via": "local_open",
+        "web_hits": 0,
+        "next_tools": 5,
+        "followthrough_ran": [],
+        "plan_launchable": false,
+        "sample_rows": 0
+      },
+      "metrics": {
+        "ladder_reached": "registry_catalog",
+        "index_miss": false,
+        "top_title": "OpenSea NFT metadata graph",
+        "top_dataset_id": "",
+        "web_hits": 0,
+        "sample_rows": 0,
+        "plan_launchable": false,
+        "followthrough": [],
+        "expect_hits": [
+          "opensea",
+          "nft"
+        ],
+        "expect_hit_rate": 1.0,
+        "has_probe": false,
+        "has_plan": false,
+        "has_describe": false
+      }
+    },
+    {
+      "id": "hard_miss",
+      "query": "yzu saturn lab skynet ethereum nft wash trading dataset 2019-2021",
+      "latency_ms": 22045,
+      "summary": {
+        "query": "yzu saturn lab skynet ethereum nft wash trading dataset 2019-2021",
+        "ladder_reached": "web_discover",
+        "index_miss": true,
+        "relevance_miss": true,
+        "top_title": "Detecting and Quantifying Wash Trading on Decentralized Cryptocurrency Exchanges",
+        "top_dataset_id": "",
+        "top_collect_via": "http_manifest",
+        "web_hits": 5,
+        "next_tools": 6,
+        "followthrough_ran": [
+          "plan_collect",
+          "probe"
+        ],
+        "plan_launchable": true,
+        "sample_rows": 0
+      },
+      "metrics": {
+        "ladder_reached": "web_discover",
+        "index_miss": true,
+        "top_title": "Detecting and Quantifying Wash Trading on Decentralized Cryptocurrency Exchanges",
+        "top_dataset_id": "",
+        "web_hits": 5,
+        "sample_rows": 0,
+        "plan_launchable": true,
+        "followthrough": [
+          "plan_collect",
+          "probe"
+        ],
+        "expect_hits": [
+          "wash",
+          "trading"
+        ],
+        "expect_hit_rate": 1.0,
+        "has_probe": true,
+        "has_plan": true,
+        "has_describe": false
+      }
+    }
+  ],
+  "summary": {
+    "cases": 4,
+    "avg_expect_hit_rate": 1.0,
+    "hard_miss_web_avg": 5.0
+  }
+}

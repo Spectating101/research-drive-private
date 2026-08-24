@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "notes": [
+    "Ops benchmark queries only — no expected tiers. Tiers come from registry access_tier via observed_pipeline_tier."
+  ],
+  "composer_workflow_cases": [
+    {
+      "id": "registry_instant_panel",
+      "query": "GDELT Asia daily country news panel",
+      "email": ""
+    },
+    {
+      "id": "vault_metadata_layer",
+      "query": "opensea nft metadata graph rarity network",
+      "email": ""
+    },
+    {
+      "id": "guarded_bigquery",
+      "query": "ethereum USDT stablecoin on-chain flows token taxonomy",
+      "email": ""
+    },
+    {
+      "id": "procure_miss",
+      "query": "yzu saturn lab skynet ethereum nft wash trading dataset 2019-2021",
+      "email": ""
+    }
+  ]
+}

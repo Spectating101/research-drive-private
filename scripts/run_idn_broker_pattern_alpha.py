@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_broker_pattern_alpha.py

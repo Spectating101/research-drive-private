@@ -1,0 +1,14 @@
+entity_id,audit_idx,id,name,type,status,isInProgress
+defi-franc,0,DeFi Franc,DeFi Franc,Security Assessment,,
+fraxfinance,0,fraxfinance,,Security Audit,,
+mstable,0,mstable,,Smart Contract,,
+mstable,1,mStable ,,,Delivered,True
+rupiahtoken,0,rupiahtoken,,Smart Contract,,
+stasis,0,stasis-EURS token,,Security Audit,,
+stasis,1,stasis,,Smart Contract,,
+tether,0,tether,,Smart Contract,,
+tor,0,Hector Finance(TOR),Hector Finance(TOR),Code Security Assessment,,
+tor,1,tor-cash,TOR.cash,Security Assessment,,
+usdd,0,USDD - Ethereum Update,USDD - Ethereum Update,Security Assessment,,
+usdd,1,Usdd,Usdd,Security Assessment,,
+usdk,0,usdk,,Smart Contract,,

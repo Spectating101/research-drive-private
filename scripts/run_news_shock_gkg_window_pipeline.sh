@@ -1,0 +1,1 @@
+../drive/scripts/run_news_shock_gkg_window_pipeline.sh

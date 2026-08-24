@@ -1,0 +1,1 @@
+../drive/scripts/build_stablecoin_honest_synthesis_v1.py

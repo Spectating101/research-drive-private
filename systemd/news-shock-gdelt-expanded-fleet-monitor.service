@@ -1,0 +1,11 @@
+[Unit]
+Description=Sharpe-Renaissance expanded GDELT fleet health monitor (stall + auto-ensure)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+Environment=DESKTOP_NOTIFY=0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/monitor_gdelt_expanded_fleet_health.sh
+Nice=10

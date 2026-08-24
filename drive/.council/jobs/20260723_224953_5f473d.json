@@ -1,0 +1,95 @@
+{
+  "id": "20260723_224953_5f473d",
+  "state": "done",
+  "instruction": "Assess release readiness after deferring Synthesis. Focus only on Discover \u2192 explicit approval \u2192 collection \u2192 archive verification \u2192 registry \u2192 Library and frontend/backend contract risks. Identify concrete go/hold blockers; no code changes.",
+  "files": [
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/docs/REPOSITORY_TOPOLOGY.md",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/research_data_mcp/http_router.py",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/yzu_cluster/orchestrator.py"
+  ],
+  "stakes": "high",
+  "kind": "review",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260723_224953_5f473d.output.txt",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260723_224953_5f473d.integrate.json",
+  "created_at": 1784818193.654753,
+  "pid": 943674,
+  "log_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260723_224953_5f473d.log",
+  "updated_at": 1784818296.0681636,
+  "exit_code": 1,
+  "offload_result": {
+    "ok": false,
+    "offload": true,
+    "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260723_224953_5f473d.output.txt",
+    "stdout": "{\"actionable\": true, \"ok\": true, \"status\": \"degraded\", \"recommendation\": \"NEEDS_DATA\", \"confidence\": 55.0, \"reasoning\": \"Consensus by python-aggregator from 3 models\\n\\nAuto-quality-gate: downgraded to NEEDS_DATA because the decision output did not meet execution-quality threshold (score=35.0, min=65.0).\", \"chairman_model\": \"python-aggregator\", \"models_responded\": 3, \"substantive_member_count\": 3, \"degraded_member_responses\": false, \"confidence_conflict\": false, \"skipped_models\": [], \"warnings\": [], \"return_code\": 0, \"context_specs\": [\"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260723_224953.summary.REPOSITORY_TOPOLOGY.md.txt\", \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/research_data_mcp/http_router.py\", \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/yzu_cluster/orchestrator.py\"], \"shape\": \"critique\", \"critique\": {\"summary\": \"The architecture intent is strong and safety-aware, but release readiness is blocked by explicitly documented high-impact test gaps and missing visibility into canonical contract-enforcement files. This should not ship until those proofs are green. / The architecture and invariants are well-defined, but release readiness is blocked by explicit high-risk test gaps on state integrity and contract co\", \"overall_quality\": null, \"issues\": [{\"severity\": \"BLOCKER\", \"title\": \"[line 10] stale-write rejection matrix is a declared gap in lifecycle truth protection\", \"detail\": \"implement and pass an end-to-end stale-attempt rejection matrix covering heartbeats, usage, artifacts, and terminal-state mutation attempts. [voted by: copilot-spectator]\"}, {\"severity\": \"BLOCKER\", \"title\": \"[line 10] `http_manifest` streaming/integrity path is unproven for archive safety\", \"detail\": \"add E2E tests with bounded chunk streaming + incremental hashing + manifest verification + read-back proof before registry/Library publish. [voted by: copilot-spectator]\"}, {\"severity\": \"BLOCKER\", \"title\": \"[line 10] Missing stale-write rejection + manifest streaming + rollback rehearsal coverage\", \"detail\": \"Gate release on a single end-to-end fault-injection matrix with explicit pass/fail criteria for stale-attempt rejection, hash/manifest rejection, and rollback recovery. [voted by: copilot-ly2]\"}, {\"severity\": \"BLOCKER\", \"title\": \"[line 10] Missing stale-write rejection and archive-verification E2E coverage on the critical path\", \"detail\": \"add a full failure-matrix test suite for stale attempts, `http_manifest` streaming, GDrive/read-back proof, and rollback rehearsal before release. [voted by: copilot-ly]\"}, {\"severity\": \"BLOCKER\", \"title\": \"[line 6] Lifecycle invariants are defined but not demonstrated under concurrency (`completed/registered/query_ready`, stale attempt write bans)\", \"detail\": \"add concurrency/fault-injection traces that prove forbidden writes cannot occur after lease loss or stale detection. [voted by: copilot-ly]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 8] rollback path is policy-defined but not rehearsed as an operational control\", \"detail\": \"execute and document a merge-revert rollback drill proving state and artifact consistency after rollback. [voted by: copilot-spectator]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 9] authority drift across remotes remains a release risk to backend/frontend contract correctness\", \"detail\": \"enforce CI guardrails that fail on non-canonical backend edit roots and remote authority mismatches. [voted by: copilot-spectator]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 6] Lifecycle invariants are specified but not evidenced at write boundaries\", \"detail\": \"Add attempt-fencing contract tests for heartbeat, usage, artifacts, and terminal-state writes with negative assertions for stale attempts. [voted by: copilot-ly2]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 7] Archive safety controls ",
+    "steps": [
+      {
+        "phase": "summarize",
+        "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/docs/REPOSITORY_TOPOLOGY.md",
+        "rc": 0,
+        "summary_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260723_224953.summary.REPOSITORY_TOPOLOGY.md.txt",
+        "stderr_tail": "[solo] copilot-ly...\n[solo] copilot-ly \u2713 22.2s\n[copilot_do] wrote 1316 chars to /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260723_224953.summary.REPOSITORY_TOPOLOGY.md.txt\n"
+      },
+      {
+        "phase": "critique",
+        "rc": 1
+      }
+    ],
+    "cursor_next": "Read /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260723_224953_5f473d.output.txt; fix BLOCKERs only in Cursor.",
+    "plan": {
+      "offload": true,
+      "kind": "review",
+      "collaboration": "critique_shape",
+      "instruction": "Assess release readiness after deferring Synthesis. Focus only on Discover \u2192 explicit approval \u2192 collection \u2192 archive verification \u2192 registry \u2192 Library and frontend/backend contract risks. Identify concrete go/hold blockers; no code changes.",
+      "files": [
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/docs/REPOSITORY_TOPOLOGY.md",
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/research_data_mcp/http_router.py",
+        "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/yzu_cluster/orchestrator.py"
+      ],
+      "stakes": "high",
+      "healthy_local_models": [
+        "copilot-ly",
+        "copilot-ly2",
+        "copilot-spectator",
+        "gemini"
+      ],
+      "cursor_guidance": "Run offload_hub run, read -o output, integrate with edit_file \u2014 do not regenerate in Cursor.",
+      "estimated_cursor_savings": "high",
+      "steps": [
+        {
+          "phase": "critique",
+          "tool": "council_arsenal",
+          "sub": "critique"
+        }
+      ],
+      "command_hint": "council_arsenal.sh critique --context /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/docs/REPOSITORY_TOPOLOGY.md --context /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/research_data_mcp/http_router.py --context /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/drive/scripts/yzu_cluster/orchestrator.py \"Assess release readiness after deferring Synthesis. Focus only on Discover \u2192 exp...\"",
+      "use_arsenal": true,
+      "write_output_to": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/review-{run_id}.txt"
+    }
+  },
+  "integrate": {
+    "verdict": "NEEDS_EDIT",
+    "summary": "10 blocker/high issue(s) \u2014 fix before merge.",
+    "kind": "review",
+    "target_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/docs/REPOSITORY_TOPOLOGY.md",
+    "blockers": [
+      "[line 10] stale-write rejection matrix is a declared gap in lifecycle truth protection",
+      "[line 10] `http_manifest` streaming/integrity path is unproven for archive safety",
+      "[line 10] Missing stale-write rejection + manifest streaming + rollback rehearsal coverage",
+      "[line 10] Missing stale-write rejection and archive-verification E2E coverage on the critical path",
+      "[line 6] Lifecycle invariants are defined but not demonstrated under concurrency (`completed/registered/query_ready`, stale attempt write bans)",
+      "[line 10] stale-write rejection matrix is a declared gap in lifecycle truth protection: implement and pass an end-to-end stale-attempt rejection matrix covering heartbeats, usage, artifacts, and terminal-state mutation attempts. [voted by: copilot-spectator]",
+      "[line 10] `http_manifest` streaming/integrity path is unproven for archive safety: add E2E tests with bounded chunk streaming + incremental hashing + manifest verification + read-back proof before registry/Library publish. [voted by: copilot-spectator]",
+      "[line 10] Missing stale-write rejection + manifest streaming + rollback rehearsal coverage: Gate release on a single end-to-end fault-injection matrix with explicit pass/fail criteria for stale-attempt rejection, hash/manifest rejection, and rollback recovery. [voted by: copilot-ly2]",
+      "[line 10] Missing stale-write rejection and archive-verification E2E coverage on the critical path: add a full failure-matrix test suite for stale attempts, `http_manifest` streaming, GDrive/read-back proof, and rollback rehearsal before release. [voted by: copilot-ly]",
+      "[line 6] Lifecycle invariants are defined but not demonstrated under concurrency (`completed/registered/query_ready`, stale attempt write bans): add concurrency/fault-injection traces that prove forbidden writes cannot occur after lease loss or stale detection. [voted by: copilot-ly]"
+    ],
+    "code_blocks": [],
+    "has_structured_critique": true,
+    "cursor_action": "Fix blockers first, optionally re-run council validate.",
+    "recommendation": "NEEDS_DATA",
+    "confidence": 55.0
+  },
+  "finished_at": 1784818296.068164
+}

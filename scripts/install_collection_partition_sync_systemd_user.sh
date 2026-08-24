@@ -1,0 +1,1 @@
+../drive/scripts/install_collection_partition_sync_systemd_user.sh

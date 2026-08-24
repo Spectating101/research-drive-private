@@ -1,0 +1,23 @@
+# Research Drive — full page (120 columns, use: less -RS thisfile)
+
++------------------------------------------------------------------------------------------------------------------------+
+| RD  Research Drive              [ Search datasets in the library........................ ]                        [YZ] |
++----------+------------------------------------------------------------------------------------------------+------------+
+| Home     | Library                                                              [Refresh]  [Upload]         |Detail |Ask |
+|          | Data you can use now.                                                                                  |====    |
+| Library *| (All)  Query-ready  Connected  Archived     crypto  asia-news  taiwan                                  |        |
+|          |                                                                                                        | Asia   |
+| Cluster  | +----------------------------------------------------------------------------------------------------+ | daily  |
+|          | | Name                         | Kind           | Collection  | Source     | Updated | Access       | | news-  |
+| Browse   | |------------------------------+----------------+-------------+------------+---------+--------------| | risk   |
+|          | |* Asia daily news-risk panel  | Country-day    | gdelt/asia  | GDELT GKG  | 2d ago  | Stored       | | panel  |
+| Resources| |  gdelt_asia_daily_country.. | panel          |             |            |         | Verified     | |        |
+|          | |  CoinGecko crypto market     | SQLite+panels  | crypto/cg   | CoinGecko  | Daily   | Stored       | |[Stored]|
+| Profile  | |  USDT transfer catalogue    | Remote table   | onchain     | BigQuery   | --      | Connected    | |[Verif] |
+|          | |  Cross-asset country-week   | Country-week   | fused       | Lab        | 1w ago  | Stored       | |        |
+| Settings | |  Asia ticker news-market    | Ticker-week    | asia/ticker | GDELT      | 3d ago  | Stored       | |SOURCE  |
+|          | +----------------------------------------------------------------------------------------------------+ |GDELT   |
+|          | Showing 5 datasets                                                                                     |ACCESS  |
+|          |                                                                                                        |Local   |
+|          |                                                                                                        |[Analyze]|
++----------+------------------------------------------------------------------------------------------------+------------+

@@ -1,0 +1,40 @@
+# Research Drive — full page (80 columns, terminal-safe)
+# View: cat docs/design/references/fullpage-terminal-80.txt
+# Wide: less -RS docs/design/references/fullpage-terminal-120.txt
+
++------------------------------------------------------------------------------+
+| RD  Research Drive     [ Search datasets in the library... ]            [YZ] |
++--------+-------------------------------------------------------+-------------+
+| Home   | LIBRARY                          [Refresh]  [Upload]  | Detail  Ask |
+|        | Data you can use now.                                 | ====        |
+|Library*| Filters: (All) Query-ready Connected Archived          |             |
+|        |                                                       | Asia daily  |
+|Cluster | +---------------------------------------------------+ | news-risk   |
+|        | | Name              | Kind    | Source  | Access  | | | panel       |
+|Browse  | |-------------------+---------+---------+---------| | |             |
+|        | |* Asia daily news  | panel   | GDELT   | Stored  | | | [Stored]    |
+|Resource| |  gdelt_asia_...   |         |         | Verified| | | [Verified]  |
+|        | |  CoinGecko market | SQLite  | CoinGecko| Stored | | |             |
+|Profile | |  USDT catalogue   | remote  | BigQuery| Connect | | | SOURCE      |
+|        | |  Cross-asset week | panel   | Lab     | Stored  | | | GDELT GKG   |
+|Settings| |  Asia ticker week | panel   | GDELT   | Stored  | | | ACCESS      |
+|        | +---------------------------------------------------+ | | Local+Drive |
+|        | Showing 5 datasets                                    | | COVERAGE    |
+|        |                                                       | | 2018-2026   |
+|        |                                                       | | [Analyze]   |
+|        |                                                       | | [Ask this]  |
++--------+-------------------------------------------------------+-------------+
+  ^sidebar 220px (scaled)          ^main table                  ^rail 360px
+
+ASK MODE — same page, only right column changes:
++------------------------------------------------------------------------------+
+| (header + sidebar + table unchanged — GDELT row still selected)              |
++--------+-------------------------------------------------------+-------------+
+| ...    | ...same table...                                      | Detail  Ask |
+|        |                                                       |       ====  |
+|        |                                                       | Ask         |
+|        |                                                       | assistant:  |
+|        |                                                       | 3 TWSE hits |
+|        |                                                       | you: TWSE.. |
+|        |                                                       | [____] Send |
++--------+-------------------------------------------------------+-------------+

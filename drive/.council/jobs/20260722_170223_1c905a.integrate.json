@@ -1,0 +1,12 @@
+{
+  "verdict": "REJECT",
+  "summary": "The council converges that branch/local-pass claims are not decision-grade without commit-pinned remote artifacts across all four dimensions, so a release/allocation gate cannot be objectively closed yet [models: copilot-ly,copilot-ly2,copilot-spectator]. A provisional allocation is still valid now: lead owns gate/triage, terminal worker collects proof and fixes deterministic failures, Terra is conditional for unresolved cross-layer ambiguity, and Sol runs independent visual review on a frozen candidate [models: copilot-ly,copilot-ly2,copilot-spectator]. The most skeptical stance (ly2) was not rebutted because no artifact bundle was supplied in Stage 1/2 [models: copilot-ly2,copilot-ly,copilot-spectator].",
+  "kind": "decide",
+  "target_file": "src/v2/App.jsx",
+  "blockers": [],
+  "code_blocks": [],
+  "has_structured_critique": true,
+  "cursor_action": "Do not proceed; explain blockers to user.",
+  "recommendation": "NEEDS_DATA",
+  "confidence": 69.0
+}

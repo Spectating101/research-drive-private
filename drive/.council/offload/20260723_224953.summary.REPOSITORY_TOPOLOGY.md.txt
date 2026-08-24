@@ -1,0 +1,10 @@
+- Private repo is the sole production control-plane authority for Research Drive backend runtime.
+- Canonical backend is `Spectating101/research-drive-private` on `main`; `yzu-cluster` stays UI/reference-only.
+- Core functions include orchestrator, MCP, workers, scrapers, registry mutation, archive integration, and host-facing runtime.
+- Authoritative edit paths are `drive/scripts/*`, `drive/config/`, and `kernel/`; avoid creating third implementation roots.
+- Runtime truth lives in `cluster_*` tables; legacy `jobs/events` are compatibility projections, not lifecycle sources.
+- Critical invariants: separate `completed/registered/query_ready` states; stale attempts cannot write heartbeats, usage, artifacts, or terminal states.
+- Registry and artifact safety require manifest/archive verification, read-back, locks, bounded chunk streaming, incremental hashing, and atomic commits.
+- Governance constraints: one active runtime PR (#1), merge-commit deployment flow, and rollback via single merge revert.
+- Main risks: authority drift across remotes, secret leakage into Git, stale-attempt races, lease-renewal failures, and non-atomic writes.
+- Highest test gaps: full stale-write rejection matrix, `http_manifest` streaming E2E, GDrive/read-back proof, rollback rehearsals, and host-boundary leakage checks.

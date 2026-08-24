@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "portal": "https://crsp.moveitcloud.com",
+  "credential_env": ["CRSP_ID", "CRSP_PASSWORD"],
+  "local_root": "data_lake/crsp",
+  "vault_partition_id": "reference.crsp-moveit",
+  "priority_products": [
+    {
+      "id": "stock_25i_si_ascii_annual",
+      "moveit_label": "STOCK_25i_SI_ASCII_Annual",
+      "role": "us_daily_stock_ciz",
+      "registry_dataset_id": "crsp_us_stock_daily_ciz",
+      "ingest_priority": 1,
+      "notes": "CRSP US Stock 2.5 ASCII annual subscription — primary daily panel source"
+    },
+    {
+      "id": "stock_25i_ci_ascii_annual",
+      "moveit_label": "STOCK_25i_CI_ASCII_Annual",
+      "role": "us_daily_stock_ciz_alt",
+      "ingest_priority": 2
+    },
+    {
+      "id": "stock_index_1925_annsub",
+      "moveit_label": "Stock_Index_1925_ANNSUB",
+      "role": "us_index_history",
+      "registry_dataset_id": "crsp_us_index_history",
+      "ingest_priority": 3
+    },
+    {
+      "id": "index_history_qtrrel",
+      "moveit_label": "Index_History_QTRREL",
+      "role": "us_index_quarterly",
+      "ingest_priority": 4
+    }
+  ],
+  "post_ingest": [
+    {
+      "id": "ccm_link",
+      "registry_dataset_id": "crsp_compustat_ccm_link",
+      "depends_on": ["crsp_us_stock_daily_ciz", "compustat_na_fundamentals_annual"],
+      "notes": "CRSP/Compustat Merged link — typically separate MOVEit folder after Compustat export"
+    }
+  ]
+}

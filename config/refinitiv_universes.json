@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "created_at": "2026-07-06",
+  "notes": [
+    "Layered RIC universes for value-first Refinitiv harvest (Wave 0+1).",
+    "Yahoo tickers are mapped via scripts/refinitiv_universe_loader.yahoo_to_ric().",
+    "Compose universes dedupe after expansion."
+  ],
+  "ric_mapping": {
+    "us_default_suffix": ".O",
+    "nyse_dot_special": {
+      "BRK.B": "BRK_b.N",
+      "BF.B": "BF_b.N"
+    }
+  },
+  "universes": {
+    "us_sp500_yahoo": {
+      "description": "S&P 500 Yahoo symbols → NASDAQ/NYSE RICs",
+      "tickers_file": "config/tickers_sp500.txt",
+      "ric_from_yahoo": true
+    },
+    "indonesia_liquid_core": {
+      "description": "50 liquid IDX names from asia_yfinance_universes",
+      "source_config": "config/markets/asia_yfinance_universes.json",
+      "universe_id": "indonesia_liquid_core",
+      "ric_from_yahoo": true
+    },
+    "asia_large_cap_ric": {
+      "description": "Asia large-cap RIC seeds (TW/JP/KR/SG/HK)",
+      "rics": [
+        "2330.TW",
+        "2317.TW",
+        "2454.TW",
+        "7203.T",
+        "6758.T",
+        "9984.T",
+        "005930.KS",
+        "000660.KS",
+        "D05.SI",
+        "O39.SI",
+        "0700.HK",
+        "9988.HK"
+      ]
+    },
+    "us_mega_cap_ric": {
+      "description": "US mega-cap cross-check sleeve",
+      "rics": [
+        "AAPL.O",
+        "MSFT.O",
+        "GOOGL.O",
+        "AMZN.O",
+        "NVDA.O",
+        "META.O",
+        "TSLA.O",
+        "BRK_b.N",
+        "JPM.N",
+        "V.N",
+        "UNH.N",
+        "XOM.N"
+      ]
+    },
+    "pit_indices": {
+      "description": "Indices for point-in-time membership pulls",
+      "rics": [
+        ".SPX",
+        ".JKSE",
+        ".TWII",
+        ".N225",
+        ".KS11",
+        ".STI"
+      ]
+    },
+    "value_harvest_core": {
+      "description": "Wave 0+1 value harvest: US sample + Indonesia + Asia + mega-cap",
+      "compose": [
+        {"from": "us_sp500_yahoo", "stride": 8, "limit": 60},
+        {"from": "indonesia_liquid_core"},
+        {"from": "asia_large_cap_ric"},
+        {"from": "us_mega_cap_ric"}
+      ]
+    },
+    "us_risk_sleeve": {
+      "description": "US risk tape: denser S&P sample + mega-cap",
+      "compose": [
+        {"from": "us_sp500_yahoo", "stride": 4, "limit": 120},
+        {"from": "us_mega_cap_ric"}
+      ]
+    },
+    "us_risk_sleeve_scaled": {
+      "description": "Scaled US risk sleeve: S&P stride-2 full sample + mega-cap",
+      "compose": [
+        {"from": "us_sp500_yahoo", "stride": 2},
+        {"from": "us_mega_cap_ric"}
+      ]
+    },
+    "value_harvest_scaled": {
+      "description": "Scaled value core: denser US + full Indonesia + Asia",
+      "compose": [
+        {"from": "us_sp500_yahoo", "stride": 2, "limit": 250},
+        {"from": "indonesia_liquid_core"},
+        {"from": "asia_large_cap_ric"},
+        {"from": "us_mega_cap_ric"}
+      ]
+    },
+    "value_harvest_max": {
+      "description": "Maximum entitled harvest: full S&P + Indonesia + Asia + mega-cap",
+      "compose": [
+        {"from": "us_sp500_yahoo", "stride": 1},
+        {"from": "indonesia_liquid_core"},
+        {"from": "asia_large_cap_ric"},
+        {"from": "us_mega_cap_ric"}
+      ]
+    }
+  }
+}

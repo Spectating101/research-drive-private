@@ -1,0 +1,9 @@
+# Faculty UI naming
+
+In professor-facing UI (research data desk), **never use given names or informal first-name greetings**.
+
+- Do: `Asst. Prof. Kong`, `Prof. Wang`, `Assoc. Prof. Lu`
+- Do: `Asst. Prof. Kong — what data do you need?`
+- Don't: `Kong's desk`, `Hi Kong`, `Welcome, Kong`
+
+Derive labels from registry `title` + surname (`name_en` before comma, or last token).

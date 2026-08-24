@@ -1,0 +1,184 @@
+From b48e591b09be2e0ee0f9a03aa8f127903b2fb21f Mon Sep 17 00:00:00 2001
+From: spectating101 <s1133958@mail.yzu.edu.tw>
+Date: Sat, 11 Jul 2026 02:27:44 +0800
+Subject: [PATCH] fix(discover): D0.2 Unicode-safe provider namespaces
+
+Mirror JS NFKC/letter-preserving provider slugs so non-Latin publishers
+remain distinct in title and source identity fallbacks.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../research_data_mcp/candidate_key.py        | 33 +++++++++++++--
+ tests/fixtures/candidate_key_vectors.json     | 41 +++++++++++++++++--
+ tests/test_discover_candidate_identity.py     | 17 +++++++-
+ 3 files changed, 82 insertions(+), 9 deletions(-)
+
+diff --git a/drive/scripts/research_data_mcp/candidate_key.py b/drive/scripts/research_data_mcp/candidate_key.py
+index 930b97a..7d2faf2 100644
+--- a/drive/scripts/research_data_mcp/candidate_key.py
++++ b/drive/scripts/research_data_mcp/candidate_key.py
+@@ -68,6 +68,34 @@ def normalize_title(value: Any) -> str:
+     return re.sub(r"\s+", " ", _trim(value)).lower()
+ 
+ 
++def slugify_provider(value: Any) -> str:
++    """Unicode-safe provider namespace (D0.2).
++
++    NFKC → trim → casefold → keep letters/numbers/._- → collapse other runs to _.
++    """
++    import unicodedata
++
++    raw = _trim(value)
++    if not raw:
++        return "unknown"
++    s = unicodedata.normalize("NFKC", raw).casefold().strip()
++    parts: list[str] = []
++    prev_us = False
++    for ch in s:
++        if ch.isalnum() or ch in "._-":
++            parts.append(ch)
++            prev_us = False
++        else:
++            if not prev_us:
++                parts.append("_")
++                prev_us = True
++    slug = "".join(parts).strip("_")
++    slug = "".join(list(slug)[:80])
++    if not any(ch.isalnum() for ch in slug):
++        return "unknown"
++    return slug or "unknown"
++
++
+ def _provider_slug(row: dict[str, Any]) -> str:
+     host = ""
+     url = _trim(row.get("url") or row.get("source_url") or row.get("resolved_url") or "")
+@@ -83,10 +111,9 @@ def _provider_slug(row: dict[str, Any]) -> str:
+         or _trim(row.get("collect_via"))
+         or _trim(row.get("kind"))
+         or host
+-        or "unknown"
++        or ""
+     )
+-    slug = re.sub(r"[^a-z0-9._-]+", "_", raw.lower()).strip("_")[:80]
+-    return slug or "unknown"
++    return slugify_provider(raw)
+ 
+ 
+ def _source_external_id(row: dict[str, Any]) -> tuple[str, str] | None:
+diff --git a/tests/fixtures/candidate_key_vectors.json b/tests/fixtures/candidate_key_vectors.json
+index 18f8594..3e7f3ca 100644
+--- a/tests/fixtures/candidate_key_vectors.json
++++ b/tests/fixtures/candidate_key_vectors.json
+@@ -1,6 +1,6 @@
+ {
+-  "version": 1,
+-  "description": "Cross-language Discover candidateKey golden vectors (D0.1). JS and Python tests must consume this file identically.",
++  "version": 2,
++  "description": "Cross-language Discover candidateKey golden vectors (D0.2 Unicode-safe providers). JS and Python tests must consume this file identically.",
+   "canonicalize_doi": [
+     { "input": "DOI:10.5281/ZENODO.1", "expected": "10.5281/zenodo.1" },
+     { "input": "https://doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" },
+@@ -20,6 +20,14 @@
+       "expected": "https://example.com/data?page=2&q=keep"
+     }
+   ],
++  "provider_slug": [
++    { "input": "公開資訊觀測站", "expected": "公開資訊觀測站" },
++    { "input": "臺灣證券交易所", "expected": "臺灣證券交易所" },
++    { "input": "MOPS Taiwan", "expected": "mops_taiwan" },
++    { "input": "DataCite / Zenodo", "expected": "datacite_zenodo" },
++    { "input": "", "expected": "unknown" },
++    { "input": "!!!", "expected": "unknown" }
++  ],
+   "candidate_key": [
+     {
+       "name": "server_key_first",
+@@ -95,9 +103,34 @@
+       "expected": "title:unknown:alone"
+     },
+     {
+-      "name": "unicode_title_provider",
++      "name": "unicode_title_provider_mops",
+       "row": { "title": "財報 資料集", "source": "公開資訊觀測站" },
+-      "expected": "title:unknown:財報 資料集"
++      "expected": "title:公開資訊觀測站:財報 資料集"
++    },
++    {
++      "name": "unicode_title_provider_twse",
++      "row": { "title": "財報 資料集", "source": "臺灣證券交易所" },
++      "expected": "title:臺灣證券交易所:財報 資料集"
++    },
++    {
++      "name": "ascii_provider_spaces",
++      "row": { "title": "Demo", "source": "MOPS Taiwan" },
++      "expected": "title:mops_taiwan:demo"
++    },
++    {
++      "name": "ascii_provider_slash",
++      "row": { "title": "Demo", "source": "DataCite / Zenodo" },
++      "expected": "title:datacite_zenodo:demo"
++    },
++    {
++      "name": "source_ext_id_nonlatin_a",
++      "row": { "external_id": "ds-1", "source": "公開資訊觀測站", "title": "Same" },
++      "expected": "source:公開資訊觀測站:ds-1"
++    },
++    {
++      "name": "source_ext_id_nonlatin_b",
++      "row": { "external_id": "ds-1", "source": "臺灣證券交易所", "title": "Same" },
++      "expected": "source:臺灣證券交易所:ds-1"
+     },
+     {
+       "name": "empty_identity",
+diff --git a/tests/test_discover_candidate_identity.py b/tests/test_discover_candidate_identity.py
+index 851e7b9..d24daa0 100644
+--- a/tests/test_discover_candidate_identity.py
++++ b/tests/test_discover_candidate_identity.py
+@@ -12,7 +12,7 @@ import pytest
+ REPO = Path(__file__).resolve().parents[1]
+ FIXTURE = REPO / "tests/fixtures/candidate_key_vectors.json"
+ # Must match yzu-cluster drive/src/v2/fixtures/candidate_key_vectors.json
+-EXPECTED_FIXTURE_SHA256 = "8170d7de2ba0b0d3a4cf5d71102319869b6e4337a54d025c8575ad1467358edc"
++EXPECTED_FIXTURE_SHA256 = "b702dccd624a569d735f6f82ad7993eec602c1db8e490d5a7d96216227539f68"
+ 
+ 
+ @pytest.fixture(scope="module")
+@@ -31,7 +31,7 @@ def stack():
+ 
+ 
+ def test_shared_fixture_hash(vectors):
+-    assert vectors["version"] == 1
++    assert vectors["version"] == 2
+     assert len(vectors["candidate_key"]) >= 8
+ 
+ 
+@@ -44,6 +44,13 @@ def test_canonicalize_from_fixture(vectors):
+         assert canonicalize_url(row["input"]) == row["expected"]
+ 
+ 
++def test_provider_slug_from_fixture(vectors):
++    from scripts.research_data_mcp.candidate_key import slugify_provider
++
++    for row in vectors.get("provider_slug") or []:
++        assert slugify_provider(row["input"]) == row["expected"], row
++
++
+ def test_candidate_key_from_fixture(vectors):
+     from scripts.research_data_mcp.candidate_key import candidate_key
+ 
+@@ -52,6 +59,12 @@ def test_candidate_key_from_fixture(vectors):
+     a = next(r for r in vectors["candidate_key"] if r["name"] == "title_mops")
+     b = next(r for r in vectors["candidate_key"] if r["name"] == "title_twse")
+     assert candidate_key(a["row"]) != candidate_key(b["row"])
++    ua = next(r for r in vectors["candidate_key"] if r["name"] == "unicode_title_provider_mops")
++    ub = next(r for r in vectors["candidate_key"] if r["name"] == "unicode_title_provider_twse")
++    assert candidate_key(ua["row"]) != candidate_key(ub["row"])
++    ea = next(r for r in vectors["candidate_key"] if r["name"] == "source_ext_id_nonlatin_a")
++    eb = next(r for r in vectors["candidate_key"] if r["name"] == "source_ext_id_nonlatin_b")
++    assert candidate_key(ea["row"]) != candidate_key(eb["row"])
+ 
+ 
+ def test_discover_search_stamps_candidate_key(stack):
+-- 
+2.47.3
+

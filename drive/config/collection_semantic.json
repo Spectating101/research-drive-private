@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "summary": "STATIC ops annotations only. NOT agent-reasoned capability taxonomy. No vendor product lanes. Desk = identify + craft_collect_plan + flywheel.",
+  "summary": "Professor shelves live in collection_partitions.json (professor_nav). This file only holds static topic/use-case hints.",
   "domain_templates": {
     "markets": {
       "use_cases": [
@@ -10,8 +10,9 @@
         "universe construction"
       ],
       "example_questions": [
-        "What market panels are actually query-ready on the desk?",
-        "Identify a public market dataset and land it via custom procure."
+        "Where are Asia stock panels?",
+        "Where is USDT on-chain transfer data?",
+        "Where is Refinitiv / CRSP?"
       ]
     },
     "news": {
@@ -22,8 +23,8 @@
         "headline research"
       ],
       "example_questions": [
-        "Where is the GDELT Asia news panel?",
-        "How do I join news shocks to stock returns?"
+        "Where is the Asia GDELT shock panel?",
+        "How do I join news shocks to returns?"
       ]
     },
     "official": {
@@ -34,8 +35,8 @@
         "governance research"
       ],
       "example_questions": [
-        "Where is TWSE official market data?",
-        "Do we have Taiwan MOPS governance files?"
+        "Where is TWSE official data?",
+        "Where are Asia macro baselines?"
       ]
     },
     "reference": {
@@ -45,8 +46,8 @@
         "join keys before panel merges"
       ],
       "example_questions": [
-        "How do I map GDELT tickers to prices?",
-        "Where is the SEC CIK lookup table?"
+        "Where are ticker join keys?",
+        "Where is the SEC CIK map?"
       ]
     },
     "social": {
@@ -66,7 +67,7 @@
         "procurement search"
       ],
       "example_questions": [
-        "What datasets are in the curated index?"
+        "What curated indexes help me find more datasets?"
       ]
     },
     "acquired": {
@@ -76,8 +77,7 @@
         "chat procurement artifacts"
       ],
       "example_questions": [
-        "What did the desk download for me?",
-        "Where is procured data for dataset X?"
+        "What did the desk download for my project?"
       ]
     },
     "derived": {
@@ -87,7 +87,7 @@
         "saved trial outputs"
       ],
       "example_questions": [
-        "Where is the Asia news × market trial panel?"
+        "Where are ready-to-analyze merged panels?"
       ]
     },
     "ops": {
@@ -97,7 +97,7 @@
         "pipeline debugging"
       ],
       "example_questions": [
-        "What collection jobs ran recently?"
+        "Staff only — pipeline manifests"
       ]
     }
   },

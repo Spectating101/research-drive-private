@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_social_sentiment_daily.sh

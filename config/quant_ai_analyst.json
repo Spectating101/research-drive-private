@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "default_country": "IDN",
+  "data": {
+    "fused_panel": "data_lake/research_panels/cross_asset_fused/fused_20260610_v2/cross_asset_fused_primary_panel.parquet",
+    "crypto_panel": "data_lake/research_panels/cross_asset_fused/fused_20260610_v2/country_week_crypto_news_panel.parquet",
+    "broadcast_panel": "data_lake/research_panels/ticker_news_market/ticker_20260610/ticker_week_country_broadcast_panel.parquet",
+    "processed_news": "data_lake/news_shock_taxonomy/processed"
+  },
+  "quant": {
+    "min_train_weeks": 78,
+    "ridge_alpha": 10.0,
+    "stock_universe": 25
+  },
+  "llm": {
+    "backend": "auto",
+    "max_tokens": 1600,
+    "brief_max_tokens": 2000
+  },
+  "countries": {
+    "IDN": {
+      "label": "Indonesia",
+      "stock_universe": 25,
+      "analyst_persona": "senior Indonesia equity research analyst"
+    },
+    "HKG": {
+      "label": "Hong Kong",
+      "stock_universe": 30,
+      "analyst_persona": "senior Hong Kong / China offshore equity analyst"
+    },
+    "SGP": {
+      "label": "Singapore",
+      "stock_universe": 25,
+      "analyst_persona": "senior Singapore equity research analyst"
+    }
+  },
+  "portfolio_context": {
+    "scorecard_path": "backtests/outputs/alpha_paper/scorecard_latest.json",
+    "live_signal_path": "backtests/outputs/signals/alpha_live_signal.json"
+  }
+}

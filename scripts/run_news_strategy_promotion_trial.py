@@ -1,0 +1,1 @@
+../alpha/scripts/run_news_strategy_promotion_trial.py

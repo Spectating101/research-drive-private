@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Drive-first crypto landscape snapshot daily
+Requires=crypto-landscape-drive-daily.service
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Drive — Value Direction Comparison</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #657087;
+      --line: #dce3ed;
+      --paper: #ffffff;
+      --wash: #f3f6fa;
+      --blue: #1769e0;
+      --navy: #10233f;
+      --cyan: #23a9d5;
+      --green: #16856a;
+      --amber: #b86e00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 85% -10%, rgba(35,169,213,.15), transparent 28rem),
+        linear-gradient(180deg, #f8fafc, #edf2f7);
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 26px;
+      border-bottom: 1px solid rgba(220,227,237,.9);
+      background: rgba(248,250,252,.92);
+      backdrop-filter: blur(12px);
+    }
+    header strong { font-size: 14px; letter-spacing: .02em; }
+    header span { color: var(--muted); font-size: 12px; }
+    main { max-width: 1760px; margin: auto; padding: 30px 28px 54px; }
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 30px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+    h1 {
+      margin: 0 0 9px;
+      max-width: 980px;
+      font: 600 clamp(28px, 3vw, 46px)/1.05 Georgia, serif;
+      letter-spacing: -.025em;
+    }
+    .intro p { margin: 0; max-width: 870px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+    .budget {
+      min-width: 260px;
+      padding: 13px 16px;
+      border: 1px solid #b8d8ca;
+      border-radius: 10px;
+      background: #eef8f3;
+      color: #275f4d;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .budget b { display: block; color: #174b3a; margin-bottom: 2px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      align-items: stretch;
+    }
+    .direction {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 12px 36px rgba(30,48,78,.08);
+      cursor: pointer;
+      transition: transform .18s, border-color .18s, box-shadow .18s;
+    }
+    .direction:hover { transform: translateY(-3px); border-color: #8eb8ee; box-shadow: 0 18px 44px rgba(30,48,78,.13); }
+    .direction.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(23,105,224,.12), 0 18px 44px rgba(30,48,78,.13); }
+    .direction.recommended::after {
+      content: "RECOMMENDED";
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #dff4ec;
+      color: #12664f;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .09em;
+    }
+    .cap {
+      padding: 17px 18px 13px;
+      border-bottom: 1px solid var(--line);
+    }
+    .cap small { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+    .cap h2 { margin: 0 0 4px; font: 600 20px/1.15 Georgia, serif; }
+    .cap p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+    .screen {
+      position: relative;
+      aspect-ratio: 16/10;
+      min-height: 300px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+      background: #f7f9fc;
+    }
+    .live-frame {
+      width: 1440px;
+      height: 900px;
+      transform: scale(.345);
+      transform-origin: top left;
+      border: 0;
+      pointer-events: none;
+      background: white;
+    }
+    .mini-app { display: grid; grid-template-rows: 34px 1fr; height: 100%; font-size: 8px; }
+    .mini-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px;
+      border-bottom: 1px solid #dce3ed;
+      background: white;
+    }
+    .mini-logo { width: 18px; height: 18px; border-radius: 5px; background: var(--blue); }
+    .mini-search { flex: 1; max-width: 300px; padding: 6px 10px; border: 1px solid #dbe2ec; border-radius: 99px; color: #8791a3; }
+    .mini-status { margin-left: auto; color: #437e68; font-weight: 700; }
+    .mini-shell { display: grid; grid-template-columns: 82px minmax(0,1fr) 130px; min-height: 0; }
+    .mini-side { padding: 13px 8px; border-right: 1px solid #dfe5ed; background: #f7f9fc; }
+    .mini-side div { margin: 0 0 6px; padding: 5px 7px; border-radius: 5px; color: #5e6879; }
+    .mini-side .on { background: #deebff; color: #135dbc; font-weight: 800; }
+    .mini-main { min-width: 0; padding: 14px; overflow: hidden; }
+    .mini-main h3 { margin: 0; font: 600 16px Georgia, serif; }
+    .mini-main .lead { margin: 3px 0 11px; color: #69758a; font-size: 8px; }
+    .mini-rail { padding: 10px; border-left: 1px solid #dfe5ed; background: white; }
+    .mini-rail-head { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 99px; background: #edf1f6; }
+    .mini-rail-head b { padding: 4px; border-radius: 99px; text-align: center; background: var(--blue); color: white; }
+    .hero-band {
+      display: grid;
+      grid-template-columns: 1.3fr .9fr;
+      gap: 8px;
+      padding: 11px;
+      border-radius: 8px;
+      background: linear-gradient(130deg, #10294b, #155c79);
+      color: white;
+    }
+    .hero-band h4 { margin: 0 0 4px; font: 600 12px Georgia, serif; }
+    .hero-band p { margin: 0; color: #c9dfeb; line-height: 1.45; }
+    .hero-proof { display: grid; grid-template-columns: repeat(2,1fr); gap: 4px; }
+    .hero-proof span { padding: 6px; border: 1px solid rgba(255,255,255,.18); border-radius: 5px; background: rgba(255,255,255,.08); }
+    .hero-proof b { display: block; font-size: 12px; }
+    .cap-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; margin: 7px 0; }
+    .cap-strip div { padding: 7px; border: 1px solid #dce3ed; border-radius: 6px; background: white; }
+    .cap-strip b { display: block; margin-bottom: 3px; color: #23364f; }
+    .cap-strip span { color: #778195; line-height: 1.25; }
+    .work-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 7px; }
+    .panel { padding: 8px; border: 1px solid #dce3ed; border-radius: 7px; background: white; }
+    .panel-title { display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; }
+    .evidence-row { display: grid; grid-template-columns: 9px 1fr auto; gap: 6px; padding: 6px 0; border-top: 1px solid #edf0f4; }
+    .evidence-row i { width: 7px; height: 7px; margin-top: 2px; border-radius: 50%; background: var(--green); }
+    .evidence-row span { color: #667186; }
+    .evidence-row em { color: #1a6a52; font-style: normal; font-weight: 700; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; margin-bottom: 7px; }
+    .metric { padding: 8px; border: 1px solid #dae2eb; border-radius: 6px; background: white; }
+    .metric b { display: block; font: 700 16px Georgia, serif; }
+    .metric span { color: #748095; }
+    .chart { height: 44px; margin: 7px 0; border-radius: 5px; background: linear-gradient(160deg, transparent 45%, #78a7df 46%, #78a7df 49%, transparent 50%), repeating-linear-gradient(0deg,#f1f4f8 0 1px,transparent 1px 12px); }
+    .rail-callout { margin-top: 8px; padding: 7px; border-left: 3px solid var(--cyan); background: #edf8fb; color: #315c68; line-height: 1.45; }
+    .rail-actions { display: grid; gap: 4px; margin-top: 9px; }
+    .rail-actions b, .rail-actions span { padding: 6px; border-radius: 5px; text-align: center; }
+    .rail-actions b { background: var(--blue); color: white; }
+    .rail-actions span { border: 1px solid #d7dee8; }
+    .evaluation { flex: 1; padding: 14px 18px 18px; }
+    .score { display: grid; grid-template-columns: 86px 1fr auto; gap: 8px; align-items: center; margin: 7px 0; font-size: 10px; }
+    .score span:first-child { color: var(--muted); }
+    .bar { height: 5px; overflow: hidden; border-radius: 99px; background: #e8edf3; }
+    .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--cyan)); }
+    .tradeoff { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .tradeoff b { color: var(--ink); }
+    .scope {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .scope > div { padding: 15px 17px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.78); }
+    .scope h3 { margin: 0 0 6px; font-size: 12px; }
+    .scope p, .scope li { color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .scope ul { margin: 5px 0 0; padding-left: 17px; }
+    footer { padding: 14px; text-align: center; color: var(--muted); font-size: 11px; }
+    @media (max-width: 1100px) {
+      .grid, .scope { grid-template-columns: 1fr; }
+      .screen { min-height: 420px; }
+      .live-frame { transform: scale(.49); }
+      .intro { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Research Drive · visual decision</strong>
+    <span>One bounded comparison · no production code changed</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div>
+        <h1>How should an institutional research-data OS reveal its value?</h1>
+        <p>All three directions use the same working product. The question is whether a new professor can understand the breadth, trust the evidence, and know what to do within ten seconds.</p>
+      </div>
+      <div class="budget">
+        <b>What you are paying for</b>
+        One structural UI pass: hierarchy, capability visibility, decision evidence, and responsive polish. No backend rewrite, no navigation reset, no speculative feature build.
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="direction" data-choice="current" onclick="toggleSelect(this)">
+        <div class="cap">
+          <small>A · ACTUAL BASELINE</small>
+          <h2>Current work surface</h2>
+          <p>Functional, trustworthy, and calm—but the platform reads as a dataset browser.</p>
+        </div>
+        <div class="screen">
+          <iframe class="live-frame" src="http://127.0.0.1:5179/?tab=browse&amp;dataset=gdelt_asia_daily_country_panel" title="Current live interface"></iframe>
+        </div>
+        <div class="evaluation">
+          <div class="score"><span>Scope visible</span><div class="bar"><i style="width:42%"></i></div><b>4.2</b></div>
+          <div class="score"><span>Trust</span><div class="bar"><i style="width:84%"></i></div><b>8.4</b></div>
+          <div class="score"><span>Action clarity</span><div class="bar"><i style="width:78%"></i></div><b>7.8</b></div>
+          <p class="tradeoff"><b>Risk:</b> users may never discover synthesis, acquisition, profile-aware ranking, source probing, worker execution, vault archival, or reusable registry memory.</p>
+        </div>
+      </article>
+
+      <article class="direction" data-choice="dashboard" onclick="toggleSelect(this)">
+        <div class="cap">
+          <small>B · COMMON “SHOW SCALE” RESPONSE</small>
+          <h2>Capability dashboard</h2>
+          <p>Expose every metric and subsystem. Impressive at first; cognitively expensive thereafter.</p>
+        </div>
+        <div class="screen">
+          <div class="mini-app">
+            <div class="mini-top"><div class="mini-logo"></div><b>Research Operations</b><div class="mini-search">Search 150 datasets, 67 tools, 22 partitions…</div><span class="mini-status">SYSTEM ONLINE</span></div>
+            <div class="mini-shell">
+              <aside class="mini-side"><div class="on">Overview</div><div>Catalog</div><div>Pipelines</div><div>Workers</div><div>Storage</div><div>Sources</div><div>Costs</div><div>Settings</div></aside>
+              <main class="mini-main">
+                <h3>Research infrastructure overview</h3>
+                <p class="lead">Everything the platform can do, all at once</p>
+                <div class="metric-grid">
+                  <div class="metric"><b>150</b><span>datasets</span></div>
+                  <div class="metric"><b>67</b><span>MCP tools</span></div>
+                  <div class="metric"><b>22</b><span>vault partitions</span></div>
+                  <div class="metric"><b>791</b><span>completed jobs</span></div>
+                  <div class="metric"><b>3.0 TB</b><span>vault quota</span></div>
+                  <div class="metric"><b>308</b><span>registered runs</span></div>
+                </div>
+                <div class="work-grid">
+                  <div class="panel"><div class="panel-title"><span>Pipeline throughput</span><span>7 days</span></div><div class="chart"></div><div class="chart"></div></div>
+                  <div class="panel"><div class="panel-title"><span>System warnings</span><span>5</span></div><div class="evidence-row"><i></i><span>GDrive</span><em>Ready</em></div><div class="evidence-row"><i style="background:#d98a1c"></i><span>Pending jobs</span><em>10</em></div><div class="evidence-row"><i></i><span>Query engine</span><em>Live</em></div></div>
+                </div>
+              </main>
+              <aside class="mini-rail"><div class="mini-rail-head"><b>Detail</b><span>Ask</span></div><p class="rail-callout">Select a metric, pipeline, source, worker, partition, or dataset to inspect it.</p><div class="rail-actions"><span>Open activity</span><span>Explain health</span></div></aside>
+            </div>
+          </div>
+        </div>
+        <div class="evaluation">
+          <div class="score"><span>Scope visible</span><div class="bar"><i style="width:93%"></i></div><b>9.3</b></div>
+          <div class="score"><span>Trust</span><div class="bar"><i style="width:65%"></i></div><b>6.5</b></div>
+          <div class="score"><span>Action clarity</span><div class="bar"><i style="width:56%"></i></div><b>5.6</b></div>
+          <p class="tradeoff"><b>Risk:</b> becomes an operator dashboard. It advertises machinery instead of helping a professor answer a research question.</p>
+        </div>
+      </article>
+
+      <article class="direction recommended" data-choice="research-os" onclick="toggleSelect(this)">
+        <div class="cap">
+          <small>C · EVOLUTIONARY VALUE DIRECTION</small>
+          <h2>Research OS command surface</h2>
+          <p>Preserve the shell, but reveal capability through the active research object and its evidence.</p>
+        </div>
+        <div class="screen">
+          <div class="mini-app">
+            <div class="mini-top"><div class="mini-logo"></div><b>Research Drive</b><div class="mini-search">Ask, find, acquire, or open research data…</div><span class="mini-status">VAULT + QUERY + ACQUIRE</span></div>
+            <div class="mini-shell">
+              <aside class="mini-side"><div>Home</div><div>Library</div><div class="on">Discover</div><div>Synthesis</div><div>Resources</div><div>Profile</div></aside>
+              <main class="mini-main">
+                <div class="hero-band">
+                  <div><h4>GDELT Asia Daily Country News Shock Panel</h4><p>Queryable evidence with a reusable acquisition trail—search locally, fill gaps externally, and preserve every successful source in the lab vault.</p></div>
+                  <div class="hero-proof"><span><b>Instant</b>query-ready</span><span><b>Country-day</b>research grain</span><span><b>Vaulted</b>provenance kept</span><span><b>8 related</b>sources mapped</span></div>
+                </div>
+                <div class="cap-strip">
+                  <div><b>Find</b><span>150 datasets + global indexes</span></div>
+                  <div><b>Verify</b><span>coverage, terms, provenance</span></div>
+                  <div><b>Acquire</b><span>probe → worker → vault</span></div>
+                  <div><b>Synthesize</b><span>join into reusable panels</span></div>
+                </div>
+                <div class="work-grid">
+                  <div class="panel">
+                    <div class="panel-title"><span>Evidence and coverage</span><span>Research-ready</span></div>
+                    <div class="evidence-row"><i></i><span>Lab copy · Local GDELT panel CSV</span><em>Open</em></div>
+                    <div class="evidence-row"><i></i><span>Temporal coverage · Asia country-day</span><em>Verified</em></div>
+                    <div class="evidence-row"><i style="background:#d98a1c"></i><span>Coverage opportunity · entity mapping</span><em>Compare</em></div>
+                  </div>
+                  <div class="panel">
+                    <div class="panel-title"><span>What this unlocks</span><span>3 paths</span></div>
+                    <div class="evidence-row"><i></i><span>News-shock research</span><em>Ready</em></div>
+                    <div class="evidence-row"><i></i><span>Country × ticker join</span><em>Build</em></div>
+                    <div class="evidence-row"><i></i><span>External source refresh</span><em>Find</em></div>
+                  </div>
+                </div>
+              </main>
+              <aside class="mini-rail">
+                <div class="mini-rail-head"><b>Detail</b><span>Ask</span></div>
+                <p class="rail-callout"><b>Why it matters</b><br>One registered panel supports discovery, querying, source-gap analysis, and future synthesis without recollecting the same evidence.</p>
+                <div class="evidence-row"><i></i><span>Source confidence</span><em>High</em></div>
+                <div class="evidence-row"><i></i><span>Vault state</span><em>Saved</em></div>
+                <div class="evidence-row"><i style="background:#d98a1c"></i><span>Next gap</span><em>1</em></div>
+                <div class="rail-actions"><b>Preview evidence</b><span>Find complementary data</span><span>Ask with this context →</span></div>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <div class="evaluation">
+          <div class="score"><span>Scope visible</span><div class="bar"><i style="width:87%"></i></div><b>8.7</b></div>
+          <div class="score"><span>Trust</span><div class="bar"><i style="width:91%"></i></div><b>9.1</b></div>
+          <div class="score"><span>Action clarity</span><div class="bar"><i style="width:90%"></i></div><b>9.0</b></div>
+          <p class="tradeoff"><b>Why recommended:</b> scope becomes visible as user value—find, verify, acquire, synthesize—while the existing shell, rail, URLs, and workflows remain intact.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="scope">
+      <div>
+        <h3>Production work if C is chosen</h3>
+        <ul><li>Strengthen contextual page headers and empty states</li><li>Add a reusable capability/value strip</li><li>Elevate “why it matters” and coverage evidence in the rail</li><li>Expose existing synthesis and procurement outcomes contextually</li></ul>
+      </div>
+      <div>
+        <h3>Explicitly not included</h3>
+        <p>No new navigation model, no dashboard page, no backend re-platform, no decorative animation project, and no invented metrics.</p>
+      </div>
+      <div>
+        <h3>Waste-control gate</h3>
+        <p>Choose a direction first. Then approve one detailed screen. Only after that do we write a spec and implementation plan.</p>
+      </div>
+    </section>
+  </main>
+  <footer>Click A, B, or C to record a preference, then return to the terminal.</footer>
+</body>
+</html>

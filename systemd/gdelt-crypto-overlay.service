@@ -1,0 +1,17 @@
+[Unit]
+Description=Build resumable GDELT crypto research overlay
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/news_shock_taxonomy/run_gdelt_crypto_overlay_drive_queue.sh
+Restart=on-failure
+RestartSec=30
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/news_shock_taxonomy/gdelt_crypto_overlay.log
+StandardError=append:/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/logs/news_shock_taxonomy/gdelt_crypto_overlay.error.log
+
+[Install]
+WantedBy=default.target

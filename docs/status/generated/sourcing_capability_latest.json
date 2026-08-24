@@ -1,0 +1,292 @@
+{
+  "scenario_count": 14,
+  "execute_mode": false,
+  "totals": {
+    "guidance": 21,
+    "acquisition": 17,
+    "total": 38,
+    "passed": 11
+  },
+  "by_category": {
+    "lab_registry": {
+      "count": 4,
+      "passed": 4,
+      "avg_guidance": 2.0,
+      "avg_acquisition": 3.0
+    },
+    "catalog_search": {
+      "count": 3,
+      "passed": 3,
+      "avg_guidance": 2.0,
+      "avg_acquisition": 0.0
+    },
+    "index_miss": {
+      "count": 1,
+      "passed": 1,
+      "avg_guidance": 2.0,
+      "avg_acquisition": 0.0
+    },
+    "collect_plan": {
+      "count": 2,
+      "passed": 0,
+      "avg_guidance": 0.0,
+      "avg_acquisition": 0.0
+    },
+    "collect_execute": {
+      "count": 1,
+      "passed": 0,
+      "avg_guidance": 0.0,
+      "avg_acquisition": 0.0
+    },
+    "probe": {
+      "count": 2,
+      "passed": 2,
+      "avg_guidance": 2.0,
+      "avg_acquisition": 1.0
+    },
+    "chatgpt_baseline": {
+      "count": 1,
+      "passed": 1,
+      "avg_guidance": 1.0,
+      "avg_acquisition": 3.0
+    }
+  },
+  "cluster_jobs": {
+    "pending_approval": 13,
+    "queued": 0,
+    "running": 0,
+    "completed": 103,
+    "failed": 15,
+    "cancelled": 156,
+    "total": 287,
+    "lifetime": {
+      "pending_approval": 13,
+      "queued": 0,
+      "running": 0,
+      "completed": 103,
+      "failed": 15,
+      "cancelled": 156
+    },
+    "actionable": {
+      "pending_approval": 13,
+      "queued": 0,
+      "running": 0,
+      "failed_recent_days": 7,
+      "failed_recent": 2,
+      "failed_actionable": 2,
+      "failed_ops_noise": 0,
+      "failed_buckets": {
+        "other": 2
+      },
+      "cancelled_recent": 0,
+      "pending_oldest_age_days": 21.4
+    },
+    "failed_recent": 2,
+    "failed_actionable": 2,
+    "failed_ops_noise": 0,
+    "failed_buckets": {
+      "other": 2
+    },
+    "cancelled_recent": 0,
+    "recent_days": 7,
+    "semantics": "pending_approval/queued/running are live; failed/cancelled are lifetime totals \u2014 use failed_actionable (excludes canary/discover spam) for desk debt"
+  },
+  "scenarios": [
+    {
+      "id": "registry_gdelt_twn",
+      "category": "lab_registry",
+      "query": "GDELT Taiwan daily panel",
+      "guidance_score": 2,
+      "acquisition_score": 3,
+      "total": 5,
+      "ms": 1302,
+      "ok": true,
+      "detail": "rows=5",
+      "extras": {
+        "rows": 5
+      }
+    },
+    {
+      "id": "registry_twse",
+      "category": "lab_registry",
+      "query": "TWSE market layer",
+      "guidance_score": 2,
+      "acquisition_score": 3,
+      "total": 5,
+      "ms": 12,
+      "ok": true,
+      "detail": "rows=3",
+      "extras": {
+        "rows": 3
+      }
+    },
+    {
+      "id": "registry_skynet",
+      "category": "lab_registry",
+      "query": "Skynet stablecoin harvest",
+      "guidance_score": 2,
+      "acquisition_score": 3,
+      "total": 5,
+      "ms": 4,
+      "ok": true,
+      "detail": "rows=3",
+      "extras": {
+        "rows": 3
+      }
+    },
+    {
+      "id": "registry_sec",
+      "category": "lab_registry",
+      "query": "SEC company tickers",
+      "guidance_score": 2,
+      "acquisition_score": 3,
+      "total": 5,
+      "ms": 12,
+      "ok": true,
+      "detail": "rows=1",
+      "extras": {
+        "rows": 1
+      }
+    },
+    {
+      "id": "search_twse",
+      "category": "catalog_search",
+      "query": "taiwan TWSE daily equity market disclosures",
+      "guidance_score": 2,
+      "acquisition_score": 0,
+      "total": 2,
+      "ms": 19,
+      "ok": true,
+      "detail": "cands=8 top=Weekly Country Broadcast News-Market Panel via=local_open",
+      "extras": {
+        "candidates": 8,
+        "index_miss": false
+      }
+    },
+    {
+      "id": "search_skynet",
+      "category": "catalog_search",
+      "query": "certik skynet stablecoin security scores",
+      "guidance_score": 2,
+      "acquisition_score": 0,
+      "total": 2,
+      "ms": 15,
+      "ok": true,
+      "detail": "cands=8 top=Stablecoin project snapshot leaderboard via=local_open",
+      "extras": {
+        "candidates": 8,
+        "index_miss": false
+      }
+    },
+    {
+      "id": "search_usdt",
+      "category": "catalog_search",
+      "query": "ethereum USDT on-chain transfer data",
+      "guidance_score": 2,
+      "acquisition_score": 0,
+      "total": 2,
+      "ms": 23,
+      "ok": true,
+      "detail": "cands=8 top=Data.gov Climate Search Results (Copy) via=local_open",
+      "extras": {
+        "candidates": 8,
+        "index_miss": false
+      }
+    },
+    {
+      "id": "search_obscure",
+      "category": "index_miss",
+      "query": "baby diaper brand consumer survey panel dataset",
+      "guidance_score": 2,
+      "acquisition_score": 0,
+      "total": 2,
+      "ms": 17,
+      "ok": true,
+      "detail": "cands=8 top=Asia company-to-ticker mapping for research joins via=local_open",
+      "extras": {
+        "candidates": 8,
+        "index_miss": false
+      }
+    },
+    {
+      "id": "plan_twse_refresh",
+      "category": "collect_plan",
+      "query": "refresh taiwan TWSE openapi market layer",
+      "guidance_score": 0,
+      "acquisition_score": 0,
+      "total": 0,
+      "ms": 0,
+      "ok": false,
+      "detail": "error: No module named 'scripts.research_data_mcp.procurement_equipment_bridge'",
+      "extras": {}
+    },
+    {
+      "id": "plan_skynet_pipeline",
+      "category": "collect_plan",
+      "query": "harvest certik skynet stablecoin leaderboard",
+      "guidance_score": 0,
+      "acquisition_score": 0,
+      "total": 0,
+      "ms": 0,
+      "ok": false,
+      "detail": "error: No module named 'scripts.research_data_mcp.procurement_equipment_bridge'",
+      "extras": {}
+    },
+    {
+      "id": "plan_sec_url",
+      "category": "collect_execute",
+      "query": "https://www.sec.gov/files/company_tickers.json",
+      "guidance_score": 0,
+      "acquisition_score": 0,
+      "total": 0,
+      "ms": 0,
+      "ok": false,
+      "detail": "error: No module named 'scripts.research_data_mcp.procurement_equipment_bridge'",
+      "extras": {}
+    },
+    {
+      "id": "probe_sec",
+      "category": "probe",
+      "query": "",
+      "guidance_score": 2,
+      "acquisition_score": 1,
+      "total": 3,
+      "ms": 526,
+      "ok": true,
+      "detail": "candidate",
+      "extras": {
+        "connector_status": "candidate",
+        "summary": "direct_file source; 0 downloadable links detected; recommendation: download_sample_then_archive"
+      }
+    },
+    {
+      "id": "probe_skynet",
+      "category": "probe",
+      "query": "",
+      "guidance_score": 2,
+      "acquisition_score": 1,
+      "total": 3,
+      "ms": 407,
+      "ok": true,
+      "detail": "candidate",
+      "extras": {
+        "connector_status": "candidate",
+        "summary": "html_catalog source; 0 downloadable links detected; recommendation: browser_or_site_specific_connector_required"
+      }
+    },
+    {
+      "id": "baseline_curl_sec",
+      "category": "chatgpt_baseline",
+      "query": "curl SEC tickers (no catalog)",
+      "guidance_score": 1,
+      "acquisition_score": 3,
+      "total": 4,
+      "ms": 94,
+      "ok": true,
+      "detail": "curl rc=0 bytes=794799",
+      "extras": {
+        "bytes": 794799
+      }
+    }
+  ]
+}

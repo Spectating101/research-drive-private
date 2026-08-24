@@ -1,0 +1,172 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-destructive: hsl(var(--destructive));
+  --color-copper: hsl(var(--copper));
+  --color-copper-foreground: hsl(var(--copper-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* Research Drive — light faculty browse (default) */
+:root,
+.rd-theme-light {
+  --background: 210 33% 98%;
+  --foreground: 215 25% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 17%;
+  --primary: 214 82% 51%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 25% 96%;
+  --secondary-foreground: 215 20% 30%;
+  --muted: 210 25% 96%;
+  --muted-foreground: 215 14% 46%;
+  --accent: 210 30% 94%;
+  --accent-foreground: 215 25% 17%;
+  --border: 214 22% 88%;
+  --input: 214 22% 88%;
+  --ring: 214 82% 51%;
+  --destructive: 4 72% 42%;
+  --copper: 32 52% 52%;
+  --copper-foreground: 32 40% 18%;
+  --success: 142 45% 32%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 80% 38%;
+  --warning-foreground: 0 0% 100%;
+}
+
+/* Ops / pipeline surfaces */
+.rd-theme-ops {
+  --background: 210 18% 8%;
+  --foreground: 210 20% 96%;
+  --card: 210 16% 11%;
+  --card-foreground: 210 20% 96%;
+  --primary: 187 55% 48%;
+  --primary-foreground: 210 18% 8%;
+  --secondary: 210 14% 14%;
+  --secondary-foreground: 210 15% 88%;
+  --muted: 210 14% 14%;
+  --muted-foreground: 210 10% 62%;
+  --accent: 210 14% 16%;
+  --accent-foreground: 210 20% 96%;
+  --border: 210 12% 22%;
+  --input: 210 12% 22%;
+  --ring: 187 55% 48%;
+  --destructive: 0 62% 58%;
+  --copper: 32 52% 58%;
+  --copper-foreground: 32 30% 12%;
+  --success: 152 45% 48%;
+  --success-foreground: 152 40% 10%;
+  --warning: 42 75% 52%;
+  --warning-foreground: 42 40% 12%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Bridge: shadcn shell + legacy page content */
+.rd-theme-light .yzu-main {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.rd-theme-light .rd-page-bar h1,
+.rd-theme-light .rd-drive-section-title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.rd-theme-light .rd-library-surface,
+.rd-theme-light .rd-home-drive,
+.rd-theme-light .rd-catalog-panel {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.rd-theme-light .rd-home-continue {
+  background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--secondary)));
+  border-color: hsl(var(--border));
+}
+
+.rd-theme-light .rd-home-pipeline {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.rd-theme-light .rd-home-pipeline-row {
+  background: hsl(var(--secondary));
+}
+
+.rd-theme-light .yzu-inspector {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: -1px 0 0 hsl(var(--border));
+}
+
+.rd-theme-light .rd-inspector-idle h2,
+.rd-theme-light .rd-inspector-compact h2 {
+  font-family: var(--font-serif);
+}
+
+.rd-theme-light .yzu-header {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.yzu-brand span.rd-brand-mark,
+.yzu-brand > span:first-child {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #e8c9a8, #c49a6c);
+  color: #1f2937;
+  font: 700 12px/1 var(--mono);
+}
+
+.rd-nav-legacy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

@@ -1,0 +1,42 @@
+{
+  "api": "http://127.0.0.1:8765",
+  "steps": [
+    {
+      "name": "cluster_status",
+      "ok": true,
+      "detail": "disk=61GB jobs={'pending_approval': 34, 'queued': 0, 'running': 5, 'completed': 351, 'failed': 109, 'cancelled': 1}"
+    },
+    {
+      "name": "faculty_profile",
+      "ok": true,
+      "detail": "Assistant Professor"
+    },
+    {
+      "name": "chat_search",
+      "ok": true,
+      "detail": "action=search words=24"
+    },
+    {
+      "name": "chat_preview",
+      "ok": true,
+      "detail": "rows=0 next_steps=1 action=preview"
+    },
+    {
+      "name": "chat_collect_doi",
+      "ok": true,
+      "detail": "action=collect_doi campaign=23a76d82d15c"
+    },
+    {
+      "name": "chat_probe_url",
+      "ok": true,
+      "detail": "I probed `https://example.com` \u2014 it's a simple HTML page (Example Domain) with n"
+    },
+    {
+      "name": "registry",
+      "ok": true,
+      "detail": "campaigns=5 datasets=62"
+    }
+  ],
+  "passed": 7,
+  "failed": 0
+}

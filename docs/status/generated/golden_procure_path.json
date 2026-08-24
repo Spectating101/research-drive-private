@@ -1,0 +1,91 @@
+{
+  "product": "Research Drive golden procure path",
+  "generated_at": "2026-07-08T15:54:51.468971Z",
+  "api": "http://127.0.0.1:8765",
+  "faculty_email": "drkong@saturn.yzu.edu.tw",
+  "dataset_id": "sec_company_tickers",
+  "queue_task": "sec_company_tickers",
+  "execute": false,
+  "steps": [
+    {
+      "step": "health",
+      "ok": true,
+      "at": "2026-07-08T15:54:55.354265Z",
+      "composer_configured": true,
+      "registry_count": 159,
+      "jobs": {
+        "pending_approval": 7,
+        "queued": 0,
+        "running": 0,
+        "completed": 308,
+        "failed": 85,
+        "cancelled": 100
+      },
+      "gdrive": {
+        "rclone_installed": true,
+        "remotes": [
+          "gdrive"
+        ],
+        "gdrive_remote": true,
+        "drive_root": "gdrive:Machine_Archive/molina_workbench/Sharpe-Renaissance-data",
+        "ready": true,
+        "drive_list_ok": true,
+        "drive_list_error": ""
+      }
+    },
+    {
+      "step": "faculty_profile",
+      "ok": true,
+      "at": "2026-07-08T15:54:55.378162Z",
+      "name_en": "Kong, De-Rong"
+    },
+    {
+      "step": "discover_search",
+      "ok": true,
+      "at": "2026-07-08T15:54:58.983082Z",
+      "query": "SEC EDGAR company tickers CIK mapping",
+      "total": 12,
+      "rows": 12
+    },
+    {
+      "step": "discover_probe",
+      "ok": true,
+      "at": "2026-07-08T15:54:59.403012Z",
+      "url": "https://www.sec.gov/files/company_tickers.json",
+      "connector_id": "src_ace4a0fb8e9e",
+      "summary": "direct_file source; 0 downloadable links detected; recommendation: download_sample_then_archive"
+    },
+    {
+      "step": "submit_collect_job",
+      "ok": true,
+      "at": "2026-07-08T15:54:59.403035Z",
+      "skipped": true,
+      "reason": "dry-run"
+    },
+    {
+      "step": "job_completed",
+      "ok": true,
+      "at": "2026-07-08T15:54:59.403038Z",
+      "skipped": true
+    },
+    {
+      "step": "registry_query",
+      "ok": true,
+      "at": "2026-07-08T15:54:59.403040Z",
+      "skipped": true
+    },
+    {
+      "step": "gdrive_verify",
+      "ok": true,
+      "at": "2026-07-08T15:54:59.403042Z",
+      "skipped": true
+    },
+    {
+      "step": "discover_in_lab",
+      "ok": true,
+      "at": "2026-07-08T15:54:59.403044Z",
+      "skipped": true
+    }
+  ],
+  "all_passed": true
+}

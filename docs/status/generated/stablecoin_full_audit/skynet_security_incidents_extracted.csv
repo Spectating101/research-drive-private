@@ -1,0 +1,2 @@
+entity_id,name,labels,platforms,incidentType,fundLostInUSD,date,description,sourceTwitterLinks,incidentSourceLink,dataSource
+alchemix-usd,alchemix-usd_2023-08-01,,,Other Exploit,20600000,2023-08-01,,,https://cointelegraph.com/news/curve-vyper-exploit-whole-story-so-far,['certik internal']

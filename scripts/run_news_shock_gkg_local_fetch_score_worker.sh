@@ -1,0 +1,1 @@
+../drive/scripts/run_news_shock_gkg_local_fetch_score_worker.sh

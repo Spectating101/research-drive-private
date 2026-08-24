@@ -63,21 +63,20 @@ The repository may contain deployment tooling, but secrets and mutable host stat
 
 Host inventory should be configuration-driven and private. Do not copy production host material into the public repository.
 
-## One-PR rule
+## Release-candidate rule
 
-- PR #1 is the only active production runtime release candidate.
-- Host-specific fixes discovered during acceptance are added to PR #1 with regression coverage.
-- Do not open a competing runtime PR unless PR #1 is explicitly abandoned.
-- Do not force-push shared candidate history.
+- Verify the active release branch and PR directly before acting; do not infer it from this document.
+- Keep host-specific fixes in the same bounded runtime release candidate with regression coverage.
+- Do not force-push shared candidate history or open competing runtime candidates without an explicit decision.
 
 ## Acceptance and merge order
 
-1. Run the Optiplex controller and one Windows worker at the exact PR head.
+1. Run the Optiplex controller and one Windows worker at the exact release-candidate head.
 2. Prove one public `http_manifest` job through streamed artifact transfer, materialisation, GDrive verification, registry read-back, and Library readiness.
 3. Prove real lease expiry, attempt increment, and rejection of every stale-attempt write.
 4. Record sanitized evidence and any host-specific fixes.
 5. Preserve the pre-runtime `main` SHA.
-6. Merge PR #1 using a merge commit.
+6. Merge the approved release candidate using a merge commit.
 7. Deploy merged `main` and repeat the success smoke path.
 
 ## Rollback

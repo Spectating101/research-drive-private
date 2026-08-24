@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1440" />
+  <title>Research Drive v2 — all pages (1440×900)</title>
+  <link rel="stylesheet" href="desk-v2-1440.css" />
+  <style>
+    body {
+      margin: 0; background: #e2e8f0; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; padding: 16px;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+    }
+    .page-hint {
+      max-width: 1440px; width: 100%; margin-bottom: 12px; font-size: 13px;
+      color: #475569; text-align: center; line-height: 1.5;
+    }
+    .page-hint code { font-size: 12px; }
+    .ext-controls { margin-top: 12px; font-size: 12px; color: #64748b; }
+    .ext-controls button { font: inherit; cursor: pointer; margin: 0 4px; }
+  </style>
+</head>
+<body>
+  <p class="page-hint">
+    <strong>Research Drive v2 — 1440×900</strong> · all 7 tabs + Preview overlay · 100% zoom ·
+    <code>docs/design/references/desk-v2-1440.html</code>
+  </p>
+
+  <div class="rd-artboard" id="artboard">
+  <header class="rd-header">
+    <div class="rd-brand"><span class="rd-mark">RD</span> Research Drive</div>
+    <div class="rd-search">Search lab + discover <kbd>⌘K</kbd></div>
+    <div class="rd-header-meta" id="headerMeta">78 ds</div>
+    <button type="button" class="rd-btn-new">New ▾</button>
+    <div class="rd-avatar">YZ</div>
+  </header>
+
+  <nav class="rd-sidebar" id="sidebar" aria-label="Main navigation"></nav>
+
+  <main class="rd-main" id="main">
+    <!-- HOME -->
+    <section class="rd-page rd-page-on" data-page="home" id="page-home">
+      <div class="rd-main-head"><h1>Home</h1><p class="rd-lead">Continue · running · recent — not full catalog</p></div>
+      <div class="rd-body-scroll">
+        <div class="rd-card">
+          <h3>Asia daily news-risk panel</h3>
+          <p class="mono">gdelt_asia_daily · Preview closed 2 hours ago</p>
+          <div class="rd-card-actions">
+            <button type="button" class="rd-btn sm" data-goto="library">Open in Library</button>
+            <button type="button" class="rd-btn sm primary" id="btnPreviewFromHome">Preview rows</button>
+          </div>
+        </div>
+        <div class="rd-section-title"><span>Running jobs</span><a href="#" data-goto="resources">All jobs →</a></div>
+        <div class="rd-strip">● GDELT backfill ················· 18 / 99 mo <span class="pill">OK</span></div>
+        <div class="rd-strip rd-strip-warn">● DataCite harvest · 4 workers <span class="pill pill-warn">WARN</span><a href="#" data-goto="resources">Resources →</a></div>
+        <div class="rd-section-title"><span>Saved compares</span><a href="#" data-goto="cluster">Cluster →</a></div>
+        <div class="rd-strip">GDELT Asia panel × Ticker week panel</div>
+        <div class="rd-section-title"><span>Recent</span><a href="#" data-goto="library">See Library →</a></div>
+        <ul class="rd-list">
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">Asia daily news-risk panel</span><span class="sub">gdelt_asia_daily</span></span><span class="pill">Query-ready</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">CoinGecko market archive</span><span class="sub">coingecko_daily_archive</span></span><span class="pill">Query-ready</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">USDT transfer catalogue</span><span class="sub">ethereum_usdt_transfers</span></span><span class="pill pill-muted">Connected</span></button></li>
+        </ul>
+        <div class="rd-section-title"><span>Suggested gaps</span></div>
+        <div class="rd-chips-row">
+          <span class="rd-chip rd-chip-on">Browse TWSE daily</span>
+          <span class="rd-chip">Browse MOPS</span>
+          <span class="rd-chip">Ask to procure</span>
+        </div>
+      </div>
+      <div class="rd-scroll-foot">↓ scroll if viewport shorter than 844px body</div>
+    </section>
+
+    <!-- LIBRARY -->
+    <section class="rd-page" data-page="library" id="page-library">
+      <div class="rd-main-head">
+        <h1>Library</h1>
+        <nav class="rd-crumb"><button type="button">Lab</button><span class="sep">›</span><button type="button">research_panels</button><span class="sep">›</span><span class="here">gdelt</span></nav>
+      </div>
+      <div class="rd-toolbar">
+        <span class="rd-chip rd-chip-on">≡ list</span><span class="rd-chip">Name ▾</span><span class="rd-chip">Last modified ▾</span><span class="rd-chip">Filter ▾</span>
+        <span class="rd-toolbar-note">4 items</span>
+      </div>
+      <div class="rd-body-scroll">
+        <ul class="rd-list">
+          <li class="rd-folder"><button type="button"><span>📁</span><span class="text"><span class="title">archive</span></span><span class="pill pill-muted">2</span></button></li>
+          <li class="rd-row rd-row-on"><button type="button"><span>📄</span><span class="text"><span class="title">Asia daily news-risk panel</span><span class="sub">gdelt_asia_daily · country-day</span></span><span class="pill">Query-ready</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">GDELT scored country panel</span><span class="sub">gdelt_scored_country</span></span><span class="pill">Query-ready</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">Cross-asset fused panel</span><span class="sub">cross_asset_fused</span></span><span class="pill">Query-ready</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">CoinGecko market archive</span><span class="sub">coingecko_daily_archive</span></span><span class="pill">Query-ready</span></button></li>
+        </ul>
+      </div>
+      <div class="rd-scroll-foot">double-click row → Preview · shift+click 2 → Cluster</div>
+    </section>
+
+    <!-- CLUSTER -->
+    <section class="rd-page" data-page="cluster" id="page-cluster">
+      <div class="rd-main-head"><h1>Cluster</h1><p class="rd-lead">Coverage & overlap — not a file list</p></div>
+      <div class="rd-body-scroll">
+        <div class="rd-cluster-toolbar">
+          Compare:
+          <select><option>GDELT Asia panel</option></select>
+          <select><option>Ticker week panel</option></select>
+          <button type="button" class="rd-btn sm" data-goto="library">+ Library</button>
+          <button type="button" class="rd-btn sm">Save compare</button>
+          <span style="margin-left:8px;color:#64748b">47 mapped · 3 gaps · 82% overlap</span>
+        </div>
+        <div class="rd-toolbar" style="padding:0 14px">
+          <span class="rd-chip rd-chip-on">All</span><span class="rd-chip">Asia</span><span class="rd-chip">Crypto</span><span class="rd-chip">Taiwan</span>
+        </div>
+        <div class="rd-timeline">
+          <div class="years"><span>2018</span><span>2020</span><span>2022</span><span>2024</span><span>now</span></div>
+          <div class="rd-bar-row"><label>GDELT</label><div class="rd-bar"><span style="width:92%"></span></div></div>
+          <div class="rd-bar-row"><label>Ticker</label><div class="rd-bar"><span style="width:78%"></span></div></div>
+          <div class="rd-bar-row"><label>CoinG</label><div class="rd-bar gap"><span style="width:30%"></span></div></div>
+        </div>
+        <div class="rd-venn">
+          <h4>(GDELT Asia) ∩ (Ticker week) = 41,204 rows</h4>
+          only A: 9,102 · only B: 2,881 · join: date · country_iso3<br>
+          Missing coverage: TWSE · MOPS · Election events
+        </div>
+        <div class="rd-chips-row" style="margin-top:0">
+          <span class="rd-chip">Find in Browse</span><span class="rd-chip">Export join keys</span><span class="rd-chip" data-goto="library">Open Library</span>
+        </div>
+      </div>
+      <div class="rd-scroll-foot">click timeline gap → highlight missing span</div>
+    </section>
+
+    <!-- BROWSE -->
+    <section class="rd-page" data-page="browse" id="page-browse">
+      <div class="rd-main-head"><h1>Browse</h1><p class="rd-lead">Discover datasets outside the lab vault</p></div>
+      <div class="rd-toolbar">
+        <span class="rd-chip" style="min-width:200px">Discover datasets…</span>
+        <span class="rd-chip">Source ▾</span><span class="rd-chip">Filter ▾</span>
+        <span class="rd-toolbar-note">★ Profile boost</span>
+      </div>
+      <div class="rd-body-scroll">
+        <ul class="rd-list">
+          <li class="rd-row rd-row-on"><button type="button"><span>📄</span><span class="text"><span class="title">TWSE OpenAPI governance panel ★</span><span class="sub">Taiwan listed cos · daily · TWSE terms</span></span><span class="pill pill-ext">◌ External</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">SEC crypto enforcement filings</span><span class="sub">US enforcement · JSON · public</span></span><span class="pill pill-ext">◌ External</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">DataCite finance corpus</span><span class="sub">DOI corpus · finance · global</span></span><span class="pill pill-lab">✓ In lab</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">HuggingFace taiwan-equity</span><span class="sub">community mirror · parquet · 2.1 GB</span></span><span class="pill pill-queue">⟳ Queued</span></button></li>
+          <li class="rd-row"><button type="button"><span>📄</span><span class="text"><span class="title">Stablecoin BigQuery remote table</span><span class="sub">public dataset · on-chain transfers</span></span><span class="pill pill-ext">◌ External</span></button></li>
+        </ul>
+      </div>
+      <div class="rd-scroll-foot">Add to lab → toast Queued · [Resources]</div>
+    </section>
+
+    <!-- RESOURCES -->
+    <section class="rd-page" data-page="resources" id="page-resources">
+      <div class="rd-main-head"><h1>Resources</h1><p class="rd-lead">OK 11 · WARN 2 · FAIL 0 · updated 12s ago</p></div>
+      <div class="rd-toolbar">
+        <span class="rd-chip rd-chip-on">All</span><span class="rd-chip rd-chip-warn">WARN</span><span class="rd-chip">FAIL</span><span class="rd-chip">Running</span>
+        <span class="rd-chip">Refresh</span>
+      </div>
+      <div class="rd-body-scroll rd-ledger">
+        <div class="rd-ledger-section">Compute</div>
+        <div class="rd-ledger-row"><span>yzu-controller · UI · optiplex</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-row"><span>windows_lab pool · 3/12 busy</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-section">Storage</div>
+        <div class="rd-ledger-row"><span>GDrive vault · 2.1 / 5.0 TB</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-row"><span>NVMe hot · 68% used</span><span class="warn">WARN</span></div>
+        <div class="rd-ledger-section">Data plane</div>
+        <div class="rd-ledger-row"><span>Query :8765 · 128 ds · index 2h</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-section">Remote query</div>
+        <div class="rd-ledger-row"><span>BigQuery SA · dry-run gate</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-section">Procurement</div>
+        <div class="rd-ledger-row"><span>MCP tools · 14 registered</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-section">Pipelines</div>
+        <div class="rd-ledger-row"><span>GDELT backfill · 18/99 mo</span><span class="ok">OK</span></div>
+        <div class="rd-ledger-row on"><span>DataCite harvest · 4 workers</span><span class="warn">WARN</span></div>
+        <div class="rd-ledger-section">LLM desk</div>
+        <div class="rd-ledger-row"><span>deepseek reachable</span><span class="ok">OK</span></div>
+      </div>
+      <div class="rd-scroll-foot">select row → Detail with log / retry</div>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="rd-page" data-page="profile" id="page-profile">
+      <div class="rd-main-head"><h1>Profile</h1><p class="rd-lead">Research context · ranking · procurement scope</p></div>
+      <div class="rd-body-scroll">
+        <div class="rd-profile-block">
+          <p>Prof Kong · Yuan Ze University · ORCID · Scholar</p>
+        </div>
+        <div class="rd-profile-block">
+          <h3>Research tracks</h3>
+          <p>1 Asia news-risk · 2 Crypto/stablecoin · 3 Taiwan equity</p>
+        </div>
+        <div class="rd-profile-block">
+          <h3>Corpus scope (holdings vs gaps)</h3>
+          <table class="rd-table">
+            <thead><tr><th>Track</th><th>Holdings</th><th>Gaps</th></tr></thead>
+            <tbody>
+              <tr><td>Asia news</td><td>gdelt_asia, news…</td><td>TWSE, MOPS</td></tr>
+              <tr><td>Taiwan equity</td><td>ticker_week</td><td>TWSE gov</td></tr>
+              <tr><td>Crypto</td><td>coingecko, usdt…</td><td>on-chain DEX</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rd-profile-block">
+          <h3>Pinned for Cluster</h3>
+          <table class="rd-table">
+            <tbody>
+              <tr><td>gdelt_asia_daily</td><td>GDELT Asia panel</td><td><button class="rd-btn sm">Edit</button></td></tr>
+              <tr><td>ticker_week_panel</td><td>Ticker week panel</td><td><button class="rd-btn sm">Edit</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rd-chips-row">
+          <span class="rd-chip">Edit tracks</span><span class="rd-chip">Sync Scholar</span><span class="rd-chip">Export scope JSON</span>
+        </div>
+      </div>
+      <div class="rd-scroll-foot"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="rd-page" data-page="settings" id="page-settings">
+      <div class="rd-main-head"><h1>Settings</h1></div>
+      <div class="rd-body-scroll">
+        <div class="rd-settings-block">
+          <h3>Account</h3>
+          <div class="rd-settings-row"><span>YZ · phyrexian@yzu.edu.tw</span><button class="rd-btn sm">Sign out</button></div>
+        </div>
+        <div class="rd-settings-block">
+          <h3>Credentials</h3>
+          <div class="rd-settings-row"><span><span class="rd-dot-ok">●</span> BigQuery SA</span><span><button class="rd-btn sm">Test</button> OK 2s</span></div>
+          <div class="rd-settings-row"><span><span class="rd-dot-ok">●</span> GDrive OAuth</span><span><button class="rd-btn sm">Test</button> OK</span></div>
+          <div class="rd-settings-row"><span><span class="rd-dot-miss">○</span> DataCite token</span><button class="rd-btn sm">Add</button></div>
+        </div>
+        <div class="rd-settings-block">
+          <h3>Display</h3>
+          <div class="rd-settings-row"><span>Default tab</span><span>Library</span></div>
+          <div class="rd-settings-row"><span>On select</span><span>Detail</span></div>
+        </div>
+        <div class="rd-settings-block">
+          <h3>Integration</h3>
+          <div class="rd-settings-row"><span>Query engine :8765</span><span><button class="rd-btn sm">Test</button> <button class="rd-btn sm">Open</button></span></div>
+          <div class="rd-settings-row"><span>Vite desk :5178</span><button class="rd-btn sm">Open</button></div>
+          <div class="rd-settings-row"><span>Admin</span><span>Workers · Jobs · Vault →</span></div>
+        </div>
+      </div>
+      <div class="rd-scroll-foot"></div>
+    </section>
+
+    <!-- Preview scrim (over main column only) -->
+    <div class="rd-preview-scrim" id="previewScrim" role="dialog" aria-modal="true" aria-label="Preview">
+      <div class="rd-preview-modal">
+        <div class="rd-preview-head">
+          <span>Preview — Asia daily news-risk panel</span>
+          <button type="button" class="rd-btn sm" id="closePreview">×</button>
+        </div>
+        <div class="rd-preview-tabs">
+          <button type="button" class="on" data-ptab="preview">Preview</button>
+          <button type="button" data-ptab="schema">Schema</button>
+          <button type="button" data-ptab="query">Query</button>
+        </div>
+        <div class="rd-preview-body" id="previewBody">
+          <table class="rd-preview-table">
+            <thead><tr><th>date</th><th>country</th><th>score</th><th>headline</th></tr></thead>
+            <tbody>
+              <tr><td>2026-04-30</td><td>TW</td><td>0.82</td><td>export controls…</td></tr>
+              <tr><td>2026-04-30</td><td>ID</td><td>0.71</td><td>central bank…</td></tr>
+              <tr><td>2026-04-29</td><td>SG</td><td>0.65</td><td>trade policy…</td></tr>
+              <tr><td>2026-04-28</td><td>MY</td><td>0.59</td><td>palm exports…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rd-preview-foot">
+          <button type="button" class="rd-btn sm">Export CSV</button>
+          <button type="button" class="rd-btn sm primary">Run on :8765</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="rd-rail" id="rail">
+    <div class="rd-rail-toggle">
+      <button type="button" class="on" data-rail="detail">Detail</button>
+      <button type="button" data-rail="ask">Ask</button>
+    </div>
+    <!-- Detail panels per page -->
+    <div class="rd-rail-panel rd-rail-panel-on" data-rail-page="home library browse">
+      <div class="rd-rail-scroll">
+        <p class="rd-rail-id">gdelt_asia_daily</p>
+        <h2 class="rd-rail-title">Asia daily news-risk panel</h2>
+        <p><span class="pill">Query-ready</span> <span class="pill pill-muted">local vault</span></p>
+        <dl class="rd-fields">
+          <div><dt>Source</dt><dd>GDELT GKG · scored country-day</dd></div>
+          <div><dt>Access</dt><dd>Query engine :8765 · parquet NVMe</dd></div>
+          <div><dt>Coverage</dt><dd>2018-01 – 2026-04 · 42 countries</dd></div>
+          <div><dt>Grain</dt><dd>country × day · ISO3 + date</dd></div>
+          <div><dt>Vault path</dt><dd class="mono" style="word-break:break-all">gdrive:…/research_panels/gdelt/asia_daily</dd></div>
+          <div><dt>Use</dt><dd>News shock · Asia equity studies</dd></div>
+          <div><dt>Limitations</dt><dd>TWSE not joined · lag T+1</dd></div>
+        </dl>
+      </div>
+      <div class="rd-rail-sticky" id="railStickyDataset">
+        <button type="button" class="rd-btn primary" id="btnPreviewRail">Preview rows</button>
+        <button type="button" class="rd-btn" data-rail-mode="ask">Ask about this →</button>
+        <button type="button" class="rd-btn" data-goto="cluster">See on Cluster</button>
+      </div>
+    </div>
+    <div class="rd-rail-panel" data-rail-page="cluster">
+      <div class="rd-rail-scroll">
+        <h2 class="rd-rail-title">Overlap</h2>
+        <p>GDELT Asia × Ticker week</p>
+        <dl class="rd-fields">
+          <div><dt>Overlap</dt><dd>82% · country · day</dd></div>
+          <div><dt>Rows</dt><dd>41,204 in join</dd></div>
+          <div><dt>Missing</dt><dd>TWSE · MOPS</dd></div>
+        </dl>
+      </div>
+      <div class="rd-rail-sticky">
+        <button type="button" class="rd-btn">Expand overlap</button>
+        <button type="button" class="rd-btn" data-rail-mode="ask">Ask about this →</button>
+      </div>
+    </div>
+    <div class="rd-rail-panel" data-rail-page="browse-ext">
+      <div class="rd-rail-scroll">
+        <h2 class="rd-rail-title">TWSE OpenAPI governance</h2>
+        <p><span class="pill pill-ext">◌ External</span></p>
+        <dl class="rd-fields">
+          <div><dt>Source</dt><dd>TWSE OpenAPI</dd></div>
+          <div><dt>License</dt><dd>TWSE terms</dd></div>
+          <div><dt>Coverage</dt><dd>2010+ · Taiwan listed</dd></div>
+        </dl>
+      </div>
+      <div class="rd-rail-sticky">
+        <button type="button" class="rd-btn primary">Add to lab</button>
+        <button type="button" class="rd-btn">Preview ext</button>
+        <button type="button" class="rd-btn" data-rail-mode="ask">Ask about this →</button>
+      </div>
+    </div>
+    <div class="rd-rail-panel" data-rail-page="resources">
+      <div class="rd-rail-scroll">
+        <h2 class="rd-rail-title">DataCite harvest</h2>
+        <p><span class="pill pill-warn">WARN</span></p>
+        <dl class="rd-fields">
+          <div><dt>Workers</dt><dd>4 active</dd></div>
+          <div><dt>Last error</dt><dd>rate limit on DOI fetch</dd></div>
+        </dl>
+      </div>
+      <div class="rd-rail-sticky">
+        <button type="button" class="rd-btn">View log</button>
+        <button type="button" class="rd-btn">Retry</button>
+      </div>
+    </div>
+    <div class="rd-rail-panel" data-rail-page="profile settings">
+      <div class="rd-rail-scroll rd-empty">Select a row for detail<br>or toggle to Ask</div>
+    </div>
+    <!-- Ask mode (all pages) -->
+    <div class="rd-rail-panel" id="railAsk" data-rail-page="ask" style="display:none">
+      <div class="rd-rail-scroll">
+        <p class="rd-ask-ctx">Context: gdelt_asia_daily · <span id="askPageLabel">Library</span></p>
+        <div class="rd-ask-bubble"><strong>You:</strong> overlap with ticker_week before 2020?</div>
+        <div class="rd-ask-bubble agent"><strong>Agent:</strong> 82% date overlap. TW missing pre-2019.<br>
+          <span class="rd-chips-row" style="margin:8px 0 0;padding:0"><span class="rd-chip">Add TWSE</span><span class="rd-chip" data-goto="cluster">Cluster</span></span>
+        </div>
+      </div>
+      <div class="rd-ask-input"><textarea placeholder="Message… Ask uses catalog + MCP tools"></textarea></div>
+    </div>
+  </aside>
+  </div>
+
+  <p class="ext-controls">
+    Jump:
+    <button type="button" data-goto="home">Home</button>
+    <button type="button" data-goto="library">Library</button>
+    <button type="button" data-goto="cluster">Cluster</button>
+    <button type="button" data-goto="browse">Browse</button>
+    <button type="button" data-goto="resources">Resources</button>
+    <button type="button" data-goto="profile">Profile</button>
+    <button type="button" data-goto="settings">Settings</button>
+    · <button type="button" id="btnPreviewExt">Preview overlay</button>
+    · Esc closes Preview
+  </p>
+
+  <script>
+    const TABS = [
+      ["home", "Home", "78 ds"],
+      ["library", "Library", "12 in folder"],
+      ["cluster", "Cluster", ""],
+      ["browse", "Browse", "24 external"],
+      ["resources", "Resources", ""],
+      ["profile", "Profile", ""],
+      ["settings", "Settings", ""],
+    ];
+    const sidebar = document.getElementById("sidebar");
+  TABS.forEach(([id, label]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "rd-nav" + (id === "home" ? " rd-nav-on" : "");
+    b.textContent = label;
+    b.dataset.goto = id;
+    sidebar.appendChild(b);
+  });
+
+  let currentPage = "home";
+  let railMode = "detail";
+
+  function railPanelFor(page) {
+    if (railMode === "ask") return document.getElementById("railAsk");
+    if (page === "cluster") return document.querySelector('[data-rail-page="cluster"]');
+    if (page === "browse") return document.querySelector('[data-rail-page="browse-ext"]');
+    if (page === "resources") return document.querySelector('[data-rail-page="resources"]');
+    if (page === "profile" || page === "settings") return document.querySelector('[data-rail-page="profile settings"]');
+    return document.querySelector('[data-rail-page="home library browse"]');
+  }
+
+  function showPage(id) {
+    currentPage = id;
+    const meta = TABS.find((t) => t[0] === id);
+    document.getElementById("headerMeta").textContent = meta[2] || "Research Drive";
+    document.querySelectorAll(".rd-page").forEach((p) => p.classList.toggle("rd-page-on", p.dataset.page === id));
+    document.querySelectorAll(".rd-nav").forEach((n) => n.classList.toggle("rd-nav-on", n.dataset.goto === id));
+    document.getElementById("askPageLabel").textContent = meta[1];
+    document.querySelectorAll(".rd-rail-panel").forEach((p) => {
+      if (p.id === "railAsk") return;
+      p.classList.remove("rd-rail-panel-on");
+    });
+    if (railMode === "detail") {
+      const panel = railPanelFor(id);
+      if (panel) panel.classList.add("rd-rail-panel-on");
+    }
+    document.getElementById("previewScrim").classList.remove("on");
+  }
+
+  function setRailMode(mode) {
+    railMode = mode;
+    document.querySelectorAll(".rd-rail-toggle button").forEach((b) => {
+      b.classList.toggle("on", b.dataset.rail === mode);
+    });
+    document.querySelectorAll(".rd-rail-panel").forEach((p) => p.classList.remove("rd-rail-panel-on"));
+    if (mode === "ask") {
+      const ask = document.getElementById("railAsk");
+      ask.style.display = "flex";
+      ask.classList.add("rd-rail-panel-on");
+    } else {
+      document.getElementById("railAsk").style.display = "none";
+      const panel = railPanelFor(currentPage);
+      if (panel) panel.classList.add("rd-rail-panel-on");
+    }
+  }
+
+  function openPreview() {
+    if (currentPage !== "library" && currentPage !== "home") showPage("library");
+    document.getElementById("previewScrim").classList.add("on");
+  }
+
+  document.querySelectorAll("[data-goto]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      showPage(el.dataset.goto);
+    });
+  });
+
+  document.querySelectorAll(".rd-rail-toggle button").forEach((b) => {
+    b.addEventListener("click", () => setRailMode(b.dataset.rail));
+  });
+  document.querySelectorAll("[data-rail-mode=ask]").forEach((b) => {
+    b.addEventListener("click", () => setRailMode("ask"));
+  });
+
+  ["btnPreviewRail", "btnPreviewFromHome", "btnPreviewExt"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", openPreview);
+  });
+  document.getElementById("closePreview").addEventListener("click", () => {
+    document.getElementById("previewScrim").classList.remove("on");
+  });
+  document.getElementById("previewScrim").addEventListener("click", (e) => {
+    if (e.target.id === "previewScrim") e.target.classList.remove("on");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") document.getElementById("previewScrim").classList.remove("on");
+  });
+
+  const previewBodies = {
+    preview: document.getElementById("previewBody").innerHTML,
+    schema: '<table class="rd-preview-table"><thead><tr><th>column</th><th>type</th></tr></thead><tbody><tr><td>date</td><td>DATE</td></tr><tr><td>country</td><td>VARCHAR(3)</td></tr><tr><td>score</td><td>FLOAT</td></tr><tr><td>headline</td><td>TEXT</td></tr></tbody></table>',
+    query: '<pre style="margin:0;font-size:11px">SELECT * FROM gdelt_asia_daily\nLIMIT 50;\n\n-- Run via GET /query/{id}</pre>',
+  };
+  document.querySelectorAll(".rd-preview-tabs button").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".rd-preview-tabs button").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      document.getElementById("previewBody").innerHTML = previewBodies[b.dataset.ptab];
+    });
+  });
+
+  document.querySelectorAll(".rd-list .rd-row button").forEach((btn) => {
+    btn.addEventListener("dblclick", openPreview);
+  });
+  </script>
+</body>
+</html>

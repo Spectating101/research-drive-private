@@ -1,0 +1,846 @@
+{
+  "generated_at": "2026-07-06T10:43:52.664897+00:00",
+  "priority_path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/config/refinitiv_collection_priority.json",
+  "probe_rics": [
+    "NVDA.O",
+    "AAPL.O",
+    "2330.TW",
+    "7203.T",
+    "005930.KS",
+    "D05.SI",
+    "BBCA.JK",
+    ".SPX",
+    ".JKSE",
+    "EIDO",
+    "LCOc1",
+    "USDJPY="
+  ],
+  "summary": {
+    "categories_total": 12,
+    "pass": 9,
+    "partial": 0,
+    "fail": 3
+  },
+  "constituent_api_recommendation": {
+    "method": "get_data",
+    "variant": "pit_0hash_sdate",
+    "ric_pattern": "0#.SPX",
+    "parameters": {
+      "SDate": "20180115"
+    },
+    "fields": [
+      "TR.IndexConstituentRIC",
+      "TR.IndexConstituentName"
+    ]
+  },
+  "categories": {
+    "B1_B6_security_master": {
+      "category_id": "B1_B6_security_master",
+      "description": "Security master / identifiers / TRBC",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "2330.TW",
+        "BBCA.JK"
+      ],
+      "fields": [
+        "TR.CommonName",
+        "TR.ISIN",
+        "TR.ExchangeTicker",
+        "TR.TRBCEconomicSector",
+        "TR.TRBCIndustry",
+        "TR.CompanyMarketCap",
+        "TR.SharesOutstanding",
+        "TR.FreeFloatPct",
+        "TR.ExchangeCountryCode",
+        "TR.Currency"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "get_data",
+        "summary": {
+          "rows": 4,
+          "cols": 10,
+          "columns": [
+            "Instrument",
+            "Company Common Name",
+            "ISIN",
+            "Exchange Ticker",
+            "TRBC Economic Sector Name",
+            "TRBC Industry Name",
+            "Company Market Cap",
+            "Outstanding Shares",
+            "Free Float (Percent)",
+            "Exchange Country Code"
+          ],
+          "non_null_cells": 36
+        },
+        "error": null
+      }
+    },
+    "B7_B8_index_constituents": {
+      "category_id": "B7_B8_index_constituents",
+      "description": "Current + PIT index constituent fields",
+      "status": "pass",
+      "rics": [
+        ".SPX",
+        ".JKSE"
+      ],
+      "fields": [
+        "TR.IndexConstituentRIC",
+        "TR.IndexConstituentName"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "index_constituent",
+        "variants": [
+          {
+            "ok": true,
+            "method": "get_data",
+            "summary": {
+              "rows": 503,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 1509
+            },
+            "error": null,
+            "ric": ".SPX",
+            "variant": "current_on_index"
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "summary": {
+              "rows": 913,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 2739
+            },
+            "error": null,
+            "ric": ".JKSE",
+            "variant": "current_on_index"
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "variant": "pit_0hash_sdate",
+            "ric": "0#.SPX",
+            "index_ric": ".SPX",
+            "parameters": {
+              "SDate": "20180115"
+            },
+            "summary": {
+              "rows": 503,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 503
+            },
+            "error": null
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "variant": "pit_0hash_sdate",
+            "ric": "0#.JKSE",
+            "index_ric": ".JKSE",
+            "parameters": {
+              "SDate": "20180115"
+            },
+            "summary": {
+              "rows": 913,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 913
+            },
+            "error": null
+          }
+        ],
+        "best_variant": {
+          "ok": true,
+          "method": "get_data",
+          "variant": "pit_0hash_sdate",
+          "ric": "0#.SPX",
+          "index_ric": ".SPX",
+          "parameters": {
+            "SDate": "20180115"
+          },
+          "summary": {
+            "rows": 503,
+            "cols": 3,
+            "columns": [
+              "Instrument",
+              "Constituent RIC",
+              "Constituent Name"
+            ],
+            "non_null_cells": 503
+          },
+          "error": null
+        }
+      }
+    },
+    "C1_C5_corporate_actions": {
+      "category_id": "C1_C5_corporate_actions",
+      "description": "Corporate actions / adjustment factors",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "BBCA.JK"
+      ],
+      "fields": [
+        "TR.DividendExDate",
+        "TR.DividendAmount",
+        "TR.SplitFactor",
+        "TR.CAAdjustmentFactor"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "get_data",
+        "summary": {
+          "rows": 3,
+          "cols": 2,
+          "columns": [
+            "Instrument",
+            "Adjustment Factor"
+          ],
+          "non_null_cells": 6
+        },
+        "error": null
+      }
+    },
+    "A9_A11_risk": {
+      "category_id": "A9_A11_risk",
+      "description": "Vol / skew / put-call / short interest",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "2330.TW",
+        "BBCA.JK",
+        ".SPX"
+      ],
+      "fields": [
+        "TR.Volatility30D",
+        "TR.Volatility90D",
+        "TR.Volatility360D",
+        "TR.ImpVolPutDelta25",
+        "TR.ImpVolDelta25",
+        "TR.PutCallRatio",
+        "TR.ShortInterestRatio"
+      ],
+      "probe": {
+        "snapshot": {
+          "ok": true,
+          "method": "get_data",
+          "summary": {
+            "rows": 5,
+            "cols": 4,
+            "columns": [
+              "Instrument",
+              "Volatility - 30 days",
+              "Volatility - 90 days",
+              "Put Call Ratio"
+            ],
+            "non_null_cells": 15
+          },
+          "error": null
+        },
+        "history": {
+          "ok": true,
+          "method": "get_history",
+          "summary": {
+            "rows": 2,
+            "cols": 6,
+            "columns": [
+              "('NVDA.O', 'Volatility - 30 days')",
+              "('NVDA.O', 'Volatility - 90 days')",
+              "('AAPL.O', 'Volatility - 30 days')",
+              "('AAPL.O', 'Volatility - 90 days')",
+              "('2330.TW', 'Volatility - 30 days')",
+              "('2330.TW', 'Volatility - 90 days')"
+            ],
+            "non_null_cells": 6
+          },
+          "error": null
+        },
+        "ok": true
+      }
+    },
+    "D8_pit_fundamentals": {
+      "category_id": "D8_pit_fundamentals",
+      "description": "Point-in-time fundamentals (fundamental_and_reference)",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "BBCA.JK"
+      ],
+      "fields": [
+        "TR.Revenue",
+        "TR.NetIncome",
+        "TR.F.TotRevenue"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "fundamental_multi",
+        "variants": [
+          {
+            "label": "fq",
+            "parameters": {
+              "Period": "FQ"
+            },
+            "ok": false,
+            "method": "fundamental_and_reference.Definition",
+            "summary": {
+              "rows": 0,
+              "cols": 0,
+              "columns": []
+            },
+            "errors": [
+              "NVDA.O: LDError: Error code 209 | The 'FQ' is unrecognized for parameter 'Period'. Requested universes: ['NVDA.O']. Requested fields: ['TR.Revenue', 'TR.NetIncome', 'TR.F.TotRevenue']",
+              "AAPL.O: LDError: Error code 209 | The 'FQ' is unrecognized for parameter 'Period'. Requested universes: ['AAPL.O']. Requested fields: ['TR.Revenue', 'TR.NetIncome', 'TR.F.TotRevenue']",
+              "BBCA.JK: LDError: Error code 209 | The 'FQ' is unrecognized for parameter 'Period'. Requested universes: ['BBCA.JK']. Requested fields: ['TR.Revenue', 'TR.NetIncome', 'TR.F.TotRevenue']"
+            ],
+            "error": "NVDA.O: LDError: Error code 209 | The 'FQ' is unrecognized for parameter 'Period'. Requested universes: ['NVDA.O']. Requested fields: ['TR.Revenue', 'TR.NetIncome', 'TR.F.TotRevenue']"
+          },
+          {
+            "label": "fy0",
+            "parameters": {
+              "Period": "FY0"
+            },
+            "ok": true,
+            "method": "fundamental_and_reference.Definition",
+            "summary": {
+              "rows": 3,
+              "cols": 4,
+              "columns": [
+                "Instrument",
+                "Revenue",
+                "Net Income Incl Extra Before Distributions",
+                "Revenue from Business Activities - Total"
+              ],
+              "non_null_cells": 11
+            },
+            "errors": [],
+            "error": null
+          },
+          {
+            "label": "ltm",
+            "parameters": {
+              "Period": "LTM"
+            },
+            "ok": true,
+            "method": "fundamental_and_reference.Definition",
+            "summary": {
+              "rows": 3,
+              "cols": 4,
+              "columns": [
+                "Instrument",
+                "Revenue",
+                "Net Income Incl Extra Before Distributions",
+                "Revenue from Business Activities - Total"
+              ],
+              "non_null_cells": 11
+            },
+            "errors": [],
+            "error": null
+          },
+          {
+            "label": "frq_fy",
+            "parameters": {
+              "SDate": "0",
+              "EDate": "-5",
+              "FRQ": "FY"
+            },
+            "ok": true,
+            "method": "fundamental_and_reference.Definition",
+            "summary": {
+              "rows": 18,
+              "cols": 4,
+              "columns": [
+                "Instrument",
+                "Revenue",
+                "Net Income Incl Extra Before Distributions",
+                "Revenue from Business Activities - Total"
+              ],
+              "non_null_cells": 66
+            },
+            "errors": [],
+            "error": null
+          },
+          {
+            "label": "frq_fq",
+            "parameters": {
+              "SDate": "0",
+              "EDate": "-8",
+              "FRQ": "FQ"
+            },
+            "ok": true,
+            "method": "fundamental_and_reference.Definition",
+            "summary": {
+              "rows": 27,
+              "cols": 4,
+              "columns": [
+                "Instrument",
+                "Revenue",
+                "Net Income Incl Extra Before Distributions",
+                "Revenue from Business Activities - Total"
+              ],
+              "non_null_cells": 99
+            },
+            "errors": [],
+            "error": null
+          },
+          {
+            "label": "get_data_snapshot",
+            "ok": true,
+            "method": "get_data",
+            "summary": {
+              "rows": 3,
+              "cols": 4,
+              "columns": [
+                "Instrument",
+                "Revenue",
+                "Net Income Incl Extra Before Distributions",
+                "Revenue from Business Activities - Total"
+              ],
+              "non_null_cells": 11
+            },
+            "error": null
+          }
+        ],
+        "best_variant": {
+          "label": "fy0",
+          "parameters": {
+            "Period": "FY0"
+          },
+          "ok": true,
+          "method": "fundamental_and_reference.Definition",
+          "summary": {
+            "rows": 3,
+            "cols": 4,
+            "columns": [
+              "Instrument",
+              "Revenue",
+              "Net Income Incl Extra Before Distributions",
+              "Revenue from Business Activities - Total"
+            ],
+            "non_null_cells": 11
+          },
+          "errors": [],
+          "error": null
+        }
+      },
+      "recommended_harvest": {
+        "method": "fundamental_and_reference.Definition",
+        "label": "fy0",
+        "parameters": {
+          "Period": "FY0"
+        },
+        "fields": [
+          "TR.Revenue",
+          "TR.NetIncome",
+          "TR.F.TotRevenue"
+        ]
+      }
+    },
+    "E4_estimate_revisions": {
+      "category_id": "E4_estimate_revisions",
+      "description": "Estimate revisions / EPS mean history",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "BBCA.JK"
+      ],
+      "fields": [
+        "TR.EPSMean"
+      ],
+      "probe": {
+        "snapshot": {
+          "ok": true,
+          "method": "get_data",
+          "summary": {
+            "rows": 3,
+            "cols": 2,
+            "columns": [
+              "Instrument",
+              "Earnings Per Share - Mean"
+            ],
+            "non_null_cells": 6
+          },
+          "error": null
+        },
+        "history": {
+          "ok": true,
+          "method": "get_history",
+          "summary": {
+            "rows": 2,
+            "cols": 2,
+            "columns": [
+              "NVDA.O",
+              "AAPL.O"
+            ],
+            "non_null_cells": 2
+          },
+          "error": null
+        },
+        "ok": true
+      }
+    },
+    "G1_ownership": {
+      "category_id": "G1_ownership",
+      "description": "Institutional ownership",
+      "status": "fail",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O"
+      ],
+      "fields": [
+        "TR.InstitutionalHolders",
+        "TR.InstitutionalOwnershipPct",
+        "TR.InsiderOwnershipPct"
+      ],
+      "probe": {
+        "ok": false,
+        "method": "get_data",
+        "summary": {
+          "rows": 0,
+          "cols": 0,
+          "columns": []
+        },
+        "error": "LDError: Unable to resolve all requested fields in ['TR.INSTITUTIONALHOLDERS', 'TR.INSTITUTIONALOWNERSHIPPCT', 'TR.INSIDEROWNERSHIPPCT']. The formula must contain at least one field or function.",
+        "traceback": "Traceback (most recent call last):\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/refinitiv_value_entitlement_probe.py\", line 200, in _probe_get_data\n    frame = ld.get_data(universe=rics, fields=fields)  # type: ignore[attr-defined]\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/.venv-refinitiv/lib/python3.11/site-packages/lseg/data/_access_layer/get_data_func.py\", line 89, in get_data\n    return _get_data(universe, fields, parameters, header_type, session)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlseg.data._errors.LDError: Unable to resolve all requested fields in ['TR.INSTITUTIONALHOLDERS', 'TR.INSTITUTIONALOWNERSHIPPCT', 'TR.INSIDEROWNERSHIPPCT']. The formula must contain at least one field or function.\n"
+      }
+    },
+    "I1_supply_chain": {
+      "category_id": "I1_supply_chain",
+      "description": "Supply chain suppliers / customers",
+      "status": "fail",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O"
+      ],
+      "fields": [
+        "TR.SupplyChainSuppliers",
+        "TR.SupplyChainCustomers"
+      ],
+      "probe": {
+        "ok": false,
+        "method": "get_data",
+        "summary": {
+          "rows": 0,
+          "cols": 0,
+          "columns": []
+        },
+        "error": "LDError: Unable to resolve all requested fields in ['TR.SUPPLYCHAINSUPPLIERS', 'TR.SUPPLYCHAINCUSTOMERS']. The formula must contain at least one field or function.",
+        "traceback": "Traceback (most recent call last):\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/refinitiv_value_entitlement_probe.py\", line 200, in _probe_get_data\n    frame = ld.get_data(universe=rics, fields=fields)  # type: ignore[attr-defined]\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/.venv-refinitiv/lib/python3.11/site-packages/lseg/data/_access_layer/get_data_func.py\", line 89, in get_data\n    return _get_data(universe, fields, parameters, header_type, session)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlseg.data._errors.LDError: Unable to resolve all requested fields in ['TR.SUPPLYCHAINSUPPLIERS', 'TR.SUPPLYCHAINCUSTOMERS']. The formula must contain at least one field or function.\n"
+      }
+    },
+    "B8_asia_pit_indices": {
+      "category_id": "B8_asia_pit_indices",
+      "description": "Asia PIT index constituents (0# pattern)",
+      "status": "pass",
+      "rics": [
+        ".TWII",
+        ".N225",
+        ".KS11",
+        ".STI"
+      ],
+      "fields": [
+        "TR.IndexConstituentRIC",
+        "TR.IndexConstituentName"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "index_constituent",
+        "variants": [
+          {
+            "ok": true,
+            "method": "get_data",
+            "summary": {
+              "rows": 999,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 2997
+            },
+            "error": null,
+            "ric": ".TWII",
+            "variant": "current_on_index"
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "summary": {
+              "rows": 225,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 675
+            },
+            "error": null,
+            "ric": ".N225",
+            "variant": "current_on_index"
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "summary": {
+              "rows": 1,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 1
+            },
+            "error": null,
+            "ric": ".KS11",
+            "variant": "current_on_index"
+          },
+          {
+            "ok": false,
+            "method": "get_data",
+            "summary": {
+              "rows": 0,
+              "cols": 0,
+              "columns": []
+            },
+            "error": "LDError: Unable to collect data for all requested fields. Requested universes: ['.STI']. Requested fields: ['TR.INDEXCONSTITUENTRIC', 'TR.INDEXCONSTITUENTNAME']",
+            "traceback": "Traceback (most recent call last):\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/refinitiv_value_entitlement_probe.py\", line 200, in _probe_get_data\n    frame = ld.get_data(universe=rics, fields=fields)  # type: ignore[attr-defined]\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/.venv-refinitiv/lib/python3.11/site-packages/lseg/data/_access_layer/get_data_func.py\", line 89, in get_data\n    return _get_data(universe, fields, parameters, header_type, session)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlseg.data._errors.LDError: Unable to collect data for all requested fields. Requested universes: ['.STI']. Requested fields: ['TR.INDEXCONSTITUENTRIC', 'TR.INDEXCONSTITUENTNAME']\n",
+            "ric": ".STI",
+            "variant": "current_on_index"
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "variant": "pit_0hash_sdate",
+            "ric": "0#.TWII",
+            "index_ric": ".TWII",
+            "parameters": {
+              "SDate": "20200115"
+            },
+            "summary": {
+              "rows": 999,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 999
+            },
+            "error": null
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "variant": "pit_0hash_sdate",
+            "ric": "0#.N225",
+            "index_ric": ".N225",
+            "parameters": {
+              "SDate": "20200115"
+            },
+            "summary": {
+              "rows": 225,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 621
+            },
+            "error": null
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "variant": "pit_0hash_sdate",
+            "ric": "0#.KSE",
+            "index_ric": ".KS11",
+            "parameters": {
+              "SDate": "20200115"
+            },
+            "summary": {
+              "rows": 100,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 100
+            },
+            "error": null
+          },
+          {
+            "ok": true,
+            "method": "get_data",
+            "variant": "pit_0hash_sdate",
+            "ric": "0#.STI",
+            "index_ric": ".STI",
+            "parameters": {
+              "SDate": "20200115"
+            },
+            "summary": {
+              "rows": 30,
+              "cols": 3,
+              "columns": [
+                "Instrument",
+                "Constituent RIC",
+                "Constituent Name"
+              ],
+              "non_null_cells": 30
+            },
+            "error": null
+          }
+        ],
+        "best_variant": {
+          "ok": true,
+          "method": "get_data",
+          "variant": "pit_0hash_sdate",
+          "ric": "0#.TWII",
+          "index_ric": ".TWII",
+          "parameters": {
+            "SDate": "20200115"
+          },
+          "summary": {
+            "rows": 999,
+            "cols": 3,
+            "columns": [
+              "Instrument",
+              "Constituent RIC",
+              "Constituent Name"
+            ],
+            "non_null_cells": 999
+          },
+          "error": null
+        }
+      }
+    },
+    "E1_E3_consensus_snapshot": {
+      "category_id": "E1_E3_consensus_snapshot",
+      "description": "Analyst consensus snapshot (E1-E3)",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "2330.TW",
+        "BBCA.JK"
+      ],
+      "fields": [
+        "TR.EPSMean",
+        "TR.RevenueMean",
+        "TR.PriceTargetMean",
+        "TR.PriceTargetHigh",
+        "TR.PriceTargetLow"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "get_data",
+        "summary": {
+          "rows": 4,
+          "cols": 6,
+          "columns": [
+            "Instrument",
+            "Earnings Per Share - Mean",
+            "Revenue - Mean",
+            "Price Target - Mean",
+            "Price Target - High",
+            "Price Target - Low"
+          ],
+          "non_null_cells": 24
+        },
+        "error": null
+      }
+    },
+    "H1_esg_snapshot": {
+      "category_id": "H1_esg_snapshot",
+      "description": "ESG pillar scores",
+      "status": "pass",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O",
+        "2330.TW",
+        "BBCA.JK"
+      ],
+      "fields": [
+        "TR.TRESGScore",
+        "TR.ESGScore",
+        "TR.EnvironmentPillarScore",
+        "TR.SocialPillarScore",
+        "TR.GovernancePillarScore"
+      ],
+      "probe": {
+        "ok": true,
+        "method": "get_data",
+        "summary": {
+          "rows": 4,
+          "cols": 6,
+          "columns": [
+            "Instrument",
+            "ESG Score",
+            "LSEG ESG Score",
+            "Environmental Pillar Score",
+            "Social Pillar Score",
+            "Governance Pillar Score"
+          ],
+          "non_null_cells": 24
+        },
+        "error": null
+      }
+    },
+    "F1_starmine_probe": {
+      "category_id": "F1_starmine_probe",
+      "description": "StarMine / SmartEstimate probe",
+      "status": "fail",
+      "rics": [
+        "NVDA.O",
+        "AAPL.O"
+      ],
+      "fields": [
+        "TR.SmartEstimate",
+        "TR.StarMineEQ",
+        "TR.StarMineARM",
+        "TR.StarMineAccruals"
+      ],
+      "probe": {
+        "ok": false,
+        "method": "get_data",
+        "summary": {
+          "rows": 0,
+          "cols": 0,
+          "columns": []
+        },
+        "error": "LDError: Unable to resolve all requested fields in ['TR.SMARTESTIMATE', 'TR.STARMINEEQ', 'TR.STARMINEARM', 'TR.STARMINEACCRUALS']. The formula must contain at least one field or function.",
+        "traceback": "Traceback (most recent call last):\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/refinitiv_value_entitlement_probe.py\", line 200, in _probe_get_data\n    frame = ld.get_data(universe=rics, fields=fields)  # type: ignore[attr-defined]\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/.venv-refinitiv/lib/python3.11/site-packages/lseg/data/_access_layer/get_data_func.py\", line 89, in get_data\n    return _get_data(universe, fields, parameters, header_type, session)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlseg.data._errors.LDError: Unable to resolve all requested fields in ['TR.SMARTESTIMATE', 'TR.STARMINEEQ', 'TR.STARMINEARM', 'TR.STARMINEACCRUALS']. The formula must contain at least one field or function.\n"
+      }
+    }
+  }
+}

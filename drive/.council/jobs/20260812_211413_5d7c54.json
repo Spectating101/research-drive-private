@@ -1,0 +1,107 @@
+{
+  "id": "20260812_211413_5d7c54",
+  "state": "done",
+  "instruction": "Adversarial two-pronged audit of Research Drive UI. Evaluate (1) visual hierarchy/interaction comfort and (2) epistemic/backend-truth: every surfaced status/action must be supported by actual declared data or capabilities. Do not suggest new product surfaces, semantic heuristics, regex matching, fake confidence, or workflow redesign. Return severity-ranked findings with concrete UI evidence and minimal corrections.",
+  "files": [
+    "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryAssetWorkspace.jsx",
+    "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryPage.jsx",
+    "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/App.jsx",
+    "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/library-workspace.css",
+    "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/e2e/v2-library.spec.js"
+  ],
+  "stakes": "high",
+  "kind": "review",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260812_211413_5d7c54.output.txt",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260812_211413_5d7c54.integrate.json",
+  "created_at": 1786540454.0029693,
+  "pid": 1567437,
+  "log_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260812_211413_5d7c54.log",
+  "updated_at": 1786540615.318277,
+  "exit_code": 1,
+  "offload_result": {
+    "ok": false,
+    "offload": true,
+    "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260812_211413_5d7c54.output.txt",
+    "stdout": "{\"actionable\": true, \"ok\": true, \"status\": \"degraded\", \"recommendation\": \"NEEDS_DATA\", \"confidence\": 55.0, \"reasoning\": \"Consensus by python-aggregator from 3 models\\n\\nAuto-quality-gate: downgraded to NEEDS_DATA because the decision output did not meet execution-quality threshold (score=35.0, min=65.0).\", \"chairman_model\": \"python-aggregator\", \"models_responded\": 3, \"substantive_member_count\": 3, \"degraded_member_responses\": false, \"confidence_conflict\": false, \"skipped_models\": [], \"warnings\": [], \"return_code\": 0, \"context_specs\": [\"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.LibraryAssetWorkspace.jsx.txt\", \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.LibraryPage.jsx.txt\", \"/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.App.jsx.txt\"], \"shape\": \"critique\", \"critique\": {\"summary\": \"UI shows clear constructs (overlays, previews) but has correctness/security holes: unguarded async and silent failures risk misrepresenting dataset truth to users. / The UI contains multiple correctness and safety defects\u2014silent backend errors and unguarded async cause epistemic mismatches (UI claims capabilities it can't verify) and runtime instability. Fixes required before production.\", \"overall_quality\": null, \"issues\": [{\"severity\": \"BLOCKER\", \"title\": \"[line 6] Race condition in DataGlimpse where API promise may resolve after unmount causing state updates/unhandled rejections\", \"detail\": \"Use AbortController or cancellable promise pattern and guard setState with isMounted/ref in cleanup; add CI test to assert no setState-after-unmount. [voted by: copilot-spectator]\"}, {\"severity\": \"BLOCKER\", \"title\": \"[line 7] Error handling swallows all queryDataset() failures\", \"detail\": \"Replace silent catch with typed/observable errors, add timeout + limited retries in a central query wrapper, and surface explicit error state to disable or annotate dependent actions so the UI never claims capabilities that aren't confirmed. [voted by: copilot-ly]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 7] queryDataset errors are swallowed with generic messaging leaving users unaware of query failure\", \"detail\": \"Surface granular error messages, implement timeout + retry policy, and return explicit error state to UI. [voted by: copilot-spectator]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 8] No unit tests for critical helpers and lifecycle (value(), fieldNames(), overlay)\", \"detail\": \"Add targeted unit tests with mocks for queryDataset/detailFields/displayName/statusPillKind and assert state transitions and edge-case inputs. [voted by: copilot-spectator]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 8] Missing mocks/import testability for async behavior prevents verifying correctness\", \"detail\": \"Export and inject API clients or use dependency inversion so tests can stub network and timing. [voted by: copilot-spectator]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 6] Race condition risk where API resolves after unmount\", \"detail\": \"Use AbortController or cancellable-promise pattern, track mounted state via ref, and guard setState; add an integration test that unmounts component mid-request. [voted by: copilot-ly]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 2] Helper functions and status labels lack error boundaries \u2014 UI may render actions without authoritative data\", \"detail\": \"Validate dataset metadata before enabling actions; require explicit capability flags from authoritative fields before showing \\\"query-ready\\\" or action controls. [voted by: copilot-ly]\"}, {\"severity\": \"MAJOR\", \"title\": \"[line 8] Large dataset lists (1000+ rows) not paginated leading to full re-renders\", \"detail\": \"Implement server-side pagination or windowed/virtualized list rendering and ensure sort/filter operate on paginated d",
+    "steps": [
+      {
+        "phase": "summarize",
+        "file": "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryAssetWorkspace.jsx",
+        "rc": 0,
+        "summary_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.LibraryAssetWorkspace.jsx.txt",
+        "stderr_tail": "[solo] copilot-ly...\n[solo] copilot-ly \u2713 28.3s\n[copilot_do] wrote 1164 chars to /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.LibraryAssetWorkspace.jsx.txt\n"
+      },
+      {
+        "phase": "summarize",
+        "file": "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryPage.jsx",
+        "rc": 0,
+        "summary_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.LibraryPage.jsx.txt",
+        "stderr_tail": "[solo] copilot-ly...\n[solo] copilot-ly \u2713 22.3s\n[copilot_do] wrote 1516 chars to /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.LibraryPage.jsx.txt\n"
+      },
+      {
+        "phase": "summarize",
+        "file": "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/App.jsx",
+        "rc": 0,
+        "summary_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.App.jsx.txt",
+        "stderr_tail": "[solo] copilot-ly...\n[solo] copilot-ly \u2713 30.1s\n[copilot_do] wrote 811 chars to /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/20260812_211414.summary.App.jsx.txt\n"
+      },
+      {
+        "phase": "critique",
+        "rc": 1
+      }
+    ],
+    "cursor_next": "Read /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260812_211413_5d7c54.output.txt; fix BLOCKERs only in Cursor.",
+    "plan": {
+      "offload": true,
+      "kind": "review",
+      "collaboration": "critique_shape",
+      "instruction": "Adversarial two-pronged audit of Research Drive UI. Evaluate (1) visual hierarchy/interaction comfort and (2) epistemic/backend-truth: every surfaced status/action must be supported by actual declared data or capabilities. Do not suggest new product surfaces, semantic heuristics, regex matching, fake confidence, or workflow redesign. Return severity-ranked findings with concrete UI evidence and minimal corrections.",
+      "files": [
+        "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryAssetWorkspace.jsx",
+        "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryPage.jsx",
+        "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/App.jsx",
+        "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/library-workspace.css",
+        "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/e2e/v2-library.spec.js"
+      ],
+      "stakes": "high",
+      "healthy_local_models": [
+        "copilot-ly",
+        "copilot-ly2",
+        "copilot-spectator",
+        "gemini"
+      ],
+      "cursor_guidance": "Run offload_hub run, read -o output, integrate with edit_file \u2014 do not regenerate in Cursor.",
+      "estimated_cursor_savings": "high",
+      "steps": [
+        {
+          "phase": "critique",
+          "tool": "council_arsenal",
+          "sub": "critique"
+        }
+      ],
+      "command_hint": "council_arsenal.sh critique --context /home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryAssetWorkspace.jsx --context /home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryPage.jsx --context /home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/App.jsx \"Adversarial two-pronged audit of Research Drive UI. Evaluate (1) visual hierarch...\"",
+      "use_arsenal": true,
+      "write_output_to": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/review-{run_id}.txt"
+    }
+  },
+  "integrate": {
+    "verdict": "NEEDS_EDIT",
+    "summary": "4 blocker/high issue(s) \u2014 fix before merge.",
+    "kind": "review",
+    "target_file": "/home/phyrexian/.config/superpowers/worktrees/yzu-cluster/frontend-final-convergence/drive/src/v2/LibraryAssetWorkspace.jsx",
+    "blockers": [
+      "[line 6] Race condition in DataGlimpse where API promise may resolve after unmount causing state updates/unhandled rejections",
+      "[line 7] Error handling swallows all queryDataset() failures",
+      "[line 6] Race condition in DataGlimpse where API promise may resolve after unmount causing state updates/unhandled rejections: Use AbortController or cancellable promise pattern and guard setState with isMounted/ref in cleanup; add CI test to assert no setState-after-unmount. [voted by: copilot-spectator]",
+      "[line 7] Error handling swallows all queryDataset() failures: Replace silent catch with typed/observable errors, add timeout + limited retries in a central query wrapper, and surface explicit error state to disable or annotate dependent actions so the UI never claims capabilities that aren't confirmed. [voted by: copilot-ly]"
+    ],
+    "code_blocks": [],
+    "has_structured_critique": true,
+    "cursor_action": "Fix blockers first, optionally re-run council validate.",
+    "recommendation": "NEEDS_DATA",
+    "confidence": 55.0
+  },
+  "finished_at": 1786540615.3182774
+}

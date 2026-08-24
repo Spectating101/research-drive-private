@@ -1,0 +1,99 @@
+import { useEffect, useMemo, useState } from "react";
+import { discoverSearch, unifiedSearch } from "@/v2/api";
+import {
+  discoverCandidateState,
+  discoverStageCounts,
+} from "@/v2/browseMeta";
+import { loadUserEmail } from "@/v2/deskSession";
+import { discoverDemoSearch } from "@/v2/deskSeed";
+import { DiscoverEmptyState } from "@/v2/DiscoverEmptyState";
+import { Chip, PageShell, SourceRibbon } from "@/v2/ui";
+
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "probe_ready", label: "Ready to check" },
+  { id: "queued", label: "Queued" },
+  { id: "in_lab", label: "In lab" },
+];
+
+function rowFilterState(row, labIds) {
+  return discoverCandidateState(row, labIds).key;
+}
+
+function normalizedTitle(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function queuedMatch(row, queuedTitles) {
+  const candidate = normalizedTitle(row.title || row.name || row.dataset_id);
+  if (!candidate) return false;
+  return queuedTitles.some((title) => candidate.includes(title) || title.includes(candidate));
+}
+
+function candidateId(row) {
+  return row?.dataset_id || row?.title || row?.doi || row?.url || row?.name || "external";
+}
+
+function candidateTitle(row) {
+  return row?.title || row?.name || row?.dataset_id || row?.doi || row?.url || "External dataset";
+}
+
+function hostLabel(value) {
+  if (!value) return "";
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function uniqueParts(parts) {
+  const seen = new Set();
+  const out = [];
+  for (const part of parts) {
+    const text = String(part || "").trim();
+    const key = text.toLowerCase();
+    if (!text || seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+  }
+  return out;
+}
+
+function shortText(value, max = 180) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1).trim()}…`;
+}
+
+function candidateRoute(row) {
+  const host = hostLabel(row?.url);
+  const source = row?.publisher || row?.source || row?.domain || host || row?.backend;
+  const route = row?.collect_via || row?.source_route || row?.access_mode;
+  return uniqueParts([source, route]).join(" · ") || "Public source";
+}
+
+function candidateEvidence(row, state) {
+  const sourceText = row?.description || row?.recommended_use || row?.limitations;
+  const metadata = uniqueParts([
+    row?.coverage || row?.date_range || row?.temporal_coverage,
+    row?.grain,
+    row?.license || row?.access,
+  ]).join(" · ");
+  const fallback = uniqueParts([state.fit, state.access, state.probe]).join(" · ");
+  return shortText(uniqueParts([sourceText, metadata]).join(" · ") || fallback, 210);
+}
+
+function candidateSubline(row) {
+  return uniqueParts([
+    row?.dataset_id,
+    row?.doi,
+    hostLabel(row?.url),
+  ]).join(" · ");
+}
+
+function stateLabel(state) {
+  if (state.key === "probe_ready") return "Ready to check";
+  if (state.key === "in_lab") return "In lab";
+  if (state.key === "queued") return "Queued";
+  retur

@@ -1,0 +1,30 @@
+{
+  "id": "consumer_health",
+  "label": "Consumer health, infant development, FMCG brands",
+  "keywords": ["baby", "infant", "diaper", "growth", "pediatric", "consumer panel", "brand", "fmcg"],
+  "search_queries": [
+    "infant growth development survey dataset",
+    "pediatric health NHANES child anthropometry",
+    "diaper baby care consumer panel retail scanner",
+    "FMCG brand market share household survey"
+  ],
+  "trusted_portals": [
+    {"name": "NHANES", "url": "https://www.cdc.gov/nchs/nhanes/", "access_class": "public_government"},
+    {"name": "DHS Program", "url": "https://dhsprogram.com/data/", "access_class": "public_government"},
+    {"name": "UK Data Service", "url": "https://discover.ukdataservice.ac.uk/", "access_class": "public_academic"},
+    {"name": "ICPSR", "url": "https://www.icpsr.umich.edu/web/pages/ICPSR/index.html", "access_class": "public_academic"},
+    {"name": "data.gov infant health", "url": "https://catalog.data.gov/dataset?q=infant+growth", "access_class": "public_government"}
+  ],
+  "blocked_commercial": [
+  {"name": "Nielsen panel", "url": "https://www.nielsen.com/", "reason": "commercial license required"}
+  ],
+  "direct_downloads": [
+    {
+      "match_hosts": ["cdc.gov", "nchs.nhanes"],
+      "items": [
+        {"url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_E.xpt", "name": "NHANES 2017-2018 Demographics XPT"},
+        {"url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BMX_E.xpt", "name": "NHANES 2017-2018 Body Measures XPT"}
+      ]
+    }
+  ]
+}

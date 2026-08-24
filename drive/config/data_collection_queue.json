@@ -422,7 +422,7 @@
     {
       "id": "crsp_moveit_ingest",
       "title": "Extract + ingest downloaded CRSP MOVEit packages",
-      "enabled": true,
+      "enabled": false,
       "credential_required": false,
       "priority": 97,
       "estimated_runtime": "5-30 minutes depending on zip size",
@@ -432,7 +432,9 @@
         "scripts/ingest_crsp_package.py",
         "--all-downloaded",
         "--json"
-      ]
+      ],
+      "disabled_reason": "Disabled 2026-08-03. Extraction peaked at ~21 GB RAM on a 31 GB box (9.6 GiB member sfz_dp_dly.dat) and OOM-killed the desktop. Extraction is now streamed, but the parser globs *.txt/*.csv while CRSP ASCII ships .dat fixed-width + .bin, so it has never produced a parquet -- data_lake/crsp/processed/ holds only status JSON. Re-enable once a real CRSP fixed-width parser exists.",
+      "memory_limit_gb": 6
     },
     {
       "id": "compustat_export_ingest",
@@ -483,7 +485,10 @@
       "priority": 96,
       "estimated_runtime": "under 1 minute",
       "output_hint": "data_lake/entity_mapping/us/latest/us_entity_master.csv",
-      "command": [".venv/bin/python", "scripts/build_us_entity_mapping_layer.py"]
+      "command": [
+        ".venv/bin/python",
+        "scripts/build_us_entity_mapping_layer.py"
+      ]
     },
     {
       "id": "global_entity_master_merge",
@@ -493,7 +498,10 @@
       "priority": 95,
       "estimated_runtime": "under 1 minute",
       "output_hint": "data_lake/entity_mapping/global/latest/entity_master.csv",
-      "command": [".venv/bin/python", "scripts/build_global_entity_master.py"]
+      "command": [
+        ".venv/bin/python",
+        "scripts/build_global_entity_master.py"
+      ]
     },
     {
       "id": "gdelt_entity_bridge_expansion",

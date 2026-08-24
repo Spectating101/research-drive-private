@@ -1,0 +1,12 @@
+{
+  "allowed_universes": [],
+  "blocked_tickers": [],
+  "cash_ticker": "CASH",
+  "kill_switch": true,
+  "max_drawdown": -0.1,
+  "max_gross_exposure": 1.0,
+  "max_single_name_weight": 0.15,
+  "max_turnover_per_rebalance": 0.35,
+  "notes": "Default is safe: kill_switch=true until a live-adjacent workflow has explicit approval and reconciliation.",
+  "schema_version": 1
+}

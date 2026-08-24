@@ -1,0 +1,12 @@
+[Unit]
+Description=DataCite cluster pull/upload (local ops host)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+Environment=CLUSTER_OPS_TIMEOUT=14400
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/yzu_cluster/run_on_ops_host.sh bash scripts/data_catalog/pull_datacite_cluster_shards_oneshot.sh
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,133 @@
+{
+  "coverage": {
+    "generated_at": "2026-07-12T17:30:48.766092+00:00",
+    "twitter_window": {
+      "date_min": "2026-05-08",
+      "date_max": "2026-06-22",
+      "weeks": [
+        "2026-W19",
+        "2026-W20",
+        "2026-W21",
+        "2026-W22",
+        "2026-W23",
+        "2026-W24",
+        "2026-W25",
+        "2026-W26"
+      ],
+      "n_slugs_followers": 68,
+      "n_weekly_rows": 414,
+      "n_weekly_rows_with_wow": 346
+    },
+    "holder_window": {
+      "date_min": "2026-05-22",
+      "date_max": "2026-06-22",
+      "n_slugs": 61
+    },
+    "outputs": {
+      "bridge_panel": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data/datasets/stablecoin_trust_engagement/bridge_v21/bridge_weekly_twitter_window.csv",
+      "correlations": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data/datasets/stablecoin_trust_engagement/bridge_v21/bridge_convergent_validity_summary.csv"
+    }
+  },
+  "correlations": [
+    {
+      "candidate": "trends_percentile",
+      "n_obs_pooled": 326,
+      "n_communities": 67,
+      "n_communities_with_corr": 20,
+      "pooled_spearman": 0.0974,
+      "within_demeaned_spearman": 0.1608,
+      "median_per_community_spearman": 0.3429,
+      "notes": ""
+    },
+    {
+      "candidate": "trends_abnormal",
+      "n_obs_pooled": 228,
+      "n_communities": 46,
+      "n_communities_with_corr": 20,
+      "pooled_spearman": 0.048,
+      "within_demeaned_spearman": 0.2219,
+      "median_per_community_spearman": 0.3429,
+      "notes": ""
+    },
+    {
+      "candidate": "google_trends_index_mean",
+      "n_obs_pooled": 326,
+      "n_communities": 67,
+      "n_communities_with_corr": 20,
+      "pooled_spearman": 0.2006,
+      "within_demeaned_spearman": 0.1908,
+      "median_per_community_spearman": 0.3429,
+      "notes": ""
+    },
+    {
+      "candidate": "holder_wow_pct",
+      "n_obs_pooled": 185,
+      "n_communities": 58,
+      "n_communities_with_corr": 9,
+      "pooled_spearman": 0.1129,
+      "within_demeaned_spearman": 0.0181,
+      "median_per_community_spearman": -0.3,
+      "notes": ""
+    },
+    {
+      "candidate": "supply_growth_wow_pct",
+      "n_obs_pooled": 253,
+      "n_communities": 48,
+      "n_communities_with_corr": 23,
+      "pooled_spearman": -0.0488,
+      "within_demeaned_spearman": 0.0622,
+      "median_per_community_spearman": 0.0357,
+      "notes": ""
+    },
+    {
+      "candidate": "wikipedia_pageviews_sum",
+      "n_obs_pooled": 86,
+      "n_communities": 17,
+      "n_communities_with_corr": 9,
+      "pooled_spearman": 0.0727,
+      "within_demeaned_spearman": 0.0848,
+      "median_per_community_spearman": 0.2,
+      "notes": ""
+    },
+    {
+      "candidate": "gdelt_entity_mention_rows",
+      "n_obs_pooled": 60,
+      "n_communities": 18,
+      "n_communities_with_corr": 4,
+      "pooled_spearman": -0.1993,
+      "within_demeaned_spearman": -0.0681,
+      "median_per_community_spearman": -0.1624,
+      "notes": ""
+    },
+    {
+      "candidate": "community_growth_index",
+      "n_obs_pooled": 346,
+      "n_communities": 68,
+      "n_communities_with_corr": 33,
+      "pooled_spearman": 0.4654,
+      "within_demeaned_spearman": 0.6967,
+      "median_per_community_spearman": 0.7537,
+      "notes": "INCLUDES twitter WoW when present \u2014 target leakage"
+    },
+    {
+      "candidate": "attention_proxy_ex_twitter",
+      "n_obs_pooled": 243,
+      "n_communities": 54,
+      "n_communities_with_corr": 27,
+      "pooled_spearman": 0.0577,
+      "within_demeaned_spearman": 0.0611,
+      "median_per_community_spearman": 0.1786,
+      "notes": ""
+    },
+    {
+      "candidate": "reddit_submissions_sum",
+      "n_obs_pooled": 0,
+      "n_communities": 0,
+      "n_communities_with_corr": 0,
+      "pooled_spearman": null,
+      "within_demeaned_spearman": null,
+      "median_per_community_spearman": null,
+      "notes": ""
+    }
+  ]
+}

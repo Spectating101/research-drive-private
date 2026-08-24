@@ -1,0 +1,11 @@
+[Unit]
+Description=IDX public sentiment collector (RapidAPI trending + pulse)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@SR_DIR@
+Environment=PYTHONPATH=@KERNEL_DIR@:@ALPHA_DIR@:@DRIVE_DIR@:@SR_DIR@
+ExecStart=@VENV_PYTHON@ scripts/idn_social_sentiment_collector.py
+Nice=10

@@ -1,0 +1,12 @@
+variable,native_frequency,panel_frequency,transform,leakage_risk,pseudo_replication
+google_trends_index_mean,Google Trends weekly (pytrends),weekly,mean of daily panel values in ISO week; daily panel itself interpolated from weekly Trends,low-moderate; Trends week alignment vs ISO week,daily community panel may repeat weekly Trends across days
+reddit_submissions_sum,monthly PullPush aggregates,weekly,max of monthly values observed in week bucket,HIGH — monthly value can appear across multiple weeks in month,yes
+twitter_followers_*,daily short window (~4-6 weeks May-Jun 2026),weekly,end-of-week + wow pct,low within window; most historical weeks missing,no
+holder_*,short Skynet window,weekly,end-of-week + wow pct,same as twitter,no
+code_security_score,single harvest snapshot ~2026-06-22,weekly,repeated on every week row as control,CRITICAL if treated as historical — forward-fills present into past,yes — snapshot repeated
+skynet_score / score_code_security,snapshot,weekly/latest,repeated,same as code_security_score,yes
+peg_deviation / supply,daily DeFiLlama,weekly,weekly max abs / end-of-week,low,no
+wikipedia_pageviews_sum,daily Wikimedia,weekly,sum,low,no
+gdelt_entity_mention_rows,daily overlay,weekly,sum/count,Asia-news biased corpus,no
+incident/sector/security flags,event dates (curated JSON),weekly,flag if event in week,low if dates accurate,no
+community_growth_index / attention_proxy_index,derived from mixed,weekly,within-entity z-mean; stdev==0 -> 0.0,inherits reddit monthly + snapshot security if ever mixed; currently engagement-only inputs,inherits component issues

@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-07-09T20:21:25.676780+00:00",
+  "product": "ops_debt_remediation",
+  "jobs": {
+    "lifetime": {
+      "pending_approval": 10,
+      "queued": 0,
+      "running": 0,
+      "completed": 791,
+      "failed": 216,
+      "cancelled": 150
+    },
+    "actionable": {
+      "pending_approval": 10,
+      "queued": 0,
+      "running": 0,
+      "failed_recent_days": 7,
+      "failed_recent": 10,
+      "cancelled_recent": 0,
+      "pending_oldest_age_days": 17.5
+    },
+    "failed_recent": 10,
+    "cancelled_recent": 0,
+    "semantics": "pending_approval/queued/running are live; failed/cancelled are lifetime totals \u2014 use failed_recent/cancelled_recent for actionable debt"
+  },
+  "storage": {
+    "hot": {
+      "label": "NVMe desk",
+      "role": "latency_and_sqlite",
+      "data_lake": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/data_lake",
+      "free_gb": 40.0,
+      "required_min_gb": 40,
+      "used_pct": 85.9,
+      "headroom_ok": true
+    },
+    "cache_mounted": true
+  },
+  "stale_running_recovered": 0,
+  "pending_approvals_left_untouched": true,
+  "actions": [
+    "SQL status_counts: lifetime vs actionable (failed_recent/cancelled_recent)",
+    "desk_health ops_warnings; status=degraded only on NVMe headroom miss",
+    "desk_resources issues for failed_recent only (not lifetime failed)",
+    "recover_stale_jobs + triage_pending_jobs: fix repo-root bootstrap after drive/ symlink resolve",
+    "triage_pending_jobs: list(status=pending_approval) so limit is not diluted by other statuses",
+    "nvme free_gb: round(1 decimal) not int truncate",
+    "reclaimed disposable caches/logs: NVMe ~32G -> ~40G",
+    "desk_io_guard: reniced GDELT/gzip procs (ionice idle)",
+    "no procurement approvals; no research data deleted; services left running"
+  ],
+  "verification": {
+    "tests": "tests/test_job_status_counts.py + desk_resources/scale/materialization \u2014 passed"
+  }
+}

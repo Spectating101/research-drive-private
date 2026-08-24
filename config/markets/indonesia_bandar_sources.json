@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "notes": "Bandar data lanes. bandar_lite (price/volume) always on; broker rows need probe or API.",
+  "providers": {
+    "bandar_lite": {
+      "enabled": true,
+      "module": "scripts/idn_bandar_lite.py",
+      "description": "Quiet volume / chase heuristics from yfinance OHLCV"
+    },
+    "spectator_idx_probe": {
+      "enabled": false,
+      "script": "../../Molina-Optiplex/scripts/spectator_idx_broker_probe.sh",
+      "output": "data_lake/markets/idx_broker_summary/_probe/latest.json",
+      "status": "blocked_until_spectator_online"
+    },
+    "rapidapi_idx": {
+      "enabled": true,
+      "env_key": "RAPIDAPI_KEY",
+      "host": "indonesia-stock-exchange-idx.p.rapidapi.com",
+      "rate_limit_per_second": 1,
+      "free_tier_requests_per_month": 500,
+      "docs": "https://rapidapi.com/yasimpratama88/api/indonesia-stock-exchange-idx",
+      "endpoints": {
+        "broker_summary": "GET /api/market-detector/broker-summary/{symbol}?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=25&marketBoard=MARKET_BOARD_ALL&transactionType=TRANSACTION_TYPE_NET&investorType=INVESTOR_TYPE_ALL",
+        "broker_activity": "GET /api/market-detector/broker-activity/{broker_code}?from=...&to=...",
+        "top_brokers": "GET /api/market-detector/top-broker?marketType=MARKET_TYPE_ALL&period=TB_PERIOD_LAST_1_DAY",
+        "smoke_test": "GET /api/main/trending"
+      }
+    },
+    "invezgo": {
+      "enabled": false,
+      "env_key": "INVEZGO_API_KEY",
+      "docs": "https://api.invezgo.com/documentation"
+    }
+  }
+}

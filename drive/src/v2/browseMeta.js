@@ -27,6 +27,15 @@ function hasProbeTarget(row) {
   return Boolean(url || doi || handle.startsWith("doi:"));
 }
 
+/** Backend distinguishes a live, queryable route from a catalogue placeholder
+ *  (e.g. "here's an example of the kind of API you'd craft a plan for") —
+ *  surface that distinction instead of showing both as identical "External". */
+function isReferenceOnly(row) {
+  const access = lower(row?.access_mode);
+  const status = lower(row?.status);
+  return access === "catalog_reference" || status === "example_reference";
+}
+
 function accessLabel(row) {
   if (isInLab(row)) return "Vaulted";
   if (isOpenAccess(row)) return "Public";
@@ -80,13 +89,16 @@ export function discoverCandidateState(row, labIds, jobs = []) {
   const jobBased = boundJob ? jobStage(boundJob) : null;
   const queued = Boolean(jobBased?.key === "queued" || jobBased?.key === "awaiting" || isQueued(row));
   const probe = probeLabel(row, labIds);
+  const referenceOnly = !inLab && isReferenceOnly(row);
   const stage = inLab
     ? { key: "in_lab", label: "In lab", className: "lab" }
     : jobBased || (queued
       ? { key: "queued", label: "Queued", className: "queue" }
-      : /connector ready|probe needed/i.test(probe)
-        ? { key: "probe_ready", label: "Probe ready", className: "ext" }
-        : { key: "external", label: "External", className: "ext" });
+      : referenceOnly
+        ? { key: "reference_only", label: "Reference only", className: "warn" }
+        : /connector ready|probe needed/i.test(probe)
+          ? { key: "probe_ready", label: "Probe ready", className: "ext" }
+          : { key: "external", label: "External", className: "ext" });
 
   const awaiting = stage.key === "awaiting";
   const running = stage.key === "queued" && boundJob?.status === "running";
@@ -108,9 +120,11 @@ export function discoverCandidateState(row, labIds, jobs = []) {
           ? "Track collection in Resources"
           : queued
             ? "Review queued job"
-            : canProbe
-              ? "Probe and add to lab"
-              : "Resolve a source link before collection",
+            : referenceOnly
+              ? "Craft a collection plan — this is an example, not a live route"
+              : canProbe
+                ? "Probe and add to lab"
+                : "Resolve a source link before collection",
   };
 }
 

@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-07-12T17:39:13Z",
+  "level": "done",
+  "complete_months": 92,
+  "total_months": 92,
+  "pending_months": 0,
+  "run_tag": "20260626TexpandedZ",
+  "workers_running": 0,
+  "workers_enabled": 6,
+  "tmp_use_pct": 2,
+  "transcend_free_gb": 1207,
+  "stall_hours": 7.1,
+  "usb_temp_c": 30.0,
+  "warnings": [],
+  "actions_taken": [
+    "fleet_ensure"
+  ],
+  "status_cmd": "bash scripts/run_news_shock_gkg_expanded_fleet.sh status",
+  "log_file": "logs/news_shock_taxonomy/expanded_work_steal/fleet_health_monitor.log"
+}

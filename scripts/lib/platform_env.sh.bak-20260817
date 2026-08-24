@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Source from other Sharpe-Renaissance shell scripts:
+#   source "$(dirname "$0")/lib/platform_env.sh"
+# or: source "${SR_DIR}/scripts/lib/platform_env.sh"
+
+if [[ -n "${SR_PLATFORM_ENV_LOADED:-}" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+SR_PLATFORM_ENV_LOADED=1
+
+_SR_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "${SR_DIR:-}" ]]; then
+  _pe="${BASH_SOURCE[0]}"
+  _d="$(cd "$(dirname "${_pe}")" && pwd)"
+  while [[ "${_d}" != "/" ]]; do
+    if [[ -d "${_d}/kernel" && -d "${_d}/drive" ]]; then
+      SR_DIR="${_d}"
+      break
+    fi
+    _d="$(dirname "${_d}")"
+  done
+fi
+export SR_DIR="${SR_DIR:-$(cd "${_SR_LIB}/../.." && pwd)}"
+export SHARPE_REPO_ROOT="${SR_DIR}"
+export DRIVE_DIR="${SR_DIR}/drive"
+export ALPHA_DIR="${SR_DIR}/alpha"
+export KERNEL_DIR="${SR_DIR}/kernel"
+export REPO_ROOT="$(cd "${SR_DIR}/.." && pwd)"
+
+if [[ -x "${SR_DIR}/.venv/bin/python" ]]; then
+  export SR_PYTHON="${SR_DIR}/.venv/bin/python"
+else
+  export SR_PYTHON="${PYTHON:-python3}"
+fi
+
+export PYTHONPATH="${KERNEL_DIR}:${DRIVE_DIR}:${ALPHA_DIR}:${SR_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
+
+# Bulk temp (GDELT Windows tars, etc.) — never use full NVMe /tmp when Transcend is mounted.
+_bulk_root="${RESEARCH_BULK_ROOT:-}"
+if [[ -z "${_bulk_root}" && -f /media/phyrexian/Transcend/.sharpe_research_bulk ]]; then
+  _bulk_root="/media/phyrexian/Transcend/sharpe-renaissance"
+fi
+if [[ -n "${_bulk_root}" ]]; then
+  export SR_GDELT_TMP="${SR_GDELT_TMP:-${_bulk_root}/tmp/gdelt_expanded}"
+  mkdir -p "${SR_GDELT_TMP}" 2>/dev/null || true
+fi
+unset _bulk_root
+
+# Optional local secrets (never commit .env / .env.local)
+for _env_file in "${SR_DIR}/.env" "${SR_DIR}/.env.local"; do
+  if [[ -f "${_env_file}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${_env_file}"
+    set +a
+  fi
+done
+unset _env_file
+
+# Merge parent/home .env.local via Python loader (handles values unsafe for bash source)
+if [[ -f "${SR_DIR}/drive/scripts/research_data_mcp/env_loader.py" ]]; then
+  _env_exports="$("${SR_PYTHON}" -c "
+import os, shlex
+from pathlib import Path
+import sys
+sys.path.insert(0, '${SR_DIR}')
+sys.path.insert(0, '${DRIVE_DIR}')
+from scripts.research_data_mcp.env_loader import load_procurement_env
+load_procurement_env(Path('${SR_DIR}'))
+for key in sorted(os.environ):
+    if key.startswith(('DEEPSEEK_', 'TAVILY_', 'OPENAI_', 'ANTHROPIC_', 'CURSOR_', 'DESK_')):
+        print(f'export {key}={shlex.quote(os.environ[key])}')
+" 2>/dev/null || true)"
+  if [[ -n "${_env_exports}" ]]; then
+    # shellcheck disable=SC1090
+    eval "${_env_exports}"
+  fi
+  unset _env_exports
+fi

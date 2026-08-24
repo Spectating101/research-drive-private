@@ -1,0 +1,461 @@
+{
+  "countries": [
+    {
+      "fips": "ID",
+      "iso3": "IDN",
+      "name": "Indonesia",
+      "terms": [
+        "Indonesia",
+        "Indonesian",
+        "Jakarta",
+        "Rupiah"
+      ]
+    },
+    {
+      "fips": "TW",
+      "iso3": "TWN",
+      "name": "Taiwan",
+      "terms": [
+        "Taiwan",
+        "Taiwanese",
+        "Taipei",
+        "TSMC"
+      ]
+    },
+    {
+      "fips": "KS",
+      "iso3": "KOR",
+      "name": "South Korea",
+      "terms": [
+        "South Korea",
+        "Korea",
+        "Korean",
+        "Seoul"
+      ]
+    },
+    {
+      "fips": "JA",
+      "iso3": "JPN",
+      "name": "Japan",
+      "terms": [
+        "Japan",
+        "Japanese",
+        "Tokyo"
+      ]
+    },
+    {
+      "fips": "CH",
+      "iso3": "CHN",
+      "name": "China",
+      "terms": [
+        "China",
+        "Chinese",
+        "Beijing",
+        "Yuan",
+        "Renminbi"
+      ]
+    },
+    {
+      "fips": "HK",
+      "iso3": "HKG",
+      "name": "Hong Kong",
+      "terms": [
+        "Hong Kong",
+        "HKEX",
+        "H-share"
+      ]
+    },
+    {
+      "fips": "SN",
+      "iso3": "SGP",
+      "name": "Singapore",
+      "terms": [
+        "Singapore",
+        "Singaporean",
+        "SGX"
+      ]
+    },
+    {
+      "fips": "MY",
+      "iso3": "MYS",
+      "name": "Malaysia",
+      "terms": [
+        "Malaysia",
+        "Malaysian",
+        "Kuala Lumpur",
+        "Ringgit"
+      ]
+    },
+    {
+      "fips": "TH",
+      "iso3": "THA",
+      "name": "Thailand",
+      "terms": [
+        "Thailand",
+        "Thai",
+        "Bangkok"
+      ]
+    },
+    {
+      "fips": "RP",
+      "iso3": "PHL",
+      "name": "Philippines",
+      "terms": [
+        "Philippines",
+        "Philippine",
+        "Filipino",
+        "Manila"
+      ]
+    },
+    {
+      "fips": "VM",
+      "iso3": "VNM",
+      "name": "Vietnam",
+      "terms": [
+        "Vietnam",
+        "Vietnamese",
+        "Viet Nam",
+        "Hanoi"
+      ]
+    },
+    {
+      "fips": "IN",
+      "iso3": "IND",
+      "name": "India",
+      "terms": [
+        "India",
+        "Indian",
+        "Mumbai",
+        "Delhi",
+        "Rupee"
+      ]
+    },
+    {
+      "fips": "AS",
+      "iso3": "AUS",
+      "name": "Australia",
+      "terms": [
+        "Australia",
+        "Australian",
+        "Sydney",
+        "Aussie dollar"
+      ]
+    },
+    {
+      "fips": "US",
+      "iso3": "USA",
+      "name": "United States",
+      "terms": [
+        "United States",
+        "U.S.",
+        "US Treasury",
+        "Washington",
+        "Federal Reserve",
+        "Wall Street",
+        "New York"
+      ]
+    },
+    {
+      "fips": "UK",
+      "iso3": "GBR",
+      "name": "United Kingdom",
+      "terms": [
+        "United Kingdom",
+        "Britain",
+        "British",
+        "London",
+        "Bank of England"
+      ]
+    },
+    {
+      "fips": "SZ",
+      "iso3": "CHE",
+      "name": "Switzerland",
+      "terms": [
+        "Switzerland",
+        "Swiss",
+        "Zurich",
+        "Geneva"
+      ]
+    },
+    {
+      "fips": "GM",
+      "iso3": "DEU",
+      "name": "Germany",
+      "terms": [
+        "Germany",
+        "German",
+        "Berlin",
+        "Frankfurt",
+        "Bundesbank"
+      ]
+    },
+    {
+      "fips": "FR",
+      "iso3": "FRA",
+      "name": "France",
+      "terms": [
+        "France",
+        "French",
+        "Paris"
+      ]
+    },
+    {
+      "fips": "AE",
+      "iso3": "ARE",
+      "name": "United Arab Emirates",
+      "terms": [
+        "United Arab Emirates",
+        "UAE",
+        "Dubai",
+        "Abu Dhabi"
+      ]
+    }
+  ],
+  "description": "Asia-Pacific + global financial-center GDELT universe (merged). Use for expanded news/crypto collections; Asia-only config remains for legacy panels.",
+  "exclude_text_substrings": [
+    "variety.com",
+    "hollywoodreporter.com",
+    "billboard.com",
+    "celebrity",
+    "entertainment",
+    "showbiz",
+    "bollywood",
+    "hollywood",
+    "bigg boss",
+    "/film/",
+    "/tv/",
+    "movie",
+    "music",
+    "concert",
+    "red carpet",
+    "sports",
+    "football",
+    "soccer",
+    "basketball",
+    "baseball"
+  ],
+  "include_theme_substrings": [
+    "ECON",
+    "EPU_",
+    "TRADE",
+    "TAX",
+    "SANCTION",
+    "MILITARY",
+    "ARMEDCONFLICT",
+    "TERROR",
+    "SECURITY",
+    "PROTEST",
+    "UNREST",
+    "CORRUPTION",
+    "ELECTION",
+    "POLITICAL",
+    "CRISISLEX",
+    "HEALTH",
+    "DISEASE",
+    "NATURAL_DISASTER",
+    "DISASTER",
+    "ENV_",
+    "CYBER",
+    "REGULATION",
+    "LEGAL",
+    "FINANCIAL"
+  ],
+  "shock_theme_map": {
+    "financial_stress": [
+      "FINANCIAL",
+      "BANK",
+      "DEBT",
+      "CURRENCY",
+      "FOREX"
+    ],
+    "geopolitical_security": [
+      "MILITARY",
+      "ARMEDCONFLICT",
+      "TERROR",
+      "SECURITY",
+      "SANCTION"
+    ],
+    "governance_corruption": [
+      "CORRUPTION",
+      "ANTI_CORRUPTION",
+      "GOVERNANCE",
+      "LEGAL",
+      "REGULATION",
+      "JUSTICE",
+      "CRIMINAL_JUSTICE",
+      "INVESTIGATION"
+    ],
+    "health": [
+      "HEALTH",
+      "DISEASE",
+      "PANDEMIC"
+    ],
+    "macro_policy": [
+      "ECON",
+      "EPU_",
+      "TAX_ECON",
+      "MONETARY",
+      "FISCAL",
+      "INFLATION",
+      "INTEREST_RATE",
+      "GENERAL_GOVERNMENT",
+      "POLICY"
+    ],
+    "natural_environment": [
+      "NATURAL_DISASTER",
+      "DISASTER",
+      "ENV_",
+      "CLIMATE"
+    ],
+    "political_instability": [
+      "POLITICAL",
+      "ELECTION",
+      "PROTEST",
+      "UNREST"
+    ],
+    "trade_supply_chain": [
+      "TRADE",
+      "TARIFF",
+      "EXPORT",
+      "IMPORT",
+      "SUPPLY_CHAIN"
+    ]
+  },
+  "source_configs": [
+    "config/news_shock_asia_universe.json",
+    "config/news_shock_global_adjunct_universe.json"
+  ],
+  "source_domain_tiers": {
+    "asia_core_journalism": [
+      "abc.net.au",
+      "antaranews.com",
+      "bangkokpost.com",
+      "businesstimes.com.sg",
+      "channelnewsasia.com",
+      "chinadaily.com.cn",
+      "english.news.cn",
+      "focustaiwan.tw",
+      "freemalaysiatoday.com",
+      "globaltimes.cn",
+      "indianexpress.com",
+      "inquirer.net",
+      "koreaherald.com",
+      "koreatimes.co.kr",
+      "livemint.com",
+      "malaymail.com",
+      "manilatimes.net",
+      "moneycontrol.com",
+      "nationthailand.com",
+      "philstar.com",
+      "scmp.com",
+      "smh.com.au",
+      "straitstimes.com",
+      "taipeitimes.com",
+      "tempo.co",
+      "theage.com.au",
+      "thehindu.com",
+      "thehindubusinessline.com",
+      "thestar.com.my",
+      "udn.com",
+      "vietnamnews.vn",
+      "vnexpress.net",
+      "yonhapnews.co.kr"
+    ],
+    "entertainment_sports": [
+      "allkpop.com",
+      "crash.net",
+      "deadline.com",
+      "grandprix247.com",
+      "motogp.com",
+      "planetf1.com",
+      "screenrant.com"
+    ],
+    "low_value_rebroadcast": [
+      "afghanistannews.net",
+      "asiabulletin.com",
+      "bignewsnetwork.com",
+      "calcuttanews.net",
+      "chinanationalnews.com",
+      "dailypolitical.com",
+      "indiagazette.com",
+      "iheart.com",
+      "laosnews.net",
+      "newkerala.com",
+      "shanghainews.net",
+      "wn.com"
+    ],
+    "market_business": [
+      "digitimes.com",
+      "finance.yahoo.com",
+      "benzinga.com",
+      "cnbc.com",
+      "marketwatch.com",
+      "morningstar.com",
+      "seekingalpha.com",
+      "thebanker.com",
+      "tradingview.com",
+      "investegate.co.uk",
+      "zawya.com",
+      "yahoo.com",
+      "coindesk.com",
+      "cointelegraph.com",
+      "decrypt.co",
+      "theblock.co"
+    ],
+    "official_public": [
+      "adb.org",
+      "bis.org",
+      "boj.or.jp",
+      "bot.or.th",
+      "bsp.gov.ph",
+      "csrc.gov.cn",
+      "fsc.go.kr",
+      "fsc.gov.tw",
+      "imf.org",
+      "mas.gov.sg",
+      "rba.gov.au",
+      "rbi.org.in",
+      "sec.gov.ph",
+      "worldbank.org",
+      "federalreserve.gov",
+      "sec.gov",
+      "treasury.gov",
+      "cftc.gov",
+      "bankofengland.co.uk",
+      "snb.ch",
+      "bundesbank.de",
+      "banque-france.fr",
+      "centralbank.ae"
+    ],
+    "tier1_global_journalism": [
+      "apnews.com",
+      "bbc.com",
+      "bloomberg.com",
+      "ft.com",
+      "nikkei.com",
+      "reuters.com",
+      "theguardian.com",
+      "wsj.com",
+      "cnbc.com"
+    ],
+    "wire_press_release": [
+      "businesswire.com",
+      "einpresswire.com",
+      "finanznachrichten.de",
+      "globenewswire.com",
+      "openpr.com",
+      "prnewswire.com"
+    ]
+  },
+  "source_tier_scores": {
+    "asia_core_journalism": 0.85,
+    "entertainment_sports": 0.05,
+    "low_value_rebroadcast": 0.2,
+    "market_business": 0.8,
+    "official_public": 1.0,
+    "other": 0.5,
+    "tier1_global_journalism": 0.95,
+    "wire_press_release": 0.4
+  }
+}

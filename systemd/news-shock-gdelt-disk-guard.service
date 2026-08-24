@@ -1,0 +1,13 @@
+[Unit]
+Description=Sharpe-Renaissance GDELT disk headroom guard
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+Environment=MIN_FREE_GB=75
+Environment=TARGET_FREE_GB=90
+Environment=WORK_DIR=logs/news_shock_taxonomy/gkg_backfill_2018_2023/verified_cleanup_index
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/guard_gdelt_disk_headroom.sh
+Nice=12
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

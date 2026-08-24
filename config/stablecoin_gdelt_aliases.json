@@ -1,0 +1,624 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-06-26T17:18:21.277088+00:00",
+  "entries": [
+    {
+      "entity_id": "alchemix-usd",
+      "name": "Alchemix USD",
+      "ticker": "ALUSD",
+      "patterns": [
+        "alchemix usd",
+        "alusd"
+      ]
+    },
+    {
+      "entity_id": "angle-protocol",
+      "name": "Angle Protocol",
+      "ticker": "",
+      "patterns": [
+        "angle protocol"
+      ]
+    },
+    {
+      "entity_id": "baconcoin-token",
+      "name": "Baconcoin Token",
+      "ticker": "TOKEN",
+      "patterns": [
+        "baconcoin token"
+      ]
+    },
+    {
+      "entity_id": "binance-idr",
+      "name": "Binance IDR",
+      "ticker": "BIDR",
+      "patterns": [
+        "binance idr",
+        "bidr"
+      ]
+    },
+    {
+      "entity_id": "binance-usd",
+      "name": "Binance USD",
+      "ticker": "BUSD",
+      "patterns": [
+        "binance usd",
+        "busd",
+        "paxos busd"
+      ]
+    },
+    {
+      "entity_id": "cad-coin",
+      "name": "Cad Coin",
+      "ticker": "COIN",
+      "patterns": [
+        "cad coin",
+        "cad stablecoin"
+      ]
+    },
+    {
+      "entity_id": "celo-dollar",
+      "name": "Celo Dollar",
+      "ticker": "CUSD",
+      "patterns": [
+        "celo dollar",
+        "cusd"
+      ]
+    },
+    {
+      "entity_id": "celo-euro",
+      "name": "Celo Euro",
+      "ticker": "CEUR",
+      "patterns": [
+        "celo euro",
+        "ceur"
+      ]
+    },
+    {
+      "entity_id": "coin98-dollar",
+      "name": "Coin98 Dollar",
+      "ticker": "DOLLAR",
+      "patterns": [
+        "coin98 dollar",
+        "c98 dollar"
+      ]
+    },
+    {
+      "entity_id": "cryptofranc",
+      "name": "Cryptofranc",
+      "ticker": "",
+      "patterns": [
+        "cryptofranc"
+      ]
+    },
+    {
+      "entity_id": "czodiac-stabletoken",
+      "name": "Czodiac Stabletoken",
+      "ticker": "",
+      "patterns": [
+        "czodiac stabletoken"
+      ]
+    },
+    {
+      "entity_id": "dam-finance",
+      "name": "Dam Finance",
+      "ticker": "",
+      "patterns": [
+        "dam finance"
+      ]
+    },
+    {
+      "entity_id": "defi-franc",
+      "name": "DeFi Franc",
+      "ticker": "MON",
+      "patterns": [
+        "defi franc"
+      ]
+    },
+    {
+      "entity_id": "digitaldollar",
+      "name": "Digitaldollar",
+      "ticker": "",
+      "patterns": [
+        "digitaldollar"
+      ]
+    },
+    {
+      "entity_id": "euro-coin",
+      "name": "Euro Coin",
+      "ticker": "EURC",
+      "patterns": [
+        "euro coin",
+        "eurc"
+      ]
+    },
+    {
+      "entity_id": "euro-tether",
+      "name": "Euro Tether",
+      "ticker": "EURT",
+      "patterns": [
+        "euro tether",
+        "eurt"
+      ]
+    },
+    {
+      "entity_id": "euroe-stablecoin",
+      "name": "Euroe",
+      "ticker": "EUROE",
+      "patterns": [
+        "euroe"
+      ]
+    },
+    {
+      "entity_id": "fantom-usd",
+      "name": "Fantom Usd",
+      "ticker": "FANT",
+      "patterns": [
+        "fantom usd",
+        "fantom stablecoin",
+        "fusd"
+      ]
+    },
+    {
+      "entity_id": "fdusd",
+      "name": "First Digital USD",
+      "ticker": "FDUSD",
+      "patterns": [
+        "first digital usd",
+        "fdusd"
+      ]
+    },
+    {
+      "entity_id": "fei-usd",
+      "name": "Fei USD",
+      "ticker": "FEI",
+      "patterns": [
+        "fei usd",
+        "fei"
+      ]
+    },
+    {
+      "entity_id": "fraxfinance",
+      "name": "Frax",
+      "ticker": "FRAX",
+      "patterns": [
+        "frax",
+        "frax finance",
+        "frax protocol"
+      ]
+    },
+    {
+      "entity_id": "gemini-dollar",
+      "name": "Gemini Dollar",
+      "ticker": "GUSD",
+      "patterns": [
+        "gemini dollar",
+        "gusd"
+      ]
+    },
+    {
+      "entity_id": "global-dollar",
+      "name": "Global Dollar",
+      "ticker": "USDG",
+      "patterns": [
+        "global dollar",
+        "usdg"
+      ]
+    },
+    {
+      "entity_id": "gyen",
+      "name": "GYEN",
+      "ticker": "GYEN",
+      "patterns": [
+        "gyen"
+      ]
+    },
+    {
+      "entity_id": "hedge-usd",
+      "name": "Hedge Usd",
+      "ticker": "HEDG",
+      "patterns": [
+        "hedge usd",
+        "hedg"
+      ]
+    },
+    {
+      "entity_id": "husd",
+      "name": "HUSD",
+      "ticker": "HUSD",
+      "patterns": [
+        "husd"
+      ]
+    },
+    {
+      "entity_id": "interest-protocol",
+      "name": "Interest Protocol",
+      "ticker": "",
+      "patterns": [
+        "interest protocol"
+      ]
+    },
+    {
+      "entity_id": "inverse-finance-dola-stablecoin",
+      "name": "DOLA",
+      "ticker": "DOLA",
+      "patterns": [
+        "inverse finance",
+        "dola stablecoin"
+      ]
+    },
+    {
+      "entity_id": "liquity-usd",
+      "name": "Liquity USD",
+      "ticker": "LUSD",
+      "patterns": [
+        "liquity usd",
+        "lusd",
+        "liquity protocol"
+      ]
+    },
+    {
+      "entity_id": "mai",
+      "name": "MAI",
+      "ticker": "MAI",
+      "patterns": [
+        "mai stablecoin",
+        "mimatic",
+        "qi dao"
+      ]
+    },
+    {
+      "entity_id": "monerium",
+      "name": "Monerium",
+      "ticker": "EURe",
+      "patterns": [
+        "monerium",
+        "eure"
+      ]
+    },
+    {
+      "entity_id": "mstable",
+      "name": "mStable",
+      "ticker": "MUSD",
+      "patterns": [
+        "mstable",
+        "musd"
+      ]
+    },
+    {
+      "entity_id": "neutrino-usd",
+      "name": "Neutrino USD",
+      "ticker": "USDN",
+      "patterns": [
+        "neutrino usd",
+        "usdn"
+      ]
+    },
+    {
+      "entity_id": "nxusd",
+      "name": "Nxusd",
+      "ticker": "NXUSD",
+      "patterns": [
+        "nxusd"
+      ]
+    },
+    {
+      "entity_id": "origin-dollar",
+      "name": "Origin Dollar",
+      "ticker": "OUSD",
+      "patterns": [
+        "origin dollar",
+        "ousd"
+      ]
+    },
+    {
+      "entity_id": "parrot-usd",
+      "name": "Parrot USD",
+      "ticker": "PAI",
+      "patterns": [
+        "parrot usd"
+      ]
+    },
+    {
+      "entity_id": "paypal-usd",
+      "name": "PayPal USD",
+      "ticker": "PYUSD",
+      "patterns": [
+        "paypal usd",
+        "pyusd",
+        "paxos pyusd"
+      ]
+    },
+    {
+      "entity_id": "poundtoken",
+      "name": "Poundtoken",
+      "ticker": "",
+      "patterns": [
+        "poundtoken"
+      ]
+    },
+    {
+      "entity_id": "ratio-stable-coin",
+      "name": "Ratio Stable Coin",
+      "ticker": "COIN",
+      "patterns": [
+        "ratio stable coin",
+        "ratio finance"
+      ]
+    },
+    {
+      "entity_id": "ripple-usd",
+      "name": "Ripple USD",
+      "ticker": "RLUSD",
+      "patterns": [
+        "ripple usd",
+        "rlusd"
+      ]
+    },
+    {
+      "entity_id": "rupiahtoken",
+      "name": "Rupiah Token",
+      "ticker": "IDRT",
+      "patterns": [
+        "rupiah token",
+        "idrt"
+      ]
+    },
+    {
+      "entity_id": "seur",
+      "name": "Seur",
+      "ticker": "SEUR",
+      "patterns": [
+        "seur"
+      ]
+    },
+    {
+      "entity_id": "sperax-usd",
+      "name": "Sperax Usd",
+      "ticker": "SPER",
+      "patterns": [
+        "sperax usd",
+        "sper"
+      ]
+    },
+    {
+      "entity_id": "spiceusd",
+      "name": "SpiceUSD",
+      "ticker": "USDS",
+      "patterns": [
+        "spiceusd",
+        "usds"
+      ]
+    },
+    {
+      "entity_id": "stasis",
+      "name": "STASIS Euro",
+      "ticker": "EURS",
+      "patterns": [
+        "stasis euro",
+        "eurs"
+      ]
+    },
+    {
+      "entity_id": "straitsx-indonesia-rupiah",
+      "name": "StraitsX Indonesia Rupiah",
+      "ticker": "XIDR",
+      "patterns": [
+        "straitsx indonesia rupiah",
+        "xidr"
+      ]
+    },
+    {
+      "entity_id": "susd",
+      "name": "sUSD",
+      "ticker": "SUSD",
+      "patterns": [
+        "susd"
+      ]
+    },
+    {
+      "entity_id": "terrausd",
+      "name": "TerraUSD",
+      "ticker": "UST",
+      "patterns": [
+        "terrausd",
+        "ust",
+        "terraform labs",
+        "terra usd"
+      ]
+    },
+    {
+      "entity_id": "tether",
+      "name": "Tether",
+      "ticker": "USDT",
+      "patterns": [
+        "tether",
+        "usdt",
+        "tether holdings",
+        "tether ltd"
+      ]
+    },
+    {
+      "entity_id": "tether-cnht",
+      "name": "Tether Cnht",
+      "ticker": "CNHT",
+      "patterns": [
+        "tether cnht",
+        "cnht"
+      ]
+    },
+    {
+      "entity_id": "tether-mxnt",
+      "name": "Tether Mxnt",
+      "ticker": "MXNT",
+      "patterns": [
+        "tether mxnt",
+        "mxnt"
+      ]
+    },
+    {
+      "entity_id": "token-force-usd",
+      "name": "Token Force Usd",
+      "ticker": "TOKE",
+      "patterns": [
+        "token force usd",
+        "toke"
+      ]
+    },
+    {
+      "entity_id": "tor",
+      "name": "TOR",
+      "ticker": "TOR",
+      "patterns": []
+    },
+    {
+      "entity_id": "trueaud",
+      "name": "Trueaud",
+      "ticker": "",
+      "patterns": [
+        "trueaud"
+      ]
+    },
+    {
+      "entity_id": "truecad",
+      "name": "Truecad",
+      "ticker": "",
+      "patterns": [
+        "truecad"
+      ]
+    },
+    {
+      "entity_id": "truegbp",
+      "name": "Truegbp",
+      "ticker": "",
+      "patterns": [
+        "truegbp"
+      ]
+    },
+    {
+      "entity_id": "united-stables",
+      "name": "United Stables",
+      "ticker": "",
+      "patterns": [
+        "united stables"
+      ]
+    },
+    {
+      "entity_id": "usd-coin",
+      "name": "USD Coin",
+      "ticker": "USDC",
+      "patterns": [
+        "usd coin",
+        "usdc",
+        "circle internet",
+        "centre consortium"
+      ]
+    },
+    {
+      "entity_id": "usdd",
+      "name": "USDD",
+      "ticker": "USDD",
+      "patterns": [
+        "usdd"
+      ]
+    },
+    {
+      "entity_id": "usde",
+      "name": "Ethena USDe",
+      "ticker": "USDE",
+      "patterns": [
+        "ethena usde",
+        "usde",
+        "ethena labs"
+      ]
+    },
+    {
+      "entity_id": "usdh",
+      "name": "USDH",
+      "ticker": "USDH",
+      "patterns": [
+        "usdh"
+      ]
+    },
+    {
+      "entity_id": "usdk",
+      "name": "USDK",
+      "ticker": "USDK",
+      "patterns": [
+        "usdk"
+      ]
+    },
+    {
+      "entity_id": "usds",
+      "name": "USDS",
+      "ticker": "USDS",
+      "patterns": [
+        "usds"
+      ]
+    },
+    {
+      "entity_id": "usdtb",
+      "name": "USDtb",
+      "ticker": "USDTB",
+      "patterns": [
+        "usdtb"
+      ]
+    },
+    {
+      "entity_id": "usdtez",
+      "name": "Usdtez",
+      "ticker": "USDTEZ",
+      "patterns": [
+        "usdtez"
+      ]
+    },
+    {
+      "entity_id": "usual-usd",
+      "name": "Usual USD",
+      "ticker": "USD0",
+      "patterns": [
+        "usual usd",
+        "usd0"
+      ]
+    },
+    {
+      "entity_id": "vai",
+      "name": "VAI",
+      "ticker": "VAI",
+      "patterns": []
+    },
+    {
+      "entity_id": "world-liberty-financial-usd",
+      "name": "World Liberty Financial USD",
+      "ticker": "USD1",
+      "patterns": [
+        "world liberty financial usd",
+        "usd1"
+      ]
+    },
+    {
+      "entity_id": "xsgd",
+      "name": "XSGD",
+      "ticker": "XSGD",
+      "patterns": [
+        "xsgd"
+      ]
+    },
+    {
+      "entity_id": "yusd-stablecoin",
+      "name": "Yusd Stablecoin",
+      "ticker": "",
+      "patterns": [
+        "yusd stablecoin"
+      ]
+    },
+    {
+      "entity_id": "zusd",
+      "name": "ZUSD",
+      "ticker": "ZUSD",
+      "patterns": [
+        "zusd"
+      ]
+    }
+  ],
+  "comment": "Explicit literal phrase aliases per leaderboard entity_id (no ticker regex)."
+}

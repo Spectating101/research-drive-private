@@ -2,7 +2,7 @@
   "version": 1,
   "summary": "Legacy backfill only — drive-first mode writes directly to GDrive partitions on job completion.",
   "mode": "backfill_only",
-  "scheduled": false,
+  "scheduled": true,
   "lock_name": "collection_partition_sync.lock",
   "report_path": "data_lake/collection/_index/migration/partition_sync_latest.json",
   "default_rclone": {
@@ -25,7 +25,10 @@
   "do_not_sync_ids": [
     "catalog.datacite-harvest",
     "ops.cluster-jobs",
-    "derived.research-models"
+    "derived.research-models",
+    "reference.crsp-moveit",
+    "reference.compustat-capitaliq",
+    "reference.refinitiv-backfill"
   ],
   "remote_pulls": [
     {
@@ -79,5 +82,6 @@
   "post_sync": {
     "inventory": true,
     "inventory_quick": true
-  }
+  },
+  "schedule_note": "Scheduled 2026-08-03. Licensed vendor partitions (CRSP/MOVEit, Compustat/Capital IQ, Refinitiv/LSEG) are excluded pending a redistribution decision: collection/ is share-linked to the professor and those vendor terms generally prohibit redistribution. Remove them from do_not_sync_ids once that is settled. news.gdelt-asia stays in large_partition_ids and needs --include-large."
 }

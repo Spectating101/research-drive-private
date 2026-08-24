@@ -1,0 +1,1 @@
+../drive/scripts/remote_gdelt_prefetch_worker.sh

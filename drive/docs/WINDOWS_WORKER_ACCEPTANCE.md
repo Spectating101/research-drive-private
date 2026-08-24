@@ -1,7 +1,9 @@
 # Windows Worker / GDrive Acceptance Runbook
 
-This runbook is the remaining deployment gate for private PR #1. It proves the
-runtime on real hosts; it does not change the application architecture.
+> **Procedure, not status:** Use this runbook when repeating or extending a Windows-worker acceptance run. It does not claim that a given branch, host, worker, or GDrive path is currently accepted. Check [CURRENT_STATE.md](CURRENT_STATE.md), live configuration, and CI first.
+
+This runbook proves a runtime release candidate on real hosts; it does not
+change the application architecture.
 
 Before host work, fast-forward the local checkout to the exact remote head and
 confirm the private runtime workflow is green. Do not redesign the scheduler,

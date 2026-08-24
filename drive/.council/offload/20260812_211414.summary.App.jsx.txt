@@ -1,0 +1,8 @@
+- V2App is the main SPA container managing tabs, dataset deep-links, discovery lifecycle, jobs, and resources.  
+- readParams/writeParams centralize URL deep-linking; tabOwnsDataset prevents dataset leakage across tabs.  
+- buildDiscoverLifecycle, probe snapshots, and jobs polling coordinate Discover state and async probes.  
+- resourceAskPrompt formats user-facing prompts for diverse resource kinds and active job descriptions.  
+- Massive API surface: many api imports cause tight coupling and numerous network side-effects.  
+- Risks: race conditions, stale selection, URL-state mismatches, long-lived refs, potential memory leaks.  
+- Error handling gaps: polling, API failures, and cache writes lack robust retries and unified error UI.  
+- Test gaps: missing unit tests for URL logic, lifecycle polling

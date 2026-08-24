@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research Drive v2 — rail preview (draft)</title>
+  <style>
+    :root {
+      --bg: #f7f9fc; --surface: #fff; --line: #d9e1ec; --line2: #edf1f6;
+      --text: #1f2937; --muted: #64748b; --blue: #1a73e8; --blue2: #e8f0fe;
+      --mono: ui-monospace, monospace; --sans: system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); }
+    button, input, textarea { font: inherit; cursor: pointer; }
+    .app { height: 100vh; display: grid; grid-template-rows: 56px 1fr; }
+    header {
+      display: grid; grid-template-columns: 200px 1fr auto; gap: 12px; align-items: center;
+      padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line2);
+    }
+    .brand { font-weight: 600; font-size: 17px; }
+    .brand span { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+    .search {
+      display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px;
+      background: #edf2fa; border-radius: 20px; max-width: 520px;
+    }
+    .search input { border: 0; outline: none; background: transparent; flex: 1; }
+    .shell { display: grid; grid-template-columns: 200px 1fr 360px; min-height: 0; }
+    nav { background: #f8fafd; border-right: 1px solid var(--line2); padding: 12px 10px; }
+    .nav-btn {
+      width: 100%; text-align: left; border: 0; background: transparent; border-radius: 18px;
+      height: 36px; padding: 0 12px; color: #334155; margin: 2px 0;
+    }
+    .nav-btn.active { background: var(--blue2); color: #174ea6; font-weight: 600; }
+    main { overflow: auto; padding: 20px 24px; min-width: 0; }
+    h1 { margin: 0 0 6px; font-size: 24px; font-weight: 600; }
+    .lead { color: var(--muted); margin: 0 0 16px; max-width: 640px; }
+    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--line2); border-radius: 14px; overflow: hidden; }
+    th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line2); }
+    th { font-size: 12px; color: var(--muted); background: #fbfdff; }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover, tbody tr.sel { background: #f8fbff; }
+    .rail {
+      border-left: 1px solid var(--line2); background: white; display: flex; flex-direction: column; min-height: 0;
+    }
+    .rail-toggle {
+      display: flex; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--line2); flex-shrink: 0;
+    }
+    .rail-toggle button {
+      flex: 1; border: 1px solid var(--line); border-radius: 8px; background: white; height: 32px; font-weight: 600; font-size: 12px;
+    }
+    .rail-toggle button.on { background: var(--blue2); border-color: #c6dafc; color: #174ea6; }
+    .rail-pane { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+    .rail-pane[hidden] { display: none !important; }
+    .detail { padding: 16px 18px; }
+    .detail h2 { margin: 0 0 8px; font-size: 17px; }
+    .detail .meta { margin: 12px 0; }
+    .detail label { display: block; font: 700 10px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .detail .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .btn { border: 1px solid var(--line); border-radius: 16px; background: white; padding: 0 12px; height: 32px; font-weight: 600; font-size: 12px; }
+    .btn.primary { background: var(--blue); color: white; border-color: var(--blue); }
+    .ask { padding: 12px 14px; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .thread { flex: 1; overflow: auto; display: grid; gap: 8px; margin-bottom: 10px; }
+    .bubble { border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; max-width: 95%; }
+    .bubble.user { background: var(--blue2); color: #174ea6; margin-left: auto; }
+    .bubble.bot { background: #fbfdff; border: 1px solid var(--line2); }
+    .ask-input { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .ask-input textarea { min-height: 52px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; resize: vertical; }
+    .debug {
+      position: fixed; bottom: 10px; left: 10px; font: 11px/1.4 var(--mono); background: #111827; color: #e5e7eb;
+      padding: 10px 12px; border-radius: 8px; max-width: 420px; opacity: .92; z-index: 9;
+    }
+    .debug kbd { background: #374151; padding: 1px 5px; border-radius: 4px; }
+    .pill { display: inline-block; font: 700 10px/1 var(--mono); padding: 3px 7px; border-radius: 8px; background: #e6f4ea; color: #137333; margin-right: 4px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Research Drive <span>v2 rail preview (draft)</span></div>
+    <div class="search">
+      <input id="search" placeholder="Search datasets (Enter = filter, Shift+Enter = Ask)" />
+    </div>
+    <button type="button" class="btn" id="btnAccount">YZ</button>
+  </header>
+  <div class="shell">
+    <nav id="nav"></nav>
+    <main>
+      <h1 id="pageTitle">Library</h1>
+      <p class="lead" id="pageLead">Click a row → Detail. Toggle Ask anytime — thread is kept alive (not destroyed).</p>
+      <table>
+        <thead><tr><th>Name</th><th>Status</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </main>
+    <aside class="rail">
+      <div class="rail-toggle" role="tablist">
+        <button type="button" role="tab" id="tabDetail" class="on">Detail</button>
+        <button type="button" role="tab" id="tabAsk">Ask</button>
+      </div>
+      <div class="rail-pane" id="paneDetail" role="tabpanel">
+        <div class="detail" id="detailBody"></div>
+      </div>
+      <div class="rail-pane" id="paneAsk" role="tabpanel" hidden>
+        <div class="ask">
+          <div class="thread" id="thread"></div>
+          <div class="ask-input">
+            <textarea id="askInput" placeholder="Ask the librarian…"></textarea>
+            <button type="button" class="btn primary" id="askSend">Send</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="debug" id="debug"></div>
+<script>
+const DATASETS = [
+  { id: "gdelt_asia_daily_country_panel", name: "Asia daily news-risk panel", status: "Ready", source: "GDELT GKG", access: "Stored + queryable", coverage: "2018–2026" },
+  { id: "coingecko_simple_price", name: "CoinGecko market archive", status: "Ready", source: "CoinGecko API", access: "SQLite + Drive", coverage: "2009–present" },
+  { id: "ethereum_usdt_transfers", name: "USDT transfer catalogue", status: "Connected", source: "BigQuery", access: "Remote query", coverage: "2015–present" },
+];
+const TABS = ["Home", "Library", "Cluster", "Browse", "Resources", "Profile", "Settings"];
+
+const state = {
+  route: "Library",
+  rail: "detail",       // 'detail' | 'ask'
+  datasetId: null,
+  search: "",
+  thread: [{ role: "bot", text: "Rail preview — toggle Detail/Ask. Your messages stay when you switch back." }],
+};
+
+const el = (id) => document.getElementById(id);
+
+function renderDebug() {
+  el("debug").innerHTML = [
+    "<strong>desk state (draft)</strong>",
+    `route: ${state.route}`,
+    `rail: ${state.rail}`,
+    `dataset: ${state.datasetId ?? "—"}`,
+    `thread msgs: ${state.thread.length}`,
+    "<br><kbd>click row</kbd> → detail · <kbd>toggle</kbd> keeps ask thread",
+  ].join("<br>");
+}
+
+function setRail(mode, { auto } = {}) {
+  state.rail = mode;
+  el("tabDetail").classList.toggle("on", mode === "detail");
+  el("tabAsk").classList.toggle("on", mode === "ask");
+  el("paneDetail").hidden = mode !== "detail";
+  el("paneAsk").hidden = mode !== "ask";
+  if (!auto) renderDebug();
+}
+
+function selectDataset(id) {
+  state.datasetId = id;
+  setRail("detail", { auto: true });
+  renderDetail();
+  renderRows();
+  renderDebug();
+}
+
+function renderDetail() {
+  const d = DATASETS.find((x) => x.id === state.datasetId);
+  if (!d) {
+    el("detailBody").innerHTML = "<p style='color:var(--muted)'>Select a dataset to inspect structured metadata.</p>";
+    return;
+  }
+  el("detailBody").innerHTML = `
+    <h2>${d.name}</h2>
+    <span class="pill">${d.status}</span>
+    <div class="meta"><label>Source</label><div>${d.source}</div></div>
+    <div class="meta"><label>Access</label><div>${d.access}</div></div>
+    <div class="meta"><label>Coverage</label><div>${d.coverage}</div></div>
+    <div class="acts">
+      <button type="button" class="btn primary" data-act="analyze">Open Analyze</button>
+      <button type="button" class="btn" data-act="ask">Ask about this</button>
+      <button type="button" class="btn" data-act="cluster">See on Cluster</button>
+    </div>`;
+  el("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
+    btn.onclick = () => {
+      if (btn.dataset.act === "ask") openAsk(`Tell me about ${d.name}`);
+      else alert(`Preview only: ${btn.dataset.act}`);
+    };
+  });
+}
+
+function renderRows() {
+  const q = state.search.toLowerCase();
+  el("rows").innerHTML = DATASETS
+    .filter((d) => !q || d.name.toLowerCase().includes(q))
+    .map((d) => `<tr data-id="${d.id}" class="${d.id === state.datasetId ? "sel" : ""}"><td>${d.name}</td><td>${d.status}</td></tr>`)
+    .join("");
+  el("rows").querySelectorAll("tr").forEach((tr) => {
+    tr.onclick = () => selectDataset(tr.dataset.id);
+  });
+}
+
+function renderNav() {
+  el("nav").innerHTML = TABS.map((t) =>
+    `<button type="button" class="nav-btn ${t === state.route ? "active" : ""}" data-tab="${t}">${t}</button>`
+  ).join("");
+  el("nav").querySelectorAll(".nav-btn").forEach((btn) => {
+    btn.onclick = () => {
+      state.route = btn.dataset.tab;
+      el("pageTitle").textContent = state.route;
+      renderNav();
+      renderDebug();
+    };
+  });
+}
+
+function renderThread() {
+  el("thread").innerHTML = state.thread.map((m) =>
+    `<div class="bubble ${m.role}">${m.text.replace(/</g, "&lt;")}</div>`
+  ).join("");
+  el("thread").scrollTop = el("thread").scrollHeight;
+}
+
+function openAsk(draft) {
+  setRail("ask");
+  if (draft) el("askInput").value = draft;
+  el("askInput").focus();
+  renderDebug();
+}
+
+function sendAsk() {
+  const text = el("askInput").value.trim();
+  if (!text) return;
+  state.thread.push({ role: "user", text });
+  const ctx = state.datasetId ? ` (context: ${state.datasetId})` : "";
+  state.thread.push({ role: "bot", text: `Preview reply for “${text}”${ctx}. Real app → POST /library/chat/stream.` });
+  el("askInput").value = "";
+  renderThread();
+  renderDebug();
+}
+
+el("tabDetail").onclick = () => setRail("detail");
+el("tabAsk").onclick = () => setRail("ask");
+el("askSend").onclick = sendAsk;
+el("askInput").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAsk(); } };
+el("search").oninput = (e) => { state.search = e.target.value; renderRows(); renderDebug(); };
+el("search").onkeydown = (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  if (e.shiftKey) openAsk(el("search").value.trim());
+  else { state.search = el("search").value; renderRows(); }
+};
+
+renderNav();
+renderRows();
+renderDetail();
+renderThread();
+renderDebug();
+</script>
+</body>
+</html>

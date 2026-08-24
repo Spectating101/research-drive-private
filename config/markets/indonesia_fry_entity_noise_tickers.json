@@ -1,0 +1,25 @@
+{
+  "description": "IDX tickers whose symbol stem is a generic English word — GDELT entity matching produces junk dots. Exclude from ticker-level news features.",
+  "yahoo_symbols": [
+    "CITY.JK",
+    "PORT.JK",
+    "LEAD.JK",
+    "HEAL.JK",
+    "SOCI.JK",
+    "SAFE.JK",
+    "UNIT.JK",
+    "MARK.JK",
+    "DIGI.JK",
+    "CENT.JK",
+    "ARTI.JK",
+    "POLI.JK",
+    "ITIC.JK",
+    "UNIC.JK",
+    "LINK.JK",
+    "FORE.JK",
+    "GOLD.JK",
+    "STAR.JK",
+    "WIFI.JK",
+    "ZONE.JK"
+  ]
+}

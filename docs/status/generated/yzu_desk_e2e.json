@@ -1,0 +1,869 @@
+{
+  "config": {
+    "argv": [
+      "/home/phyrexian/.claude_account1/nvm/versions/node/v22.21.1/bin/node",
+      "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/node_modules/.bin/playwright",
+      "test",
+      "e2e/v2-discover-loop.spec.js",
+      "--retries=0"
+    ],
+    "configFile": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/playwright.config.js",
+    "rootDir": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e",
+        "testIgnore": [
+          "**/ui-contract.spec.js"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "docs/status/generated/yzu_desk_e2e.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --port 5179",
+      "url": "http://127.0.0.1:5179",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "v2-discover-loop.spec.js",
+      "file": "v2-discover-loop.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "v2 Discover loop anchor",
+          "file": "v2-discover-loop.spec.js",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "suggested card commits search into SERP",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 120137,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 95,
+                            "line": 18
+                          },
+                          "message": "Error: locator.innerText: Test timeout of 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('discover-suggested-card').first().locator('strong')\u001b[22m\n\n\n  16 |   test(\"suggested card commits search into SERP\", async ({ page }) => {\n  17 |     await expect(page.getByTestId(\"discover-empty\")).toBeVisible();\n> 18 |     const title = await page.getByTestId(\"discover-suggested-card\").first().locator(\"strong\").innerText();\n     |                                                                                               ^\n  19 |     await page.getByTestId(\"discover-suggested-card\").first().click();\n  20 |     await expect(page.getByTestId(\"discover-empty\")).toHaveCount(0);\n  21 |     await expect(page.getByTestId(\"discover-search-input\")).toHaveValue(title);\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:18:95"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:50:59.722Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-e5a1b-rd-commits-search-into-SERP-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-e5a1b-rd-commits-search-into-SERP-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-e5a1b-rd-commits-search-into-SERP-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-9fdbc9e5241e28c4b004",
+              "file": "v2-discover-loop.spec.js",
+              "line": 16,
+              "column": 3
+            },
+            {
+              "title": "search status settles without stuck Checking",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11258,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.rd-v2-discover-search-summary')\nExpected pattern: \u001b[32m/\\d+ result/\u001b[39m\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('.rd-v2-discover-search-summary')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.rd-v2-discover-search-summary')\nExpected pattern: \u001b[32m/\\d+ result/\u001b[39m\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('.rd-v2-discover-search-summary')\u001b[22m\n\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:28:66",
+                        "location": {
+                          "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                          "column": 66,
+                          "line": 28
+                        },
+                        "snippet": "  26 |   test(\"search status settles without stuck Checking\", async ({ page }) => {\n  27 |     await page.getByRole(\"button\", { name: \"TWSE governance\" }).click();\n> 28 |     await expect(page.locator(\".rd-v2-discover-search-summary\")).toContainText(/\\d+ result/, {\n     |                                                                  ^\n  29 |       timeout: 10_000,\n  30 |     });\n  31 |     await expect(page.locator(\".rd-v2-discover-search-summary\")).not.toContainText(/Checking|updating/i);"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 66,
+                            "line": 28
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.rd-v2-discover-search-summary')\nExpected pattern: \u001b[32m/\\d+ result/\u001b[39m\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('.rd-v2-discover-search-summary')\u001b[22m\n\n\n  26 |   test(\"search status settles without stuck Checking\", async ({ page }) => {\n  27 |     await page.getByRole(\"button\", { name: \"TWSE governance\" }).click();\n> 28 |     await expect(page.locator(\".rd-v2-discover-search-summary\")).toContainText(/\\d+ result/, {\n     |                                                                  ^\n  29 |       timeout: 10_000,\n  30 |     });\n  31 |     await expect(page.locator(\".rd-v2-discover-search-summary\")).not.toContainText(/Checking|updating/i);\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:28:66"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:53:00.572Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-d326a-tles-without-stuck-Checking-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-d326a-tles-without-stuck-Checking-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-d326a-tles-without-stuck-Checking-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                        "column": 66,
+                        "line": 28
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-6bdcf2cbaf1353b642c6",
+              "file": "v2-discover-loop.spec.js",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "query is preserved when the Explore queue opens",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 120110,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 53,
+                            "line": 35
+                          },
+                          "message": "Error: locator.fill: Test timeout of 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('discover-search-input')\u001b[22m\n\n\n  33 |\n  34 |   test(\"query is preserved when the Explore queue opens\", async ({ page }) => {\n> 35 |     await page.getByTestId(\"discover-search-input\").fill(\"TWSE\");\n     |                                                     ^\n  36 |     await page.getByTestId(\"discover-search-input\").press(\"Enter\");\n  37 |     await expect(page.getByTestId(\"discover-search-input\")).toHaveValue(\"TWSE\");\n  38 |     await page.getByRole(\"button\", { name: /Review queue/ }).click();\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:35:53"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:53:12.661Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-a121f-hen-the-Explore-queue-opens-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-a121f-hen-the-Explore-queue-opens-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-a121f-hen-the-Explore-queue-opens-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-c890ee2e7fd99e931a61",
+              "file": "v2-discover-loop.spec.js",
+              "line": 34,
+              "column": 3
+            },
+            {
+              "title": "Explore queue selection owns the rail",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11318,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('aside.rd-v2-rail .rd-v2-rail-sticky').getByRole('button', { name: 'Add to lab' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('aside.rd-v2-rail .rd-v2-rail-sticky').getByRole('button', { name: 'Add to lab' })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('aside.rd-v2-rail .rd-v2-rail-sticky').getByRole('button', { name: 'Add to lab' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('aside.rd-v2-rail .rd-v2-rail-sticky').getByRole('button', { name: 'Add to lab' })\u001b[22m\n\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:47:115",
+                        "location": {
+                          "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                          "column": 115,
+                          "line": 47
+                        },
+                        "snippet": "  45 |   test(\"Explore queue selection owns the rail\", async ({ page }) => {\n  46 |     await page.getByRole(\"button\", { name: \"TWSE governance\" }).click();\n> 47 |     await expect(page.locator(\"aside.rd-v2-rail .rd-v2-rail-sticky\").getByRole(\"button\", { name: \"Add to lab\" })).toBeVisible({\n     |                                                                                                                   ^\n  48 |       timeout: 10_000,\n  49 |     });\n  50 |     await page.getByRole(\"button\", { name: /Review queue/ }).click();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 115,
+                            "line": 47
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('aside.rd-v2-rail .rd-v2-rail-sticky').getByRole('button', { name: 'Add to lab' })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('aside.rd-v2-rail .rd-v2-rail-sticky').getByRole('button', { name: 'Add to lab' })\u001b[22m\n\n\n  45 |   test(\"Explore queue selection owns the rail\", async ({ page }) => {\n  46 |     await page.getByRole(\"button\", { name: \"TWSE governance\" }).click();\n> 47 |     await expect(page.locator(\"aside.rd-v2-rail .rd-v2-rail-sticky\").getByRole(\"button\", { name: \"Add to lab\" })).toBeVisible({\n     |                                                                                                                   ^\n  48 |       timeout: 10_000,\n  49 |     });\n  50 |     await page.getByRole(\"button\", { name: /Review queue/ }).click();\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:47:115"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:55:13.448Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-d2445-eue-selection-owns-the-rail-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-d2445-eue-selection-owns-the-rail-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-d2445-eue-selection-owns-the-rail-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                        "column": 115,
+                        "line": 47
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-e29a9d429c243b3450ff",
+              "file": "v2-discover-loop.spec.js",
+              "line": 45,
+              "column": 3
+            },
+            {
+              "title": "header pending opens the Explore queue",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 120621,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 51,
+                            "line": 63
+                          },
+                          "message": "Error: locator.click: Test timeout of 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('header-pending-link')\u001b[22m\n\n\n  61 |\n  62 |   test(\"header pending opens the Explore queue\", async ({ page }) => {\n> 63 |     await page.getByTestId(\"header-pending-link\").click();\n     |                                                   ^\n  64 |     await expect(page).not.toHaveURL(/mode=(approvals|activity|history)/);\n  65 |     const queue = page.getByTestId(\"discover-queue-strip\");\n  66 |     await expect(queue).toBeVisible();\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:63:51"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:55:25.523Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-8d8f6-ing-opens-the-Explore-queue-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-8d8f6-ing-opens-the-Explore-queue-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-8d8f6-ing-opens-the-Explore-queue-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-cd54478ee72a2c69a261",
+              "file": "v2-discover-loop.spec.js",
+              "line": 62,
+              "column": 3
+            },
+            {
+              "title": "Discover exposes Explore and History as stable modes",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 16659,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('tablist', { name: 'Discover mode' }).getByRole('tab', { name: 'Explore' })\nExpected: \u001b[32m\"true\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('tablist', { name: 'Discover mode' }).getByRole('tab', { name: 'Explore' })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('tablist', { name: 'Discover mode' }).getByRole('tab', { name: 'Explore' })\nExpected: \u001b[32m\"true\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('tablist', { name: 'Discover mode' }).getByRole('tab', { name: 'Explore' })\u001b[22m\n\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:72:63",
+                        "location": {
+                          "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                          "column": 63,
+                          "line": 72
+                        },
+                        "snippet": "  70 |   test(\"Discover exposes Explore and History as stable modes\", async ({ page }) => {\n  71 |     const modes = page.getByRole(\"tablist\", { name: \"Discover mode\" });\n> 72 |     await expect(modes.getByRole(\"tab\", { name: \"Explore\" })).toHaveAttribute(\"aria-selected\", \"true\");\n     |                                                               ^\n  73 |     await expect(modes.getByRole(\"tab\", { name: \"History\" })).toBeVisible();\n  74 |     await expect(modes.getByRole(\"tab\", { name: /Activity/ })).toHaveCount(0);\n  75 |     await expect(page.getByTestId(\"discover-search-input\")).toBeVisible();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 63,
+                            "line": 72
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveAttribute\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('tablist', { name: 'Discover mode' }).getByRole('tab', { name: 'Explore' })\nExpected: \u001b[32m\"true\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveAttribute\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('tablist', { name: 'Discover mode' }).getByRole('tab', { name: 'Explore' })\u001b[22m\n\n\n  70 |   test(\"Discover exposes Explore and History as stable modes\", async ({ page }) => {\n  71 |     const modes = page.getByRole(\"tablist\", { name: \"Discover mode\" });\n> 72 |     await expect(modes.getByRole(\"tab\", { name: \"Explore\" })).toHaveAttribute(\"aria-selected\", \"true\");\n     |                                                               ^\n  73 |     await expect(modes.getByRole(\"tab\", { name: \"History\" })).toBeVisible();\n  74 |     await expect(modes.getByRole(\"tab\", { name: /Activity/ })).toHaveCount(0);\n  75 |     await expect(page.getByTestId(\"discover-search-input\")).toBeVisible();\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:72:63"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:57:26.942Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-6dc9d-and-History-as-stable-modes-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-6dc9d-and-History-as-stable-modes-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-6dc9d-and-History-as-stable-modes-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                        "column": 63,
+                        "line": 72
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-68ee5a77d2b8053db5dd",
+              "file": "v2-discover-loop.spec.js",
+              "line": 70,
+              "column": 3
+            },
+            {
+              "title": "History shows the research trail and selected outcome in the rail",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 120158,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 54,
+                            "line": 93
+                          },
+                          "message": "Error: locator.click: Test timeout of 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('tab', { name: 'History' })\u001b[22m\n\n\n  91 |\n  92 |   test(\"History shows the research trail and selected outcome in the rail\", async ({ page }) => {\n> 93 |     await page.getByRole(\"tab\", { name: \"History\" }).click();\n     |                                                      ^\n  94 |\n  95 |     const history = page.getByTestId(\"discover-history\");\n  96 |     await expect(history).toContainText(\"Research trail\");\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:93:54"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:57:44.317Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-a5785-elected-outcome-in-the-rail-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-a5785-elected-outcome-in-the-rail-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-a5785-elected-outcome-in-the-rail-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-87623473444025aea56d",
+              "file": "v2-discover-loop.spec.js",
+              "line": 92,
+              "column": 3
+            },
+            {
+              "title": "committed Discover search is shareable and survives History round trip",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 120138,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 18,
+                            "line": 108
+                          },
+                          "message": "Error: locator.fill: Test timeout of 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('discover-search-input')\u001b[22m\n\n\n  106 |   test(\"committed Discover search is shareable and survives History round trip\", async ({ page }) => {\n  107 |     const search = page.getByTestId(\"discover-search-input\");\n> 108 |     await search.fill(\"TWSE governance\");\n      |                  ^\n  109 |     await search.press(\"Enter\");\n  110 |     await expect(page).toHaveURL(/q=TWSE(\\+|%20)governance/);\n  111 |\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:108:18"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T13:59:45.198Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-6305a-survives-History-round-trip-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-6305a-survives-History-round-trip-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-6305a-survives-History-round-trip-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-955122dfb5e94dcaefe2",
+              "file": "v2-discover-loop.spec.js",
+              "line": 106,
+              "column": 3
+            },
+            {
+              "title": "Activity summarizes actionable acquisition states",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 17455,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('discover-activity-summary')\nExpected substring: \u001b[32m\"Awaiting\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('discover-activity-summary')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('discover-activity-summary')\nExpected substring: \u001b[32m\"Awaiting\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('discover-activity-summary')\u001b[22m\n\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:131:27",
+                        "location": {
+                          "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                          "column": 27,
+                          "line": 131
+                        },
+                        "snippet": "  129 |\n  130 |     const summary = page.getByTestId(\"discover-activity-summary\");\n> 131 |     await expect(summary).toContainText(\"Awaiting\");\n      |                           ^\n  132 |     await expect(summary).toContainText(\"Running\");\n  133 |     await expect(summary).toContainText(\"Queued\");\n  134 |     await expect(summary).toContainText(\"Failed 7 days\");"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 27,
+                            "line": 131
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('discover-activity-summary')\nExpected substring: \u001b[32m\"Awaiting\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('discover-activity-summary')\u001b[22m\n\n\n  129 |\n  130 |     const summary = page.getByTestId(\"discover-activity-summary\");\n> 131 |     await expect(summary).toContainText(\"Awaiting\");\n      |                           ^\n  132 |     await expect(summary).toContainText(\"Running\");\n  133 |     await expect(summary).toContainText(\"Queued\");\n  134 |     await expect(summary).toContainText(\"Failed 7 days\");\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:131:27"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T14:01:46.034Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-43884-tionable-acquisition-states-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-43884-tionable-acquisition-states-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-43884-tionable-acquisition-states-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                        "column": 27,
+                        "line": 131
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-2a76d9f1992f31955c24",
+              "file": "v2-discover-loop.spec.js",
+              "line": 117,
+              "column": 3
+            },
+            {
+              "title": "dataset-driven Discover reveals the research operating loop",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 17368,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('discover-research-context')\nExpected substring: \u001b[32m\"Research context\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('discover-research-context')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('discover-research-context')\nExpected substring: \u001b[32m\"Research context\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('discover-research-context')\u001b[22m\n\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:145:27",
+                        "location": {
+                          "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                          "column": 27,
+                          "line": 145
+                        },
+                        "snippet": "  143 |\n  144 |     const context = page.getByTestId(\"discover-research-context\");\n> 145 |     await expect(context).toContainText(\"Research context\");\n      |                           ^\n  146 |     await expect(context).toContainText(\"Find\");\n  147 |     await expect(context).toContainText(\"Verify\");\n  148 |     await expect(context).toContainText(\"Acquire\");"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 27,
+                            "line": 145
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('discover-research-context')\nExpected substring: \u001b[32m\"Research context\"\u001b[39m\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('discover-research-context')\u001b[22m\n\n\n  143 |\n  144 |     const context = page.getByTestId(\"discover-research-context\");\n> 145 |     await expect(context).toContainText(\"Research context\");\n      |                           ^\n  146 |     await expect(context).toContainText(\"Find\");\n  147 |     await expect(context).toContainText(\"Verify\");\n  148 |     await expect(context).toContainText(\"Acquire\");\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:145:27"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T14:02:04.334Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-819f1-the-research-operating-loop-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-819f1-the-research-operating-loop-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-819f1-the-research-operating-loop-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                        "column": 27,
+                        "line": 145
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-eb6bb515f775915f26b0",
+              "file": "v2-discover-loop.spec.js",
+              "line": 138,
+              "column": 3
+            },
+            {
+              "title": "research context owns its column backgrounds without clipping at desktop widths",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 120180,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 120000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js",
+                            "column": 74,
+                            "line": 167
+                          },
+                          "message": "Error: locator.evaluate: Test timeout of 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('discover-research-context')\u001b[22m\n\n\n  165 |       await waitForShell(page);\n  166 |\n> 167 |       const layout = await page.getByTestId(\"discover-research-context\").evaluate((context) => {\n      |                                                                          ^\n  168 |         const main = context.querySelector(\".rd-v2-discover-context-main\");\n  169 |         const heading = main.querySelector(\"h2\");\n  170 |         const contextStyle = getComputedStyle(context);\n    at /home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/e2e/v2-discover-loop.spec.js:167:74"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-14T14:02:22.474Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-ad0f8--clipping-at-desktop-widths-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-ad0f8--clipping-at-desktop-widths-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/test-results/v2-discover-loop-v2-Discov-ad0f8--clipping-at-desktop-widths-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "1d46c14cde7d8de1c89e-0bbd465f9035cb7b9ec3",
+              "file": "v2-discover-loop.spec.js",
+              "line": 159,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-14T13:50:59.092Z",
+    "duration": 803890.684,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 11,
+    "flaky": 0
+  }
+}

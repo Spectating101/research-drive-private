@@ -1,0 +1,148 @@
+{
+  "generated_at": "2026-07-06T11:23:47.370427+00:00",
+  "canonical_run_id": "2026-07-06-complete",
+  "entitlement_summary": {
+    "categories_total": 12,
+    "pass": 9,
+    "partial": 0,
+    "fail": 3
+  },
+  "entitled_categories": [
+    {
+      "category_id": "B1_B6_security_master",
+      "status": "pass",
+      "description": "Security master / identifiers / TRBC"
+    },
+    {
+      "category_id": "B7_B8_index_constituents",
+      "status": "pass",
+      "description": "Current + PIT index constituent fields"
+    },
+    {
+      "category_id": "C1_C5_corporate_actions",
+      "status": "pass",
+      "description": "Corporate actions / adjustment factors"
+    },
+    {
+      "category_id": "A9_A11_risk",
+      "status": "pass",
+      "description": "Vol / skew / put-call / short interest"
+    },
+    {
+      "category_id": "D8_pit_fundamentals",
+      "status": "pass",
+      "description": "Point-in-time fundamentals (fundamental_and_reference)"
+    },
+    {
+      "category_id": "E4_estimate_revisions",
+      "status": "pass",
+      "description": "Estimate revisions / EPS mean history"
+    },
+    {
+      "category_id": "B8_asia_pit_indices",
+      "status": "pass",
+      "description": "Asia PIT index constituents (0# pattern)"
+    },
+    {
+      "category_id": "E1_E3_consensus_snapshot",
+      "status": "pass",
+      "description": "Analyst consensus snapshot (E1-E3)"
+    },
+    {
+      "category_id": "H1_esg_snapshot",
+      "status": "pass",
+      "description": "ESG pillar scores"
+    }
+  ],
+  "partial_categories": [],
+  "blocked_categories": [
+    {
+      "category_id": "G1_ownership",
+      "status": "fail",
+      "description": "Institutional ownership",
+      "reason": "Institutional ownership fields not on YZU EDP"
+    },
+    {
+      "category_id": "I1_supply_chain",
+      "status": "fail",
+      "description": "Supply chain suppliers / customers",
+      "reason": "Supply chain graph fields not on YZU EDP"
+    },
+    {
+      "category_id": "F1_starmine_probe",
+      "status": "fail",
+      "description": "StarMine / SmartEstimate probe",
+      "reason": "StarMine / SmartEstimate fields not on YZU EDP"
+    }
+  ],
+  "policy_skips": [
+    "Institutional ownership fields not on YZU EDP",
+    "Supply chain graph fields not on YZU EDP",
+    "StarMine / SmartEstimate fields not on YZU EDP",
+    "Skipped \u2014 yfinance + IDX legacy cover OHLCV",
+    "Skipped \u2014 GDELT lane is canonical"
+  ],
+  "jobs": {
+    "job_1": {
+      "artifact": "refinitiv_security_master.parquet",
+      "bytes": 25538,
+      "status": "collected"
+    },
+    "job_2": {
+      "artifact": "index_membership_pit.parquet",
+      "bytes": 459903,
+      "status": "collected"
+    },
+    "job_3": {
+      "artifact": "corporate_actions_snapshot.parquet",
+      "bytes": 7663,
+      "status": "collected"
+    },
+    "job_4": {
+      "artifact": "vol_surface_metrics_daily.parquet",
+      "bytes": 1313389,
+      "status": "collected"
+    },
+    "job_5": {
+      "artifact": "estimate_revisions_daily.parquet",
+      "bytes": 1301422,
+      "status": "collected"
+    },
+    "job_6": {
+      "artifact": "fundamentals_panel.parquet",
+      "bytes": 34265,
+      "status": "collected"
+    },
+    "job_7": {
+      "artifact": "index_membership_current.parquet",
+      "bytes": 58639,
+      "status": "collected"
+    },
+    "job_8": {
+      "artifact": "analyst_consensus_snapshot.parquet",
+      "bytes": 18269,
+      "status": "collected"
+    },
+    "job_9": {
+      "artifact": "esg_snapshot.parquet",
+      "bytes": 20096,
+      "status": "collected"
+    }
+  },
+  "desktop_rescued_us_risk": true,
+  "completion_score": {
+    "entitled_categories": 9,
+    "partial_categories": 0,
+    "blocked_categories": 3,
+    "jobs_collected": 9,
+    "jobs_total": 9,
+    "job_coverage_pct": 100.0,
+    "desktop_risk_rescued": true,
+    "platform_readiness": "9.0"
+  },
+  "notes": [
+    "YZU EDP vol 30/90 daily history empty; US vol/skew from desktop RESCUED pull.",
+    "Fundamentals via fundamental_and_reference FRQ=FY (not get_data snapshot).",
+    "Korea PIT uses 0#.KSE not 0#.KS11."
+  ]
+}

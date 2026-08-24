@@ -1,0 +1,1 @@
+../drive/scripts/sync_news_shock_taxonomy_drive.sh

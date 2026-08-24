@@ -1,0 +1,1 @@
+../alpha/scripts/manifest_gates.py

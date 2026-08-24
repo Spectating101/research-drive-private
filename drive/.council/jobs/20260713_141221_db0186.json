@@ -1,0 +1,21 @@
+{
+  "id": "20260713_141221_db0186",
+  "state": "running",
+  "instruction": "Independently audit Discover product intent and UI interaction model. Do not recommend implementation. Resolve this tension: Discover must be a familiar search-led research evidence interface, Ask is a persistent contextual right rail for full Composer interaction, yet Discover must ultimately support acquisition engineering. Compare the current route-list direction against the architecture authority. Return a concise decision: what belongs in Browse/Focus/Ask/second subtab, what must be removed, and 3 reference products/patterns to borrow only at interaction level.",
+  "files": [
+    "/tmp/yzu-discover-routes/docs/PRODUCT_ARCHITECTURE_HANDOFF_2026-07-13.md",
+    "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/docs/UI_PRODUCT_AUTHORITY.md",
+    "/tmp/yzu-discover-routes/drive/src/v2/BrowsePage.jsx",
+    "/tmp/yzu-discover-routes/drive/src/v2/DiscoverRoutes.jsx"
+  ],
+  "stakes": "high",
+  "kind": "review",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260713_141221_db0186.output.txt",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260713_141221_db0186.integrate.json",
+  "created_at": 1783923141.212678,
+  "pid": 623966,
+  "log_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260713_141221_db0186.log",
+  "updated_at": 1783923141.2627175
+}

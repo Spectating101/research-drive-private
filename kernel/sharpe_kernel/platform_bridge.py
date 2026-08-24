@@ -12,6 +12,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from sharpe_kernel import tiers
+
 DEFAULT_REGISTRY = "config/research_query_registry.json"
 FUSED_DATASET_ID = "cross_asset_fused_primary_panel"
 
@@ -51,7 +53,12 @@ def resolve_dataset_parquet(
     *,
     registry_path: str | Path | None = None,
 ) -> Path:
-    """Return primary parquet for a registry dataset's default_run_id."""
+    """Return primary parquet for a registry dataset's default_run_id.
+
+    Resolved across storage tiers (hot NVMe, then bulk cache) so a panel parked
+    on external storage still loads. On a miss the error names every tier tried
+    rather than a single guessed path.
+    """
     reg = load_registry(repo_root, registry_path)
     ds = _dataset_entry(reg, dataset_id)
     run_id = ds.get("default_run_id")
@@ -60,15 +67,17 @@ def resolve_dataset_parquet(
     rel = ds.get("primary_artifact") or ds.get("default_parquet")
     if rel:
         rel = str(rel).replace("{run_id}", str(run_id))
-        path = repo_root / rel
     else:
         root = ds.get("local_root")
         fname = ds.get("local_file")
         if not root or not fname:
             raise ValueError(f"dataset {dataset_id} has no resolvable parquet path")
-        path = repo_root / str(root) / str(run_id) / str(fname)
-    if not path.exists():
-        raise FileNotFoundError(f"missing panel for {dataset_id}: {path}")
+        rel = f"{root}/{run_id}/{fname}"
+    path = tiers.resolve(repo_root, rel)
+    if path is None:
+        raise FileNotFoundError(
+            tiers.explain(repo_root, rel, subject=f"panel for {dataset_id} (run {run_id})")
+        )
     return path
 
 

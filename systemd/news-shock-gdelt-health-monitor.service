@@ -1,0 +1,10 @@
+[Unit]
+Description=Sharpe-Renaissance GDELT backfill health monitor
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance
+ExecStart=/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/scripts/monitor_gdelt_backfill_health.sh
+Nice=12
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

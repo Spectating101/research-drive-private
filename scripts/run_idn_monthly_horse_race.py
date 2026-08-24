@@ -1,0 +1,1 @@
+../alpha/scripts/run_idn_monthly_horse_race.py

@@ -1,0 +1,26 @@
+{
+  "session_id": "c484151e0e5a48df",
+  "turns": [
+    {
+      "q": "What cross-asset fused panels do we have that join news with market returns by country-week?",
+      "seconds": 32.7,
+      "words": 198,
+      "flags": [],
+      "preview": "We have one main query-ready country-week fusion: the **Cross-Asset Fused Country-Week Primary Panel**. Each row is a country and week-end date, with GDELT news-shock scores (general plus a crypto overlay), weekly returns on country equity proxies across roughly a dozen Asian markets, and global controls (BTC, ETH, SPY, VIX, and related macro asset"
+    },
+    {
+      "q": "Can you sample a few rows from the SEC EDGAR S&P 500 submissions cache?",
+      "seconds": 32.5,
+      "words": 190,
+      "flags": [],
+      "preview": "Yes \u2014 the cache is on disk with **515 S&P 500 tickers**, one JSON blob per symbol (~300 KB each). Each file holds company metadata (name, CIK, SIC, exchanges) plus a `filings.recent` block: parallel arrays for form type, dates, accession numbers, and primary documents.  Here are a few recent filing rows pulled from three names:  | Ticker | Company "
+    },
+    {
+      "q": "We need a dataset that does not exist yet \u2014 Kayak historical flight prices API dump 2010-2024. What's the procurement path?",
+      "seconds": 68.3,
+      "words": 298,
+      "flags": [],
+      "preview": "That Kayak dump isn\u2019t something the desk can pull automatically today \u2014 there\u2019s no wired collection task for it, and the planner correctly marks it as **not launchable**. Kayak\u2019s historical consumer-price API isn\u2019t a public open-data endpoint; it\u2019s commercial/partner-gated, so blind web or DOI collection is deliberately blocked for this kind of req"
+    }
+  ]
+}

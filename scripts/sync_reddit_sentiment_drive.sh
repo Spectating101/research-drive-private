@@ -1,0 +1,1 @@
+../drive/scripts/sync_reddit_sentiment_drive.sh

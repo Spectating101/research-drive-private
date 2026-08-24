@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-07-12T16:07:04.037804+00:00",
+  "package_build": "20260707",
+  "n_inventory_rows": 66,
+  "n_milestones": 277,
+  "n_milestones_security_keyword": 11,
+  "n_skynet_audit_entries": 13,
+  "n_skynet_score_snapshots": 9,
+  "n_constant_or_zero_series_flags": 116,
+  "research_weekly_rows": 18673,
+  "professor_weekly_rows": 18673,
+  "notes": [
+    "code_security_score is snapshot repeated weekly",
+    "attention_proxy inherits Trends presence including constant zeros",
+    "milestones collected but not in professor panel \u2014 key unexploited longitudinal asset",
+    "holderCountHistory arrays empty in harvest JSON",
+    "Skynet audits list mostly empty stubs"
+  ]
+}

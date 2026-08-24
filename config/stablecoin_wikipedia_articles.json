@@ -1,0 +1,25 @@
+{
+  "comment": "Explicit entity_id -> en.wikipedia article (verified pageviews API). No slug guessing.",
+  "articles": {
+    "binance-usd": "Binance_USD",
+    "euro-coin": "Euro_coin",
+    "fdusd": "First_Digital_USD",
+    "fraxfinance": "Frax",
+    "gemini-dollar": "Gemini_Dollar",
+    "mai": "Mai",
+    "monerium": "Monerium",
+    "ripple-usd": "Ripple_(payment_protocol)",
+    "seur": "Seur",
+    "stasis": "Stasis",
+    "susd": "Susd",
+    "terrausd": "TerraUSD",
+    "tether": "Tether_(cryptocurrency)",
+    "tor": "Tor",
+    "usd-coin": "USD_Coin",
+    "usds": "USDS",
+    "usual-usd": "Usual_Money",
+    "vai": "Vai",
+    "world-liberty-financial-usd": "World_Liberty_Financial"
+  },
+  "generated_by": "scripts/probe_stablecoin_wikipedia_cluster.py"
+}

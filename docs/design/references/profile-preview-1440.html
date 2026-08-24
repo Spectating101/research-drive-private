@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1440" />
+  <title>Profile design preview — Research Drive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --rd-canvas: #F7F6F2;
+      --rd-surface: #FFFFFF;
+      --rd-sidebar-bg: #F2F4F6;
+      --rd-border: #D9E0E8;
+      --rd-text: #172033;
+      --rd-body: #354258;
+      --rd-muted: #657087;
+      --rd-accent: #1B67D2;
+      --rd-active-bg: #E8F1FC;
+      --rd-font: "IBM Plex Sans", system-ui, sans-serif;
+      --rd-display: "Source Serif 4", Georgia, serif;
+      --rd-mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #e2e8f0;
+      font-family: var(--rd-font);
+      color: var(--rd-text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 40px;
+    }
+    .note {
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .note strong { color: #0f172a; }
+    .note code { font-family: var(--rd-mono); font-size: 12px; }
+    .artboard {
+      width: 1440px;
+      height: 900px;
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr) 360px;
+      grid-template-rows: 56px minmax(0, 1fr);
+      background: var(--rd-canvas);
+      border: 1px solid #94a3b8;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+      overflow: hidden;
+    }
+    .header {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--rd-border);
+      background: var(--rd-surface);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--rd-accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .search {
+      height: 36px;
+      border: 1px solid var(--rd-border);
+      border-radius: 999px;
+      background: #f8fafc;
+      color: var(--rd-muted);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+    .search kbd {
+      margin-left: auto;
+      font-family: var(--rd-mono);
+      font-size: 11px;
+    }
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--rd-muted);
+    }
+    .pill {
+      padding: 3px 8px;
+      border: 1px solid var(--rd-border);
+      border-radius: 999px;
+      background: #fff;
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--rd-accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .sidebar {
+      background: var(--rd-sidebar-bg);
+      border-right: 1px solid var(--rd-border);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      color: var(--rd-body);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .nav.on {
+      background: var(--rd-active-bg);
+      color: var(--rd-accent);
+      font-weight: 650;
+    }
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--rd-canvas);
+      padding: 18px 24px 0;
+    }
+    .page-head h1 {
+      margin: 0;
+      font-family: var(--rd-display);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .page-head p {
+      margin: 4px 0 0;
+      color: var(--rd-muted);
+      font-size: 13px;
+    }
+    .body {
+      margin-top: 16px;
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background: var(--rd-surface);
+      border: 1px solid var(--rd-border);
+      border-bottom: 0;
+      border-radius: 10px 10px 0 0;
+      padding: 22px 28px 28px;
+    }
+
+    /* ── Proposed Profile composition ───────────────────────── */
+    .identity {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--rd-border);
+    }
+    .identity .who .example {
+      display: inline-block;
+      margin-bottom: 8px;
+      color: var(--rd-muted);
+      font-family: var(--rd-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .identity h2 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .identity .role {
+      margin: 6px 0 0;
+      color: var(--rd-body);
+      font-size: 13px;
+    }
+    .identity .email {
+      margin: 4px 0 0;
+      color: var(--rd-muted);
+      font-size: 12px;
+    }
+    .btn {
+      border: 1px solid var(--rd-accent);
+      border-radius: 8px;
+      background: var(--rd-accent);
+      color: #fff;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      padding: 8px 12px;
+      cursor: default;
+      white-space: nowrap;
+    }
+    .btn.ghost {
+      background: #fff;
+      color: var(--rd-accent);
+    }
+
+    .block {
+      margin-top: 22px;
+    }
+    .block > h3 {
+      margin: 0 0 10px;
+      color: var(--rd-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ChatGPT-memory style: short statements, one idea each */
+    .memory {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .memory li {
+      padding: 11px 0;
+      border-top: 1px solid var(--rd-border);
+      color: var(--rd-text);
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 500;
+    }
+    .memory li:first-child { border-top: 0; padding-top: 2px; }
+    .memory li em {
+      color: var(--rd-muted);
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    /* ORCID-like numbered program — titles only, quiet phase */
+    .tracks {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .tracks li {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 10px 0;
+      border-top: 1px solid var(--rd-border);
+    }
+    .tracks li:first-child { border-top: 0; }
+    .tracks .n {
+      color: var(--rd-muted);
+      font-family: var(--rd-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .tracks strong {
+      font-size: 13.5px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+    .tracks .phase {
+      color: var(--rd-muted);
+      font-size: 11px;
+      text-transform: capitalize;
+      white-space: nowrap;
+    }
+
+    /* Discover opens — full readable rows, not pill soup */
+    .opens {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .opens li button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border: 0;
+      border-top: 1px solid var(--rd-border);
+      background: transparent;
+      text-align: left;
+      cursor: default;
+      font: inherit;
+    }
+    .opens li:first-child button { border-top: 0; }
+    .opens .label {
+      color: var(--rd-text);
+      font-size: 13.5px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .opens .go {
+      flex-shrink: 0;
+      color: var(--rd-accent);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .quiet {
+      margin: 14px 0 0;
+      color: var(--rd-muted);
+      font-size: 12px;
+    }
+
+    .rail {
+      border-left: 1px solid var(--rd-border);
+      background: var(--rd-surface);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .rail-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-bottom: 1px solid var(--rd-border);
+    }
+    .rail-tabs span {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--rd-border);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .rail-tabs .on {
+      background: var(--rd-accent);
+      border-color: var(--rd-accent);
+      color: #fff;
+    }
+    .rail-body {
+      padding: 16px 14px;
+      flex: 1;
+    }
+    .rail-body .eyebrow {
+      color: var(--rd-muted);
+      font-family: var(--rd-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .rail-body h2 {
+      margin: 6px 0 0;
+      font-family: var(--rd-display);
+      font-size: 20px;
+    }
+    .rail-body p {
+      margin: 8px 0 0;
+      color: var(--rd-muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .rail-fields {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .rail-fields div {
+      display: grid;
+      gap: 2px;
+    }
+    .rail-fields span {
+      color: var(--rd-muted);
+      font-family: var(--rd-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .rail-fields strong {
+      color: var(--rd-text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .rail-foot {
+      margin-top: auto;
+      padding: 12px;
+      border-top: 1px solid var(--rd-border);
+    }
+    .rail-foot .ask {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--rd-border);
+      border-radius: 999px;
+      background: #f8fafc;
+      color: var(--rd-muted);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="note">
+    <strong>Design preview only — not wired into the app.</strong>
+    Aim: ChatGPT Memory sparseness × ORCID program clarity × Research Drive chrome.
+    One column. Short context lines. Full-text Discover opens. No “what we know / offer.” No pill soup. No instructional rail essay.
+    File: <code>docs/design/references/profile-preview-1440.html</code>
+  </div>
+
+  <div class="artboard" id="artboard">
+    <header class="header">
+      <div class="brand"><span class="mark">RD</span> Research Drive</div>
+      <div class="search">Search catalog or ask… <kbd>⌘K</kbd></div>
+      <div class="meta">
+        <span class="pill">Live</span>
+        <span class="pill">Dry-run</span>
+        <span>50 ds</span>
+        <span class="avatar">YZ</span>
+      </div>
+    </header>
+
+    <nav class="sidebar" aria-label="Main">
+      <div class="nav">Home</div>
+      <div class="nav">Library</div>
+      <div class="nav">Discover</div>
+      <div class="nav">Synthesis</div>
+      <div class="nav">Resources</div>
+      <div class="nav on">Profile</div>
+      <div class="nav">Settings</div>
+    </nav>
+
+    <main class="main">
+      <div class="page-head">
+        <h1>Profile</h1>
+        <p>Research context for Discover and Ask</p>
+      </div>
+
+      <div class="body">
+        <section class="identity">
+          <div class="who">
+            <span class="example">Example · pilot faculty</span>
+            <h2>Kong, De-Rong</h2>
+            <p class="role">Assistant Professor · Finance</p>
+            <p class="email">drkong@saturn.yzu.edu.tw</p>
+          </div>
+          <button type="button" class="btn">Use my email</button>
+        </section>
+
+        <!-- 1. Memory statements (ChatGPT-like) — short, human, scannable -->
+        <section class="block" aria-labelledby="ctx">
+          <h3 id="ctx">Context</h3>
+          <ul class="memory">
+            <li>Works on empirical asset pricing, investment, FinTech, and corporate finance <em>· 18 papers</em></li>
+            <li>Active grant on token taxonomy — on-chain and off-chain data</li>
+            <li>Also: NFT risk-return, Taiwan ML momentum, governance and trust</li>
+          </ul>
+        </section>
+
+        <!-- 2. Program list (ORCID-like) — titles + quiet phase only -->
+        <section class="block" aria-labelledby="prog">
+          <h3 id="prog">Research tracks</h3>
+          <ol class="tracks">
+            <li>
+              <span class="n">01</span>
+              <strong>Token taxonomy — on-chain / off-chain risk and return</strong>
+              <span class="phase">Active grant</span>
+            </li>
+            <li>
+              <span class="n">02</span>
+              <strong>NFT alternative investments</strong>
+              <span class="phase">Published</span>
+            </li>
+            <li>
+              <span class="n">03</span>
+              <strong>Taiwan equity momentum with machine learning</strong>
+              <span class="phase">Published</span>
+            </li>
+            <li>
+              <span class="n">04</span>
+              <strong>Collective reputation and trust premium</strong>
+              <span class="phase">Published</span>
+            </li>
+          </ol>
+        </section>
+
+        <!-- 3. Opens — full readable rows (Home gap pattern), not chips -->
+        <section class="block" aria-labelledby="open">
+          <h3 id="open">Open in Discover</h3>
+          <ul class="opens">
+            <li><button type="button"><span class="label">TWSE listed firm daily prices and fundamentals</span><span class="go">Search →</span></button></li>
+            <li><button type="button"><span class="label">Taiwan MOPS financial statements</span><span class="go">Search →</span></button></li>
+            <li><button type="button"><span class="label">Ethereum USDT on-chain flows (BigQuery)</span><span class="go">Search →</span></button></li>
+            <li><button type="button"><span class="label">Corporate governance and trust / misconduct panels</span><span class="go">Search →</span></button></li>
+          </ul>
+          <p class="quiet">2 holdings mapped · 1 covered · 4 open</p>
+        </section>
+      </div>
+    </main>
+
+    <aside class="rail" aria-label="Detail">
+      <div class="rail-tabs">
+        <span class="on">Detail</span>
+        <span>Ask</span>
+      </div>
+      <div class="rail-body">
+        <div class="eyebrow">Selected</div>
+        <h2>Kong, De-Rong</h2>
+        <p>Pilot faculty row from the registry. Binding your email replaces this example with yours.</p>
+        <div class="rail-fields">
+          <div><span>Discipline</span><strong>Finance</strong></div>
+          <div><span>Tracks</span><strong>4</strong></div>
+          <div><span>Status</span><strong>Example preview</strong></div>
+        </div>
+      </div>
+      <div class="rail-foot">
+        <div class="ask">Ask about this page →</div>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

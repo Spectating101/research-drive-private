@@ -1,0 +1,95 @@
+{
+  "comment": "Sector-wide crypto/stablecoin shock calendar (broadcast dummies). Not entity-resolved.",
+  "events": [
+    {
+      "event_id": "luna_ust_collapse",
+      "event_date": "2022-05-09",
+      "event_type": "sector_crash",
+      "severity": 5,
+      "event_name": "Terra/LUNA-UST collapse begins",
+      "summary": "UST lost peg; broader crypto deleveraging",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/TerraUSD"
+    },
+    {
+      "event_id": "ust_bottom",
+      "event_date": "2022-05-12",
+      "event_type": "sector_crash",
+      "severity": 5,
+      "event_name": "UST deep depeg / ecosystem halt",
+      "summary": "UST traded far below $1; Terra ecosystem failure",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/TerraUSD"
+    },
+    {
+      "event_id": "celsius_halt",
+      "event_date": "2022-06-12",
+      "event_type": "sector_contagion",
+      "severity": 4,
+      "event_name": "Celsius withdrawal freeze",
+      "summary": "Major CeFi lender halted withdrawals amid market stress",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/Celsius_Network"
+    },
+    {
+      "event_id": "three_arrows_default",
+      "event_date": "2022-06-27",
+      "event_type": "sector_contagion",
+      "severity": 4,
+      "event_name": "Three Arrows Capital insolvency",
+      "summary": "Systemic crypto hedge fund failure",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/Three_Arrows_Capital"
+    },
+    {
+      "event_id": "ftx_collapse",
+      "event_date": "2022-11-11",
+      "event_type": "sector_crash",
+      "severity": 5,
+      "event_name": "FTX bankruptcy filing",
+      "summary": "Major exchange failure; contagion across crypto markets",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/Bankruptcy_of_FTX"
+    },
+    {
+      "event_id": "busd_enforcement",
+      "event_date": "2023-02-13",
+      "event_type": "regulation",
+      "severity": 4,
+      "event_name": "NYDFS Paxos BUSD order",
+      "summary": "Regulator ordered stop to new BUSD issuance",
+      "scope": "sector",
+      "source_url": "https://www.dfs.ny.gov/reports_and_publications/press_releases/pr2023021301"
+    },
+    {
+      "event_id": "svb_weekend",
+      "event_date": "2023-03-11",
+      "event_type": "banking_stress",
+      "severity": 5,
+      "event_name": "SVB collapse weekend",
+      "summary": "USDC and stablecoin peg stress amid banking sector shock",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/Collapse_of_Silicon_Valley_Bank"
+    },
+    {
+      "event_id": "usdc_recovery",
+      "event_date": "2023-03-13",
+      "event_type": "banking_stress",
+      "severity": 3,
+      "event_name": "USDC re-peg after Circle disclosure",
+      "summary": "Circle confirmed reserves; USDC returned toward peg",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/USD_Coin"
+    },
+    {
+      "event_id": "btc_halving_2024",
+      "event_date": "2024-04-20",
+      "event_type": "macro_crypto",
+      "severity": 2,
+      "event_name": "Bitcoin halving 2024",
+      "summary": "Scheduled BTC supply halving — sector attention event",
+      "scope": "sector",
+      "source_url": "https://en.wikipedia.org/wiki/Bitcoin_halving"
+    }
+  ]
+}

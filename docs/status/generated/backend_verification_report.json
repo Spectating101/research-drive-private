@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-07-07T11:45:00+00:00",
+  "summary": "Open items pushed: library smoke PASS, hydrate+HF flywheel live, CRSP index extracted + registry honest, stock sync in progress.",
+  "library_smoke": {
+    "passed": true,
+    "procure_sec_live": "query_returned 1 (hydrate + SEC re-fetch fallback)"
+  },
+  "pytest": {
+    "total": 340,
+    "note": "includes test_panel_path_resolution + procurement flywheel tests"
+  },
+  "crsp": {
+    "index_zip_bytes": 2832427834,
+    "index_extracted": true,
+    "member_count": 286,
+    "parquet_ready": false,
+    "parse_status": "pending_parse",
+    "parse_reason": "CADB binary — needs proper parser (not text CSV heuristic)",
+    "registry_card": "crsp_us_index_history updated to wired/extracted_binary",
+    "stock_zip": "download in progress via crsp_moveit_sync --tier us_core",
+    "scripts": [
+      "scripts/ingest_crsp_package.py",
+      "drive/scripts/sync_crsp_ingest_registry.py",
+      "scripts/run_crsp_finish_all.sh"
+    ]
+  },
+  "fixes_this_pass": [
+    "library_smoke: hydrate + sec_fetch fallback after drive-first compact",
+    "engine: panel path no longer mis-resolves data_lake/crsp/raw as run_id",
+    "sync_crsp_ingest_registry: honest registry stamp from ingest_latest.json",
+    "CRSP index CADB zip extracted (286 members)"
+  ],
+  "still_manual": [
+    "CRSP CADB → parquet parser (binary format)",
+    "Compustat Capital IQ CSV export to data_lake/compustat/raw/",
+    "CCM link file if not on MOVEit"
+  ]
+}

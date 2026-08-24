@@ -1,0 +1,13 @@
+final_variable,internal_name,builder_file,builder_fn,raw_sources,notes
+attention_proxy_index,community_growth_index,stablecoin_skynet/research_dataset.py,rollup_engagement_weekly + _attach_growth_index_by_entity + _z_scores,community_attention_panel.csv <- Trends+Reddit+Skynet twitter/holders,professor_simple renames; stdev0->0.0
+google_trends_index,google_trends_index_mean,stablecoin_skynet/research_dataset.py::rollup_engagement_weekly; community/harvest_google_trends.py; community/build_proxy_panel.py,harvest + merge,community/google_trends/,21 coins all-zero
+code_security_score,code_security_score,stablecoin_skynet/code_security.py,score from governance_strength flags,Skynet harvest endpoints.governance_strength,snapshot only; repeated weekly
+peg_deviation,peg_deviation_abs_max,stablecoin_skynet/defillama_panel.py + research_dataset.py,prices rollup,derived/defillama cache / DeFiLlama API,
+supply_usd,supply_usd_end,stablecoin_skynet/defillama_panel.py,supply rollup,DeFiLlama,config/stablecoin_defillama_map.json
+gdelt_entity_mention_rows,gdelt_entity_mention_rows,stablecoin_skynet/gdelt_panel.py,alias scan,data_lake/.../gdelt_crypto_overlay + config/stablecoin_gdelt_aliases.json,Asia-biased
+wikipedia_pageviews_sum,wikipedia_pageviews_sum,stablecoin_skynet/wikipedia_panel.py,pageviews rollup,Wikimedia REST + config/stablecoin_wikipedia_articles.json,mapped subset only
+incident_count / depeg_dummy,same,stablecoin_skynet/incidents_panel.py,curated events to weekly flags,config/stablecoin_curated_incidents.json (+ sparse Skynet security_incidents),
+sector_shock_flag,same,stablecoin_skynet/sector_shock_panel.py,week flags,config/stablecoin_sector_shocks.json,
+security_event_flag,same,incidents/security event wiring in research_dataset,weekly flag,config/stablecoin_security_events.json,few events; one pre-window
+trust_index,trust_index,research_dataset.py latest composites,cross-section z-mean of security fields,snapshot security fields,NOT longitudinal
+skynet_milestones_* (NOT in professor simple),unexploited,raw harvest only,none in research panel currently,endpoints.milestones,timed headlines; some audit/security language — reconstruction opportunity

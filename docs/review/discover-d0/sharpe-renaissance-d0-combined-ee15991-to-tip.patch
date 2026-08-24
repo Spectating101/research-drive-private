@@ -1,0 +1,3680 @@
+From cc268ab2cc154054196809dfc18580432df3540d Mon Sep 17 00:00:00 2001
+From: spectating101 <s1133958@mail.yzu.edu.tw>
+Date: Sat, 11 Jul 2026 01:57:45 +0800
+Subject: [PATCH 1/3] feat(discover): D0b propagate candidate_key through
+ probe/collect/jobs
+
+Emit and persist typed candidate identity on Discover rows, probe echo,
+collect requests, and job list fields without inventing lifecycle UI or
+title-based linkage.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../research_data_mcp/candidate_key.py        |  161 ++
+ drive/scripts/research_data_mcp/gateway.py    | 1383 +++++++++++++++++
+ .../scripts/research_data_mcp/http_router.py  |  963 ++++++++++++
+ .../scripts/research_data_mcp/job_identity.py |  125 ++
+ drive/scripts/research_data_mcp/jobs.py       |   78 +
+ tests/test_discover_candidate_identity.py     |  302 ++++
+ 6 files changed, 3012 insertions(+)
+ create mode 100644 drive/scripts/research_data_mcp/candidate_key.py
+ create mode 100644 drive/scripts/research_data_mcp/gateway.py
+ create mode 100644 drive/scripts/research_data_mcp/http_router.py
+ create mode 100644 drive/scripts/research_data_mcp/job_identity.py
+ create mode 100644 drive/scripts/research_data_mcp/jobs.py
+ create mode 100644 tests/test_discover_candidate_identity.py
+
+diff --git a/drive/scripts/research_data_mcp/candidate_key.py b/drive/scripts/research_data_mcp/candidate_key.py
+new file mode 100644
+index 0000000..930b97a
+--- /dev/null
++++ b/drive/scripts/research_data_mcp/candidate_key.py
+@@ -0,0 +1,161 @@
++#!/usr/bin/env python3
++"""Canonical Discover candidate identity (D0b — mirrors frontend candidateKey.js).
++
++Precedence:
++1. server-provided candidate_key
++2. dataset_id
++3. canonical DOI
++4. source-specific external identifier
++5. canonical URL
++6. namespaced normalized title fallback (last resort; never raw title alone)
++
++Typed prefixes prevent cross-type collisions:
++  dataset:<id> | doi:<doi> | source:<provider>:<id> | url:<url> | title:<provider>:<title>
++"""
++
++from __future__ import annotations
++
++import re
++from typing import Any
++from urllib.parse import urlsplit, urlunsplit
++
++
++def _trim(value: Any) -> str:
++    return str(value or "").strip()
++
++
++def canonicalize_doi(value: Any) -> str:
++    doi = _trim(value)
++    if not doi:
++        return ""
++    doi = re.sub(r"^doi:\s*", "", doi, flags=re.IGNORECASE)
++    doi = re.sub(r"^https?://(dx\.)?doi\.org/", "", doi, flags=re.IGNORECASE)
++    return doi.lower()
++
++
++def canonicalize_url(value: Any) -> str:
++    """Canonical URL for identity — keep meaningful query params; drop fragment."""
++    raw = _trim(value)
++    if not raw:
++        return ""
++    try:
++        parts = urlsplit(raw)
++        if not parts.scheme or not parts.hostname:
++            return raw.lower()
++        scheme = parts.scheme.lower()
++        host = parts.hostname.lower()
++        port = parts.port
++        if port is not None and not (
++            (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
++        ):
++            netloc = f"{host}:{port}"
++        else:
++            netloc = host
++        if parts.username:
++            auth = parts.username
++            if parts.password:
++                auth = f"{auth}:{parts.password}"
++            netloc = f"{auth}@{netloc}"
++        path = parts.path or ""
++        if path != "/" and path.endswith("/"):
++            path = path.rstrip("/")
++        return urlunsplit((scheme, netloc, path, parts.query, ""))
++    except Exception:
++        return raw.lower()
++
++
++def normalize_title(value: Any) -> str:
++    return re.sub(r"\s+", " ", _trim(value)).lower()
++
++
++def _provider_slug(row: dict[str, Any]) -> str:
++    host = ""
++    url = _trim(row.get("url") or row.get("source_url") or row.get("resolved_url") or "")
++    if url:
++        try:
++            host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
++        except Exception:
++            host = ""
++    raw = (
++        _trim(row.get("provider"))
++        or _trim(row.get("publisher"))
++        or _trim(row.get("source"))
++        or _trim(row.get("collect_via"))
++        or _trim(row.get("kind"))
++        or host
++        or "unknown"
++    )
++    slug = re.sub(r"[^a-z0-9._-]+", "_", raw.lower()).strip("_")[:80]
++    return slug or "unknown"
++
++
++def _source_external_id(row: dict[str, Any]) -> tuple[str, str] | None:
++    kind = _trim(row.get("kind")).lower()
++    handle = _trim(row.get("handle") or row.get("open_handle"))
++    if handle.startswith("hf:"):
++        return ("huggingface", handle[3:])
++    if handle.startswith("doi:"):
++        return None
++    if kind == "huggingface":
++        ext = _trim(row.get("hf_id") or row.get("id") or row.get("external_id"))
++        if ext and "://" not in ext:
++            return ("huggingface", ext)
++    external = _trim(row.get("external_id") or row.get("source_id"))
++    if external:
++        return (_provider_slug(row), external)
++    return None
++
++
++def candidate_key(row: dict[str, Any] | None) -> str:
++    """Return typed candidate key, or empty string if nothing usable."""
++    if not isinstance(row, dict):
++        return ""
++
++    server_key = _trim(row.get("candidate_key"))
++    if server_key:
++        return server_key
++
++    dataset_id = _trim(row.get("dataset_id"))
++    if not dataset_id and _trim(row.get("kind")).lower() == "local_registry":
++        dataset_id = _trim(row.get("id"))
++    if dataset_id:
++        return f"dataset:{dataset_id}"
++
++    doi = canonicalize_doi(row.get("doi"))
++    if doi:
++        return f"doi:{doi}"
++
++    ext = _source_external_id(row)
++    if ext and ext[1]:
++        return f"source:{ext[0]}:{ext[1]}"
++
++    url = canonicalize_url(row.get("resolved_url") or row.get("source_url") or row.get("url"))
++    if url:
++        return f"url:{url}"
++
++    title = normalize_title(row.get("title") or row.get("name"))
++    if title:
++        return f"title:{_provider_slug(row)}:{title}"
++
++    return ""
++
++
++def with_candidate_key(row: dict[str, Any] | None) -> dict[str, Any] | None:
++    """Return a shallow copy stamped with candidate_key (does not invent empty keys)."""
++    if not isinstance(row, dict):
++        return row
++    key = candidate_key(row)
++    if not key or row.get("candidate_key") == key:
++        return row
++    out = dict(row)
++    out["candidate_key"] = key
++    return out
++
++
++def stamp_rows(rows: list[Any] | None) -> list[Any]:
++    if not rows:
++        return []
++    stamped: list[Any] = []
++    for row in rows:
++        stamped.append(with_candidate_key(row) if isinstance(row, dict) else row)
++    return stamped
+diff --git a/drive/scripts/research_data_mcp/gateway.py b/drive/scripts/research_data_mcp/gateway.py
+new file mode 100644
+index 0000000..c551251
+--- /dev/null
++++ b/drive/scripts/research_data_mcp/gateway.py
+@@ -0,0 +1,1383 @@
++#!/usr/bin/env python3
++"""Unified facade — delegates to search, catalog, planner, and jobs."""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++from typing import Any
++
++from scripts.research_data_mcp.catalog import CatalogService
++from scripts.research_data_mcp.jobs import JobService
++from scripts.research_data_mcp.search import SearchService
++from scripts.research_query_engine.agent import AgentOrchestrator
++from scripts.research_query_engine.engine import ResearchQueryEngine
++from scripts.yzu_cluster.api import YzuClusterAPI
++
++
++class ResearchDataGateway:
++    def __init__(
++        self,
++        repo_root: str | Path,
++        registry_path: str | Path | None = None,
++        orchestrator: Any | None = None,
++        *,
++        engine: ResearchQueryEngine | None = None,
++        yzu_api: YzuClusterAPI | None = None,
++        jobs: JobService | None = None,
++    ):
++        self.repo_root = Path(repo_root).resolve()
++        registry = Path(registry_path) if registry_path else self.repo_root / "config/research_query_registry.json"
++        if not registry.is_absolute():
++            registry = (self.repo_root / registry).resolve()
++        self.registry_path = registry
++
++        self.engine = engine or ResearchQueryEngine(registry, repo_root=self.repo_root)
++        self.agent = AgentOrchestrator(self.engine, orchestrator=orchestrator)
++        self._yzu_api = yzu_api
++        self.jobs = jobs or JobService(self.agent.orchestrator)
++
++        self.search = SearchService(self.engine, self.registry_path, self.repo_root)
++        self.catalog = CatalogService(self.repo_root, self.search, self.agent.orchestrator, self.agent.procurement)
++        self.agent.set_planner(None)
++        self.planner = PassivePlanner(self)
++
++    @property
++    def orchestrator(self):
++        return self.agent.orchestrator
++
++    @property
++    def yzu(self) -> YzuClusterAPI:
++        if self._yzu_api is None:
++            self._yzu_api = YzuClusterAPI(self.repo_root, agent=self.agent, orchestrator=self.orchestrator)
++        return self._yzu_api
++
++    @property
++    def procurement(self):
++        return self.agent.procurement
++
++    def reload_registry(self) -> None:
++        self.search.reload_registry()
++
++    def ensure_registry_fresh(self) -> None:
++        self.search.ensure_registry_fresh()
++
++
++    # --- search ---
++    def list_datasets(self, **kwargs: Any) -> dict[str, Any]:
++        return self.search.list_datasets(**kwargs)
++
++    def describe_dataset(self, dataset_id: str) -> dict[str, Any]:
++        return self.search.describe_dataset(dataset_id)
++
++    def query_dataset(self, dataset_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
++        return self.search.query_dataset(dataset_id, params)
++
++    def plan_sources(self, q: str, limit: int = 25) -> dict[str, Any]:
++        return self.search.plan_sources(q, limit)
++
++    def search_catalog(self, **kwargs: Any) -> dict[str, Any]:
++        return self.search.search_catalog(**kwargs)
++
++    def library_overview(self) -> dict[str, Any]:
++        return self.search.library_overview()
++
++    def ops_status(self, lane: str = "") -> dict[str, Any]:
++        return self.search.ops_status(lane)
++
++    # --- catalog ---
++    def procurement_catalog(self, q: str = "", limit: int = 50) -> dict[str, Any]:
++        return self.catalog.procurement_catalog(q, limit)
++
++    def advise_datasets(self, goal: str, **kwargs: Any) -> dict[str, Any]:
++        from scripts.research_data_mcp.advisor import DatasetAdvisor
++        from scripts.research_data_mcp.magic_config import load_magic_config
++        from scripts.research_data_mcp.procurement_cache import ProcurementCache, catalog_fingerprint, goal_key
++
++        skip_cache = bool(kwargs.pop("skip_cache", False))
++        cache_cfg = load_magic_config(self.repo_root).get("cache") or {}
++        if not skip_cache:
++            cache = ProcurementCache(self.repo_root)
++            fp = catalog_fingerprint(self.repo_root, self.registry_path)
++            key = goal_key(goal)
++            hit = cache.get(
++                "advisor",
++                key,
++                fingerprint=fp,
++                ttl_hours=float(cache_cfg.get("advisor_ttl_hours", 24)),
++            )
++            if hit:
++                out = dict(hit)
++                out["from_cache"] = True
++                out.setdefault("engine", "cache")
++                return out
++        result = DatasetAdvisor(self).advise(goal, **kwargs)
++        if not skip_cache:
++            cache.set(
++                "advisor",
++                key,
++                result,
++                fingerprint=fp,
++                ttl_hours=float(cache_cfg.get("advisor_ttl_hours", 24)),
++            )
++        return result
++
++    def procurement_chat(
++        self,
++        message: str,
++        *,
++        session_id: str | None = None,
++        user_email: str | None = None,
++        rail_context: dict[str, Any] | None = None,
++    ) -> dict[str, Any]:
++        """Multi-turn conversational procurement — search, discuss, confirm, collect."""
++        return self._procurement_chat_orchestrator().chat(
++            self,
++            message,
++            session_id=session_id,
++            user_email=user_email,
++            rail_context=rail_context,
++        )
++
++    def procurement_chat_stream(
++        self,
++        message: str,
++        *,
++        session_id: str | None = None,
++        user_email: str | None = None,
++        rail_context: dict[str, Any] | None = None,
++    ):
++        """NDJSON event generator for progressive UI updates."""
++        return self._procurement_chat_orchestrator().chat_events(
++            self,
++            message,
++            session_id=session_id,
++            user_email=user_email,
++            rail_context=rail_context,
++        )
++
++    def faculty_profile(self, *, email: str = "", slug: str = "") -> dict[str, Any]:
++        from scripts.research_data_mcp.faculty_profile import (
++            is_valid_yzu_email,
++            normalize_email,
++            profile_summary,
++            resolve_profile,
++        )
++
++        email_n = normalize_email(email)
++        if email_n and not is_valid_yzu_email(email_n):
++            return {"found": False, "email": email_n, "slug": slug, "error": "invalid_yzu_email"}
++        row = resolve_profile(email=email, slug=slug)
++        if not row:
++            return {"found": False, "email": email, "slug": slug}
++        return {"found": True, "profile": profile_summary(row)}
++
++    def desk_vault_brief(self, *, email: str = "") -> dict[str, Any]:
++        from scripts.research_data_mcp.desk_vault_brief import build_vault_brief
++        from scripts.research_data_mcp.faculty_profile import profile_summary, resolve_profile
++
++        profile: dict[str, Any] | None = None
++        row = resolve_profile(email=email) if email else None
++        if row:
++            profile = profile_summary(row)
++        brief = build_vault_brief(self.repo_root, profile)
++        return {"brief": brief, "words": len(brief.split()), "faculty": bool(profile)}
++
++    def desk_warm_session(
++        self,
++        *,
++        user_email: str = "",
++        session_id: str = "",
++        background: bool = True,
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.desk_warm import warm_desk_session
++
++        email = str(user_email or "").strip() or None
++        sid = str(session_id or "").strip() or None
++        return warm_desk_session(self, user_email=email, session_id=sid, background=background)
++
++    def procurement_chat_session(self, session_id: str) -> dict[str, Any]:
++        """Restore a procurement chat session (transcript + candidates)."""
++        return self._procurement_chat_orchestrator().get_session(session_id)
++
++    def _procurement_chat_orchestrator(self) -> Any:
++        if not hasattr(self, "_chat_orchestrator"):
++            from scripts.research_data_mcp.procurement_chat import ProcurementChatOrchestrator
++
++            self._chat_orchestrator = ProcurementChatOrchestrator(self.repo_root)
++        return self._chat_orchestrator
++
++    def resume_campaign(self, campaign_id: str, *, force_execute: bool = False) -> dict[str, Any]:
++        runner = getattr(self.jobs, "campaign_runner", None)
++        if runner is not None:
++            return runner.resume(campaign_id, force_execute=force_execute)
++        from scripts.research_data_mcp.magic_procure import MagicProcurement
++
++        memory = getattr(self.orchestrator, "procurement_memory", None)
++        campaigns = getattr(self.orchestrator, "procurement_campaigns", None)
++        return MagicProcurement(self, memory=memory, campaigns=campaigns).resume(campaign_id, force_execute=force_execute)
++
++    def tick_campaigns(self, limit: int = 3) -> dict[str, Any]:
++        runner = getattr(self.jobs, "campaign_runner", None)
++        if runner is None:
++            return {"advanced": []}
++        return {"advanced": runner.tick(limit=limit)}
++
++    def approve_campaign_collect(self, campaign_id: str, recommendation_index: int = 0) -> dict[str, Any]:
++        from scripts.research_data_mcp.magic_procure import MagicProcurement
++
++        memory = getattr(self.orchestrator, "procurement_memory", None)
++        campaigns = getattr(self.orchestrator, "procurement_campaigns", None)
++        return MagicProcurement(self, memory=memory, campaigns=campaigns).approve_collect(campaign_id, recommendation_index)
++
++    def list_campaigns(self, limit: int = 30, status: str = "") -> dict[str, Any]:
++        campaigns = getattr(self.orchestrator, "procurement_campaigns", None)
++        if campaigns is None:
++            return {"campaigns": []}
++        return {"campaigns": campaigns.list(limit=limit, status=status)}
++
++    def browse_drive(
++        self,
++        *,
++        folder_id: str = "",
++        scope: str = "lab",
++        showcase_ids: list[str] | None = None,
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.drive_browse import build_browse_tree, list_folder_children
++
++        datasets = self.engine.list_datasets()
++        campaigns = self.list_campaigns(limit=50).get("campaigns") or []
++        pins = self.list_dataset_pins(limit=100).get("pins") or []
++        tree = build_browse_tree(
++            datasets,
++            scope=scope,
++            campaigns=campaigns,
++            pins=pins,
++            showcase_ids=showcase_ids or [],
++        )
++        children = list_folder_children(tree, folder_id)
++        return {
++            "scope": scope,
++            "folder_id": folder_id,
++            "children": children,
++            "tree": tree,
++            "dataset_count": tree.get("dataset_count", 0),
++            "folder_count": tree.get("folder_count", 0),
++        }
++
++    def get_campaign(self, campaign_id: str) -> dict[str, Any]:
++        campaigns = getattr(self.orchestrator, "procurement_campaigns", None)
++        if campaigns is None:
++            raise KeyError(campaign_id)
++        return campaigns.get(campaign_id)
++
++    def list_campaign_artifacts(self, campaign_id: str) -> dict[str, Any]:
++        from scripts.research_data_mcp.campaign_artifacts import list_campaign_artifacts
++
++        campaign = self.get_campaign(campaign_id)
++        return list_campaign_artifacts(
++            self.repo_root,
++            campaign,
++            job_get=self.jobs.get,
++            registry_path=self.repo_root / "config/research_query_registry.json",
++        )
++
++    def resolve_campaign_download(self, campaign_id: str, rel_path: str) -> dict[str, Any]:
++        from scripts.research_data_mcp.campaign_artifacts import resolve_campaign_download
++
++        self.get_campaign(campaign_id)
++        return resolve_campaign_download(self.repo_root, campaign_id, rel_path)
++
++    def datacite_resolve_repository(self, doi: str, *, max_file_bytes: int = 50_000_000) -> dict[str, Any]:
++        from scripts.research_data_mcp.doi_resolve_cache import resolve_doi_cached
++
++        return resolve_doi_cached(self.repo_root, doi, max_file_bytes=max_file_bytes)
++
++    def datacite_search_and_resolve(
++        self,
++        query: str,
++        *,
++        created: str = "",
++        max_file_bytes: int = 50_000_000,
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.datacite_repository import search_and_resolve
++
++        return search_and_resolve(query, created=created, max_file_bytes=max_file_bytes)
++
++    def collect_datacite_doi(
++        self,
++        doi: str,
++        *,
++        file_index: int = 0,
++        campaign_id: str | None = None,
++        auto_execute: bool = True,
++        max_file_bytes: int = 50_000_000,
++        license_approved: bool = False,
++    ) -> dict[str, Any]:
++        """Agent/MCP path: resolve DOI → collect → return campaign + artifacts."""
++        from scripts.research_data_mcp.credential_gate import classify_collect_gate
++        from scripts.research_data_mcp.credential_vault import has_license_approval
++        from scripts.research_data_mcp.governance import classify_url
++
++        resolved = self.datacite_resolve_repository(doi, max_file_bytes=max_file_bytes)
++        gate = classify_collect_gate(
++            url=str(resolved.get("landing_url") or ""),
++            license_text=str(resolved.get("license") or (resolved.get("metadata") or {}).get("license") or ""),
++            governance_class=classify_url(str(resolved.get("landing_url") or ""), name=str(resolved.get("title") or "")),
++            repository=str(resolved.get("repository") or ""),
++            doi=doi,
++            repo_root=self.repo_root,
++        )
++        if gate.get("needs_approval") and not license_approved and not has_license_approval(self.repo_root, doi=doi):
++            return {
++                "blocked": True,
++                "gate": gate,
++                "resolved": resolved,
++                "message": gate.get("blocked_reason") or "license approval required",
++            }
++        if not gate.get("allowed") and gate.get("blocked_reason"):
++            return {"blocked": True, "gate": gate, "resolved": resolved, "message": gate["blocked_reason"]}
++
++        from scripts.research_data_mcp.procured_dataset import try_reuse_pinned_collect
++
++        reused = try_reuse_pinned_collect(
++            self.repo_root,
++            doi=doi,
++            file_index=file_index,
++            resolved=resolved,
++            get_campaign=self.get_campaign,
++        )
++        if reused:
++            return self._enrich_collect_result(reused, doi)
++
++        from scripts.research_data_mcp.datacite_repository import build_http_manifest_plan
++        plan = build_http_manifest_plan(resolved, file_index=file_index)
++        if not plan:
++            return {
++                "blocked": True,
++                "resolved": resolved,
++                "message": "could not build DataCite collect plan",
++            }
++        plan = self.orchestrator.validate_plan(plan)
++        if not plan.get("launchable"):
++            return {
++                "blocked": True,
++                "resolved": resolved,
++                "message": plan.get("validation_error") or "collect plan not launchable",
++                "plan": plan,
++            }
++
++        from scripts.research_data_mcp.procurement_auto_approve import should_auto_approve_plan
++        from scripts.research_data_mcp.procurement_equipment_bridge import submit_collect_plan
++
++        request = {
++            "doi": doi,
++            "campaign_id": campaign_id or "",
++            "add_to_collection": True,
++            "mcp": True,
++        }
++        approve = bool(
++            auto_execute
++            and should_auto_approve_plan(plan, self.repo_root, orchestrator=self.orchestrator)
++        )
++        submitted = submit_collect_plan(self, plan, context=request, auto_approve=approve)
++        out = {
++            "plan": plan,
++            "job": submitted.get("job"),
++            "campaign_id": campaign_id,
++            "resolved": resolved,
++        }
++        return self._enrich_collect_result(out, doi)
++
++    def add_datacite_to_collection(
++        self,
++        doi: str,
++        *,
++        campaign_id: str | None = None,
++        file_index: int = 0,
++        auto_execute: bool = True,
++    ) -> dict[str, Any]:
++        """UI one-click: search result → add to collection."""
++        return self.collect_datacite_doi(
++            doi,
++            file_index=file_index,
++            campaign_id=campaign_id,
++            auto_execute=auto_execute,
++        )
++
++    def unified_dataset_search(
++        self,
++        query: str,
++        *,
++        limit: int = 12,
++        include_hf: bool = True,
++        include_datacite: bool = True,
++        resolve_datacite: bool = False,
++        max_file_bytes: int = 50_000_000,
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.desk_scale import get_search_cache, set_search_cache
++
++        cache_key = {
++            "limit": limit,
++            "hf": int(include_hf),
++            "dc": int(include_datacite),
++            "resolve": int(resolve_datacite),
++        }
++        cached = get_search_cache("unified", query, **cache_key)
++        if cached is not None:
++            return cached
++        from scripts.research_data_mcp.unified_search import unified_search
++
++        out = unified_search(
++            self,
++            query,
++            limit=limit,
++            include_hf=include_hf,
++            include_datacite=include_datacite,
++            resolve_datacite=resolve_datacite,
++            max_file_bytes=max_file_bytes,
++        )
++        set_search_cache("unified", query, out, **cache_key)
++        return out
++
++    @staticmethod
++    def _search_row_key(row: dict[str, Any]) -> str:
++        return str(
++            row.get("dataset_id") or row.get("doi") or row.get("id") or row.get("title") or row.get("url") or ""
++        ).strip().lower()
++
++    def unified_search_with_profile(
++        self,
++        query: str,
++        *,
++        email: str = "",
++        limit: int = 12,
++        include_hf: bool = True,
++        include_datacite: bool = True,
++        resolve_datacite: bool = False,
++        max_file_bytes: int = 50_000_000,
++        skip_discover: bool = False,
++        parallel_profile: bool = False,
++    ) -> dict[str, Any]:
++        """Full unified search; when email is set, prepend discover rows and attach faculty hints."""
++        email = str(email or "").strip()
++        profile_layer: dict[str, Any] = {}
++
++        if email and parallel_profile and not skip_discover:
++            from concurrent.futures import ThreadPoolExecutor
++
++            with ThreadPoolExecutor(max_workers=2) as pool:
++                f_out = pool.submit(
++                    self.unified_dataset_search,
++                    query,
++                    limit=limit,
++                    include_hf=include_hf,
++                    include_datacite=include_datacite,
++                    resolve_datacite=resolve_datacite,
++                    max_file_bytes=max_file_bytes,
++                )
++                f_disc = pool.submit(self.discover_search, query, email=email, limit=limit)
++                out = f_out.result()
++                profile_layer = f_disc.result()
++        else:
++            out = self.unified_dataset_search(
++                query,
++                limit=limit,
++                include_hf=include_hf,
++                include_datacite=include_datacite,
++                resolve_datacite=resolve_datacite,
++                max_file_bytes=max_file_bytes,
++            )
++            if not email:
++                out["routed_via"] = "unified_dataset_search"
++                return out
++            if not skip_discover:
++                profile_layer = self.discover_search(query, email=email, limit=limit)
++            else:
++                out["discover_skipped"] = True
++
++        if not email:
++            out["routed_via"] = "unified_dataset_search"
++            return out
++
++        if skip_discover:
++            out["discover_skipped"] = True
++
++        if not skip_discover:
++            out["profile_queries"] = profile_layer.get("profile_queries") or []
++            out["bigquery_hints"] = profile_layer.get("bigquery_hints") or []
++            if profile_layer.get("index_miss") is not None:
++                out["discover_index_miss"] = bool(profile_layer.get("index_miss"))
++            if profile_layer.get("weak_match") is not None:
++                out["discover_weak_match"] = bool(profile_layer.get("weak_match"))
++
++        seen = {self._search_row_key(row) for section in out.get("sections") or [] for row in section.get("rows") or []}
++        discover_rows: list[dict[str, Any]] = []
++        for section in profile_layer.get("sections") or []:
++            for row in section.get("rows") or []:
++                key = self._search_row_key(row)
++                if not key or key in seen:
++                    continue
++                seen.add(key)
++                discover_rows.append(row)
++
++        if discover_rows:
++            sections = list(out.get("sections") or [])
++            sections.insert(
++                0,
++                {
++                    "id": "discover",
++                    "label": "Recommended",
++                    "count": len(discover_rows),
++                    "rows": discover_rows,
++                },
++            )
++            out["sections"] = sections
++            out["rows"] = discover_rows + list(out.get("rows") or [])
++            out["total"] = len(out["rows"])
++
++        if skip_discover:
++            out["routed_via"] = "unified_dataset_search"
++        elif discover_rows:
++            out["routed_via"] = "unified_dataset_search+discover_profile"
++        else:
++            out["routed_via"] = "unified_dataset_search+discover_profile"
++        return out
++
++    def discover_search(
++        self,
++        query: str,
++        *,
++        email: str = "",
++        limit: int = 12,
++    ) -> dict[str, Any]:
++        """Profile-aware discover: catalog rows + faculty context hints for Composer (not search boosts)."""
++        from scripts.research_data_mcp.faculty_profile import (
++            bigquery_route_hints,
++            expand_datacite_queries,
++            normalize_email,
++            resolve_profile,
++        )
++        from scripts.research_data_mcp.procurement_search import smart_search
++
++        profile = resolve_profile(email=normalize_email(email)) if email else None
++        result = smart_search(self, query, limit=limit)
++        candidates = list(result.get("candidates") or [])
++        sections: list[dict[str, Any]] = []
++        if candidates:
++            from scripts.research_data_mcp.candidate_key import stamp_rows
++
++            rows = stamp_rows(
++                [
++                    {
++                        "kind": c.get("kind"),
++                        "dataset_id": c.get("dataset_id"),
++                        "doi": c.get("doi"),
++                        "title": c.get("title"),
++                        "url": c.get("url"),
++                        "source": c.get("source") or c.get("collect_via"),
++                        "score": c.get("score"),
++                        "local_path": c.get("local_path"),
++                        "local_ready": c.get("local_ready"),
++                        "collect_via": c.get("collect_via"),
++                        "procureability": c.get("procureability"),
++                        "procureability_label": c.get("procureability_label"),
++                        "external_id": c.get("external_id"),
++                        "handle": c.get("handle"),
++                        "hf_id": c.get("hf_id"),
++                        "provider": c.get("provider"),
++                    }
++                    for c in candidates
++                ]
++            )
++            sections.append(
++                {
++                    "id": "discover",
++                    "label": "Recommended",
++                    "rows": rows,
++                }
++            )
++        return {
++            "query": query,
++            "sections": sections,
++            "total": len(candidates),
++            "index_miss": bool(result.get("index_miss")),
++            "weak_match": bool(result.get("weak_match")),
++            "sources": result.get("sources") or [],
++            "judgment": result.get("judgment"),
++            "profile_queries": expand_datacite_queries(query, profile) if profile else [],
++            "bigquery_hints": bigquery_route_hints(profile, query) if profile else [],
++        }
++
++    def semantic_discover(self, query: str, *, limit: int = 12) -> dict[str, Any]:
++        """Embedding-ranked registry evidence for natural-language research questions."""
++        from scripts.research_data_mcp.semantic_index import get_semantic_index
++
++        q = str(query or "").strip()
++        if not q:
++            return {"query": q, "mode": "semantic", "sections": [], "rows": [], "total": 0}
++        index = get_semantic_index(self)
++        from scripts.research_data_mcp.candidate_key import stamp_rows
++
++        hits = index.semantic_search(q, limit=max(1, min(limit, 24)), kinds={"registry_dataset"})
++        rows: list[dict[str, Any]] = []
++        for hit in hits:
++            meta = dict(hit.get("metadata") or {})
++            dataset_id = str(hit.get("id") or meta.get("dataset_id") or "")
++            if not dataset_id:
++                continue
++            rows.append(
++                {
++                    "kind": "local_registry",
++                    "id": dataset_id,
++                    "dataset_id": dataset_id,
++                    "title": meta.get("title") or dataset_id,
++                    "description": meta.get("description") or "",
++                    "grain": meta.get("grain") or "",
++                    "source": meta.get("source") or "registry",
++                    "analysis_readiness": meta.get("readiness") or "",
++                    "local_ready": True,
++                    "semantic_score": hit.get("score"),
++                    "match_type": "semantic",
++                }
++            )
++        rows = stamp_rows(rows)
++        return {
++            "query": q,
++            "mode": "semantic",
++            "model": index._embedding_model or "sentence-transformers/all-MiniLM-L6-v2",
++            "sections": [{"id": "semantic_lab", "label": "Semantic lab matches", "rows": rows}] if rows else [],
++            "rows": rows,
++            "total": len(rows),
++            "index_miss": not rows,
++        }
++
++    def enrich_datacite_search(
++        self,
++        rows: list[dict[str, Any]],
++        *,
++        max_file_bytes: int = 50_000_000,
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.unified_search import enrich_datacite_rows
++
++        enriched = enrich_datacite_rows(self.repo_root, rows, max_file_bytes=max_file_bytes)
++        return {"rows": enriched, "count": len(enriched)}
++
++    def approve_dataset_license(
++        self,
++        *,
++        doi: str = "",
++        url: str = "",
++        license_text: str = "",
++        note: str = "",
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.credential_vault import approve_license
++
++        return approve_license(self.repo_root, doi=doi, url=url, license_text=license_text, note=note)
++
++    def list_credential_profiles(self) -> dict[str, Any]:
++        from scripts.research_data_mcp.credential_vault import list_profiles
++
++        return {"profiles": list_profiles(self.repo_root)}
++
++    def get_dataset_card(self, ref: str) -> dict[str, Any]:
++        from scripts.research_data_mcp.procured_dataset import (
++            build_card_from_campaign,
++            build_card_from_registry,
++            parse_handle,
++        )
++
++        parsed = parse_handle(ref)
++        if ref.startswith("hf:") or parsed.get("kind") == "hf":
++            from scripts.research_data_mcp.hf_loader import build_hf_card
++
++            did = parsed.get("dataset_id") or ref.removeprefix("hf:")
++            return build_hf_card(did)
++        if parsed.get("kind") == "campaign" or (parsed.get("kind") == "raw" and len(ref) == 12):
++            cid = parsed.get("campaign_id") or ref
++            campaign = self.get_campaign(cid)
++            return build_card_from_campaign(
++                self.repo_root,
++                campaign,
++                job_get=self.get_yzu_job,
++                registry_path=self.registry_path,
++            )
++        if parsed.get("kind") == "dataset":
++            return build_card_from_registry(self.repo_root, self.describe_dataset(parsed["dataset_id"]))
++        if parsed.get("kind") == "doi":
++            resolved = self.datacite_resolve_repository(parsed["doi"])
++            from scripts.research_data_mcp.procureability import datacite_procureability
++
++            proc = datacite_procureability(resolved)
++            return {
++                "id": f"procured://doi:{parsed['doi']}",
++                "handle": f"doi:{parsed['doi']}",
++                "title": resolved.get("title"),
++                "doi": parsed["doi"],
++                "source": "datacite",
++                "repository": resolved.get("repository"),
++                "files": resolved.get("files") or [],
++                "procureability": proc,
++                "status": proc.get("status"),
++            }
++        raise KeyError(ref)
++
++    def open_dataset(self, handle: str, *, load: str = "auto", preview_limit: int = 5) -> dict[str, Any]:
++        from scripts.research_data_mcp.procured_dataset import open_dataset as _open
++
++        return _open(self.repo_root, handle, gateway=self, preview_limit=preview_limit, load=load)
++
++    def pin_dataset(self, handle: str, *, campaign_id: str = "", file_path: str = "", checksum: str = "") -> dict[str, Any]:
++        from scripts.research_data_mcp.procured_dataset import get_pin, make_handle, parse_handle, pin_dataset
++
++        parsed = parse_handle(handle)
++        if not handle:
++            raise ValueError("handle is required")
++        if parsed.get("kind") == "doi" and campaign_id:
++            h = make_handle(doi=parsed["doi"], file_name=parsed.get("file", ""))
++            return pin_dataset(
++                self.repo_root,
++                handle=h,
++                campaign_id=campaign_id,
++                file_path=file_path,
++                checksum=checksum,
++            )
++        return get_pin(self.repo_root, handle) or pin_dataset(self.repo_root, handle=handle, campaign_id=campaign_id)
++
++    def list_dataset_pins(self, *, limit: int = 50) -> dict[str, Any]:
++        from scripts.research_data_mcp.procured_dataset import list_pins
++
++        return {"pins": list_pins(self.repo_root, limit=limit)}
++
++    def approve_safe_pending_jobs(self, *, limit: int = 200) -> dict[str, Any]:
++        """Approve pending jobs that match desk auto-approve policy."""
++        from scripts.research_data_mcp.procurement_auto_approve import should_auto_approve_plan
++
++        approved: list[str] = []
++        skipped = 0
++        for job in self.jobs.list(limit, status="pending_approval").get("jobs") or []:
++            jid = str(job.get("id") or "")
++            plan = job.get("plan") or {}
++            if not jid or not should_auto_approve_plan(plan, self.repo_root, orchestrator=self.orchestrator):
++                skipped += 1
++                continue
++            self.jobs.approve(jid)
++            approved.append(jid)
++        ticked = 0
++        for _ in approved[:3]:
++            if self.jobs.tick():
++                ticked += 1
++        return {"approved": approved, "approved_count": len(approved), "skipped_count": skipped, "tick_started": ticked}
++
++    def desk_resources(self, *, live: bool = False) -> dict[str, Any]:
++        import time
++
++        from scripts.research_data_mcp.desk_resources import build_desk_resources
++
++        cache = getattr(self, "_desk_resources_cache", None)
++        if cache is None:
++            cache = {}
++            setattr(self, "_desk_resources_cache", cache)
++        now = time.time()
++        hit = cache.get("payload")
++        if hit and now - float(cache.get("ts") or 0) < 30:
++            return hit
++        payload = build_desk_resources(self, live=live)
++        cache["payload"] = payload
++        cache["ts"] = now
++        return payload
++
++    def platform_state(self) -> dict[str, Any]:
++        """Neutral databank progress snapshot (drive/docs/status/generated/platform_progress.json)."""
++        path = Path(self.repo_root) / "drive/docs/status/generated/platform_progress.json"
++        if not path.is_file():
++            path = Path(self.repo_root) / "docs/status/generated/platform_progress.json"
++        if not path.is_file():
++            return {"found": False, "note": "Run drive/scripts/sync_drive_platform_state.py"}
++        try:
++            data = json.loads(path.read_text(encoding="utf-8"))
++        except json.JSONDecodeError as exc:
++            return {"found": False, "error": str(exc)}
++        return {"found": True, **data}
++
++    def source_map_audit(self, *, live: bool = False) -> dict[str, Any]:
++        """Canonical registry ↔ source-system map."""
++        if not live:
++            for rel in (
++                "drive/docs/status/generated/databank_source_map.json",
++                "docs/status/generated/databank_source_map.json",
++            ):
++                path = Path(self.repo_root) / rel
++                if path.is_file():
++                    try:
++                        cached = json.loads(path.read_text(encoding="utf-8"))
++                        cached["found"] = True
++                        cached["cache_path"] = rel
++                        return cached
++                    except json.JSONDecodeError:
++                        pass
++        from scripts.research_data_mcp.source_map import build_source_map_audit
++
++        audit = build_source_map_audit(Path(self.repo_root))
++        audit["found"] = True
++        audit["live"] = True
++        return audit
++
++    def access_scope_audit(self, *, live: bool = False) -> dict[str, Any]:
++        """Desk entitlements — what we CAN access vs materialized coverage."""
++        if not live:
++            for rel in (
++                "drive/docs/status/generated/databank_access_scope.json",
++                "docs/status/generated/databank_access_scope.json",
++            ):
++                path = Path(self.repo_root) / rel
++                if path.is_file():
++                    try:
++                        cached = json.loads(path.read_text(encoding="utf-8"))
++                        cached["found"] = True
++                        cached["cache_path"] = rel
++                        return cached
++                    except json.JSONDecodeError:
++                        pass
++        from scripts.research_data_mcp.access_scope import build_access_coverage_audit
++
++        audit = build_access_coverage_audit(Path(self.repo_root))
++        audit["found"] = True
++        audit["live"] = True
++        return audit
++
++    def dataset_coverage_audit(self, *, live: bool = False) -> dict[str, Any]:
++        """Dataset-level coverage, collection bulk profiles, proxy/synthetic paths."""
++        if not live:
++            for rel in (
++                "drive/docs/status/generated/databank_dataset_coverage.json",
++                "docs/status/generated/databank_dataset_coverage.json",
++            ):
++                path = Path(self.repo_root) / rel
++                if path.is_file():
++                    try:
++                        cached = json.loads(path.read_text(encoding="utf-8"))
++                        cached["found"] = True
++                        cached["cache_path"] = rel
++                        return cached
++                    except json.JSONDecodeError:
++                        pass
++        from scripts.research_data_mcp.dataset_coverage import build_dataset_coverage_audit
++
++        audit = build_dataset_coverage_audit(Path(self.repo_root))
++        audit["found"] = True
++        audit["live"] = True
++        return audit
++
++    def consolidated_state(self, *, live: bool = False) -> dict[str, Any]:
++        """Single Bloomberg-style desk snapshot: catalogue + entitlements + sourcing + storage."""
++        if not live:
++            for rel in (
++                "drive/docs/status/generated/consolidated_state.json",
++                "docs/status/generated/consolidated_state.json",
++            ):
++                path = Path(self.repo_root) / rel
++                if path.is_file():
++                    try:
++                        cached = json.loads(path.read_text(encoding="utf-8"))
++                        cached["found"] = True
++                        cached["cache_path"] = rel
++                        return cached
++                    except json.JSONDecodeError:
++                        pass
++        from scripts.research_data_mcp.consolidated_state import build_consolidated_state
++
++        audit = build_consolidated_state(self, live=live)
++        audit["found"] = True
++        audit["live"] = live
++        return audit
++
++    def desk_health(self, *, live: bool = False) -> dict[str, Any]:
++        import os
++        import shutil
++
++        from scripts.research_data_mcp.desk_auth import access_token_required
++        from scripts.research_data_mcp.desk_brain import cursor_composer_available, desk_brain_mode
++        from scripts.research_data_mcp.llm_client import llm_configured as legacy_llm_configured
++        from scripts.research_data_mcp.procurement_constants import (
++            MCP_TOOL_ACQUIRE,
++            MCP_TOOL_CORE,
++            MCP_TOOL_OPS,
++        )
++        from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES
++
++        brain = desk_brain_mode(self.repo_root)
++        composer_ok = cursor_composer_available()
++        stats = self.orchestrator.stats()
++        out: dict[str, Any] = {
++            "status": "ok",
++            "service": "research_library_api",
++            "desk": {
++                "brain": brain,
++                "composer_configured": composer_ok,
++                "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
++                "llm_configured": composer_ok,
++                "legacy_llm_configured": legacy_llm_configured(),
++                "jobs": stats,
++                "mcp_tools": {
++                    "total": len(MCP_TOOL_NAMES),
++                    "core": len(MCP_TOOL_CORE),
++                    "acquire": len(MCP_TOOL_ACQUIRE),
++                    "ops": len(MCP_TOOL_OPS),
++                },
++                "serve_ui": bool(getattr(self, "_serve_ui", False)),
++                "desk_token_required": bool(access_token_required()),
++            },
++        }
++        storage = getattr(self.orchestrator, "cfg", {}).get("storage") or {}
++        from scripts.research_data_mcp.storage_tiers import storage_tiers_status
++
++        tiers = storage_tiers_status(self.repo_root)
++        out["desk"]["storage_tiers"] = tiers
++        out["desk"]["archive"] = {
++            "quota_tb": tiers["canonical"]["quota_tb"],
++            "pool_tb": tiers["canonical"]["pool_tb"],
++            "label": tiers["canonical"]["label"],
++            "drive_root": tiers["canonical"]["drive_root"],
++            "role": tiers["canonical"]["role"],
++        }
++        out["desk"]["bulk_storage"] = tiers["cache"]
++        if live:
++            from scripts.research_data_mcp.gdrive_verify import gdrive_verify_status
++
++            out["desk"]["gdrive"] = gdrive_verify_status(self.repo_root)
++        else:
++            out["desk"]["gdrive"] = {
++                "rclone_installed": bool(shutil.which("rclone")),
++                "drive_root": tiers["canonical"]["drive_root"],
++                "ready": None,
++                "probe_skipped": "non_live_fast_path",
++            }
++        if live:
++            try:
++                st = self.cluster_status(live=False)
++                out["desk"]["worker_pools"] = st.get("worker_pools") or {}
++                # Local staging disk is ops-only — faculty UI shows GDrive archive quota instead.
++                ops_disk = (st.get("disk") or {}).get("free_gb")
++                if ops_disk is not None:
++                    out["desk"]["staging_disk_free_gb"] = ops_disk
++            except Exception as exc:
++                out["desk"]["status_error"] = str(exc)
++
++        try:
++            from scripts.yzu_cluster.partition_lanes import partition_lanes
++
++            rows = self.engine.list_datasets()
++            lanes = partition_lanes(self.repo_root)
++            instant_n = sum(1 for d in rows if str(d.get("analysis_readiness")) == "instant")
++            metadata_n = sum(1 for d in rows if str(d.get("analysis_readiness")) == "metadata_search")
++            plat = self.platform_state()
++            out["datasets"] = len(rows)
++            out["cluster"] = {
++                "registry_datasets": len(rows),
++                "instant_datasets": instant_n,
++                "metadata_datasets": metadata_n,
++                "professor_partitions": len(lanes),
++                "lanes_complete": sum(1 for lane in lanes if lane.get("stage") == "complete"),
++                "lanes_running": sum(1 for lane in lanes if lane.get("stage") == "running"),
++                "refinitiv_frozen": True,
++                "platform_state": plat.get("inventory") if plat.get("found") else None,
++                "source_map": plat.get("source_map_summary") if plat.get("found") else None,
++                "sources": plat.get("sources") if plat.get("found") else None,
++                "access_scope": plat.get("access_scope_summary") if plat.get("found") else None,
++                "entitlement_matrix": plat.get("entitlement_matrix") if plat.get("found") else None,
++                "priority_access_gaps": plat.get("priority_access_gaps") if plat.get("found") else None,
++                "dataset_coverage": plat.get("dataset_coverage_summary") if plat.get("found") else None,
++                "proxy_coverage": plat.get("proxy_coverage") if plat.get("found") else None,
++                "incomplete_items": plat.get("incomplete_items") if plat.get("found") else None,
++                "documentation": plat.get("documentation") if plat.get("found") else {
++                    "databank_state": "drive/docs/DATABANK_STATE.md",
++                    "desk_activation": "drive/docs/DESK_ACTIVATION.md",
++                },
++                "lanes": [
++                    {
++                        "id": lane.get("id"),
++                        "name": lane.get("name"),
++                        "subtitle": lane.get("subtitle"),
++                        "stage": lane.get("stage"),
++                        "domain": (lane.get("detail") or {}).get("domain"),
++                        "registry_datasets": len((lane.get("detail") or {}).get("registry_dataset_ids") or []),
++                        "local_present": (lane.get("detail") or {}).get("local_present"),
++                    }
++                    for lane in lanes
++                ],
++            }
++        except Exception as exc:
++            out["cluster_error"] = str(exc)
++        try:
++            from scripts.research_data_mcp.desk_scale import scale_status
++            from scripts.research_data_mcp.desk_runtime import runtime_status
++
++            out["desk"]["scale"] = scale_status()
++            out["desk"]["runtime"] = runtime_status(self.repo_root)
++        except Exception as exc:
++            out["desk"]["scale_error"] = str(exc)[:120]
++
++        # Ops truth: lifetime failed/cancelled are not live failures; NVMe headroom is.
++        hot = (out.get("desk") or {}).get("storage_tiers", {}).get("hot") or {}
++        jobs = (out.get("desk") or {}).get("jobs") or {}
++        warnings: list[str] = []
++        if hot.get("headroom_ok") is False:
++            warnings.append(
++                f"nvme_headroom: {hot.get('free_gb')} GB free < min {hot.get('required_min_gb')} GB"
++            )
++            out["status"] = "degraded"
++        if int(jobs.get("pending_approval") or 0) > 0:
++            warnings.append(f"pending_approval={jobs.get('pending_approval')}")
++        failed_recent = int(jobs.get("failed_recent") or 0)
++        if failed_recent > 0:
++            warnings.append(f"failed_recent_{jobs.get('recent_days', 7)}d={failed_recent}")
++        if warnings:
++            out["desk"]["ops_warnings"] = warnings
++        return out
++
++    def huggingface_search(self, query: str, *, limit: int = 8) -> dict[str, Any]:
++        from scripts.research_data_mcp import hf_catalog
++
++        return hf_catalog.search_datasets(query, limit=limit)
++
++    def collect_huggingface_dataset(
++        self,
++        dataset_id: str,
++        *,
++        split: str = "train",
++        auto_execute: bool = True,
++        max_shards: int = 2,
++    ) -> dict[str, Any]:
++        """Collect HF dataset to procured cache, promote registry, archive to GDrive."""
++        hf_id = str(dataset_id or "").strip().removeprefix("hf:")
++        if not hf_id:
++            raise ValueError("dataset_id is required (org/name or hf:org/name)")
++
++        from scripts.hf_collect_dataset import registry_dataset_id
++
++        reg_id = registry_dataset_id(hf_id)
++        existing = self.engine.datasets.get(reg_id)
++        if existing and str(existing.get("analysis_readiness")) == "instant":
++            from scripts.research_data_mcp.procurement_fast import local_path_has_data
++
++            local = str(existing.get("local_path") or existing.get("local_file") or "")
++            if local and local_path_has_data(self.repo_root, local):
++                return {
++                    "reused": True,
++                    "dataset_id": reg_id,
++                    "handle": f"hf:{hf_id}",
++                    "message": "already in registry with local bytes",
++                }
++
++        plan = {
++            "job_type": "huggingface_collect",
++            "hf_dataset_id": hf_id,
++            "split": split,
++            "max_shards": max_shards,
++            "partition_id": "acquired.procured",
++            "launchable": True,
++            "timeout_seconds": 3600,
++        }
++        submitted = self.jobs.submit(
++            f"Collect HF {hf_id}",
++            plan,
++            {"hf_dataset_id": hf_id, "search_goal": f"huggingface {hf_id}"},
++            auto_approve=True,
++        )
++        job = submitted.get("job") or {}
++        out: dict[str, Any] = {"plan": plan, "job": job, "hf_dataset_id": hf_id}
++        if auto_execute and job.get("id"):
++            finished = self.orchestrator.execute_job(job["id"])
++            out["job"] = finished
++            promo = (finished.get("result") or {}).get("registry_promotion") or []
++            out["registry_promotion"] = promo
++            if promo:
++                self.reload_registry()
++        return out
++
++    def _enrich_collect_result(self, out: dict[str, Any], doi: str) -> dict[str, Any]:
++        """Attach dataset card, pin, and registry promotion after successful DataCite collect."""
++        from scripts.research_data_mcp.procured_dataset import build_card_from_campaign, make_handle, pin_dataset
++
++        cid = out.get("campaign_id")
++        plan = out.get("plan") or {}
++        job = out.get("job") or {}
++        if cid and job.get("status") == "completed":
++            try:
++                campaign = self.get_campaign(cid)
++                card = build_card_from_campaign(
++                    self.repo_root,
++                    campaign,
++                    job_get=self.get_yzu_job,
++                    registry_path=self.registry_path,
++                )
++                out["dataset_card"] = card
++                file_name = str(plan.get("datacite_file") or "")
++                primary = card.get("primary_file") or {}
++                pin_dataset(
++                    self.repo_root,
++                    handle=make_handle(doi=doi, file_name=file_name),
++                    campaign_id=cid,
++                    file_path=str(primary.get("path") or ""),
++                    checksum=str(primary.get("checksum") or plan.get("datacite_checksum") or ""),
++                    metadata={"title": card.get("title")},
++                )
++            except Exception as exc:
++                out["dataset_card_error"] = str(exc)
++
++            promoter = getattr(self.orchestrator, "registry_promoter", None)
++            if promoter is not None:
++                job_id = str(job.get("id") or "")
++                full_job = job
++                if job_id and not job.get("result"):
++                    try:
++                        full_job = self.get_yzu_job(job_id)
++                    except Exception:
++                        full_job = job
++                try:
++                    promoted = promoter.promote_datacite_collect(
++                        {
++                            "id": full_job.get("id") or job_id,
++                            "status": "completed",
++                            "plan": full_job.get("plan") or plan,
++                            "result": full_job.get("result") or out.get("result") or {},
++                        },
++                        doi=doi,
++                        campaign_id=str(cid or ""),
++                    )
++                    if promoted:
++                        self.reload_registry()
++                        from scripts.research_data_mcp.semantic_index import invalidate_semantic_index
++
++                        invalidate_semantic_index()
++                        flywheel = getattr(self.orchestrator, "collection_flywheel", None)
++                        if flywheel is not None:
++                            search_goal = ""
++                            campaigns = getattr(self.orchestrator, "procurement_campaigns", None)
++                            if cid and campaigns:
++                                try:
++                                    search_goal = str(campaigns.get(str(cid)).get("goal") or "")
++                                except KeyError:
++                                    pass
++                            fw = flywheel.promote_after_collect(
++                                {
++                                    "id": full_job.get("id") or job_id,
++                                    "status": "completed",
++                                    "plan": full_job.get("plan") or plan,
++                                    "result": full_job.get("result") or out.get("result") or {},
++                                },
++                                promoted,
++                                campaign_id=str(cid or ""),
++                                search_goal=search_goal,
++                            )
++                            if fw.get("curated_added") or fw.get("locators_added"):
++                                out["flywheel"] = fw
++                        out["registry_promotion"] = promoted
++                except Exception as exc:
++                    out["registry_promotion_error"] = str(exc)
++        return out
++
++    # --- cluster status ---
++    def cluster_status(self, *, live: bool = False) -> dict[str, Any]:
++        return self.yzu.status(live=live)
++
++    def list_acquisitions(self, *, live: bool = False) -> dict[str, Any]:
++        return {"acquisitions": self.yzu.acquisitions(live=live)}
++
++    def cluster_components(self) -> dict[str, Any]:
++        return self.orchestrator.components()
++
++    def list_queue_tasks(self, *, runnable_only: bool = True) -> dict[str, Any]:
++        return {"tasks": self.orchestrator.queue_tasks(runnable_only=runnable_only)}
++
++    def list_schedules(self) -> list[dict[str, Any]]:
++        return self.orchestrator.schedules()
++
++    # --- synthesis (multi-source join) ---
++    def synthesis_list_profiles(self) -> dict[str, Any]:
++        from scripts.research_data_mcp.synthesis.engine import list_synthesis_profiles
++
++        return list_synthesis_profiles(Path(self.repo_root))
++
++    def synthesis_get_latest(self, profile_id: str) -> dict[str, Any]:
++        from scripts.research_data_mcp.synthesis.engine import get_latest_synthesis
++
++        hit = get_latest_synthesis(Path(self.repo_root), profile_id)
++        if not hit:
++            return {"found": False, "profile_id": profile_id}
++        return {"found": True, **hit}
++
++    def synthesis_run(
++        self,
++        profile_id: str,
++        *,
++        preview_limit: int = 50,
++        gap_limit: int = 100,
++    ) -> dict[str, Any]:
++        from scripts.research_data_mcp.synthesis.engine import run_synthesis
++
++        return run_synthesis(
++            Path(self.repo_root),
++            profile_id,
++            preview_limit=preview_limit,
++            gap_limit=gap_limit,
++        )
++
++    def synthesis_pair(self, left_dataset_id: str, right_dataset_id: str) -> dict[str, Any]:
++        from scripts.research_data_mcp.synthesis.engine import run_synthesis_pair
++
++        return run_synthesis_pair(
++            Path(self.repo_root),
++            left_dataset_id,
++            right_dataset_id,
++            describe_fn=self.describe_dataset,
++        )
++
++    # --- jobs (canonical) ---
++    def submit_yzu_job(
++        self,
++        plan: dict[str, Any],
++        *,
++        title: str = "Library job",
++        request: dict[str, Any] | None = None,
++        auto_approve: bool = False,
++    ) -> dict[str, Any]:
++        return self.jobs.submit(title, plan, request, auto_approve=auto_approve)
++
++    def submit_job(self, title: str, plan: dict[str, Any], request: dict[str, Any] | None = None, *, auto_approve: bool = False) -> dict[str, Any]:
++        return self.jobs.submit(title, plan, request, auto_approve=auto_approve)
++
++    def approve_yzu_job(self, job_id: str) -> dict[str, Any]:
++        return self.jobs.approve(job_id)
++
++    def cancel_yzu_job(self, job_id: str) -> dict[str, Any]:
++        return self.jobs.cancel(job_id)
++
++    def get_yzu_job(self, job_id: str) -> dict[str, Any]:
++        return self.jobs.get(job_id)
++
++    def list_yzu_jobs(self, limit: int = 30, status: str = "") -> dict[str, Any]:
++        return self.jobs.list(limit, status)
++
++    def run_schedule(self, schedule_id: str) -> dict[str, Any]:
++        return self.jobs.run_schedule(schedule_id)
++
++    def wait_for_job(self, job_id: str, **kwargs: Any) -> dict[str, Any]:
++        import time
++
++        timeout = float(kwargs.get("timeout_seconds", 600.0))
++        poll = float(kwargs.get("poll_seconds", 2.0))
++        tick_worker = bool(kwargs.get("tick_worker", True))
++        deadline = time.time() + timeout
++        terminal = {"completed", "failed", "cancelled"}
++        while time.time() < deadline:
++            job = self.get_yzu_job(job_id)
++            if job.get("status") in terminal:
++                return job
++            if tick_worker:
++                self.jobs.tick()
++            else:
++                time.sleep(poll)
++        raise TimeoutError(f"job {job_id} did not finish within {timeout}s")
++
++    def archive_to_gdrive(self, local_path: str, **kwargs: Any) -> dict[str, Any]:
++        plan = self.jobs.archive_plan(local_path, remote_suffix=kwargs.get("remote_suffix", ""), verify=kwargs.get("verify", True))
++        return self.jobs.submit(kwargs.get("title", "Archive to GDrive"), plan, auto_approve=kwargs.get("auto_approve", True))
++
++    # legacy aliases
++    list_jobs = list_yzu_jobs
++    get_job = get_yzu_job
++    approve_job = approve_yzu_job
++    cancel_job = cancel_yzu_job
++
++    def probe_source(self, url: str, name: str = "") -> dict[str, Any]:
++        return self.procurement.probe(url, name)
++
++    def list_connectors(self, limit: int = 50) -> dict[str, Any]:
++        return {"connectors": self.procurement.store.list(min(max(limit, 1), 200))}
++
++    def approve_connector(self, connector_id: str) -> dict[str, Any]:
++        return self.procurement.store.approve(connector_id)
++
++    def prepare_collection(self, connector_id: str, limit: int = 200) -> dict[str, Any]:
++        return self.procurement.collection_plan(connector_id, limit=limit)
++
++    def submit_collection_job(self, connector_id: str, limit: int = 200) -> dict[str, Any]:
++        return self.agent.collect_connector(connector_id, limit=limit)
++
++    def agent_status(self) -> dict[str, Any]:
++        return self.agent.status()
++
++    @staticmethod
++    def parse_params_json(params_json: str) -> dict[str, Any]:
++        try:
++            params = json.loads(params_json or "{}")
++        except json.JSONDecodeError as exc:
++            raise ValueError(f"params_json must be valid JSON: {exc}") from exc
++        if not isinstance(params, dict):
++            raise ValueError("params_json must decode to a JSON object")
++        return params
++
++
++class PassivePlanner:
++    def __init__(self, gateway: Any) -> None:
++        self.gateway = gateway
++
++    def wants_datacite_collect(self, message: str, context: dict[str, Any] | None = None) -> bool:
++        ctx = context or {}
++        if ctx.get("doi"):
++            return True
++        import re
++        return bool(re.search(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+\b", message, re.I))
++
++    def plan_datacite_collect(self, message: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
++        ctx = context or {}
++        doi = ctx.get("doi")
++        if not doi:
++            import re
++            m = re.search(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+\b", message, re.I)
++            doi = m.group(0) if m else ""
++        if not doi:
++            return {"launchable": False, "error": "No DOI found"}
++        try:
++            resolved = self.gateway.datacite_resolve_repository(doi)
++            if resolved.get("error"):
++                return {"launchable": False, "error": resolved["error"]}
++            return {
++                "launchable": True,
++                "datacite_doi": doi,
++                "url": resolved.get("landing_url") or "",
++                "title": resolved.get("title") or doi,
++                "items": resolved.get("files") or [],
++            }
++        except Exception as exc:
++            return {"launchable": False, "error": str(exc)}
++
++    def wants_procurement(self, message: str) -> bool:
++        return False
++
++    def plan_from_catalog(self, message: str, advice: Any = None, context: dict[str, Any] | None = None) -> dict[str, Any] | None:
++        return None
++
++    def plan_from_advice(self, advice: Any, message: str) -> dict[str, Any] | None:
++        return None
++
++    def _extract_url(self, message: str) -> str | None:
++        import re
++        m = re.search(r"https?://[^\s/$.?#].[^\s]*", message, re.I)
++        return m.group(0) if m else None
++
++    def wants_collect(self, message: str) -> bool:
++        return False
++
++    def plan_immediate_collect(self, message: str, context: dict[str, Any] | None = None) -> dict[str, Any] | None:
++        url = self._extract_url(message)
++        if url:
++            return {
++                "launchable": True,
++                "job_type": "source_probe",
++                "url": url,
++                "title": f"Probe URL: {url}",
++            }
++        return None
+diff --git a/drive/scripts/research_data_mcp/http_router.py b/drive/scripts/research_data_mcp/http_router.py
+new file mode 100644
+index 0000000..1c3066f
+--- /dev/null
++++ b/drive/scripts/research_data_mcp/http_router.py
+@@ -0,0 +1,963 @@
++#!/usr/bin/env python3
++"""HTTP route dispatch — thin faculty HTTP over MCP/gateway stack.
++
++Canonical surfaces:
++  /library/*     faculty desk + jobs + chat
++  /library/extensions/*  same tools as MCP (devtools)
++  /datasets      registry list (gateway.search)
++  /yzu/*         cluster ops + POST job submit only
++
++Composer agents should use MCP stdio tools, not duplicate HTTP paths.
++"""
++
++from __future__ import annotations
++
++from typing import Any, Callable
++
++from scripts.research_data_mcp.bootstrap import ResearchLibraryStack
++
++Handler = Callable[[ResearchLibraryStack, dict[str, str], dict[str, Any], dict[str, str]], dict[str, Any]]
++
++ROUTE_CATALOG: list[dict[str, str]] = [
++    {"method": "GET", "path": "/health", "handler": "health"},
++    {"method": "GET", "path": "/datasets", "handler": "datasets"},
++    {"method": "GET", "path": "/datasets/{id}", "handler": "dataset_describe"},
++    {"method": "GET", "path": "/query/{id}", "handler": "dataset_query"},
++    {"method": "GET", "path": "/library/catalog", "handler": "library_catalog"},
++    {"method": "GET", "path": "/library/search", "handler": "library_unified_search"},
++    {"method": "GET", "path": "/library/discover", "handler": "library_discover"},
++    {"method": "POST", "path": "/library/discover/semantic", "handler": "library_discover_semantic"},
++    {"method": "GET", "path": "/library/discover/web", "handler": "library_discover_web"},
++    {"method": "POST", "path": "/library/discover/probe", "handler": "library_discover_probe"},
++    {"method": "POST", "path": "/library/discover/collect", "handler": "library_discover_collect"},
++    {"method": "GET", "path": "/library/overview", "handler": "library_overview"},
++    {"method": "GET", "path": "/library/partitions", "handler": "library_partitions"},
++    {"method": "GET", "path": "/library/browse", "handler": "library_browse"},
++    {"method": "GET", "path": "/library/ops", "handler": "library_ops"},
++    {"method": "POST", "path": "/library/advise", "handler": "library_advise"},
++    {"method": "GET", "path": "/library/platform/state", "handler": "library_platform_state"},
++    {"method": "GET", "path": "/library/source-map", "handler": "library_source_map"},
++    {"method": "GET", "path": "/library/access-scope", "handler": "library_access_scope"},
++    {"method": "GET", "path": "/library/dataset-coverage", "handler": "library_dataset_coverage"},
++    {"method": "GET", "path": "/library/consolidated", "handler": "library_consolidated"},
++    {"method": "GET", "path": "/library/faculty/profile", "handler": "library_faculty_profile"},
++    {"method": "GET", "path": "/library/synthesis/profiles", "handler": "library_synthesis_profiles"},
++    {"method": "GET", "path": "/library/synthesis/{id}", "handler": "library_synthesis_get"},
++    {"method": "POST", "path": "/library/synthesis/run", "handler": "library_synthesis_run"},
++    {"method": "POST", "path": "/library/synthesis/pair", "handler": "library_synthesis_pair"},
++    {"method": "GET", "path": "/library/desk/brief", "handler": "library_desk_brief"},
++    {"method": "GET", "path": "/library/desk/resources", "handler": "library_desk_resources"},
++    {"method": "POST", "path": "/library/desk/warm", "handler": "library_desk_warm"},
++    {"method": "POST", "path": "/library/chat", "handler": "library_procure_chat"},
++    {"method": "POST", "path": "/library/chat/stream", "handler": "library_procure_chat_stream"},
++    {"method": "GET", "path": "/library/chat/{session_id}", "handler": "library_procure_chat_session"},
++    {"method": "GET", "path": "/library/campaigns", "handler": "library_campaigns"},
++    {"method": "GET", "path": "/library/campaigns/{id}/artifacts", "handler": "library_campaign_artifacts"},
++    {"method": "GET", "path": "/library/campaigns/{id}/download", "handler": "library_campaign_download"},
++    {"method": "POST", "path": "/library/datacite/resolve", "handler": "library_datacite_resolve"},
++    {"method": "POST", "path": "/library/datacite/collect", "handler": "library_datacite_collect"},
++    {"method": "POST", "path": "/library/datacite/enrich", "handler": "library_datacite_enrich"},
++    {"method": "POST", "path": "/library/licenses/approve", "handler": "library_license_approve"},
++    {"method": "GET", "path": "/library/credentials/profiles", "handler": "library_credential_profiles"},
++    {"method": "POST", "path": "/library/datacite/search-resolve", "handler": "library_datacite_search_resolve"},
++    {"method": "POST", "path": "/library/campaigns/{id}/add-datacite", "handler": "library_campaign_add_datacite"},
++    {"method": "GET", "path": "/library/datasets/card/{ref}", "handler": "library_dataset_card"},
++    {"method": "GET", "path": "/library/datasets/open", "handler": "library_dataset_open"},
++    {"method": "GET", "path": "/library/pins", "handler": "library_pins_list"},
++    {"method": "POST", "path": "/library/pins", "handler": "library_pins_create"},
++    {"method": "GET", "path": "/library/campaigns/{id}", "handler": "library_campaign_get"},
++    {"method": "POST", "path": "/library/campaigns/{id}/approve-collect", "handler": "library_campaign_approve_collect"},
++    {"method": "POST", "path": "/library/campaigns/{id}/resume", "handler": "library_campaign_resume"},
++    {"method": "POST", "path": "/library/jobs", "handler": "library_submit_job"},
++    {"method": "POST", "path": "/library/jobs/{id}/approve", "handler": "job_approve"},
++    {"method": "POST", "path": "/library/jobs/{id}/cancel", "handler": "job_cancel"},
++    {"method": "POST", "path": "/library/jobs/approve-safe", "handler": "library_jobs_approve_safe"},
++    {"method": "GET", "path": "/library/jobs", "handler": "job_list"},
++    {"method": "GET", "path": "/library/jobs/{id}", "handler": "job_get"},
++    {"method": "POST", "path": "/library/archive", "handler": "library_archive"},
++    {"method": "GET", "path": "/library/extensions/tools", "handler": "extension_tool_catalog"},
++    {"method": "GET", "path": "/library/extensions/datacite/search", "handler": "extension_datacite_search"},
++    {"method": "GET", "path": "/library/extensions/datacite/doi/{doi}", "handler": "extension_datacite_get"},
++    {"method": "GET", "path": "/library/extensions/huggingface/search", "handler": "extension_hf_search"},
++    {"method": "GET", "path": "/library/extensions/bigquery/status", "handler": "extension_bigquery_status"},
++    {"method": "POST", "path": "/library/extensions/bigquery/dry-run", "handler": "extension_bigquery_dry_run"},
++    {"method": "GET", "path": "/yzu/status", "handler": "yzu_status"},
++    {"method": "GET", "path": "/yzu/acquisitions", "handler": "yzu_acquisitions"},
++    {"method": "GET", "path": "/yzu/workers", "handler": "yzu_workers"},
++    {"method": "GET", "path": "/yzu/activity", "handler": "yzu_activity"},
++    {"method": "GET", "path": "/yzu/components", "handler": "yzu_components"},
++    {"method": "GET", "path": "/yzu/queue/tasks", "handler": "yzu_queue_tasks"},
++    {"method": "GET", "path": "/yzu/schedules", "handler": "yzu_schedules"},
++    {"method": "POST", "path": "/yzu/jobs", "handler": "yzu_submit_job"},
++    {"method": "POST", "path": "/yzu/jobs/approve-safe", "handler": "yzu_approve_safe_jobs"},
++    {"method": "POST", "path": "/yzu/jobs/{id}/cancel", "handler": "job_cancel"},
++    {"method": "POST", "path": "/yzu/schedules/{id}/run", "handler": "yzu_run_schedule"},
++]
++
++
++def _live_flag(query: dict[str, str]) -> bool:
++    return query.get("live", "").lower() in {"1", "true", "yes"}
++
++
++def _query_int(query: dict[str, str], key: str, default: int) -> int:
++    raw = query.get(key)
++    if raw in (None, ""):
++        return default
++    try:
++        return int(raw)
++    except (TypeError, ValueError):
++        return default
++
++
++def _full_flag(query: dict[str, str]) -> bool:
++    return query.get("full", "").lower() in {"1", "true", "yes"}
++
++
++def _compact_probe_response(out: dict[str, Any]) -> dict[str, Any]:
++    """Trim probe payloads for the faculty UI; connector store keeps the full spec."""
++    if not isinstance(out, dict):
++        return out
++    connector = out.get("connector")
++    if not isinstance(connector, dict):
++        return out
++    spec = connector.get("spec")
++    if not isinstance(spec, dict):
++        return out
++
++    sample = spec.get("sample")
++    compact_sample: dict[str, Any] | None = None
++    if isinstance(sample, dict):
++        compact_sample = {
++            key: sample.get(key)
++            for key in ("format", "top_level", "estimated_sample_rows", "row_count")
++            if sample.get(key) is not None
++        }
++        fields = sample.get("fields")
++        if isinstance(fields, list):
++            compact_sample["field_count"] = len(fields)
++            compact_sample["fields"] = fields[:40]
++            compact_sample["fields_truncated"] = len(fields) > 40
++        columns = sample.get("columns")
++        if isinstance(columns, list):
++            compact_sample["columns"] = columns[:40]
++            compact_sample["columns_truncated"] = len(columns) > 40
++
++    files = spec.get("discovered_files")
++    compact_files: list[Any] = []
++    if isinstance(files, list):
++        for row in files[:20]:
++            if not isinstance(row, dict):
++                compact_files.append(row)
++                continue
++            compact_files.append(
++                {
++                    key: row.get(key)
++                    for key in ("url", "href", "title", "name", "content_type", "size", "bytes")
++                    if row.get(key) is not None
++                }
++            )
++
++    compact_spec = {
++        key: spec.get(key)
++        for key in (
++            "connector_id",
++            "name",
++            "source_url",
++            "host",
++            "access_mode",
++            "content_type",
++            "content_length",
++            "etag",
++            "last_modified",
++            "sample_bytes",
++            "sample_truncated",
++            "recommended_action",
++            "http_status",
++            "probed_at",
++        )
++        if spec.get(key) is not None
++    }
++    if compact_sample is not None:
++        compact_spec["sample"] = compact_sample
++    compact_spec["discovered_files"] = compact_files
++    compact_spec["discovered_file_count"] = len(files) if isinstance(files, list) else len(compact_files)
++    if isinstance(spec.get("pagination"), dict):
++        compact_spec["pagination"] = spec["pagination"]
++
++    compact_connector = {
++        key: connector.get(key)
++        for key in ("id", "connector_id", "created_at", "updated_at", "status", "name", "source_url")
++        if connector.get(key) is not None
++    }
++    compact_connector.setdefault("connector_id", connector.get("id") or compact_spec.get("connector_id"))
++    compact_connector["spec"] = compact_spec
++
++    compact = dict(out)
++    compact["connector"] = compact_connector
++    compact["compacted"] = True
++    return compact
++
++
++def _match(path: str, pattern: str) -> dict[str, str] | None:
++    p_parts = path.strip("/").split("/")
++    pat_parts = pattern.strip("/").split("/")
++    if len(p_parts) != len(pat_parts):
++        return None
++    params: dict[str, str] = {}
++    for segment, pat in zip(p_parts, pat_parts):
++        if pat.startswith("{") and pat.endswith("}"):
++            params[pat[1:-1]] = segment
++        elif segment != pat:
++            return None
++    return params
++
++
++def _resolve(path: str, method: str) -> tuple[str | None, dict[str, str]]:
++    for row in ROUTE_CATALOG:
++        if row["method"] != method:
++            continue
++        params = _match(path, row["path"])
++        if params is not None:
++            return row["handler"], params
++    return None, {}
++
++
++def _handlers() -> dict[str, Handler]:
++    def _activity(stack, action: str, target: str, **kwargs: Any) -> None:
++        try:
++            from scripts.research_data_mcp.desk_activity import record_activity
++
++            record_activity(action, target, repo_root=stack.gateway.repo_root, **kwargs)
++        except Exception:
++            pass
++
++    def health(stack, query, payload, params):
++        return stack.gateway.desk_health(live=_live_flag(query))
++
++    def datasets(stack, query, payload, params):
++        q = str(query.get("q") or query.get("query") or "").strip()
++        return stack.gateway.list_datasets(
++            q=q,
++            readiness=str(query.get("readiness") or "").strip(),
++            access_shape=str(query.get("access_shape") or query.get("access_mode") or "").strip(),
++            limit=_query_int(query, "limit", 50),
++        )
++
++    def dataset_describe(stack, query, payload, params):
++        return stack.gateway.describe_dataset(params["id"])
++
++    def dataset_query(stack, query, payload, params):
++        params_out = dict(query)
++        if "limit" in params_out:
++            params_out["limit"] = _query_int(query, "limit", 50)
++        out = stack.gateway.query_dataset(params["id"], params_out)
++        _activity(
++            stack,
++            "query",
++            params["id"],
++            meta={"limit": query.get("limit"), "rows": len(out.get("rows") or []) if isinstance(out, dict) else None},
++        )
++        return out
++
++    def library_catalog(stack, query, payload, params):
++        return stack.gateway.procurement_catalog(q=query.get("q", ""), limit=int(query.get("limit", 50)))
++
++    def library_unified_search(stack, query, payload, params):
++        q = str(query.get("q") or query.get("query") or "")
++        email = str(query.get("email") or "")
++        limit = int(query.get("limit", 12))
++        return stack.gateway.unified_search_with_profile(
++            q,
++            email=email.strip(),
++            limit=limit,
++            include_hf=query.get("include_hf", "1") not in {"0", "false"},
++            include_datacite=query.get("include_datacite", "1") not in {"0", "false"},
++            resolve_datacite=query.get("resolve_datacite", "0") in {"1", "true", "yes"},
++            max_file_bytes=int(query.get("max_file_bytes") or 50_000_000),
++            skip_discover=query.get("skip_discover", "0") in {"1", "true", "yes"},
++        )
++
++    def library_discover(stack, query, payload, params):
++        q = str(query.get("q") or query.get("query") or "")
++        out = stack.gateway.discover_search(
++            q,
++            email=str(query.get("email") or ""),
++            limit=int(query.get("limit", 12)),
++        )
++        if q.strip():
++            _activity(stack, "discover", q[:200], meta={"limit": query.get("limit"), "total": out.get("total")})
++        return out
++
++    def library_discover_semantic(stack, query, payload, params):
++        goal = str(payload.get("query") or payload.get("goal") or payload.get("message") or "")
++        out = stack.gateway.semantic_discover(goal, limit=int(payload.get("limit") or 12))
++        if goal.strip():
++            _activity(stack, "semantic_discover", goal[:200], meta={"total": out.get("total")})
++        return out
++
++    def library_discover_web(stack, query, payload, params):
++        q = str(query.get("q") or query.get("query") or "").strip()
++        if not q:
++            return {"query": q, "sections": [], "total": 0, "index_miss": True}
++        from scripts.research_data_mcp.candidate_key import stamp_rows
++        from scripts.research_data_mcp.web_search import discover_sources
++
++        tavily_live = query.get("tavily", "1") not in {"0", "false", "no"}
++        limit = int(query.get("limit", 8))
++        raw = discover_sources(
++            stack.gateway.repo_root,
++            q,
++            max_results=min(max(limit, 1), 12),
++            tavily_live=tavily_live,
++        )
++        rows = []
++        for hit in raw.get("results") or []:
++            url = str(hit.get("url") or "").strip()
++            if not url:
++                continue
++            rows.append(
++                {
++                    "kind": "web_hit",
++                    "title": hit.get("title") or url,
++                    "url": url,
++                    "source": hit.get("source") or "web",
++                    "description": hit.get("snippet") or hit.get("content") or "",
++                    "publisher": hit.get("source") or "web",
++                }
++            )
++        rows = stamp_rows(rows)
++        if q:
++            _activity(stack, "discover", f"web:{q[:180]}", meta={"total": len(rows), "web": True})
++        return {
++            "query": q,
++            "sections": [{"id": "web_discover", "label": "Open web", "rows": rows}] if rows else [],
++            "total": len(rows),
++            "index_miss": True,
++            "sources_tried": raw.get("sources_tried") or [],
++        }
++
++    def library_discover_probe(stack, query, payload, params):
++        url = str(payload.get("url") or "").strip()
++        name = str(payload.get("name") or "").strip()
++        if not url:
++            return {"error": "url is required", "status": "error"}
++        from scripts.research_data_mcp.candidate_key import candidate_key
++
++        requested_key = str(payload.get("candidate_key") or "").strip()
++        out = stack.gateway.probe_source(url, name)
++        connector = out.get("connector") if isinstance(out, dict) else None
++        cid = None
++        resolved_url = url
++        if isinstance(connector, dict):
++            cid = connector.get("connector_id") or connector.get("id")
++            spec = connector.get("spec") if isinstance(connector.get("spec"), dict) else {}
++            resolved_url = (
++                str(spec.get("source_url") or connector.get("source_url") or url).strip() or url
++            )
++        echo_key = requested_key or candidate_key(
++            {
++                "candidate_key": requested_key,
++                "dataset_id": payload.get("dataset_id"),
++                "doi": payload.get("doi"),
++                "url": url,
++                "resolved_url": resolved_url,
++                "title": name or payload.get("title"),
++                "source": payload.get("source") or payload.get("provider"),
++                "provider": payload.get("provider"),
++                "external_id": payload.get("external_id"),
++                "kind": payload.get("kind"),
++            }
++        )
++        if isinstance(out, dict):
++            out = dict(out)
++            out["candidate_key"] = echo_key or None
++            out["connector_id"] = cid
++            out["resolved_url"] = resolved_url
++            # connector_id is the persisted probe identity — do not invent probe_id
++        _activity(
++            stack,
++            "probe",
++            url[:200],
++            meta={"connector_id": cid, "candidate_key": echo_key or None},
++        )
++        return out if _full_flag(query) or bool(payload.get("full")) else _compact_probe_response(out)
++
++    def library_discover_collect(stack, query, payload, params):
++        cid = str(payload.get("connector_id") or "").strip()
++        if not cid:
++            return {"error": "connector_id is required", "status": "error"}
++        from scripts.research_data_mcp.candidate_key import candidate_key
++        from scripts.research_data_mcp.job_identity import enrich_job_identity
++
++        limit = int(payload.get("limit") or 200)
++        auto_approve = bool(payload.get("auto_approve"))
++        plan = stack.gateway.procurement.manifest_plan_from_connector(cid, limit=limit)
++        dest = str(payload.get("destination") or "").strip()
++        if dest:
++            plan["destination"] = dest
++
++        requested_key = str(payload.get("candidate_key") or "").strip()
++        identity_row = {
++            "candidate_key": requested_key,
++            "dataset_id": payload.get("dataset_id"),
++            "doi": payload.get("doi"),
++            "url": payload.get("url") or payload.get("source_url"),
++            "title": payload.get("name") or payload.get("title"),
++            "source": payload.get("source") or payload.get("provider"),
++            "provider": payload.get("provider"),
++            "external_id": payload.get("external_id"),
++            "kind": payload.get("kind"),
++            "connector_id": cid,
++        }
++        ck = requested_key or candidate_key(identity_row) or None
++        if ck:
++            plan = dict(plan)
++            plan["candidate_key"] = ck
++            plan["connector_id"] = cid
++
++        request = {
++            "connector_id": cid,
++            "limit": limit,
++            "source": "discover_ui",
++        }
++        if ck:
++            request["candidate_key"] = ck
++        for field in ("dataset_id", "doi", "url", "external_id", "kind", "provider"):
++            val = payload.get(field)
++            if val is not None and str(val).strip():
++                request[field] = val
++        source_identity = str(payload.get("source") or "").strip()
++        if source_identity:
++            request["source_identity"] = source_identity
++
++        out = stack.jobs.submit(
++            plan["title"],
++            plan,
++            request,
++            auto_approve=auto_approve,
++        )
++        job = out.get("job") if isinstance(out, dict) else None
++        if isinstance(job, dict):
++            out = dict(out)
++            out["job"] = enrich_job_identity(job)
++            job = out["job"]
++        _activity(
++            stack,
++            "job_submit",
++            plan.get("title") or "Discover collect",
++            meta={
++                "job_id": job.get("id") if isinstance(job, dict) else None,
++                "connector_id": cid,
++                "candidate_key": ck,
++            },
++        )
++        return out
++
++    def library_datacite_enrich(stack, query, payload, params):
++        rows = payload.get("rows") or []
++        if not rows and payload.get("dois"):
++            rows = [{"doi": d} for d in payload.get("dois") or []]
++        return stack.gateway.enrich_datacite_search(
++            rows,
++            max_file_bytes=int(payload.get("max_file_bytes") or 50_000_000),
++        )
++
++    def library_license_approve(stack, query, payload, params):
++        return stack.gateway.approve_dataset_license(
++            doi=str(payload.get("doi") or ""),
++            url=str(payload.get("url") or ""),
++            license_text=str(payload.get("license") or payload.get("license_text") or ""),
++            note=str(payload.get("note") or ""),
++        )
++
++    def library_credential_profiles(stack, query, payload, params):
++        return stack.gateway.list_credential_profiles()
++
++    def library_overview(stack, query, payload, params):
++        return stack.gateway.library_overview()
++
++    def library_partitions(stack, query, payload, params):
++        from datetime import datetime, timezone
++
++        overview = stack.gateway.library_overview()
++        parts = overview.get("partitions") or {}
++        return {
++            "generated_at": datetime.now(timezone.utc).isoformat(),
++            "partitions": parts.get("lanes") or [],
++            "total": parts.get("total", 0),
++            "complete": parts.get("complete", 0),
++        }
++
++    def library_browse(stack, query, payload, params):
++        showcase = [s for s in str(query.get("showcase", "")).split(",") if s.strip()]
++        return stack.gateway.browse_drive(
++            folder_id=str(query.get("folder", "") or ""),
++            scope=str(query.get("scope", "lab") or "lab"),
++            showcase_ids=showcase or None,
++        )
++
++    def library_ops(stack, query, payload, params):
++        return stack.gateway.ops_status(lane=query.get("lane", ""))
++
++    def library_advise(stack, query, payload, params):
++        return stack.gateway.advise_datasets(
++            str(payload.get("goal") or payload.get("message") or ""),
++            current_dataset_id=str(payload.get("current_dataset_id") or payload.get("dataset_id") or ""),
++            current_task_id=str(payload.get("current_task_id") or ""),
++            limit=int(payload.get("limit", 5)),
++        )
++
++    def library_procure_chat(stack, query, payload, params):
++        rail = payload.get("rail_context")
++        return stack.gateway.procurement_chat(
++            str(payload.get("message", "")),
++            session_id=str(payload.get("session_id") or "") or None,
++            user_email=str(payload.get("user_email") or payload.get("email") or "") or None,
++            rail_context=rail if isinstance(rail, dict) else None,
++        )
++
++    def library_procure_chat_stream(stack, query, payload, params):
++        rail = payload.get("rail_context")
++        return {
++            "_stream": True,
++            "events": stack.gateway.procurement_chat_stream(
++                str(payload.get("message", "")),
++                session_id=str(payload.get("session_id") or "") or None,
++                user_email=str(payload.get("user_email") or payload.get("email") or "") or None,
++                rail_context=rail if isinstance(rail, dict) else None,
++            ),
++        }
++
++    def library_synthesis_profiles(stack, query, payload, params):
++        return stack.gateway.synthesis_list_profiles()
++
++    def library_synthesis_get(stack, query, payload, params):
++        refresh = query.get("refresh", "").lower() in {"1", "true", "yes"}
++        profile_id = params["id"]
++        if refresh:
++            return stack.gateway.synthesis_run(profile_id)
++        latest = stack.gateway.synthesis_get_latest(profile_id)
++        if latest.get("found"):
++            return latest
++        return stack.gateway.synthesis_run(profile_id)
++
++    def library_synthesis_run(stack, query, payload, params):
++        profile_id = str(payload.get("profile_id") or query.get("profile_id") or "")
++        if not profile_id:
++            raise ValueError("profile_id is required")
++        return stack.gateway.synthesis_run(
++            profile_id,
++            preview_limit=int(payload.get("preview_limit") or query.get("preview_limit") or 50),
++            gap_limit=int(payload.get("gap_limit") or query.get("gap_limit") or 100),
++        )
++
++    def library_synthesis_pair(stack, query, payload, params):
++        left_id = str(payload.get("left_dataset_id") or query.get("left") or "")
++        right_id = str(payload.get("right_dataset_id") or query.get("right") or "")
++        if not left_id or not right_id:
++            raise ValueError("left_dataset_id and right_dataset_id are required")
++        return stack.gateway.synthesis_pair(left_id, right_id)
++
++    def library_platform_state(stack, query, payload, params):
++        return stack.gateway.platform_state()
++
++    def library_source_map(stack, query, payload, params):
++        live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
++        return stack.gateway.source_map_audit(live=live)
++
++    def library_access_scope(stack, query, payload, params):
++        live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
++        return stack.gateway.access_scope_audit(live=live)
++
++    def library_dataset_coverage(stack, query, payload, params):
++        live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
++        return stack.gateway.dataset_coverage_audit(live=live)
++
++    def library_consolidated(stack, query, payload, params):
++        live = str(query.get("live") or "").lower() in {"1", "true", "yes"}
++        return stack.gateway.consolidated_state(live=live)
++
++    def library_faculty_profile(stack, query, payload, params):
++        return stack.gateway.faculty_profile(
++            email=str(query.get("email") or ""),
++            slug=str(query.get("slug") or ""),
++        )
++
++    def library_desk_brief(stack, query, payload, params):
++        return stack.gateway.desk_vault_brief(email=str(query.get("email") or ""))
++
++    def library_desk_resources(stack, query, payload, params):
++        return stack.gateway.desk_resources(live=_live_flag(query))
++
++    def library_desk_warm(stack, query, payload, params):
++        return stack.gateway.desk_warm_session(
++            user_email=str(payload.get("user_email") or payload.get("email") or query.get("email") or ""),
++            session_id=str(payload.get("session_id") or ""),
++            background=bool(payload.get("background", True)),
++        )
++
++    def library_procure_chat_session(stack, query, payload, params):
++        return stack.gateway.procurement_chat_session(params["session_id"])
++
++    def library_campaigns(stack, query, payload, params):
++        return stack.gateway.list_campaigns(limit=int(query.get("limit", 30)), status=query.get("status", ""))
++
++    def library_campaign_get(stack, query, payload, params):
++        return stack.gateway.get_campaign(params["id"])
++
++    def library_campaign_artifacts(stack, query, payload, params):
++        return stack.gateway.list_campaign_artifacts(params["id"])
++
++    def library_campaign_download(stack, query, payload, params):
++        rel_path = str(query.get("path") or "")
++        if not rel_path:
++            raise ValueError("path query parameter is required")
++        resolved = stack.gateway.resolve_campaign_download(params["id"], rel_path)
++        file_path = resolved["file"]
++        return {
++            "_file_delivery": True,
++            "file": str(file_path),
++            "content_type": resolved["content_type"],
++            "name": file_path.name,
++        }
++
++    def library_datacite_resolve(stack, query, payload, params):
++        doi = str(payload.get("doi") or "")
++        if not doi:
++            raise ValueError("doi is required")
++        return stack.gateway.datacite_resolve_repository(
++            doi,
++            max_file_bytes=int(payload.get("max_file_bytes") or 50_000_000),
++        )
++
++    def library_datacite_search_resolve(stack, query, payload, params):
++        query_text = str(payload.get("query") or payload.get("q") or "")
++        if not query_text:
++            raise ValueError("query is required")
++        return stack.gateway.datacite_search_and_resolve(
++            query_text,
++            created=str(payload.get("created") or ""),
++            max_file_bytes=int(payload.get("max_file_bytes") or 50_000_000),
++        )
++
++    def library_datacite_collect(stack, query, payload, params):
++        doi = str(payload.get("doi") or "")
++        if not doi:
++            raise ValueError("doi is required")
++        out = stack.gateway.collect_datacite_doi(
++            doi,
++            file_index=int(payload.get("file_index") or 0),
++            campaign_id=str(payload.get("campaign_id") or "") or None,
++            auto_execute=bool(payload.get("auto_execute", True)),
++            max_file_bytes=int(payload.get("max_file_bytes") or 50_000_000),
++            license_approved=bool(payload.get("license_approved", False)),
++        )
++        _activity(
++            stack,
++            "procure",
++            doi,
++            meta={
++                "campaign_id": out.get("campaign_id") if isinstance(out, dict) else None,
++                "job_id": (out.get("job") or {}).get("id") if isinstance(out, dict) else None,
++            },
++        )
++        return out
++
++    def library_campaign_add_datacite(stack, query, payload, params):
++        doi = str(payload.get("doi") or "")
++        if not doi:
++            raise ValueError("doi is required")
++        return stack.gateway.add_datacite_to_collection(
++            doi,
++            campaign_id=params["id"],
++            file_index=int(payload.get("file_index") or 0),
++            auto_execute=bool(payload.get("auto_execute", True)),
++        )
++
++    def library_dataset_card(stack, query, payload, params):
++        return stack.gateway.get_dataset_card(params["ref"])
++
++    def library_dataset_open(stack, query, payload, params):
++        handle = str(query.get("handle") or "")
++        if not handle:
++            raise ValueError("handle query parameter is required")
++        return stack.gateway.open_dataset(
++            handle,
++            load=str(query.get("load") or "auto"),
++            preview_limit=int(query.get("limit") or 5),
++        )
++
++    def library_pins_list(stack, query, payload, params):
++        return stack.gateway.list_dataset_pins(limit=int(query.get("limit", 50)))
++
++    def library_pins_create(stack, query, payload, params):
++        handle = str(payload.get("handle") or "")
++        if not handle:
++            raise ValueError("handle is required")
++        return stack.gateway.pin_dataset(
++            handle,
++            campaign_id=str(payload.get("campaign_id") or ""),
++            file_path=str(payload.get("file_path") or ""),
++            checksum=str(payload.get("checksum") or ""),
++        )
++
++    def library_campaign_approve_collect(stack, query, payload, params):
++        out = stack.gateway.approve_campaign_collect(
++            params["id"],
++            int(payload.get("recommendation_index", 0)),
++        )
++        _activity(stack, "approve_collect", params["id"], meta={"recommendation_index": payload.get("recommendation_index", 0)})
++        return out
++
++    def library_campaign_resume(stack, query, payload, params):
++        return stack.gateway.resume_campaign(
++            params["id"],
++            force_execute=bool(payload.get("force_execute")),
++        )
++
++    def library_submit_job(stack, query, payload, params):
++        out = stack.jobs.submit(
++            str(payload.get("title") or (payload.get("plan") or {}).get("title") or "Library job"),
++            payload.get("plan") or {},
++            payload.get("request") or {},
++            auto_approve=bool(payload.get("auto_approve")),
++        )
++        job = out.get("job") if isinstance(out, dict) else None
++        _activity(
++            stack,
++            "job_submit",
++            str(payload.get("title") or (payload.get("plan") or {}).get("title") or "Library job"),
++            meta={"job_id": job.get("id") if isinstance(job, dict) else None},
++        )
++        return out
++
++    def yzu_submit_job(stack, query, payload, params):
++        plan = payload.get("plan") or {}
++        title = str(payload.get("title") or plan.get("title") or "YZU job")
++        result = stack.jobs.submit(title, plan, payload.get("request") or {}, auto_approve=bool(payload.get("auto_approve")))
++        job = result.get("job") if isinstance(result, dict) else None
++        _activity(stack, "job_submit", title, meta={"job_id": job.get("id") if isinstance(job, dict) else None})
++        return result["job"] if result.get("job") else result
++
++    def job_list(stack, query, payload, params):
++        return stack.jobs.list(limit=_query_int(query, "limit", 30), status=query.get("status", ""))
++
++    def job_get(stack, query, payload, params):
++        return stack.jobs.get(params["id"])
++
++    def job_approve(stack, query, payload, params):
++        out = stack.jobs.approve(params["id"])
++        ticked = stack.jobs.tick()
++        if isinstance(out, dict) and isinstance(ticked, dict) and ticked.get("id"):
++            out["tick_started"] = ticked.get("id")
++        _activity(stack, "job_approve", params["id"], meta={"status": out.get("status") if isinstance(out, dict) else None})
++        return out
++
++    def library_jobs_approve_safe(stack, query, payload, params):
++        limit = int(payload.get("limit") or query.get("limit") or 200)
++        out = stack.gateway.approve_safe_pending_jobs(limit=limit)
++        _activity(stack, "jobs_approve_safe", "bulk", meta={"approved": out.get("approved_count")})
++        return out
++
++    def job_cancel(stack, query, payload, params):
++        return stack.jobs.cancel(params["id"])
++
++    def yzu_approve_safe_jobs(stack, query, payload, params):
++        limit = int(payload.get("limit") or query.get("limit") or 200)
++        return stack.gateway.approve_safe_pending_jobs(limit=limit)
++
++    def library_archive(stack, query, payload, params):
++        plan = stack.jobs.archive_plan(
++            str(payload.get("local_path", "")),
++            remote_suffix=str(payload.get("remote_suffix") or ""),
++            verify=bool(payload.get("verify", True)),
++        )
++        return stack.jobs.submit(
++            str(payload.get("title") or "Archive to GDrive"),
++            plan,
++            auto_approve=bool(payload.get("auto_approve", True)),
++        )
++
++    def yzu_status(stack, query, payload, params):
++        return stack.yzu_api.status(live=_live_flag(query))
++
++    def yzu_acquisitions(stack, query, payload, params):
++        live = _live_flag(query)
++        status = stack.yzu_api.status(live=live)
++        acq = stack.yzu_api.acquisitions(live=live)
++        return {**{"acquisitions": acq}, "generated_at": status.get("generated_at"), "live": live}
++
++    def yzu_workers(stack, query, payload, params):
++        return stack.yzu_api.workers(live=_live_flag(query))
++
++    def yzu_activity(stack, query, payload, params):
++        return {"events": stack.yzu_api.activity(live=_live_flag(query)), "live": _live_flag(query)}
++
++    def yzu_components(stack, query, payload, params):
++        return stack.orchestrator.components()
++
++    def yzu_queue_tasks(stack, query, payload, params):
++        runnable = query.get("runnable", "1").lower() not in {"0", "false", "no"}
++        return {"tasks": stack.orchestrator.queue_tasks(runnable_only=runnable)}
++
++    def yzu_schedules(stack, query, payload, params):
++        return {"schedules": stack.orchestrator.schedules()}
++
++    def yzu_run_schedule(stack, query, payload, params):
++        return stack.jobs.run_schedule(params["id"])
++
++    def extension_tool_catalog(stack, query, payload, params):
++        return stack.tools.tool_catalog()
++
++    def extension_datacite_search(stack, query, payload, params):
++        return stack.tools.datacite_search(
++            query=query.get("q", query.get("query", "")),
++            created=query.get("created", ""),
++            cursor=query.get("cursor", "1"),
++            page_size=int(query.get("page_size", 25)),
++        )
++
++    def extension_datacite_get(stack, query, payload, params):
++        return stack.tools.datacite_get(params["doi"])
++
++    def extension_hf_search(stack, query, payload, params):
++        return stack.tools.huggingface_search(
++            query=query.get("q", query.get("query", "")),
++            limit=int(query.get("limit", 8)),
++        )
++
++    def extension_bigquery_status(stack, query, payload, params):
++        return stack.tools.bigquery_status(project=query.get("project", ""), location=query.get("location", "US"))
++
++    def extension_bigquery_dry_run(stack, query, payload, params):
++        return stack.tools.bigquery_dry_run(
++            sql=str(payload.get("sql", "")),
++            project=str(payload.get("project", "")),
++            location=str(payload.get("location", "US")),
++            max_bytes_billed=int(payload.get("max_bytes_billed", 10 * 1024**3)),
++        )
++
++    return {
++        "health": health,
++        "datasets": datasets,
++        "dataset_describe": dataset_describe,
++        "dataset_query": dataset_query,
++        "library_catalog": library_catalog,
++        "library_unified_search": library_unified_search,
++        "library_discover": library_discover,
++        "library_discover_semantic": library_discover_semantic,
++        "library_discover_web": library_discover_web,
++        "library_discover_probe": library_discover_probe,
++        "library_discover_collect": library_discover_collect,
++        "library_datacite_enrich": library_datacite_enrich,
++        "library_license_approve": library_license_approve,
++        "library_credential_profiles": library_credential_profiles,
++        "library_overview": library_overview,
++        "library_partitions": library_partitions,
++        "library_ops": library_ops,
++        "library_advise": library_advise,
++        "library_procure_chat": library_procure_chat,
++        "library_procure_chat_stream": library_procure_chat_stream,
++        "library_synthesis_profiles": library_synthesis_profiles,
++        "library_synthesis_get": library_synthesis_get,
++        "library_synthesis_run": library_synthesis_run,
++        "library_synthesis_pair": library_synthesis_pair,
++        "library_platform_state": library_platform_state,
++        "library_source_map": library_source_map,
++        "library_access_scope": library_access_scope,
++        "library_dataset_coverage": library_dataset_coverage,
++        "library_consolidated": library_consolidated,
++        "library_faculty_profile": library_faculty_profile,
++        "library_desk_brief": library_desk_brief,
++        "library_desk_resources": library_desk_resources,
++        "library_desk_warm": library_desk_warm,
++        "library_procure_chat_session": library_procure_chat_session,
++        "library_campaigns": library_campaigns,
++        "library_campaign_get": library_campaign_get,
++        "library_campaign_artifacts": library_campaign_artifacts,
++        "library_campaign_download": library_campaign_download,
++        "library_datacite_resolve": library_datacite_resolve,
++        "library_datacite_collect": library_datacite_collect,
++        "library_datacite_search_resolve": library_datacite_search_resolve,
++        "library_campaign_add_datacite": library_campaign_add_datacite,
++        "library_dataset_card": library_dataset_card,
++        "library_dataset_open": library_dataset_open,
++        "library_pins_list": library_pins_list,
++        "library_pins_create": library_pins_create,
++        "library_campaign_approve_collect": library_campaign_approve_collect,
++        "library_campaign_resume": library_campaign_resume,
++        "library_submit_job": library_submit_job,
++        "yzu_submit_job": yzu_submit_job,
++        "job_list": job_list,
++        "job_get": job_get,
++        "job_approve": job_approve,
++        "library_jobs_approve_safe": library_jobs_approve_safe,
++        "job_cancel": job_cancel,
++        "yzu_approve_safe_jobs": yzu_approve_safe_jobs,
++        "library_archive": library_archive,
++        "extension_tool_catalog": extension_tool_catalog,
++        "extension_datacite_search": extension_datacite_search,
++        "extension_datacite_get": extension_datacite_get,
++        "extension_hf_search": extension_hf_search,
++        "extension_bigquery_status": extension_bigquery_status,
++        "extension_bigquery_dry_run": extension_bigquery_dry_run,
++        "yzu_status": yzu_status,
++        "yzu_acquisitions": yzu_acquisitions,
++        "yzu_workers": yzu_workers,
++        "yzu_activity": yzu_activity,
++        "yzu_components": yzu_components,
++        "yzu_queue_tasks": yzu_queue_tasks,
++        "yzu_schedules": yzu_schedules,
++        "yzu_run_schedule": yzu_run_schedule,
++    }
++
++
++_HANDLERS = _handlers()
++
++
++def handle_get(path: str, query: dict[str, str], stack: ResearchLibraryStack) -> dict[str, Any]:
++    return _dispatch("GET", path, query, {}, stack)
++
++
++def handle_post(path: str, payload: dict[str, Any], stack: ResearchLibraryStack) -> dict[str, Any]:
++    return _dispatch("POST", path, {}, payload, stack)
++
++
++_LEGACY_ROUTE_PREFIXES = ("/yzu/",)
++
++
++def _attach_deprecation(path: str, body: Any) -> Any:
++    if not any(path.startswith(prefix) for prefix in _LEGACY_ROUTE_PREFIXES):
++        return body
++    if not isinstance(body, dict):
++        return body
++    out = dict(body)
++    out["_deprecated"] = {
++        "message": "Legacy route — prefer /library/* equivalents where available.",
++        "path": path,
++        "docs": "docs/PROCUREMENT_PIPELINE.md",
++    }
++    return out
++
++
++def _dispatch(method: str, path: str, query: dict[str, str], payload: dict[str, Any], stack: ResearchLibraryStack) -> dict[str, Any]:
++    if path.startswith("/library") or path in {"/health", "/datasets"} or path.startswith("/query/"):
++        try:
++            from scripts.research_data_mcp.desk_runtime import touch_desk_activity
++
++            touch_desk_activity(stack.gateway.repo_root, route=path)
++        except Exception:
++            pass
++    handler_name, params = _resolve(path, method)
++    if not handler_name:
++        body = {"error": "not_found"}
++        if method == "GET":
++            body["paths"] = [r["path"] for r in ROUTE_CATALOG if r["method"] == "GET"]
++        return {"status": 404, "body": body}
++    handler = _HANDLERS.get(handler_name)
++    if not handler:
++        return {"status": 404, "body": {"error": "not_found", "handler": handler_name}}
++    try:
++        return {"status": 200, "body": _attach_deprecation(path, handler(stack, query, payload, params))}
++    except Exception as exc:
++        return {"status": 500, "body": {"error": type(exc).__name__, "message": str(exc)}}
+diff --git a/drive/scripts/research_data_mcp/job_identity.py b/drive/scripts/research_data_mcp/job_identity.py
+new file mode 100644
+index 0000000..bc1c522
+--- /dev/null
++++ b/drive/scripts/research_data_mcp/job_identity.py
+@@ -0,0 +1,125 @@
++#!/usr/bin/env python3
++"""Public job identity fields for Discover lifecycle linkage (D0b).
++
++Honesty rules:
++- Expose candidate_key / connector_id only when stored or derivable from
++  structured ids (dataset_id, DOI, URL) — never from title matching.
++- registered_dataset_id is set only after RegistryPromoter writes a mapping
++  onto the job result (registry_promotion[*].dataset_id).
++- output_manifest_id is not a stable persisted field today; leave null unless
++  the job result already carries an explicit manifest id. Gap: collectors do
++  not yet emit a canonical output_manifest_id on every completion.
++"""
++
++from __future__ import annotations
++
++from typing import Any
++
++from scripts.research_data_mcp.candidate_key import candidate_key
++
++
++def _trim(value: Any) -> str:
++    return str(value or "").strip()
++
++
++def _structured_candidate_key(request: dict[str, Any], plan: dict[str, Any]) -> str:
++    """Derive key from structured request/plan fields only (no title fallback)."""
++    row = {
++        "candidate_key": request.get("candidate_key") or plan.get("candidate_key"),
++        "dataset_id": request.get("dataset_id") or plan.get("dataset_id"),
++        "doi": request.get("doi") or plan.get("doi") or plan.get("datacite_doi"),
++        "url": request.get("url")
++        or request.get("source_url")
++        or plan.get("url")
++        or plan.get("source_url"),
++        "resolved_url": request.get("resolved_url") or plan.get("resolved_url"),
++        "external_id": request.get("external_id") or plan.get("external_id"),
++        "source_id": request.get("source_id") or plan.get("source_id"),
++        "provider": request.get("provider") or plan.get("provider"),
++        "source": request.get("source_identity") or request.get("source") or plan.get("source"),
++        "kind": request.get("kind") or plan.get("kind"),
++        "handle": request.get("handle") or plan.get("handle"),
++        "hf_id": request.get("hf_id") or plan.get("hf_dataset_id"),
++        "id": request.get("hf_id") or plan.get("hf_dataset_id"),
++    }
++    # Prefer non-title tiers: if only title would match, return empty.
++    key = candidate_key({k: v for k, v in row.items() if v})
++    if key.startswith("title:"):
++        return ""
++    return key
++
++
++def registered_dataset_id_from_result(result: dict[str, Any] | None) -> str | None:
++    """Return registry dataset_id only when promotion established it."""
++    if not isinstance(result, dict):
++        return None
++    promo = result.get("registry_promotion")
++    if isinstance(promo, list):
++        for entry in promo:
++            if isinstance(entry, dict):
++                did = _trim(entry.get("dataset_id"))
++                if did:
++                    return did
++    elif isinstance(promo, dict):
++        did = _trim(promo.get("dataset_id"))
++        if did:
++            return did
++        datasets = promo.get("datasets")
++        if isinstance(datasets, list):
++            for entry in datasets:
++                if isinstance(entry, dict):
++                    did = _trim(entry.get("dataset_id"))
++                    if did:
++                        return did
++    return None
++
++
++def output_manifest_id_from_result(result: dict[str, Any] | None) -> str | None:
++    """Return explicit manifest id when present; otherwise null (known gap)."""
++    if not isinstance(result, dict):
++        return None
++    for key in ("output_manifest_id", "manifest_id"):
++        mid = _trim(result.get(key))
++        if mid:
++            return mid
++    mat = result.get("materialized")
++    if isinstance(mat, dict):
++        for key in ("output_manifest_id", "manifest_id"):
++            mid = _trim(mat.get(key))
++            if mid:
++                return mid
++    return None
++
++
++def enrich_job_identity(job: dict[str, Any] | None) -> dict[str, Any] | None:
++    """Attach top-level identity fields for API consumers. Mutates a shallow copy."""
++    if not isinstance(job, dict):
++        return job
++    out = dict(job)
++    request = out.get("request") if isinstance(out.get("request"), dict) else {}
++    plan = out.get("plan") if isinstance(out.get("plan"), dict) else {}
++    result = out.get("result") if isinstance(out.get("result"), dict) else {}
++
++    ck = _trim(out.get("candidate_key")) or _structured_candidate_key(request, plan) or None
++    connector = (
++        _trim(out.get("connector_id"))
++        or _trim(request.get("connector_id"))
++        or _trim(plan.get("connector_id"))
++        or None
++    )
++
++    out["candidate_key"] = ck
++    out["connector_id"] = connector
++    out["registered_dataset_id"] = registered_dataset_id_from_result(result)
++    out["output_manifest_id"] = output_manifest_id_from_result(result)
++    return out
++
++
++def enrich_jobs_payload(payload: dict[str, Any] | None) -> dict[str, Any] | None:
++    if not isinstance(payload, dict):
++        return payload
++    out = dict(payload)
++    jobs = out.get("jobs")
++    if isinstance(jobs, list):
++        out["jobs"] = [enrich_job_identity(j) if isinstance(j, dict) else j for j in jobs]
++    return out
+diff --git a/drive/scripts/research_data_mcp/jobs.py b/drive/scripts/research_data_mcp/jobs.py
+new file mode 100644
+index 0000000..90a85e5
+--- /dev/null
++++ b/drive/scripts/research_data_mcp/jobs.py
+@@ -0,0 +1,78 @@
++#!/usr/bin/env python3
++"""Canonical job operations — one path for submit/approve/list."""
++
++from __future__ import annotations
++
++from typing import Any
++
++from scripts.research_data_mcp.job_identity import enrich_job_identity, enrich_jobs_payload
++from scripts.yzu_cluster.orchestrator import YzuOrchestrator
++
++
++class JobService:
++    def __init__(self, orchestrator: YzuOrchestrator, *, campaign_runner: Any | None = None) -> None:
++        self.orchestrator = orchestrator
++        self.campaign_runner = campaign_runner
++
++    def set_campaign_runner(self, runner: Any) -> None:
++        self.campaign_runner = runner
++
++    def validate(self, plan: dict[str, Any]) -> dict[str, Any]:
++        return self.orchestrator.validate_plan(plan)
++
++    def submit(
++        self,
++        title: str,
++        plan: dict[str, Any],
++        request: dict[str, Any] | None = None,
++        *,
++        auto_approve: bool = False,
++    ) -> dict[str, Any]:
++        validated = self.validate(plan)
++        if not validated.get("launchable", True):
++            return {
++                "job": None,
++                "plan": validated,
++                "error": validated.get("validation_error", "plan not launchable"),
++            }
++        job = self.orchestrator.submit(title, validated, request or {}, auto_approve=auto_approve)
++        return {"job": enrich_job_identity(job), "plan": validated}
++
++    def approve(self, job_id: str) -> dict[str, Any]:
++        return enrich_job_identity(self.orchestrator.approve(job_id)) or {}
++
++    def cancel(self, job_id: str) -> dict[str, Any]:
++        return enrich_job_identity(self.orchestrator.cancel(job_id)) or {}
++
++    def get(self, job_id: str) -> dict[str, Any]:
++        return enrich_job_identity(self.orchestrator.store.get(job_id)) or {}
++
++    def list(self, limit: int = 30, status: str = "") -> dict[str, Any]:
++        payload = {"jobs": self.orchestrator.store.list(min(max(limit, 1), 200), status=status)}
++        return enrich_jobs_payload(payload) or payload
++
++    def run_schedule(self, schedule_id: str) -> dict[str, Any]:
++        return self.orchestrator.run_schedule(schedule_id)
++
++    def tick(self) -> dict[str, Any] | None:
++        job = self.orchestrator.worker_tick()
++        if self.campaign_runner:
++            self.campaign_runner.tick()
++        return job
++
++    def archive_plan(
++        self,
++        local_path: str,
++        *,
++        remote_suffix: str = "",
++        verify: bool = True,
++    ) -> dict[str, Any]:
++        plan: dict[str, Any] = {
++            "job_type": "archive_upload",
++            "local_path": local_path,
++            "launchable": True,
++            "verify": verify,
++        }
++        if remote_suffix:
++            plan["remote_suffix"] = remote_suffix
++        return plan
+diff --git a/tests/test_discover_candidate_identity.py b/tests/test_discover_candidate_identity.py
+new file mode 100644
+index 0000000..8e206c5
+--- /dev/null
++++ b/tests/test_discover_candidate_identity.py
+@@ -0,0 +1,302 @@
++#!/usr/bin/env python3
++"""D0b — candidate identity propagation + JS/Python contract parity."""
++
++from __future__ import annotations
++
++from pathlib import Path
++
++import pytest
++
++REPO = Path(__file__).resolve().parents[1]
++
++
++# Shared vectors — must match drive/src/v2/candidateKey.test.js (yzu-cluster D0a).
++CONTRACT_VECTORS = [
++    {
++        "name": "server_key_first",
++        "row": {"candidate_key": "dataset:server", "dataset_id": "other", "title": "T"},
++        "expected": "dataset:server",
++    },
++    {
++        "name": "dataset_id_precedence",
++        "row": {
++            "dataset_id": "mops_financial_statements_ext",
++            "title": "MOPS financial statements",
++            "doi": "10.1/x",
++            "url": "https://mops.twse.com.tw/example",
++        },
++        "expected": "dataset:mops_financial_statements_ext",
++    },
++    {
++        "name": "doi_canonical",
++        "row": {
++            "title": "Some paper",
++            "doi": "https://doi.org/10.5281/ZENODO.9",
++            "url": "https://example.com/x",
++        },
++        "expected": "doi:10.5281/zenodo.9",
++    },
++    {
++        "name": "huggingface_source",
++        "row": {"kind": "huggingface", "id": "org/demo", "title": "Demo"},
++        "expected": "source:huggingface:org/demo",
++    },
++    {
++        "name": "url_before_title",
++        "row": {
++            "title": "Example open dataset",
++            "url": "HTTPS://Example.com/dataset#x",
++            "source": "web",
++        },
++        "expected": "url:https://example.com/dataset",
++    },
++    {
++        "name": "title_mops",
++        "row": {"title": "Same Title", "source": "MOPS"},
++        "expected": "title:mops:same title",
++    },
++    {
++        "name": "title_twse",
++        "row": {"title": "Same Title", "source": "TWSE"},
++        "expected": "title:twse:same title",
++    },
++]
++
++
++def test_candidate_key_contract_vectors():
++    from scripts.research_data_mcp.candidate_key import candidate_key
++
++    for case in CONTRACT_VECTORS:
++        assert candidate_key(case["row"]) == case["expected"], case["name"]
++    assert candidate_key(CONTRACT_VECTORS[-2]["row"]) != candidate_key(CONTRACT_VECTORS[-1]["row"])
++
++
++def test_canonicalize_doi_and_url():
++    from scripts.research_data_mcp.candidate_key import canonicalize_doi, canonicalize_url
++
++    assert canonicalize_doi("DOI:10.5281/ZENODO.1") == "10.5281/zenodo.1"
++    assert canonicalize_doi("https://doi.org/10.5281/zenodo.1") == "10.5281/zenodo.1"
++    assert canonicalize_doi("http://dx.doi.org/10.5281/zenodo.1") == "10.5281/zenodo.1"
++    assert canonicalize_url("HTTPS://Example.COM:443/path#frag") == "https://example.com/path"
++    assert canonicalize_url("http://Example.COM:80/a?b=1") == "http://example.com/a?b=1"
++
++
++def test_discover_search_stamps_candidate_key(stack):
++    from scripts.research_data_mcp.http_router import handle_get
++
++    out = handle_get("/library/discover", {"q": "gdelt", "limit": "5"}, stack)
++    assert out["status"] == 200
++    body = out["body"]
++    rows = []
++    for section in body.get("sections") or []:
++        rows.extend(section.get("rows") or [])
++    if not rows:
++        pytest.skip("no discover hits in local registry for gdelt")
++    for row in rows:
++        assert row.get("candidate_key"), row
++        assert ":" in row["candidate_key"]
++
++
++def test_similar_titles_remain_distinct():
++    from scripts.research_data_mcp.candidate_key import candidate_key
++
++    a = candidate_key({"title": "Financial statements", "source": "MOPS", "url": "https://a.example/mops"})
++    b = candidate_key({"title": "Financial statements", "source": "TWSE", "url": "https://b.example/twse"})
++    assert a != b
++    assert a.startswith("url:") or a.startswith("title:")
++    assert b.startswith("url:") or b.startswith("title:")
++
++
++def test_probe_echoes_candidate_key_and_connector_id(stack, monkeypatch):
++    from scripts.research_data_mcp import http_router
++
++    fake = {
++        "connector": {
++            "id": "src_example",
++            "connector_id": "src_example",
++            "status": "candidate",
++            "spec": {
++                "source_url": "https://example.com/data.csv",
++                "access_mode": "direct_file",
++                "content_type": "text/csv",
++                "discovered_files": [],
++            },
++        },
++        "summary": "direct_file",
++    }
++    monkeypatch.setattr(stack.gateway, "probe_source", lambda url, name="": dict(fake))
++
++    out = http_router.handle_post(
++        "/library/discover/probe",
++        {
++            "url": "https://example.com/data.csv",
++            "name": "Example",
++            "candidate_key": "url:https://example.com/data.csv",
++        },
++        stack,
++    )
++    assert out["status"] == 200
++    body = out["body"]
++    assert body["candidate_key"] == "url:https://example.com/data.csv"
++    assert body["connector_id"] == "src_example"
++    assert body["resolved_url"] == "https://example.com/data.csv"
++    assert "probe_id" not in body or body.get("probe_id") in (None, "")
++
++
++def test_probe_accepts_legacy_without_candidate_key(stack, monkeypatch):
++    from scripts.research_data_mcp import http_router
++
++    fake = {
++        "connector": {
++            "id": "src_legacy",
++            "connector_id": "src_legacy",
++            "spec": {"source_url": "https://legacy.example/x", "access_mode": "html_index", "discovered_files": []},
++        },
++        "summary": "html",
++    }
++    monkeypatch.setattr(stack.gateway, "probe_source", lambda url, name="": dict(fake))
++    out = http_router.handle_post(
++        "/library/discover/probe",
++        {"url": "https://legacy.example/x"},
++        stack,
++    )
++    assert out["status"] == 200
++    assert out["body"]["connector_id"] == "src_legacy"
++    assert out["body"]["candidate_key"]  # computed fallback
++
++
++def test_collect_stores_candidate_key(stack, monkeypatch):
++    from scripts.research_data_mcp import http_router
++
++    plan = {"title": "Collect example", "job_type": "http_manifest", "connector_id": "src_c", "launchable": True}
++    monkeypatch.setattr(
++        stack.gateway.procurement,
++        "manifest_plan_from_connector",
++        lambda cid, limit=200: dict(plan),
++    )
++
++    captured = {}
++
++    def _submit(title, plan_arg, request=None, *, auto_approve=False):
++        captured["request"] = request or {}
++        captured["plan"] = plan_arg
++        job = {
++            "id": "jobtest01",
++            "status": "pending_approval",
++            "title": title,
++            "request": request or {},
++            "plan": plan_arg,
++            "result": {},
++        }
++        return {"job": job, "plan": plan_arg}
++
++    monkeypatch.setattr(stack.jobs, "submit", _submit)
++
++    out = http_router.handle_post(
++        "/library/discover/collect",
++        {
++            "connector_id": "src_c",
++            "candidate_key": "url:https://example.com/data.csv",
++            "url": "https://example.com/data.csv",
++            "source": "web",
++            "dataset_id": "",
++        },
++        stack,
++    )
++    assert out["status"] == 200
++    assert captured["request"]["candidate_key"] == "url:https://example.com/data.csv"
++    assert captured["request"]["connector_id"] == "src_c"
++    assert captured["request"]["source_identity"] == "web"
++    job = out["body"]["job"]
++    assert job["candidate_key"] == "url:https://example.com/data.csv"
++    assert job["connector_id"] == "src_c"
++
++
++def test_collect_legacy_without_candidate_key(stack, monkeypatch):
++    from scripts.research_data_mcp import http_router
++
++    plan = {"title": "Collect legacy", "job_type": "http_manifest", "connector_id": "src_l", "launchable": True}
++    monkeypatch.setattr(
++        stack.gateway.procurement,
++        "manifest_plan_from_connector",
++        lambda cid, limit=200: dict(plan),
++    )
++    monkeypatch.setattr(
++        stack.jobs,
++        "submit",
++        lambda title, plan_arg, request=None, *, auto_approve=False: {
++            "job": {
++                "id": "joblegacy1",
++                "status": "pending_approval",
++                "title": title,
++                "request": request or {},
++                "plan": plan_arg,
++                "result": {},
++            },
++            "plan": plan_arg,
++        },
++    )
++    out = http_router.handle_post(
++        "/library/discover/collect",
++        {"connector_id": "src_l"},
++        stack,
++    )
++    assert out["status"] == 200
++    assert out["body"]["job"]["connector_id"] == "src_l"
++
++
++def test_jobs_expose_identity_fields_exactly():
++    from scripts.research_data_mcp.job_identity import enrich_job_identity
++
++    job = {
++        "id": "abc",
++        "status": "pending_approval",
++        "title": "MOPS financial statements extended",
++        "request": {
++            "candidate_key": "url:https://a.example/mops",
++            "connector_id": "conn_a",
++        },
++        "plan": {"title": "MOPS financial statements extended"},
++        "result": {},
++    }
++    enriched = enrich_job_identity(job)
++    assert enriched["candidate_key"] == "url:https://a.example/mops"
++    assert enriched["connector_id"] == "conn_a"
++    assert enriched["registered_dataset_id"] is None
++    assert enriched["output_manifest_id"] is None
++
++    # Similar title must not invent a key
++    bare = enrich_job_identity(
++        {
++            "id": "xyz",
++            "status": "queued",
++            "title": "MOPS financial statements",
++            "request": {},
++            "plan": {"title": "MOPS financial statements"},
++            "result": {},
++        }
++    )
++    assert bare["candidate_key"] is None
++    assert bare["registered_dataset_id"] is None
++
++
++def test_promotion_attaches_registered_dataset_id():
++    from scripts.research_data_mcp.job_identity import enrich_job_identity
++
++    job = {
++        "id": "promo1",
++        "status": "completed",
++        "request": {"candidate_key": "doi:10.5281/zenodo.1", "connector_id": "c1"},
++        "plan": {},
++        "result": {"registry_promotion": [{"dataset_id": "datacite_10_5281_zenodo_1", "replaced": False}]},
++    }
++    enriched = enrich_job_identity(job)
++    assert enriched["registered_dataset_id"] == "datacite_10_5281_zenodo_1"
++    assert enriched["candidate_key"] == "doi:10.5281/zenodo.1"
++
++
++@pytest.fixture(scope="module")
++def stack():
++    from scripts.research_data_mcp.bootstrap import create_stack
++
++    return create_stack(repo_root=REPO)
+-- 
+2.47.3
+
+
+From ccba7365c51d5604699668ee55623c578c544945 Mon Sep 17 00:00:00 2001
+From: spectating101 <s1133958@mail.yzu.edu.tw>
+Date: Sat, 11 Jul 2026 02:15:00 +0800
+Subject: [PATCH 2/3] fix(discover): D0.1 source_identity contract and shared
+ golden vectors
+
+Normalize collect source_identity (legacy source accepted) and lock
+JS/Python candidate_key parity to one hashed fixture.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../scripts/research_data_mcp/http_router.py  |   7 +-
+ tests/fixtures/candidate_key_vectors.json     | 128 ++++++++++++++++
+ tests/test_discover_candidate_identity.py     | 142 +++++++-----------
+ 3 files changed, 185 insertions(+), 92 deletions(-)
+ create mode 100644 tests/fixtures/candidate_key_vectors.json
+
+diff --git a/drive/scripts/research_data_mcp/http_router.py b/drive/scripts/research_data_mcp/http_router.py
+index 1c3066f..a4d73e3 100644
+--- a/drive/scripts/research_data_mcp/http_router.py
++++ b/drive/scripts/research_data_mcp/http_router.py
+@@ -397,13 +397,17 @@ def _handlers() -> dict[str, Handler]:
+             plan["destination"] = dest
+ 
+         requested_key = str(payload.get("candidate_key") or "").strip()
++        # Public field is source_identity; legacy `source` still accepted and normalized.
++        source_identity = str(
++            payload.get("source_identity") or payload.get("source") or payload.get("provider") or ""
++        ).strip()
+         identity_row = {
+             "candidate_key": requested_key,
+             "dataset_id": payload.get("dataset_id"),
+             "doi": payload.get("doi"),
+             "url": payload.get("url") or payload.get("source_url"),
+             "title": payload.get("name") or payload.get("title"),
+-            "source": payload.get("source") or payload.get("provider"),
++            "source": source_identity,
+             "provider": payload.get("provider"),
+             "external_id": payload.get("external_id"),
+             "kind": payload.get("kind"),
+@@ -426,7 +430,6 @@ def _handlers() -> dict[str, Handler]:
+             val = payload.get(field)
+             if val is not None and str(val).strip():
+                 request[field] = val
+-        source_identity = str(payload.get("source") or "").strip()
+         if source_identity:
+             request["source_identity"] = source_identity
+ 
+diff --git a/tests/fixtures/candidate_key_vectors.json b/tests/fixtures/candidate_key_vectors.json
+new file mode 100644
+index 0000000..18f8594
+--- /dev/null
++++ b/tests/fixtures/candidate_key_vectors.json
+@@ -0,0 +1,128 @@
++{
++  "version": 1,
++  "description": "Cross-language Discover candidateKey golden vectors (D0.1). JS and Python tests must consume this file identically.",
++  "canonicalize_doi": [
++    { "input": "DOI:10.5281/ZENODO.1", "expected": "10.5281/zenodo.1" },
++    { "input": "https://doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" },
++    { "input": "http://dx.doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" }
++  ],
++  "canonicalize_url": [
++    {
++      "input": "HTTPS://Example.COM:443/path#frag",
++      "expected": "https://example.com/path"
++    },
++    {
++      "input": "http://Example.COM:80/a?b=1",
++      "expected": "http://example.com/a?b=1"
++    },
++    {
++      "input": "https://example.com/data?page=2&q=keep",
++      "expected": "https://example.com/data?page=2&q=keep"
++    }
++  ],
++  "candidate_key": [
++    {
++      "name": "server_key_first",
++      "row": { "candidate_key": "dataset:server", "dataset_id": "other", "title": "T" },
++      "expected": "dataset:server"
++    },
++    {
++      "name": "dataset_id_precedence",
++      "row": {
++        "dataset_id": "mops_financial_statements_ext",
++        "title": "MOPS financial statements",
++        "doi": "10.1/x",
++        "url": "https://mops.twse.com.tw/example"
++      },
++      "expected": "dataset:mops_financial_statements_ext"
++    },
++    {
++      "name": "doi_canonical_resolver",
++      "row": {
++        "title": "Some paper",
++        "doi": "https://doi.org/10.5281/ZENODO.9",
++        "url": "https://example.com/x"
++      },
++      "expected": "doi:10.5281/zenodo.9"
++    },
++    {
++      "name": "resolved_url_over_original_url",
++      "row": {
++        "title": "Redirected dataset",
++        "url": "https://short.example/x",
++        "resolved_url": "HTTPS://CDN.Example.com:443/final/data.csv#frag",
++        "source": "web"
++      },
++      "expected": "url:https://cdn.example.com/final/data.csv"
++    },
++    {
++      "name": "source_url_over_url",
++      "row": {
++        "title": "Source preferred",
++        "url": "https://original.example/a",
++        "source_url": "https://canonical.example/b",
++        "source": "web"
++      },
++      "expected": "url:https://canonical.example/b"
++    },
++    {
++      "name": "url_keeps_query_params",
++      "row": {
++        "title": "Paged",
++        "url": "https://api.example.com/v1/items?page=2&q=keep",
++        "source": "web"
++      },
++      "expected": "url:https://api.example.com/v1/items?page=2&q=keep"
++    },
++    {
++      "name": "huggingface_source",
++      "row": { "kind": "huggingface", "id": "org/demo", "title": "Demo" },
++      "expected": "source:huggingface:org/demo"
++    },
++    {
++      "name": "title_mops",
++      "row": { "title": "Same Title", "source": "MOPS" },
++      "expected": "title:mops:same title"
++    },
++    {
++      "name": "title_twse",
++      "row": { "title": "Same Title", "source": "TWSE" },
++      "expected": "title:twse:same title"
++    },
++    {
++      "name": "title_fallback_namespaced",
++      "row": { "title": "Alone" },
++      "expected": "title:unknown:alone"
++    },
++    {
++      "name": "unicode_title_provider",
++      "row": { "title": "財報 資料集", "source": "公開資訊觀測站" },
++      "expected": "title:unknown:財報 資料集"
++    },
++    {
++      "name": "empty_identity",
++      "row": {},
++      "expected": ""
++    }
++  ],
++  "action_url": [
++    {
++      "name": "resolved_preferred_for_probe_and_collect",
++      "row": {
++        "title": "Redirected dataset",
++        "url": "https://short.example/x",
++        "resolved_url": "https://cdn.example.com/final/data.csv",
++        "source_url": "https://ignored.example/y",
++        "source": "web"
++      },
++      "expected_url": "https://cdn.example.com/final/data.csv",
++      "expected_key": "url:https://cdn.example.com/final/data.csv"
++    },
++    {
++      "name": "doi_resolver_fallback",
++      "row": { "title": "DOI only", "doi": "10.5281/zenodo.42" },
++      "expected_url": "https://doi.org/10.5281/zenodo.42",
++      "expected_key": "doi:10.5281/zenodo.42"
++    }
++  ]
++}
+diff --git a/tests/test_discover_candidate_identity.py b/tests/test_discover_candidate_identity.py
+index 8e206c5..851e7b9 100644
+--- a/tests/test_discover_candidate_identity.py
++++ b/tests/test_discover_candidate_identity.py
+@@ -1,84 +1,57 @@
+ #!/usr/bin/env python3
+-"""D0b — candidate identity propagation + JS/Python contract parity."""
++"""D0b/D0.1 — candidate identity propagation + shared golden fixture parity."""
+ 
+ from __future__ import annotations
+ 
++import hashlib
++import json
+ from pathlib import Path
+ 
+ import pytest
+ 
+ REPO = Path(__file__).resolve().parents[1]
++FIXTURE = REPO / "tests/fixtures/candidate_key_vectors.json"
++# Must match yzu-cluster drive/src/v2/fixtures/candidate_key_vectors.json
++EXPECTED_FIXTURE_SHA256 = "8170d7de2ba0b0d3a4cf5d71102319869b6e4337a54d025c8575ad1467358edc"
+ 
+ 
+-# Shared vectors — must match drive/src/v2/candidateKey.test.js (yzu-cluster D0a).
+-CONTRACT_VECTORS = [
+-    {
+-        "name": "server_key_first",
+-        "row": {"candidate_key": "dataset:server", "dataset_id": "other", "title": "T"},
+-        "expected": "dataset:server",
+-    },
+-    {
+-        "name": "dataset_id_precedence",
+-        "row": {
+-            "dataset_id": "mops_financial_statements_ext",
+-            "title": "MOPS financial statements",
+-            "doi": "10.1/x",
+-            "url": "https://mops.twse.com.tw/example",
+-        },
+-        "expected": "dataset:mops_financial_statements_ext",
+-    },
+-    {
+-        "name": "doi_canonical",
+-        "row": {
+-            "title": "Some paper",
+-            "doi": "https://doi.org/10.5281/ZENODO.9",
+-            "url": "https://example.com/x",
+-        },
+-        "expected": "doi:10.5281/zenodo.9",
+-    },
+-    {
+-        "name": "huggingface_source",
+-        "row": {"kind": "huggingface", "id": "org/demo", "title": "Demo"},
+-        "expected": "source:huggingface:org/demo",
+-    },
+-    {
+-        "name": "url_before_title",
+-        "row": {
+-            "title": "Example open dataset",
+-            "url": "HTTPS://Example.com/dataset#x",
+-            "source": "web",
+-        },
+-        "expected": "url:https://example.com/dataset",
+-    },
+-    {
+-        "name": "title_mops",
+-        "row": {"title": "Same Title", "source": "MOPS"},
+-        "expected": "title:mops:same title",
+-    },
+-    {
+-        "name": "title_twse",
+-        "row": {"title": "Same Title", "source": "TWSE"},
+-        "expected": "title:twse:same title",
+-    },
+-]
+-
+-
+-def test_candidate_key_contract_vectors():
+-    from scripts.research_data_mcp.candidate_key import candidate_key
++@pytest.fixture(scope="module")
++def vectors():
++    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    digest = hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
++    assert digest == EXPECTED_FIXTURE_SHA256, f"fixture hash mismatch: {digest}"
++    return payload
+ 
+-    for case in CONTRACT_VECTORS:
+-        assert candidate_key(case["row"]) == case["expected"], case["name"]
+-    assert candidate_key(CONTRACT_VECTORS[-2]["row"]) != candidate_key(CONTRACT_VECTORS[-1]["row"])
++
++@pytest.fixture(scope="module")
++def stack():
++    from scripts.research_data_mcp.bootstrap import create_stack
++
++    return create_stack(repo_root=REPO)
+ 
+ 
+-def test_canonicalize_doi_and_url():
++def test_shared_fixture_hash(vectors):
++    assert vectors["version"] == 1
++    assert len(vectors["candidate_key"]) >= 8
++
++
++def test_canonicalize_from_fixture(vectors):
+     from scripts.research_data_mcp.candidate_key import canonicalize_doi, canonicalize_url
+ 
+-    assert canonicalize_doi("DOI:10.5281/ZENODO.1") == "10.5281/zenodo.1"
+-    assert canonicalize_doi("https://doi.org/10.5281/zenodo.1") == "10.5281/zenodo.1"
+-    assert canonicalize_doi("http://dx.doi.org/10.5281/zenodo.1") == "10.5281/zenodo.1"
+-    assert canonicalize_url("HTTPS://Example.COM:443/path#frag") == "https://example.com/path"
+-    assert canonicalize_url("http://Example.COM:80/a?b=1") == "http://example.com/a?b=1"
++    for row in vectors["canonicalize_doi"]:
++        assert canonicalize_doi(row["input"]) == row["expected"]
++    for row in vectors["canonicalize_url"]:
++        assert canonicalize_url(row["input"]) == row["expected"]
++
++
++def test_candidate_key_from_fixture(vectors):
++    from scripts.research_data_mcp.candidate_key import candidate_key
++
++    for row in vectors["candidate_key"]:
++        assert candidate_key(row["row"]) == row["expected"], row["name"]
++    a = next(r for r in vectors["candidate_key"] if r["name"] == "title_mops")
++    b = next(r for r in vectors["candidate_key"] if r["name"] == "title_twse")
++    assert candidate_key(a["row"]) != candidate_key(b["row"])
+ 
+ 
+ def test_discover_search_stamps_candidate_key(stack):
+@@ -97,16 +70,6 @@ def test_discover_search_stamps_candidate_key(stack):
+         assert ":" in row["candidate_key"]
+ 
+ 
+-def test_similar_titles_remain_distinct():
+-    from scripts.research_data_mcp.candidate_key import candidate_key
+-
+-    a = candidate_key({"title": "Financial statements", "source": "MOPS", "url": "https://a.example/mops"})
+-    b = candidate_key({"title": "Financial statements", "source": "TWSE", "url": "https://b.example/twse"})
+-    assert a != b
+-    assert a.startswith("url:") or a.startswith("title:")
+-    assert b.startswith("url:") or b.startswith("title:")
+-
+-
+ def test_probe_echoes_candidate_key_and_connector_id(stack, monkeypatch):
+     from scripts.research_data_mcp import http_router
+ 
+@@ -162,10 +125,10 @@ def test_probe_accepts_legacy_without_candidate_key(stack, monkeypatch):
+     )
+     assert out["status"] == 200
+     assert out["body"]["connector_id"] == "src_legacy"
+-    assert out["body"]["candidate_key"]  # computed fallback
++    assert out["body"]["candidate_key"]
+ 
+ 
+-def test_collect_stores_candidate_key(stack, monkeypatch):
++def test_collect_stores_source_identity_and_candidate_key(stack, monkeypatch):
+     from scripts.research_data_mcp import http_router
+ 
+     plan = {"title": "Collect example", "job_type": "http_manifest", "connector_id": "src_c", "launchable": True}
+@@ -198,8 +161,9 @@ def test_collect_stores_candidate_key(stack, monkeypatch):
+             "connector_id": "src_c",
+             "candidate_key": "url:https://example.com/data.csv",
+             "url": "https://example.com/data.csv",
+-            "source": "web",
+-            "dataset_id": "",
++            "source_identity": "web",
++            "dataset_id": "demo_ds",
++            "doi": "10.5281/zenodo.1",
+         },
+         stack,
+     )
+@@ -207,12 +171,15 @@ def test_collect_stores_candidate_key(stack, monkeypatch):
+     assert captured["request"]["candidate_key"] == "url:https://example.com/data.csv"
+     assert captured["request"]["connector_id"] == "src_c"
+     assert captured["request"]["source_identity"] == "web"
++    assert captured["request"]["dataset_id"] == "demo_ds"
++    assert captured["request"]["doi"] == "10.5281/zenodo.1"
++    assert captured["request"]["url"] == "https://example.com/data.csv"
+     job = out["body"]["job"]
+     assert job["candidate_key"] == "url:https://example.com/data.csv"
+     assert job["connector_id"] == "src_c"
+ 
+ 
+-def test_collect_legacy_without_candidate_key(stack, monkeypatch):
++def test_collect_legacy_source_normalizes_to_source_identity(stack, monkeypatch):
+     from scripts.research_data_mcp import http_router
+ 
+     plan = {"title": "Collect legacy", "job_type": "http_manifest", "connector_id": "src_l", "launchable": True}
+@@ -221,10 +188,12 @@ def test_collect_legacy_without_candidate_key(stack, monkeypatch):
+         "manifest_plan_from_connector",
+         lambda cid, limit=200: dict(plan),
+     )
++    captured = {}
+     monkeypatch.setattr(
+         stack.jobs,
+         "submit",
+-        lambda title, plan_arg, request=None, *, auto_approve=False: {
++        lambda title, plan_arg, request=None, *, auto_approve=False: captured.update(request=request or {})
++        or {
+             "job": {
+                 "id": "joblegacy1",
+                 "status": "pending_approval",
+@@ -238,10 +207,11 @@ def test_collect_legacy_without_candidate_key(stack, monkeypatch):
+     )
+     out = http_router.handle_post(
+         "/library/discover/collect",
+-        {"connector_id": "src_l"},
++        {"connector_id": "src_l", "source": "MOPS"},
+         stack,
+     )
+     assert out["status"] == 200
++    assert captured["request"]["source_identity"] == "MOPS"
+     assert out["body"]["job"]["connector_id"] == "src_l"
+ 
+ 
+@@ -265,7 +235,6 @@ def test_jobs_expose_identity_fields_exactly():
+     assert enriched["registered_dataset_id"] is None
+     assert enriched["output_manifest_id"] is None
+ 
+-    # Similar title must not invent a key
+     bare = enrich_job_identity(
+         {
+             "id": "xyz",
+@@ -293,10 +262,3 @@ def test_promotion_attaches_registered_dataset_id():
+     enriched = enrich_job_identity(job)
+     assert enriched["registered_dataset_id"] == "datacite_10_5281_zenodo_1"
+     assert enriched["candidate_key"] == "doi:10.5281/zenodo.1"
+-
+-
+-@pytest.fixture(scope="module")
+-def stack():
+-    from scripts.research_data_mcp.bootstrap import create_stack
+-
+-    return create_stack(repo_root=REPO)
+-- 
+2.47.3
+
+
+From b48e591b09be2e0ee0f9a03aa8f127903b2fb21f Mon Sep 17 00:00:00 2001
+From: spectating101 <s1133958@mail.yzu.edu.tw>
+Date: Sat, 11 Jul 2026 02:27:44 +0800
+Subject: [PATCH 3/3] fix(discover): D0.2 Unicode-safe provider namespaces
+
+Mirror JS NFKC/letter-preserving provider slugs so non-Latin publishers
+remain distinct in title and source identity fallbacks.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../research_data_mcp/candidate_key.py        | 33 +++++++++++++--
+ tests/fixtures/candidate_key_vectors.json     | 41 +++++++++++++++++--
+ tests/test_discover_candidate_identity.py     | 17 +++++++-
+ 3 files changed, 82 insertions(+), 9 deletions(-)
+
+diff --git a/drive/scripts/research_data_mcp/candidate_key.py b/drive/scripts/research_data_mcp/candidate_key.py
+index 930b97a..7d2faf2 100644
+--- a/drive/scripts/research_data_mcp/candidate_key.py
++++ b/drive/scripts/research_data_mcp/candidate_key.py
+@@ -68,6 +68,34 @@ def normalize_title(value: Any) -> str:
+     return re.sub(r"\s+", " ", _trim(value)).lower()
+ 
+ 
++def slugify_provider(value: Any) -> str:
++    """Unicode-safe provider namespace (D0.2).
++
++    NFKC → trim → casefold → keep letters/numbers/._- → collapse other runs to _.
++    """
++    import unicodedata
++
++    raw = _trim(value)
++    if not raw:
++        return "unknown"
++    s = unicodedata.normalize("NFKC", raw).casefold().strip()
++    parts: list[str] = []
++    prev_us = False
++    for ch in s:
++        if ch.isalnum() or ch in "._-":
++            parts.append(ch)
++            prev_us = False
++        else:
++            if not prev_us:
++                parts.append("_")
++                prev_us = True
++    slug = "".join(parts).strip("_")
++    slug = "".join(list(slug)[:80])
++    if not any(ch.isalnum() for ch in slug):
++        return "unknown"
++    return slug or "unknown"
++
++
+ def _provider_slug(row: dict[str, Any]) -> str:
+     host = ""
+     url = _trim(row.get("url") or row.get("source_url") or row.get("resolved_url") or "")
+@@ -83,10 +111,9 @@ def _provider_slug(row: dict[str, Any]) -> str:
+         or _trim(row.get("collect_via"))
+         or _trim(row.get("kind"))
+         or host
+-        or "unknown"
++        or ""
+     )
+-    slug = re.sub(r"[^a-z0-9._-]+", "_", raw.lower()).strip("_")[:80]
+-    return slug or "unknown"
++    return slugify_provider(raw)
+ 
+ 
+ def _source_external_id(row: dict[str, Any]) -> tuple[str, str] | None:
+diff --git a/tests/fixtures/candidate_key_vectors.json b/tests/fixtures/candidate_key_vectors.json
+index 18f8594..3e7f3ca 100644
+--- a/tests/fixtures/candidate_key_vectors.json
++++ b/tests/fixtures/candidate_key_vectors.json
+@@ -1,6 +1,6 @@
+ {
+-  "version": 1,
+-  "description": "Cross-language Discover candidateKey golden vectors (D0.1). JS and Python tests must consume this file identically.",
++  "version": 2,
++  "description": "Cross-language Discover candidateKey golden vectors (D0.2 Unicode-safe providers). JS and Python tests must consume this file identically.",
+   "canonicalize_doi": [
+     { "input": "DOI:10.5281/ZENODO.1", "expected": "10.5281/zenodo.1" },
+     { "input": "https://doi.org/10.5281/zenodo.1", "expected": "10.5281/zenodo.1" },
+@@ -20,6 +20,14 @@
+       "expected": "https://example.com/data?page=2&q=keep"
+     }
+   ],
++  "provider_slug": [
++    { "input": "公開資訊觀測站", "expected": "公開資訊觀測站" },
++    { "input": "臺灣證券交易所", "expected": "臺灣證券交易所" },
++    { "input": "MOPS Taiwan", "expected": "mops_taiwan" },
++    { "input": "DataCite / Zenodo", "expected": "datacite_zenodo" },
++    { "input": "", "expected": "unknown" },
++    { "input": "!!!", "expected": "unknown" }
++  ],
+   "candidate_key": [
+     {
+       "name": "server_key_first",
+@@ -95,9 +103,34 @@
+       "expected": "title:unknown:alone"
+     },
+     {
+-      "name": "unicode_title_provider",
++      "name": "unicode_title_provider_mops",
+       "row": { "title": "財報 資料集", "source": "公開資訊觀測站" },
+-      "expected": "title:unknown:財報 資料集"
++      "expected": "title:公開資訊觀測站:財報 資料集"
++    },
++    {
++      "name": "unicode_title_provider_twse",
++      "row": { "title": "財報 資料集", "source": "臺灣證券交易所" },
++      "expected": "title:臺灣證券交易所:財報 資料集"
++    },
++    {
++      "name": "ascii_provider_spaces",
++      "row": { "title": "Demo", "source": "MOPS Taiwan" },
++      "expected": "title:mops_taiwan:demo"
++    },
++    {
++      "name": "ascii_provider_slash",
++      "row": { "title": "Demo", "source": "DataCite / Zenodo" },
++      "expected": "title:datacite_zenodo:demo"
++    },
++    {
++      "name": "source_ext_id_nonlatin_a",
++      "row": { "external_id": "ds-1", "source": "公開資訊觀測站", "title": "Same" },
++      "expected": "source:公開資訊觀測站:ds-1"
++    },
++    {
++      "name": "source_ext_id_nonlatin_b",
++      "row": { "external_id": "ds-1", "source": "臺灣證券交易所", "title": "Same" },
++      "expected": "source:臺灣證券交易所:ds-1"
+     },
+     {
+       "name": "empty_identity",
+diff --git a/tests/test_discover_candidate_identity.py b/tests/test_discover_candidate_identity.py
+index 851e7b9..d24daa0 100644
+--- a/tests/test_discover_candidate_identity.py
++++ b/tests/test_discover_candidate_identity.py
+@@ -12,7 +12,7 @@ import pytest
+ REPO = Path(__file__).resolve().parents[1]
+ FIXTURE = REPO / "tests/fixtures/candidate_key_vectors.json"
+ # Must match yzu-cluster drive/src/v2/fixtures/candidate_key_vectors.json
+-EXPECTED_FIXTURE_SHA256 = "8170d7de2ba0b0d3a4cf5d71102319869b6e4337a54d025c8575ad1467358edc"
++EXPECTED_FIXTURE_SHA256 = "b702dccd624a569d735f6f82ad7993eec602c1db8e490d5a7d96216227539f68"
+ 
+ 
+ @pytest.fixture(scope="module")
+@@ -31,7 +31,7 @@ def stack():
+ 
+ 
+ def test_shared_fixture_hash(vectors):
+-    assert vectors["version"] == 1
++    assert vectors["version"] == 2
+     assert len(vectors["candidate_key"]) >= 8
+ 
+ 
+@@ -44,6 +44,13 @@ def test_canonicalize_from_fixture(vectors):
+         assert canonicalize_url(row["input"]) == row["expected"]
+ 
+ 
++def test_provider_slug_from_fixture(vectors):
++    from scripts.research_data_mcp.candidate_key import slugify_provider
++
++    for row in vectors.get("provider_slug") or []:
++        assert slugify_provider(row["input"]) == row["expected"], row
++
++
+ def test_candidate_key_from_fixture(vectors):
+     from scripts.research_data_mcp.candidate_key import candidate_key
+ 
+@@ -52,6 +59,12 @@ def test_candidate_key_from_fixture(vectors):
+     a = next(r for r in vectors["candidate_key"] if r["name"] == "title_mops")
+     b = next(r for r in vectors["candidate_key"] if r["name"] == "title_twse")
+     assert candidate_key(a["row"]) != candidate_key(b["row"])
++    ua = next(r for r in vectors["candidate_key"] if r["name"] == "unicode_title_provider_mops")
++    ub = next(r for r in vectors["candidate_key"] if r["name"] == "unicode_title_provider_twse")
++    assert candidate_key(ua["row"]) != candidate_key(ub["row"])
++    ea = next(r for r in vectors["candidate_key"] if r["name"] == "source_ext_id_nonlatin_a")
++    eb = next(r for r in vectors["candidate_key"] if r["name"] == "source_ext_id_nonlatin_b")
++    assert candidate_key(ea["row"]) != candidate_key(eb["row"])
+ 
+ 
+ def test_discover_search_stamps_candidate_key(stack):
+-- 
+2.47.3
+

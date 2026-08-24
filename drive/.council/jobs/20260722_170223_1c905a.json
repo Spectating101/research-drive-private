@@ -1,0 +1,89 @@
+{
+  "id": "20260722_170223_1c905a",
+  "state": "failed",
+  "instruction": "Make an objective allocation decision for this Research Drive project. Assess four dimensions separately: (1) frontend visual/UX quality and convergence, (2) backend/runtime correctness and deployment readiness, (3) frontend-backend integration and state truth, (4) testing/release discipline. Decide which work should stay with the lead architect, which should be delegated to a terminal coding worker such as Cursor/Grok, which deserves a high-context Terra pass, and whether Sol is best used as an independent visual/product reviewer. Be skeptical of branch claims and distinguish locally passing code from pushed/CI-proven code. Return severity-ranked blockers, a concise scorecard, and an actionable sequence that minimizes scarce lead-model tokens. Do not propose another broad redesign.",
+  "files": [
+    "src/v2/App.jsx",
+    "src/v2/RailPanels.jsx",
+    "src/v2/SynthesisPage.jsx",
+    "src/v2/ResourcesPage.jsx",
+    "src/v2/api.js",
+    "scripts/yzu_cluster/runtime_adapter.py",
+    "scripts/yzu_cluster/orchestrator.py",
+    "scripts/yzu_cluster/worker_control.py",
+    "scripts/research_data_mcp/desk_auth.py",
+    ".github/workflows/private-runtime-contract.yml"
+  ],
+  "stakes": "high",
+  "kind": "decide",
+  "timeout": 420.0,
+  "project_root": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive",
+  "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260722_170223_1c905a.output.json",
+  "integrate_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260722_170223_1c905a.integrate.json",
+  "created_at": 1784710943.8524299,
+  "updated_at": 1784711043.9661195,
+  "exit_code": 1,
+  "offload_result": {
+    "ok": false,
+    "offload": true,
+    "output_file": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/jobs/20260722_170223_1c905a.output.json",
+    "parsed": "{\"actionable\": true, \"ok\": true, \"status\": \"success\", \"recommendation\": \"NEEDS_DATA\", \"confidence\": 69.0, \"reasoning\": \"The council converges that branch/local-pass claims are not decision-grade without commit-pinned remote artifacts across all four dimensions, so a release/allocation gate cannot be objectively closed yet [models: copilot-ly,copilot-ly2,copilot-spectator]. A provisional allocation is still valid now: lead owns gate/triage, terminal worker collects proof and fixes deterministic failures, Terra is conditional for unresolved cross-layer ambiguity, and Sol runs independent visual review on a frozen candidate [models: copilot-ly,copilot-ly2,copilot-spectator]. The most skeptical stance (ly2) was not rebutted because no artifact bundle was supplied in Stage 1/2 [models: copilot-ly2,copilot-ly,copilot-spectator].\", \"chairman_model\": \"copilot-spectator\", \"models_responded\": 3, \"substantive_member_count\": 3, \"degraded_member_responses\": false, \"confidence_conflict\": false, \"skipped_models\": [], \"warnings\": [], \"return_code\": 0, \"shape\": \"decide\", \"decision_rule\": \"If one immutable candidate SHA has green remote CI, staging runtime health proof, 3 critical-flow FE\u2194BE state-truth traces, and independent Sol visual signoff with no unresolved P0 blockers, then GO; otherwise remain NEEDS_DATA [models: copilot-ly,copilot-ly2,copilot-spectator].\", \"kill_criteria\": [\"A current, commit-pinned evidence pack already exists and verifies all four dimensions with no P0s; this invalidates NEEDS_DATA and triggers immediate re-gate [models: copilot-ly,copilot-ly2,copilot-spectator].\"], \"next_actions\": [\"Delegate to terminal worker: produce a single-SHA evidence pack (remote CI links, staging URL+health, 3 scripted state-truth traces, release checklist) and fix deterministic failures only [models: copilot-ly,copilot-ly2,copilot-spectator].\", \"Run Sol as independent visual/product reviewer on that frozen SHA with explicit acceptance criteria and before/after visual pack [models: copilot-ly,copilot-spectator].\", \"Use one high-context Terra pass only for unresolved cross-layer contradictions, then lead architect performs final blocker-ranked gate decision [models: copilot-ly,copilot-ly2,copilot-spectator].\"], \"minority_report\": \"copilot-ly2: Keep skepticism high; without explicit artifact-quality thresholds and recency/parity bounds, \u201cevidence present\u201d can still be non-decisive.\\n\\nModel-Specific Preserved Insights:\\n- copilot-ly2: Preserve the dimensioned confidence framing (FE UX 35, backend/deploy 25, integration/state truth 20, testing/release 30) as an evidence-confidence scorecard, not a quality score.\\n- copilot-spectator: Preserve strict immutable RC-SHA discipline and anti-local-pass posture as the default anti-regression gate.\"}\n",
+    "steps": [
+      {
+        "phase": "decide",
+        "rc": 1
+      }
+    ],
+    "cursor_next": "Act on recommendation only if actionable (ok=true); else ask user.",
+    "plan": {
+      "offload": true,
+      "kind": "decide",
+      "collaboration": "triad_quick_fallback",
+      "instruction": "Make an objective allocation decision for this Research Drive project. Assess four dimensions separately: (1) frontend visual/UX quality and convergence, (2) backend/runtime correctness and deployment readiness, (3) frontend-backend integration and state truth, (4) testing/release discipline. Decide which work should stay with the lead architect, which should be delegated to a terminal coding worker such as Cursor/Grok, which deserves a high-context Terra pass, and whether Sol is best used as an independent visual/product reviewer. Be skeptical of branch claims and distinguish locally passing code from pushed/CI-proven code. Return severity-ranked blockers, a concise scorecard, and an actionable sequence that minimizes scarce lead-model tokens. Do not propose another broad redesign.",
+      "files": [
+        "src/v2/App.jsx",
+        "src/v2/RailPanels.jsx",
+        "src/v2/SynthesisPage.jsx",
+        "src/v2/ResourcesPage.jsx",
+        "src/v2/api.js",
+        "scripts/yzu_cluster/runtime_adapter.py",
+        "scripts/yzu_cluster/orchestrator.py",
+        "scripts/yzu_cluster/worker_control.py",
+        "scripts/research_data_mcp/desk_auth.py",
+        ".github/workflows/private-runtime-contract.yml"
+      ],
+      "stakes": "high",
+      "healthy_local_models": [
+        "copilot-ly",
+        "copilot-ly2",
+        "copilot-spectator",
+        "gemini"
+      ],
+      "cursor_guidance": "Run offload_hub run, read -o output, integrate with edit_file \u2014 do not regenerate in Cursor.",
+      "estimated_cursor_savings": "high",
+      "steps": [
+        {
+          "phase": "decide",
+          "tool": "council_arsenal",
+          "sub": "decide"
+        }
+      ],
+      "command_hint": "council_arsenal.sh decide \"Make an objective allocation decision for this Research Drive project. Assess fo...\"",
+      "use_arsenal": true,
+      "write_output_to": "/home/phyrexian/Downloads/llm_automation/project_portfolio/Molina-Optiplex/Sharpe-Renaissance/drive/.council/offload/decide-{run_id}.txt"
+    }
+  },
+  "integrate": {
+    "verdict": "REJECT",
+    "summary": "The council converges that branch/local-pass claims are not decision-grade without commit-pinned remote artifacts across all four dimensions, so a release/allocation gate cannot be objectively closed yet [models: copilot-ly,copilot-ly2,copilot-spectator]. A provisional allocation is still valid now: lead owns gate/triage, terminal worker collects proof and fixes deterministic failures, Terra is conditional for unresolved cross-layer ambiguity, and Sol runs independent visual review on a frozen candidate [models: copilot-ly,copilot-ly2,copilot-spectator]. The most skeptical stance (ly2) was not rebutted because no artifact bundle was supplied in Stage 1/2 [models: copilot-ly2,copilot-ly,copilot-spectator].",
+    "kind": "decide",
+    "target_file": "src/v2/App.jsx",
+    "blockers": [],
+    "code_blocks": [],
+    "has_structured_critique": true,
+    "cursor_action": "Do not proceed; explain blockers to user.",
+    "recommendation": "NEEDS_DATA",
+    "confidence": 69.0
+  },
+  "finished_at": 1784711043.96612
+}

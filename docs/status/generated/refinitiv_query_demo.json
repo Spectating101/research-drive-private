@@ -1,0 +1,615 @@
+{
+  "generated_at": "2026-07-06T13:12:03.101286+00:00",
+  "release_id": "2026-07-06-complete",
+  "scorecard": "platform readiness 9.0/10; entitled job coverage 100%",
+  "demos": [
+    {
+      "demo": "pit_universe",
+      "question": "Show JKSE constituents in 2020-01.",
+      "dataset_id": "refinitiv_index_membership_pit",
+      "run_id": "2026-07-06-complete",
+      "rows_matched": 913,
+      "unique_constituents": 913,
+      "sample_rows": [
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "DWGL.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "INDS.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "BSWD.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "KBLI.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "LIFE.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "SMBR.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "IPCM.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "DMMX.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "BNLI.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "CASS.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "DGNS.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "MDLN.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        }
+      ]
+    },
+    {
+      "demo": "estimate_revisions",
+      "question": "Show NVDA EPS estimate revisions around 2024.",
+      "dataset_id": "refinitiv_estimate_revision_panel",
+      "run_id": "2026-07-06-complete",
+      "rows_matched": 98,
+      "sample_rows": [
+        {
+          "date": "2024-01-02",
+          "ric": "NVDA.O",
+          "eps_mean": 1.22995,
+          "revision_1m": 0.1433099704400529,
+          "revision_3m": 1.73310075107773,
+          "revision_6m": 1.271208036340806,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-03",
+          "ric": "NVDA.O",
+          "eps_mean": 1.22995,
+          "revision_1m": 0.1433099704400529,
+          "revision_3m": 1.7306129698288304,
+          "revision_6m": 1.279289129387347,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-10",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23001,
+          "revision_1m": 0.14336574392533796,
+          "revision_3m": 1.7350573690296183,
+          "revision_6m": 1.2785558149012637,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-15",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23043,
+          "revision_1m": 0.14101969657628244,
+          "revision_3m": 1.7345927325258361,
+          "revision_6m": 1.2815739212668507,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-17",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23021,
+          "revision_1m": 0.14073105596973412,
+          "revision_3m": 1.732403438242676,
+          "revision_6m": 1.2854037786323356,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-19",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23055,
+          "revision_1m": 0.14050697437323323,
+          "revision_3m": 1.7352849648795234,
+          "revision_6m": 1.2881608062626677,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-22",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23055,
+          "revision_1m": 0.14050697437323323,
+          "revision_3m": 1.729400022180326,
+          "revision_6m": 1.2924234803181878,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-02-05",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23108,
+          "revision_1m": 0.1386448139995189,
+          "revision_3m": 1.7148590834913775,
+          "revision_6m": 1.294265640433105,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-02-06",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23176,
+          "revision_1m": 0.13667697134683698,
+          "revision_3m": 1.7161190738699008,
+          "revision_6m": 1.3057167459099244,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-02-07",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23242,
+          "revision_1m": 0.13625844758120298,
+          "revision_3m": 1.7144619179771818,
+          "revision_6m": 1.3080755112742528,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-02-08",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23326,
+          "revision_1m": 0.13591231463571884,
+          "revision_3m": 1.6944134932599244,
+          "revision_6m": 1.772554573862998,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-02-12",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23515,
+          "revision_1m": 0.1376531270148289,
+          "revision_3m": 1.6965396790743368,
+          "revision_6m": 1.872375061045092,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        }
+      ]
+    },
+    {
+      "demo": "gdelt_market_bridge",
+      "question": "Find GDELT-linked entities that are current SPX or JKSE members.",
+      "dataset_id": "refinitiv_entity_market_spine",
+      "run_id": "2026-07-06-complete",
+      "spine_rows": 570,
+      "gdelt_bridged_rows": 62,
+      "spx_or_jkse_bridged_rows": 50,
+      "sample_rows": [
+        {
+          "ric": "BBCA.JK",
+          "gdelt_entity_id": "IDX:BBCA",
+          "company_name": "Bank Central Asia Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "BBRI.JK",
+          "gdelt_entity_id": "IDX:BBRI",
+          "company_name": "Bank Rakyat Indonesia (Persero) Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "BMRI.JK",
+          "gdelt_entity_id": "IDX:BMRI",
+          "company_name": "Bank Mandiri (Persero) Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "BBNI.JK",
+          "gdelt_entity_id": "IDX:BBNI",
+          "company_name": "Bank Negara Indonesia (Persero) Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "TLKM.JK",
+          "gdelt_entity_id": "IDX:TLKM",
+          "company_name": "Telkom Indonesia (Persero) Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "ASII.JK",
+          "gdelt_entity_id": "IDX:ASII",
+          "company_name": "Astra International Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "UNVR.JK",
+          "gdelt_entity_id": "IDX:UNVR",
+          "company_name": "Unilever Indonesia Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "ICBP.JK",
+          "gdelt_entity_id": "IDX:ICBP",
+          "company_name": "Indofood CBP Sukses Makmur Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "INDF.JK",
+          "gdelt_entity_id": "IDX:INDF",
+          "company_name": "Indofood Sukses Makmur Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "GOTO.JK",
+          "gdelt_entity_id": "IDX:GOTO",
+          "company_name": "GoTo Gojek Tokopedia PT Tbk",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "AMMN.JK",
+          "gdelt_entity_id": "IDX:AMMN",
+          "company_name": "Amman Mineral Internasional Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "BREN.JK",
+          "gdelt_entity_id": "IDX:BREN",
+          "company_name": "Barito Renewables Energy PT Tbk",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "TPIA.JK",
+          "gdelt_entity_id": "IDX:TPIA",
+          "company_name": "Chandra Asri Pacific PT Tbk",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "BRIS.JK",
+          "gdelt_entity_id": "IDX:BRIS",
+          "company_name": "Pt Bank Syariah Indonesia Persero Tbk",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "BYAN.JK",
+          "gdelt_entity_id": "IDX:BYAN",
+          "company_name": "Bayan Resources Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "ADRO.JK",
+          "gdelt_entity_id": "IDX:ADRO",
+          "company_name": "Alamtri Resources Indonesia Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "ITMG.JK",
+          "gdelt_entity_id": "IDX:ITMG",
+          "company_name": "Indo Tambangraya Megah Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "PTBA.JK",
+          "gdelt_entity_id": "IDX:PTBA",
+          "company_name": "Bukit Asam (Persero) Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "MEDC.JK",
+          "gdelt_entity_id": "IDX:MEDC",
+          "company_name": "Medco Energi Internasional Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        },
+        {
+          "ric": "PGAS.JK",
+          "gdelt_entity_id": "IDX:PGAS",
+          "company_name": "Perusahaan Gas Negara Tbk PT",
+          "country_code": "ID",
+          "in_spx": 0.0,
+          "in_jkse": 1.0
+        }
+      ],
+      "caveat": "GDELT bridge is Asia-entity-master biased; US SPX names need broader entity map."
+    }
+  ],
+  "query_engine_proofs": [
+    {
+      "dataset_id": "refinitiv_index_membership_pit",
+      "params": {
+        "index_ric": ".JKSE",
+        "start_date": "2020-01-01",
+        "end_date": "2020-01-31",
+        "limit": "5",
+        "run_id": "2026-07-06-complete"
+      },
+      "returned": 5,
+      "rows_total_after_filter": 913,
+      "sample": [
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "DWGL.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "INDS.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        },
+        {
+          "index_ric": ".JKSE",
+          "queried_index": ".JKSE",
+          "pit_ric": "0#.JKSE",
+          "as_of_date": "2020-01-15",
+          "constituent_ric": "BSWD.JK",
+          "constituent_name": null,
+          "source": "lseg.get_data.pit_constituents",
+          "pulled_at": "2026-07-06T10:51:43.895595+00:00"
+        }
+      ]
+    },
+    {
+      "dataset_id": "refinitiv_estimate_revision_panel",
+      "params": {
+        "ric": "NVDA.O",
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+        "limit": "5",
+        "run_id": "2026-07-06-complete"
+      },
+      "returned": 5,
+      "rows_total_after_filter": 98,
+      "sample": [
+        {
+          "date": "2024-01-02",
+          "ric": "NVDA.O",
+          "eps_mean": 1.22995,
+          "revision_1m": 0.1433099704,
+          "revision_3m": 1.7331007511,
+          "revision_6m": 1.2712080363,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-03",
+          "ric": "NVDA.O",
+          "eps_mean": 1.22995,
+          "revision_1m": 0.1433099704,
+          "revision_3m": 1.7306129698,
+          "revision_6m": 1.2792891294,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        },
+        {
+          "date": "2024-01-10",
+          "ric": "NVDA.O",
+          "eps_mean": 1.23001,
+          "revision_1m": 0.1433657439,
+          "revision_3m": 1.735057369,
+          "revision_6m": 1.2785558149,
+          "source": "derived.refinitiv_estimate_revision_panel",
+          "built_at": "2026-07-06T12:31:59.650124+00:00"
+        }
+      ]
+    },
+    {
+      "dataset_id": "refinitiv_entity_market_spine",
+      "params": {
+        "in_spx": "1",
+        "limit": "5",
+        "run_id": "2026-07-06-complete"
+      },
+      "returned": 4,
+      "rows_total_after_filter": 4,
+      "sample": [
+        {
+          "ric": "JPM.N",
+          "company_name": "JPMorgan Chase & Co",
+          "isin": null,
+          "exchange_ticker": "JPM",
+          "trbc_sector": "Financials",
+          "trbc_industry": "Banks",
+          "market_cap": 896216183978.46,
+          "shares_outstanding": 2679511418,
+          "free_float_pct": 99.5758,
+          "country_code": "US",
+          "source": "derived.refinitiv_entity_market_spine",
+          "panel": "security_master",
+          "pulled_at": "2026-07-06T10:44:16.646351+00:00",
+          "yahoo_symbol": "JPM",
+          "gdelt_entity_id": null,
+          "market_country": null,
+          "entity_name_gdelt": null,
+          "in_jkse": 0.0,
+          "in_ks11": 0.0,
+          "in_n225": 0.0,
+          "in_spx": 1.0,
+          "in_twii": 0.0,
+          "built_at": "2026-07-06"
+        },
+        {
+          "ric": "V.N",
+          "company_name": "Visa Inc",
+          "isin": null,
+          "exchange_ticker": "V",
+          "trbc_sector": "Industrials",
+          "trbc_industry": "Business Support Services",
+          "market_cap": 682298170678.41,
+          "shares_outstanding": 1884124957,
+          "free_float_pct": 99.9033,
+          "country_code": "US",
+          "source": "derived.refinitiv_entity_market_spine",
+          "panel": "security_master",
+          "pulled_at": "2026-07-06T10:44:16.646351+00:00",
+          "yahoo_symbol": "V",
+          "gdelt_entity_id": null,
+          "market_country": null,
+          "entity_name_gdelt": null,
+          "in_jkse": 0.0,
+          "in_ks11": 0.0,
+          "in_n225": 0.0,
+          "in_spx": 1.0,
+          "in_twii": 0.0,
+          "built_at": "2026-07-06"
+        },
+        {
+          "ric": "UNH.N",
+          "company_name": "UnitedHealth Group Inc",
+          "isin": null,
+          "exchange_ticker": "UNH",
+          "trbc_sector": "Healthcare",
+          "trbc_industry": "Managed Healthcare",
+          "market_cap": 386288303685.44,
+          "shares_outstanding": 908144404,
+          "free_float_pct": 99.7558,
+          "country_code": "US",
+          "source": "derived.refinitiv_entity_market_spine",
+          "panel": "security_master",
+          "pulled_at": "2026-07-06T10:44:16.646351+00:00",
+          "yahoo_symbol": "UNH",
+          "gdelt_entity_id": null,
+          "market_country": null,
+          "entity_name_gdelt": null,
+          "in_jkse": 0.0,
+          "in_ks11": 0.0,
+          "in_n225": 0.0,
+          "in_spx": 1.0,
+          "in_twii": 0.0,
+          "built_at": "2026-07-06"
+        }
+      ]
+    }
+  ]
+}

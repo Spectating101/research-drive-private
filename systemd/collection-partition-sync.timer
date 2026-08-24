@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily collection partition sync to GDrive (skip large lanes by default)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

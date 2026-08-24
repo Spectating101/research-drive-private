@@ -1,0 +1,1 @@
+../drive/scripts/run_dataset_index_curator_loop.sh

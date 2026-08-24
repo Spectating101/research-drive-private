@@ -1,4 +1,6 @@
-# Private Runtime Adoption
+# Private Runtime Adoption (historical architecture record)
+
+> **Historical adoption record:** This captures the architecture and acceptance assumptions of the private-runtime adoption pass. It does not establish the current release candidate, deployment status, worker inventory, or remaining gate. Start with [CURRENT_STATE.md](CURRENT_STATE.md) and verify Git, CI, live API, and host evidence directly.
 
 ## Current architecture
 
@@ -94,7 +96,7 @@ Completed in this private branch:
    legacy idempotent submission. A private GitHub Actions workflow now runs the
    full non-HMM suite, the 32 reference interop tests, and runtime compilation.
 
-Current local verification:
+Recorded local verification at adoption time:
 
 ```text
 217 passed, 9 deselected

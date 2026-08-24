@@ -1,0 +1,47 @@
+{
+  "session_id": "0a479fef304d4452",
+  "turns": [
+    {
+      "question": "Synthesize our stablecoin trust and engagement data \u2014 community growth, security history, GDELT news, DeFiLlama adoption. Give a short professor answer.",
+      "words": 161,
+      "action": "composer",
+      "brain": "cursor_composer",
+      "tools": [],
+      "synthesis_called": false,
+      "flags": [],
+      "pass": true,
+      "preview": "Across 71 stablecoins from mid-2021 through this week, the picture is layered but uneven. **Trust** is best measured where we have peg stability, circulating supply, and code-governance scores \u2014 about 64 tokens have security ratings, though only nine carry a full composite Skynet score. **Engagement** shows up mainly t",
+      "synthesis_artifact": null,
+      "seconds": 13.1,
+      "session_id": "0a479fef304d4452"
+    },
+    {
+      "question": "Which entities have the strongest community growth and code security scores?",
+      "words": 186,
+      "action": "composer",
+      "brain": "cursor_composer",
+      "tools": [],
+      "synthesis_called": false,
+      "flags": [],
+      "pass": true,
+      "preview": "On code security, the leaders cluster at a perfect score: FDUSD, EURC, PayPal USD, Global Dollar, RLUSD, United Stables, USDS, and several smaller fiat-linked tokens. USDD (93) and Binance USD (95) are close behind; the big incumbents are weaker here \u2014 USDT scores 56 and USDC 59.  On community growth, United Stables st",
+      "synthesis_artifact": null,
+      "seconds": 43.5,
+      "session_id": "0a479fef304d4452"
+    },
+    {
+      "question": "How many weekly panel rows and sources does the trust engagement cluster cover?",
+      "words": 76,
+      "action": "composer",
+      "brain": "cursor_composer",
+      "tools": [],
+      "synthesis_called": false,
+      "flags": [],
+      "pass": true,
+      "preview": "The trust\u2013engagement cluster spans **20,980 weekly panel rows** across **71 stablecoins**, from mid-2021 through the current week.  On sources, it layers **eight signal types**: Skynet governance scores (64 entities), composite Skynet scores (9), DeFiLlama adoption mapping (68), weekly peg stress (64), weekly supply (5",
+      "synthesis_artifact": null,
+      "seconds": 8.1,
+      "session_id": "0a479fef304d4452"
+    }
+  ]
+}

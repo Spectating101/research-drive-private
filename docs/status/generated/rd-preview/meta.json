@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "base": "http://127.0.0.1:8765",
+    "at": "2026-06-24T14:23:37.993Z"
+  },
+  "shots": [
+    {
+      "id": "home",
+      "file": "home.png",
+      "h1": "Home",
+      "label": "Home"
+    },
+    {
+      "id": "drive-all",
+      "file": "drive-all.png",
+      "h1": "Drive",
+      "label": "Drive"
+    },
+    {
+      "id": "drive-lab",
+      "file": "drive-lab.png",
+      "h1": "Drive",
+      "label": "Drive"
+    },
+    {
+      "id": "discover",
+      "file": "discover.png",
+      "h1": "Discover",
+      "label": "Discover"
+    },
+    {
+      "id": "chat",
+      "file": "chat.png",
+      "h1": "Source & compare",
+      "label": "Chat"
+    },
+    {
+      "id": "cluster",
+      "file": "cluster.png",
+      "h1": "Cluster",
+      "label": "Cluster"
+    },
+    {
+      "id": "activity",
+      "file": "activity.png",
+      "h1": "Activity",
+      "label": "Activity"
+    }
+  ],
+  "problems": []
+}

@@ -1,0 +1,46 @@
+{
+  "at": "2026-06-24T13:46:46.684Z",
+  "base": "http://127.0.0.1:8765",
+  "findings": [
+    {
+      "id": "home-empty-table",
+      "severity": "medium",
+      "message": "Home featured table has 0 data rows"
+    },
+    {
+      "id": "discover-stuck-loading",
+      "severity": "medium",
+      "message": "Discover still shows 'Searching…' after wait"
+    },
+    {
+      "id": "discover-no-cards",
+      "severity": "medium",
+      "message": "Discover has no cards and no empty state"
+    },
+    {
+      "id": "browse-skip",
+      "severity": "low",
+      "message": "No discover cards — skipped Browse drill-in"
+    },
+    {
+      "id": "cluster-stale-domains",
+      "severity": "low",
+      "message": "Cluster shows legacy bucket names like \"Procured\" / \"Web scrape\""
+    },
+    {
+      "id": "mobile-overflow",
+      "severity": "medium",
+      "message": "Horizontal overflow on 390px viewport"
+    }
+  ],
+  "shots": [
+    "01-home.png",
+    "02-drive-all.png",
+    "03-drive-lab.png",
+    "04-discover.png",
+    "06-cluster.png",
+    "07-chat.png",
+    "08-activity.png",
+    "09-mobile.png"
+  ]
+}

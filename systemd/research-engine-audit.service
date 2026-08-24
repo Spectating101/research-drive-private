@@ -1,0 +1,13 @@
+[Unit]
+Description=Sharpe-Renaissance investment research engine audit
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@SR_DIR@
+Environment=PYTHONPATH=@KERNEL_DIR@:@ALPHA_DIR@:@DRIVE_DIR@:@SR_DIR@
+ExecStart=@VENV_PYTHON@ scripts/investment_research_engine_audit.py
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
