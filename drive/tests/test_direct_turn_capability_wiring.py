@@ -108,3 +108,78 @@ def test_status_turn_survives_a_broken_campaign_lookup():
 def test_no_campaign_still_answers():
     turn = _status_turn({})
     assert turn is not None and turn.reply.strip()
+
+
+class _Calls2:
+    def __init__(self):
+        self.tick = 0
+        self.tick_campaigns = 0
+
+
+class _JobStore:
+    def __init__(self, job):
+        self._job = job
+
+    def get(self, _jid):
+        return self._job
+
+
+class _JobGateway:
+    """A completed collect job that already knows which files landed."""
+
+    def __init__(self, job):
+        self.calls = _Calls2()
+        self.repo_root = "."
+
+        class _O:
+            cfg: dict = {}
+
+        self.orchestrator = _O()
+        self.orchestrator.store = _JobStore(job)
+
+    class jobs:
+        @staticmethod
+        def tick():
+            raise AssertionError("status ticked workers")
+
+    def tick_campaigns(self, limit=3):
+        raise AssertionError("status advanced campaigns")
+
+    def get_yzu_job(self, _jid):
+        return self.orchestrator.store.get(_jid)
+
+    def cluster_status(self, live=False):
+        return {}
+
+
+COMPLETED_JOB = {
+    "id": "job_abc123456789",
+    "status": "completed",
+    "plan": {"job_type": "api_collect", "title": "TWSE daily quotes", "destination": "data_lake/x"},
+    "result": {"canonical_dir": "data_lake/x", "files": [{"path": "data_lake/x/a.parquet", "bytes": 2048}]},
+}
+
+
+def _status_for_job():
+    from scripts.research_data_mcp.desk_direct_turns import try_direct_status_turn
+
+    return try_direct_status_turn(
+        _JobGateway(COMPLETED_JOB), "status", {"pending_job_id": "job_abc123456789"}
+    )
+
+
+def test_a_completed_job_reports_more_than_a_status_word():
+    turn = _status_for_job()
+    assert turn is not None
+    assert "is **completed**" not in turn.reply, "still reporting only the status word"
+
+
+def test_a_completed_job_names_the_collection():
+    turn = _status_for_job()
+    assert "Collection complete" in turn.reply
+
+
+def test_job_reporting_stays_read_only():
+    # _JobGateway raises on any mutation; reaching here means none were attempted
+    turn = _status_for_job()
+    assert turn is not None
