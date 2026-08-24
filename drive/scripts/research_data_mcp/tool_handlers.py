@@ -108,7 +108,19 @@ class ResearchToolHandlers:
         node_id: str = "",
         execution_spec: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Propose a validated Synthesis-state change for researcher review; never applies it."""
+        """Propose a validated Synthesis-state change for review; never apply it.
+
+        Use only these operation shapes: {"op":"update_spec","patch":{...}},
+        {"op":"add_node","node":{...}}, {"op":"update_node","id":"...",
+        "patch":{...}}, {"op":"remove_node","id":"..."},
+        {"op":"add_edge","edge":{...}}, {"op":"update_edge","id":"...",
+        "patch":{...}}, or {"op":"append_activity","message":"..."}.
+        For a first reviewable construction, prefer one update_spec operation whose
+        patch records purpose, grain, coreEvidence, construction, validation,
+        unavailable, and limitations. Do not invent semantic operation names such
+        as define_construct or assign_evidence_roles. Added nodes need unique ids;
+        added edges must reference existing or simultaneously proposed nodes.
+        """
         thread = self.gateway.synthesis_thread_propose_state(
             thread_id,
             proposal_id=proposal_id,

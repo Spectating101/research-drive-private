@@ -185,6 +185,18 @@ def test_dishonest_materialisation_rejected(store):
     assert view["output_registered"] is False
 
 
+def test_unknown_patch_operation_reports_allowed_recorder_schema():
+    from scripts.research_data_mcp.synthesis_thread_store import apply_synthesis_patch
+
+    with pytest.raises(ValueError) as error:
+        apply_synthesis_patch(_seed_state(), [{"op": "define_construct"}])
+
+    message = str(error.value)
+    assert "Unsupported synthesis patch operation: define_construct" in message
+    assert "Allowed operations:" in message
+    assert '{"op":"update_spec","patch":{...}}' in message
+
+
 def test_composer_proposal_is_validated_and_never_auto_applied(store):
     thread = store.create(
         objective="Construct a defensible longitudinal attention signal.",

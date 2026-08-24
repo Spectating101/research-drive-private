@@ -37,6 +37,21 @@ def test_first_turn_contract_requires_interpretation_evidence_and_one_question()
     assert prompt.endswith("Construct a firm-week coordination proxy.")
 
 
+def test_proposal_contract_publishes_exact_patch_vocabulary():
+    from scripts.research_data_mcp.desk_synthesis_contract import wrap_synthesis_request
+
+    prompt = wrap_synthesis_request(
+        "Create and record one reviewable Synthesis proposal.",
+        first_user_turn=False,
+    )
+    compact = " ".join(prompt.split())
+
+    assert '"op":"update_spec","patch"' in prompt
+    assert "add_node, update_node" in prompt
+    assert "Never invent operation" in prompt
+    assert "correct it and call the tool once more in the same turn" in compact
+
+
 def test_followup_contract_preserves_context_without_restarting():
     from scripts.research_data_mcp.desk_synthesis_contract import wrap_synthesis_request
 

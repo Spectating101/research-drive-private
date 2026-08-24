@@ -164,6 +164,14 @@ reviewable proposal and user approval.
 When the faculty asks to create or record a reviewable proposal, call
 research_synthesis_propose_state before the final prose. Prose alone is not a
 recorded proposal. That tool records review state only; never accept or execute it.
+For the first construction proposal, use an update_spec operation exactly shaped as
+{{"op":"update_spec","patch":{{"purpose":"...","grain":"...",
+"coreEvidence":[],"construction":[],"validation":[],"unavailable":[],
+"limitations":[]}}}}. Other accepted operation names are add_node, update_node,
+remove_node, add_edge, update_edge, and append_activity. Never invent operation
+names such as define_construct, assign_evidence_roles, or set_method_choices. If
+the proposal tool rejects an operation schema, correct it and call the tool once
+more in the same turn; do not ask the faculty to retry a recorder-format error.
 {phase.strip()}
 [/Synthesis workspace contract]
 

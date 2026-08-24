@@ -126,7 +126,12 @@ def apply_synthesis_patch(state: dict[str, Any], operations: list[dict[str, Any]
             raise ValueError("Unsupported synthesis patch operation: unknown")
         op = str(operation.get("op") or "")
         if op not in ALLOWED_PATCH_OPS:
-            raise ValueError(f"Unsupported synthesis patch operation: {op or 'unknown'}")
+            allowed = ", ".join(sorted(ALLOWED_PATCH_OPS))
+            raise ValueError(
+                f"Unsupported synthesis patch operation: {op or 'unknown'}. "
+                f"Allowed operations: {allowed}. For a first construction proposal, "
+                'use {"op":"update_spec","patch":{...}}.'
+            )
 
         if op == "update_node":
             node_id = str(operation.get("id") or "")
