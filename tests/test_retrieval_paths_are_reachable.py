@@ -61,6 +61,15 @@ def test_semantic_discover_uses_adaptive_held_retrieval() -> None:
         ],
         "total": 1,
     }
+    gateway.procurement_catalog.return_value = {"registry": []}
+    gateway.describe_dataset.return_value = {
+        "dataset_id": "public_equity_us_sp500_yfinance_daily",
+        "name": "S&P 500 daily stock prices",
+        "grain": "symbol_day",
+        "analysis_readiness": "metadata_search",
+        "materialization": {"query_ready": False},
+    }
+    gateway.repo_root = "/tmp/repo"
     handler = ResearchToolHandlers(SimpleNamespace(gateway=gateway))
 
     result = handler.research_semantic_discover("daily equity returns", limit=12)
@@ -69,3 +78,6 @@ def test_semantic_discover_uses_adaptive_held_retrieval() -> None:
     gateway.semantic_discover.assert_not_called()
     assert result["mode"] == "adaptive_held"
     assert result["rows"][0]["dataset_id"] == "public_equity_us_sp500_yfinance_daily"
+    assert result["rows"][0]["query_ready"] is False
+    assert result["query_ready_count"] == 0
+    assert "do not substitute" in result["selection_contract"]

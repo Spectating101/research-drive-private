@@ -703,18 +703,75 @@ class ResearchToolHandlers:
         because either layer can miss a valid held asset on its own. Follow up with
         research_describe_dataset using only dataset_id values returned here.
         """
+        lim = min(max(int(limit), 1), 24)
         out = self.gateway.discover_search(
             query,
-            limit=min(max(int(limit), 1), 24),
+            limit=lim,
         )
-        rows = [
+        candidate_rows = [
             row
             for section in (out.get("sections") or [])
             if isinstance(section, dict)
             for row in (section.get("rows") or [])
             if isinstance(row, dict)
         ]
-        return {**out, "mode": "adaptive_held", "rows": rows}
+        # A newly started MCP subprocess has not inherited the front door's
+        # resident embedding index. The catalog is the deterministic cold-path
+        # fallback and still carries the registry's materialization truth.
+        catalog = self.gateway.procurement_catalog(q=query, limit=max(24, lim * 2))
+        candidate_rows.extend(
+            row
+            for row in (catalog.get("registry") or [])
+            if isinstance(row, dict)
+        )
+
+        from scripts.research_data_mcp.registry_access import access_tier
+
+        rows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for candidate in candidate_rows:
+            dataset_id = str(candidate.get("dataset_id") or "").strip()
+            if not dataset_id or dataset_id in seen:
+                continue
+            try:
+                registered = self.gateway.describe_dataset(dataset_id)
+            except (KeyError, ValueError):
+                continue
+            materialization = registered.get("materialization") or {}
+            tier = access_tier(registered, repo_root=Path(self.gateway.repo_root))
+            rows.append(
+                {
+                    "kind": "registry_dataset",
+                    "dataset_id": dataset_id,
+                    "title": registered.get("name") or registered.get("title") or dataset_id,
+                    "description": registered.get("description") or "",
+                    "recommended_use": registered.get("recommended_use") or "",
+                    "limitations": registered.get("limitations") or "",
+                    "grain": registered.get("grain") or "",
+                    "analysis_readiness": registered.get("analysis_readiness") or "",
+                    "query_ready": materialization.get("query_ready") is True,
+                    "access_tier": tier,
+                    "source": registered.get("source_system") or registered.get("source_id") or "registry",
+                }
+            )
+            seen.add(dataset_id)
+            if len(rows) >= lim:
+                break
+
+        query_ready_count = sum(1 for row in rows if row["query_ready"])
+        return {
+            **out,
+            "mode": "adaptive_held",
+            "sections": [{"id": "held_registry", "label": "Held Library evidence", "rows": rows}] if rows else [],
+            "rows": rows,
+            "total": len(rows),
+            "query_ready_count": query_ready_count,
+            "selection_contract": (
+                "Call a dataset query-ready only when query_ready is true. "
+                "If fewer rows satisfy the requested topic, grain, and readiness than the user requested, "
+                "state the shortfall; do not substitute a mapping table, context panel, or unavailable asset."
+            ),
+        }
 
     def research_discover_search(
         self,

@@ -142,6 +142,9 @@ def build_vault_brief(repo_root: Path, faculty_profile: dict[str, Any] | None = 
         "research_semantic_discover with the researcher's actual need before describing or querying a dataset. "
         "Use research_discover_search for external acquisition sources, not as the held-Library search. "
         "Use only exact dataset_id values returned by a tool; never infer an id from a shelf, group, or title. "
+        "Do not add a geography, universe, or topic from this brief unless the researcher asked for it. "
+        "Call an asset query-ready only when the tool says query_ready=true; if too few rows satisfy the request, "
+        "state the shortfall instead of substituting a mapping table, context panel, or unavailable asset. "
         "The short Ready now list is orientation, not permission to skip retrieval or claim relevance."
     )
     lines.append(

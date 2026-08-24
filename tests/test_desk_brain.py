@@ -19,6 +19,8 @@ def test_vault_brief_requires_retrieval_before_dataset_recommendations() -> None
     assert "research_semantic_discover" in brief
     assert "research_discover_search for external acquisition sources" in brief
     assert "Use only exact dataset_id values returned by a tool" in brief
+    assert "Call an asset query-ready only when the tool says query_ready=true" in brief
+    assert "instead of substituting a mapping table" in brief
     assert "orientation, not permission to skip retrieval" in brief
     assert "trust this for inventory questions" not in brief
     assert "Do not re-survey the vault" not in brief
