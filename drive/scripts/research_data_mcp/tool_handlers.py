@@ -696,15 +696,25 @@ class ResearchToolHandlers:
         )
 
     def research_semantic_discover(self, query: str, limit: int = 12) -> dict[str, Any]:
-        """Find held datasets by meaning, for a natural-language research question.
+        """Find held datasets for a natural-language research question.
 
-        Use this FIRST for any question phrased as prose ("daily returns for Taiwan
-        listed companies", "news sentiment for Indonesia"). Keyword search requires a
-        higher match score for every additional word, so a precisely worded question
-        returns fewer rows than a vague one; this path ranks by meaning instead and is
-        unaffected. Follow up with research_describe_dataset on the rows it returns.
+        Use this FIRST for prose such as "daily returns for Taiwan listed companies".
+        It uses the same adaptive semantic + keyword retrieval as the live Library,
+        because either layer can miss a valid held asset on its own. Follow up with
+        research_describe_dataset using only dataset_id values returned here.
         """
-        return self.gateway.semantic_discover(query, limit=min(max(int(limit), 1), 24))
+        out = self.gateway.discover_search(
+            query,
+            limit=min(max(int(limit), 1), 24),
+        )
+        rows = [
+            row
+            for section in (out.get("sections") or [])
+            if isinstance(section, dict)
+            for row in (section.get("rows") or [])
+            if isinstance(row, dict)
+        ]
+        return {**out, "mode": "adaptive_held", "rows": rows}
 
     def research_discover_search(
         self,

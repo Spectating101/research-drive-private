@@ -11,6 +11,9 @@ was never the problem, the wiring was.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 from scripts.research_data_mcp.gateway import ResearchDataGateway
 from scripts.research_data_mcp.mcp_register import registered_tool_names
 from scripts.research_data_mcp.tool_handlers import MCP_TOOL_NAMES, ResearchToolHandlers
@@ -44,3 +47,25 @@ def test_each_declared_tool_name_has_a_handler_method() -> None:
 def test_semantic_discover_reaches_the_gateway() -> None:
     assert hasattr(ResearchToolHandlers, "research_semantic_discover")
     assert hasattr(ResearchDataGateway, "semantic_discover")
+
+
+def test_semantic_discover_uses_adaptive_held_retrieval() -> None:
+    gateway = MagicMock()
+    gateway.discover_search.return_value = {
+        "query": "daily equity returns",
+        "sections": [
+            {
+                "id": "discover",
+                "rows": [{"dataset_id": "public_equity_us_sp500_yfinance_daily"}],
+            }
+        ],
+        "total": 1,
+    }
+    handler = ResearchToolHandlers(SimpleNamespace(gateway=gateway))
+
+    result = handler.research_semantic_discover("daily equity returns", limit=12)
+
+    gateway.discover_search.assert_called_once_with("daily equity returns", limit=12)
+    gateway.semantic_discover.assert_not_called()
+    assert result["mode"] == "adaptive_held"
+    assert result["rows"][0]["dataset_id"] == "public_equity_us_sp500_yfinance_daily"
