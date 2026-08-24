@@ -183,3 +183,51 @@ def test_job_reporting_stays_read_only():
     # _JobGateway raises on any mutation; reaching here means none were attempted
     turn = _status_for_job()
     assert turn is not None
+
+
+def test_completed_job_keeps_logical_paths_when_runtime_storage_is_symlinked(tmp_path):
+    from scripts.research_data_mcp.procurement_delivery import format_job_collect_outcome
+
+    repo = tmp_path / "checkout"
+    runtime = tmp_path / "runtime"
+    logical_dir = Path("data_lake/procured/twse/revisions/rev_1")
+    physical_dir = runtime / "procured/twse/revisions/rev_1"
+    physical_dir.mkdir(parents=True)
+    artifact = physical_dir / "quotes.parquet"
+    artifact.write_bytes(b"real bytes")
+
+    (repo / "data_lake").mkdir(parents=True)
+    (repo / "data_lake/procured").symlink_to(runtime / "procured", target_is_directory=True)
+
+    job = {
+        "id": "job_runtime_symlink",
+        "status": "completed",
+        "plan": {"job_type": "api_collect", "destination": "data_lake/procured/twse"},
+        "result": {
+            "canonical_dir": str(logical_dir),
+            "materialized": {
+                "canonical_dir": str(logical_dir),
+                "files": [
+                    {
+                        "name": artifact.name,
+                        "path": str(logical_dir / artifact.name),
+                        "bytes": artifact.stat().st_size,
+                    }
+                ],
+            },
+        },
+    }
+    gateway = _JobGateway(job)
+    gateway.repo_root = repo
+
+    note, details = format_job_collect_outcome(gateway, job["id"], job=job)
+
+    assert "Collection complete" in note
+    assert details["procured_files"] == [
+        {
+            "name": artifact.name,
+            "path": str(logical_dir / artifact.name),
+            "bytes": artifact.stat().st_size,
+        }
+    ]
+    assert str(runtime) not in note
