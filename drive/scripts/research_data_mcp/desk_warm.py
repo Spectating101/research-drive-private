@@ -22,11 +22,17 @@ def build_prime_prompt(brief: str) -> str:
 
 def prime_desk_agent(gateway: Any, state: dict[str, Any], session_id: str) -> bool:
     """Create a Composer agent and load the vault brief. Mutates state in place."""
-    from scripts.research_data_mcp.desk_brain import cursor_composer_available, run_cursor_composer_turn
+    from scripts.research_data_mcp.desk_brain import (
+        desk_brain_mode,
+        run_copilot_composer_turn,
+        run_cursor_composer_turn,
+    )
 
-    if state.get("desk_primed") and state.get("cursor_agent_id"):
+    brain = desk_brain_mode(Path(gateway.repo_root))
+    agent_key = "copilot_session_id" if brain == "copilot_composer" else "cursor_agent_id"
+    if state.get("desk_primed") and state.get(agent_key):
         return True
-    if not cursor_composer_available():
+    if brain == "unavailable":
         return False
 
     brief = str(state.get("vault_brief") or "").strip()
@@ -36,7 +42,12 @@ def prime_desk_agent(gateway: Any, state: dict[str, Any], session_id: str) -> bo
         brief = build_vault_brief(Path(gateway.repo_root), state.get("faculty_profile"))
         state["vault_brief"] = brief
 
-    turn = run_cursor_composer_turn(
+    runner = (
+        run_copilot_composer_turn
+        if brain == "copilot_composer"
+        else run_cursor_composer_turn
+    )
+    turn = runner(
         gateway,
         build_prime_prompt(brief),
         state,
@@ -48,7 +59,7 @@ def prime_desk_agent(gateway: Any, state: dict[str, Any], session_id: str) -> bo
         return False
     state["desk_primed"] = True
     state.pop("desk_priming", None)
-    return bool(state.get("cursor_agent_id"))
+    return bool(state.get(agent_key))
 
 
 def warm_desk_session(
@@ -72,9 +83,11 @@ def warm_desk_session(
 
         state["vault_brief"] = build_vault_brief(Path(gateway.repo_root), state.get("faculty_profile"))
 
-    from scripts.research_data_mcp.desk_brain import cursor_composer_available
+    from scripts.research_data_mcp.desk_brain import desk_brain_mode
 
-    if state.get("desk_primed") and state.get("cursor_agent_id"):
+    brain = desk_brain_mode(Path(gateway.repo_root))
+    agent_key = "copilot_session_id" if brain == "copilot_composer" else "cursor_agent_id"
+    if state.get("desk_primed") and state.get(agent_key):
         orch.sessions.update_state(sid, state)
         return {"session_id": sid, "primed": True, "priming": False}
 
@@ -82,7 +95,7 @@ def warm_desk_session(
         orch.sessions.update_state(sid, state)
         return {"session_id": sid, "primed": False, "priming": True, "composer": True}
 
-    if not cursor_composer_available():
+    if brain == "unavailable":
         orch.sessions.update_state(sid, state)
         return {"session_id": sid, "primed": False, "priming": False, "composer": False}
 

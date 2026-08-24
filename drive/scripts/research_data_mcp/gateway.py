@@ -1265,7 +1265,14 @@ class ResearchDataGateway:
                     or "unavailable"
                 ),
                 "composer_runtime": composer_runtime,
-                "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
+                "composer_model": (
+                    composer_runtime.get("model")
+                    or (
+                        "auto"
+                        if brain == "copilot_composer"
+                        else os.getenv("DESK_COMPOSER_MODEL", "default")
+                    )
+                ),
                 "synthesis_fallback": synthesis_fallback_runtime,
                 "chat_timeout_seconds": chat_timeout_seconds(),
                 "llm_configured": composer_ok,

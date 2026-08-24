@@ -5,8 +5,12 @@
 
 ## What must be true for a clean host to match the accepted desk
 
-1. Front door Python provides an importable `cursor_sdk` (`YZU_PYTHON_BIN`).
-2. `CURSOR_API_KEY` is set **and** `cursor_composer_available()` can import `cursor_sdk` (health is not key-only).
+1. Front door Python provides the SDK for the selected Composer provider
+   (`cursor_sdk` or `github-copilot-sdk`; configured by `YZU_PYTHON_BIN`).
+2. The selected provider is actually invocable (health is not credential-only).
+   Cursor requires `CURSOR_API_KEY`. GitHub Copilot requires an executable
+   sticky-account launcher plus at least one alias in `DESK_COPILOT_ACCOUNTS`;
+   tokens remain in the launcher's private credential store.
    An optional `GEMINI_API_KEY` plus explicit
    `DESK_SYNTHESIS_GEMINI_ENABLED=true` enables only the read-only Synthesis
    reasoning fallback; its runtime health is reported separately and it never
@@ -31,6 +35,9 @@ SHARPE_REGISTRY_PATH=drive/config/research_query_registry.json
 
 Never commit real tokens. Keep `YZU_DESK_ACCESS_TOKEN`, `CURSOR_API_KEY`,
 optional `GEMINI_API_KEY`, and `YZU_WORKER_CONTROL_TOKEN` host-local.
+For Copilot, configure only account aliases in the front-door environment. The
+launcher owns the GitHub OAuth tokens and pins one identity for each headless
+SDK runtime; it must not rotate an active JSON-RPC session.
 
 ## Deterministic linking
 

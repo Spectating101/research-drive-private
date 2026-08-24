@@ -215,7 +215,7 @@ class ProcurementChatOrchestrator:
 
         from pathlib import Path as _Path
 
-        from scripts.research_data_mcp.desk_brain import cursor_composer_available, desk_brain_mode
+        from scripts.research_data_mcp.desk_brain import desk_brain_mode
 
         from scripts.research_data_mcp.desk_direct_turns import (
             is_direct_equipment_message,
@@ -244,12 +244,17 @@ class ProcurementChatOrchestrator:
 
         # Priming must not consume the whole chat budget. Cap wait to half the timeout.
         prime_wait = max(1, min(60, int(chat_timeout * 0.5)))
+        composer_brain = desk_brain_mode(_Path(gateway.repo_root))
+        composer_agent_key = (
+            "copilot_session_id"
+            if composer_brain == "copilot_composer"
+            else "cursor_agent_id"
+        )
         if (
             not skip_composer_priming
-            and desk_brain_mode(_Path(gateway.repo_root)) == "cursor_composer"
-            and cursor_composer_available()
+            and composer_brain in {"cursor_composer", "copilot_composer"}
             and not state.get("desk_primed")
-            and not state.get("cursor_agent_id")
+            and not state.get(composer_agent_key)
         ):
             from scripts.research_data_mcp.desk_warm import warm_desk_session
 

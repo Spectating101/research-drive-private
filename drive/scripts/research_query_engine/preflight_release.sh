@@ -159,6 +159,19 @@ fi
 roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 [ "$roots" = "<unset>" ] && note "WARN: RESEARCH_DATA_ROOTS unset; holdings counts will read as absent"
 
+composer_provider="${DESK_COMPOSER_PROVIDER:-auto}"
+if [ "$composer_provider" = "copilot" ] || [ "$composer_provider" = "github_copilot" ] || [ "$composer_provider" = "copilot_composer" ]; then
+  copilot_probe="$backend_root/drive/scripts/research_data_mcp/copilot_pool_preflight.py"
+  if [ ! -f "$copilot_probe" ]; then
+    bad "Copilot pool preflight is missing: $copilot_probe"
+  elif copilot_result="$(PYTHONPATH="$backend_root:$backend_root/kernel:$backend_root/drive:$backend_root/alpha" "$python_bin" "$copilot_probe" 2>&1)"; then
+    while IFS= read -r line; do note "copilot: $line"; done <<<"$copilot_result"
+  else
+    bad "Copilot provider preflight failed"
+    while IFS= read -r line; do note "copilot: $line"; done <<<"$copilot_result"
+  fi
+fi
+
 if [ "${PREFLIGHT_CHECK_RESTARTABILITY:-0}" = "1" ]; then
   restart_probe="${PREFLIGHT_RESTARTABILITY_SCRIPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify_front_door_restartability.sh}"
   if [ ! -f "$restart_probe" ]; then
