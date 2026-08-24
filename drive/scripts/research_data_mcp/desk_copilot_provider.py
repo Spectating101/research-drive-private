@@ -46,6 +46,7 @@ _SYNTHESIS_SAFE_TOOLS = [
     "research_describe_dataset",
     "research_query_dataset",
     "research_synthesis_pair",
+    "research_synthesis_propose_state",
 ]
 _GENERAL_SAFE_TOOLS = [
     "collection_status",

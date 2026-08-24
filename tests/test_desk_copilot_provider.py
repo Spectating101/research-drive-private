@@ -35,7 +35,7 @@ def test_account_choice_is_sticky_for_a_session(monkeypatch):
     assert desk_copilot_provider.choose_copilot_account("another-session", state) == chosen
 
 
-def test_synthesis_mcp_is_limited_to_wire_verified_read_only_tools(monkeypatch):
+def test_synthesis_mcp_is_limited_to_wire_verified_nonexecuting_tools(monkeypatch):
     monkeypatch.setenv("DESK_COPILOT_ACCOUNTS", "primary")
     monkeypatch.setattr(desk_copilot_provider, "copilot_composer_available", lambda: True)
     bindings = desk_copilot_provider.load_copilot_cursor_bindings("primary")
@@ -53,6 +53,7 @@ def test_synthesis_mcp_is_limited_to_wire_verified_read_only_tools(monkeypatch):
         "research_describe_dataset",
         "research_query_dataset",
         "research_synthesis_pair",
+        "research_synthesis_propose_state",
     ]
 
 
