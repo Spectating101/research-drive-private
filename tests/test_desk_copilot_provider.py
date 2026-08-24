@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -310,6 +311,167 @@ def test_first_copilot_synthesis_turn_retries_until_evidence_tool_is_used(monkey
     assert "Use at least one available Research MCP tool now" in fake_agent.sends[1]
     assert turn.action_result["synthesis_contract_validated"] is True
     assert turn.action_result["composer_model"] == "gpt-test"
+
+
+def test_copilot_records_requested_synthesis_proposal_after_grounding(monkeypatch):
+    proposal = {
+        "id": "proposal-1",
+        "title": "Monthly JKSE regime construction",
+        "summary": "Review-only construction grounded in held evidence.",
+        "operations": [{"op": "update_spec", "value": {"grain": "month"}}],
+    }
+    grounded_reply = (
+        "Provisional interpretation grounded in the held JKSE panel. Supported "
+        "facts remain separate from proposed proxy choices and unresolved "
+        "limitations. Which threshold definition should govern the construct?"
+    )
+
+    class FakeRun:
+        status = "completed"
+        model = "gpt-test"
+
+        def __init__(self, reply, messages=()):
+            self.reply = reply
+            self.messages = list(messages)
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return self.reply
+
+        def conversation(self):
+            steps = [SimpleNamespace(message=message) for message in self.messages]
+            return [SimpleNamespace(steps=steps)] if steps else []
+
+    class FakeAgent:
+        agent_id = "copilot-session"
+
+        def __init__(self):
+            self.sends = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def close(self):
+            return None
+
+        def send(self, text, options):
+            self.sends.append(text)
+            if len(self.sends) == 1:
+                options.on_delta(
+                    {
+                        "type": "tool-call-started",
+                        "tool_call": {"name": "research_query_dataset"},
+                    }
+                )
+                message = SimpleNamespace(
+                    type="tool_call",
+                    name="research_query_dataset",
+                    result='{"dataset_id":"held_panel"}',
+                )
+                return FakeRun(grounded_reply, [message])
+            options.on_delta(
+                {
+                    "type": "tool-call-started",
+                    "tool_call": {"name": "research_synthesis_propose_state"},
+                }
+            )
+            message = SimpleNamespace(
+                type="tool_call",
+                name="research_synthesis_propose_state",
+                result=json.dumps(
+                    {"thread_id": "thread-1", "synthesis_proposal": proposal}
+                ),
+            )
+            return FakeRun("Proposal recorded for review.", [message])
+
+    fake_agent = FakeAgent()
+    sdk = desk_brain._CursorSdkBindings(
+        agent=SimpleNamespace(
+            create=lambda _options: fake_agent,
+            resume=lambda _agent_id, _options: fake_agent,
+        ),
+        agent_options=lambda **kwargs: SimpleNamespace(**kwargs),
+        model_selection=lambda **kwargs: SimpleNamespace(**kwargs),
+        send_options=lambda **kwargs: SimpleNamespace(**kwargs),
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    monkeypatch.setattr(desk_brain, "_durable_synthesis_thread_brief", lambda *_a: "")
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.desk_synthesis_grounding.build_synthesis_grounding_brief",
+        lambda *_a, **_k: "Verified grounding brief.",
+    )
+    gateway = MagicMock()
+    gateway.repo_root = "/tmp/repo"
+    state = {
+        "desk_primed": True,
+        "rail_context": {
+            "tab": "synthesis",
+            "thread_id": "thread-1",
+            "entity": {"kind": "synthesis_thread", "id": "thread-1"},
+        },
+    }
+
+    turn = desk_brain.run_cursor_composer_turn(
+        gateway,
+        "Create and record one reviewable Synthesis proposal.",
+        state,
+        _sdk_override=sdk,
+        _credential_override="managed",
+        _brain_override="copilot_composer",
+        _models_override=["auto"],
+        _agent_state_key="copilot_session_id",
+    )
+
+    assert len(fake_agent.sends) == 2
+    assert "research_synthesis_propose_state" in fake_agent.sends[1]
+    assert turn.reply == grounded_reply
+    assert turn.action_result["synthesis_proposal"] == proposal
+    assert turn.action_result["synthesis_contract_validated"] is True
+
+
+def test_later_synthesis_turn_keeps_read_only_direct_routing(monkeypatch):
+    monkeypatch.setattr(desk_brain, "selected_composer_provider", lambda: "copilot_composer")
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.desk_direct_turns.try_direct_equipment_turn",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Synthesis must not use equipment fast paths")
+        ),
+    )
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.desk_direct_turns.try_direct_synthesis_read_turn",
+        lambda *_args, **_kwargs: None,
+    )
+    expected = AgentTurn(
+        plan={"action": "composer"},
+        action_result={"brain": "copilot_composer"},
+        reply="Copilot response.",
+    )
+    monkeypatch.setattr(desk_brain, "run_copilot_composer_turn", lambda *_a, **_k: expected)
+    state = {
+        "rail_context": {
+            "tab": "synthesis",
+            "thread_id": "thread-1",
+            "entity": {"kind": "synthesis_thread", "id": "thread-1"},
+        },
+        "synthesis_thread_turns": {"thread-1": 1},
+    }
+
+    actual = desk_brain.run_desk_agent_turn(
+        None,
+        SimpleNamespace(repo_root="/tmp/repo"),
+        "Record the proposal for review",
+        state,
+        session_id="desk-session",
+    )
+
+    assert actual is expected
 
 
 def test_desk_warm_primes_selected_copilot_session(monkeypatch):

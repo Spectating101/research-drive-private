@@ -115,6 +115,14 @@ def first_turn_reply_is_acceptable(reply: str) -> bool:
     return not synthesis_reply_violations(reply, first_user_turn=True)
 
 
+def synthesis_request_requires_proposal(text: str) -> bool:
+    """Whether the faculty explicitly asked for durable review state."""
+    lowered = str(text or "").lower()
+    return "proposal" in lowered and any(
+        word in lowered for word in ("create", "draft", "propose", "record")
+    )
+
+
 def wrap_synthesis_request(user_text: str, *, first_user_turn: bool) -> str:
     """Attach the Synthesis operating contract to one Composer turn."""
     phase = (
@@ -153,6 +161,9 @@ Never imply that a proposed construct already exists. Keep proposed,
 materialised, archive-verified, registered, and query-ready states distinct.
 Never silently procure or execute. Mutating actions require an explicit,
 reviewable proposal and user approval.
+When the faculty asks to create or record a reviewable proposal, call
+research_synthesis_propose_state before the final prose. Prose alone is not a
+recorded proposal. That tool records review state only; never accept or execute it.
 {phase.strip()}
 [/Synthesis workspace contract]
 

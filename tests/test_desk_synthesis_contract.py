@@ -131,6 +131,19 @@ def test_synthesis_reply_guard_rejects_query_ready_output_claim():
     assert "false_execution_claim" in violations
 
 
+def test_synthesis_proposal_request_detection_requires_explicit_proposal_language():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_request_requires_proposal,
+    )
+
+    assert synthesis_request_requires_proposal(
+        "Create one reviewable Synthesis proposal and record the proposal for review."
+    )
+    assert not synthesis_request_requires_proposal(
+        "Compare the available proxy definitions before we decide."
+    )
+
+
 def test_synthesis_history_is_bounded_and_provider_neutral():
     from scripts.research_data_mcp.desk_synthesis_contract import (
         record_synthesis_turn,

@@ -770,6 +770,8 @@ def run_cursor_composer_turn(
         record_synthesis_turn,
         synthesis_first_turn,
         synthesis_failure_reply,
+        synthesis_request_requires_proposal,
+        synthesis_thread_key,
         wrap_synthesis_request,
     )
 
@@ -1055,6 +1057,43 @@ def run_cursor_composer_turn(
                 )
                 if synthesis_first_turn and not tool_call_started:
                     synthesis_violations.append("missing_evidence_tool_call")
+            if (
+                not synthesis_violations
+                and synthesis_request_requires_proposal(message)
+            ):
+                recorded = _artifacts_from_conversation(run) if run is not None else {}
+                proposal = recorded.get("synthesis_proposal")
+                if not isinstance(proposal, dict):
+                    if (time.monotonic() - turn_started) < turn_budget - 5:
+                        accepted_reply = reply
+                        tool_call_started = False
+                        streamed.clear()
+                        thread_id = synthesis_thread_key(state)
+                        proposal_prompt = (
+                            "Your grounded answer passed the Synthesis response contract, "
+                            "but its reviewable proposal was not recorded. Call "
+                            "research_synthesis_propose_state now for thread_id "
+                            f"{thread_id!r}, using only the supported facts and proposed "
+                            "choices already stated. Leave unresolved choices unresolved. "
+                            "Do not call another tool; do not accept, collect, execute, "
+                            "materialize, register, or alter data."
+                        )
+                        run = agent.send(proposal_prompt, send_opts)
+                        _wait_run_bounded(
+                            run,
+                            turn_budget - (time.monotonic() - turn_started),
+                        )
+                        model_id = str(getattr(run, "model", "") or model_id)
+                        recorded = _artifacts_from_conversation(run)
+                        proposal = recorded.get("synthesis_proposal")
+                        if isinstance(proposal, dict):
+                            reply = accepted_reply
+                        else:
+                            synthesis_violations.append(
+                                "missing_reviewable_proposal"
+                            )
+                    else:
+                        synthesis_violations.append("missing_reviewable_proposal")
             is_error = bool(synthesis_violations)
         from scripts.research_data_mcp.desk_composer_health import (
             record_composer_failure,
@@ -1450,11 +1489,11 @@ def run_desk_agent_turn(
         try_direct_equipment_turn,
         try_direct_synthesis_read_turn,
     )
-    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
+    from scripts.research_data_mcp.desk_synthesis_contract import is_synthesis_context
 
     direct = (
         try_direct_synthesis_read_turn(gateway, message, state)
-        if synthesis_first_turn(state)
+        if is_synthesis_context(state)
         else try_direct_equipment_turn(gateway, message, state)
     )
     if direct is not None:
