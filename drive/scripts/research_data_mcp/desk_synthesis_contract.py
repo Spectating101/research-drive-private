@@ -23,7 +23,12 @@ _FALSE_EXECUTION_CLAIMS = (
         r"(?:is\s+)?complete\b",
         re.I,
     ),
-    re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
+    re.compile(
+        r"(?:^|[.!?]\s+)(?:the\s+)?(?:synthesized\s+|synthesised\s+)?"
+        r"(?:construct|synthesis|output|result|measure|panel|dataset)\s+"
+        r"(?:is|are)(?:\s+now)?\s+query[- ]ready\b",
+        re.I | re.M,
+    ),
 )
 
 

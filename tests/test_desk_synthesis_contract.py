@@ -98,6 +98,39 @@ def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
     assert "clarification_question_count" in violations
 
 
+def test_synthesis_reply_guard_allows_verified_query_ready_input():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_reply_violations,
+    )
+
+    violations = synthesis_reply_violations(
+        (
+            "Provisional construction: use the held JKSE panel as the spine. "
+            "The JKSE panel is query-ready at instrument-month grain, while the "
+            "candidate output would remain unbuilt until explicit approval. "
+            "Should the regime use relative ranks?"
+        ),
+        first_user_turn=True,
+    )
+    assert "false_execution_claim" not in violations
+
+
+def test_synthesis_reply_guard_rejects_query_ready_output_claim():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_reply_violations,
+    )
+
+    violations = synthesis_reply_violations(
+        (
+            "Provisional construction: use the held JKSE panel as the spine. "
+            "The synthesized output is now query-ready. "
+            "Should the regime use relative ranks?"
+        ),
+        first_user_turn=True,
+    )
+    assert "false_execution_claim" in violations
+
+
 def test_synthesis_history_is_bounded_and_provider_neutral():
     from scripts.research_data_mcp.desk_synthesis_contract import (
         record_synthesis_turn,
