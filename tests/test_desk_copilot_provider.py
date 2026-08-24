@@ -47,6 +47,7 @@ def test_synthesis_mcp_is_limited_to_wire_verified_read_only_tools(monkeypatch):
     )
 
     assert config["tools"] == [
+        "research_semantic_discover",
         "research_discover_search",
         "research_describe_dataset",
         "research_query_dataset",
@@ -66,6 +67,7 @@ def test_general_mcp_allowlist_excludes_known_bigint_crash_tools(monkeypatch):
         env={},
     )
 
+    assert "research_semantic_discover" in config["tools"]
     assert "research_discover_search" in config["tools"]
     assert "yzu_submit_job" in config["tools"]
     assert "research_unified_search" not in config["tools"]

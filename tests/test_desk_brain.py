@@ -16,7 +16,8 @@ def test_vault_brief_requires_retrieval_before_dataset_recommendations() -> None
     repo_root = Path(__file__).resolve().parents[1]
     brief = build_vault_brief(repo_root)
 
-    assert "research_discover_search" in brief
+    assert "research_semantic_discover" in brief
+    assert "research_discover_search for external acquisition sources" in brief
     assert "Use only exact dataset_id values returned by a tool" in brief
     assert "orientation, not permission to skip retrieval" in brief
     assert "trust this for inventory questions" not in brief

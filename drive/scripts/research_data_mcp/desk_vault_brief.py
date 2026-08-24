@@ -138,8 +138,9 @@ def build_vault_brief(repo_root: Path, faculty_profile: dict[str, Any] | None = 
     )
 
     lines.append(
-        "For any request to find, identify, compare, or recommend datasets, call "
-        "research_discover_search with the researcher's actual need before describing or querying a dataset. "
+        "For any request to find, identify, compare, or recommend held datasets, call "
+        "research_semantic_discover with the researcher's actual need before describing or querying a dataset. "
+        "Use research_discover_search for external acquisition sources, not as the held-Library search. "
         "Use only exact dataset_id values returned by a tool; never infer an id from a shelf, group, or title. "
         "The short Ready now list is orientation, not permission to skip retrieval or claim relevance."
     )

@@ -41,6 +41,7 @@ _LOOP: asyncio.AbstractEventLoop | None = None
 _LOOP_THREAD: threading.Thread | None = None
 _CLIENTS: dict[str, Any] = {}
 _SYNTHESIS_SAFE_TOOLS = [
+    "research_semantic_discover",
     "research_discover_search",
     "research_describe_dataset",
     "research_query_dataset",
@@ -48,6 +49,7 @@ _SYNTHESIS_SAFE_TOOLS = [
 ]
 _GENERAL_SAFE_TOOLS = [
     "collection_status",
+    "research_semantic_discover",
     "research_discover_search",
     "research_discover_source_search",
     "research_discover_source_preview",
