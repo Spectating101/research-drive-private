@@ -342,3 +342,80 @@ def test_desk_warm_primes_selected_copilot_session(monkeypatch):
     assert primed is True
     assert state["desk_primed"] is True
     assert state["copilot_session_id"] == "copilot-prime-session"
+
+
+def test_runtime_probe_requires_every_approved_account(monkeypatch):
+    from scripts.research_data_mcp import desk_composer_health, desk_warm
+
+    desk_composer_health._reset_composer_runtime_status()
+    monkeypatch.setattr(
+        desk_brain,
+        "selected_composer_provider",
+        lambda: "copilot_composer",
+    )
+    monkeypatch.setattr(
+        desk_copilot_provider,
+        "probe_copilot_pool",
+        lambda: {
+            "ready": True,
+            "accounts": [
+                {"account": "primary", "ready": True, "model": "gpt-one"},
+                {"account": "secondary", "ready": True, "model": "gpt-two"},
+            ],
+        },
+    )
+
+    result = desk_warm.probe_composer_runtime()
+    status = desk_composer_health.composer_runtime_status(configured=True)
+
+    assert result["ready"] is True
+    assert status["status"] == "ready"
+    assert status["probe_source"] == "periodic_pool"
+    assert [row["account"] for row in status["provider_accounts"]] == [
+        "primary",
+        "secondary",
+    ]
+    assert all(row["ready"] is True for row in status["provider_accounts"])
+
+
+def test_runtime_probe_fails_closed_when_one_pool_member_fails(monkeypatch):
+    from scripts.research_data_mcp import desk_composer_health, desk_warm
+
+    desk_composer_health._reset_composer_runtime_status()
+    monkeypatch.setattr(
+        desk_brain,
+        "selected_composer_provider",
+        lambda: "copilot_composer",
+    )
+    monkeypatch.setattr(
+        desk_copilot_provider,
+        "probe_copilot_pool",
+        lambda: {
+            "ready": False,
+            "accounts": [
+                {"account": "primary", "ready": True, "model": "gpt-one"},
+                {
+                    "account": "secondary",
+                    "ready": False,
+                    "error_category": "AuthenticationError",
+                },
+            ],
+        },
+    )
+
+    result = desk_warm.probe_composer_runtime()
+    status = desk_composer_health.composer_runtime_status(configured=True)
+
+    assert result["ready"] is False
+    assert status["status"] == "degraded"
+    assert status["verified"] is True
+    assert status["provider_accounts"][1]["ready"] is False
+
+
+def test_probe_interval_is_bounded(monkeypatch):
+    from scripts.research_data_mcp import desk_warm
+
+    monkeypatch.setenv("DESK_COMPOSER_PROBE_INTERVAL_SECONDS", "1")
+    assert desk_warm.composer_probe_interval_seconds() == 300
+    monkeypatch.setenv("DESK_COMPOSER_PROBE_INTERVAL_SECONDS", "999999")
+    assert desk_warm.composer_probe_interval_seconds() == 86_400

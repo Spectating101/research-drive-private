@@ -3,9 +3,113 @@
 
 from __future__ import annotations
 
+import os
 import threading
+import time
 from pathlib import Path
 from typing import Any
+
+
+_COMPOSER_MONITOR_LOCK = threading.Lock()
+_COMPOSER_MONITOR_THREAD: threading.Thread | None = None
+
+
+def composer_probe_interval_seconds() -> int:
+    try:
+        configured = int(
+            os.getenv("DESK_COMPOSER_PROBE_INTERVAL_SECONDS", "10800") or 10800
+        )
+    except (TypeError, ValueError):
+        configured = 10_800
+    return max(300, min(configured, 86_400))
+
+
+def probe_composer_runtime() -> dict[str, Any]:
+    """Refresh provider truth with a real call, without a user or MCP session."""
+
+    from scripts.research_data_mcp.desk_brain import selected_composer_provider
+    from scripts.research_data_mcp.desk_composer_health import (
+        record_composer_failure,
+        record_composer_success,
+    )
+
+    provider = selected_composer_provider()
+    if provider != "copilot_composer":
+        result = {
+            "ready": False,
+            "provider": provider,
+            "error": "automatic runtime probe is only available for Copilot",
+        }
+        record_composer_failure(result["error"], details={"probe_source": "pool"})
+        return result
+
+    from scripts.research_data_mcp.desk_copilot_provider import probe_copilot_pool
+
+    try:
+        result = dict(probe_copilot_pool())
+    except Exception as exc:
+        record_composer_failure(exc, details={"probe_source": "pool"})
+        return {
+            "ready": False,
+            "provider": provider,
+            "error_category": type(exc).__name__,
+        }
+
+    rows = list(result.get("accounts") or [])
+    models = sorted(
+        {
+            str(row.get("model") or "").strip()
+            for row in rows
+            if row.get("ready") is True and str(row.get("model") or "").strip()
+        }
+    )
+    details = {
+        "probe_source": "periodic_pool",
+        "provider_accounts": [
+            {
+                "account": str(row.get("account") or ""),
+                "ready": row.get("ready") is True,
+                "model": str(row.get("model") or ""),
+                "error_category": row.get("error_category"),
+            }
+            for row in rows
+        ],
+    }
+    model = ", ".join(models) or "auto"
+    if result.get("ready") is True:
+        record_composer_success(model=model, details=details)
+    else:
+        record_composer_failure(
+            "Copilot provider pool probe failed",
+            model=model,
+            details=details,
+        )
+    result["provider"] = provider
+    return result
+
+
+def start_composer_health_monitor() -> bool:
+    """Start one daemon that probes immediately and before truth can expire."""
+
+    global _COMPOSER_MONITOR_THREAD
+    with _COMPOSER_MONITOR_LOCK:
+        if _COMPOSER_MONITOR_THREAD is not None and _COMPOSER_MONITOR_THREAD.is_alive():
+            return False
+
+        def run() -> None:
+            while True:
+                started = time.monotonic()
+                probe_composer_runtime()
+                elapsed = time.monotonic() - started
+                time.sleep(max(1.0, composer_probe_interval_seconds() - elapsed))
+
+        _COMPOSER_MONITOR_THREAD = threading.Thread(
+            target=run,
+            name="composer-health-monitor",
+            daemon=True,
+        )
+        _COMPOSER_MONITOR_THREAD.start()
+        return True
 
 
 def build_prime_prompt(brief: str) -> str:

@@ -33,6 +33,18 @@ def test_main_starts_the_warmup():
     assert "_start_search_warmup" in _calls(main)
 
 
+def test_main_starts_the_composer_health_monitor():
+    main = _fn(ast.parse(SERVER.read_text()), "main")
+    assert main is not None
+    assert "_start_composer_health_monitor" in _calls(main)
+
+
+def test_composer_health_monitor_is_fail_open_for_server_startup():
+    monitor = _fn(ast.parse(SERVER.read_text()), "_start_composer_health_monitor")
+    assert monitor is not None
+    assert any(isinstance(node, ast.Try) for node in ast.walk(monitor))
+
+
 def test_warmup_runs_off_the_request_path():
     tree = ast.parse(SERVER.read_text())
     warm = _fn(tree, "_start_search_warmup")

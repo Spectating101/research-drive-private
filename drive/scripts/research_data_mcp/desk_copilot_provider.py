@@ -434,6 +434,89 @@ async def _send_turn(
         await session.disconnect()
 
 
+async def _probe_account(account: str) -> dict[str, Any]:
+    """Complete one tool-free, non-persistent model turn for ``account``."""
+
+    from copilot import ToolSet
+    from copilot.session import PermissionHandler
+
+    client = await _client_for(account)
+    chosen_model = "auto"
+
+    def on_event(event: Any) -> None:
+        nonlocal chosen_model
+        if _event_type(event) == "session.auto_mode_resolved":
+            data = getattr(event, "data", None)
+            chosen_model = str(getattr(data, "chosen_model", "") or chosen_model)
+
+    session = await client.create_session(
+        model="auto",
+        available_tools=ToolSet(),
+        on_permission_request=PermissionHandler.approve_all,
+        on_event=on_event,
+        mcp_servers={},
+        streaming=False,
+        enable_session_store=False,
+        enable_skills=False,
+        skip_custom_instructions=True,
+        enable_host_git_operations=False,
+        mcp_oauth_token_storage="in-memory",
+    )
+    try:
+        timeout = max(
+            5.0,
+            min(
+                60.0,
+                float(os.getenv("DESK_COPILOT_PROBE_TIMEOUT_SECONDS", "30") or 30),
+            ),
+        )
+        result = await session.send_and_wait(
+            "Internal Research Drive runtime check. Reply exactly: Ready",
+            timeout=timeout,
+        )
+        data = getattr(result, "data", None)
+        reply = str(getattr(data, "content", "") or "").strip()
+        if reply.lower().rstrip(".") != "ready":
+            raise CopilotSdkUnavailable("Copilot health probe returned no Ready acknowledgement")
+        return {"account": account, "ready": True, "model": chosen_model}
+    finally:
+        await session.disconnect()
+
+
+def probe_copilot_pool() -> dict[str, Any]:
+    """Verify every approved identity with a real, tool-free model turn."""
+
+    accounts = configured_copilot_accounts()
+    if not accounts:
+        return {"ready": False, "accounts": [], "error": "no approved accounts"}
+
+    async def run_all() -> list[Any]:
+        return list(
+            await asyncio.gather(
+                *(_probe_account(account) for account in accounts),
+                return_exceptions=True,
+            )
+        )
+
+    outcomes = _submit(run_all()).result()
+    rows: list[dict[str, Any]] = []
+    for account, outcome in zip(accounts, outcomes, strict=True):
+        if isinstance(outcome, Exception):
+            rows.append(
+                {
+                    "account": account,
+                    "ready": False,
+                    "error_category": type(outcome).__name__,
+                }
+            )
+        else:
+            rows.append(dict(outcome))
+    return {
+        "ready": bool(rows) and all(row.get("ready") is True for row in rows),
+        "accounts": rows,
+    }
+
+
 def _conversation_messages(events: list[Any]) -> list[Any]:
     starts: dict[str, Any] = {}
     order: list[str] = []

@@ -434,6 +434,26 @@ def _start_search_warmup(stack) -> None:
     threading.Thread(target=_run, name="search-warmup", daemon=True).start()
 
 
+def _start_composer_health_monitor() -> None:
+    """Keep the UI gate bound to a recent real provider observation."""
+
+    try:
+        from scripts.research_data_mcp.desk_warm import start_composer_health_monitor
+
+        started = start_composer_health_monitor()
+        print(
+            f"composer_health_monitor={'started' if started else 'already_running'}",
+            flush=True,
+        )
+    except Exception as exc:
+        # The desk must still bind and report unverified/degraded truth. A failed
+        # health observer is not authority to claim the provider is ready.
+        print(
+            f"composer_health_monitor=failed ({type(exc).__name__}: {exc})",
+            flush=True,
+        )
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -456,6 +476,7 @@ def main() -> int:
     ResearchQueryHandler.cors_origin = cors_origin
     server = ThreadingHTTPServer((args.host, args.port), ResearchQueryHandler)
     _start_search_warmup(stack)
+    _start_composer_health_monitor()
     print(f"research_library_api=http://{args.host}:{args.port}")
     if args.serve_ui:
         print(f"research_desk_ui=http://{args.host}:{args.port}/  (static from {static_dir})")
