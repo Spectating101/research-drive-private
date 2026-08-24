@@ -93,6 +93,65 @@ def test_final_assistant_reply_prefers_post_tool_top_level_message():
     assert desk_copilot_provider._final_assistant_reply(events) == "Grounded final answer."
 
 
+def test_copilot_conversation_prefers_structured_mcp_result():
+    payload = {
+        "thread_id": "thread-1",
+        "synthesis_proposal": {"id": "proposal-1"},
+    }
+    events = [
+        SimpleNamespace(
+            type="tool.execution_start",
+            data=SimpleNamespace(
+                tool_call_id="call-1",
+                mcp_tool_name="research_synthesis_propose_state",
+            ),
+        ),
+        SimpleNamespace(
+            type="tool.execution_complete",
+            data=SimpleNamespace(
+                tool_call_id="call-1",
+                result=SimpleNamespace(
+                    content='{"thread_id":"thread-1"}\n{"thread_id":"thread-1"}',
+                    structured_content=payload,
+                ),
+            ),
+        ),
+    ]
+
+    messages = desk_copilot_provider._conversation_messages(events)
+
+    assert len(messages) == 1
+    assert messages[0].result == payload
+
+
+def test_composer_artifacts_parse_first_object_from_repeated_mcp_content():
+    payload = {
+        "thread_id": "thread-1",
+        "synthesis_proposal": {"id": "proposal-1"},
+    }
+    repeated = json.dumps(payload) + "\n\n" + json.dumps(payload)
+    run = SimpleNamespace(
+        conversation=lambda: [
+            SimpleNamespace(
+                steps=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            type="tool_call",
+                            name="research_synthesis_propose_state",
+                            result=repeated,
+                        )
+                    )
+                ]
+            )
+        ]
+    )
+
+    artifacts = desk_brain._artifacts_from_conversation(run)
+
+    assert artifacts["synthesis_thread_id"] == "thread-1"
+    assert artifacts["synthesis_proposal"]["id"] == "proposal-1"
+
+
 def test_copilot_pool_preflight_requires_every_configured_identity(monkeypatch, tmp_path):
     launcher = tmp_path / "copilot-launcher"
     launcher.write_text("#!/bin/sh\n", encoding="utf-8")

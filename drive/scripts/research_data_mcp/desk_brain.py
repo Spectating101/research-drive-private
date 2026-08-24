@@ -386,7 +386,10 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                     try:
                         payload = json.loads(result)
                     except json.JSONDecodeError:
-                        payload = None
+                        try:
+                            payload, _ = json.JSONDecoder().raw_decode(result.lstrip())
+                        except json.JSONDecodeError:
+                            payload = None
                 if not isinstance(payload, dict):
                     continue
                 if name in (

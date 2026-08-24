@@ -544,7 +544,14 @@ def _conversation_messages(events: list[Any]) -> list[Any]:
             if message is None:
                 continue
             result = getattr(data, "result", None)
-            message.result = str(getattr(result, "content", "") or "")
+            structured = getattr(result, "structured_content", None)
+            if structured is None:
+                structured = getattr(result, "structuredContent", None)
+            message.result = (
+                structured
+                if structured is not None
+                else str(getattr(result, "content", "") or "")
+            )
     return [starts[call_id] for call_id in order if call_id in starts]
 
 
