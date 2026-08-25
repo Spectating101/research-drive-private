@@ -453,10 +453,17 @@ class SemanticCatalogIndex:
         return "low"
 
 
+INDEX_SCHEMA_VERSION = "2-access-shape"
+
+
 def get_semantic_index(gateway: Any, *, ttl_hours: float = 168) -> SemanticCatalogIndex:
     """Shared semantic index with disk cache invalidated on catalog fingerprint change."""
     repo_root = Path(gateway.repo_root).resolve()
-    fp = catalog_fingerprint(repo_root, gateway.registry_path)
+    # The fingerprint tracks the catalog, not the code that indexes it, so a
+    # change to what each document carries — a new metadata field, a different
+    # text blob — silently reused a stale snapshot forever. Bump this whenever
+    # build() changes what it stores.
+    fp = f"{catalog_fingerprint(repo_root, gateway.registry_path)}:{INDEX_SCHEMA_VERSION}"
     cache_key = f"{fp}"
     if cache_key in _INDEX_SINGLETON:
         return _INDEX_SINGLETON[cache_key]

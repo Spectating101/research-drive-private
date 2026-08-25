@@ -89,3 +89,16 @@ def test_floor_is_tunable(monkeypatch):
     assert _subject_floor() == 0.5
     monkeypatch.setenv("RESEARCH_SUBJECT_MIN_OVERLAP", "junk")
     assert _subject_floor() == 0.0
+
+
+def test_the_index_cache_versions_with_its_builder():
+    """A stale snapshot silently disabled the instrument filter: the cache key
+    tracked the catalog but not the code that decides what each document
+    carries, so newly indexed metadata never appeared."""
+    import inspect
+
+    from scripts.research_data_mcp import semantic_index as si
+
+    assert getattr(si, "INDEX_SCHEMA_VERSION", "")
+    src = inspect.getsource(si.get_semantic_index)
+    assert "INDEX_SCHEMA_VERSION" in src, "cache key ignores the builder version"
