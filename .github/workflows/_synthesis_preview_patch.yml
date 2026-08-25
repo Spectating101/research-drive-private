@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - work/synthesis-bounded-preview-20260826
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.event_name == 'push' || github.head_ref == 'work/synthesis-bounded-preview-20260826')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,6 +105,7 @@ jobs:
         force: bool = False,
     ) -> dict:
         """Run and persist a non-materialising preview of the accepted spec."""
+        from datetime import datetime, timezone
         from scripts.research_data_mcp.synthesis_preview import run_bounded_preview
 
         thread = self._synthesis_thread_store().get(thread_id)
