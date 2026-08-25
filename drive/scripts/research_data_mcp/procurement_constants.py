@@ -150,3 +150,9 @@ MCP_TOOL_LEGACY_NOTE = (
     "Desk chat: POST /library/chat (Cursor Composer + MCP). "
     "/agent/* and /yzu/* HTTP routes are legacy aliases."
 )
+
+# Synthesis HTTP and MCP submit actions already converge on one gateway method.
+# Install the preview interlock there so neither surface can skip bounded testing.
+from scripts.research_data_mcp.synthesis_preview_gate import install_synthesis_preview_gate
+
+install_synthesis_preview_gate()
