@@ -866,10 +866,14 @@ class ResearchDataGateway:
         cosine_rank = {
             str(h.get("id") or ""): n for n, h in enumerate(cosine_hits)
         }
+        # Subject strength leads. Ordering by cosine within the subject set put
+        # a Refinitiv ESG snapshot above the exact MOPS governance-misconduct
+        # panel for "taiwan governance misconduct": resemblance outranked the
+        # dataset that actually is the subject. Cosine breaks ties instead.
         subject_hits.sort(
             key=lambda h: (
+                -round(float(h.get("subject_score") or 0.0), 2),
                 cosine_rank.get(str(h.get("id") or ""), len(cosine_rank)),
-                -float(h.get("subject_score") or 0.0),
             )
         )
         seen_ids = {str(h.get("id") or "") for h in subject_hits}

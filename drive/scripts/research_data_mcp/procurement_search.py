@@ -38,12 +38,18 @@ def min_relevance_threshold(query: str) -> float:
 
 PROCUREMENT_QUERY_STOPWORDS = frozenset(
     {
-        "dataset", "datasets", "data", "panel", "research", "study", "metadata", "graph",
-        "what", "which", "where", "when", "why", "how", "can", "could", "should", "would",
-        "does", "the", "and", "for", "from", "with", "use", "using", "need", "want", "find",
-        "help", "illustrate", "measure", "measurement", "measurements", "public", "open",
-        "daily", "weekly", "monthly", "quarterly", "annual", "yearly", "time", "series",
-        "my", "our", "we", "me", "of", "to", "in", "on", "at", "by", "as", "it", "are", "is", "do", "or",
+        "about", "all", "and", "annual", "any", "are", "as", "at", "based", "been", "by",
+        "can", "concerning", "could", "daily", "data", "dataset", "datasets", "do", "does",
+        "find", "for", "from", "get", "give", "graph", "had", "has", "help", "here", "how",
+        "illustrate", "in", "involving", "is", "it", "its", "kindly", "look", "looking",
+        "many", "may", "me", "measure", "measurement", "measurements", "metadata", "might",
+        "monthly", "more", "most", "much", "must", "my", "need", "needed", "needs", "of", "on",
+        "open", "or", "our", "panel", "please", "provide", "public", "quarterly", "regarding",
+        "related", "relating", "research", "searching", "seek", "seeking", "series", "should",
+        "show", "some", "study", "that", "the", "their", "them", "there", "these", "they",
+        "this", "those", "time", "to", "use", "using", "want", "wanted", "wants", "was", "we",
+        "weekly", "were", "what", "when", "where", "which", "who", "whose", "why", "will",
+        "with", "would", "yearly", "you", "your"
     }
 )
 QUERY_STOPWORDS = PROCUREMENT_QUERY_STOPWORDS  # backward compat for probe_url_selection
