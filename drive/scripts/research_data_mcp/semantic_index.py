@@ -190,6 +190,8 @@ class SemanticCatalogIndex:
                         "grain": ds.get("grain") or "",
                         "source": ds.get("source") or ds.get("backend") or "registry",
                         "readiness": ds.get("analysis_readiness") or "",
+                        "access_shape": ds.get("access_shape") or "",
+                        "shelf_hint": ds.get("shelf_hint") or "",
                     },
                 }
             )
@@ -350,6 +352,39 @@ class SemanticCatalogIndex:
                 ranked.append((score, {"id": doc["id"], "kind": doc["kind"], "score": round(score, 3)}))
         ranked.sort(key=lambda pair: pair[0], reverse=True)
         return [item for _score, item in ranked[:limit]]
+
+    def doc_index_for(self, dataset_id: str) -> int | None:
+        target = str(dataset_id or "")
+        for i, doc in enumerate(self._docs):
+            if str(doc.get("id") or "") == target:
+                return i
+        return None
+
+    def subject_overlap(self, query: str, doc_index: int) -> float:
+        """How much rare query vocabulary the document actually contains.
+
+        Embeddings match form as readily as subject: "forest fire and economic
+        changes" pulled Mauna Loa CO2 and an earthquake catalog because a
+        monthly environmental panel *looks* like the answer. A shared rare word
+        is evidence the subject is really present; a shared common one is not,
+        so each term is weighted by how few documents carry it.
+        """
+        doc = self._docs[doc_index] if 0 <= doc_index < len(self._docs) else None
+        if not doc:
+            return 0.0
+        terms = set(_tokenize(query))
+        if not terms:
+            return 0.0
+        text = set(_tokenize(str(doc.get("text") or "")))
+        total = max(1, len(self._docs))
+        score = 0.0
+        for term in terms:
+            if term not in text:
+                continue
+            seen = self._df.get(term, 0)
+            # rarity in [0, 1]: a term in every document contributes nothing
+            score += 1.0 - (min(seen, total) / total)
+        return score / len(terms)
 
     def semantic_search(
         self,

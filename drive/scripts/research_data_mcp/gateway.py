@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import json
 import re
 from pathlib import Path
@@ -14,6 +15,37 @@ from scripts.research_data_mcp.search import SearchService
 from scripts.research_query_engine.agent import AgentOrchestrator
 from scripts.research_query_engine.engine import ResearchQueryEngine
 from scripts.yzu_cluster.api import YzuClusterAPI
+
+
+def _subject_floor() -> float:
+    """Off by default: this must become a ranking signal, not a filter.
+
+    Measured on the production index, rarity-weighted subject overlap separates
+    cleanly — 0.945-0.988 where the desk holds the subject, 0.249-0.332 where it
+    does not. But applying it as a gate over the cosine candidate set removes
+    everything, because cosine never surfaces the high-overlap document in the
+    first place: for "forest fire and economic changes" it returns Mauna Loa CO2
+    and an earthquake catalog, and the datasets that would score well are not in
+    the candidate set to be kept. Retrieval has to rank by overlap rather than
+    filter by it. Set RESEARCH_SUBJECT_MIN_OVERLAP to experiment.
+    """
+    raw = (os.environ.get("RESEARCH_SUBJECT_MIN_OVERLAP") or "").strip()
+    try:
+        return float(raw) if raw else 0.0
+    except ValueError:
+        return 0.0
+
+
+# Shapes that exist to help find evidence. They must never be offered as an
+# answer to a research question.
+_DISCOVERY_INSTRUMENT_SHAPES = frozenset(
+    {"metadata_index", "source_family_registry", "ops_status"}
+)
+
+
+def _is_discovery_instrument(meta: dict[str, Any]) -> bool:
+    shape = str(meta.get("access_shape") or "").strip().lower()
+    return shape in _DISCOVERY_INSTRUMENT_SHAPES
 
 
 class ResearchDataGateway:
@@ -827,6 +859,20 @@ class ResearchDataGateway:
             meta = dict(hit.get("metadata") or {})
             dataset_id = str(hit.get("id") or meta.get("dataset_id") or "")
             if not dataset_id:
+                continue
+            if _subject_floor() > 0.0:
+                doc_index = index.doc_index_for(dataset_id)
+                if doc_index is not None and index.subject_overlap(q, doc_index) < _subject_floor():
+                    # Cosine matches form: "forest fire and economic changes"
+                    # pulled Mauna Loa CO2 because a monthly environmental panel
+                    # looks like the answer. Measured on this registry, subject
+                    # overlap runs 0.885-0.986 where the desk holds the subject
+                    # and 0.25-0.65 where it does not, so the bands separate.
+                    continue
+            if _is_discovery_instrument(meta):
+                # A catalog index is how a researcher finds evidence, not
+                # evidence itself. "External Research Dataset Catalog" ranked
+                # above real data for a question about forest fires.
                 continue
             rows.append(
                 {
