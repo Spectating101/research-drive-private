@@ -31,9 +31,9 @@ def _subject_floor() -> float:
     """
     raw = (os.environ.get("RESEARCH_SUBJECT_MIN_OVERLAP") or "").strip()
     try:
-        return float(raw) if raw else 0.0
+        return float(raw) if raw else 0.25
     except ValueError:
-        return 0.0
+        return 0.25
 
 
 # Shapes that exist to help find evidence. They must never be offered as an
@@ -853,7 +853,30 @@ class ResearchDataGateway:
         index = get_semantic_index(self)
         from scripts.research_data_mcp.candidate_key import stamp_rows
 
-        hits = index.semantic_search(q, limit=max(1, min(limit, 24)), kinds={"registry_dataset"})
+        want = max(1, min(limit, 24))
+        # Subject first: a dataset that carries the query's subject is a real
+        # answer even when the encoder never shortlisted it. Cosine then orders
+        # within that set, and only fills the remainder when subject retrieval
+        # comes up short — which is itself the honest signal that the desk does
+        # not hold the subject.
+        subject_hits = index.subject_search(
+            q, limit=want, kinds={"registry_dataset"}, floor=_subject_floor()
+        )
+        cosine_hits = index.semantic_search(q, limit=want, kinds={"registry_dataset"})
+        cosine_rank = {
+            str(h.get("id") or ""): n for n, h in enumerate(cosine_hits)
+        }
+        subject_hits.sort(
+            key=lambda h: (
+                cosine_rank.get(str(h.get("id") or ""), len(cosine_rank)),
+                -float(h.get("subject_score") or 0.0),
+            )
+        )
+        seen_ids = {str(h.get("id") or "") for h in subject_hits}
+        hits = subject_hits + [
+            h for h in cosine_hits if str(h.get("id") or "") not in seen_ids
+        ]
+        hits = hits[:want]
         rows: list[dict[str, Any]] = []
         for hit in hits:
             meta = dict(hit.get("metadata") or {})

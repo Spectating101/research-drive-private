@@ -78,17 +78,18 @@ def test_real_datasets_are_not_filtered():
         assert not _is_discovery_instrument({"access_shape": shape})
 
 
-def test_the_gate_is_off_by_default():
-    # It is a ranking signal, not a filter: gating cosine's candidates removes
-    # everything because the high-overlap document is never among them.
-    assert _subject_floor() == 0.0
+def test_the_floor_admits_weak_subjects_and_rejects_none(index):
+    # It is now a retrieval floor, not a gate over cosine's shortlist: low
+    # enough that a partial subject match is still retrieved, high enough that
+    # a document sharing nothing is never ranked as an answer.
+    assert 0.0 < _subject_floor() < 0.75
 
 
 def test_floor_is_tunable(monkeypatch):
     monkeypatch.setenv("RESEARCH_SUBJECT_MIN_OVERLAP", "0.5")
     assert _subject_floor() == 0.5
     monkeypatch.setenv("RESEARCH_SUBJECT_MIN_OVERLAP", "junk")
-    assert _subject_floor() == 0.0
+    assert _subject_floor() == 0.25
 
 
 def test_the_index_cache_versions_with_its_builder():

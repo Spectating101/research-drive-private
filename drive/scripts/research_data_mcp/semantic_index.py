@@ -353,6 +353,46 @@ class SemanticCatalogIndex:
         ranked.sort(key=lambda pair: pair[0], reverse=True)
         return [item for _score, item in ranked[:limit]]
 
+    def subject_search(
+        self,
+        query: str,
+        *,
+        limit: int = 12,
+        kinds: set[str] | None = None,
+        floor: float = 0.0,
+    ) -> list[dict[str, Any]]:
+        """Rank by whether the document actually carries the query's subject.
+
+        Cosine is the wrong primary retriever for a research question: it ranks
+        by resemblance, so a monthly environmental panel outranks nothing at all
+        for "forest fire and economic changes". Subject overlap is scored over
+        every document rather than over cosine's shortlist, so a dataset that
+        genuinely holds the subject can be surfaced even when the encoder never
+        shortlisted it.
+        """
+        if not self._built or not str(query or "").strip():
+            return []
+        ranked: list[tuple[float, dict[str, Any]]] = []
+        for index, doc in enumerate(self._docs):
+            if kinds and str(doc.get("kind")) not in kinds:
+                continue
+            score = self.subject_overlap(query, index)
+            if score < floor or score <= 0.0:
+                continue
+            ranked.append(
+                (
+                    score,
+                    {
+                        "id": doc.get("id"),
+                        "kind": doc.get("kind"),
+                        "subject_score": round(score, 4),
+                        "metadata": dict(doc.get("metadata") or {}),
+                    },
+                )
+            )
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        return [item for _score, item in ranked[:limit]]
+
     def doc_index_for(self, dataset_id: str) -> int | None:
         target = str(dataset_id or "")
         for i, doc in enumerate(self._docs):
