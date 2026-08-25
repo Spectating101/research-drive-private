@@ -1,0 +1,278 @@
+name: Temporary Synthesis preview patch
+
+on:
+  push:
+    branches:
+      - work/synthesis-bounded-preview-20260826
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/synthesis-bounded-preview-20260826
+          fetch-depth: 0
+      - name: Wire preview contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one patch target, found {count}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Durable thread receipt + invalidation on a newly accepted execution revision.
+          path = 'drive/scripts/research_data_mcp/synthesis_thread_store.py'
+          replace_once(
+              path,
+              '''        next_state["execution_spec"] = _clone_state(prop["execution_spec"])
+        next_state["accepted_spec_hash"] = hashlib.sha256(''',
+              '''        next_state["execution_spec"] = _clone_state(prop["execution_spec"])
+        # Preview is revision-bound. A new accepted execution recipe invalidates
+        # any receipt produced for the previous recipe.
+        next_state.pop("preview", None)
+        next_state["accepted_spec_hash"] = hashlib.sha256(''',
+          )
+          replace_once(
+              path,
+              '''    def record_execution(self, thread_id: str, job: dict[str, Any], *, verified: bool = False) -> dict[str, Any]:
+''',
+              '''    def record_preview(
+        self,
+        thread_id: str,
+        preview: dict[str, Any],
+        *,
+        spec_hash: str,
+    ) -> dict[str, Any]:
+        """Persist one bounded preview receipt for the active accepted revision."""
+        thread = self.get(thread_id)
+        state = _clone_state(thread.get("state") or {})
+        accepted_hash = str(state.get("accepted_spec_hash") or "")
+        supplied_hash = str(spec_hash or "")
+        if not accepted_hash:
+            raise ValueError("preview requires an accepted execution spec")
+        if supplied_hash != accepted_hash:
+            raise ValueError("preview does not match the active accepted synthesis revision")
+        receipt = _clone_state(preview or {})
+        receipt["spec_hash"] = accepted_hash
+        status = str(receipt.get("status") or "failed")
+        if status not in {"succeeded", "failed"}:
+            raise ValueError("preview status must be succeeded or failed")
+        receipt["status"] = status
+        receipt["materialised"] = False
+        receipt["registered"] = False
+        state["preview"] = receipt
+        state["lastActivity"] = (
+            "Bounded synthesis preview succeeded; review it before requesting execution."
+            if status == "succeeded"
+            else "Bounded synthesis preview failed; inspect the receipt before execution."
+        )
+        state["activity"] = _as_list(state.get("activity"))
+        state["activity"].append(
+            {"time": "Now", "kind": "preview", "message": state["lastActivity"]}
+        )
+        return self._save_state(thread_id, state)
+
+    def record_execution(self, thread_id: str, job: dict[str, Any], *, verified: bool = False) -> dict[str, Any]:
+''',
+          )
+
+          # Gateway owns the invariant so HTTP and MCP cannot diverge.
+          path = 'drive/scripts/research_data_mcp/gateway.py'
+          replace_once(
+              path,
+              '''    def synthesis_thread_record_execution(self, thread_id: str, job: dict) -> dict:
+''',
+              '''    def synthesis_thread_preview(
+        self,
+        thread_id: str,
+        *,
+        input_row_limit: int = 5_000,
+        output_row_limit: int = 20,
+        force: bool = False,
+    ) -> dict:
+        """Run and persist a non-materialising preview of the accepted spec."""
+        from scripts.research_data_mcp.synthesis_preview import run_bounded_preview
+
+        thread = self._synthesis_thread_store().get(thread_id)
+        state = thread.get("state") or {}
+        spec = dict(state.get("execution_spec") or {})
+        accepted_hash = str(state.get("accepted_spec_hash") or "")
+        if not spec or not accepted_hash:
+            raise ValueError("preview requires an accepted execution spec")
+        current = state.get("preview") or {}
+        if (
+            not force
+            and current.get("status") == "succeeded"
+            and current.get("spec_hash") == accepted_hash
+            and int((current.get("sampling") or {}).get("input_row_limit") or 0) == int(input_row_limit or 5_000)
+        ):
+            return {"thread": thread, "preview": current, "idempotent": True}
+        try:
+            receipt = run_bounded_preview(
+                Path(self.repo_root),
+                spec,
+                input_row_limit=input_row_limit,
+                output_row_limit=output_row_limit,
+            )
+            if receipt.get("spec_hash") != accepted_hash:
+                raise ValueError("preview executor normalized to a different accepted spec revision")
+        except Exception as exc:  # noqa: BLE001
+            receipt = {
+                "status": "failed",
+                "created_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                "spec_hash": accepted_hash,
+                "bounded": True,
+                "error": str(exc)[:2000],
+                "materialised": False,
+                "registered": False,
+                "review_required": True,
+            }
+        updated = self._synthesis_thread_store().record_preview(
+            thread_id,
+            receipt,
+            spec_hash=accepted_hash,
+        )
+        return {
+            "thread": updated,
+            "preview": (updated.get("state") or {}).get("preview") or receipt,
+            "idempotent": False,
+        }
+
+    def synthesis_thread_record_execution(self, thread_id: str, job: dict) -> dict:
+''',
+          )
+          replace_once(
+              path,
+              '''        if not accepted_hash:
+            raise ValueError("execution spec has not been accepted as a reviewed revision")
+        execution = state.get("execution") or {}
+''',
+              '''        if not accepted_hash:
+            raise ValueError("execution spec has not been accepted as a reviewed revision")
+        preview = state.get("preview") or {}
+        if preview.get("status") != "succeeded" or preview.get("spec_hash") != accepted_hash:
+            raise ValueError(
+                "successful bounded preview required for the active accepted synthesis revision"
+            )
+        execution = state.get("execution") or {}
+''',
+          )
+          replace_once(
+              path,
+              '''            "accepted_spec_hash": accepted_hash,
+            "dataset_id": spec["output_dataset_id"],
+''',
+              '''            "accepted_spec_hash": accepted_hash,
+            "preview_receipt": {
+                "status": preview.get("status"),
+                "created_at": preview.get("created_at"),
+                "spec_hash": preview.get("spec_hash"),
+                "sampling": preview.get("sampling") or {},
+                "rows": preview.get("rows") or {},
+            },
+            "dataset_id": spec["output_dataset_id"],
+''',
+          )
+
+          # Faculty HTTP contract.
+          path = 'drive/scripts/research_data_mcp/http_router.py'
+          replace_once(
+              path,
+              '''    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
+    {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
+''',
+              '''    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
+    {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/preview", "handler": "library_synthesis_thread_preview"},
+    {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
+''',
+          )
+          replace_once(
+              path,
+              '''    def library_synthesis_thread_execute(stack, query, payload, params):
+        return stack.gateway.synthesis_thread_submit_execution(params["thread_id"])
+''',
+              '''    def library_synthesis_thread_preview(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        return stack.gateway.synthesis_thread_preview(
+            params["thread_id"],
+            input_row_limit=int(body.get("input_row_limit") or 5_000),
+            output_row_limit=int(body.get("output_row_limit") or 20),
+            force=bool(body.get("force", False)),
+        )
+
+    def library_synthesis_thread_execute(stack, query, payload, params):
+        return stack.gateway.synthesis_thread_submit_execution(params["thread_id"])
+''',
+          )
+          replace_once(
+              path,
+              '''        "library_synthesis_thread_materialisation": library_synthesis_thread_materialisation,
+        "library_synthesis_thread_execute": library_synthesis_thread_execute,
+''',
+              '''        "library_synthesis_thread_materialisation": library_synthesis_thread_materialisation,
+        "library_synthesis_thread_preview": library_synthesis_thread_preview,
+        "library_synthesis_thread_execute": library_synthesis_thread_execute,
+''',
+          )
+
+          # MCP parity: same gateway, same receipt, same execution gate.
+          path = 'drive/scripts/research_data_mcp/tool_handlers.py'
+          replace_once(
+              path,
+              '''    def research_synthesis_discover_handoff(self, thread_id: str) -> dict[str, Any]:
+''',
+              '''    def research_synthesis_preview(
+        self,
+        thread_id: str,
+        input_row_limit: int = 5_000,
+        output_row_limit: int = 20,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Run bounded accepted-spec preview; writes only a revision-bound thread receipt."""
+        return self.gateway.synthesis_thread_preview(
+            thread_id,
+            input_row_limit=min(max(int(input_row_limit), 10), 25_000),
+            output_row_limit=min(max(int(output_row_limit), 1), 100),
+            force=bool(force),
+        )
+
+    def research_synthesis_discover_handoff(self, thread_id: str) -> dict[str, Any]:
+''',
+          )
+
+          path = 'drive/scripts/research_data_mcp/procurement_constants.py'
+          replace_once(
+              path,
+              '''    "research_synthesis_preflight_spec",
+    "research_synthesis_discover_handoff",
+''',
+              '''    "research_synthesis_preflight_spec",
+    "research_synthesis_preview",
+    "research_synthesis_discover_handoff",
+''',
+          )
+          PY
+      - name: Commit wired preview
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/_synthesis_preview_patch.yml
+          git add drive/scripts/research_data_mcp/synthesis_thread_store.py \
+                  drive/scripts/research_data_mcp/gateway.py \
+                  drive/scripts/research_data_mcp/http_router.py \
+                  drive/scripts/research_data_mcp/tool_handlers.py \
+                  drive/scripts/research_data_mcp/procurement_constants.py
+          git commit -m "feat(synthesis): require bounded preview before execution"
+          git push origin HEAD:work/synthesis-bounded-preview-20260826
