@@ -1491,6 +1491,7 @@ def _handlers() -> dict[str, Handler]:
         "library_synthesis_thread_discover_handoff": library_synthesis_thread_discover_handoff,
         "library_synthesis_thread_collect_missing": library_synthesis_thread_collect_missing,
         "library_synthesis_thread_materialisation": library_synthesis_thread_materialisation,
+        "library_synthesis_thread_method": library_synthesis_thread_method,
         "library_synthesis_thread_execute": library_synthesis_thread_execute,
         "library_synthesis_get": library_synthesis_get,
         "library_synthesis_run": library_synthesis_run,
