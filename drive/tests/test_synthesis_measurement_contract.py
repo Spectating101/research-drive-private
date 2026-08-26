@@ -16,13 +16,21 @@ class FakeGateway:
         return self._specs[dataset_id]
 
 
-def _dataset(root: Path, dataset_id: str, entity_ids: list[str], values=None) -> dict:
+def _frame_dataset(root: Path, dataset_id: str, frame: pd.DataFrame) -> dict:
     path = root / "data" / f"{dataset_id}.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(path, index=False)
+    return {"dataset_id": dataset_id, "local_path": str(path.relative_to(root))}
+
+
+def _dataset(root: Path, dataset_id: str, entity_ids: list[str], values=None) -> dict:
     if values is None:
         values = list(range(len(entity_ids)))
-    pd.DataFrame({"entity_id": entity_ids, "value": values}).to_csv(path, index=False)
-    return {"dataset_id": dataset_id, "local_path": str(path.relative_to(root))}
+    return _frame_dataset(
+        root,
+        dataset_id,
+        pd.DataFrame({"entity_id": entity_ids, "value": values}),
+    )
 
 
 def _nodes(ids: list[str]) -> list[dict]:
@@ -54,6 +62,45 @@ def test_measurements_prefer_identity_key_over_coincidental_numeric_overlap(tmp_
     assert result["join_candidate_rows"] == 3
 
 
+def test_measurements_preserve_entity_period_grain_before_partial_identity(tmp_path):
+    specs = {
+        "left": _frame_dataset(
+            tmp_path,
+            "left",
+            pd.DataFrame(
+                {
+                    "entity_id": ["a", "a", "b", "b"],
+                    "week": [1, 2, 1, 2],
+                    "signal": [10, 11, 12, 13],
+                }
+            ),
+        ),
+        "right": _frame_dataset(
+            tmp_path,
+            "right",
+            pd.DataFrame(
+                {
+                    "entity_id": ["a", "a", "b", "b"],
+                    "week": [1, 3, 1, 3],
+                    "signal": [20, 21, 22, 23],
+                }
+            ),
+        ),
+    }
+    result = measured_state(FakeGateway(tmp_path, specs), _nodes(["left", "right"]), max_inputs=8)
+    candidates = result["join_candidates"]
+
+    assert candidates[0]["key_parts"] == ["entity_id", "week"]
+    assert candidates[0]["complete_identity_domain"] is True
+    assert candidates[0]["left_key"] == "entity_id + week"
+    assert candidates[0]["matched"] == 2
+    assert candidates[0]["match_rate_pct"] == 50.0
+
+    entity_only = next(row for row in candidates if row["key_parts"] == ["entity_id"])
+    assert entity_only["match_rate_pct"] == 100.0
+    assert entity_only["complete_identity_domain"] is False
+
+
 def test_measurements_compute_true_three_source_exclusive_overlap(tmp_path):
     specs = {
         "a": _dataset(tmp_path, "a", ["a", "b", "c", "d"]),
@@ -75,6 +122,32 @@ def test_measurements_compute_true_three_source_exclusive_overlap(tmp_path):
     assert regions[6] == 1  # e is B+C only
     assert regions[1] == 1  # a is A only
     assert regions[4] == 1  # f is C only
+
+
+def test_multi_source_overlap_preserves_common_entity_period_grain(tmp_path):
+    specs = {
+        "a": _frame_dataset(
+            tmp_path,
+            "a",
+            pd.DataFrame({"entity_id": ["a", "a", "b"], "week": [1, 2, 1]}),
+        ),
+        "b": _frame_dataset(
+            tmp_path,
+            "b",
+            pd.DataFrame({"entity_id": ["a", "a", "b"], "week": [1, 3, 1]}),
+        ),
+        "c": _frame_dataset(
+            tmp_path,
+            "c",
+            pd.DataFrame({"entity_id": ["a", "a", "b"], "week": [1, 4, 2]}),
+        ),
+    }
+    result = measured_state(FakeGateway(tmp_path, specs), _nodes(["a", "b", "c"]), max_inputs=8)
+    overlap = result["multi_overlap"]
+
+    assert overlap["key_parts"] == ["entity_id", "week"]
+    assert overlap["all_shared_distinct"] == 1
+    assert overlap["union_distinct"] == 6
 
 
 def test_measurements_support_eight_inputs_and_report_ninth_as_truncated(tmp_path):
