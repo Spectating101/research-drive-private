@@ -1,0 +1,37 @@
+name: Synthesis measurement hardening
+
+on:
+  push:
+    branches:
+      - hardening/synthesis-measurement-contract-20260826
+    paths:
+      - "drive/scripts/research_data_mcp/synthesis/**"
+      - "drive/tests/test_synthesis_measurement_contract.py"
+      - ".github/workflows/synthesis-measurement-hardening.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measurement-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}/drive
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install focused test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pandas pyarrow
+      - name: Compile Synthesis measurement modules
+        run: |
+          python -m compileall -q drive/scripts/research_data_mcp/synthesis
+      - name: Run byte-backed measurement regressions
+        run: |
+          python -m pytest -q drive/tests/test_synthesis_measurement_contract.py
