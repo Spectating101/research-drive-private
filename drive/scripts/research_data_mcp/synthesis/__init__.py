@@ -1,7 +1,9 @@
 """Multi-source dataset synthesis — join lab holdings on explicit keys.
 
-Freeze checkpoint 2026-08-27: the accepted method is now archived as a
+Freeze checkpoint 2026-08-27: the accepted method is archived as a
 checksum-verified deterministic ``method.py`` beside the completed output.
+The exact product tree below this marker also includes the checksum verifier's
+explicit ``hashlib`` dependency and the focused export/parity proof.
 """
 
 from scripts.research_data_mcp.synthesis.engine import (
