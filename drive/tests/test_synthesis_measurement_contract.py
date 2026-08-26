@@ -4,6 +4,7 @@ import pandas as pd
 
 from scripts.research_data_mcp.synthesis.measured_state import measured_state
 from scripts.research_data_mcp.synthesis.multi_probe import probe_many
+from scripts.research_data_mcp.synthesis.pair_probe import _read_key_column
 
 
 class FakeGateway:
@@ -91,6 +92,42 @@ def test_measurements_support_eight_inputs_and_report_ninth_as_truncated(tmp_pat
     assert result["truncated_inputs"] == 1
     assert result["multi_overlap"]["source_count"] == 8
     assert result["multi_overlap"]["all_shared_distinct"] == 1
+
+
+def test_duplicate_mapped_dataset_does_not_become_fake_multi_source_overlap(tmp_path):
+    spec = _dataset(tmp_path, "same", ["a", "b", "c"])
+    result = measured_state(
+        FakeGateway(tmp_path, {"same": spec}),
+        _nodes(["same", "same", "same"]),
+        max_inputs=8,
+    )
+
+    assert result["measured_inputs"] == 1
+    assert result["truncated_inputs"] == 0
+    assert len(result["input_measurements"]) == 1
+    assert result["multi_overlap"] is None
+
+
+def test_csv_key_reader_projects_and_streams_in_bounded_chunks(tmp_path, monkeypatch):
+    spec = _dataset(tmp_path, "chunked", [f"k{i}" for i in range(20)])
+    path = tmp_path / spec["local_path"]
+    real_read_csv = pd.read_csv
+    calls = []
+
+    def tracked_read_csv(*args, **kwargs):
+        calls.append(dict(kwargs))
+        return real_read_csv(*args, **kwargs)
+
+    monkeypatch.setattr(pd, "read_csv", tracked_read_csv)
+    values, error = _read_key_column(path, ["entity_id"], 3)
+
+    assert error is None
+    assert len(values) == 3
+    assert any(call.get("nrows") == 0 for call in calls)
+    streamed = [call for call in calls if call.get("chunksize")]
+    assert streamed
+    assert streamed[0]["usecols"] == ["entity_id"]
+    assert streamed[0]["chunksize"] == 3
 
 
 def test_multi_probe_marks_bounded_window_without_impossible_cardinality(tmp_path):
