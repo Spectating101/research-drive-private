@@ -2196,6 +2196,12 @@ class ResearchDataGateway:
             "note": "Jobs created only from resolvable missing-evidence identities.",
         }
 
+    def synthesis_thread_measurements(self, thread_id: str, *, max_inputs: int = 8) -> dict:
+        from scripts.research_data_mcp.synthesis.thread_measurements import measure_thread
+
+        thread = self._synthesis_thread_store().get(thread_id)
+        return measure_thread(self.repo_root, thread, max_inputs=max_inputs)
+
     def synthesis_thread_materialisation(self, thread_id: str) -> dict:
         return self._synthesis_thread_store().materialisation(thread_id)
 
