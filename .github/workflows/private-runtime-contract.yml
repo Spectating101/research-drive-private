@@ -39,6 +39,8 @@ jobs:
       - name: Patch explicit Synthesis Preview/Approval HTTP intent
         shell: bash
         run: |
+          git fetch origin "${GITHUB_HEAD_REF}:refs/remotes/origin/${GITHUB_HEAD_REF}"
+          git checkout -B synthesis-patch "origin/${GITHUB_HEAD_REF}"
           python - <<'PY'
           from pathlib import Path
           path = Path("drive/scripts/research_data_mcp/http_router.py")
@@ -55,7 +57,7 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add drive/scripts/research_data_mcp/http_router.py
             git commit -m "fix(synthesis): require explicit preview approval action"
-            git push origin HEAD:${GITHUB_HEAD_REF}
+            git push origin HEAD:"${GITHUB_HEAD_REF}"
           fi
 
       - uses: actions/setup-node@v4
@@ -69,7 +71,7 @@ jobs:
           cache: pip
 
       # Semantic route discovery is a release capability, not an optional
-      # developer convenience.  Cache the declared model so the contract tests
+      # developer convenience. Cache the declared model so the contract tests
       # the same embedding path on every clean checkout without redownloading
       # weights on every run.
       - name: Cache semantic retrieval model
