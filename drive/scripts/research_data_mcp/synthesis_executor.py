@@ -401,22 +401,38 @@ def _probe_join_step(
     return probe_pair(left_path, right_path, key, left_id=left_id, right_id=right_id)
 
 
-def _non_finite_report(path: Path, columns: list[str]) -> dict[str, int]:
-    """Count inf/-inf per aggregate column. Silence means the file was unreadable
-    or the columns absent — never that the data was checked and found clean."""
+def _non_finite_report(
+    path: Path,
+    columns: list[str],
+    *,
+    row_cap: int | None = None,
+) -> dict[str, int]:
+    """Count inf/-inf per aggregate column.
+
+    ``row_cap`` makes the diagnostic physically bounded for Preview. Silence
+    still means unreadable/absent columns, never that the entire source is clean.
+    """
     if not columns:
         return {}
     try:
         import numpy as np
-        import pandas as pd
 
-        frame = pd.read_parquet(path) if str(path).endswith(".parquet") else pd.read_csv(path, low_memory=False)
+        if row_cap:
+            from scripts.research_data_mcp.synthesis.bounded_read import read_bounded_frame
+
+            frame = read_bounded_frame(path, int(row_cap))[0].head(int(row_cap))
+        else:
+            import pandas as pd
+
+            frame = pd.read_parquet(path) if str(path).endswith(".parquet") else pd.read_csv(path, low_memory=False)
     except Exception:
         return {}
     found: dict[str, int] = {}
     for column in columns:
         if column not in frame.columns:
             continue
+        import pandas as pd
+
         series = pd.to_numeric(frame[column], errors="coerce")
         count = int(np.isinf(series).sum())
         if count:
@@ -429,6 +445,7 @@ def preflight_execution_spec(
     spec: dict[str, Any],
     *,
     retention_floor_pct: float = DEFAULT_JOIN_RETENTION_FLOOR_PCT,
+    row_cap: int | None = None,
 ) -> dict[str, Any]:
     """Validate structure and, when local bytes exist, required columns.
 
@@ -473,7 +490,12 @@ def preflight_execution_spec(
             warnings.append(f"{reason}; column check skipped")
             return None
         try:
-            frame = _read_frame(path)
+            if row_cap:
+                from scripts.research_data_mcp.synthesis.bounded_read import read_bounded_frame
+
+                frame = read_bounded_frame(path, int(row_cap))[0].head(int(row_cap))
+            else:
+                frame = _read_frame(path)
         except Exception as exc:  # noqa: BLE001
             issues.append({"code": "unreadable_input", "dataset_id": dataset_id, "detail": str(exc)[:400]})
             return None
@@ -713,11 +735,16 @@ def preflight_execution_spec(
     input_path = try_path(input_row) if input_row else None
     if input_path is not None:
         agg_cols = [str(m.get("column") or "") for m in normalized.get("metrics") or [] if m.get("column")]
-        report = _non_finite_report(input_path, agg_cols)
+        report = _non_finite_report(input_path, agg_cols, row_cap=row_cap)
         for column, count in report.items():
+            scope = (
+                f"within the bounded preflight window (first {int(row_cap)} rows)"
+                if row_cap
+                else "in the source"
+            )
             warnings.append(
                 f"{normalized['input_dataset_id']}.{column}: {count} non-finite value(s) (inf/-inf) "
-                "in the source; aggregates over this column inherit them"
+                f"{scope}; aggregates over observed non-finite values inherit them"
             )
 
     ok = not issues
@@ -728,10 +755,12 @@ def preflight_execution_spec(
         "warnings": warnings,
         "join_probes": probes,
         "review_required": True,
+        "bounded_row_cap": int(row_cap) if row_cap else None,
         "note": (
-            "Preflight only — does not execute or materialise. "
-            + ("Fix issues before proposing." if not ok else "Spec is structurally runnable when local inputs are present.")
-        ),
+            "Bounded preflight only — schema/dtype diagnostics use a capped row window; no output is materialised. "
+            if row_cap
+            else "Preflight only — does not execute or materialise. "
+        ) + ("Fix issues before proposing." if not ok else "Spec is structurally runnable when local inputs are present."),
     }
 
 

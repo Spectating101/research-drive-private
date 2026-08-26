@@ -223,7 +223,10 @@ def handle_synthesis_execution_action(
             "execution approval refused: Preview became stale during review; rerun Preview"
         )
 
-    submitted = gateway._synthesis_thread_submit_approval(thread_id)
+    submitted = gateway._synthesis_thread_submit_approval(
+        thread_id,
+        expected_authority_hash=str(fresh_authority.get("authority_hash") or ""),
+    )
     if isinstance(submitted, dict):
         submitted = dict(submitted)
         submitted["preview"] = dict(fresh_state.get("preview") or {})

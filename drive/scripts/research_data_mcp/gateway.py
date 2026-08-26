@@ -2429,7 +2429,9 @@ class ResearchDataGateway:
     def synthesis_thread_record_execution_failure(self, thread_id: str, job_id: str, error: str) -> dict:
         return self._synthesis_thread_store().record_execution_failure(thread_id, job_id, error)
 
-    def _synthesis_thread_submit_approval(self, thread_id: str) -> dict:
+    def _synthesis_thread_submit_approval(
+        self, thread_id: str, *, expected_authority_hash: str = ""
+    ) -> dict:
         """Low-level pending-approval submitter; public authority lives above this."""
         from scripts.research_data_mcp.synthesis_executor import validate_execution_spec
 
@@ -2439,6 +2441,16 @@ class ResearchDataGateway:
         accepted_hash = str(state.get("accepted_spec_hash") or "")
         if not accepted_hash:
             raise ValueError("execution spec has not been accepted as a reviewed revision")
+        if expected_authority_hash:
+            preview = state.get("preview") if isinstance(state.get("preview"), dict) else {}
+            if (
+                preview.get("status") != "succeeded"
+                or preview.get("spec_hash") != accepted_hash
+                or preview.get("authority_hash") != expected_authority_hash
+            ):
+                raise ValueError(
+                    "execution approval refused: Preview authority changed before job creation; rerun Preview"
+                )
         execution = state.get("execution") or {}
         if execution.get("spec_hash") == accepted_hash and execution.get("job_id"):
             existing = self.jobs.get(str(execution["job_id"]))

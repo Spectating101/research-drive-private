@@ -28,9 +28,9 @@ DEFAULT_INPUT_ROW_LIMIT = 5_000
 MAX_INPUT_ROW_LIMIT = 25_000
 DEFAULT_OUTPUT_ROW_LIMIT = 20
 MAX_OUTPUT_ROW_LIMIT = 100
-# Non-streamable/unknown primary formats may still be previewed when genuinely
-# small, but never by reading an arbitrarily large file merely to take head().
-MAX_FALLBACK_PRIMARY_BYTES = 16 * 1024 * 1024
+# Right-hand join inputs are intentionally read with production join semantics.
+# Keep that full-side read finite and substantially below the 512 MiB Build cap.
+MAX_PREVIEW_JOIN_INPUT_BYTES = 64 * 1024 * 1024
 
 _REVISION_FIELDS = (
     "manifest_id",
@@ -132,72 +132,9 @@ def current_preview_authority(repo_root: Path, execution_spec: dict[str, Any]) -
 
 
 def _bounded_primary_frame(path: Path, limit: int):
-    """Read at most ``limit + 1`` primary rows without an unbounded full-frame load.
+    from scripts.research_data_mcp.synthesis.bounded_read import read_bounded_frame
 
-    Returns ``(frame, total_rows, observed_rows, exact_total)``. CSV/JSONL do not
-    scan to EOF merely to count rows, so total_rows is intentionally unknown when
-    the bounded window proves truncation. Parquet row count comes from metadata.
-    """
-    import pandas as pd
-
-    path = Path(path)
-    want = max(1, int(limit)) + 1
-    suffix = path.suffix.lower()
-
-    if suffix == ".parquet":
-        import pyarrow.parquet as pq
-
-        parquet = pq.ParquetFile(path)
-        total_rows = int(parquet.metadata.num_rows)
-        frames = []
-        remaining = want
-        for batch in parquet.iter_batches(batch_size=min(100_000, want)):
-            piece = batch.to_pandas()
-            if len(piece) > remaining:
-                piece = piece.head(remaining)
-            frames.append(piece)
-            remaining -= len(piece)
-            if remaining <= 0:
-                break
-        frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        return frame, total_rows, len(frame), True
-
-    if suffix == ".csv":
-        frame = pd.read_csv(path, nrows=want)
-        exact = len(frame) < want
-        return frame, len(frame) if exact else None, len(frame), exact
-
-    if suffix == ".jsonl" or not suffix:
-        frame = pd.read_json(path, lines=True, nrows=want)
-        exact = len(frame) < want
-        return frame, len(frame) if exact else None, len(frame), exact
-
-    if suffix == ".json":
-        with path.open("r", encoding="utf-8") as fh:
-            prefix = fh.read(4096).lstrip()
-        if not prefix.startswith("["):
-            frame = pd.read_json(path, lines=True, nrows=want)
-            exact = len(frame) < want
-            return frame, len(frame) if exact else None, len(frame), exact
-        # Pandas has no bounded nrows reader for a JSON records array. Small
-        # arrays remain useful; large arrays fail closed instead of pretending
-        # the row cap also bounded memory/I/O.
-        if path.stat().st_size > MAX_FALLBACK_PRIMARY_BYTES:
-            raise ValueError(
-                "bounded Preview cannot stream this JSON array safely; convert it to JSONL/CSV/Parquet first"
-            )
-        full = pd.read_json(path)
-        return full.head(want), len(full), min(len(full), want), True
-
-    if path.stat().st_size > MAX_FALLBACK_PRIMARY_BYTES:
-        raise ValueError(
-            f"bounded Preview does not stream {suffix or 'this'} primary format above "
-            f"{MAX_FALLBACK_PRIMARY_BYTES} bytes"
-        )
-    from scripts.research_data_mcp.synthesis_executor import _read_frame
-
-    full = _read_frame(path)
-    return full.head(want), len(full), min(len(full), want), True
+    return read_bounded_frame(path, limit)
 
 
 def _aggregate_preview(frame, spec: dict[str, Any]):
@@ -262,7 +199,7 @@ def run_bounded_preview(
     in_limit = min(max(int(input_row_limit or DEFAULT_INPUT_ROW_LIMIT), 10), MAX_INPUT_ROW_LIMIT)
     out_limit = min(max(int(output_row_limit or DEFAULT_OUTPUT_ROW_LIMIT), 1), MAX_OUTPUT_ROW_LIMIT)
 
-    preflight = preflight_execution_spec(root, dict(execution_spec or {}))
+    preflight = preflight_execution_spec(root, dict(execution_spec or {}), row_cap=in_limit)
     if not preflight.get("ok"):
         issues = preflight.get("issues") or []
         detail = "; ".join(
@@ -275,6 +212,17 @@ def run_bounded_preview(
     spec_hash = execution_spec_hash(spec)
     input_revisions = input_revision_snapshot(root, spec)
     authority_hash = preview_authority_hash(spec_hash, input_revisions)
+    oversized_join_inputs = [
+        row for row in input_revisions
+        if row.get("dataset_id") != spec["input_dataset_id"]
+        and int(row.get("size_bytes") or 0) > MAX_PREVIEW_JOIN_INPUT_BYTES
+    ]
+    if oversized_join_inputs:
+        names = ", ".join(str(row.get("dataset_id") or "unknown") for row in oversized_join_inputs)
+        raise ValueError(
+            f"bounded Preview refuses full right-hand join input(s) above "
+            f"{MAX_PREVIEW_JOIN_INPUT_BYTES} bytes: {names}"
+        )
 
     registry = _load_registry(root)
     source = _registry_row(registry, spec["input_dataset_id"])
@@ -327,6 +275,8 @@ def run_bounded_preview(
         "preflight": {
             "warnings": list(preflight.get("warnings") or []),
             "join_probes": list(preflight.get("join_probes") or []),
+            "bounded_row_cap": preflight.get("bounded_row_cap"),
+            "right_input_full_read_cap_bytes": MAX_PREVIEW_JOIN_INPUT_BYTES,
         },
         "rows": {
             "source": source_rows,
