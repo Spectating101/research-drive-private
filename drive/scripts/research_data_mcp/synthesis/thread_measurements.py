@@ -40,7 +40,13 @@ def _shared_keys(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> lis
     rset = {str(row.get("column")) for row in right if row.get("column")}
     common = [name for name in lmap if name in rset]
     common.sort(key=lambda name: (0 if KEYISH.search(name) else 1, -int(lmap[name].get("distinct") or 0), name))
-    return common[:8]
+    # A coincidentally identical measurement column can have 100% value overlap
+    # while being a nonsensical join key (e.g. two ordinal/value columns both
+    # containing 0..N). If any shared identity/time key exists, only probe that
+    # domain. Fall back to other shared columns only when the data exposes no
+    # key-like field at all; the researcher still reviews the candidate.
+    keyish = [name for name in common if KEYISH.search(name)]
+    return (keyish or common)[:8]
 
 
 def _candidate(probe: dict[str, Any], key: str) -> dict[str, Any]:
@@ -112,6 +118,8 @@ def measure_thread(repo_root: Path | str, thread: dict[str, Any], *, max_inputs:
         for source in measured[1:]:
             common &= {row["column"] for row in source["profiles"]}
         ranked = sorted(common, key=lambda name: (0 if KEYISH.search(name) else 1, name))
+        keyish = [name for name in ranked if KEYISH.search(name)]
+        ranked = keyish or ranked
         if ranked:
             multi = probe_many(
                 [{"dataset_id": row["dataset_id"], "label": row["label"], "path": row["path"]} for row in measured],
