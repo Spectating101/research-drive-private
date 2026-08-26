@@ -174,16 +174,28 @@ def _common_multi_key(measured: list[dict[str, Any]]) -> str:
     return (keyish or ranked)[0] if (keyish or ranked) else ""
 
 
+def _unique_dataset_ids(nodes: list[dict[str, Any]]) -> list[str]:
+    """Preserve mapping order while refusing duplicate evidence as fake sources."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for node in nodes:
+        dataset_id = str(node.get("dataset_id") or "").strip()
+        if not dataset_id or dataset_id in seen:
+            continue
+        seen.add(dataset_id)
+        out.append(dataset_id)
+    return out
+
+
 def measured_state(gateway: Any, nodes: list[dict[str, Any]], *, max_inputs: int = MAX_INPUTS) -> dict[str, Any]:
     """Everything mapped evidence can state from bytes without a model.
 
-    Up to eight inputs are measured. Inputs whose bytes are unreachable are
-    named explicitly rather than silently omitted. Higher-order overlap is
+    Up to eight unique inputs are measured. Inputs whose bytes are unreachable
+    are named explicitly rather than silently omitted. Higher-order overlap is
     computed only from successfully measured inputs sharing one real key domain.
     """
     all_nodes = [n for n in (nodes or []) if isinstance(n, dict)]
-    all_ids = [str(n.get("dataset_id") or "").strip() for n in all_nodes]
-    all_ids = [dataset_id for dataset_id in all_ids if dataset_id]
+    all_ids = _unique_dataset_ids(all_nodes)
     limit = max(1, min(int(max_inputs or MAX_INPUTS), MAX_INPUTS))
     selected_ids = all_ids[:limit]
     selected_nodes = []
