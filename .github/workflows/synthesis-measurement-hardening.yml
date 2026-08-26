@@ -8,6 +8,7 @@ on:
       - "drive/scripts/research_data_mcp/synthesis/**"
       - "drive/scripts/research_data_mcp/synthesis_preview.py"
       - "drive/scripts/research_data_mcp/synthesis_execution_authority.py"
+      - "drive/scripts/research_data_mcp/synthesis_executor.py"
       - "drive/scripts/research_data_mcp/gateway.py"
       - "drive/scripts/research_data_mcp/http_router.py"
       - "drive/scripts/research_data_mcp/tool_handlers.py"
@@ -19,7 +20,7 @@ on:
       - "drive/tests/test_synthesis_grain_freeze.py"
       - "tests/test_synthesis_preview_freeze_authority.py"
       - "tests/test_synthesis_thread_state.py"
-      - "scripts/synthesis_preview_freeze_patch.py"
+      - "scripts/synthesis_preview_final_io_patch.py"
       - ".github/workflows/synthesis-measurement-hardening.yml"
   workflow_dispatch:
 
@@ -34,25 +35,23 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/drive
     steps:
       - uses: actions/checkout@v4
-      - name: Apply guarded Preview authority integration
+      - name: Apply guarded bounded-Preview freeze patch
         if: github.event_name == 'push' && github.ref_name == 'hardening/synthesis-measurement-contract-20260826'
         shell: bash
         run: |
-          python scripts/synthesis_preview_freeze_patch.py
+          python scripts/synthesis_preview_final_io_patch.py
           git diff --check
           if git diff --quiet; then
-            echo 'Preview authority integration already applied.'
+            echo 'Final bounded-Preview patch already applied.'
           else
             git config user.name 'synthesis-freeze-bot'
             git config user.email 'synthesis-freeze-bot@users.noreply.github.com'
             git add \
-              drive/scripts/research_data_mcp/gateway.py \
-              drive/scripts/research_data_mcp/http_router.py \
-              drive/scripts/research_data_mcp/tool_handlers.py \
-              drive/scripts/research_data_mcp/synthesis_thread_store.py \
-              drive/scripts/yzu_cluster/executor.py \
-              tests/test_synthesis_thread_state.py
-            git commit -m 'feat(synthesis): enforce preview authority end to end'
+              drive/scripts/research_data_mcp/synthesis_executor.py \
+              drive/scripts/research_data_mcp/synthesis_preview.py \
+              drive/scripts/research_data_mcp/synthesis_execution_authority.py \
+              drive/scripts/research_data_mcp/gateway.py
+            git commit -m 'fix(synthesis): bound preview preflight and approval authority'
             git push origin HEAD:hardening/synthesis-measurement-contract-20260826
           fi
       - uses: actions/setup-python@v5
@@ -69,6 +68,7 @@ jobs:
             drive/scripts/research_data_mcp/synthesis \
             drive/scripts/research_data_mcp/synthesis_preview.py \
             drive/scripts/research_data_mcp/synthesis_execution_authority.py \
+            drive/scripts/research_data_mcp/synthesis_executor.py \
             drive/scripts/research_data_mcp/gateway.py \
             drive/scripts/research_data_mcp/http_router.py \
             drive/scripts/research_data_mcp/tool_handlers.py \
