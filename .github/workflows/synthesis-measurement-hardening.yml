@@ -7,6 +7,8 @@ on:
     paths:
       - "drive/scripts/research_data_mcp/synthesis/**"
       - "drive/tests/test_synthesis_measurement_contract.py"
+      - "drive/tests/test_synthesis_measurement_labels.py"
+      - "drive/tests/test_synthesis_freeze_edges.py"
       - ".github/workflows/synthesis-measurement-hardening.yml"
   workflow_dispatch:
 
@@ -34,4 +36,7 @@ jobs:
           python -m compileall -q drive/scripts/research_data_mcp/synthesis
       - name: Run byte-backed measurement regressions
         run: |
-          python -m pytest -q drive/tests/test_synthesis_measurement_contract.py
+          python -m pytest -q \
+            drive/tests/test_synthesis_measurement_contract.py \
+            drive/tests/test_synthesis_measurement_labels.py \
+            drive/tests/test_synthesis_freeze_edges.py
