@@ -81,6 +81,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/discover-handoff", "handler": "library_synthesis_thread_discover_handoff"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/collect-missing", "handler": "library_synthesis_thread_collect_missing"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
+    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/method", "handler": "library_synthesis_thread_method"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
     # Keep the greedy thread-id catch-all after nested thread actions.
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}", "handler": "library_synthesis_thread_get"},
@@ -993,6 +994,10 @@ def _handlers() -> dict[str, Handler]:
             }
             if isinstance(payload.get("execution_spec"), dict):
                 proposal["execution_spec"] = payload["execution_spec"]
+        if isinstance(proposal, dict):
+            proposal = dict(proposal)
+            # Browser/HTTP callers cannot self-assert that a proposal came from Composer.
+            proposal.pop("origin", None)
         return stack.gateway.synthesis_thread_set_proposal(
             params["thread_id"],
             proposal if isinstance(proposal, dict) else None,
@@ -1012,6 +1017,9 @@ def _handlers() -> dict[str, Handler]:
 
     def library_synthesis_thread_materialisation(stack, query, payload, params):
         return stack.gateway.synthesis_thread_materialisation(params["thread_id"])
+
+    def library_synthesis_thread_method(stack, query, payload, params):
+        return stack.gateway.synthesis_thread_method_export(params["thread_id"])
 
     def library_synthesis_thread_execute(stack, query, payload, params):
         action = str((payload or {}).get("action") or "request_approval").strip()

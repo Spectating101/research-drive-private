@@ -219,6 +219,15 @@ def accept_proposal(state: dict[str, Any], proposal: dict[str, Any] | None = Non
         next_state["accepted_spec_hash"] = hashlib.sha256(
             json.dumps(next_state["execution_spec"], sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
+        origin = prop.get("origin") if isinstance(prop.get("origin"), dict) else {}
+        next_state["method_origin"] = {
+            "kind": str(origin.get("kind") or "proposal"),
+            "authority": str(origin.get("authority") or ""),
+            "tool": str(origin.get("tool") or ""),
+            "proposal_id": str(prop.get("id") or ""),
+            "proposal_hash": str(prop.get("proposal_hash") or ""),
+            "proposal_title": str(prop.get("title") or ""),
+        }
         # A new accepted spec starts a new execution revision. A Preview is
         # revision-bound evidence and must never survive acceptance of a new spec.
         next_state.pop("preview", None)

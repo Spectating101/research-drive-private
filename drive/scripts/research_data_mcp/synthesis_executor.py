@@ -1137,6 +1137,29 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
     parquet = out_dir / "output.parquet"
     output.to_parquet(parquet, index=False)
     rel_input = str(file_path.relative_to(repo_root)) if file_path.is_relative_to(repo_root) else str(file_path)
+    from scripts.research_data_mcp.synthesis.spec_export import fingerprint_path, render_script, spec_hash
+
+    referenced_ids = [spec["input_dataset_id"]]
+    for step in spec.get("transforms") or []:
+        right_id = str(step.get("right_dataset_id") or "").strip()
+        if right_id and right_id not in referenced_ids:
+            referenced_ids.append(right_id)
+    method_inputs: dict[str, dict[str, Any]] = {}
+    for dataset_id in referenced_ids:
+        source_row = _registry_row(registry, dataset_id)
+        source_path = _ensure_local_file(repo_root, source_row)
+        method_inputs[dataset_id] = fingerprint_path(source_path)
+    method_text = render_script(spec, method_inputs, runnable_on_desk=True)
+    method_text += (
+        "\n# Persist the independently reproduced result in the current directory.\n"
+        + f"result.to_parquet({(str(spec['output_dataset_id']) + '.parquet')!r}, index=False)\n"
+    )
+    method = out_dir / "method.py"
+    method.write_text(method_text, encoding="utf-8")
+    method_sha = hashlib.sha256(method_text.encode("utf-8")).hexdigest()
+    method_spec_hash = spec_hash(spec)
+    method_origin = dict(plan.get("method_origin") or {})
+
     manifest = out_dir / "manifest.json"
     manifest.write_text(
         json.dumps(
@@ -1144,6 +1167,13 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
                 "manifest_id": f"synthesis_manifest_{job_id}",
                 "job_id": job_id,
                 "execution_spec": spec,
+                "reproducibility": {
+                    "method_path": str(method.relative_to(repo_root)),
+                    "method_sha256": method_sha,
+                    "spec_hash": method_spec_hash,
+                    "method_origin": method_origin,
+                    "generator": "deterministic_spec_export",
+                },
                 "proxy": spec.get("proxy"),
                 "input": {
                     "dataset_id": spec["input_dataset_id"],
@@ -1174,6 +1204,13 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
         "execution_spec": spec,
         "proxy": spec.get("proxy"),
         "output_manifest_id": f"synthesis_manifest_{job_id}",
+        "reproducibility": {
+            "method_path": str(method.relative_to(repo_root)),
+            "method_sha256": method_sha,
+            "spec_hash": method_spec_hash,
+            "method_origin": method_origin,
+            "generator": "deterministic_spec_export",
+        },
         "undefined_derived_values": undefined,
         "asof_coverage": asof_coverage,
         "source_rows": source_rows,
@@ -1185,6 +1222,9 @@ def execute(repo_root: Path, job_id: str, plan: dict[str, Any]) -> dict[str, Any
             "proxy": spec.get("proxy"),
             "canonical_dir": rel,
             "manifest_path": str(manifest.relative_to(repo_root)),
-            "files": [{"name": "output.parquet", "path": str(parquet.relative_to(repo_root)), "bytes": parquet.stat().st_size}],
+            "files": [
+                {"name": "output.parquet", "path": str(parquet.relative_to(repo_root)), "bytes": parquet.stat().st_size},
+                {"name": "method.py", "path": str(method.relative_to(repo_root)), "bytes": method.stat().st_size},
+            ],
         },
     }

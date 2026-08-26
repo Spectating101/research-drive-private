@@ -131,6 +131,11 @@ class ResearchToolHandlers:
             impact=impact,
             node_id=node_id,
             execution_spec=execution_spec,
+            origin={
+                "kind": "llm_tool_call",
+                "authority": "composer",
+                "tool": "research_synthesis_propose_state",
+            },
         )
         return {
             "thread_id": thread.get("id"),
