@@ -375,7 +375,7 @@ def test_synthesis_approval_boundaries(stack):
     assert got.get("status") in {"queued", "running", "completed"}
 
 
-def test_synthesis_submit_uses_server_internal_scope_but_never_auto_approves(
+def test_synthesis_submitter_uses_server_internal_scope_but_never_auto_approves(
     stack, tmp_path: Path, monkeypatch
 ):
     from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore
@@ -431,7 +431,11 @@ def test_synthesis_submit_uses_server_internal_scope_but_never_auto_approves(
         }
 
     monkeypatch.setattr(stack.gateway.jobs, "submit", submit)
-    result = stack.gateway.synthesis_thread_submit_execution(thread["id"])
+    # This test owns the lower-level submitter contract. Preview/approval
+    # authorization is independently proven in test_synthesis_bounded_preview.py.
+    submitter = getattr(type(stack.gateway).synthesis_thread_submit_execution, "_ungated_submit", None)
+    assert submitter is not None
+    result = submitter(stack.gateway, thread["id"])
 
     assert observed["request"]["_ops_internal"] is True
     assert observed["auto_approve"] is False

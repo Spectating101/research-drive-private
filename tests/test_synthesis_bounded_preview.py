@@ -269,6 +269,6 @@ def test_failed_preview_persists_failure_and_never_submits(tmp_path: Path):
     assert gateway.jobs.submitted == []
     assert store.get(thread["id"])["state"]["preview"]["status"] == "failed"
 
-    with pytest.raises(ValueError, match="run and review Preview first"):
+    with pytest.raises(ValueError, match="rerun Preview"):
         gateway.synthesis_thread_submit_execution(thread["id"], action="request_approval")
     assert gateway.jobs.submitted == []
