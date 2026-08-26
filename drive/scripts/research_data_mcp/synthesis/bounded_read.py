@@ -3,8 +3,8 @@
 This module is deliberately narrower than the production executor reader. Its
 contract is not "read every supported research asset at any size"; it is "obtain
 a bounded diagnostic window without accidentally materialising the whole asset".
-Non-streamable large JSON arrays therefore fail closed and should be converted to
-JSONL/CSV/Parquet before Preview.
+Non-streamable large JSON documents therefore fail closed and should be converted
+to JSONL/CSV/Parquet before Preview.
 """
 
 from __future__ import annotations
@@ -14,6 +14,14 @@ from pathlib import Path
 from typing import Any
 
 MAX_FALLBACK_BYTES = 16 * 1024 * 1024
+
+
+def _bounded_json_lines(target: Path, want: int):
+    import pandas as pd
+
+    frame = pd.read_json(target, lines=True, nrows=want)
+    exact = len(frame) < want
+    return frame, len(frame) if exact else None, len(frame), exact
 
 
 def read_bounded_frame(path: Path, row_cap: int) -> tuple[Any, int | None, int, bool]:
@@ -54,23 +62,13 @@ def read_bounded_frame(path: Path, row_cap: int) -> tuple[Any, int | None, int, 
         return frame, len(frame) if exact else None, len(frame), exact
 
     if suffix in {".jsonl", ".ndjson"}:
-        frame = pd.read_json(target, lines=True, nrows=want)
-        exact = len(frame) < want
-        return frame, len(frame) if exact else None, len(frame), exact
+        return _bounded_json_lines(target, want)
 
     if suffix == ".json" or suffix == "":
-        with target.open("r", encoding="utf-8") as fh:
-            prefix = fh.read(4096).lstrip()
-        # Extensionless line-delimited data and .json files containing JSONL are
-        # common in the registry. A valid JSON object/array starts with { or [;
-        # line-delimited objects also start with {, so detect a complete first
-        # object followed by another non-whitespace token before choosing JSONL.
-        if suffix == "" and not prefix.startswith(("{", "[")):
-            frame = pd.read_json(target, lines=True, nrows=want)
-            exact = len(frame) < want
-            return frame, len(frame) if exact else None, len(frame), exact
-        try:
-            if target.stat().st_size <= MAX_FALLBACK_BYTES:
+        # Small JSON documents can be classified exactly without risk. This also
+        # preserves production support for dict-of-dicts JSON that is not JSONL.
+        if target.stat().st_size <= MAX_FALLBACK_BYTES:
+            try:
                 raw = json.loads(target.read_text(encoding="utf-8"))
                 if isinstance(raw, list):
                     full = pd.DataFrame(raw)
@@ -82,14 +80,19 @@ def read_bounded_frame(path: Path, row_cap: int) -> tuple[Any, int | None, int, 
                 else:
                     raise ValueError("unsupported json shape for bounded read")
                 return full.head(want), len(full), min(len(full), want), True
-        except json.JSONDecodeError:
-            frame = pd.read_json(target, lines=True, nrows=want)
-            exact = len(frame) < want
-            return frame, len(frame) if exact else None, len(frame), exact
-        raise ValueError(
-            "bounded diagnostic read cannot safely stream this large JSON document; "
-            "convert it to JSONL/CSV/Parquet first"
-        )
+            except json.JSONDecodeError:
+                return _bounded_json_lines(target, want)
+
+        # A large .json/extensionless file may actually be JSONL. Trying the
+        # lines reader with nrows is physically bounded; if it is a monolithic
+        # JSON array/object pandas rejects it and we fail closed below.
+        try:
+            return _bounded_json_lines(target, want)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(
+                "bounded diagnostic read cannot safely stream this large JSON document; "
+                "convert it to JSONL/CSV/Parquet first"
+            ) from exc
 
     if target.stat().st_size > MAX_FALLBACK_BYTES:
         raise ValueError(
