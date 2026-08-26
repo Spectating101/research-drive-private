@@ -3,6 +3,11 @@
 Reads the actual bytes. Reports what the keys really share and how each side is
 shaped. It states no verdict: a threshold is a research judgement, not a probe
 result. Callers decide what is good enough.
+
+The row cap is an execution bound, not merely a result truncation. CSV inputs
+are projected to the key columns and streamed in chunks; Parquet inputs are
+projected and read in bounded record batches. Large research files therefore do
+not need to be materialised in memory just to measure key overlap.
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 SUPPORTED_SUFFIXES = (".parquet", ".csv", ".csv.gz")
+READ_BATCH_ROWS = 100_000
 
 
 def _now() -> str:
@@ -29,8 +35,16 @@ def _data_files(path: Path) -> list[Path]:
     return found
 
 
+def _append_frame_keys(frame: Any, cols: list[str], values: list[Any], row_cap: int) -> None:
+    if len(values) >= row_cap:
+        return
+    subset = frame[cols].dropna().astype(str)
+    take = row_cap - len(values)
+    values.extend(map(tuple, subset.values[:take]))
+
+
 def _read_key_column(path: Path, keys: list[str], row_cap: int) -> tuple[list[Any], str | None]:
-    """Read the composite key as tuples.
+    """Read the composite key as tuples under a real memory/result bound.
 
     A panel keyed on (symbol, week) probed on `symbol` alone reports a coverage
     that no real join achieves, so every key part must be present.
@@ -44,35 +58,55 @@ def _read_key_column(path: Path, keys: list[str], row_cap: int) -> tuple[list[An
     if not files:
         return [], f"no readable data file under {path}"
 
+    cap = max(1, int(row_cap or 1))
     wanted = [k.strip().lower() for k in keys]
     values: list[Any] = []
     last_error: str | None = None
     matched = False
+
     for file_path in files:
-        if len(values) >= row_cap:
+        if len(values) >= cap:
             break
         try:
             if file_path.name.endswith(".parquet"):
-                # Project only the key columns — a probe never needs the payload.
                 import pyarrow.parquet as pq
 
-                available = {str(c).strip().lower(): c for c in pq.ParquetFile(file_path).schema.names}
+                parquet = pq.ParquetFile(file_path)
+                available = {str(c).strip().lower(): c for c in parquet.schema.names}
                 if any(k not in available for k in wanted):
                     continue
-                frame = pd.read_parquet(file_path, columns=[available[k] for k in wanted])
+                matched = True
+                cols = [available[k] for k in wanted]
+                remaining = cap - len(values)
+                batch_rows = max(1, min(READ_BATCH_ROWS, remaining))
+                for batch in parquet.iter_batches(batch_size=batch_rows, columns=cols):
+                    _append_frame_keys(batch.to_pandas(), cols, values, cap)
+                    if len(values) >= cap:
+                        break
             else:
-                frame = pd.read_csv(file_path, low_memory=False)
+                # Read only a zero-row header first so we can project the actual
+                # key columns. Then stream chunks instead of loading a multi-GB
+                # CSV merely to use a few hundred thousand key values.
+                header = pd.read_csv(file_path, nrows=0)
+                available = {str(c).strip().lower(): c for c in header.columns}
+                if any(k not in available for k in wanted):
+                    continue
+                matched = True
+                cols = [available[k] for k in wanted]
+                remaining = cap - len(values)
+                chunk_rows = max(1, min(READ_BATCH_ROWS, remaining))
+                for frame in pd.read_csv(
+                    file_path,
+                    usecols=cols,
+                    low_memory=False,
+                    chunksize=chunk_rows,
+                ):
+                    _append_frame_keys(frame, cols, values, cap)
+                    if len(values) >= cap:
+                        break
         except Exception as exc:
             last_error = f"{file_path.name}: {exc}"
             continue
-        lower = {str(c).strip().lower(): c for c in frame.columns}
-        if any(k not in lower for k in wanted):
-            continue
-        matched = True
-        cols = [lower[k] for k in wanted]
-        subset = frame[cols].dropna().astype(str)
-        take = row_cap - len(values)
-        values.extend(map(tuple, subset.values[:take]))
 
     if not matched:
         missing = ", ".join(repr(k) for k in keys)
