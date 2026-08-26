@@ -2,6 +2,9 @@ name: Private runtime contract
 
 # Exact-head gate for runtime, registry authority, remote worker adoption, and the internal desk front door.
 on:
+  push:
+    branches:
+      - hardening/synthesis-measurement-contract-20260826
   pull_request:
     branches: [main]
     paths:
@@ -47,7 +50,7 @@ jobs:
           cache: pip
 
       # Semantic route discovery is a release capability, not an optional
-      # developer convenience.  Cache the declared model so the contract tests
+      # developer convenience. Cache the declared model so the contract tests
       # the same embedding path on every clean checkout without redownloading
       # weights on every run.
       - name: Cache semantic retrieval model
