@@ -8,7 +8,9 @@ down and they never recommend a methodological choice.
 The important boundary here is identity. A generic numeric measurement can have
 excellent apparent value overlap with another dataset while being nonsense as a
 join key. Shared identity/time/key-like fields therefore outrank arbitrary
-measurements whenever such a domain exists.
+measurements whenever such a domain exists. When an entity and a time dimension
+are both shared, the composite panel key is measured before either partial key so
+coverage cannot silently collapse an entity-period panel to entity-only identity.
 """
 
 from __future__ import annotations
@@ -20,8 +22,16 @@ from typing import Any
 # synthesisContract.js validates exactly these keys on a column profile.
 _PROFILE_KEYS = ("column", "kind", "rows", "blanks", "distinct", "flags")
 MAX_INPUTS = 8
+ENTITY_KEYISH = re.compile(
+    r"(?:^|_)(?:id|entity|symbol|ticker|ric|isin|cusip|permno|gvkey)(?:_|$)",
+    re.I,
+)
+TIME_KEYISH = re.compile(
+    r"(?:^|_)(?:date|day|week|month|quarter|year|period|timestamp|time)(?:_|$)",
+    re.I,
+)
 KEYISH = re.compile(
-    r"(?:^|_)(?:id|symbol|ticker|ric|isin|cusip|permno|gvkey|date|week|month|year)(?:_|$)",
+    r"(?:^|_)(?:id|entity|symbol|ticker|ric|isin|cusip|permno|gvkey|date|day|week|month|quarter|year|period|timestamp|time)(?:_|$)",
     re.I,
 )
 
@@ -99,10 +109,9 @@ def unit_conflict_from(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     }
 
 
-def _shared_candidates(
+def _rank_common_columns(
     left: list[dict[str, Any]], right: list[dict[str, Any]]
 ) -> list[str]:
-    """Prefer shared identity/time domains over coincidental measurement values."""
     lmap = {str(row.get("column")): row for row in left if row.get("column")}
     rset = {str(row.get("column")) for row in right if row.get("column")}
     common = [name for name in lmap if name in rset]
@@ -114,23 +123,64 @@ def _shared_candidates(
         )
     )
     keyish = [name for name in common if KEYISH.search(name)]
-    # Measurements are fallback candidates only if the data exposes no shared
-    # key-like domain at all. A high value-overlap score is not identity.
-    return (keyish or common)[:8]
+    return keyish or common
 
 
-def _candidate_from_probe(probe: dict[str, Any], key: str) -> dict[str, Any]:
+def _shared_key_specs(
+    left: list[dict[str, Any]], right: list[dict[str, Any]]
+) -> list[list[str]]:
+    """Return measured key domains, preserving entity × time panel grain first."""
+    ranked = _rank_common_columns(left, right)
+    entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
+    period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
+
+    specs: list[list[str]] = []
+    if entity and period and entity != period:
+        specs.append([entity, period])
+    specs.extend([[name] for name in ranked])
+
+    unique: list[list[str]] = []
+    seen: set[tuple[str, ...]] = set()
+    for spec in specs:
+        identity = tuple(spec)
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        unique.append(spec)
+        if len(unique) >= 8:
+            break
+    return unique
+
+
+def _is_complete_identity_domain(key_parts: list[str]) -> bool:
+    return (
+        len(key_parts) > 1
+        and any(ENTITY_KEYISH.search(name) for name in key_parts)
+        and any(TIME_KEYISH.search(name) for name in key_parts)
+    )
+
+
+def _key_label(key_parts: list[str]) -> str:
+    return " + ".join(key_parts)
+
+
+def _candidate_from_probe(probe: dict[str, Any], key: str | list[str]) -> dict[str, Any]:
+    key_parts = [str(key)] if isinstance(key, str) else [str(part) for part in key]
+    key_parts = [part for part in key_parts if part.strip()]
+    label = _key_label(key_parts)
     error = str(probe.get("probe_error") or "").strip()
     right_rows = int(probe.get("right_rows") or 0)
     right_distinct = int(probe.get("right_distinct") or 0)
     matched = int(probe.get("shared_distinct") or 0)
     usable = not error and right_distinct > 0
-    reason = error or ("the column is empty on the right side" if not right_distinct else None)
+    reason = error or ("the key is empty on the right side" if not right_distinct else None)
     if usable and not matched:
         reason = "no value in common"
     return {
-        "left_key": key,
-        "right_key": key,
+        "left_key": label,
+        "right_key": label,
+        "key_parts": key_parts,
+        "complete_identity_domain": _is_complete_identity_domain(key_parts),
         "matched": matched,
         "left_distinct": int(probe.get("left_distinct") or 0),
         "right_distinct": right_distinct,
@@ -145,33 +195,45 @@ def _join_candidates(left: dict[str, Any], right: dict[str, Any]) -> tuple[list[
     from scripts.research_data_mcp.synthesis.pair_probe import probe_pair
 
     candidates = []
-    for key in _shared_candidates(left["raw"], right["raw"]):
+    for key_parts in _shared_key_specs(left["raw"], right["raw"]):
         candidates.append(
             _candidate_from_probe(
                 probe_pair(
                     left["path"],
                     right["path"],
-                    key,
+                    key_parts,
                     left_id=left["dataset_id"],
                     right_id=right["dataset_id"],
                 ),
-                key,
+                key_parts,
             )
         )
-    candidates.sort(key=lambda row: (-(row["match_rate_pct"] or 0), row["left_key"]))
+    candidates.sort(
+        key=lambda row: (
+            0 if row["usable"] else 1,
+            0 if row["complete_identity_domain"] else 1,
+            -(row["match_rate_pct"] or 0),
+            row["left_key"],
+        )
+    )
     reason = "" if candidates else "the first two measured inputs expose no shared candidate key"
     return candidates, reason
 
 
-def _common_multi_key(measured: list[dict[str, Any]]) -> str:
+def _common_multi_key_parts(measured: list[dict[str, Any]]) -> list[str]:
     if len(measured) < 3:
-        return ""
+        return []
     common = {str(row.get("column")) for row in measured[0]["raw"] if row.get("column")}
     for source in measured[1:]:
         common &= {str(row.get("column")) for row in source["raw"] if row.get("column")}
     ranked = sorted(common, key=lambda name: (0 if KEYISH.search(name) else 1, name))
     keyish = [name for name in ranked if KEYISH.search(name)]
-    return (keyish or ranked)[0] if (keyish or ranked) else ""
+    ranked = keyish or ranked
+    entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
+    period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
+    if entity and period and entity != period:
+        return [entity, period]
+    return [ranked[0]] if ranked else []
 
 
 def _unique_dataset_ids(nodes: list[dict[str, Any]]) -> list[str]:
@@ -296,8 +358,8 @@ def measured_state(gateway: Any, nodes: list[dict[str, Any]], *, max_inputs: int
     if len(measured) >= 3:
         from scripts.research_data_mcp.synthesis.multi_probe import probe_many
 
-        key = _common_multi_key(measured)
-        if key:
+        key_parts = _common_multi_key_parts(measured)
+        if key_parts:
             multi = probe_many(
                 [
                     {
@@ -307,7 +369,7 @@ def measured_state(gateway: Any, nodes: list[dict[str, Any]], *, max_inputs: int
                     }
                     for row in measured
                 ],
-                key,
+                key_parts,
             )
         else:
             multi = {
