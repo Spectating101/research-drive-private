@@ -3,7 +3,7 @@
 Preview deliberately reuses the production executor's validation, transform, join,
 and aggregation semantics. It differs from Build in only three ways:
 
-* the primary input is deterministically capped to a small row window;
+* the primary input is deterministically capped before pandas can load it in full;
 * no output files, manifests, jobs, registry rows, or Drive artifacts are written;
 * the result is a compact receipt intended to be persisted on the Synthesis thread.
 
@@ -28,6 +28,9 @@ DEFAULT_INPUT_ROW_LIMIT = 5_000
 MAX_INPUT_ROW_LIMIT = 25_000
 DEFAULT_OUTPUT_ROW_LIMIT = 20
 MAX_OUTPUT_ROW_LIMIT = 100
+# Non-streamable/unknown primary formats may still be previewed when genuinely
+# small, but never by reading an arbitrarily large file merely to take head().
+MAX_FALLBACK_PRIMARY_BYTES = 16 * 1024 * 1024
 
 _REVISION_FIELDS = (
     "manifest_id",
@@ -128,6 +131,75 @@ def current_preview_authority(repo_root: Path, execution_spec: dict[str, Any]) -
     }
 
 
+def _bounded_primary_frame(path: Path, limit: int):
+    """Read at most ``limit + 1`` primary rows without an unbounded full-frame load.
+
+    Returns ``(frame, total_rows, observed_rows, exact_total)``. CSV/JSONL do not
+    scan to EOF merely to count rows, so total_rows is intentionally unknown when
+    the bounded window proves truncation. Parquet row count comes from metadata.
+    """
+    import pandas as pd
+
+    path = Path(path)
+    want = max(1, int(limit)) + 1
+    suffix = path.suffix.lower()
+
+    if suffix == ".parquet":
+        import pyarrow.parquet as pq
+
+        parquet = pq.ParquetFile(path)
+        total_rows = int(parquet.metadata.num_rows)
+        frames = []
+        remaining = want
+        for batch in parquet.iter_batches(batch_size=min(100_000, want)):
+            piece = batch.to_pandas()
+            if len(piece) > remaining:
+                piece = piece.head(remaining)
+            frames.append(piece)
+            remaining -= len(piece)
+            if remaining <= 0:
+                break
+        frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        return frame, total_rows, len(frame), True
+
+    if suffix == ".csv":
+        frame = pd.read_csv(path, nrows=want)
+        exact = len(frame) < want
+        return frame, len(frame) if exact else None, len(frame), exact
+
+    if suffix == ".jsonl" or not suffix:
+        frame = pd.read_json(path, lines=True, nrows=want)
+        exact = len(frame) < want
+        return frame, len(frame) if exact else None, len(frame), exact
+
+    if suffix == ".json":
+        with path.open("r", encoding="utf-8") as fh:
+            prefix = fh.read(4096).lstrip()
+        if not prefix.startswith("["):
+            frame = pd.read_json(path, lines=True, nrows=want)
+            exact = len(frame) < want
+            return frame, len(frame) if exact else None, len(frame), exact
+        # Pandas has no bounded nrows reader for a JSON records array. Small
+        # arrays remain useful; large arrays fail closed instead of pretending
+        # the row cap also bounded memory/I/O.
+        if path.stat().st_size > MAX_FALLBACK_PRIMARY_BYTES:
+            raise ValueError(
+                "bounded Preview cannot stream this JSON array safely; convert it to JSONL/CSV/Parquet first"
+            )
+        full = pd.read_json(path)
+        return full.head(want), len(full), min(len(full), want), True
+
+    if path.stat().st_size > MAX_FALLBACK_PRIMARY_BYTES:
+        raise ValueError(
+            f"bounded Preview does not stream {suffix or 'this'} primary format above "
+            f"{MAX_FALLBACK_PRIMARY_BYTES} bytes"
+        )
+    from scripts.research_data_mcp.synthesis_executor import _read_frame
+
+    full = _read_frame(path)
+    return full.head(want), len(full), min(len(full), want), True
+
+
 def _aggregate_preview(frame, spec: dict[str, Any]):
     from scripts.research_data_mcp.synthesis_executor import MAX_OUTPUT_ROWS
 
@@ -177,12 +249,11 @@ def run_bounded_preview(
     input_row_limit: int = DEFAULT_INPUT_ROW_LIMIT,
     output_row_limit: int = DEFAULT_OUTPUT_ROW_LIMIT,
 ) -> dict[str, Any]:
-    """Execute an accepted recipe on bounded rows; perform no durable output writes."""
+    """Execute an accepted recipe on bounded primary rows; perform no durable writes."""
     from scripts.research_data_mcp.synthesis_executor import (
         _apply_transforms,
         _ensure_local_file,
         _load_registry,
-        _read_frame,
         _registry_row,
         preflight_execution_spec,
     )
@@ -208,10 +279,13 @@ def run_bounded_preview(
     registry = _load_registry(root)
     source = _registry_row(registry, spec["input_dataset_id"])
     input_path = _ensure_local_file(root, source)
-    full_frame = _read_frame(input_path)
-    source_rows = len(full_frame)
-    frame = full_frame.head(in_limit).copy()
+    bounded, source_rows, observed_rows, source_rows_exact = _bounded_primary_frame(input_path, in_limit)
+    frame = bounded.head(in_limit).copy()
     preview_input_rows = len(frame)
+    source_truncated = bool(
+        (source_rows is not None and source_rows > preview_input_rows)
+        or observed_rows > preview_input_rows
+    )
 
     undefined: dict[str, int] = {}
     asof_coverage: list[dict[str, Any]] = []
@@ -239,11 +313,14 @@ def run_bounded_preview(
             "strategy": "first_rows",
             "input_row_limit": in_limit,
             "source_rows": source_rows,
+            "source_rows_exact": source_rows_exact,
+            "source_rows_observed": observed_rows,
             "previewed_rows": preview_input_rows,
-            "source_truncated": source_rows > preview_input_rows,
+            "source_truncated": source_truncated,
             "note": (
                 "Deterministic bounded execution preview. Values and row effects describe "
-                "the preview window, not the full population."
+                "the preview window, not the full population. CSV/JSONL totals are not "
+                "scanned to EOF merely to count rows."
             ),
         },
         "execution_spec": spec,
@@ -253,6 +330,8 @@ def run_bounded_preview(
         },
         "rows": {
             "source": source_rows,
+            "source_exact": source_rows_exact,
+            "source_observed": observed_rows,
             "preview_input": preview_input_rows,
             "after_transforms": rows_after_transforms,
             "output": len(output),
