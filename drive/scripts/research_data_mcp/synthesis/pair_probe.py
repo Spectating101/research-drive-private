@@ -135,7 +135,9 @@ def probe_pair(
     overstates joinability, so pass every part the join will use.
 
     Returns measured counts only. `probe_error` set means no number is trustworthy
-    and callers must not fall back to declared metadata.
+    and callers must not fall back to declared metadata. A partial read is also an
+    error: retaining values from earlier files and calling them measured coverage
+    would turn an I/O failure into a plausible analytical result.
     """
     keys = [key] if isinstance(key, str) else [str(k) for k in (key or [])]
     keys = [k for k in keys if str(k).strip()]
@@ -168,10 +170,12 @@ def probe_pair(
     left_values, left_err = _read_key_column(Path(left_path), keys, row_cap)
     right_values, right_err = _read_key_column(Path(right_path), keys, row_cap)
 
-    if left_err and not left_values:
+    # Fail closed even when a reader managed to collect some values before the
+    # error. Partial bytes are not a trustworthy denominator for join coverage.
+    if left_err:
         result["probe_error"] = f"left: {left_err}"
         return result
-    if right_err and not right_values:
+    if right_err:
         result["probe_error"] = f"right: {right_err}"
         return result
 
