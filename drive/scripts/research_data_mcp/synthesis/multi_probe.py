@@ -6,8 +6,9 @@ patterns directly. It is intentionally read-only: no artifact, job, registry
 entry, or materialisation is created.
 
 Large sources are bounded per input. When a cap is reached the receipt says so;
-callers must describe the result as a bounded overlap sample rather than a full
-population fact.
+callers must describe the result as a bounded overlap window rather than a
+full-population fact. The bounded window is deterministic, not a representative
+random sample.
 """
 
 from __future__ import annotations
@@ -37,6 +38,10 @@ def probe_many(
     is present in sources 0 and 2 and absent from every other measured source.
     Those counts are sufficient for a true 3-set Venn and for an UpSet plot at
     4+ sets.
+
+    Any read error invalidates the whole overlap measurement, even if the reader
+    collected values first. Partial source bytes cannot support an exact-looking
+    higher-order intersection.
     """
     rows = [dict(source or {}) for source in (sources or [])]
     key_parts = _keys(key)
@@ -71,13 +76,14 @@ def probe_many(
         label = str(source.get("label") or dataset_id)
         path = source.get("path")
         values, error = _read_key_column(path, key_parts, cap) if path else ([], "unresolved dataset path")
-        if error and not values:
+        if error:
             out["probe_error"] = f"{dataset_id}: {error}"
             return out
         distinct = set(values)
-        # _read_key_column stops exactly at the row cap. It cannot cheaply know
-        # whether a CSV has one more row, so equality is conservatively treated
-        # as potentially truncated rather than overstated as population-complete.
+        # _read_key_column stops exactly at the non-null key cap. It cannot cheaply
+        # know whether a CSV has one more valid key row, so equality is
+        # conservatively treated as potentially truncated rather than overstated
+        # as population-complete.
         truncated = len(values) >= cap
         out["bounded"] = bool(out["bounded"] or truncated)
         out["sources"].append(
@@ -88,7 +94,7 @@ def probe_many(
                 "rows_read": len(values),
                 "distinct": len(distinct),
                 "truncated": truncated,
-                "read_warning": error or None,
+                "read_warning": None,
             }
         )
         sets.append(distinct)
@@ -144,7 +150,8 @@ def probe_many(
             "pairwise": pairwise,
             "exact_for_read_window": True,
             "note": (
-                "Bounded key-overlap sample; one or more sources reached the read cap."
+                "Bounded key-overlap window; one or more sources reached the read cap. "
+                "This deterministic window is not a representative sample."
                 if out["bounded"]
                 else "Exact key overlap for the resolved input bytes."
             ),
