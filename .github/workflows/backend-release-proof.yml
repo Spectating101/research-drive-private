@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - agent/release-proof-hardening-v2
+      - hardening/synthesis-measurement-contract-20260826
     paths:
       - "drive/scripts/yzu_cluster/**"
       - "drive/scripts/cluster_agent/**"
