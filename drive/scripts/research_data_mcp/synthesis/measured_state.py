@@ -15,7 +15,9 @@ When multiple identity fields are available, a degenerate one-value identifier
 cannot win merely because its cosmetic coverage is 100%. An entity + time
 composite is only auto-promoted when the entity actually repeats on every
 participating side; merely carrying an incidental report_date/year is not proof
-that an entity-level dataset should be joined at panel grain.
+that an entity-level dataset should be joined at panel grain. Outside a justified
+panel composite, entity identity outranks a time-only field so a shared year or
+week cannot masquerade as company identity.
 """
 
 from __future__ import annotations
@@ -201,6 +203,10 @@ def _is_complete_identity_domain(key_parts: list[str]) -> bool:
     )
 
 
+def _is_entity_identity_domain(key_parts: list[str]) -> bool:
+    return any(ENTITY_KEYISH.search(name) for name in key_parts)
+
+
 def _key_label(key_parts: list[str]) -> str:
     return " + ".join(key_parts)
 
@@ -224,6 +230,7 @@ def _candidate_from_probe(probe: dict[str, Any], key: str | list[str]) -> dict[s
         "right_key": label,
         "key_parts": key_parts,
         "complete_identity_domain": _is_complete_identity_domain(key_parts),
+        "entity_identity_domain": _is_entity_identity_domain(key_parts),
         "identity_capacity": identity_capacity,
         "degenerate_identity": identity_capacity <= 1,
         "matched": matched,
@@ -264,6 +271,7 @@ def _join_candidates(left: dict[str, Any], right: dict[str, Any]) -> tuple[list[
         key=lambda row: (
             0 if row["usable"] else 1,
             0 if row["complete_identity_domain"] else 1,
+            0 if row.get("entity_identity_domain") else 1,
             0 if not row.get("degenerate_identity") else 1,
             -(row["match_rate_pct"] or 0),
             -int(row.get("identity_capacity") or 0),
@@ -318,6 +326,8 @@ def _common_multi_key_parts(measured: list[dict[str, Any]]) -> list[str]:
         and all(_entity_repeats(source["raw"], entity) for source in measured)
     ):
         return [entity, period]
+    if entity:
+        return [entity]
     return [ranked[0]] if ranked else []
 
 
