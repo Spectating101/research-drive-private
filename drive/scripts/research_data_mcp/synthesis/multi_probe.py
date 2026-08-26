@@ -5,10 +5,10 @@ actual join-key bytes for 2..8 registered inputs and counts exclusive membership
 patterns directly. It is intentionally read-only: no artifact, job, registry
 entry, or materialisation is created.
 
-Large sources are bounded per input. When a cap is reached the receipt says so;
-callers must describe the result as a bounded overlap window rather than a
-full-population fact. The bounded window is deterministic, not a representative
-random sample.
+Large sources are bounded per input by retained non-null key rows. When that cap
+is reached the receipt says so; callers must describe the result as a bounded
+overlap window rather than a full-population fact. The bounded window is
+deterministic, not a representative random sample.
 """
 
 from __future__ import annotations
@@ -80,8 +80,8 @@ def probe_many(
             out["probe_error"] = f"{dataset_id}: {error}"
             return out
         distinct = set(values)
-        # _read_key_column stops exactly at the non-null key cap. It cannot cheaply
-        # know whether a CSV has one more valid key row, so equality is
+        # _read_key_column stops exactly at the retained non-null key-row cap. It
+        # may scan more physical source rows when keys are sparse, so equality is
         # conservatively treated as potentially truncated rather than overstated
         # as population-complete.
         truncated = len(values) >= cap
@@ -150,7 +150,7 @@ def probe_many(
             "pairwise": pairwise,
             "exact_for_read_window": True,
             "note": (
-                "Bounded key-overlap window; one or more sources reached the read cap. "
+                "Bounded key-overlap window; one or more sources reached the key-row measurement cap. "
                 "This deterministic window is not a representative sample."
                 if out["bounded"]
                 else "Exact key overlap for the resolved input bytes."
