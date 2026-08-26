@@ -8,12 +8,14 @@ down and they never recommend a methodological choice.
 The important boundary here is identity. A generic numeric measurement can have
 excellent apparent value overlap with another dataset while being nonsense as a
 join key. Shared identity/time/key-like fields therefore outrank arbitrary
-measurements whenever such a domain exists. When multiple identity fields are
-available, the field that actually distinguishes the most observations across
-all measured sides outranks a nearly constant identifier with cosmetically high
-coverage. When an entity and a time dimension are both shared, the composite
-panel key is measured before either partial key so coverage cannot silently
-collapse an entity-period panel to entity-only identity.
+measurements whenever such a domain exists, and measurement-only columns are not
+automatically promoted to keys at all. Human-readable label/name/date dimensions
+may be used as a conservative fallback when no explicit key-like field exists.
+When multiple identity fields are available, a degenerate one-value identifier
+cannot win merely because its cosmetic coverage is 100%. When an entity and a
+time dimension are both shared, the composite panel key is measured before either
+partial key so coverage cannot silently collapse an entity-period panel to
+entity-only identity.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from typing import Any
 # synthesisContract.js validates exactly these keys on a column profile.
 _PROFILE_KEYS = ("column", "kind", "rows", "blanks", "distinct", "flags")
 MAX_INPUTS = 8
+SAFE_FALLBACK_KINDS = frozenset({"name", "label", "date"})
 ENTITY_KEYISH = re.compile(
     r"(?:^|_)(?:id|entity|symbol|ticker|ric|isin|cusip|permno|gvkey)(?:_|$)",
     re.I,
@@ -129,7 +132,14 @@ def _rank_common_columns(
         )
     )
     keyish = [name for name in common if KEYISH.search(name)]
-    return keyish or common
+    if keyish:
+        return keyish
+    return [
+        name
+        for name in common
+        if str(lmap[name].get("kind") or "") in SAFE_FALLBACK_KINDS
+        and str(rmap[name].get("kind") or "") in SAFE_FALLBACK_KINDS
+    ]
 
 
 def _shared_key_specs(
@@ -179,6 +189,7 @@ def _candidate_from_probe(probe: dict[str, Any], key: str | list[str]) -> dict[s
     left_distinct = int(probe.get("left_distinct") or 0)
     right_distinct = int(probe.get("right_distinct") or 0)
     matched = int(probe.get("shared_distinct") or 0)
+    identity_capacity = min(left_distinct, right_distinct)
     usable = not error and right_distinct > 0
     reason = error or ("the key is empty on the right side" if not right_distinct else None)
     if usable and not matched:
@@ -188,7 +199,8 @@ def _candidate_from_probe(probe: dict[str, Any], key: str | list[str]) -> dict[s
         "right_key": label,
         "key_parts": key_parts,
         "complete_identity_domain": _is_complete_identity_domain(key_parts),
-        "identity_capacity": min(left_distinct, right_distinct),
+        "identity_capacity": identity_capacity,
+        "degenerate_identity": identity_capacity <= 1,
         "matched": matched,
         "left_distinct": left_distinct,
         "right_distinct": right_distinct,
@@ -227,8 +239,9 @@ def _join_candidates(left: dict[str, Any], right: dict[str, Any]) -> tuple[list[
         key=lambda row: (
             0 if row["usable"] else 1,
             0 if row["complete_identity_domain"] else 1,
-            -int(row.get("identity_capacity") or 0),
+            0 if not row.get("degenerate_identity") else 1,
             -(row["match_rate_pct"] or 0),
+            -int(row.get("identity_capacity") or 0),
             row["left_key"],
         )
     )
@@ -260,7 +273,17 @@ def _common_multi_key_parts(measured: list[dict[str, Any]]) -> list[str]:
         ),
     )
     keyish = [name for name in ranked if KEYISH.search(name)]
-    ranked = keyish or ranked
+    if keyish:
+        ranked = keyish
+    else:
+        ranked = [
+            name
+            for name in ranked
+            if all(
+                str(profile_map[name].get("kind") or "") in SAFE_FALLBACK_KINDS
+                for profile_map in profile_maps
+            )
+        ]
     entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
     period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
     if entity and period and entity != period:
@@ -407,7 +430,7 @@ def measured_state(gateway: Any, nodes: list[dict[str, Any]], *, max_inputs: int
             multi = {
                 "applicable": False,
                 "source_count": len(measured),
-                "probe_error": "no common key across measured inputs",
+                "probe_error": "no safe common key across measured inputs",
             }
     out["multi_overlap"] = multi
     return out
