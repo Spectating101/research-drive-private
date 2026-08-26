@@ -19,6 +19,7 @@ on:
       - "drive/tests/test_synthesis_freeze_edges.py"
       - "drive/tests/test_synthesis_grain_freeze.py"
       - "tests/test_synthesis_preview_freeze_authority.py"
+      - "tests/test_synthesis_preview_io_freeze.py"
       - "tests/test_synthesis_thread_state.py"
       - "scripts/synthesis_preview_final_io_patch.py"
       - ".github/workflows/synthesis-measurement-hardening.yml"
@@ -81,4 +82,5 @@ jobs:
             drive/tests/test_synthesis_freeze_edges.py \
             drive/tests/test_synthesis_grain_freeze.py \
             tests/test_synthesis_preview_freeze_authority.py \
+            tests/test_synthesis_preview_io_freeze.py \
             tests/test_synthesis_thread_state.py
