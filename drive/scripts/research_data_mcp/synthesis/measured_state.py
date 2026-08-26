@@ -196,18 +196,25 @@ def _join_candidates(left: dict[str, Any], right: dict[str, Any]) -> tuple[list[
 
     candidates = []
     for key_parts in _shared_key_specs(left["raw"], right["raw"]):
-        candidates.append(
-            _candidate_from_probe(
-                probe_pair(
-                    left["path"],
-                    right["path"],
-                    key_parts,
-                    left_id=left["dataset_id"],
-                    right_id=right["dataset_id"],
-                ),
+        candidate = _candidate_from_probe(
+            probe_pair(
+                left["path"],
+                right["path"],
                 key_parts,
-            )
+                left_id=left["dataset_id"],
+                right_id=right["dataset_id"],
+            ),
+            key_parts,
         )
+        candidate.update(
+            {
+                "left_dataset_id": left["dataset_id"],
+                "right_dataset_id": right["dataset_id"],
+                "left_label": left["label"],
+                "right_label": right["label"],
+            }
+        )
+        candidates.append(candidate)
     candidates.sort(
         key=lambda row: (
             0 if row["usable"] else 1,
