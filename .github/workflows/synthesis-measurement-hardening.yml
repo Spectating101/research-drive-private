@@ -9,6 +9,7 @@ on:
       - "drive/tests/test_synthesis_measurement_contract.py"
       - "drive/tests/test_synthesis_measurement_labels.py"
       - "drive/tests/test_synthesis_freeze_edges.py"
+      - "drive/tests/test_synthesis_grain_freeze.py"
       - ".github/workflows/synthesis-measurement-hardening.yml"
   workflow_dispatch:
 
@@ -39,4 +40,5 @@ jobs:
           python -m pytest -q \
             drive/tests/test_synthesis_measurement_contract.py \
             drive/tests/test_synthesis_measurement_labels.py \
-            drive/tests/test_synthesis_freeze_edges.py
+            drive/tests/test_synthesis_freeze_edges.py \
+            drive/tests/test_synthesis_grain_freeze.py
