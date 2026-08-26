@@ -1,4 +1,8 @@
-"""Multi-source dataset synthesis — join lab holdings on explicit keys."""
+"""Multi-source dataset synthesis — join lab holdings on explicit keys.
+
+Freeze checkpoint 2026-08-27: the accepted method is now archived as a
+checksum-verified deterministic ``method.py`` beside the completed output.
+"""
 
 from scripts.research_data_mcp.synthesis.engine import (
     get_latest_synthesis,
