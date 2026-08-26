@@ -12,10 +12,10 @@ measurements whenever such a domain exists, and measurement-only columns are not
 automatically promoted to keys at all. Human-readable label/name/date dimensions
 may be used as a conservative fallback when no explicit key-like field exists.
 When multiple identity fields are available, a degenerate one-value identifier
-cannot win merely because its cosmetic coverage is 100%. When an entity and a
-time dimension are both shared, the composite panel key is measured before either
-partial key so coverage cannot silently collapse an entity-period panel to
-entity-only identity.
+cannot win merely because its cosmetic coverage is 100%. An entity + time
+composite is only auto-promoted when the entity actually repeats on every
+participating side; merely carrying an incidental report_date/year is not proof
+that an entity-level dataset should be joined at panel grain.
 """
 
 from __future__ import annotations
@@ -142,16 +142,41 @@ def _rank_common_columns(
     ]
 
 
+def _profile_row(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+    return next((row for row in rows if str(row.get("column") or "") == name), None)
+
+
+def _entity_repeats(rows: list[dict[str, Any]], entity: str) -> bool:
+    row = _profile_row(rows, entity)
+    if not row:
+        return False
+    total = int(row.get("rows") or 0)
+    distinct = int(row.get("distinct") or 0)
+    return total > distinct > 0
+
+
 def _shared_key_specs(
     left: list[dict[str, Any]], right: list[dict[str, Any]]
 ) -> list[list[str]]:
-    """Return measured key domains, preserving entity × time panel grain first."""
+    """Return safe measured key domains.
+
+    A composite entity × time key is inferred only when entity values repeat on
+    both sides. That is evidence of panel grain. If either side is already 1:1 on
+    entity, a date/year column may just be metadata and must not silently redefine
+    the join.
+    """
     ranked = _rank_common_columns(left, right)
     entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
     period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
 
     specs: list[list[str]] = []
-    if entity and period and entity != period:
+    if (
+        entity
+        and period
+        and entity != period
+        and _entity_repeats(left, entity)
+        and _entity_repeats(right, entity)
+    ):
         specs.append([entity, period])
     specs.extend([[name] for name in ranked])
 
@@ -286,7 +311,12 @@ def _common_multi_key_parts(measured: list[dict[str, Any]]) -> list[str]:
         ]
     entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
     period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
-    if entity and period and entity != period:
+    if (
+        entity
+        and period
+        and entity != period
+        and all(_entity_repeats(source["raw"], entity) for source in measured)
+    ):
         return [entity, period]
     return [ranked[0]] if ranked else []
 
