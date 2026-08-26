@@ -5,12 +5,12 @@ The public Synthesis execution surface has two and only two intentions:
 * ``preview`` runs the accepted recipe against bounded bytes, persists a receipt,
   and can never create a worker job;
 * ``request_approval`` can create/reuse the existing pending-approval job only
-  when the exact accepted method and current input revisions match a successful
-  Preview receipt.
+  when the accepted method and current input-revision fingerprint match a
+  successful Preview receipt.
 
 The job itself carries the Preview authority hash. The worker recomputes that
-identity immediately before execution, so Library bytes changing after approval
-cannot silently produce output from a different revision.
+identity immediately before execution, so Library inputs changing after approval
+cannot silently produce output from a different resolved revision.
 """
 
 from __future__ import annotations
@@ -57,10 +57,20 @@ def _failed_receipt(
 def _persist_preview(
     gateway: Any,
     thread_id: str,
-    state: dict[str, Any],
     receipt: dict[str, Any],
 ) -> dict[str, Any]:
-    next_state = dict(state)
+    """Merge a receipt into fresh state; never overwrite a newer accepted revision."""
+    store = gateway._synthesis_thread_store()
+    current = store.get(thread_id)
+    current_state = dict(current.get("state") or {})
+    receipt_hash = str(receipt.get("spec_hash") or "")
+    accepted_hash = str(current_state.get("accepted_spec_hash") or "")
+    if not receipt_hash or accepted_hash != receipt_hash:
+        raise ValueError(
+            "accepted synthesis revision changed while Preview was running; rerun Preview"
+        )
+
+    next_state = dict(current_state)
     next_state["preview"] = dict(receipt)
     next_state["lastActivity"] = (
         "Bounded synthesis preview succeeded; review it before requesting execution."
@@ -76,7 +86,7 @@ def _persist_preview(
         }
     )
     next_state["activity"] = activity
-    return gateway._synthesis_thread_store()._save_state(thread_id, next_state)
+    return store._save_state(thread_id, next_state)
 
 
 def _preview_response(
@@ -109,6 +119,18 @@ def _normalize_action(action: str) -> str:
     if requested in _APPROVAL_ACTIONS:
         return "request_approval"
     raise ValueError("synthesis execution action must be preview or request_approval")
+
+
+def _current_successful_preview(
+    state: dict[str, Any], authority: dict[str, Any], accepted_hash: str
+) -> bool:
+    preview = dict(state.get("preview") or {})
+    return bool(
+        preview.get("status") == "succeeded"
+        and preview.get("spec_hash") == accepted_hash
+        and preview.get("authority_hash")
+        and preview.get("authority_hash") == authority.get("authority_hash")
+    )
 
 
 def handle_synthesis_execution_action(
@@ -145,7 +167,7 @@ def handle_synthesis_execution_action(
                 "execution approval refused: current preview input revisions cannot be verified; rerun Preview"
             ) from exc
         receipt = _failed_receipt(accepted_hash, exc)
-        updated = _persist_preview(gateway, thread_id, state, receipt)
+        updated = _persist_preview(gateway, thread_id, receipt)
         durable = (updated.get("state") or {}).get("preview") or receipt
         return _preview_response(updated, durable, reused=False)
 
@@ -154,12 +176,7 @@ def handle_synthesis_execution_action(
             "accepted synthesis revision no longer matches the normalized execution specification"
         )
 
-    current_preview = bool(
-        preview.get("status") == "succeeded"
-        and preview.get("spec_hash") == accepted_hash
-        and preview.get("authority_hash")
-        and preview.get("authority_hash") == authority.get("authority_hash")
-    )
+    current_preview = _current_successful_preview(state, authority, accepted_hash)
 
     if intent == "preview":
         # Lost-response retries remain Preview forever and never cross the approval boundary.
@@ -176,7 +193,7 @@ def handle_synthesis_execution_action(
         except Exception as exc:  # noqa: BLE001
             receipt = _failed_receipt(accepted_hash, exc, authority)
 
-        updated = _persist_preview(gateway, thread_id, state, receipt)
+        updated = _persist_preview(gateway, thread_id, receipt)
         durable = (updated.get("state") or {}).get("preview") or receipt
         return _preview_response(updated, durable, reused=False)
 
@@ -190,10 +207,26 @@ def handle_synthesis_execution_action(
             f"execution approval refused: {stale_reason}; run and review Preview first"
         )
 
+    # Re-read immediately before submission so a concurrent proposal acceptance
+    # cannot ride on the authority check performed above.
+    fresh = store.get(thread_id)
+    fresh_state = fresh.get("state") or {}
+    fresh_spec = dict(fresh_state.get("execution_spec") or {})
+    fresh_hash = str(fresh_state.get("accepted_spec_hash") or "")
+    if fresh_hash != accepted_hash or fresh_spec != spec:
+        raise ValueError(
+            "execution approval refused: accepted revision changed during review; rerun Preview"
+        )
+    fresh_authority = current_preview_authority(gateway.repo_root, fresh_spec)
+    if not _current_successful_preview(fresh_state, fresh_authority, fresh_hash):
+        raise ValueError(
+            "execution approval refused: Preview became stale during review; rerun Preview"
+        )
+
     submitted = gateway._synthesis_thread_submit_approval(thread_id)
     if isinstance(submitted, dict):
         submitted = dict(submitted)
-        submitted["preview"] = preview
+        submitted["preview"] = dict(fresh_state.get("preview") or {})
         submitted["preview_only"] = False
         submitted["execution_submitted"] = bool(
             isinstance(submitted.get("job"), dict) and submitted["job"].get("id")
@@ -202,7 +235,7 @@ def handle_synthesis_execution_action(
 
 
 def verify_worker_preview_authority(repo_root: Any, plan: dict[str, Any]) -> dict[str, Any]:
-    """Fail closed if execution-time bytes differ from the previewed authority."""
+    """Fail closed if execution-time inputs differ from the previewed authority."""
     from scripts.research_data_mcp.synthesis_preview import current_preview_authority
 
     expected = str(plan.get("preview_authority_hash") or "").strip()
