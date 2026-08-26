@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from scripts.research_data_mcp.http_router import ROUTE_CATALOG
 from scripts.research_data_mcp.synthesis.measured_state import measured_state
 from scripts.research_data_mcp.synthesis.multi_probe import probe_many
 
@@ -114,9 +113,14 @@ def test_multi_probe_marks_bounded_window_without_impossible_cardinality(tmp_pat
 
 
 def test_measurement_http_route_precedes_greedy_thread_get():
-    paths = [row["path"] for row in ROUTE_CATALOG]
-    measurement = "/library/synthesis/threads/{thread_id}/measurements"
-    catch_all = "/library/synthesis/threads/{thread_id}"
+    router = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "research_data_mcp"
+        / "http_router.py"
+    ).read_text(encoding="utf-8")
+    measurement = '"/library/synthesis/threads/{thread_id}/measurements"'
+    catch_all = '"/library/synthesis/threads/{thread_id}"'
 
-    assert measurement in paths
-    assert paths.index(measurement) < paths.index(catch_all)
+    assert measurement in router
+    assert router.index(measurement) < router.index(catch_all)
