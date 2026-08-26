@@ -2429,8 +2429,8 @@ class ResearchDataGateway:
     def synthesis_thread_record_execution_failure(self, thread_id: str, job_id: str, error: str) -> dict:
         return self._synthesis_thread_store().record_execution_failure(thread_id, job_id, error)
 
-    def synthesis_thread_submit_execution(self, thread_id: str) -> dict:
-        """Submit an accepted, bounded execution spec for researcher approval."""
+    def _synthesis_thread_submit_approval(self, thread_id: str) -> dict:
+        """Low-level pending-approval submitter; public authority lives above this."""
         from scripts.research_data_mcp.synthesis_executor import validate_execution_spec
 
         thread = self._synthesis_thread_store().get(thread_id)
@@ -2459,6 +2459,9 @@ class ResearchDataGateway:
             ),
             "execution_spec": spec,
             "accepted_spec_hash": accepted_hash,
+            "preview_spec_hash": str((state.get("preview") or {}).get("spec_hash") or ""),
+            "preview_authority_hash": str((state.get("preview") or {}).get("authority_hash") or ""),
+            "preview_input_revisions": list((state.get("preview") or {}).get("input_revisions") or []),
             "dataset_id": spec["output_dataset_id"],
             "partition_id": "derived.research-panels",
             "launchable": True,
@@ -2485,6 +2488,16 @@ class ResearchDataGateway:
             }
             self._synthesis_thread_store()._save_state(thread_id, next_state)
         return submitted
+
+    def synthesis_thread_submit_execution(
+        self, thread_id: str, action: str = "request_approval"
+    ) -> dict:
+        """Run bounded Preview or request approval for that exact previewed revision."""
+        from scripts.research_data_mcp.synthesis_execution_authority import (
+            handle_synthesis_execution_action,
+        )
+
+        return handle_synthesis_execution_action(self, thread_id, action=action)
 
     def synthesis_thread_link_conversation(
         self,

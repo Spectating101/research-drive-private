@@ -1014,7 +1014,10 @@ def _handlers() -> dict[str, Handler]:
         return stack.gateway.synthesis_thread_materialisation(params["thread_id"])
 
     def library_synthesis_thread_execute(stack, query, payload, params):
-        return stack.gateway.synthesis_thread_submit_execution(params["thread_id"])
+        action = str((payload or {}).get("action") or "request_approval").strip()
+        return stack.gateway.synthesis_thread_submit_execution(
+            params["thread_id"], action=action
+        )
 
     def library_synthesis_thread_link_conversation(stack, query, payload, params):
         return stack.gateway.synthesis_thread_link_conversation(
