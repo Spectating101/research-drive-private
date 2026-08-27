@@ -85,6 +85,29 @@ def generic_plan():
     }
 
 
+def reviewed_two_route_intent(store: DiscoverIntentStore) -> dict:
+    intent = store.create(research_need="Need evidence")
+    proposed = store.set_proposal(
+        intent["id"],
+        {
+            "id": "proposal-a",
+            "summary": "Two reviewed routes",
+            "routes": [
+                {"id": "route-a", "title": "Route A", "connector_id": "a"},
+                {"id": "route-b", "title": "Route B", "connector_id": "b"},
+            ],
+            "recommended_route_id": "route-a",
+        },
+    )
+    proposal = proposed["state"]["proposal"]
+    return store.review_proposal(
+        intent["id"],
+        decision="accept",
+        proposal_id=proposal["id"],
+        proposal_hash=proposal["proposal_hash"],
+    )
+
+
 @pytest.fixture(autouse=True)
 def ownerless_test_scope(monkeypatch):
     # Idempotency is orthogonal to principal resolution. Keep these tests focused
@@ -197,6 +220,46 @@ def test_non_discover_submissions_keep_existing_non_idempotent_behavior():
     service.submit("Second", generic_plan(), request)
 
     assert orchestrator.submit_count == 2
+
+
+def test_route_selection_and_job_link_serialize_on_winning_job_route(tmp_path, monkeypatch):
+    monkeypatch.setattr(intent_store_module, "owner_id_for_create", lambda owner_id="": "")
+    monkeypatch.setattr(intent_store_module, "require_owner", lambda owner_id, object_id: None)
+
+    store = DiscoverIntentStore(tmp_path / "discover-route-race.sqlite3")
+    intent = reviewed_two_route_intent(store)
+    barrier = threading.Barrier(2)
+    select_errors: list[Exception] = []
+
+    def select_other_route():
+        barrier.wait(timeout=2)
+        try:
+            store.select_route(intent["id"], "route-b")
+        except ValueError as exc:
+            select_errors.append(exc)
+
+    def link_winning_job():
+        barrier.wait(timeout=2)
+        store.link_job(
+            intent["id"],
+            {
+                "id": "discover-submit:route-race",
+                "status": "pending_approval",
+                "request": {"route_id": "route-a"},
+            },
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(select_other_route)
+        second = pool.submit(link_winning_job)
+        first.result()
+        second.result()
+
+    final = store.get(intent["id"])
+    assert final["state"]["collection"]["job_id"] == "discover-submit:route-race"
+    assert final["state"]["selected_route_id"] == "route-a"
+    assert [event["kind"] for event in store.events(intent["id"])].count("job_linked") == 1
+    assert not select_errors or "cannot change route after collection submission" in str(select_errors[0])
 
 
 def test_intent_link_replay_is_noop_but_conflicting_job_stays_rejected(tmp_path, monkeypatch):
