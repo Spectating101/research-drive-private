@@ -1,0 +1,41 @@
+name: Discover procurement compiler one shot
+
+on:
+  push:
+    branches:
+      - hardening/discover-procurement-compiler-20260827
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: contains(github.event.head_commit.message, '[discover-procurement-compiler]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/discover-procurement-compiler-20260827
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Wire compiler into crafted acquisition path
+        run: python .github/scripts/discover_procurement_compile_wire.py
+      - name: Prove procurement compiler contract
+        run: PYTHONPATH=drive pytest -q tests/test_procurement_execution_contract.py
+      - name: Preserve generic craft contracts
+        run: PYTHONPATH=drive pytest -q drive/tests/test_craft_collect.py
+      - name: Prove cluster resource placement
+        run: PYTHONPATH=drive pytest -q tests/test_yzu_interop_resources.py tests/test_yzu_interop_reliability.py
+      - name: Compile touched Python
+        run: python -m py_compile drive/scripts/research_data_mcp/procurement_execution_contract.py drive/scripts/research_data_mcp/craft_collect.py
+      - name: Commit product wiring
+        run: |
+          git config user.name "discover-hardening-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add drive/scripts/research_data_mcp/craft_collect.py
+          git diff --cached --check
+          git commit -m "hardening(discover): compile acquisition plans for cluster runtime"
+          git push origin HEAD:hardening/discover-procurement-compiler-20260827
