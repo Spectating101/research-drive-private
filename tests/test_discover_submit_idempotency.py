@@ -32,14 +32,20 @@ class FakeOrchestrator:
 
     def submit(self, title, plan, request, *, auto_approve=False):
         # Widen the pre-insert race window. The real YzuOrchestrator resolves this
-        # with the SQLite job-id uniqueness constraint; this double models the
-        # same durable idempotency contract.
+        # with SQLite uniqueness and returns an exact replay only when the whole
+        # stored submission matches; a same-key/different-payload collision fails.
         time.sleep(0.03)
         key = str(request.get("idempotency_key") or "")
         with self._lock:
             if key:
                 existing = next((job for job in self.jobs if job.get("id") == key), None)
                 if existing is not None:
+                    if (
+                        existing.get("title") != title
+                        or existing.get("plan") != plan
+                        or existing.get("request") != request
+                    ):
+                        raise ValueError("idempotency key already exists with a different request")
                     return existing
             self.submit_count += 1
             job = {
@@ -114,6 +120,31 @@ def test_simultaneous_cross_tab_submits_create_exactly_one_job():
 
     assert orchestrator.submit_count == 1
     assert {result["job"]["id"] for result in results} == {"discover-submit:intent-a"}
+
+
+def test_simultaneous_route_mutation_recovers_the_durable_winner():
+    orchestrator = FakeOrchestrator()
+    service = JobService(orchestrator)
+    barrier = threading.Barrier(2)
+
+    def submit_once(route_id):
+        barrier.wait(timeout=2)
+        return service.submit(
+            f"Collect via {route_id}",
+            generic_plan(),
+            discover_request("intent-race", route_id),
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_future = pool.submit(submit_once, "route-a")
+        second_future = pool.submit(submit_once, "route-b")
+        results = [first_future.result(), second_future.result()]
+
+    assert orchestrator.submit_count == 1
+    assert {result["job"]["id"] for result in results} == {"discover-submit:intent-race"}
+    winning_routes = {result["job"]["request"]["route_id"] for result in results}
+    assert winning_routes in ({"route-a"}, {"route-b"})
+    assert sum(bool(result.get("idempotent_replay")) for result in results) == 1
 
 
 def test_one_intent_cannot_create_second_job_after_route_changes():
