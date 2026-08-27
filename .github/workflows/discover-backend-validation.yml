@@ -1,0 +1,91 @@
+name: Discover backend validation
+
+on:
+  push:
+    branches:
+      - hardening/discover-submit-idempotency-20260827
+    paths:
+      - "drive/scripts/research_data_mcp/discover_*.py"
+      - "drive/scripts/research_data_mcp/gap_routes.py"
+      - "drive/scripts/research_data_mcp/kaggle_catalog.py"
+      - "drive/scripts/research_data_mcp/craft_collect.py"
+      - "drive/scripts/research_data_mcp/gateway.py"
+      - "drive/scripts/research_data_mcp/http_router.py"
+      - "drive/scripts/yzu_cluster/**"
+      - "drive/tests/test_discover*.py"
+      - "drive/tests/test_craft_collect.py"
+      - "tests/test_discover*.py"
+      - "tests/test_acquisition_handoff.py"
+      - "tests/test_personal_work_isolation.py"
+      - "tests/test_orchestrator_runtime.py"
+      - ".github/workflows/discover-backend-validation.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "drive/scripts/research_data_mcp/discover_*.py"
+      - "drive/scripts/research_data_mcp/gap_routes.py"
+      - "drive/scripts/research_data_mcp/kaggle_catalog.py"
+      - "drive/scripts/research_data_mcp/craft_collect.py"
+      - "drive/scripts/research_data_mcp/gateway.py"
+      - "drive/scripts/research_data_mcp/http_router.py"
+      - "drive/scripts/yzu_cluster/**"
+      - "drive/tests/test_discover*.py"
+      - "drive/tests/test_craft_collect.py"
+      - "tests/test_discover*.py"
+      - "tests/test_acquisition_handoff.py"
+      - "tests/test_personal_work_isolation.py"
+      - "tests/test_orchestrator_runtime.py"
+      - ".github/workflows/discover-backend-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi structlog aiohttp tabulate ruff
+      - name: Record exact identity
+        run: |
+          git rev-parse HEAD
+          git status --short
+      - name: Compile Discover authority modules
+        run: |
+          python -m compileall -q drive/scripts/research_data_mcp drive/scripts/yzu_cluster
+      - name: Lint Discover authority modules
+        run: >-
+          python -m ruff check
+          drive/scripts/research_data_mcp/discover_assessment.py
+          drive/scripts/research_data_mcp/discover_intent_store.py
+          drive/scripts/research_data_mcp/discover_source_search.py
+          drive/scripts/research_data_mcp/discover_collect_plan.py
+          drive/scripts/research_data_mcp/gap_routes.py
+          drive/scripts/research_data_mcp/kaggle_catalog.py
+          drive/scripts/research_data_mcp/gateway.py
+          tests/test_discover*.py
+          --select E9,F63,F7,F82
+      - name: Run complete Discover backend contract family
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            tests/test_discover*.py \
+            drive/tests/test_discover_collect_plan.py \
+            drive/tests/test_craft_collect.py \
+            tests/test_acquisition_handoff.py
+      - name: Re-prove personal-work isolation for Discover
+        run: python -m pytest -q tests/test_personal_work_isolation.py -k discover
+      - name: Re-prove atomic queue idempotency primitive
+        run: python -m pytest -q tests/test_orchestrator_runtime.py -k 'idempotent or concurrent_identical_submission'
