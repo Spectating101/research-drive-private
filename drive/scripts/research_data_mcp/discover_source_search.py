@@ -27,9 +27,10 @@ _SKIP_ACCESS_MODES = frozenset({"derived_internal"})
 _KIND_RANK = {"source": 0, "provider": 1, "connector": 2, "live_candidate": 3}
 
 # Bounded live adapters already implemented in-tree.
-_LIVE_ADAPTERS = frozenset({"huggingface", "datacite", "zenodo", "openalex"})
+_LIVE_ADAPTERS = frozenset({"huggingface", "kaggle", "datacite", "zenodo", "openalex"})
 _LIVE_CONNECTOR_BY_PROVIDER = {
     "hugging face": "huggingface",
+    "kaggle": "kaggle",
     "datacite": "datacite",
     "zenodo": "zenodo",
     "openalex": "openalex",
@@ -1651,6 +1652,63 @@ def _live_search_huggingface(query: str, *, limit: int) -> tuple[list[dict[str, 
     return rows_out, meta
 
 
+def _live_search_kaggle(query: str, *, limit: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Bounded Kaggle dataset search through the official dataset-list API.
+
+    Kaggle is a provider, not a new Discover mode. Results are normalized into
+    the same inspect-first live candidate contract as Hugging Face/DataCite and
+    still have to pass Discover's evidence-relevance gate before surfacing.
+    """
+    meta: dict[str, Any] = {"adapter": "kaggle", "ok": False, "error": None, "returned": 0}
+    try:
+        from scripts.research_data_mcp.kaggle_catalog import search_datasets
+
+        payload = search_datasets(query, limit=limit, timeout=_LIVE_TIMEOUT_SEC)
+        status = str(payload.get("status") or "").strip()
+        meta["auth_mode"] = payload.get("auth_mode")
+        meta["http_status"] = payload.get("http_status")
+        if status != "ok":
+            meta["error"] = status or "kaggle_search_unavailable"
+            meta["auth_required"] = status == "authentication_required"
+            meta["rate_limited"] = status == "rate_limited"
+            return [], meta
+
+        rows_out: list[dict[str, Any]] = []
+        for item in (payload.get("datasets") or [])[: max(0, int(limit or 0))]:
+            ref = str(item.get("ref") or "").strip()
+            if not ref:
+                continue
+            notes = " · ".join(
+                str(value).strip()
+                for value in (
+                    item.get("subtitle"),
+                    item.get("license"),
+                    f"{item.get('total_bytes')} bytes" if item.get("total_bytes") is not None else "",
+                    f"updated {item.get('updated_at')}" if item.get("updated_at") else "",
+                )
+                if str(value or "").strip()
+            )
+            row = _normalize_live_candidate(
+                provider="Kaggle",
+                title=str(item.get("title") or ref),
+                url=f"https://www.kaggle.com/datasets/{ref}",
+                external_id=ref,
+                capabilities=["kaggle_dataset", *(item.get("tags") or [])[:6]],
+                availability=str(item.get("license") or "kaggle_catalog"),
+                notes=notes,
+            )
+            row["license"] = item.get("license")
+            row["size_bytes"] = item.get("total_bytes")
+            row["updated_at"] = item.get("updated_at")
+            row["usability_rating"] = item.get("usability_rating")
+            rows_out.append({k: v for k, v in row.items() if v not in (None, "", [], {})})
+        meta.update({"ok": True, "returned": len(rows_out)})
+        return rows_out, meta
+    except Exception as exc:  # noqa: BLE001
+        meta["error"] = f"{type(exc).__name__}: {exc}"[:240]
+        return [], meta
+
+
 def _live_search_datacite(query: str, *, limit: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     meta: dict[str, Any] = {"adapter": "datacite", "ok": False, "error": None, "returned": 0}
     try:
@@ -1768,6 +1826,7 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
 
     adapters = (
         ("huggingface", _live_search_huggingface),
+        ("kaggle", _live_search_kaggle),
         ("datacite", _live_search_datacite),
         ("zenodo", _live_search_zenodo),
         ("openalex", _live_search_openalex),
