@@ -201,6 +201,15 @@ def singular(token: str) -> str:
 
 
 def query_concepts(query: str) -> list[tuple[str, frozenset[str]]]:
+    # A researcher who remembers a schema identifier such as ``country_iso3``
+    # is not issuing two vague topic terms. Preserve the identifier as the
+    # visible match term while also carrying its human-tokenized form so it
+    # matches the normalized evidence document below.
+    raw = str(query or "").strip().lower()
+    if "_" in raw and re.fullmatch(r"[a-z0-9_]+", raw):
+        normalized = normalize(raw)
+        return [(raw, frozenset({raw, normalized}))]
+
     seen: set[tuple[str, ...]] = set()
     concepts: list[tuple[str, frozenset[str]]] = []
     for token in normalize(query).split():
