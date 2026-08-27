@@ -38,6 +38,41 @@ class JobService:
             return ""
         return f"discover-submit:{intent_id}"
 
+    def _discover_replay(
+        self,
+        discover_key: str,
+        request: dict[str, Any],
+        plan: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Return the durable winning Discover job when it already exists.
+
+        This is intentionally intent-scoped rather than payload-scoped. Once one
+        tab wins the durable insert, another tab for the same intent must recover
+        that winner even if its route/title changed concurrently. The first job is
+        immutable execution authority; retries may not mutate it in place.
+        """
+        if not discover_key:
+            return None
+        try:
+            existing = self.orchestrator.get_job(discover_key)
+        except KeyError:
+            return None
+        if not existing:
+            return None
+        existing_request = existing.get("request") or {}
+        require_owner(existing_request.get("owner_id"), discover_key)
+        if (
+            str(existing_request.get("source") or "") != "discover_intent"
+            or str(existing_request.get("discover_intent_id") or "")
+            != str(request.get("discover_intent_id") or "")
+        ):
+            raise ValueError("Discover idempotency key is already bound to another submission")
+        return {
+            "job": enrich_job_identity(existing),
+            "plan": existing.get("plan") or plan,
+            "idempotent_replay": True,
+        }
+
     def submit(
         self,
         title: str,
@@ -60,23 +95,9 @@ class JobService:
             # intent id is durable and server-owned, and one intent may create at
             # most one collection job irrespective of route/tab/retry timing.
             request["idempotency_key"] = discover_key
-            try:
-                existing = self.orchestrator.get_job(discover_key)
-            except KeyError:
-                existing = None
-            if existing:
-                existing_request = existing.get("request") or {}
-                require_owner(existing_request.get("owner_id"), discover_key)
-                if (
-                    str(existing_request.get("source") or "") != "discover_intent"
-                    or str(existing_request.get("discover_intent_id") or "") != str(request.get("discover_intent_id") or "")
-                ):
-                    raise ValueError("Discover idempotency key is already bound to another submission")
-                return {
-                    "job": enrich_job_identity(existing),
-                    "plan": existing.get("plan") or plan,
-                    "idempotent_replay": True,
-                }
+            replay = self._discover_replay(discover_key, request, plan)
+            if replay is not None:
+                return replay
 
         plan, auto_approve = enforce_execution_submit(plan, dict(request), auto_approve=auto_approve)
         validated = self.validate(plan)
@@ -88,7 +109,19 @@ class JobService:
             }
         # YzuOrchestrator.submit uses request.idempotency_key as the durable job
         # id and resolves the cross-process SQLite uniqueness race atomically.
-        job = self.orchestrator.submit(title, validated, request, auto_approve=auto_approve)
+        try:
+            job = self.orchestrator.submit(title, validated, request, auto_approve=auto_approve)
+        except ValueError as exc:
+            # Two simultaneous tabs can both miss the pre-read. If their routes
+            # differ, the orchestrator correctly rejects the losing payload as a
+            # same-key/different-request collision. For Discover, the intent is
+            # the authority boundary: recover the already-created winner instead
+            # of surfacing a retry error or allowing a second job identity.
+            if discover_key and "idempotency key already exists with a different request" in str(exc):
+                replay = self._discover_replay(discover_key, request, validated)
+                if replay is not None:
+                    return replay
+            raise
         return {"job": enrich_job_identity(job), "plan": validated}
 
     def approve(self, job_id: str) -> dict[str, Any]:
