@@ -34,6 +34,11 @@ def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypat
     monkeypatch.setattr(mod, "_live_search_huggingface", fake_hf)
     monkeypatch.setattr(
         mod,
+        "_live_search_kaggle",
+        lambda query, *, limit: ([], {"adapter": "kaggle", "ok": True, "error": None, "returned": 0}),
+    )
+    monkeypatch.setattr(
+        mod,
         "_live_search_datacite",
         lambda query, *, limit: ([], {"adapter": "datacite", "ok": True, "error": None, "returned": 0}),
     )
@@ -55,7 +60,7 @@ def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypat
     assert "patent" in hf["queries_tried"]
     assert hf["queries_with_results"] == ["patent"]
     assert {report["adapter"] for report in reports} == {
-        "huggingface", "datacite", "zenodo", "openalex"
+        "huggingface", "kaggle", "datacite", "zenodo", "openalex"
     }
 
 
