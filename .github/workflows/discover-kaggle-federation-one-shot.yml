@@ -1,0 +1,51 @@
+name: Discover Kaggle federation one shot
+
+on:
+  push:
+    branches:
+      - hardening/discover-submit-idempotency-20260827
+
+permissions:
+  contents: write
+
+jobs:
+  federate:
+    if: contains(github.event.head_commit.message, '[discover-kaggle-federation]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/discover-submit-idempotency-20260827
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install focused test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-asyncio pyyaml requests pandas numpy scipy statsmodels scikit-learn pyarrow networkx python-dotenv pydantic fastapi structlog aiohttp tabulate ruff
+      - name: Apply guarded Kaggle federation patch
+        run: python .github/scripts/discover_kaggle_federation_patch.py
+      - name: Compile touched runtime
+        run: python -m compileall -q drive/scripts/research_data_mcp
+      - name: Lint touched runtime
+        run: python -m ruff check drive/scripts/research_data_mcp/discover_source_search.py drive/scripts/research_data_mcp/kaggle_catalog.py tests/test_discover_kaggle_federation.py --select E9,F63,F7,F82
+      - name: Prove Kaggle provider contract
+        run: python -m pytest -q tests/test_discover_kaggle_federation.py
+      - name: Preserve Discover source semantics
+        run: python -m pytest -q tests/test_discover_source_contracts.py
+      - name: Preserve selected-source acquisition planning
+        run: python -m pytest -q drive/tests/test_discover_collect_plan.py
+      - name: Commit provider federation
+        run: |
+          git config user.name "discover-hardening-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add drive/scripts/research_data_mcp/discover_source_search.py \
+                  drive/scripts/research_data_mcp/kaggle_catalog.py \
+                  tests/test_discover_kaggle_federation.py
+          git commit -m "feat(discover): federate Kaggle through evidence search"
+          git push origin HEAD:hardening/discover-submit-idempotency-20260827
