@@ -85,27 +85,42 @@ def generic_plan():
     }
 
 
+def proposal(prefix="proposal", route_a="route-a", route_b="route-b"):
+    return {
+        "id": prefix,
+        "summary": f"{prefix} reviewed routes",
+        "routes": [
+            {"id": route_a, "title": f"{route_a} title", "connector_id": f"connector-{route_a}"},
+            {"id": route_b, "title": f"{route_b} title", "connector_id": f"connector-{route_b}"},
+        ],
+        "recommended_route_id": route_a,
+    }
+
+
 def reviewed_two_route_intent(store: DiscoverIntentStore) -> dict:
     intent = store.create(research_need="Need evidence")
-    proposed = store.set_proposal(
-        intent["id"],
-        {
-            "id": "proposal-a",
-            "summary": "Two reviewed routes",
-            "routes": [
-                {"id": "route-a", "title": "Route A", "connector_id": "a"},
-                {"id": "route-b", "title": "Route B", "connector_id": "b"},
-            ],
-            "recommended_route_id": "route-a",
-        },
-    )
-    proposal = proposed["state"]["proposal"]
+    proposed = store.set_proposal(intent["id"], proposal())
+    recorded = proposed["state"]["proposal"]
     return store.review_proposal(
         intent["id"],
         decision="accept",
-        proposal_id=proposal["id"],
-        proposal_hash=proposal["proposal_hash"],
+        proposal_id=recorded["id"],
+        proposal_hash=recorded["proposal_hash"],
     )
+
+
+def winning_job(job_id="discover-submit:route-race", route_id="route-a"):
+    return {
+        "id": job_id,
+        "title": f"Collect via {route_id}",
+        "status": "pending_approval",
+        "request": {"route_id": route_id, "connector_id": f"connector-{route_id}", "pipeline": "custom"},
+        "plan": {
+            "candidate_key": "dataset:winning",
+            "destination": "data_lake/procured/winning",
+            "pipeline": "custom",
+        },
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -238,20 +253,13 @@ def test_route_selection_and_job_link_serialize_on_winning_job_route(tmp_path, m
         except ValueError as exc:
             select_errors.append(exc)
 
-    def link_winning_job():
+    def link_winner():
         barrier.wait(timeout=2)
-        store.link_job(
-            intent["id"],
-            {
-                "id": "discover-submit:route-race",
-                "status": "pending_approval",
-                "request": {"route_id": "route-a"},
-            },
-        )
+        store.link_job(intent["id"], winning_job())
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(select_other_route)
-        second = pool.submit(link_winning_job)
+        second = pool.submit(link_winner)
         first.result()
         second.result()
 
@@ -259,7 +267,78 @@ def test_route_selection_and_job_link_serialize_on_winning_job_route(tmp_path, m
     assert final["state"]["collection"]["job_id"] == "discover-submit:route-race"
     assert final["state"]["selected_route_id"] == "route-a"
     assert [event["kind"] for event in store.events(intent["id"])].count("job_linked") == 1
-    assert not select_errors or "cannot change route after collection submission" in str(select_errors[0])
+    assert not select_errors or "cannot change Discover decision after collection submission" in str(select_errors[0])
+
+
+def test_post_submission_freezes_proposal_review_and_route_decisions(tmp_path, monkeypatch):
+    monkeypatch.setattr(intent_store_module, "owner_id_for_create", lambda owner_id="": "")
+    monkeypatch.setattr(intent_store_module, "require_owner", lambda owner_id, object_id: None)
+
+    store = DiscoverIntentStore(tmp_path / "discover-terminal.sqlite3")
+    intent = reviewed_two_route_intent(store)
+    linked = store.link_job(intent["id"], winning_job("discover-submit:terminal"))
+    assert linked["state"]["status"] == "pending_approval"
+
+    with pytest.raises(ValueError, match="cannot change Discover decision after collection submission"):
+        store.set_proposal(intent["id"], proposal("late-proposal", "route-c", "route-d"))
+    with pytest.raises(ValueError, match="cannot change Discover decision after collection submission"):
+        store.review_proposal(
+            intent["id"],
+            decision="accept",
+            proposal_id="late-proposal",
+            proposal_hash="stale-hash",
+        )
+    with pytest.raises(ValueError, match="cannot change Discover decision after collection submission"):
+        store.select_route(intent["id"], "route-b")
+
+    final = store.get(intent["id"])
+    assert final["state"]["status"] == "pending_approval"
+    assert final["state"]["selected_route_id"] == "route-a"
+    assert final["state"]["proposal"] is None
+
+
+def test_review_race_cannot_supersede_winning_job_decision(tmp_path, monkeypatch):
+    monkeypatch.setattr(intent_store_module, "owner_id_for_create", lambda owner_id="": "")
+    monkeypatch.setattr(intent_store_module, "require_owner", lambda owner_id, object_id: None)
+
+    store = DiscoverIntentStore(tmp_path / "discover-review-race.sqlite3")
+    intent = reviewed_two_route_intent(store)
+    proposed = store.set_proposal(intent["id"], proposal("replacement", "route-c", "route-d"))
+    replacement = proposed["state"]["proposal"]
+    barrier = threading.Barrier(2)
+    review_errors: list[Exception] = []
+
+    def accept_replacement():
+        barrier.wait(timeout=2)
+        try:
+            store.review_proposal(
+                intent["id"],
+                decision="accept",
+                proposal_id=replacement["id"],
+                proposal_hash=replacement["proposal_hash"],
+            )
+        except ValueError as exc:
+            review_errors.append(exc)
+
+    def link_winner():
+        barrier.wait(timeout=2)
+        store.link_job(intent["id"], winning_job("discover-submit:review-race", "route-a"))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(accept_replacement)
+        second = pool.submit(link_winner)
+        first.result()
+        second.result()
+
+    final = store.get(intent["id"])
+    assert final["state"]["collection"]["job_id"] == "discover-submit:review-race"
+    assert final["state"]["status"] == "pending_approval"
+    assert final["state"]["selected_route_id"] == "route-a"
+    assert final["state"]["proposal"] is None
+    assert any(route.get("id") == "route-a" for route in final["state"]["routes"])
+    linked_event = next(event for event in store.events(intent["id"]) if event["kind"] == "job_linked")
+    assert linked_event["payload"]["route_id"] == "route-a"
+    assert not review_errors or "cannot change Discover decision after collection submission" in str(review_errors[0])
 
 
 def test_intent_link_replay_is_noop_but_conflicting_job_stays_rejected(tmp_path, monkeypatch):
