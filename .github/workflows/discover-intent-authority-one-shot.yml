@@ -32,6 +32,7 @@ jobs:
         run: |
           python .github/scripts/discover_intent_authority_harden.py
           python .github/scripts/discover_intent_authority_postpatch.py
+          python .github/scripts/discover_intent_authority_v2.py
       - name: Compile touched runtime
         run: python -m compileall -q drive/scripts/research_data_mcp
       - name: Lint touched runtime
