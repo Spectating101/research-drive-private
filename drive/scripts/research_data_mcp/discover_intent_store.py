@@ -283,40 +283,87 @@ class DiscoverIntentStore:
         return out
 
     def select_route(self, intent_id: str, route_id: str) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        ids = {row.get("id") for row in state.get("routes") or []}
-        if route_id not in ids:
-            raise ValueError("route_id is not part of this Discover intent")
-        if state.get("collection", {}).get("job_id"):
-            raise ValueError("cannot change route after collection submission")
-        state["selected_route_id"] = route_id
-        state["status"] = "ready_for_review"
-        out = self._save(intent_id, state)
-        self._event(intent_id, "route_selected", {"route_id": route_id})
-        return out
+        # Route selection and job linking are a single serialized authority lane.
+        # Without the write lock, another tab could select route B after route A's
+        # job was created but before route A was linked, leaving the decision
+        # record and durable execution job disagreeing about what was submitted.
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.row_factory = sqlite3.Row
+            row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
+            if not row:
+                raise KeyError(intent_id)
+            item = dict(row)
+            require_owner(item.get("owner_id"), intent_id)
+            state = json.loads(item.get("state_json") or "{}")
+            ids = {candidate.get("id") for candidate in state.get("routes") or []}
+            if route_id not in ids:
+                raise ValueError("route_id is not part of this Discover intent")
+            if state.get("collection", {}).get("job_id"):
+                raise ValueError("cannot change route after collection submission")
+            state["selected_route_id"] = route_id
+            state["status"] = "ready_for_review"
+            stamp = _now()
+            db.execute(
+                "UPDATE discover_intents SET updated_at=?, state_json=? WHERE id=?",
+                (stamp, json.dumps(_clone(state)), intent_id),
+            )
+            db.execute(
+                "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) VALUES (?, ?, ?, ?)",
+                (intent_id, stamp, "route_selected", json.dumps({"route_id": route_id})),
+            )
+        return self.get(intent_id)
 
     def link_job(self, intent_id: str, job: dict[str, Any]) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        collection = dict(state.get("collection") or {})
-        existing_job_id = str(collection.get("job_id") or "")
         incoming_job_id = str(job.get("id") or "")
         if not incoming_job_id:
             raise ValueError("collection job requires an id")
-        if existing_job_id:
-            if existing_job_id == incoming_job_id:
-                # Server-side idempotent replay: the same durable job may be
-                # returned after a lost response or a second tab submits the
-                # same reviewed intent. Re-linking it is a no-op, not a conflict.
-                return current
-            raise ValueError("Discover intent already has a collection job")
-        collection.update({"job_id": incoming_job_id, "status": str(job.get("status") or "pending_approval")})
-        state["collection"] = collection
-        state["status"] = "pending_approval"
-        out = self._save(intent_id, state)
-        self._event(intent_id, "job_linked", {"job_id": collection["job_id"]})
-        return out
+        job_request = job.get("request") if isinstance(job.get("request"), dict) else {}
+        winning_route_id = str(job_request.get("route_id") or "").strip()
+
+        # Serialize against route selection. If another tab selected a different
+        # route in the narrow job-created-but-not-yet-linked window, the first
+        # durable job is execution authority and its recorded route wins.
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.row_factory = sqlite3.Row
+            row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
+            if not row:
+                raise KeyError(intent_id)
+            item = dict(row)
+            require_owner(item.get("owner_id"), intent_id)
+            state = json.loads(item.get("state_json") or "{}")
+            collection = dict(state.get("collection") or {})
+            existing_job_id = str(collection.get("job_id") or "")
+            if existing_job_id:
+                if existing_job_id == incoming_job_id:
+                    # Server-side idempotent replay: the same durable job may be
+                    # returned after a lost response or a second tab submits the
+                    # same reviewed intent. Re-linking it is a no-op, not a conflict.
+                    return self.get(intent_id)
+                raise ValueError("Discover intent already has a collection job")
+
+            route_ids = {candidate.get("id") for candidate in state.get("routes") or []}
+            if winning_route_id and winning_route_id in route_ids:
+                state["selected_route_id"] = winning_route_id
+            collection.update(
+                {
+                    "job_id": incoming_job_id,
+                    "status": str(job.get("status") or "pending_approval"),
+                }
+            )
+            state["collection"] = collection
+            state["status"] = "pending_approval"
+            stamp = _now()
+            db.execute(
+                "UPDATE discover_intents SET updated_at=?, state_json=? WHERE id=?",
+                (stamp, json.dumps(_clone(state)), intent_id),
+            )
+            db.execute(
+                "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) VALUES (?, ?, ?, ?)",
+                (intent_id, stamp, "job_linked", json.dumps({"job_id": incoming_job_id})),
+            )
+        return self.get(intent_id)
 
     def events(self, intent_id: str, *, limit: int = 50) -> list[dict[str, Any]]:
         self.get(intent_id)
