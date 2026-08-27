@@ -1,11 +1,11 @@
 """Compile generic Discover acquisition plans into cluster execution contracts.
 
 The model may identify a source and choose a generic acquisition primitive, but it
-must not bind a concrete worker.  This module turns that semantic plan into the
+must not bind a concrete worker. This module turns that semantic plan into the
 bounded contract consumed by the YZU runtime: capabilities, resource reservations,
-parallelism hints, retry policy, and lifecycle ownership.
+parallelism hints, retry policy, lifecycle ownership, and explicit preflight needs.
 
-Placement remains runtime authority.  A compiled plan can say what it needs; only
+Placement remains runtime authority. A compiled plan can say what it needs; only
 fresh worker/capacity state may decide where it runs.
 """
 
@@ -28,7 +28,7 @@ _JOB_CAPABILITIES: dict[str, tuple[str, ...]] = {
     "scraper_run": ("browser",),
 }
 
-# These are intentionally modest hard minima.  Unknown transfer volume is kept as
+# These are intentionally modest hard minima. Unknown transfer volume is kept as
 # an estimate, not converted into a fake disk/network reservation.
 _BASELINE_RESOURCES: dict[str, dict[str, float]] = {
     "source_probe": {"cpu_cores": 0.25, "memory_mb": 128.0},
@@ -41,6 +41,9 @@ _DEFAULT_ATTEMPTS = {
     "http_manifest": 3,
     "scraper_run": 2,
 }
+_MAX_ATTEMPTS = 5
+_MAX_MANIFEST_SHARDS = 4
+_MAX_PER_NODE_WORKERS = 2
 
 _RESOURCE_KEYS = ("cpu_cores", "memory_mb", "disk_mb", "network_mb", "gpu_count")
 _PLACEMENT_KEYS = ("worker_id", "assigned_worker", "runtime_worker", "fixed_worker")
@@ -52,6 +55,27 @@ def _number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if number >= 0 else None
+
+
+def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(maximum, parsed))
+
+
+def _boolean(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    raw = str(value).strip().lower()
+    if raw in {"false", "0", "no", "off"}:
+        return False
+    if raw in {"true", "1", "yes", "on"}:
+        return True
+    return default
 
 
 def _known_transfer_bytes(plan: Mapping[str, Any]) -> int | None:
@@ -100,7 +124,7 @@ def _merge_resource_requirements(job_type: str, plan: Mapping[str, Any]) -> tupl
     if transfer_bytes is not None:
         transfer_mb = transfer_bytes / (1024 * 1024)
         # Reserve enough local workspace for the payload plus modest manifest/
-        # archive overhead.  Network and disk are hard only because the transfer
+        # archive overhead. Network and disk are hard only because the transfer
         # itself supplied a concrete bound.
         hard["network_mb"] = max(hard["network_mb"], math.ceil(transfer_mb * 1.05))
         hard["disk_mb"] = max(hard["disk_mb"], math.ceil(transfer_mb * 1.25 + 64))
@@ -118,8 +142,10 @@ def _merge_resource_requirements(job_type: str, plan: Mapping[str, Any]) -> tupl
 
 def _semantic_acceptance(plan: Mapping[str, Any]) -> dict[str, Any]:
     need = str(plan.get("research_need") or "").strip()
+    requirement = plan.get("requirement") or plan.get("requirement_snapshot")
     return {
         "research_need": need[:800],
+        "requirement_snapshot": deepcopy(requirement) if isinstance(requirement, Mapping) else None,
         "gap_closure": "not_proven_by_collection",
         "proof_required": True,
         "note": (
@@ -129,37 +155,103 @@ def _semantic_acceptance(plan: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _stages(job_type: str) -> list[dict[str, str]]:
+def _stages(job_type: str) -> list[dict[str, Any]]:
     if job_type == "source_probe":
         return [
             {
                 "id": "probe",
                 "authority": "runtime_worker",
+                "depends_on": [],
                 "completion": "bounded source classification result",
+                "produces": ["source_classification"],
             }
         ]
     return [
         {
             "id": "collect",
             "authority": "runtime_worker",
+            "depends_on": [],
             "completion": "attempt-fenced artifact or scrape output",
+            "produces": ["staged_artifact"],
         },
         {
             "id": "materialize_validate",
             "authority": "controller",
+            "depends_on": ["collect"],
             "completion": "immutable revision + structural staging validation",
+            "produces": ["validated_revision"],
         },
         {
             "id": "archive_verify",
             "authority": "controller",
+            "depends_on": ["materialize_validate"],
             "completion": "vault copy/read-back when drive-first policy applies",
+            "produces": ["archive_receipt"],
         },
         {
             "id": "register_query_smoke",
             "authority": "controller",
+            "depends_on": ["archive_verify"],
             "completion": "registry read-back; query_ready only after successful query smoke",
+            "produces": ["registered_dataset"],
         },
     ]
+
+
+def _preflight(job_type: str, plan: Mapping[str, Any], estimate: Mapping[str, Any]) -> dict[str, Any]:
+    """Describe measurements/reviews that would make execution safer or better sized.
+
+    This is advisory except where the existing acquisition primitive is already
+    explicitly experimental. It lets Discover iterate: compile -> measure/review ->
+    recompile, without pretending unknown facts are known.
+    """
+
+    checks: list[dict[str, str]] = []
+    if job_type == "http_manifest" and estimate.get("source") == "unmeasured":
+        checks.append({
+            "id": "measure_transfer",
+            "level": "recommended",
+            "reason": "transfer size is unmeasured",
+            "action": "probe Content-Length or manifest metadata, then recompile for bounded disk/network reservations",
+        })
+    if job_type == "scraper_run" and (
+        bool(plan.get("experimental")) or plan.get("production_capability") is False
+    ):
+        checks.append({
+            "id": "browser_route_review",
+            "level": "required",
+            "reason": "browser collection has a broader network/execution surface",
+            "action": "review the browser route and sandbox posture before approval",
+        })
+
+    if any(check["level"] == "required" for check in checks):
+        status = "required"
+    elif checks:
+        status = "recommended"
+    else:
+        status = "ready"
+    return {"status": status, "checks": checks}
+
+
+def _engineering_summary(
+    *,
+    job_type: str,
+    capabilities: list[str],
+    estimate: Mapping[str, Any],
+    preflight: Mapping[str, Any],
+    parallelism: int,
+) -> dict[str, Any]:
+    return {
+        "status": "compiled",
+        "primitive": job_type,
+        "required_capabilities": list(capabilities),
+        "capability_count": len(capabilities),
+        "resource_basis": str(estimate.get("status") or "baseline_only"),
+        "placement": "runtime",
+        "parallelism_hint": int(parallelism),
+        "preflight": str(preflight.get("status") or "ready"),
+        "post_acquisition_reassessment": True,
+    }
 
 
 def _hash_contract(contract: Mapping[str, Any]) -> str:
@@ -170,7 +262,7 @@ def _hash_contract(contract: Mapping[str, Any]) -> str:
 def compile_procurement_execution_plan(plan: Mapping[str, Any] | None) -> dict[str, Any]:
     """Return a generic acquisition plan enriched for safe cluster execution.
 
-    The compiler is deterministic.  It does not discover sources, choose evidence,
+    The compiler is deterministic. It does not discover sources, choose evidence,
     approve work, or assign a worker.
     """
 
@@ -189,26 +281,38 @@ def compile_procurement_execution_plan(plan: Mapping[str, Any] | None) -> dict[s
     if str(out.get("pool") or "").strip():
         raise ValueError("crafted procurement cannot bind pool; express capabilities/resources instead")
 
+    explicit_capabilities = out.get("required_capabilities") or []
+    if isinstance(explicit_capabilities, str):
+        explicit_capabilities = [explicit_capabilities]
     capabilities = normalize_capabilities([
         *_JOB_CAPABILITIES[job_type],
-        *(out.get("required_capabilities") or []),
+        *explicit_capabilities,
     ])
     resources, estimate = _merge_resource_requirements(job_type, out)
 
     item_count = len([item for item in (out.get("items") or []) if isinstance(item, Mapping)])
     parallelism = 1
     if job_type == "http_manifest" and item_count > 1:
-        # Executor may fan a manifest across the Windows fleet.  This is a bounded
-        # concurrency hint, never a worker count promise.
-        parallelism = min(item_count, 4)
-        out.setdefault("shards", parallelism)
-        out.setdefault("per_node_workers", 2)
+        # The compiler, not the model, owns executable fan-out bounds. Runtime
+        # still decides where those claims land.
+        parallelism = min(item_count, _MAX_MANIFEST_SHARDS)
+        out["shards"] = parallelism
+        out["per_node_workers"] = min(_MAX_PER_NODE_WORKERS, parallelism)
+    else:
+        out.pop("shards", None)
+        out.pop("per_node_workers", None)
 
     out["required_capabilities"] = capabilities
     out["resource_requirements"] = resources
-    out.setdefault("max_attempts", _DEFAULT_ATTEMPTS[job_type])
-    out.setdefault("retryable", True)
+    out["max_attempts"] = _bounded_int(
+        out.get("max_attempts"),
+        default=_DEFAULT_ATTEMPTS[job_type],
+        minimum=1,
+        maximum=_MAX_ATTEMPTS,
+    )
+    out["retryable"] = _boolean(out.get("retryable"), default=True)
 
+    preflight = _preflight(job_type, out, estimate)
     contract: dict[str, Any] = {
         "version": 1,
         "placement": {
@@ -225,12 +329,20 @@ def compile_procurement_execution_plan(plan: Mapping[str, Any] | None) -> dict[s
         },
         "retry": {
             "retryable": bool(out.get("retryable")),
-            "max_attempts": int(out.get("max_attempts") or _DEFAULT_ATTEMPTS[job_type]),
+            "max_attempts": int(out["max_attempts"]),
             "lease_fenced": True,
         },
         "resource_estimate": estimate,
+        "preflight": preflight,
         "stages": _stages(job_type),
         "evidence_acceptance": _semantic_acceptance(out),
+        "engineering_summary": _engineering_summary(
+            job_type=job_type,
+            capabilities=capabilities,
+            estimate=estimate,
+            preflight=preflight,
+            parallelism=parallelism,
+        ),
     }
     contract["contract_hash"] = _hash_contract(contract)
     out["cluster_execution"] = contract
