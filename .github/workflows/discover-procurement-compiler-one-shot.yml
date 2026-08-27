@@ -39,5 +39,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add drive/scripts/research_data_mcp/craft_collect.py
           git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "product wiring already committed"
+            exit 0
+          fi
           git commit -m "hardening(discover): compile acquisition plans for cluster runtime"
           git push origin HEAD:hardening/discover-procurement-compiler-20260827
