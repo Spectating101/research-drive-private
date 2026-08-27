@@ -122,8 +122,9 @@ def run(repo_root: Path, *, apply: bool = False) -> dict[str, Any]:
     report["applied"] = False
 
     if apply and report["changed"]:
-        def mutate(_current: dict[str, Any]) -> dict[str, Any]:
-            return enriched
+        def mutate(current: dict[str, Any]) -> None:
+            current.clear()
+            current.update(deepcopy(enriched))
 
         atomic_update_json(registry_path, mutate)
         report["applied"] = True
