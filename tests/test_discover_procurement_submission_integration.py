@@ -101,10 +101,12 @@ def test_compiled_procurement_contract_survives_into_single_durable_approval_job
 
     assert summary["status"] == "compiled"
     assert summary["primitive"] == "http_manifest"
+    # Internal execution authority stays explicit/technical, while the compact
+    # researcher-facing summary intentionally compresses it to "runtime".
+    assert execution["placement"]["authority"] == "cluster_runtime"
     assert summary["placement"] == "runtime"
     assert summary["preflight"] == "recommended"
     assert summary["post_acquisition_reassessment"] is True
-    assert execution["placement"]["authority"] == "runtime"
     assert stored["requires_approval"] is True
     assert first["job"]["status"] == "pending_approval"
 
