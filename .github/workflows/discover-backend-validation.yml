@@ -89,3 +89,5 @@ jobs:
         run: python -m pytest -q tests/test_personal_work_isolation.py -k discover
       - name: Re-prove atomic queue idempotency primitive
         run: python -m pytest -q tests/test_orchestrator_runtime.py -k 'idempotent or concurrent_identical_submission'
+
+# Exact-head certification after transactional Discover intent hardening.
