@@ -160,6 +160,39 @@ class DiscoverIntentStore:
         finally:
             db.close()
 
+    @staticmethod
+    def _row_state_for_update(db: sqlite3.Connection, intent_id: str) -> dict[str, Any]:
+        db.row_factory = sqlite3.Row
+        row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
+        if not row:
+            raise KeyError(intent_id)
+        item = dict(row)
+        require_owner(item.get("owner_id"), intent_id)
+        return json.loads(item.get("state_json") or "{}")
+
+    @staticmethod
+    def _assert_decision_mutable(state: dict[str, Any]) -> None:
+        if str((state.get("collection") or {}).get("job_id") or ""):
+            raise ValueError("cannot change Discover decision after collection submission")
+
+    @staticmethod
+    def _write_state_and_event(
+        db: sqlite3.Connection,
+        intent_id: str,
+        state: dict[str, Any],
+        kind: str,
+        payload: dict[str, Any],
+    ) -> None:
+        stamp = _now()
+        db.execute(
+            "UPDATE discover_intents SET updated_at=?, state_json=? WHERE id=?",
+            (stamp, json.dumps(_clone(state)), intent_id),
+        )
+        db.execute(
+            "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) VALUES (?, ?, ?, ?)",
+            (intent_id, stamp, kind[:80], json.dumps(payload)),
+        )
+
     def create(
         self,
         *,
@@ -253,34 +286,43 @@ class DiscoverIntentStore:
             )
 
     def set_proposal(self, intent_id: str, proposal: dict[str, Any]) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        state["proposal"] = validate_proposal(proposal)
-        state["status"] = "proposal_ready"
-        out = self._save(intent_id, state)
-        self._event(intent_id, "proposal", {"proposal": state["proposal"]})
-        return out
+        validated = validate_proposal(proposal)
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            state = self._row_state_for_update(db, intent_id)
+            self._assert_decision_mutable(state)
+            state["proposal"] = validated
+            state["status"] = "proposal_ready"
+            self._write_state_and_event(db, intent_id, state, "proposal", {"proposal": validated})
+        return self.get(intent_id)
 
     def review_proposal(self, intent_id: str, *, decision: str, proposal_id: str, proposal_hash: str) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        proposal = state.get("proposal") or {}
-        if proposal_id != proposal.get("id") or proposal_hash != proposal.get("proposal_hash"):
-            raise ValueError("Discover proposal changed; refresh before reviewing")
         normalized = str(decision or "").strip().lower()
-        if normalized == "accept":
-            state["routes"] = proposal.get("routes") or []
-            state["selected_route_id"] = proposal.get("recommended_route_id") or state["routes"][0]["id"]
-            state["proposal"] = None
-            state["status"] = "ready_for_review"
-        elif normalized == "reject":
-            state["proposal"] = None
-            state["status"] = "draft"
-        else:
-            raise ValueError("decision must be accept or reject")
-        out = self._save(intent_id, state)
-        self._event(intent_id, normalized, {"proposal_id": proposal_id, "proposal_hash": proposal_hash})
-        return out
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            state = self._row_state_for_update(db, intent_id)
+            self._assert_decision_mutable(state)
+            proposal = state.get("proposal") or {}
+            if proposal_id != proposal.get("id") or proposal_hash != proposal.get("proposal_hash"):
+                raise ValueError("Discover proposal changed; refresh before reviewing")
+            if normalized == "accept":
+                state["routes"] = proposal.get("routes") or []
+                state["selected_route_id"] = proposal.get("recommended_route_id") or state["routes"][0]["id"]
+                state["proposal"] = None
+                state["status"] = "ready_for_review"
+            elif normalized == "reject":
+                state["proposal"] = None
+                state["status"] = "draft"
+            else:
+                raise ValueError("decision must be accept or reject")
+            self._write_state_and_event(
+                db,
+                intent_id,
+                state,
+                normalized,
+                {"proposal_id": proposal_id, "proposal_hash": proposal_hash},
+            )
+        return self.get(intent_id)
 
     def select_route(self, intent_id: str, route_id: str) -> dict[str, Any]:
         # Route selection and job linking are a single serialized authority lane.
@@ -289,30 +331,30 @@ class DiscoverIntentStore:
         # record and durable execution job disagreeing about what was submitted.
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.row_factory = sqlite3.Row
-            row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
-            if not row:
-                raise KeyError(intent_id)
-            item = dict(row)
-            require_owner(item.get("owner_id"), intent_id)
-            state = json.loads(item.get("state_json") or "{}")
+            state = self._row_state_for_update(db, intent_id)
+            self._assert_decision_mutable(state)
             ids = {candidate.get("id") for candidate in state.get("routes") or []}
             if route_id not in ids:
                 raise ValueError("route_id is not part of this Discover intent")
-            if state.get("collection", {}).get("job_id"):
-                raise ValueError("cannot change route after collection submission")
             state["selected_route_id"] = route_id
             state["status"] = "ready_for_review"
-            stamp = _now()
-            db.execute(
-                "UPDATE discover_intents SET updated_at=?, state_json=? WHERE id=?",
-                (stamp, json.dumps(_clone(state)), intent_id),
-            )
-            db.execute(
-                "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) VALUES (?, ?, ?, ?)",
-                (intent_id, stamp, "route_selected", json.dumps({"route_id": route_id})),
-            )
+            self._write_state_and_event(db, intent_id, state, "route_selected", {"route_id": route_id})
         return self.get(intent_id)
+
+    @staticmethod
+    def _recovered_route_from_job(job: dict[str, Any], route_id: str) -> dict[str, Any]:
+        request = job.get("request") if isinstance(job.get("request"), dict) else {}
+        plan = job.get("plan") if isinstance(job.get("plan"), dict) else {}
+        title = str(job.get("title") or plan.get("title") or route_id).strip() or route_id
+        route = {
+            "id": route_id[:120],
+            "title": title[:240],
+            "connector_id": str(request.get("connector_id") or "").strip()[:160],
+            "candidate_key": str(plan.get("candidate_key") or "").strip()[:320],
+            "destination": str(plan.get("destination") or "").strip()[:400],
+            "pipeline": str(request.get("pipeline") or plan.get("pipeline") or "").strip()[:80],
+        }
+        return {key: value for key, value in route.items() if value not in ("", [], None)}
 
     def link_job(self, intent_id: str, job: dict[str, Any]) -> dict[str, Any]:
         incoming_job_id = str(job.get("id") or "")
@@ -321,48 +363,48 @@ class DiscoverIntentStore:
         job_request = job.get("request") if isinstance(job.get("request"), dict) else {}
         winning_route_id = str(job_request.get("route_id") or "").strip()
 
-        # Serialize against route selection. If another tab selected a different
-        # route in the narrow job-created-but-not-yet-linked window, the first
-        # durable job is execution authority and its recorded route wins.
+        # Serialize against every decision mutation. If another tab changes a
+        # route/proposal in the narrow job-created-but-not-yet-linked window, the
+        # first durable job is execution authority and its recorded route wins.
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.row_factory = sqlite3.Row
-            row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
-            if not row:
-                raise KeyError(intent_id)
-            item = dict(row)
-            require_owner(item.get("owner_id"), intent_id)
-            state = json.loads(item.get("state_json") or "{}")
+            state = self._row_state_for_update(db, intent_id)
             collection = dict(state.get("collection") or {})
             existing_job_id = str(collection.get("job_id") or "")
             if existing_job_id:
-                if existing_job_id == incoming_job_id:
-                    # Server-side idempotent replay: the same durable job may be
-                    # returned after a lost response or a second tab submits the
-                    # same reviewed intent. Re-linking it is a no-op, not a conflict.
-                    return self.get(intent_id)
-                raise ValueError("Discover intent already has a collection job")
-
-            route_ids = {candidate.get("id") for candidate in state.get("routes") or []}
-            if winning_route_id and winning_route_id in route_ids:
-                state["selected_route_id"] = winning_route_id
-            collection.update(
-                {
-                    "job_id": incoming_job_id,
-                    "status": str(job.get("status") or "pending_approval"),
-                }
-            )
-            state["collection"] = collection
-            state["status"] = "pending_approval"
-            stamp = _now()
-            db.execute(
-                "UPDATE discover_intents SET updated_at=?, state_json=? WHERE id=?",
-                (stamp, json.dumps(_clone(state)), intent_id),
-            )
-            db.execute(
-                "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) VALUES (?, ?, ?, ?)",
-                (intent_id, stamp, "job_linked", json.dumps({"job_id": incoming_job_id})),
-            )
+                if existing_job_id != incoming_job_id:
+                    raise ValueError("Discover intent already has a collection job")
+            else:
+                route_recovered = False
+                route_ids = {candidate.get("id") for candidate in state.get("routes") or []}
+                if winning_route_id:
+                    if winning_route_id not in route_ids:
+                        state["routes"] = [self._recovered_route_from_job(job, winning_route_id)]
+                        route_recovered = True
+                    state["selected_route_id"] = winning_route_id
+                # A submitted decision is terminal. Any proposal that raced before
+                # this durable link is superseded by the job that actually won.
+                state["proposal"] = None
+                collection.update(
+                    {
+                        "job_id": incoming_job_id,
+                        "status": str(job.get("status") or "pending_approval"),
+                    }
+                )
+                state["collection"] = collection
+                state["status"] = "pending_approval"
+                self._write_state_and_event(
+                    db,
+                    intent_id,
+                    state,
+                    "job_linked",
+                    {
+                        "job_id": incoming_job_id,
+                        "route_id": winning_route_id,
+                        "route_recovered": route_recovered,
+                    },
+                )
+        # Return only after the immediate write transaction closes.
         return self.get(intent_id)
 
     def events(self, intent_id: str, *, limit: int = 50) -> list[dict[str, Any]]:
