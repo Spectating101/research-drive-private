@@ -57,6 +57,9 @@ class _BlockingJobs:
         self.entered.set()
         if not self.release.wait(timeout=5):
             raise TimeoutError("test did not release submit")
+        return self._put(title, plan, request)
+
+    def _put(self, title, plan, request):
         job_id = str(request.get("idempotency_key") or "")
         job = self.jobs.get(job_id)
         if job is None:
@@ -65,7 +68,7 @@ class _BlockingJobs:
                 "title": title,
                 "status": "pending_approval",
                 "plan": dict(plan),
-                "request": request,
+                "request": dict(request),
                 "result": {},
             }
             self.jobs[job_id] = job
@@ -73,6 +76,13 @@ class _BlockingJobs:
 
     def get(self, job_id):
         return dict(self.jobs[str(job_id)])
+
+
+class _ReplayJobs(_BlockingJobs):
+    def submit(self, title, plan, request=None, *, auto_approve=False):
+        request = dict(request or {})
+        self.calls.append({"title": title, "plan": dict(plan), "request": request})
+        return self._put(title, plan, request)
 
 
 class _FailingJobs:
@@ -194,3 +204,43 @@ def test_queue_failure_does_not_leave_intent_permanently_submitting(tmp_path):
     assert after["state"]["selected_route_id"] == "route-a"
     assert after["state"]["collection"]["job_id"] == ""
     assert after["state"]["collection"]["status"] == "not_started"
+
+
+def test_retry_recovers_job_created_before_intent_link(tmp_path, monkeypatch):
+    """A crash after queue creation must converge onto the same consequence."""
+    store = DiscoverIntentStore(tmp_path / "discover-intents.sqlite3")
+    intent = store.create(research_need="Need governance evidence")
+    route_a = _route("route-a", "https://example.com/a")
+    _accept(store, intent["id"], _proposal("proposal-a", [route_a], "route-a"))
+
+    jobs = _ReplayJobs()
+    gateway = _gateway(store, jobs)
+    real_link = store.link_job
+    link_calls = 0
+
+    def fail_first_link(intent_id, job):
+        nonlocal link_calls
+        link_calls += 1
+        if link_calls == 1:
+            raise RuntimeError("intent database interrupted after queue commit")
+        return real_link(intent_id, job)
+
+    monkeypatch.setattr(store, "link_job", fail_first_link)
+
+    with pytest.raises(RuntimeError, match="database interrupted"):
+        gateway.discover_intent_submit_collection(intent["id"])
+
+    stranded = store.get(intent["id"])
+    assert stranded["state"]["status"] == "submitting"
+    assert stranded["state"]["collection"]["status"] == "submitting"
+    assert stranded["state"]["collection"]["job_id"] == ""
+    assert len(jobs.jobs) == 1
+
+    recovered = gateway.discover_intent_submit_collection(intent["id"])
+    expected_job = f"discover:{intent['id']}"
+    assert recovered["job"]["id"] == expected_job
+    assert len(jobs.jobs) == 1
+    assert {call["request"]["route_id"] for call in jobs.calls} == {"route-a"}
+    final = store.get(intent["id"])
+    assert final["state"]["status"] == "pending_approval"
+    assert final["state"]["collection"]["job_id"] == expected_job
