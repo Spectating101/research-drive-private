@@ -21,6 +21,23 @@ class JobService:
     def validate(self, plan: dict[str, Any]) -> dict[str, Any]:
         return self.orchestrator.validate_plan(plan)
 
+    @staticmethod
+    def _discover_submit_key(request: dict[str, Any] | None) -> str:
+        """Return the server-owned durable job id for one Discover intent.
+
+        A Discover intent is a one-collection decision record. Route changes,
+        browser tabs and direct retries therefore must not be able to manufacture
+        a second job. The underlying orchestrator already gives an idempotency key
+        SQLite uniqueness and replay semantics; this layer only chooses the key.
+        """
+        body = request if isinstance(request, dict) else {}
+        if str(body.get("source") or "").strip() != "discover_intent":
+            return ""
+        intent_id = str(body.get("discover_intent_id") or "").strip()
+        if not intent_id:
+            return ""
+        return f"discover-submit:{intent_id}"
+
     def submit(
         self,
         title: str,
@@ -36,6 +53,31 @@ class JobService:
         owner_id = owner_id_for_create()
         if owner_id:
             request.setdefault("owner_id", owner_id)
+
+        discover_key = self._discover_submit_key(request)
+        if discover_key:
+            # Client-supplied idempotency cannot choose Discover authority. The
+            # intent id is durable and server-owned, and one intent may create at
+            # most one collection job irrespective of route/tab/retry timing.
+            request["idempotency_key"] = discover_key
+            try:
+                existing = self.orchestrator.get_job(discover_key)
+            except KeyError:
+                existing = None
+            if existing:
+                existing_request = existing.get("request") or {}
+                require_owner(existing_request.get("owner_id"), discover_key)
+                if (
+                    str(existing_request.get("source") or "") != "discover_intent"
+                    or str(existing_request.get("discover_intent_id") or "") != str(request.get("discover_intent_id") or "")
+                ):
+                    raise ValueError("Discover idempotency key is already bound to another submission")
+                return {
+                    "job": enrich_job_identity(existing),
+                    "plan": existing.get("plan") or plan,
+                    "idempotent_replay": True,
+                }
+
         plan, auto_approve = enforce_execution_submit(plan, dict(request), auto_approve=auto_approve)
         validated = self.validate(plan)
         if not validated.get("launchable", True):
@@ -44,6 +86,8 @@ class JobService:
                 "plan": validated,
                 "error": validated.get("validation_error", "plan not launchable"),
             }
+        # YzuOrchestrator.submit uses request.idempotency_key as the durable job
+        # id and resolves the cross-process SQLite uniqueness race atomically.
         job = self.orchestrator.submit(title, validated, request, auto_approve=auto_approve)
         return {"job": enrich_job_identity(job), "plan": validated}
 
