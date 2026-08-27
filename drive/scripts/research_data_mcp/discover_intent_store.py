@@ -300,9 +300,18 @@ class DiscoverIntentStore:
         current = self.get(intent_id)
         state = _clone(current["state"])
         collection = dict(state.get("collection") or {})
-        if collection.get("job_id"):
+        existing_job_id = str(collection.get("job_id") or "")
+        incoming_job_id = str(job.get("id") or "")
+        if not incoming_job_id:
+            raise ValueError("collection job requires an id")
+        if existing_job_id:
+            if existing_job_id == incoming_job_id:
+                # Server-side idempotent replay: the same durable job may be
+                # returned after a lost response or a second tab submits the
+                # same reviewed intent. Re-linking it is a no-op, not a conflict.
+                return current
             raise ValueError("Discover intent already has a collection job")
-        collection.update({"job_id": str(job.get("id") or ""), "status": str(job.get("status") or "pending_approval")})
+        collection.update({"job_id": incoming_job_id, "status": str(job.get("status") or "pending_approval")})
         state["collection"] = collection
         state["status"] = "pending_approval"
         out = self._save(intent_id, state)
