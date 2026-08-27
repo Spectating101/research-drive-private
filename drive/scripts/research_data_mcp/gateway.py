@@ -1721,76 +1721,149 @@ class ResearchDataGateway:
 
     def discover_intent_submit_collection(self, intent_id: str, *, limit: int = 200) -> dict:
         store = self._discover_intent_store()
-        intent = store.get(intent_id)
+        existing = store.get(intent_id)
+        existing_collection = dict((existing.get("state") or {}).get("collection") or {})
+        existing_job_id = str(existing_collection.get("job_id") or "").strip()
+        if existing_job_id:
+            # A repeated API submit after the consequence is durable is a read
+            # of that consequence, not permission to recreate or re-plan it.
+            job = self.jobs.get(existing_job_id)
+            if not job:
+                raise RuntimeError(
+                    f"Discover intent references missing collection job {existing_job_id}"
+                )
+            return {"intent": self._discover_intent_with_job(existing), "job": job}
+
+        intent = store.reserve_submission(intent_id)
         state = intent.get("state") or {}
-        selected_id = str(state.get("selected_route_id") or "")
+        collection = state.get("collection") or {}
+        selected_id = str(collection.get("route_id") or state.get("selected_route_id") or "")
         route = next((row for row in state.get("routes") or [] if row.get("id") == selected_id), None)
         if not route:
+            store.abort_submission(intent_id, reason="reserved route is unavailable")
             raise ValueError("select a reviewed acquisition route before collection")
 
-        # Prefer AI-crafted generic collect_plan on the route (custom pipeline).
-        crafted = route.get("collect_plan") if isinstance(route.get("collect_plan"), dict) else None
-        if crafted:
-            from scripts.research_data_mcp.craft_collect import validate_generic_plan
+        crafted_result = False
+        try:
+            crafted = route.get("collect_plan") if isinstance(route.get("collect_plan"), dict) else None
+            if crafted:
+                from scripts.research_data_mcp.craft_collect import validate_generic_plan
 
-            plan = dict(validate_generic_plan(crafted))
-            plan.update(
-                {
-                    "discover_intent_id": intent_id,
-                    "candidate_key": route.get("candidate_key")
-                    or (state.get("candidate") or {}).get("candidate_key")
-                    or "",
-                    "destination": route.get("destination") or plan.get("destination") or "",
-                    "refresh_strategy": route.get("refresh") or "",
-                }
-            )
-            submitted = self.jobs.submit(
-                plan.get("title") or intent.get("title") or "Discover crafted collect",
-                plan,
-                {
-                    "source": "discover_intent",
-                    "discover_intent_id": intent_id,
-                    "idempotency_key": f"discover:{intent_id}",
-                    "research_need": intent.get("research_need") or "",
-                    "route_id": selected_id,
-                    "crafted": True,
-                    "pipeline": "custom",
-                },
-                auto_approve=False,
-            )
-            job = submitted.get("job") or {}
-            linked = store.link_job(intent_id, job)
-            return {"intent": self._discover_intent_with_job(linked), "job": job, "crafted": True}
+                plan = dict(validate_generic_plan(crafted))
+                plan.update(
+                    {
+                        "discover_intent_id": intent_id,
+                        "candidate_key": route.get("candidate_key")
+                        or (state.get("candidate") or {}).get("candidate_key")
+                        or "",
+                        "destination": route.get("destination") or plan.get("destination") or "",
+                        "refresh_strategy": route.get("refresh") or "",
+                    }
+                )
+                submitted = self.jobs.submit(
+                    plan.get("title") or intent.get("title") or "Discover crafted collect",
+                    plan,
+                    {
+                        "source": "discover_intent",
+                        "discover_intent_id": intent_id,
+                        "idempotency_key": f"discover:{intent_id}",
+                        "research_need": intent.get("research_need") or "",
+                        "route_id": selected_id,
+                        "crafted": True,
+                        "pipeline": "custom",
+                    },
+                    auto_approve=False,
+                )
+                job = submitted.get("job") or {}
+                if not job:
+                    raise ValueError(str(submitted.get("error") or "Discover collection plan is not launchable"))
+                crafted_result = True
+            else:
+                connector_id = str(route.get("connector_id") or "")
+                if not connector_id:
+                    raise ValueError(
+                        "selected route needs either an AI-crafted collect_plan or a verified connector_id"
+                    )
+                from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
 
-        connector_id = str(route.get("connector_id") or "")
-        if not connector_id:
-            raise ValueError(
-                "selected route needs either an AI-crafted collect_plan or a verified connector_id"
-            )
-        from scripts.research_data_mcp.discover_collect_plan import resolve_discover_collect_plan
+                plan = dict(
+                    resolve_discover_collect_plan(
+                        self.procurement,
+                        self.repo_root,
+                        connector_id=connector_id,
+                        source_id=str(
+                            (state.get("candidate") or {}).get("source_id")
+                            or intent.get("source_id")
+                            or ""
+                        ),
+                        limit=min(max(int(limit), 1), 2000),
+                        title=str(intent.get("title") or ""),
+                        url=str(route.get("url") or route.get("source_url") or ""),
+                        candidate_key=str(
+                            route.get("candidate_key")
+                            or (state.get("candidate") or {}).get("candidate_key")
+                            or ""
+                        ),
+                        doi=str(route.get("doi") or (state.get("candidate") or {}).get("doi") or ""),
+                        external_id=str(
+                            route.get("external_id")
+                            or (state.get("candidate") or {}).get("external_id")
+                            or ""
+                        ),
+                        provider=str(
+                            route.get("provider")
+                            or (state.get("candidate") or {}).get("provider")
+                            or ""
+                        ),
+                        kind=str(route.get("kind") or (state.get("candidate") or {}).get("kind") or ""),
+                        dataset_id=str(
+                            route.get("dataset_id")
+                            or (state.get("candidate") or {}).get("dataset_id")
+                            or ""
+                        ),
+                    )
+                )
+                plan.update(
+                    {
+                        "discover_intent_id": intent_id,
+                        "candidate_key": route.get("candidate_key")
+                        or (state.get("candidate") or {}).get("candidate_key")
+                        or "",
+                        "destination": route.get("destination") or plan.get("destination") or "",
+                        "refresh_strategy": route.get("refresh") or "",
+                    }
+                )
+                submitted = self.jobs.submit(
+                    plan.get("title") or intent.get("title") or "Discover collection",
+                    plan,
+                    {
+                        "source": "discover_intent",
+                        "discover_intent_id": intent_id,
+                        "idempotency_key": f"discover:{intent_id}",
+                        "research_need": intent.get("research_need") or "",
+                        "route_id": selected_id,
+                        "connector_id": connector_id,
+                    },
+                    auto_approve=False,
+                )
+                job = submitted.get("job") or {}
+                if not job:
+                    raise ValueError(str(submitted.get("error") or "Discover collection plan is not launchable"))
 
-        plan = dict(
-            resolve_discover_collect_plan(
-                self.procurement,
-                self.repo_root,
-                connector_id=connector_id,
-                source_id=str((state.get("candidate") or {}).get("source_id") or intent.get("source_id") or ""),
-                limit=min(max(int(limit), 1), 2000),
-                title=str(intent.get("title") or ""),
-                url=str(route.get("url") or route.get("source_url") or ""),
-                candidate_key=str(route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or ""),
-                doi=str(route.get("doi") or (state.get("candidate") or {}).get("doi") or ""),
-                external_id=str(route.get("external_id") or (state.get("candidate") or {}).get("external_id") or ""),
-                provider=str(route.get("provider") or (state.get("candidate") or {}).get("provider") or ""),
-                kind=str(route.get("kind") or (state.get("candidate") or {}).get("kind") or ""),
-                dataset_id=str(route.get("dataset_id") or (state.get("candidate") or {}).get("dataset_id") or ""),
-            )
-        )
-        plan.update({"discover_intent_id": intent_id, "candidate_key": route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or "", "destination": route.get("destination") or plan.get("destination") or "", "refresh_strategy": route.get("refresh") or ""})
-        submitted = self.jobs.submit(plan.get("title") or intent.get("title") or "Discover collection", plan, {"source": "discover_intent", "discover_intent_id": intent_id, "idempotency_key": f"discover:{intent_id}", "research_need": intent.get("research_need") or "", "route_id": selected_id, "connector_id": connector_id}, auto_approve=False)
-        job = submitted.get("job") or {}
+            connector_id = "__already_resolved__"
+        except Exception as exc:
+            # Before a job exists, rollback the reservation so the researcher can
+            # correct or retry. If the deterministic queue call succeeded,
+            # `link_job` below is the only remaining transition and a retry can
+            # recover the same job id without creating another consequence.
+            store.abort_submission(intent_id, reason=str(exc))
+            raise
+
         linked = store.link_job(intent_id, job)
-        return {"intent": self._discover_intent_with_job(linked), "job": job}
+        out = {"intent": self._discover_intent_with_job(linked), "job": job}
+        if crafted_result:
+            out["crafted"] = True
+        return out
 
     # --- Discover Explore: sources, preview, refresh subscriptions, history ---
     def _discover_refresh_store(self):

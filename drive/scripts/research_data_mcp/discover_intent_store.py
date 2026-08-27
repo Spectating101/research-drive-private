@@ -160,6 +160,41 @@ class DiscoverIntentStore:
         finally:
             db.close()
 
+    def _get_locked(self, db: sqlite3.Connection, intent_id: str) -> dict[str, Any]:
+        db.row_factory = sqlite3.Row
+        row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
+        if not row:
+            raise KeyError(intent_id)
+        item = dict(row)
+        require_owner(item.get("owner_id"), intent_id)
+        item["state"] = json.loads(item.pop("state_json") or "{}")
+        return item
+
+    def _save_locked(self, db: sqlite3.Connection, intent_id: str, state: dict[str, Any]) -> None:
+        db.execute(
+            "UPDATE discover_intents SET updated_at=?, state_json=? WHERE id=?",
+            (_now(), json.dumps(_clone(state)), intent_id),
+        )
+
+    def _event_locked(
+        self,
+        db: sqlite3.Connection,
+        intent_id: str,
+        kind: str,
+        payload: dict[str, Any],
+    ) -> None:
+        db.execute(
+            "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) "
+            "VALUES (?, ?, ?, ?)",
+            (intent_id, _now(), kind[:80], json.dumps(payload)),
+        )
+
+    @staticmethod
+    def _collection_started(state: dict[str, Any]) -> bool:
+        collection = dict(state.get("collection") or {})
+        status = str(collection.get("status") or "not_started").strip() or "not_started"
+        return bool(collection.get("job_id")) or status not in {"not_started"}
+
     def create(
         self,
         *,
@@ -207,14 +242,7 @@ class DiscoverIntentStore:
 
     def get(self, intent_id: str) -> dict[str, Any]:
         with self._db() as db:
-            db.row_factory = sqlite3.Row
-            row = db.execute("SELECT * FROM discover_intents WHERE id = ?", (intent_id,)).fetchone()
-        if not row:
-            raise KeyError(intent_id)
-        item = dict(row)
-        require_owner(item.get("owner_id"), intent_id)
-        item["state"] = json.loads(item.pop("state_json") or "{}")
-        return item
+            return self._get_locked(db, intent_id)
 
     def list(self, *, limit: int = 30, session_id: str = "") -> list[dict[str, Any]]:
         limit = max(1, min(int(limit or 30), 200))
@@ -247,79 +275,184 @@ class DiscoverIntentStore:
 
     def _event(self, intent_id: str, kind: str, payload: dict[str, Any]) -> None:
         with self._db() as db:
-            db.execute(
-                "INSERT INTO discover_intent_events(intent_id, created_at, kind, payload_json) VALUES (?, ?, ?, ?)",
-                (intent_id, _now(), kind[:80], json.dumps(payload)),
-            )
+            self._event_locked(db, intent_id, kind, payload)
 
     def set_proposal(self, intent_id: str, proposal: dict[str, Any]) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        state["proposal"] = validate_proposal(proposal)
-        state["status"] = "proposal_ready"
-        out = self._save(intent_id, state)
-        self._event(intent_id, "proposal", {"proposal": state["proposal"]})
-        return out
+        validated = validate_proposal(proposal)
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = self._get_locked(db, intent_id)
+            state = _clone(current["state"])
+            if self._collection_started(state):
+                raise ValueError("cannot replace proposal after collection submission has started")
+            # A new proposal supersedes every previously reviewed route. Leaving
+            # old routes executable while a replacement is pending lets stale
+            # evidence advice cross a consequential authority boundary.
+            state["proposal"] = validated
+            state["routes"] = []
+            state["selected_route_id"] = ""
+            state["status"] = "proposal_ready"
+            self._save_locked(db, intent_id, state)
+            self._event_locked(db, intent_id, "proposal", {"proposal": state["proposal"]})
+        return self.get(intent_id)
 
-    def review_proposal(self, intent_id: str, *, decision: str, proposal_id: str, proposal_hash: str) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        proposal = state.get("proposal") or {}
-        if proposal_id != proposal.get("id") or proposal_hash != proposal.get("proposal_hash"):
-            raise ValueError("Discover proposal changed; refresh before reviewing")
-        normalized = str(decision or "").strip().lower()
-        if normalized == "accept":
-            state["routes"] = proposal.get("routes") or []
-            state["selected_route_id"] = proposal.get("recommended_route_id") or state["routes"][0]["id"]
-            state["proposal"] = None
-            state["status"] = "ready_for_review"
-        elif normalized == "reject":
-            state["proposal"] = None
-            state["status"] = "draft"
-        else:
-            raise ValueError("decision must be accept or reject")
-        out = self._save(intent_id, state)
-        self._event(intent_id, normalized, {"proposal_id": proposal_id, "proposal_hash": proposal_hash})
-        return out
+    def review_proposal(
+        self,
+        intent_id: str,
+        *,
+        decision: str,
+        proposal_id: str,
+        proposal_hash: str,
+    ) -> dict[str, Any]:
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = self._get_locked(db, intent_id)
+            state = _clone(current["state"])
+            if self._collection_started(state):
+                raise ValueError("cannot review proposal after collection submission has started")
+            if state.get("status") != "proposal_ready":
+                raise ValueError("Discover proposal is not ready for review")
+            proposal = state.get("proposal") or {}
+            if proposal_id != proposal.get("id") or proposal_hash != proposal.get("proposal_hash"):
+                raise ValueError("Discover proposal changed; refresh before reviewing")
+            normalized = str(decision or "").strip().lower()
+            if normalized == "accept":
+                state["routes"] = proposal.get("routes") or []
+                state["selected_route_id"] = (
+                    proposal.get("recommended_route_id") or state["routes"][0]["id"]
+                )
+                state["proposal"] = None
+                state["status"] = "ready_for_review"
+            elif normalized == "reject":
+                state["proposal"] = None
+                state["routes"] = []
+                state["selected_route_id"] = ""
+                state["status"] = "draft"
+            else:
+                raise ValueError("decision must be accept or reject")
+            self._save_locked(db, intent_id, state)
+            self._event_locked(
+                db,
+                intent_id,
+                normalized,
+                {"proposal_id": proposal_id, "proposal_hash": proposal_hash},
+            )
+        return self.get(intent_id)
 
     def select_route(self, intent_id: str, route_id: str) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        ids = {row.get("id") for row in state.get("routes") or []}
-        if route_id not in ids:
-            raise ValueError("route_id is not part of this Discover intent")
-        if state.get("collection", {}).get("job_id"):
-            raise ValueError("cannot change route after collection submission")
-        state["selected_route_id"] = route_id
-        state["status"] = "ready_for_review"
-        out = self._save(intent_id, state)
-        self._event(intent_id, "route_selected", {"route_id": route_id})
-        return out
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = self._get_locked(db, intent_id)
+            state = _clone(current["state"])
+            if self._collection_started(state):
+                raise ValueError("cannot change route after collection submission has started")
+            if state.get("status") != "ready_for_review":
+                raise ValueError("route selection requires a reviewed Discover proposal")
+            ids = {row.get("id") for row in state.get("routes") or []}
+            if route_id not in ids:
+                raise ValueError("route_id is not part of this Discover intent")
+            state["selected_route_id"] = route_id
+            self._save_locked(db, intent_id, state)
+            self._event_locked(db, intent_id, "route_selected", {"route_id": route_id})
+        return self.get(intent_id)
+
+    def reserve_submission(self, intent_id: str) -> dict[str, Any]:
+        """Atomically freeze the reviewed route before a queue side effect.
+
+        A retry of the same in-flight reservation is safe: the deterministic
+        queue id will deduplicate job creation and `link_job` will finalize it.
+        """
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = self._get_locked(db, intent_id)
+            state = _clone(current["state"])
+            collection = dict(state.get("collection") or {})
+            status = str(collection.get("status") or "not_started")
+
+            if state.get("status") == "submitting" and status == "submitting":
+                route_id = str(collection.get("route_id") or "")
+                if not route_id or route_id != str(state.get("selected_route_id") or ""):
+                    raise ValueError("Discover submission reservation is inconsistent")
+                return current
+
+            if state.get("status") != "ready_for_review":
+                raise ValueError("Discover intent must be reviewed and ready before submission")
+            if self._collection_started(state):
+                raise ValueError("Discover collection submission has already started")
+            selected = str(state.get("selected_route_id") or "")
+            route = next(
+                (row for row in state.get("routes") or [] if str(row.get("id") or "") == selected),
+                None,
+            )
+            if not selected or not route:
+                raise ValueError("select a reviewed acquisition route before collection")
+
+            collection.update({
+                "job_id": "",
+                "status": "submitting",
+                "route_id": selected,
+                "registered_dataset_id": str(collection.get("registered_dataset_id") or ""),
+            })
+            state["collection"] = collection
+            state["status"] = "submitting"
+            self._save_locked(db, intent_id, state)
+            self._event_locked(db, intent_id, "submission_reserved", {"route_id": selected})
+        return self.get(intent_id)
+
+    def abort_submission(self, intent_id: str, *, reason: str = "") -> dict[str, Any]:
+        """Release an in-flight reservation only when no job has been linked."""
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = self._get_locked(db, intent_id)
+            state = _clone(current["state"])
+            collection = dict(state.get("collection") or {})
+            if collection.get("job_id"):
+                return current
+            if state.get("status") != "submitting" or collection.get("status") != "submitting":
+                return current
+            collection["status"] = "not_started"
+            collection["route_id"] = ""
+            state["collection"] = collection
+            state["status"] = "ready_for_review"
+            self._save_locked(db, intent_id, state)
+            self._event_locked(
+                db,
+                intent_id,
+                "submission_aborted",
+                {"reason": str(reason or "")[:240]},
+            )
+        return self.get(intent_id)
 
     def link_job(self, intent_id: str, job: dict[str, Any]) -> dict[str, Any]:
-        current = self.get(intent_id)
-        state = _clone(current["state"])
-        collection = dict(state.get("collection") or {})
         job_id = str(job.get("id") or "").strip()
         if not job_id:
             raise ValueError("collection job id is required")
-        existing_job_id = str(collection.get("job_id") or "").strip()
-        if existing_job_id:
-            # Job creation is idempotent at the cluster boundary. Replaying the
-            # same consequence must therefore also be idempotent at the intent
-            # boundary; only a genuinely different job is a conflict.
-            if existing_job_id == job_id:
-                return current
-            raise ValueError("Discover intent already has a different collection job")
-        collection.update({
-            "job_id": job_id,
-            "status": str(job.get("status") or "pending_approval"),
-        })
-        state["collection"] = collection
-        state["status"] = "pending_approval"
-        out = self._save(intent_id, state)
-        self._event(intent_id, "job_linked", {"job_id": collection["job_id"]})
-        return out
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = self._get_locked(db, intent_id)
+            state = _clone(current["state"])
+            collection = dict(state.get("collection") or {})
+            existing_job_id = str(collection.get("job_id") or "").strip()
+            if existing_job_id:
+                if existing_job_id == job_id:
+                    return current
+                raise ValueError("Discover intent already has a different collection job")
+            route_id = str(collection.get("route_id") or state.get("selected_route_id") or "")
+            collection.update({
+                "job_id": job_id,
+                "status": str(job.get("status") or "pending_approval"),
+                "route_id": route_id,
+            })
+            state["collection"] = collection
+            state["status"] = "pending_approval"
+            self._save_locked(db, intent_id, state)
+            self._event_locked(
+                db,
+                intent_id,
+                "job_linked",
+                {"job_id": job_id, "route_id": route_id},
+            )
+        return self.get(intent_id)
 
     def events(self, intent_id: str, *, limit: int = 50) -> list[dict[str, Any]]:
         self.get(intent_id)
