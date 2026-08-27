@@ -300,9 +300,21 @@ class DiscoverIntentStore:
         current = self.get(intent_id)
         state = _clone(current["state"])
         collection = dict(state.get("collection") or {})
-        if collection.get("job_id"):
-            raise ValueError("Discover intent already has a collection job")
-        collection.update({"job_id": str(job.get("id") or ""), "status": str(job.get("status") or "pending_approval")})
+        job_id = str(job.get("id") or "").strip()
+        if not job_id:
+            raise ValueError("collection job id is required")
+        existing_job_id = str(collection.get("job_id") or "").strip()
+        if existing_job_id:
+            # Job creation is idempotent at the cluster boundary. Replaying the
+            # same consequence must therefore also be idempotent at the intent
+            # boundary; only a genuinely different job is a conflict.
+            if existing_job_id == job_id:
+                return current
+            raise ValueError("Discover intent already has a different collection job")
+        collection.update({
+            "job_id": job_id,
+            "status": str(job.get("status") or "pending_approval"),
+        })
         state["collection"] = collection
         state["status"] = "pending_approval"
         out = self._save(intent_id, state)
