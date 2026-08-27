@@ -1,0 +1,67 @@
+# Copy to private release evidence and replace every placeholder.
+# Never commit raw tokens, credentials, private host configuration, or PII.
+schema_version: 1
+captured_at: "YYYY-MM-DDTHH:MM:SSZ"
+release_role: "review_read_only"
+
+public_surface:
+  hostname: "review.example.edu"
+  tunnel_id: "<named-tunnel-id>"
+  proxy_service: "<systemd-service-name>"
+  proxy_bind: "<tailscale-ip>:<port>"
+  allowed_methods: [GET, HEAD, OPTIONS]
+  mutation_rejection_status: 403
+
+frontend:
+  repository: "Spectating101/yzu-cluster"
+  commit: "<full-sha>"
+  immutable_release_path: "<private-path>/releases/<sha>"
+  asset_entrypoint: "assets/index-<hash>.js"
+  tree_sha256: "<sha256>"
+
+backend:
+  repository: "Spectating101/research-drive-private"
+  commit: "<full-sha>"
+  bind: "<tailscale-ip>:8765"
+  health_status: 200
+
+registry:
+  authoritative_path: "<private-path>/research_query_registry.json"
+  dataset_count: 0
+  visible_dataset_count: 0
+  fingerprint: "<sha256-or-inventory-fingerprint>"
+
+principal:
+  id: "reviewer"
+  role: "reviewer"
+  token_file_path: "<private-path-only; no token>"
+  token_digest_prefix: "<non-sensitive-prefix>"
+  permissions:
+    - "<explicit read capability>"
+  denied_capabilities:
+    - submit_collection
+    - approve_jobs
+    - cancel_jobs
+    - inspect_credentials
+    - operate_workers
+    - read_private_personal_work
+
+acceptance:
+  anonymous_direct_datasets_status: 401
+  proxy_datasets_status: 200
+  proxy_mutation_status: 403
+  proxy_worker_topology_status: 403
+  proxy_credentials_status: 403
+  browser_review_run: "<workflow-run-url-or-id>"
+  console_errors: 0
+  page_errors: 0
+  horizontal_overflow_failures: 0
+
+rollback:
+  previous_frontend_commit: "<full-sha>"
+  previous_backend_commit: "<full-sha>"
+  previous_registry_fingerprint: "<fingerprint>"
+  commands_document: "<private-runbook-path>"
+
+notes:
+  - "Record accepted limitations and product decisions here."

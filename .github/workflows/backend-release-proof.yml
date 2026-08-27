@@ -18,6 +18,7 @@ on:
       - "drive/tests/test_faculty_profile_regressions.py"
       - "drive/tests/test_hardening_gates.py"
       - "drive/tests/test_registry_readiness_truth.py"
+      - "tests/test_coverage_label_migration.py"
       - "tests/test_acquisition_manifest.py"
       - "drive/scripts/ops/repo_authority_check.sh"
       - ".github/workflows/backend-release-proof.yml"
@@ -32,6 +33,7 @@ on:
       - "drive/config/yzu_cluster.json"
       - "drive/config/procurement_magic.json"
       - "drive/tests/**"
+      - "tests/test_coverage_label_migration.py"
       - "tests/test_acquisition_manifest.py"
       - "drive/scripts/ops/repo_authority_check.sh"
       - ".github/workflows/backend-release-proof.yml"
@@ -85,6 +87,7 @@ jobs:
             drive/tests/test_faculty_profile_regressions.py \
             drive/tests/test_hardening_gates.py \
             drive/tests/test_registry_readiness_truth.py \
+            tests/test_coverage_label_migration.py \
             tests/test_acquisition_manifest.py \
             2>&1 | tee artifacts/backend-release-tests.log
 
