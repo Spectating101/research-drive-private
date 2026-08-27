@@ -40,9 +40,29 @@ class ResearchToolHandlers:
         readiness: str = "",
         access_shape: str = "",
         limit: int = 50,
+        held_only: bool = False,
+        semantic: bool = False,
     ) -> dict[str, Any]:
-        """List or search registered research datasets."""
-        return self.gateway.list_datasets(q=q, readiness=readiness, access_shape=access_shape, limit=min(max(limit, 1), 200))
+        """List/search research assets. Use held_only=True for Library; semantic=True for vague/conceptual recall."""
+        bounded = min(max(limit, 1), 200)
+        out = self.gateway.list_datasets(
+            q=q,
+            readiness=readiness,
+            access_shape=access_shape,
+            limit=bounded,
+            held_only=bool(held_only),
+        )
+        if semantic and str(q or "").strip():
+            from scripts.research_data_mcp.library_semantic_search import widen_library_result
+
+            out = widen_library_result(
+                self.gateway,
+                out,
+                query=q,
+                limit=bounded,
+                held_only=bool(held_only),
+            )
+        return out
 
     def research_describe_dataset(self, dataset_id: str) -> dict[str, Any]:
         """Describe one registered dataset (includes access_tier for Composer)."""
