@@ -1,0 +1,30 @@
+name: Library provenance audit
+
+on:
+  push:
+    branches:
+      - hardening/library-provenance-receipts-20260827
+
+permissions:
+  contents: read
+
+jobs:
+  provenance-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install documented offline test dependencies
+        run: python -m pip install pytest pandas pyarrow
+      - name: Compile changed runtime modules
+        run: python -m compileall -q drive/scripts/research_data_mcp drive/scripts/yzu_cluster
+      - name: Run provenance regression contract
+        run: python -m pytest -q drive/tests/test_library_provenance.py
+      - name: Run documented Research Drive offline suite
+        run: python -m pytest -q drive/tests
