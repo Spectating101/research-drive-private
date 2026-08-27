@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.research_data_mcp.drive_first import is_drive_first
+from scripts.research_data_mcp.library_provenance import stamp_spec_with_job_provenance
 from scripts.research_data_mcp.registry_transaction import atomic_update_json
 from scripts.yzu_cluster.acquisitions import registry_spec_from_materialized
 
@@ -34,7 +35,6 @@ class RegistryPromoter:
         if "*" in local_path:
             if glob(str(self.repo_root / local_path)):
                 return True
-            # Runtime-bind fallback (front-door / SR → runtime-integration).
             import os
             runtime = os.environ.get("YZU_RUNTIME_DRIVE_ROOT", "").strip()
             if runtime:
@@ -253,6 +253,7 @@ class RegistryPromoter:
             spec = self._spec_for_task(task_id, job, campaign_id)
             if not spec:
                 continue
+            spec = stamp_spec_with_job_provenance(spec, job)
             local_path = spec.get("local_path") or spec.get("local_root")
             if local_path and not self._artifact_exists(local_path):
                 continue
@@ -262,7 +263,6 @@ class RegistryPromoter:
                 spec["analysis_readiness"] = "query_ready"
                 spec["source_access_mode"] = spec.get("source_access_mode") or "materialized_query_ready"
             else:
-                # Honest: archived/registered bytes exist, but not proven queryable yet.
                 spec["analysis_readiness"] = "registered"
             entry = self._upsert_dataset(spec, task_id=task_id, job_id=job.get("id", ""), campaign_id=campaign_id)
             promoted.append(entry)
@@ -335,6 +335,7 @@ class RegistryPromoter:
             spec["local_file"] = panel_path.name
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": True, "doi": doi}
+        spec = stamp_spec_with_job_provenance(spec, job)
         from scripts.yzu_cluster.acquisitions import prove_query_smoke
 
         smoke = prove_query_smoke(self.repo_root, spec, limit=3)
@@ -434,8 +435,8 @@ class RegistryPromoter:
             spec["local_file"] = local_file
         if campaign_id:
             spec["lineage"] = {"campaign_id": campaign_id, "alpha_ready": False, "hf_dataset_id": did}
+        spec = stamp_spec_with_job_provenance(spec, job)
 
-        # Same readiness contract as http/DataCite: query_ready only after smoke proves rows.
         from scripts.yzu_cluster.acquisitions import prove_query_smoke
 
         if backend in {"local_parquet_panel", "local_json_glob", "local_json_file", "local_csv_file"} and local_path:
@@ -475,12 +476,16 @@ class RegistryPromoter:
             if (self._map.get("pipelines") or {}).get(task_id)
             else "collection_queue"
         )
-        entry["procurement"] = {
-            "source_task_id": task_id,
-            "promoted_at": now,
-            "promoted_from_job": job_id,
-            "job_type": job_type,
-        }
+        procurement = dict(entry.get("procurement") or {})
+        procurement.update(
+            {
+                "source_task_id": task_id,
+                "promoted_at": now,
+                "promoted_from_job": job_id,
+                "job_type": job_type,
+            }
+        )
+        entry["procurement"] = procurement
         if campaign_id:
             entry.setdefault("lineage", {})
             entry["lineage"]["campaign_id"] = campaign_id
