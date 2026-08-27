@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from scripts.research_data_mcp.backfill_library_provenance import backfill_registry_document
 from scripts.research_data_mcp.library_provenance import provenance_from_job, stamp_spec_with_job_provenance
 from scripts.research_data_mcp.registry_promotion import RegistryPromoter
 
@@ -118,3 +119,41 @@ def test_registry_promotion_keeps_reproduction_receipt(monkeypatch, tmp_path):
     assert row["procurement"]["source_url"] == "https://data.example.org/example.csv"
     assert row["procurement"]["collect_via"] == "http_manifest"
     assert row["procurement"]["promoted_from_job"] == "job-promote"
+
+
+def test_backfill_uses_only_linked_jobs_and_does_not_mutate_input():
+    registry = {
+        "version": 1,
+        "datasets": [
+            {
+                "dataset_id": "old_panel",
+                "source": "GDELT GKG",
+                "procurement": {"promoted_from_job": "old-job"},
+            },
+            {
+                "dataset_id": "manual_asset",
+                "source": "Self provided",
+            },
+        ],
+    }
+    jobs = {
+        "old-job": {
+            "id": "old-job",
+            "plan": {
+                "job_type": "http_manifest",
+                "url": "https://data.gdeltproject.org/gkg/20260827.gkg.csv.zip",
+                "collect_via": "http_manifest",
+                "script_path": "scripts/run_news_shock_gkg_queue.py",
+            },
+        }
+    }
+
+    enriched, report = backfill_registry_document(registry, jobs.__getitem__)
+
+    assert "source_url" not in registry["datasets"][0]
+    row = enriched["datasets"][0]
+    assert row["source_url"] == "https://data.gdeltproject.org/gkg/20260827.gkg.csv.zip"
+    assert row["collection_method"] == "http_manifest"
+    assert row["collection_script"] == "scripts/run_news_shock_gkg_queue.py"
+    assert report["changed_dataset_ids"] == ["old_panel"]
+    assert report["missing_recorded_job_id_dataset_ids"] == ["manual_asset"]
