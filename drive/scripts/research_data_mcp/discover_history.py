@@ -142,7 +142,15 @@ def _registered_asset_item(job: dict[str, Any], *, intent_id: str = "", subscrip
     identity = receipt.get("registration_receipt") or {}
     reconciliation = receipt.get("catalog_reconciliation") if isinstance(receipt.get("catalog_reconciliation"), dict) else {}
     readiness = str(receipt.get("analysis_readiness") or "registered")
-    query_allowed = bool(reconciliation.get("query_allowed")) or readiness in {"query_ready", "instant"}
+    # ``analysis_readiness`` belongs to the durable registration receipt.  A
+    # recovered receipt can still say ``query_ready`` even though the dataset
+    # is absent from the catalog loaded by this desk.  The reconciliation
+    # result is the newer, runtime authority; an explicit ``query_allowed``
+    # value must therefore win in both directions.
+    if "query_allowed" in reconciliation:
+        query_allowed = reconciliation.get("query_allowed") is True
+    else:
+        query_allowed = readiness in {"query_ready", "instant"}
     # Registration receipt ≠ desk-usable holding. Say so out loud.
     if query_allowed:
         status = "query_ready"

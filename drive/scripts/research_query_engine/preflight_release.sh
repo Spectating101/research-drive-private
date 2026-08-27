@@ -17,6 +17,10 @@
 set -u -o pipefail
 
 ENV_FILE="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
+# Preserve an explicit candidate checkout before the service environment is
+# sourced. The env file names the normal live checkout; preflight needs to be
+# able to validate a clean, staged candidate without mutating that authority.
+preflight_public_root="${YZU_PUBLIC_REPO:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -35,7 +39,7 @@ set -u
 
 backend_root="${SHARPE_REPO_ROOT:-}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-public_root="${YZU_PUBLIC_REPO:-}"
+public_root="${preflight_public_root:-${YZU_PUBLIC_REPO:-}}"
 # A promotion validates a staged candidate before changing the live dist link.
 # The front-door env intentionally continues to name the live link, so use this
 # separate, explicit override only for that read-only preflight.
@@ -154,6 +158,32 @@ fi
 
 roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 [ "$roots" = "<unset>" ] && note "WARN: RESEARCH_DATA_ROOTS unset; holdings counts will read as absent"
+
+composer_provider="${DESK_COMPOSER_PROVIDER:-auto}"
+if [ "$composer_provider" = "copilot" ] || [ "$composer_provider" = "github_copilot" ] || [ "$composer_provider" = "copilot_composer" ]; then
+  copilot_probe="$backend_root/drive/scripts/research_data_mcp/copilot_pool_preflight.py"
+  if [ ! -f "$copilot_probe" ]; then
+    bad "Copilot pool preflight is missing: $copilot_probe"
+  elif copilot_result="$(PYTHONPATH="$backend_root:$backend_root/kernel:$backend_root/drive:$backend_root/alpha" "$python_bin" "$copilot_probe" 2>&1)"; then
+    while IFS= read -r line; do note "copilot: $line"; done <<<"$copilot_result"
+  else
+    bad "Copilot provider preflight failed"
+    while IFS= read -r line; do note "copilot: $line"; done <<<"$copilot_result"
+  fi
+fi
+
+if [ "${PREFLIGHT_CHECK_RESTARTABILITY:-0}" = "1" ]; then
+  restart_probe="${PREFLIGHT_RESTARTABILITY_SCRIPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify_front_door_restartability.sh}"
+  if [ ! -f "$restart_probe" ]; then
+    bad "restartability probe missing: $restart_probe"
+  elif FRONT_DOOR_ENV="$ENV_FILE" bash "$restart_probe" --check >/tmp/restartability_preflight.$$ 2>&1; then
+    note "restartability=ready"
+  else
+    bad "restartability preflight failed"
+    while IFS= read -r line; do note "restartability: $line"; done </tmp/restartability_preflight.$$
+  fi
+  rm -f /tmp/restartability_preflight.$$
+fi
 
 if [ "$JSON" = "1" ]; then
   "$python_bin" - "$backend_sha" "$ui_sha" "$reg_hash" "$reg_rows" "$roots" "$fail" "$registry_authority" <<'PY'

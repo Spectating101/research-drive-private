@@ -409,6 +409,26 @@ def create_stack(
                 if flywheel_result.get("curated_added") or flywheel_result.get("locators_added"):
                     result["flywheel"] = flywheel_result
 
+            # Keep the method, not just the rows it produced. Without this the
+            # reasoning that solved an undocumented API is discarded and the next
+            # similar need starts from nothing.
+            try:
+                from scripts.research_data_mcp.crafted_route import record_attempt, route_identity
+
+                identity = route_identity(plan or {})
+                if identity:
+                    record_attempt(
+                        root,
+                        source_id=identity,
+                        plan=plan or {},
+                        rationale=search_goal,
+                        succeeded=True,
+                        produced=[str(p.get("dataset_id") or "") for p in promoted],
+                    )
+            except Exception:
+                # Recording a route must never fail a collection that worked.
+                pass
+
             if str((plan or {}).get("job_type") or "") == "scraper_run":
                 from scripts.research_data_mcp.scrape_flywheel import (
                     plan_follow_up_downloads,

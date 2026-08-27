@@ -65,7 +65,11 @@ def registry_revision(registry_path: Path) -> dict[str, Any]:
     revision["byte_size"] = len(raw)
     revision["fingerprint"] = hashlib.sha256(raw).hexdigest()[:24]
     try:
-        revision["mtime_ns"] = path.stat().st_mtime_ns
+        # Keep nanosecond precision lossless across JavaScript and JSON-RPC
+        # clients.  Values at contemporary Unix epochs exceed JavaScript's
+        # safe-integer range; exposing them as a JSON number made the Copilot
+        # SDK materialize a BigInt and then fail while serializing MCP output.
+        revision["mtime_ns"] = str(path.stat().st_mtime_ns)
     except OSError:
         pass
     try:

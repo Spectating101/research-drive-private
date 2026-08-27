@@ -21,19 +21,27 @@ project repeatedly.
 
 ## Which branch is real
 
-`main` is **not** what runs. As of 2026-08-25 it is 43 commits behind the
-deployed backend.
+As of 2026-08-27, canonical `main` has been reconciled to the deployed backend
+baseline. The deployed service itself remains pinned to commit
+`687529d7a9c7963e65b7d0e306467187417ac8c7`; canonicalization does **not** imply
+a deployment or service restart.
 
 | Branch | What it is |
 |---|---|
-| `live/deployed-backend-20260825` | The backend actually serving `:8765` (`687529d7`). Base new work here. |
-| `work/discover-relevance-20260825` | The above plus in-flight search-relevance fixes, tested but **not deployed**. |
-| `main` | 43 commits stale. Do not assume it reflects production. |
+| `main` | Canonical repository history. Its product code includes the `687529d7` deployed baseline plus documentation-only canonicalization history. |
+| `live/deployed-backend-20260825` | Exact backend commit serving `:8765` (`687529d7`). Preserve this ref as deployment provenance. |
+| `work/discover-relevance-20260825` | Deployed baseline plus in-flight search-relevance fixes; tested but **not deployed**. |
 | `snapshot/live-20260825` | **Mislabelled.** Its message says "current live Research Drive" but it does not contain the deployed SHA; it is a diverged lineage. Do not treat it as live. |
+| `yzu/main` | Detached/imported public YZU Cluster UI history with no common ancestor to backend `main`; do not merge it into the backend lineage. |
 
-The UI is a *different* repository: `Spectating101/yzu-cluster`, branches
-`live/deployed-ui-20260825` and `work/discover-web-context-20260825`. Do not
-look for the desk frontend in this repo.
+For ordinary repository work, start from current `main` unless a specific active
+release/hardening branch documents a stronger base requirement. For work that
+must reproduce the currently serving backend exactly, use
+`live/deployed-backend-20260825` and do not mutate that ref.
+
+The current UI is a *different* repository: `Spectating101/yzu-cluster`, with
+its own deployed and hardening branches. Do not treat `yzu/main` in this repo as
+the frontend authority.
 
 ## Setup and tests (verified from a bare container)
 
@@ -42,8 +50,9 @@ python3 -m venv .venv && .venv/bin/pip install pytest pandas pyarrow
 PYTHONPATH=drive .venv/bin/python -m pytest drive/tests -q
 ```
 
-Expect **173 passed, 1 skipped** in ~2s. The skip (`test_invariant_inventory`)
-is correct off-host: it needs a deployed `build.json`.
+Expect **173 passed, 1 skipped** in ~2s on the documented baseline. The skip
+(`test_invariant_inventory`) is correct off-host: it needs a deployed
+`build.json`.
 
 `sentence_transformers`, `httpx`, `mcp`, `jwt` and friends are imported lazily
 and are not needed for this suite. Do not install them to "be safe" — a slow
@@ -61,14 +70,16 @@ container helps nobody.
 
 ## Rules
 
-1. **Never push to `main`** and never force-push any branch. Open a PR.
-2. **Never** attempt to deploy, promote a release, or restart a service. The
-   front door has a startup guard that compares the checkout SHA against the
-   built release; moving `HEAD` in a serving tree takes the desk down. This has
-   already caused one outage.
-3. Commit only files you changed. Check `git status` before staging; other
+1. **Never push directly to `main`** and never force-push any branch. Open a PR.
+2. **Never** attempt to deploy, promote a release, or restart a service unless
+   that is the explicit task and the host-side release procedure is available.
+   The front door has a startup guard that compares the checkout SHA against
+   the built release; moving `HEAD` in a serving tree can take the desk down.
+3. Do not mutate `live/deployed-backend-20260825`; it is retained as exact
+   deployment provenance.
+4. Commit only files you changed. Check `git status` before staging; other
    agents and machine processes leave unrelated files dirty.
-4. If a change cannot be verified offline, state the verification the human
+5. If a change cannot be verified offline, state the verification the human
    must run, and do not claim the change works.
 
 ## Traps this codebase has actually hit

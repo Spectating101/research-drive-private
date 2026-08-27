@@ -3,13 +3,30 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from datetime import datetime, timezone
 from typing import Any
 
 _LOCK = threading.Lock()
 _LAST: dict[str, Any] = {}
-COMPOSER_HEALTH_TTL_SECONDS = 300
+COMPOSER_HEALTH_TTL_SECONDS = 14_400
+
+
+def composer_health_ttl_seconds() -> int:
+    """Return the bounded freshness window for a verified model observation."""
+
+    try:
+        configured = int(
+            os.getenv(
+                "DESK_COMPOSER_HEALTH_TTL_SECONDS",
+                str(COMPOSER_HEALTH_TTL_SECONDS),
+            )
+            or COMPOSER_HEALTH_TTL_SECONDS
+        )
+    except (TypeError, ValueError):
+        configured = COMPOSER_HEALTH_TTL_SECONDS
+    return max(300, min(configured, 86_400))
 
 
 def _utc_now() -> str:
@@ -35,7 +52,11 @@ def _error_category(detail: Any) -> str:
     return "provider_error"
 
 
-def record_composer_success(*, model: str = "") -> None:
+def record_composer_success(
+    *,
+    model: str = "",
+    details: dict[str, Any] | None = None,
+) -> None:
     with _LOCK:
         _LAST.clear()
         _LAST.update(
@@ -45,11 +66,17 @@ def record_composer_success(*, model: str = "") -> None:
                 "checked_at": _utc_now(),
                 "model": str(model or ""),
                 "error_category": None,
+                **dict(details or {}),
             }
         )
 
 
-def record_composer_failure(detail: Any, *, model: str = "") -> None:
+def record_composer_failure(
+    detail: Any,
+    *,
+    model: str = "",
+    details: dict[str, Any] | None = None,
+) -> None:
     with _LOCK:
         _LAST.clear()
         _LAST.update(
@@ -59,6 +86,7 @@ def record_composer_failure(detail: Any, *, model: str = "") -> None:
                 "checked_at": _utc_now(),
                 "model": str(model or ""),
                 "error_category": _error_category(detail),
+                **dict(details or {}),
             }
         )
 
@@ -66,8 +94,13 @@ def record_composer_failure(detail: Any, *, model: str = "") -> None:
 def composer_runtime_status(
     *,
     configured: bool,
-    max_age_seconds: int = COMPOSER_HEALTH_TTL_SECONDS,
+    max_age_seconds: int | None = None,
 ) -> dict[str, Any]:
+    max_age = (
+        composer_health_ttl_seconds()
+        if max_age_seconds is None
+        else max(0, int(max_age_seconds))
+    )
     if not configured:
         return {
             "status": "unavailable",
@@ -97,9 +130,10 @@ def composer_runtime_status(
             0, int((datetime.now(timezone.utc) - checked).total_seconds())
         )
     except (TypeError, ValueError):
-        age_seconds = max(0, int(max_age_seconds)) + 1
+        age_seconds = max_age + 1
     latest["age_seconds"] = age_seconds
-    if age_seconds > max(0, int(max_age_seconds)):
+    latest["max_age_seconds"] = max_age
+    if age_seconds > max_age:
         latest["status"] = "stale"
         latest["verified"] = False
         latest["error_category"] = "stale_observation"

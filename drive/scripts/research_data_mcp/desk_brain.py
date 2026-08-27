@@ -188,9 +188,36 @@ def cursor_composer_available() -> bool:
     return True
 
 
+def copilot_composer_available() -> bool:
+    """True only when the SDK, sticky launcher, and approved pool exist."""
+    try:
+        from scripts.research_data_mcp.desk_copilot_provider import (
+            copilot_composer_available as provider_available,
+        )
+    except ImportError:
+        return False
+    return provider_available()
+
+
+def selected_composer_provider() -> str:
+    """Resolve one explicit provider; never merge credentials inside a turn."""
+    requested = os.getenv("DESK_COMPOSER_PROVIDER", "auto").strip().lower()
+    if requested in {"copilot", "github_copilot", "copilot_composer"}:
+        return "copilot_composer" if copilot_composer_available() else "unavailable"
+    if requested in {"cursor", "cursor_composer"}:
+        return "cursor_composer" if cursor_composer_available() else "unavailable"
+    if requested not in {"", "auto"}:
+        return "unavailable"
+    if cursor_composer_available():
+        return "cursor_composer"
+    if copilot_composer_available():
+        return "copilot_composer"
+    return "unavailable"
+
+
 def desk_brain_mode(repo_root: Path | None = None) -> str:
     _ = repo_root
-    return "cursor_composer" if cursor_composer_available() else "unavailable"
+    return selected_composer_provider()
 
 
 def composer_runtime_status(repo_root: Path | None = None) -> dict[str, Any]:
@@ -199,7 +226,7 @@ def composer_runtime_status(repo_root: Path | None = None) -> dict[str, Any]:
         composer_runtime_status as provider_runtime_status,
     )
 
-    configured = cursor_composer_available()
+    configured = selected_composer_provider() != "unavailable"
     runtime = dict(provider_runtime_status(configured=configured))
     runtime.update(
         {
@@ -359,7 +386,10 @@ def _artifacts_from_conversation(run: Any) -> dict[str, Any]:
                     try:
                         payload = json.loads(result)
                     except json.JSONDecodeError:
-                        payload = None
+                        try:
+                            payload, _ = json.JSONDecoder().raw_decode(result.lstrip())
+                        except json.JSONDecodeError:
+                            payload = None
                 if not isinstance(payload, dict):
                     continue
                 if name in (
@@ -666,7 +696,14 @@ def _run_synthesis_reasoning_fallback(
     )
 
 
-def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: float) -> AgentTurn:
+def _composer_timeout_turn(
+    state: dict[str, Any],
+    *,
+    elapsed: float,
+    limit: float,
+    brain: str = "",
+) -> AgentTurn:
+    provider_brain = brain or desk_brain_mode()
     return AgentTurn(
         plan={"action": "composer_timeout"},
         action_result={
@@ -674,7 +711,7 @@ def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: floa
             "error_type": "composer_timeout",
             "elapsed_seconds": int(elapsed),
             "timeout_seconds": float(limit),
-            "brain": desk_brain_mode(),
+            "brain": provider_brain,
         },
         reply=(
             f"Ask timed out after {int(elapsed)}s waiting for Composer "
@@ -682,7 +719,7 @@ def _composer_timeout_turn(state: dict[str, Any], *, elapsed: float, limit: floa
             "Try a direct command (search, probe, status) or ask about the selected object."
         ),
         suggested_prompts=["status", "Search vault for related datasets", "What do we know about this?"],
-        tool_name="cursor_composer",
+        tool_name=provider_brain,
     )
 
 
@@ -713,8 +750,18 @@ def run_cursor_composer_turn(
     session_id: str = "",
     event_sink: DeskEventSink | None = None,
     prime: bool = False,
+    _sdk_override: _CursorSdkBindings | None = None,
+    _credential_override: str = "",
+    _brain_override: str = "",
+    _models_override: list[str] | None = None,
+    _agent_state_key: str = "cursor_agent_id",
 ) -> AgentTurn:
-    """Composer chooses tools freely via procurement MCP."""
+    """Composer chooses tools freely via procurement MCP.
+
+    Private override arguments let an alternate SDK transport reuse the same
+    grounding, contract, timeout, and artifact handling. Public callers retain
+    the original Cursor behavior.
+    """
     from scripts.research_data_mcp.desk_scale import chat_timeout_seconds
 
     turn_budget = chat_timeout_seconds()
@@ -726,11 +773,26 @@ def run_cursor_composer_turn(
         record_synthesis_turn,
         synthesis_first_turn,
         synthesis_failure_reply,
+        synthesis_request_requires_proposal,
+        synthesis_thread_key,
         wrap_synthesis_request,
     )
 
     synthesis_context = is_synthesis_context(state)
-    api_key = os.getenv("CURSOR_API_KEY", "").strip()
+    provider_brain = _brain_override or "cursor_composer"
+    provider_display = (
+        "GitHub Copilot" if provider_brain == "copilot_composer" else "Cursor Composer"
+    )
+    provider_setup = (
+        "configure DESK_COPILOT_ACCOUNTS and the Copilot credential launcher"
+        if provider_brain == "copilot_composer"
+        else "set CURSOR_API_KEY in .env.local"
+    )
+    api_key = (
+        _credential_override
+        if _sdk_override is not None
+        else os.getenv("CURSOR_API_KEY", "").strip()
+    )
     if not api_key:
         if synthesis_context:
             try:
@@ -761,7 +823,7 @@ def run_cursor_composer_turn(
                     plan={"action": "composer_unavailable"},
                     action_result={
                         "action": "composer_unavailable",
-                        "error": "missing CURSOR_API_KEY",
+                        "error": f"{provider_brain} is not configured",
                         "mode": "synthesis",
                         "fallback": "gemini_failed",
                         "fallback_error_category": category,
@@ -774,28 +836,28 @@ def run_cursor_composer_turn(
             plan={"action": "composer_unavailable"},
             action_result={
                 "action": "composer_unavailable",
-                "error": "missing CURSOR_API_KEY",
+                "error": f"{provider_brain} is not configured",
                 **({"mode": "synthesis", "fallback": "none"} if synthesis_context else {}),
             },
             reply=(
                 synthesis_failure_reply("agent_unavailable")
                 if synthesis_context
                 else (
-                    "The research desk runs on Cursor Composer with the procurement tool library. "
-                    "Ask the lab operator to set CURSOR_API_KEY in .env.local, then try again."
+                    f"The research desk runs on {provider_display} with the procurement tool library. "
+                    f"Ask the lab operator to {provider_setup}, then try again."
                 )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
             tool_name="",
         )
     try:
-        sdk = _load_cursor_sdk_bindings()
-        model_candidates = _desk_composer_models()
-        agent_id = str(state.get("cursor_agent_id") or "").strip()
+        sdk = _sdk_override or _load_cursor_sdk_bindings()
+        model_candidates = list(_models_override or _desk_composer_models())
+        agent_id = str(state.get(_agent_state_key) or "").strip()
         composer_mode = "synthesis_read_only" if synthesis_context else "default"
         if state.get("composer_context_mode") not in (None, composer_mode):
             agent_id = ""
-            state.pop("cursor_agent_id", None)
+            state.pop(_agent_state_key, None)
         state["composer_context_mode"] = composer_mode
         had_agent = bool(agent_id)
         first_synthesis_turn = synthesis_first_turn(state)
@@ -868,6 +930,11 @@ def run_cursor_composer_turn(
 
         for model_idx, model_id in enumerate(model_candidates):
             send_started = False
+            # A retry may be useful for a provider-side failure, but it must never
+            # replay a turn after the first model began an MCP action. In that
+            # case the existing post-run handling inspects durable artifacts
+            # instead of risking a duplicated proposal, collection, or job.
+            tool_call_started = False
             try:
                 agent_opts = sdk.agent_options(
                     model=sdk.model_selection(id=model_id),
@@ -881,7 +948,7 @@ def run_cursor_composer_turn(
                     agent = sdk.agent.resume(resume_id, agent_opts)
                 else:
                     agent = sdk.agent.create(agent_opts)
-                    state["cursor_agent_id"] = agent.agent_id
+                    state[_agent_state_key] = agent.agent_id
                     agent_id = agent.agent_id
 
                 with agent:
@@ -911,7 +978,7 @@ def run_cursor_composer_turn(
                 if not can_retry_fresh:
                     raise
                 agent_id = ""
-                state.pop("cursor_agent_id", None)
+                state.pop(_agent_state_key, None)
                 run = None
                 reply = ""
                 continue
@@ -921,10 +988,20 @@ def run_cursor_composer_turn(
                 or getattr(run, "status", "") == "error"
                 or (not reply and not prime)
             )
-            if not is_model_error or model_idx == len(model_candidates) - 1:
+            can_try_fallback_model = (
+                is_model_error
+                and model_idx < len(model_candidates) - 1
+                and not tool_call_started
+            )
+            if not can_try_fallback_model:
                 break
-            break
+            agent_id = ""
+            state.pop(_agent_state_key, None)
+            run = None
+            reply = ""
+            continue
 
+        model_id = str(getattr(run, "model", "") or model_id)
         if not reply:
             reply = EMPTY_REPLY_FALLBACK
 
@@ -943,6 +1020,83 @@ def run_cursor_composer_turn(
                 reply,
                 first_user_turn=synthesis_first_turn,
             )
+            if (
+                provider_brain == "copilot_composer"
+                and synthesis_first_turn
+                and not tool_call_started
+            ):
+                synthesis_violations.append("missing_evidence_tool_call")
+            # Auto-routed Copilot models occasionally stop after narrating that
+            # they will inspect evidence, without actually invoking a tool or
+            # completing the required clarification. One bounded continuation
+            # is safe only before any MCP action began. Never replay a turn that
+            # may already have mutated durable state.
+            if (
+                provider_brain == "copilot_composer"
+                and synthesis_violations
+                and not tool_call_started
+                and (time.monotonic() - turn_started) < turn_budget - 5
+            ):
+                tool_call_started = False
+                streamed.clear()
+                retry_text = (
+                    "Your previous response stopped before completing the Synthesis "
+                    f"contract ({', '.join(synthesis_violations)}). Use at least one "
+                    "available Research MCP tool now. Then return one complete final "
+                    "answer that separates supported facts, proposed choices, and "
+                    "unresolved limitations and ends with exactly one clarification "
+                    "question. Do not merely narrate that you will inspect evidence."
+                )
+                run = agent.send(retry_text, send_opts)
+                _wait_run_bounded(
+                    run,
+                    turn_budget - (time.monotonic() - turn_started),
+                )
+                reply = _reply_from_run(run, streamed) or EMPTY_REPLY_FALLBACK
+                model_id = str(getattr(run, "model", "") or model_id)
+                synthesis_violations = synthesis_reply_violations(
+                    reply,
+                    first_user_turn=synthesis_first_turn,
+                )
+                if synthesis_first_turn and not tool_call_started:
+                    synthesis_violations.append("missing_evidence_tool_call")
+            if (
+                not synthesis_violations
+                and synthesis_request_requires_proposal(message)
+            ):
+                recorded = _artifacts_from_conversation(run) if run is not None else {}
+                proposal = recorded.get("synthesis_proposal")
+                if not isinstance(proposal, dict):
+                    if (time.monotonic() - turn_started) < turn_budget - 5:
+                        accepted_reply = reply
+                        tool_call_started = False
+                        streamed.clear()
+                        thread_id = synthesis_thread_key(state)
+                        proposal_prompt = (
+                            "Your grounded answer passed the Synthesis response contract, "
+                            "but its reviewable proposal was not recorded. Call "
+                            "research_synthesis_propose_state now for thread_id "
+                            f"{thread_id!r}, using only the supported facts and proposed "
+                            "choices already stated. Leave unresolved choices unresolved. "
+                            "Do not call another tool; do not accept, collect, execute, "
+                            "materialize, register, or alter data."
+                        )
+                        run = agent.send(proposal_prompt, send_opts)
+                        _wait_run_bounded(
+                            run,
+                            turn_budget - (time.monotonic() - turn_started),
+                        )
+                        model_id = str(getattr(run, "model", "") or model_id)
+                        recorded = _artifacts_from_conversation(run)
+                        proposal = recorded.get("synthesis_proposal")
+                        if isinstance(proposal, dict):
+                            reply = accepted_reply
+                        else:
+                            synthesis_violations.append(
+                                "missing_reviewable_proposal"
+                            )
+                    else:
+                        synthesis_violations.append("missing_reviewable_proposal")
             is_error = bool(synthesis_violations)
         from scripts.research_data_mcp.desk_composer_health import (
             record_composer_failure,
@@ -1004,7 +1158,7 @@ def run_cursor_composer_turn(
                             state=state,
                             first_user_turn=fallback_first_turn,
                             event_sink=event_sink,
-                            fallback_from="cursor_composer",
+                            fallback_from=provider_brain,
                         )
                     except Exception as exc:
                         from scripts.research_data_mcp.desk_synthesis_fallback import (
@@ -1048,7 +1202,7 @@ def run_cursor_composer_turn(
                     is_error = False
                     action_result = {
                         "action": "composer",
-                        "brain": "cursor_composer",
+                        "brain": provider_brain,
                         "fallback": "vault_inventory",
                     }
                 else:
@@ -1059,12 +1213,12 @@ def run_cursor_composer_turn(
         else:
             action_result = _artifacts_from_conversation(run)
 
-        action_result["brain"] = "cursor_composer"
+        action_result["brain"] = provider_brain
         action_result["composer_model"] = model_id
-        action_result["cursor_agent_id"] = state.get("cursor_agent_id")
+        action_result[_agent_state_key] = state.get(_agent_state_key)
         if action_result.get("state_patch"):
             state.update(action_result["state_patch"])
-        if prime and state.get("cursor_agent_id"):
+        if prime and state.get(_agent_state_key):
             state["desk_primed"] = True
         if synthesis_context and not prime and not is_error:
             if first_synthesis_turn:
@@ -1078,7 +1232,7 @@ def run_cursor_composer_turn(
                     state,
                     user=message,
                     assistant=reply,
-                    provider="cursor_composer",
+                    provider=provider_brain,
                 )
 
         from scripts.research_data_mcp.desk_asset_grounding import (
@@ -1097,17 +1251,17 @@ def run_cursor_composer_turn(
             suggestions = suggested_prompts_for_asset(did, readiness) + suggestions
         suggestions = sanitize_suggested_prompts(suggestions, readiness)
         return AgentTurn(
-            plan={"action": "composer", "brain": "cursor_composer"},
+            plan={"action": "composer", "brain": provider_brain},
             action_result=action_result,
             reply=reply,
             suggested_prompts=suggestions[:5],
-            tool_name="cursor_composer",
+            tool_name=provider_brain,
         )
     except TimeoutError:
         # A stuck Composer must not hang the desk. In Synthesis, preserve any
         # proposal the timed-out run already recorded; otherwise continue the
         # same grounded turn through the read-only fallback provider.
-        state.pop("cursor_agent_id", None)
+        state.pop(_agent_state_key, None)
         if synthesis_context and not prime:
             recorded = _artifacts_from_conversation(run) if run is not None else {}
             proposal = recorded.get("synthesis_proposal")
@@ -1124,11 +1278,11 @@ def run_cursor_composer_turn(
                         "mode": "synthesis",
                         "reason": "composer_timeout",
                         "proposal_recorded": True,
-                        "brain": "cursor_composer",
+                        "brain": provider_brain,
                     },
                     reply=synthesis_proposal_recorded_reply(proposal.get("title")),
                     suggested_prompts=_faculty_starter_prompts(state),
-                    tool_name="cursor_composer",
+                    tool_name=provider_brain,
                 )
             try:
                 fallback_prompt, fallback_first_turn = _prepare_synthesis_fallback_prompt(
@@ -1142,7 +1296,7 @@ def run_cursor_composer_turn(
                     state=state,
                     first_user_turn=fallback_first_turn,
                     event_sink=event_sink,
-                    fallback_from="cursor_composer_timeout",
+                    fallback_from=f"{provider_brain}_timeout",
                 )
             except Exception as exc:
                 from scripts.research_data_mcp.desk_synthesis_fallback import (
@@ -1155,7 +1309,10 @@ def run_cursor_composer_turn(
                     else "provider_error"
                 )
                 turn = _composer_timeout_turn(
-                    state, elapsed=time.monotonic() - turn_started, limit=turn_budget
+                    state,
+                    elapsed=time.monotonic() - turn_started,
+                    limit=turn_budget,
+                    brain=provider_brain,
                 )
                 turn.action_result.update(
                     {
@@ -1166,7 +1323,10 @@ def run_cursor_composer_turn(
                 )
                 return turn
         return _composer_timeout_turn(
-            state, elapsed=time.monotonic() - turn_started, limit=turn_budget
+            state,
+            elapsed=time.monotonic() - turn_started,
+            limit=turn_budget,
+            brain=provider_brain,
         )
     except CursorSdkUnavailable as exc:
         if synthesis_context and not prime:
@@ -1239,7 +1399,7 @@ def run_cursor_composer_turn(
                     state=state,
                     first_user_turn=fallback_first_turn,
                     event_sink=event_sink,
-                    fallback_from="cursor_composer",
+                    fallback_from=provider_brain,
                 )
             except Exception as fallback_exc:
                 from scripts.research_data_mcp.desk_synthesis_fallback import (
@@ -1258,6 +1418,7 @@ def run_cursor_composer_turn(
             action_result={
                 "action": "composer_error",
                 "error": str(exc)[:400],
+                "brain": provider_brain,
                 **(
                     {
                         "mode": "synthesis",
@@ -1277,8 +1438,44 @@ def run_cursor_composer_turn(
                 )
             ),
             suggested_prompts=_faculty_starter_prompts(state),
-            tool_name="cursor_composer",
+            tool_name=provider_brain,
         )
+
+
+def run_copilot_composer_turn(
+    gateway: Any,
+    message: str,
+    state: dict[str, Any],
+    *,
+    session_id: str = "",
+    event_sink: DeskEventSink | None = None,
+    prime: bool = False,
+) -> AgentTurn:
+    """Run one sticky-account Copilot turn through the shared desk contract."""
+    from scripts.research_data_mcp.desk_copilot_provider import (
+        choose_copilot_account,
+        configured_copilot_accounts,
+        load_copilot_cursor_bindings,
+    )
+
+    account = choose_copilot_account(session_id, state)
+    sdk = load_copilot_cursor_bindings(account)
+    turn = run_cursor_composer_turn(
+        gateway,
+        message,
+        state,
+        session_id=session_id,
+        event_sink=event_sink,
+        prime=prime,
+        _sdk_override=sdk,
+        _credential_override="managed-by-copilot-launcher",
+        _brain_override="copilot_composer",
+        _models_override=["auto"],
+        _agent_state_key="copilot_session_id",
+    )
+    turn.action_result["copilot_account"] = account
+    turn.action_result["copilot_pool_size"] = len(configured_copilot_accounts())
+    return turn
 
 
 def run_desk_agent_turn(
@@ -1290,20 +1487,28 @@ def run_desk_agent_turn(
     session_id: str = "",
     event_sink: DeskEventSink | None = None,
 ) -> AgentTurn:
-    _ = orchestrator, session_id
+    _ = orchestrator
     from scripts.research_data_mcp.desk_direct_turns import (
         try_direct_equipment_turn,
         try_direct_synthesis_read_turn,
     )
-    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
+    from scripts.research_data_mcp.desk_synthesis_contract import is_synthesis_context
 
     direct = (
         try_direct_synthesis_read_turn(gateway, message, state)
-        if synthesis_first_turn(state)
+        if is_synthesis_context(state)
         else try_direct_equipment_turn(gateway, message, state)
     )
     if direct is not None:
         return direct
+    if selected_composer_provider() == "copilot_composer":
+        return run_copilot_composer_turn(
+            gateway,
+            message,
+            state,
+            session_id=session_id,
+            event_sink=event_sink,
+        )
     return run_cursor_composer_turn(
         gateway, message, state, session_id=session_id, event_sink=event_sink
     )

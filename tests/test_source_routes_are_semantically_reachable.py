@@ -78,7 +78,12 @@ def test_capability_tokens_are_searchable_as_words() -> None:
 
 def test_a_source_search_never_returns_held_datasets() -> None:
     index = _index()
-    hits = index.semantic_search("company fundamentals", limit=5, kinds={"source_route"})
+    hits = index.semantic_search(
+        "company fundamentals",
+        limit=5,
+        kinds={"source_route"},
+        require_ready=False,
+    )
     assert hits
     assert all(h.get("kind") == "source_route" for h in hits)
     assert "held_thing" not in {h.get("id") for h in hits}

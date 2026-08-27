@@ -33,7 +33,8 @@ dependencies = [
     "email-validator",
     "pytest",
     "pytest-asyncio",
-    "yfinance"
+    "yfinance",
+    "github-copilot-sdk==1.0.11"
 ]
 
 [project.optional-dependencies]

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -408,6 +409,51 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         self._send_json({"error": "not_found", "message": "DELETE not supported for this path"}, status=404)
 
 
+def _start_search_warmup(stack) -> None:
+    """Pay model load (~9s) and corpus embedding (~5s) off the first user's request."""
+
+    def _run() -> None:
+        import time as _time
+
+        started = _time.time()
+        try:
+            from scripts.research_data_mcp.datacite_prefetch import warm_search_indexes
+            from scripts.research_data_mcp.semantic_index import warm_semantic_index
+
+            status = warm_search_indexes(stack.repo_root)
+            status["registry_semantic"] = warm_semantic_index(stack.gateway)
+            stack.gateway.discover_search("warmup", limit=1)
+            print(
+                f"search_warmup=ready model={status.get('embedding_model')} "
+                f"elapsed={_time.time() - started:.1f}s",
+                flush=True,
+            )
+        except Exception as exc:
+            print(f"search_warmup=failed ({type(exc).__name__}: {exc})", flush=True)
+
+    threading.Thread(target=_run, name="search-warmup", daemon=True).start()
+
+
+def _start_composer_health_monitor() -> None:
+    """Keep the UI gate bound to a recent real provider observation."""
+
+    try:
+        from scripts.research_data_mcp.desk_warm import start_composer_health_monitor
+
+        started = start_composer_health_monitor()
+        print(
+            f"composer_health_monitor={'started' if started else 'already_running'}",
+            flush=True,
+        )
+    except Exception as exc:
+        # The desk must still bind and report unverified/degraded truth. A failed
+        # health observer is not authority to claim the provider is ready.
+        print(
+            f"composer_health_monitor=failed ({type(exc).__name__}: {exc})",
+            flush=True,
+        )
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -429,6 +475,8 @@ def main() -> int:
     ResearchQueryHandler.static_dir = static_dir
     ResearchQueryHandler.cors_origin = cors_origin
     server = ThreadingHTTPServer((args.host, args.port), ResearchQueryHandler)
+    _start_search_warmup(stack)
+    _start_composer_health_monitor()
     print(f"research_library_api=http://{args.host}:{args.port}")
     if args.serve_ui:
         print(f"research_desk_ui=http://{args.host}:{args.port}/  (static from {static_dir})")

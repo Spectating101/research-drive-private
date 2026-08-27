@@ -28,6 +28,7 @@ per column it costs a column.
 
 from __future__ import annotations
 
+from collections import Counter
 import re
 from pathlib import Path
 from typing import Any
@@ -227,6 +228,8 @@ def join_coverage(left_path: Path | str, right_path: Path | str,
         row: dict[str, Any] = {"left_key": lk, "right_key": rk, "usable": False,
                                "left_distinct": None, "right_distinct": None,
                                "right_duplicate_rows": None, "matched": None,
+                               "left_matched_rows": None, "inner_join_rows": None,
+                               "fanout_multiplier": None,
                                "match_rate_pct": None, "reason": None}
         if lk not in left_names or rk not in right_names:
             row["reason"] = "not present on both sides"
@@ -234,18 +237,27 @@ def join_coverage(left_path: Path | str, right_path: Path | str,
             continue
         left_values = left.read(columns=[lk]).column(lk).to_pylist()
         right_values = right.read(columns=[rk]).column(rk).to_pylist()
-        left_keys = {v for v in left_values if v is not None}
+        left_list = [v for v in left_values if v is not None]
         right_list = [v for v in right_values if v is not None]
-        right_keys = set(right_list)
+        left_counts = Counter(left_list)
+        right_counts = Counter(right_list)
+        left_keys = set(left_counts)
+        right_keys = set(right_counts)
         del left_values, right_values
-        matched = len(left_keys & right_keys)
+        matched_keys = left_keys & right_keys
+        matched = len(matched_keys)
         total = len(left_keys)
+        left_matched_rows = sum(left_counts[key] for key in matched_keys)
+        inner_join_rows = sum(left_counts[key] * right_counts[key] for key in matched_keys)
         row.update({
             "usable": bool(right_keys),
             "left_distinct": total,
             "right_distinct": len(right_keys),
             "right_duplicate_rows": len(right_list) - len(right_keys),
             "matched": matched,
+            "left_matched_rows": left_matched_rows,
+            "inner_join_rows": inner_join_rows,
+            "fanout_multiplier": round(inner_join_rows / left_matched_rows, 3) if left_matched_rows else 0.0,
             "match_rate_pct": round(100 * matched / total, 3) if total else 0.0,
         })
         if not right_keys:

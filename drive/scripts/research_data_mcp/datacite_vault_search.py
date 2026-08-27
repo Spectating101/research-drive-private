@@ -448,18 +448,38 @@ def _search_vault_topics_legacy(repo_root: Path, query: str, *, limit: int = 10)
     return search_curated_datasets(repo_root, query, limit=limit)
 
 _SEMANTIC_MODELS: dict[str, Any] = {}
+_CURATED_SEMANTIC_READY: set[tuple[str, int, int]] = set()
+
+
+def _curated_semantic_key(vec_path: Path) -> tuple[str, int, int]:
+    stat = vec_path.stat()
+    return (str(vec_path.resolve()), int(stat.st_size), int(stat.st_mtime_ns))
 
 
 def _semantic_model(name: str) -> Any:
-    """Cache the encoder. Loading it per query cost 4-9 seconds a call."""
+    """Reuse the desk encoder; two module-local copies doubled cold startup."""
     if name not in _SEMANTIC_MODELS:
-        from sentence_transformers import SentenceTransformer
+        from scripts.research_data_mcp.semantic_index import SemanticCatalogIndex
 
-        _SEMANTIC_MODELS[name] = SentenceTransformer(name)
+        _SEMANTIC_MODELS[name] = SemanticCatalogIndex._embedding_model_instance(name)
     return _SEMANTIC_MODELS[name]
 
 
-def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+def _semantic_floor() -> float:
+    raw = (os.environ.get("RESEARCH_SEMANTIC_MIN_SCORE") or "").strip()
+    try:
+        return float(raw) if raw else 0.40
+    except ValueError:
+        return 0.40
+
+
+def search_curated_semantic(
+    repo_root: Path,
+    query: str,
+    *,
+    limit: int = 8,
+    require_resident_model: bool = True,
+) -> list[dict[str, Any]]:
     """Meaning-based retrieval over the whole curated corpus.
 
     FTS is the binding constraint, not ranking: it finds 4 documents for "stock returns"
@@ -488,20 +508,41 @@ def search_curated_semantic(repo_root: Path, query: str, *, limit: int = 8) -> l
         meta = _json.loads(meta_path.read_text(encoding="utf-8"))
         rowids = [int(r) for r in (meta.get("rowids") or [])]
         matrix = np.load(vec_path, mmap_mode="r")
+        ready_key = _curated_semantic_key(vec_path)
     except Exception:
         return []
     if matrix.shape[0] != len(rowids) or not rowids:
         return []
 
+    model_name = str(meta.get("model") or "")
+    if require_resident_model and (
+        model_name not in _SEMANTIC_MODELS or ready_key not in _CURATED_SEMANTIC_READY
+    ):
+        # Model residency and vector-page residency are separate. The encoder
+        # becomes available first; traffic must still degrade to keyword until
+        # the startup scan has paged the 89 MB matrix into memory.
+        return []
     try:
-        model = _semantic_model(str(meta.get("model") or ""))
+        model = _semantic_model(model_name)
         qv = model.encode(query, normalize_embeddings=True, convert_to_numpy=True).astype("float32")
     except Exception:
         return []
 
     scores = np.asarray(matrix) @ qv
+    if not require_resident_model:
+        _CURATED_SEMANTIC_READY.add(ready_key)
+    # Measured over this corpus: gibberish tops out at 0.29-0.34 while real
+    # subject queries reach 0.47-0.59, so the floor removes noise. It does NOT
+    # separate "corpus has this" from "corpus has nothing like this" — an absent
+    # topic still scores ~0.46. Hits stay labelled match_type=semantic and are
+    # used to widen a thin keyword pass, never as a relevance claim.
+    floor = _semantic_floor()
     top = np.argsort(-scores)[: max(1, min(limit, 50))]
-    wanted = {rowids[int(i)]: float(scores[int(i)]) for i in top}
+    wanted = {
+        rowids[int(i)]: float(scores[int(i)])
+        for i in top
+        if float(scores[int(i)]) >= floor
+    }
     if not wanted:
         return []
 

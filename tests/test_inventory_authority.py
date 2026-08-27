@@ -12,6 +12,7 @@ from scripts.research_data_mcp.inventory_authority import (
     build_inventory_summary,
     inventory_compatible,
     is_excluded_operational_or_test,
+    registry_revision,
 )
 from scripts.research_data_mcp.search import SearchService
 from scripts.research_query_engine.engine import ResearchQueryEngine
@@ -109,6 +110,16 @@ def test_inventory_projection_separates_registered_visible_and_query_ready(tmp_p
     on_disk = json.loads(registry.read_text(encoding="utf-8"))
     assert len(on_disk["datasets"]) == 4
     assert on_disk["datasets"][0]["analysis_readiness"] == "instant"
+
+
+def test_registry_nanosecond_revision_is_json_safe_and_lossless(tmp_path: Path) -> None:
+    _root, registry = _write_registry(tmp_path, _rows())
+
+    revision = registry_revision(registry)
+
+    assert isinstance(revision["mtime_ns"], str)
+    assert int(revision["mtime_ns"]) == registry.stat().st_mtime_ns
+    assert json.loads(json.dumps(revision))["mtime_ns"] == revision["mtime_ns"]
 
 
 def test_silent_mismatch_is_detected_when_totals_diverge_under_shared_fingerprint(tmp_path: Path) -> None:

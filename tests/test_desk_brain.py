@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from scripts.research_data_mcp import desk_brain
 from scripts.research_data_mcp.desk_brain import AgentTurn, desk_brain_mode, run_cursor_composer_turn
+
+
+def test_vault_brief_requires_retrieval_before_dataset_recommendations() -> None:
+    from scripts.research_data_mcp.desk_vault_brief import build_vault_brief
+
+    repo_root = Path(__file__).resolve().parents[1]
+    brief = build_vault_brief(repo_root)
+
+    assert "research_semantic_discover" in brief
+    assert "research_discover_search for external acquisition sources" in brief
+    assert "Use only exact dataset_id values returned by a tool" in brief
+    assert "Call an asset query-ready only when the tool says query_ready=true" in brief
+    assert "instead of substituting a mapping table" in brief
+    assert "orientation, not permission to skip retrieval" in brief
+    assert "trust this for inventory questions" not in brief
+    assert "Do not re-survey the vault" not in brief
 
 
 class _FakeOptions:
@@ -151,6 +168,130 @@ def test_empty_composer_reply_does_not_invent_candidates(monkeypatch) -> None:
     assert turn.action_result["action"] == "composer_error"
     assert "candidates" not in turn.action_result
     assert "did not return a usable answer" in turn.reply
+
+
+def test_composer_retries_configured_fallback_after_provider_error(monkeypatch) -> None:
+    """A known failed model run may recover on the configured fallback model."""
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setenv("DESK_COMPOSER_MODEL", "default")
+    monkeypatch.setenv("DESK_COMPOSER_MODEL_FALLBACK", "composer-2.5")
+    gateway = MagicMock()
+    gateway.repo_root = "/tmp/repo"
+
+    class FailedRun:
+        status = "error"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return ""
+
+        def conversation(self):
+            return []
+
+    class SuccessfulRun:
+        status = "completed"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "Recovered by the configured fallback model."
+
+        def conversation(self):
+            return []
+
+    class FakeAgent:
+        def __init__(self, agent_id, run):
+            self.agent_id = agent_id
+            self._run = run
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def send(self, _text, options=None):
+            return self._run
+
+        def close(self):
+            pass
+
+    attempts = [
+        FakeAgent("failed-agent", FailedRun()),
+        FakeAgent("recovered-agent", SuccessfulRun()),
+    ]
+    agent = SimpleNamespace(
+        create=MagicMock(side_effect=attempts),
+        resume=MagicMock(),
+    )
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: _sdk_bindings(agent))
+
+    turn = run_cursor_composer_turn(
+        gateway,
+        "what TWSE data do we have?",
+        {"desk_primed": True},
+    )
+
+    assert turn.reply == "Recovered by the configured fallback model."
+    assert turn.action_result["composer_model"] == "composer-2.5"
+    assert agent.create.call_count == 2
+
+
+def test_composer_does_not_retry_after_a_tool_call_started(monkeypatch) -> None:
+    """A model failure after MCP activity must not replay a potentially mutating turn."""
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key")
+    monkeypatch.setenv("DESK_COMPOSER_MODEL", "default")
+    monkeypatch.setenv("DESK_COMPOSER_MODEL_FALLBACK", "composer-2.5")
+    gateway = MagicMock()
+    gateway.repo_root = "/tmp/repo"
+
+    class FailedRun:
+        status = "error"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return ""
+
+        def conversation(self):
+            return []
+
+    class FakeAgent:
+        agent_id = "agent-with-tool-call"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def send(self, _text, options=None):
+            options.kwargs["on_delta"](
+                {"type": "tool-call-started", "tool_call": {"name": "collect"}}
+            )
+            return FailedRun()
+
+        def close(self):
+            pass
+
+    agent = SimpleNamespace(
+        create=MagicMock(return_value=FakeAgent()),
+        resume=MagicMock(),
+    )
+    monkeypatch.setattr(desk_brain, "_load_cursor_sdk_bindings", lambda: _sdk_bindings(agent))
+
+    turn = run_cursor_composer_turn(
+        gateway,
+        "what TWSE data do we have?",
+        {"desk_primed": True},
+    )
+
+    assert turn.action_result["composer_model"] == "default"
+    assert agent.create.call_count == 1
 
 
 def test_tool_activity_label() -> None:

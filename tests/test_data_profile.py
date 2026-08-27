@@ -131,6 +131,20 @@ def test_duplicate_right_rows_are_counted_separately_from_coverage(sides):
     left, right = sides
     row = join_coverage(left, right, ["sym"])[0]
     assert row["right_duplicate_rows"] == 1
+    assert row["left_matched_rows"] == 2
+    assert row["inner_join_rows"] == 3
+    assert row["fanout_multiplier"] == 1.5
+
+
+def test_join_cardinality_measures_row_fanout_on_matched_keys(tmp_path):
+    left = _write(tmp_path, pd.DataFrame({"sym": ["A", "A", "B", "C"]}), "left_fanout")
+    right = _write(tmp_path, pd.DataFrame({"sym": ["A", "A", "A", "B"]}), "right_fanout")
+    row = join_coverage(left, right, ["sym"])[0]
+    assert row["matched"] == 2
+    assert row["left_distinct"] == 3
+    assert row["left_matched_rows"] == 3
+    assert row["inner_join_rows"] == 7
+    assert row["fanout_multiplier"] == 2.333
 
 
 def test_a_cross_named_key_is_supported(sides):

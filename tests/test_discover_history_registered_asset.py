@@ -3,7 +3,7 @@ from __future__ import annotations
 from scripts.research_data_mcp.discover_history import build_discover_history
 
 
-def _job(*, verified: bool = True) -> dict:
+def _job(*, verified: bool = True, readiness: str = "registered") -> dict:
     return {
         "id": "research-acquisition-20260720a",
         "title": "Research acquisition",
@@ -20,7 +20,7 @@ def _job(*, verified: bool = True) -> dict:
                 "vault_path": "gdrive:Research-Drive/research_acquisition_20260720",
                 "archive_verified": verified,
                 "registry_readback": verified,
-                "readiness": "registered",
+                "readiness": readiness,
             }
         },
     }
@@ -45,6 +45,21 @@ def test_verified_registration_receipt_enters_history_without_discover_link() ->
 def test_unverified_global_job_remains_excluded() -> None:
     out = build_discover_history(jobs=[_job(verified=False)])
     assert out["items"] == []
+
+
+def test_receipt_readiness_cannot_override_failed_catalog_reconciliation() -> None:
+    """A receipt is proof of registration, not current query authority."""
+    out = build_discover_history(jobs=[_job(readiness="query_ready")])
+
+    row = out["items"][0]
+    assert row["readiness"] == "query_ready"
+    assert row["catalog_reconciliation"]["state"] == "receipt_only"
+    assert row["catalog_reconciliation"]["query_allowed"] is False
+    assert row["status"] == "registered_not_queryable"
+    assert row["query_ready"] is False
+    assert row["usable"] is False
+    assert row["holding_status"] == "archived"
+    assert "not query-ready" in row["summary"]
 
 
 def test_registered_filter_returns_only_registered_asset_outcomes() -> None:

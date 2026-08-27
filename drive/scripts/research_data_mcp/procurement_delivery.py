@@ -67,8 +67,14 @@ def build_scrape_card(gateway: Any, job_id: str) -> dict[str, Any] | None:
     }
 
 
-def format_ready_delivery(gateway: Any, campaign_id: str) -> tuple[str, dict[str, Any]]:
-    """Build reply + artifacts when a campaign is ready or has deliverables."""
+def format_ready_delivery(
+    gateway: Any, campaign_id: str, *, read_only: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """Build reply + artifacts when a campaign is ready or has deliverables.
+
+    read_only suppresses auto-archive: reporting what happened must never itself
+    create a job.
+    """
     artifacts: dict[str, Any] = {}
     lines: list[str] = [f"**Campaign `{campaign_id}` is ready.**"]
     state_patch: dict[str, Any] = {"campaign_id": campaign_id, "last_handle": f"campaign:{campaign_id}"}
@@ -128,7 +134,7 @@ def format_ready_delivery(gateway: Any, campaign_id: str) -> tuple[str, dict[str
     try:
         from scripts.research_data_mcp.procurement_archive import archive_from_card
 
-        if card:
+        if card and not read_only:
             archived = archive_from_card(gateway, card, campaign_id=campaign_id)
             if archived:
                 jid = (archived.get("archive_job") or {}).get("job", {}).get("id", "")
@@ -139,15 +145,19 @@ def format_ready_delivery(gateway: Any, campaign_id: str) -> tuple[str, dict[str
     return "\n".join(lines) + archive_note, {**artifacts, "state_patch": state_patch}
 
 
-def format_campaign_status(gateway: Any, campaign_id: str, state: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    advance_workers(gateway)
+def format_campaign_status(
+    gateway: Any, campaign_id: str, state: dict[str, Any], *, read_only: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """read_only makes this a pure snapshot — no worker ticks, no archive jobs."""
+    if not read_only:
+        advance_workers(gateway)
     cfg = getattr(getattr(gateway, "orchestrator", None), "cfg", {}) or {}
     campaign = gateway.get_campaign(campaign_id)
     phase = str(campaign.get("phase") or "")
     payload = campaign.get("payload") or {}
 
     if phase == "ready":
-        return format_ready_delivery(gateway, campaign_id)
+        return format_ready_delivery(gateway, campaign_id, read_only=read_only)
 
     lines = [
         f"**Campaign `{campaign_id}`**",
@@ -220,6 +230,25 @@ def procured_files_from_job(gateway: Any, job: dict[str, Any]) -> list[dict[str,
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
 
+    def _logical_path(declared_root: str, physical_root: Path, path: Path) -> str:
+        """Keep artifact links in the desk namespace when storage is symlinked.
+
+        Runtime data lives outside the serving checkout, reached through paths
+        such as ``data_lake/procured``.  Resolving that symlink and then calling
+        ``relative_to(repo)`` raises even though the artifact has a valid,
+        researcher-facing path.  Derive the displayed path from the declared
+        destination instead of exposing or depending on the physical mount.
+        """
+        try:
+            suffix = path.relative_to(physical_root)
+        except ValueError:
+            suffix = Path(path.name)
+        root = str(declared_root or "").strip().strip("/")
+        tail = suffix.as_posix().strip("/")
+        if tail in {"", "."}:
+            return root
+        return f"{root}/{tail}" if root else tail
+
     def _add(name: str, rel: str, nbytes: int = 0) -> None:
         rel = rel.strip().lstrip("/")
         if not rel or rel in seen:
@@ -255,7 +284,11 @@ def procured_files_from_job(gateway: Any, job: dict[str, Any]) -> list[dict[str,
         if dest_path.is_dir():
             for path in sorted(dest_path.iterdir()):
                 if path.is_file():
-                    _add(path.name, str(path.relative_to(repo)), path.stat().st_size)
+                    _add(
+                        path.name,
+                        _logical_path(str(dest), dest_path, path),
+                        path.stat().st_size,
+                    )
 
     if not out and (
         str(plan.get("job_type") or "") == "collection_queue_task" or result.get("task_id")
@@ -273,10 +306,14 @@ def procured_files_from_job(gateway: Any, job: dict[str, Any]) -> list[dict[str,
         if out_dir:
             snap = (repo / out_dir).resolve()
             if snap.is_dir():
-                _add(snap.name, str(snap.relative_to(repo)))
+                _add(snap.name, _logical_path(out_dir, snap, snap))
                 for path in sorted(snap.rglob("*"))[:12]:
                     if path.is_file():
-                        _add(path.name, str(path.relative_to(repo)), path.stat().st_size)
+                        _add(
+                            path.name,
+                            _logical_path(out_dir, snap, path),
+                            path.stat().st_size,
+                        )
         else:
             hint = str(result.get("output_hint") or plan.get("output_hint") or "").strip().rstrip("/")
             if hint:
@@ -289,10 +326,14 @@ def procured_files_from_job(gateway: Any, job: dict[str, Any]) -> list[dict[str,
                     )
                     if children:
                         latest = children[0]
-                        _add(latest.name, str(latest.relative_to(repo)))
+                        _add(latest.name, _logical_path(hint, base, latest))
                         for path in sorted(latest.rglob("*"))[:12]:
                             if path.is_file():
-                                _add(path.name, str(path.relative_to(repo)), path.stat().st_size)
+                                _add(
+                                    path.name,
+                                    _logical_path(hint, base, path),
+                                    path.stat().st_size,
+                                )
 
     return out
 

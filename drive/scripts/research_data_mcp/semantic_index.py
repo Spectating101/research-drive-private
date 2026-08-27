@@ -46,6 +46,60 @@ STOPWORDS = frozenset(
 )
 
 
+def _semantic_relevance_floor() -> float:
+    raw = (os.environ.get("RESEARCH_SEMANTIC_QUERY_FLOOR") or "").strip()
+    try:
+        return float(raw) if raw else 0.25
+    except ValueError:
+        return 0.25
+
+
+def _semantic_tail_drop() -> float:
+    """Maximum cosine drop from the best hit retained in one result set."""
+    raw = (os.environ.get("RESEARCH_SEMANTIC_TAIL_DROP") or "").strip()
+    try:
+        return max(0.0, float(raw)) if raw else 0.16
+    except ValueError:
+        return 0.16
+
+
+def _query_has_subject_signal(query: str, vocabulary: set[str] | None = None) -> bool:
+    """Reject embedding-shaped noise without rejecting exact research identifiers.
+
+    Sentence encoders map every string somewhere, including keyboard noise.  A
+    query is eligible for semantic widening when it contains a token already
+    observed in the indexed corpus, a word-like token with at least two vowels,
+    or CJK text.  Exact identifiers that do not meet this boundary remain
+    available through the keyword index.
+    """
+    text = str(query or "").strip()
+    if not text:
+        return False
+    if re.search(r"[\u3400-\u9fff]", text):
+        return True
+    known = vocabulary or set()
+    for token in re.findall(r"[a-z][a-z0-9_]{2,}", text.lower()):
+        if token in known:
+            return True
+        if sum(char in "aeiouy" for char in token) >= 2:
+            return True
+    return False
+
+
+def _require_resident_embedding_model() -> bool:
+    raw = (os.environ.get("RESEARCH_SEMANTIC_BLOCK_ON_COLD_MODEL") or "").strip().lower()
+    return raw not in {"1", "true", "on"}
+
+
+def warm_embedding_model(model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+    """Load the sentence-transformer ahead of traffic. ~9s, paid once per process."""
+    try:
+        SemanticCatalogIndex._embedding_model_instance(model_name)
+        return True
+    except Exception:
+        return False
+
+
 class SemanticCatalogIndex:
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
@@ -136,6 +190,8 @@ class SemanticCatalogIndex:
                         "grain": ds.get("grain") or "",
                         "source": ds.get("source") or ds.get("backend") or "registry",
                         "readiness": ds.get("analysis_readiness") or "",
+                        "access_shape": ds.get("access_shape") or "",
+                        "shelf_hint": ds.get("shelf_hint") or "",
                     },
                 }
             )
@@ -257,6 +313,22 @@ class SemanticCatalogIndex:
         self._embeddings = values.tolist()
         self._embedding_model = model_name
 
+    def embeddings_ready(self, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+        return bool(
+            model_name in _EMBEDDING_MODELS
+            and self._embeddings is not None
+            and self._embedding_model == model_name
+            and len(self._embeddings) == len(self._docs)
+        )
+
+    def warm_embeddings(self, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+        """Build the registry vectors only from the startup warmup thread."""
+        try:
+            self._ensure_embeddings(model_name=model_name)
+            return self.embeddings_ready(model_name=model_name)
+        except Exception:
+            return False
+
     def _score(self, query_tokens: list[str], doc_tokens: list[str]) -> float:
         if not query_tokens or not doc_tokens:
             return 0.0
@@ -281,6 +353,79 @@ class SemanticCatalogIndex:
         ranked.sort(key=lambda pair: pair[0], reverse=True)
         return [item for _score, item in ranked[:limit]]
 
+    def subject_search(
+        self,
+        query: str,
+        *,
+        limit: int = 12,
+        kinds: set[str] | None = None,
+        floor: float = 0.0,
+    ) -> list[dict[str, Any]]:
+        """Rank by whether the document actually carries the query's subject.
+
+        Cosine is the wrong primary retriever for a research question: it ranks
+        by resemblance, so a monthly environmental panel outranks nothing at all
+        for "forest fire and economic changes". Subject overlap is scored over
+        every document rather than over cosine's shortlist, so a dataset that
+        genuinely holds the subject can be surfaced even when the encoder never
+        shortlisted it.
+        """
+        if not self._built or not str(query or "").strip():
+            return []
+        ranked: list[tuple[float, dict[str, Any]]] = []
+        for index, doc in enumerate(self._docs):
+            if kinds and str(doc.get("kind")) not in kinds:
+                continue
+            score = self.subject_overlap(query, index)
+            if score < floor or score <= 0.0:
+                continue
+            ranked.append(
+                (
+                    score,
+                    {
+                        "id": doc.get("id"),
+                        "kind": doc.get("kind"),
+                        "subject_score": round(score, 4),
+                        "metadata": dict(doc.get("metadata") or {}),
+                    },
+                )
+            )
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        return [item for _score, item in ranked[:limit]]
+
+    def doc_index_for(self, dataset_id: str) -> int | None:
+        target = str(dataset_id or "")
+        for i, doc in enumerate(self._docs):
+            if str(doc.get("id") or "") == target:
+                return i
+        return None
+
+    def subject_overlap(self, query: str, doc_index: int) -> float:
+        """How much rare query vocabulary the document actually contains.
+
+        Embeddings match form as readily as subject: "forest fire and economic
+        changes" pulled Mauna Loa CO2 and an earthquake catalog because a
+        monthly environmental panel *looks* like the answer. A shared rare word
+        is evidence the subject is really present; a shared common one is not,
+        so each term is weighted by how few documents carry it.
+        """
+        doc = self._docs[doc_index] if 0 <= doc_index < len(self._docs) else None
+        if not doc:
+            return 0.0
+        terms = set(_tokenize(query))
+        if not terms:
+            return 0.0
+        text = set(_tokenize(str(doc.get("text") or "")))
+        total = max(1, len(self._docs))
+        score = 0.0
+        for term in terms:
+            if term not in text:
+                continue
+            seen = self._df.get(term, 0)
+            # rarity in [0, 1]: a term in every document contributes nothing
+            score += 1.0 - (min(seen, total) / total)
+        return score / len(terms)
+
     def semantic_search(
         self,
         query: str,
@@ -288,9 +433,15 @@ class SemanticCatalogIndex:
         limit: int = 8,
         kinds: set[str] | None = None,
         model_name: str = DEFAULT_EMBEDDING_MODEL,
+        require_ready: bool = True,
     ) -> list[dict[str, Any]]:
         """Embedding retrieval for research questions, distinct from token catalog lookup."""
         if not self._built or not query.strip():
+            return []
+        if require_ready and _require_resident_embedding_model() and not self.embeddings_ready(model_name=model_name):
+            # The encoder can become resident several seconds before the corpus
+            # vectors finish. Treat the pair as one readiness boundary so a user
+            # request never races the warmup by building the same corpus again.
             return []
         self._ensure_embeddings(model_name=model_name)
         model = self._embedding_model_instance(model_name)
@@ -313,7 +464,20 @@ class SemanticCatalogIndex:
                 )
             )
         ranked.sort(key=lambda pair: pair[0], reverse=True)
-        return [item for _score, item in ranked[:limit]]
+        if not ranked:
+            return []
+        # Nearest-neighbour retrieval always returns its top-k, even for random
+        # text.  An absolute score alone is not sufficient: the live corpus
+        # scored ``zzqvjjk plmxxc`` at 0.2725, above the old 0.25 boundary.
+        # Require a subject signal in the original query, then keep only the
+        # coherent neighbourhood around the best result instead of presenting
+        # the unrelated tail as additional evidence.
+        top_score = ranked[0][0]
+        floor = _semantic_relevance_floor()
+        if top_score < floor or not _query_has_subject_signal(query, set(self._df)):
+            return []
+        row_floor = max(floor - 0.05, top_score - _semantic_tail_drop())
+        return [item for score, item in ranked if score >= row_floor][:limit]
 
     def confidence(self, query: str, top: dict[str, Any] | None) -> str:
         if not top:
@@ -329,10 +493,17 @@ class SemanticCatalogIndex:
         return "low"
 
 
+INDEX_SCHEMA_VERSION = "2-access-shape"
+
+
 def get_semantic_index(gateway: Any, *, ttl_hours: float = 168) -> SemanticCatalogIndex:
     """Shared semantic index with disk cache invalidated on catalog fingerprint change."""
     repo_root = Path(gateway.repo_root).resolve()
-    fp = catalog_fingerprint(repo_root, gateway.registry_path)
+    # The fingerprint tracks the catalog, not the code that indexes it, so a
+    # change to what each document carries — a new metadata field, a different
+    # text blob — silently reused a stale snapshot forever. Bump this whenever
+    # build() changes what it stores.
+    fp = f"{catalog_fingerprint(repo_root, gateway.registry_path)}:{INDEX_SCHEMA_VERSION}"
     cache_key = f"{fp}"
     if cache_key in _INDEX_SINGLETON:
         return _INDEX_SINGLETON[cache_key]
@@ -348,6 +519,11 @@ def get_semantic_index(gateway: Any, *, ttl_hours: float = 168) -> SemanticCatal
 
     _INDEX_SINGLETON[cache_key] = index
     return index
+
+
+def warm_semantic_index(gateway: Any, *, model_name: str = DEFAULT_EMBEDDING_MODEL) -> bool:
+    """Make the registry semantic index resident before it is used by traffic."""
+    return get_semantic_index(gateway).warm_embeddings(model_name=model_name)
 
 
 def invalidate_semantic_index() -> None:

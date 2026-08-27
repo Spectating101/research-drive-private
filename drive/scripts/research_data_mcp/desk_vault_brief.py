@@ -61,7 +61,7 @@ def build_vault_brief(repo_root: Path, faculty_profile: dict[str, Any] | None = 
     ready = [line for line, _rid in ranked]
 
     lines = [
-        "Desk vault brief (already loaded for this chat — trust this for inventory questions).",
+        "Desk vault brief (already loaded for orientation; it is not a ranked search result).",
         "Doctrine: identify need → research_craft_collect_plan (generic) → yzu_submit_job → flywheel. Never named vendor downloaders.",
         (
             f"On disk: {vault.get('registry_on_disk', '?')} registered datasets, "
@@ -138,9 +138,19 @@ def build_vault_brief(repo_root: Path, faculty_profile: dict[str, Any] | None = 
     )
 
     lines.append(
+        "For any request to find, identify, compare, or recommend held datasets, call "
+        "research_semantic_discover with the researcher's actual need before describing or querying a dataset. "
+        "Use research_discover_search for external acquisition sources, not as the held-Library search. "
+        "Use only exact dataset_id values returned by a tool; never infer an id from a shelf, group, or title. "
+        "Do not add a geography, universe, or topic from this brief unless the researcher asked for it. "
+        "Call an asset query-ready only when the tool says query_ready=true; if too few rows satisfy the request, "
+        "state the shortfall instead of substituting a mapping table, context panel, or unavailable asset. "
+        "The short Ready now list is orientation, not permission to skip retrieval or claim relevance."
+    )
+    lines.append(
         "Reply in normal conversational prose (≤8 sentences on the first answer). "
         "No file paths or registry ids unless the user asks for technical detail. "
-        "Do not re-survey the vault on this turn — use tools only for samples, query, collect, or hydrate."
+        "Do not enumerate the whole vault; inspect only the evidence needed for this request."
     )
     return "\n".join(lines)
 

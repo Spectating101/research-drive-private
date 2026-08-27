@@ -385,24 +385,55 @@ def try_direct_status_turn(
             "Composer is still finishing your previous planning turn in the background. "
             "You can keep using Discover and Probe while it completes."
         )
+    action_result: dict[str, Any] = {"action": "status", "fast_path": True}
     pending_job_id = str(state.get("pending_job_id") or "").strip()
     if pending_job_id:
         try:
             job = gateway.orchestrator.store.get(pending_job_id)
             status = str(job.get("status") or "unknown")
-            lines.append(f"Pending job `{pending_job_id[:12]}…` is **{status}**.")
+            note = ""
+            if status == "completed":
+                # The job record already knows which files landed and how large
+                # they are; reporting only "completed" made the researcher ask
+                # again for what the desk was holding.
+                from scripts.research_data_mcp.procurement_delivery import (
+                    format_job_collect_outcome,
+                )
+
+                note, artifacts = format_job_collect_outcome(
+                    gateway, pending_job_id, job=job
+                )
+                if isinstance(artifacts, dict):
+                    action_result.update(artifacts)
+            lines.append(note or f"Pending job `{pending_job_id[:12]}…` is **{status}**.")
         except Exception as exc:  # noqa: BLE001
             lines.append(f"Pending job `{pending_job_id[:12]}…` — could not load status ({exc}).")
     campaign_id = str(state.get("campaign_id") or "").strip()
+    prompts = ["Search vault for related datasets", "Probe a candidate URL"]
     if campaign_id:
-        lines.append(f"Active campaign: `{campaign_id[:16]}…`")
+        # The campaign already knows its phase, jobs, recommendations and
+        # delivered files. Reporting a truncated id instead made the operator
+        # ask Composer for what the desk could answer itself. Asking for status
+        # must not advance workers or queue archives, hence read_only.
+        try:
+            from scripts.research_data_mcp.procurement_delivery import format_campaign_status
+
+            summary, artifacts = format_campaign_status(
+                gateway, campaign_id, state, read_only=True
+            )
+            lines.append(summary)
+            if isinstance(artifacts, dict):
+                action_result.update(artifacts)
+            prompts = ["Show the campaign artifacts", "Query the delivered dataset"]
+        except Exception as exc:  # noqa: BLE001
+            lines.append(f"Active campaign: `{campaign_id[:16]}…` — status unavailable ({exc}).")
     if not lines:
         lines.append("No pending Composer turn or collection job for this session.")
     return AgentTurn(
         plan={"action": "status", "fast_path": True},
-        action_result={"action": "status", "fast_path": True},
+        action_result=action_result,
         reply="\n".join(lines),
-        suggested_prompts=["Search vault for related datasets", "Probe a candidate URL"],
+        suggested_prompts=prompts,
         tool_name="desk_status",
     )
 

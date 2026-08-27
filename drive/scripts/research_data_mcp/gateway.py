@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import json
 import re
 from pathlib import Path
@@ -14,6 +15,37 @@ from scripts.research_data_mcp.search import SearchService
 from scripts.research_query_engine.agent import AgentOrchestrator
 from scripts.research_query_engine.engine import ResearchQueryEngine
 from scripts.yzu_cluster.api import YzuClusterAPI
+
+
+def _subject_floor() -> float:
+    """Off by default: this must become a ranking signal, not a filter.
+
+    Measured on the production index, rarity-weighted subject overlap separates
+    cleanly — 0.945-0.988 where the desk holds the subject, 0.249-0.332 where it
+    does not. But applying it as a gate over the cosine candidate set removes
+    everything, because cosine never surfaces the high-overlap document in the
+    first place: for "forest fire and economic changes" it returns Mauna Loa CO2
+    and an earthquake catalog, and the datasets that would score well are not in
+    the candidate set to be kept. Retrieval has to rank by overlap rather than
+    filter by it. Set RESEARCH_SUBJECT_MIN_OVERLAP to experiment.
+    """
+    raw = (os.environ.get("RESEARCH_SUBJECT_MIN_OVERLAP") or "").strip()
+    try:
+        return float(raw) if raw else 0.25
+    except ValueError:
+        return 0.25
+
+
+# Shapes that exist to help find evidence. They must never be offered as an
+# answer to a research question.
+_DISCOVERY_INSTRUMENT_SHAPES = frozenset(
+    {"metadata_index", "source_family_registry", "ops_status"}
+)
+
+
+def _is_discovery_instrument(meta: dict[str, Any]) -> bool:
+    shape = str(meta.get("access_shape") or "").strip().lower()
+    return shape in _DISCOVERY_INSTRUMENT_SHAPES
 
 
 class ResearchDataGateway:
@@ -724,6 +756,26 @@ class ResearchDataGateway:
         semantic_top = max((float(r.get("score") or 0.0) for r in semantic_rows), default=0.0)
         if semantic_rows:
             candidates = semantic_rows + candidates
+        # profile_score_adjustment has existed unreachable: the desk loaded a
+        # researcher's domain_tags and ranked nothing by them. Boosts only.
+        #
+        # Its demote half is deliberately not applied. Measured on this desk, a
+        # "carbon emissions by country" query demoted FaIR climate calibration by
+        # -1.20 because climate is not one of the profile's domains — burying the
+        # best answer to the question actually asked. Promoting what a researcher
+        # works on is helpful; hiding what they explicitly asked for is not.
+        if profile and candidates:
+            from scripts.research_data_mcp.faculty_profile import profile_score_adjustment
+
+            for candidate in candidates:
+                try:
+                    boost = profile_score_adjustment(candidate, query, profile)
+                except Exception:
+                    continue
+                if boost > 0:
+                    candidate["score"] = float(candidate.get("score") or 0.0) + boost
+                    candidate["profile_boost"] = round(boost, 3)
+            candidates.sort(key=lambda c: float(c.get("score") or 0.0), reverse=True)
         sections: list[dict[str, Any]] = []
         if candidates:
             from scripts.research_data_mcp.candidate_key import stamp_rows
@@ -801,12 +853,49 @@ class ResearchDataGateway:
         index = get_semantic_index(self)
         from scripts.research_data_mcp.candidate_key import stamp_rows
 
-        hits = index.semantic_search(q, limit=max(1, min(limit, 24)), kinds={"registry_dataset"})
+        want = max(1, min(limit, 24))
+        # Subject first: a dataset that carries the query's subject is a real
+        # answer even when the encoder never shortlisted it. Cosine then orders
+        # within that set, and only fills the remainder when subject retrieval
+        # comes up short — which is itself the honest signal that the desk does
+        # not hold the subject.
+        subject_hits = index.subject_search(
+            q, limit=want, kinds={"registry_dataset"}, floor=_subject_floor()
+        )
+        cosine_hits = index.semantic_search(q, limit=want, kinds={"registry_dataset"})
+        cosine_rank = {
+            str(h.get("id") or ""): n for n, h in enumerate(cosine_hits)
+        }
+        subject_hits.sort(
+            key=lambda h: (
+                cosine_rank.get(str(h.get("id") or ""), len(cosine_rank)),
+                -float(h.get("subject_score") or 0.0),
+            )
+        )
+        seen_ids = {str(h.get("id") or "") for h in subject_hits}
+        hits = subject_hits + [
+            h for h in cosine_hits if str(h.get("id") or "") not in seen_ids
+        ]
+        hits = hits[:want]
         rows: list[dict[str, Any]] = []
         for hit in hits:
             meta = dict(hit.get("metadata") or {})
             dataset_id = str(hit.get("id") or meta.get("dataset_id") or "")
             if not dataset_id:
+                continue
+            if _subject_floor() > 0.0:
+                doc_index = index.doc_index_for(dataset_id)
+                if doc_index is not None and index.subject_overlap(q, doc_index) < _subject_floor():
+                    # Cosine matches form: "forest fire and economic changes"
+                    # pulled Mauna Loa CO2 because a monthly environmental panel
+                    # looks like the answer. Measured on this registry, subject
+                    # overlap runs 0.885-0.986 where the desk holds the subject
+                    # and 0.25-0.65 where it does not, so the bands separate.
+                    continue
+            if _is_discovery_instrument(meta):
+                # A catalog index is how a researcher finds evidence, not
+                # evidence itself. "External Research Dataset Catalog" ranked
+                # above real data for a question about forest fires.
                 continue
             rows.append(
                 {
@@ -1245,7 +1334,14 @@ class ResearchDataGateway:
                     or "unavailable"
                 ),
                 "composer_runtime": composer_runtime,
-                "composer_model": os.getenv("DESK_COMPOSER_MODEL", "default"),
+                "composer_model": (
+                    composer_runtime.get("model")
+                    or (
+                        "auto"
+                        if brain == "copilot_composer"
+                        else os.getenv("DESK_COMPOSER_MODEL", "default")
+                    )
+                ),
                 "synthesis_fallback": synthesis_fallback_runtime,
                 "chat_timeout_seconds": chat_timeout_seconds(),
                 "llm_configured": composer_ok,
@@ -2002,6 +2098,111 @@ class ResearchDataGateway:
 
     def synthesis_thread_set_proposal(self, thread_id: str, proposal: dict | None) -> dict:
         return self._synthesis_thread_store().set_proposal(thread_id, proposal)
+
+    def synthesis_thread_measurements(self, thread_id: str, *, max_inputs: int = 4) -> dict:
+        """What a thread's mapped evidence states without a reasoning model.
+
+        column_profiles, unit_conflict and join_candidates are measurements of
+        held bytes, so they are available while the Composer runtime is down.
+
+        This endpoint deliberately refuses to measure an evidence-map proposal.
+        Search results are candidates, not thread state; treating them as inputs
+        before the researcher accepts the map would make the method surface look
+        further along than the durable construction actually is.
+        """
+        from scripts.research_data_mcp.synthesis.measured_state import measured_state
+
+        thread = self._synthesis_thread_store().get(thread_id)
+        state = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+        nodes = [n for n in (state.get("nodes") or []) if isinstance(n, dict)]
+        limit = max(1, min(int(max_inputs or 4), 8))
+        input_ids = [
+            str(node.get("dataset_id") or "").strip()
+            for node in nodes
+            if str(node.get("dataset_id") or "").strip()
+        ][:limit]
+        out = measured_state(self, nodes, max_inputs=limit)
+        out["thread_id"] = thread_id
+        out["input_dataset_ids"] = input_ids
+        out["measurement_basis"] = "mapped_evidence"
+        out["writes"] = False
+        return out
+
+    def synthesis_thread_evidence_map(self, thread_id: str, *, limit: int = 6) -> dict:
+        """Return a reviewable, held-only evidence-map proposal for one thread.
+
+        This is intentionally a read: semantic retrieval may identify useful
+        Library assets, but deciding that they belong in a construction remains
+        a researcher action.  Existing nodes are removed from the proposal so a
+        reload never reads as a second, duplicate map.
+        """
+        from scripts.research_data_mcp.synthesis.evidence_map import propose_evidence_nodes
+
+        thread = self._synthesis_thread_store().get(thread_id)
+        proposed = propose_evidence_nodes(
+            self,
+            str(thread.get("objective") or thread.get("state", {}).get("objective") or ""),
+            limit=max(1, min(int(limit or 6), 12)),
+        )
+        state = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+        existing = {
+            str(node.get("dataset_id") or node.get("id") or "")
+            for node in (state.get("nodes") or [])
+            if isinstance(node, dict)
+        }
+        nodes = [
+            node for node in (proposed.get("nodes") or [])
+            if str(node.get("dataset_id") or node.get("id") or "") not in existing
+        ]
+        reason = str(proposed.get("reason") or "")
+        if not nodes and not reason and existing:
+            reason = "all held matches are already mapped to this construction"
+        return {
+            "thread_id": thread_id,
+            "objective": proposed.get("objective") or thread.get("objective") or "",
+            "nodes": nodes,
+            "reason": reason,
+            "review_required": bool(proposed.get("review_required", False)),
+            "writes": False,
+        }
+
+    def synthesis_thread_apply_evidence_map(
+        self,
+        thread_id: str,
+        *,
+        dataset_ids: list | None = None,
+    ) -> dict:
+        """Persist only the exact held inputs a researcher reviewed and chose."""
+        proposal = self.synthesis_thread_evidence_map(thread_id, limit=12)
+        candidates = {
+            str(node.get("dataset_id") or node.get("id") or ""): node
+            for node in (proposal.get("nodes") or [])
+            if isinstance(node, dict) and str(node.get("dataset_id") or node.get("id") or "")
+        }
+        requested = []
+        for raw in dataset_ids or []:
+            value = str(raw or "").strip()
+            if value and value not in requested:
+                requested.append(value)
+        if not requested:
+            raise ValueError("Select one or more proposed held inputs before adding them to the map.")
+        unknown = [value for value in requested if value not in candidates]
+        if unknown:
+            raise ValueError("Only inputs in the current held-evidence proposal can be added to this map.")
+
+        operations = [{"op": "add_node", "node": candidates[value]} for value in requested]
+        operations.append(
+            {
+                "op": "append_activity",
+                "message": f"Added {len(requested)} reviewed held input{'s' if len(requested) != 1 else ''} to the evidence map.",
+            }
+        )
+        thread = self.synthesis_thread_apply_patch(
+            thread_id,
+            decision="apply",
+            operations=operations,
+        )
+        return {"thread": thread, "added": [candidates[value] for value in requested]}
 
     def synthesis_thread_propose_state(
         self,

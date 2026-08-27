@@ -108,7 +108,19 @@ class ResearchToolHandlers:
         node_id: str = "",
         execution_spec: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Propose a validated Synthesis-state change for researcher review; never applies it."""
+        """Propose a validated Synthesis-state change for review; never apply it.
+
+        Use only these operation shapes: {"op":"update_spec","patch":{...}},
+        {"op":"add_node","node":{...}}, {"op":"update_node","id":"...",
+        "patch":{...}}, {"op":"remove_node","id":"..."},
+        {"op":"add_edge","edge":{...}}, {"op":"update_edge","id":"...",
+        "patch":{...}}, or {"op":"append_activity","message":"..."}.
+        For a first reviewable construction, prefer one update_spec operation whose
+        patch records purpose, grain, coreEvidence, construction, validation,
+        unavailable, and limitations. Do not invent semantic operation names such
+        as define_construct or assign_evidence_roles. Added nodes need unique ids;
+        added edges must reference existing or simultaneously proposed nodes.
+        """
         thread = self.gateway.synthesis_thread_propose_state(
             thread_id,
             proposal_id=proposal_id,
@@ -696,15 +708,82 @@ class ResearchToolHandlers:
         )
 
     def research_semantic_discover(self, query: str, limit: int = 12) -> dict[str, Any]:
-        """Find held datasets by meaning, for a natural-language research question.
+        """Find held datasets for a natural-language research question.
 
-        Use this FIRST for any question phrased as prose ("daily returns for Taiwan
-        listed companies", "news sentiment for Indonesia"). Keyword search requires a
-        higher match score for every additional word, so a precisely worded question
-        returns fewer rows than a vague one; this path ranks by meaning instead and is
-        unaffected. Follow up with research_describe_dataset on the rows it returns.
+        Use this FIRST for prose such as "daily returns for Taiwan listed companies".
+        It uses the same adaptive semantic + keyword retrieval as the live Library,
+        because either layer can miss a valid held asset on its own. Follow up with
+        research_describe_dataset using only dataset_id values returned here.
         """
-        return self.gateway.semantic_discover(query, limit=min(max(int(limit), 1), 24))
+        lim = min(max(int(limit), 1), 24)
+        out = self.gateway.discover_search(
+            query,
+            limit=lim,
+        )
+        candidate_rows = [
+            row
+            for section in (out.get("sections") or [])
+            if isinstance(section, dict)
+            for row in (section.get("rows") or [])
+            if isinstance(row, dict)
+        ]
+        # A newly started MCP subprocess has not inherited the front door's
+        # resident embedding index. The catalog is the deterministic cold-path
+        # fallback and still carries the registry's materialization truth.
+        catalog = self.gateway.procurement_catalog(q=query, limit=max(24, lim * 2))
+        candidate_rows.extend(
+            row
+            for row in (catalog.get("registry") or [])
+            if isinstance(row, dict)
+        )
+
+        from scripts.research_data_mcp.registry_access import access_tier
+
+        rows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for candidate in candidate_rows:
+            dataset_id = str(candidate.get("dataset_id") or "").strip()
+            if not dataset_id or dataset_id in seen:
+                continue
+            try:
+                registered = self.gateway.describe_dataset(dataset_id)
+            except (KeyError, ValueError):
+                continue
+            materialization = registered.get("materialization") or {}
+            tier = access_tier(registered, repo_root=Path(self.gateway.repo_root))
+            rows.append(
+                {
+                    "kind": "registry_dataset",
+                    "dataset_id": dataset_id,
+                    "title": registered.get("name") or registered.get("title") or dataset_id,
+                    "description": registered.get("description") or "",
+                    "recommended_use": registered.get("recommended_use") or "",
+                    "limitations": registered.get("limitations") or "",
+                    "grain": registered.get("grain") or "",
+                    "analysis_readiness": registered.get("analysis_readiness") or "",
+                    "query_ready": materialization.get("query_ready") is True,
+                    "access_tier": tier,
+                    "source": registered.get("source_system") or registered.get("source_id") or "registry",
+                }
+            )
+            seen.add(dataset_id)
+            if len(rows) >= lim:
+                break
+
+        query_ready_count = sum(1 for row in rows if row["query_ready"])
+        return {
+            **out,
+            "mode": "adaptive_held",
+            "sections": [{"id": "held_registry", "label": "Held Library evidence", "rows": rows}] if rows else [],
+            "rows": rows,
+            "total": len(rows),
+            "query_ready_count": query_ready_count,
+            "selection_contract": (
+                "Call a dataset query-ready only when query_ready is true. "
+                "If fewer rows satisfy the requested topic, grain, and readiness than the user requested, "
+                "state the shortfall; do not substitute a mapping table, context panel, or unavailable asset."
+            ),
+        }
 
     def research_discover_search(
         self,

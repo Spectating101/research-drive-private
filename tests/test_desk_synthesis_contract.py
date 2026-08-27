@@ -37,6 +37,21 @@ def test_first_turn_contract_requires_interpretation_evidence_and_one_question()
     assert prompt.endswith("Construct a firm-week coordination proxy.")
 
 
+def test_proposal_contract_publishes_exact_patch_vocabulary():
+    from scripts.research_data_mcp.desk_synthesis_contract import wrap_synthesis_request
+
+    prompt = wrap_synthesis_request(
+        "Create and record one reviewable Synthesis proposal.",
+        first_user_turn=False,
+    )
+    compact = " ".join(prompt.split())
+
+    assert '"op":"update_spec","patch"' in prompt
+    assert "add_node, update_node" in prompt
+    assert "Never invent operation" in prompt
+    assert "correct it and call the tool once more in the same turn" in compact
+
+
 def test_followup_contract_preserves_context_without_restarting():
     from scripts.research_data_mcp.desk_synthesis_contract import wrap_synthesis_request
 
@@ -96,6 +111,52 @@ def test_synthesis_reply_guard_rejects_false_execution_and_question_churn():
     )
     assert "false_execution_claim" in violations
     assert "clarification_question_count" in violations
+
+
+def test_synthesis_reply_guard_allows_verified_query_ready_input():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_reply_violations,
+    )
+
+    violations = synthesis_reply_violations(
+        (
+            "Provisional construction: use the held JKSE panel as the spine. "
+            "The JKSE panel is query-ready at instrument-month grain, while the "
+            "candidate output would remain unbuilt until explicit approval. "
+            "Should the regime use relative ranks?"
+        ),
+        first_user_turn=True,
+    )
+    assert "false_execution_claim" not in violations
+
+
+def test_synthesis_reply_guard_rejects_query_ready_output_claim():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_reply_violations,
+    )
+
+    violations = synthesis_reply_violations(
+        (
+            "Provisional construction: use the held JKSE panel as the spine. "
+            "The synthesized output is now query-ready. "
+            "Should the regime use relative ranks?"
+        ),
+        first_user_turn=True,
+    )
+    assert "false_execution_claim" in violations
+
+
+def test_synthesis_proposal_request_detection_requires_explicit_proposal_language():
+    from scripts.research_data_mcp.desk_synthesis_contract import (
+        synthesis_request_requires_proposal,
+    )
+
+    assert synthesis_request_requires_proposal(
+        "Create one reviewable Synthesis proposal and record the proposal for review."
+    )
+    assert not synthesis_request_requires_proposal(
+        "Compare the available proxy definitions before we decide."
+    )
 
 
 def test_synthesis_history_is_bounded_and_provider_neutral():
@@ -665,6 +726,7 @@ def test_synthesis_mcp_registration_is_read_only(monkeypatch):
     names = set(registered_tool_names())
     assert "research_query_dataset" in names
     assert "research_synthesis_pair" in names
+    assert "research_synthesis_propose_state" in names
     assert "bigquery_dry_run" in names
     assert "research_synthesis_run" not in names
     assert "datacite_collect_doi" not in names

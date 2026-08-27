@@ -23,7 +23,12 @@ _FALSE_EXECUTION_CLAIMS = (
         r"(?:is\s+)?complete\b",
         re.I,
     ),
-    re.compile(r"\b(?:is|are|now)\s+query[- ]ready\b", re.I),
+    re.compile(
+        r"(?:^|[.!?]\s+)(?:the\s+)?(?:synthesized\s+|synthesised\s+)?"
+        r"(?:construct|synthesis|output|result|measure|panel|dataset)\s+"
+        r"(?:is|are)(?:\s+now)?\s+query[- ]ready\b",
+        re.I | re.M,
+    ),
 )
 
 
@@ -110,6 +115,14 @@ def first_turn_reply_is_acceptable(reply: str) -> bool:
     return not synthesis_reply_violations(reply, first_user_turn=True)
 
 
+def synthesis_request_requires_proposal(text: str) -> bool:
+    """Whether the faculty explicitly asked for durable review state."""
+    lowered = str(text or "").lower()
+    return "proposal" in lowered and any(
+        word in lowered for word in ("create", "draft", "propose", "record")
+    )
+
+
 def wrap_synthesis_request(user_text: str, *, first_user_turn: bool) -> str:
     """Attach the Synthesis operating contract to one Composer turn."""
     phase = (
@@ -148,6 +161,17 @@ Never imply that a proposed construct already exists. Keep proposed,
 materialised, archive-verified, registered, and query-ready states distinct.
 Never silently procure or execute. Mutating actions require an explicit,
 reviewable proposal and user approval.
+When the faculty asks to create or record a reviewable proposal, call
+research_synthesis_propose_state before the final prose. Prose alone is not a
+recorded proposal. That tool records review state only; never accept or execute it.
+For the first construction proposal, use an update_spec operation exactly shaped as
+{{"op":"update_spec","patch":{{"purpose":"...","grain":"...",
+"coreEvidence":[],"construction":[],"validation":[],"unavailable":[],
+"limitations":[]}}}}. Other accepted operation names are add_node, update_node,
+remove_node, add_edge, update_edge, and append_activity. Never invent operation
+names such as define_construct, assign_evidence_roles, or set_method_choices. If
+the proposal tool rejects an operation schema, correct it and call the tool once
+more in the same turn; do not ask the faculty to retry a recorder-format error.
 {phase.strip()}
 [/Synthesis workspace contract]
 

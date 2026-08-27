@@ -82,3 +82,16 @@ def test_old_success_becomes_stale_instead_of_staying_ready():
     assert status["verified"] is False
     assert status["error_category"] == "stale_observation"
     assert status["age_seconds"] > 60
+
+
+def test_default_freshness_window_is_operator_configurable(monkeypatch):
+    from scripts.research_data_mcp import desk_composer_health
+
+    monkeypatch.setenv("DESK_COMPOSER_HEALTH_TTL_SECONDS", "7200")
+    desk_composer_health._reset_composer_runtime_status()
+    desk_composer_health.record_composer_success(model="gpt-test")
+
+    status = desk_composer_health.composer_runtime_status(configured=True)
+
+    assert status["status"] == "ready"
+    assert status["max_age_seconds"] == 7200

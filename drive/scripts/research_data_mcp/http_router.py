@@ -72,6 +72,9 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/synthesis/profiles", "handler": "library_synthesis_profiles"},
     {"method": "GET", "path": "/library/synthesis/threads", "handler": "library_synthesis_threads_list"},
     {"method": "POST", "path": "/library/synthesis/threads", "handler": "library_synthesis_threads_create"},
+    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/evidence-map", "handler": "library_synthesis_thread_evidence_map"},
+    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/measurements", "handler": "library_synthesis_thread_measurements"},
+    {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/evidence-map", "handler": "library_synthesis_thread_apply_evidence_map"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/patches", "handler": "library_synthesis_thread_patch"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/proposal", "handler": "library_synthesis_thread_set_proposal"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/conversation", "handler": "library_synthesis_thread_link_conversation"},
@@ -946,6 +949,25 @@ def _handlers() -> dict[str, Handler]:
             state=state if isinstance(state, dict) else None,
         )
 
+    def library_synthesis_thread_measurements(stack, query, payload, params):
+        return stack.gateway.synthesis_thread_measurements(
+            params["thread_id"],
+            max_inputs=_query_int(query, "max_inputs", 4),
+        )
+
+    def library_synthesis_thread_evidence_map(stack, query, payload, params):
+        return stack.gateway.synthesis_thread_evidence_map(
+            params["thread_id"],
+            limit=_query_int(query, "limit", 6),
+        )
+
+    def library_synthesis_thread_apply_evidence_map(stack, query, payload, params):
+        body = payload if isinstance(payload, dict) else {}
+        return stack.gateway.synthesis_thread_apply_evidence_map(
+            params["thread_id"],
+            dataset_ids=body.get("dataset_ids") if isinstance(body.get("dataset_ids"), list) else [],
+        )
+
     def library_synthesis_thread_get(stack, query, payload, params):
         return stack.gateway.synthesis_thread_get(params["thread_id"])
 
@@ -1448,6 +1470,9 @@ def _handlers() -> dict[str, Handler]:
         "library_synthesis_profiles": library_synthesis_profiles,
         "library_synthesis_threads_list": library_synthesis_threads_list,
         "library_synthesis_threads_create": library_synthesis_threads_create,
+        "library_synthesis_thread_evidence_map": library_synthesis_thread_evidence_map,
+        "library_synthesis_thread_measurements": library_synthesis_thread_measurements,
+        "library_synthesis_thread_apply_evidence_map": library_synthesis_thread_apply_evidence_map,
         "library_synthesis_thread_get": library_synthesis_thread_get,
         "library_synthesis_thread_patch": library_synthesis_thread_patch,
         "library_synthesis_thread_set_proposal": library_synthesis_thread_set_proposal,

@@ -31,6 +31,7 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
         "research_analyze_dataset",
         "research_synthesis_list_profiles",
         "research_synthesis_pair",
+        "research_synthesis_propose_state",
         "research_synthesis_preflight_spec",
         "research_synthesis_materialisation",
         "research_discover_get_intent",
