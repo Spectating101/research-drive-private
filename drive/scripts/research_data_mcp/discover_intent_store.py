@@ -366,16 +366,13 @@ class DiscoverIntentStore:
         # Serialize against every decision mutation. If another tab changes a
         # route/proposal in the narrow job-created-but-not-yet-linked window, the
         # first durable job is execution authority and its recorded route wins.
-        replay = False
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             state = self._row_state_for_update(db, intent_id)
             collection = dict(state.get("collection") or {})
             existing_job_id = str(collection.get("job_id") or "")
             if existing_job_id:
-                if existing_job_id == incoming_job_id:
-                    replay = True
-                else:
+                if existing_job_id != incoming_job_id:
                     raise ValueError("Discover intent already has a collection job")
             else:
                 route_recovered = False
@@ -407,9 +404,8 @@ class DiscoverIntentStore:
                         "route_recovered": route_recovered,
                     },
                 )
-        # Return after the write transaction closes; avoid nested connections while
-        # the intent row is under an immediate write lock.
-        return self.get(intent_id) if replay or incoming_job_id else self.get(intent_id)
+        # Return only after the immediate write transaction closes.
+        return self.get(intent_id)
 
     def events(self, intent_id: str, *, limit: int = 50) -> list[dict[str, Any]]:
         self.get(intent_id)
