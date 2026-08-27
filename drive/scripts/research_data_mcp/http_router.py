@@ -80,6 +80,7 @@ ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/conversation", "handler": "library_synthesis_thread_link_conversation"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/discover-handoff", "handler": "library_synthesis_thread_discover_handoff"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/collect-missing", "handler": "library_synthesis_thread_collect_missing"},
+    {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/measurements", "handler": "library_synthesis_thread_measurements"},
     {"method": "GET", "path": "/library/synthesis/threads/{thread_id}/materialisation", "handler": "library_synthesis_thread_materialisation"},
     {"method": "POST", "path": "/library/synthesis/threads/{thread_id}/execute", "handler": "library_synthesis_thread_execute"},
     # Keep the greedy thread-id catch-all after nested thread actions.
@@ -1010,11 +1011,19 @@ def _handlers() -> dict[str, Handler]:
             limit=int(body.get("limit") or 8),
         )
 
+    def library_synthesis_thread_measurements(stack, query, payload, params):
+        return stack.gateway.synthesis_thread_measurements(
+            params["thread_id"], max_inputs=_query_int(query, "max_inputs", 8)
+        )
+
     def library_synthesis_thread_materialisation(stack, query, payload, params):
         return stack.gateway.synthesis_thread_materialisation(params["thread_id"])
 
     def library_synthesis_thread_execute(stack, query, payload, params):
-        return stack.gateway.synthesis_thread_submit_execution(params["thread_id"])
+        action = str((payload or {}).get("action") or "request_approval").strip()
+        return stack.gateway.synthesis_thread_submit_execution(
+            params["thread_id"], action=action
+        )
 
     def library_synthesis_thread_link_conversation(stack, query, payload, params):
         return stack.gateway.synthesis_thread_link_conversation(
