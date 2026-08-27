@@ -27,7 +27,9 @@ def test_source_probe_compiles_runtime_owned_placement():
         "resource_requirements": {"cpu_cores": 0.25, "memory_mb": 128.0},
     }
     assert [stage["id"] for stage in plan["cluster_execution"]["stages"]] == ["probe"]
+    assert plan["cluster_execution"]["stages"][0]["produces"] == ["source_classification"]
     assert plan["cluster_execution"]["evidence_acceptance"]["gap_closure"] == "not_proven_by_collection"
+    assert plan["cluster_execution"]["engineering_summary"]["placement"] == "runtime"
 
 
 def test_http_manifest_uses_bounded_parallelism_without_binding_workers():
@@ -57,6 +59,28 @@ def test_http_manifest_uses_bounded_parallelism_without_binding_workers():
     assert "pool" not in plan
 
 
+def test_model_cannot_override_compiler_fanout_or_retry_bounds():
+    plan = compile_procurement_execution_plan(
+        {
+            "title": "Hostile fanout",
+            "job_type": "http_manifest",
+            "items": [
+                {"url": f"https://example.com/file-{idx}.csv"}
+                for idx in range(20)
+            ],
+            "shards": 100,
+            "per_node_workers": 50,
+            "max_attempts": 999,
+        }
+    )
+
+    assert plan["shards"] == 4
+    assert plan["per_node_workers"] == 2
+    assert plan["max_attempts"] == 5
+    assert plan["cluster_execution"]["parallelism"]["hint"] == 4
+    assert plan["cluster_execution"]["retry"]["max_attempts"] == 5
+
+
 def test_known_transfer_size_becomes_bounded_disk_and_network_requirement():
     plan = compile_procurement_execution_plan(
         {
@@ -74,9 +98,13 @@ def test_known_transfer_size_becomes_bounded_disk_and_network_requirement():
     assert estimate["transfer_mb"] == 16.0
     assert plan["resource_requirements"]["network_mb"] >= 17
     assert plan["resource_requirements"]["disk_mb"] >= 84
+    assert plan["cluster_execution"]["preflight"] == {"status": "ready", "checks": []}
+    summary = plan["cluster_execution"]["engineering_summary"]
+    assert summary["resource_basis"] == "bounded"
+    assert summary["preflight"] == "ready"
 
 
-def test_unknown_transfer_does_not_invent_transfer_reservations():
+def test_unknown_transfer_requests_measurement_without_inventing_transfer_reservations():
     plan = compile_procurement_execution_plan(
         {
             "title": "Unknown size",
@@ -91,9 +119,20 @@ def test_unknown_transfer_does_not_invent_transfer_reservations():
         "source": "unmeasured",
     }
     assert plan["resource_requirements"] == {"cpu_cores": 0.5, "memory_mb": 256.0}
+    preflight = plan["cluster_execution"]["preflight"]
+    assert preflight["status"] == "recommended"
+    assert preflight["checks"][0]["id"] == "measure_transfer"
+    assert "Content-Length" in preflight["checks"][0]["action"]
+    summary = plan["cluster_execution"]["engineering_summary"]
+    assert summary["status"] == "compiled"
+    assert summary["primitive"] == "http_manifest"
+    assert summary["required_capabilities"] == ["http"]
+    assert summary["resource_basis"] == "baseline_only"
+    assert summary["preflight"] == "recommended"
+    assert summary["post_acquisition_reassessment"] is True
 
 
-def test_scraper_requires_browser_and_preserves_larger_baseline():
+def test_scraper_requires_browser_and_surfaces_required_preflight():
     plan = compile_procurement_execution_plan(
         {
             "title": "Browser collect",
@@ -101,6 +140,8 @@ def test_scraper_requires_browser_and_preserves_larger_baseline():
             "script_key": "generic_url_scrape",
             "url": "https://example.com/dashboard",
             "resource_requirements": {"memory_mb": 2048},
+            "experimental": True,
+            "production_capability": False,
         }
     )
 
@@ -111,6 +152,30 @@ def test_scraper_requires_browser_and_preserves_larger_baseline():
         "disk_mb": 256.0,
     }
     assert plan["max_attempts"] == 2
+    assert plan["cluster_execution"]["preflight"]["status"] == "required"
+    assert plan["cluster_execution"]["preflight"]["checks"][0]["id"] == "browser_route_review"
+    assert plan["cluster_execution"]["engineering_summary"]["preflight"] == "required"
+
+
+def test_requirement_snapshot_is_carried_into_post_acquisition_acceptance():
+    requirement = {
+        "unit": {"value": "issuer-quarter"},
+        "time_range": {"value": {"start": "2015", "end": "2026"}},
+    }
+    plan = compile_procurement_execution_plan(
+        {
+            "title": "Governance collect",
+            "job_type": "http_manifest",
+            "items": [{"url": "https://example.com/governance.csv", "expected_bytes": 1024}],
+            "research_need": "Need Taiwan issuer-quarter governance evidence",
+            "requirement_snapshot": requirement,
+        }
+    )
+
+    acceptance = plan["cluster_execution"]["evidence_acceptance"]
+    assert acceptance["requirement_snapshot"] == requirement
+    assert acceptance["proof_required"] is True
+    assert acceptance["gap_closure"] == "not_proven_by_collection"
 
 
 @pytest.mark.parametrize("binding", [
@@ -155,6 +220,7 @@ def test_craft_path_emits_compiled_cluster_contract():
     assert plan["required_capabilities"] == ["http"]
     assert plan["cluster_execution"]["placement"]["authority"] == "cluster_runtime"
     assert plan["cluster_execution"]["evidence_acceptance"]["proof_required"] is True
+    assert plan["cluster_execution"]["engineering_summary"]["status"] == "compiled"
 
 
 def test_compiled_plan_drives_real_capacity_and_capability_claiming():
