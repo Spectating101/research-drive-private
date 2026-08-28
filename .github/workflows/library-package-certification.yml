@@ -9,9 +9,10 @@ on:
       - hardening/discover-release-candidate-20260827
     paths:
       - "drive/scripts/research_data_mcp/library_packages.py"
-      - "drive/scripts/research_data_mcp/http_router.py"
+      - "drive/scripts/research_data_mcp/library_package_http.py"
       - "drive/scripts/research_query_engine/server.py"
       - "tests/test_library_packages.py"
+      - "tests/test_library_package_http.py"
       - ".github/workflows/library-package-certification.yml"
   workflow_dispatch:
 
@@ -41,14 +42,18 @@ jobs:
         run: |
           python -m py_compile \
             drive/scripts/research_data_mcp/library_packages.py \
+            drive/scripts/research_data_mcp/library_package_http.py \
             drive/scripts/research_data_mcp/craft_collect.py \
             drive/scripts/research_data_mcp/procurement_execution_contract.py \
             drive/scripts/research_data_mcp/jobs.py \
             drive/scripts/research_data_mcp/discover_intent_store.py \
             drive/scripts/yzu_cluster/orchestrator.py
 
-      - name: Prove Library package authority
-        run: python -m pytest -q tests/test_library_packages.py
+      - name: Prove Library package authority and HTTP boundary
+        run: |
+          python -m pytest -q \
+            tests/test_library_packages.py \
+            tests/test_library_package_http.py
 
       - name: Reprove procurement compiler contract
         run: |
