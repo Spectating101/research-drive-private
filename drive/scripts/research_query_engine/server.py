@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Thin HTTP server — all logic lives in ResearchDataGateway + http_router."""
+"""Thin HTTP server — logic lives in ResearchDataGateway, http_router, and bounded adapters."""
 
 from __future__ import annotations
 
@@ -20,6 +20,10 @@ from scripts.research_data_mcp.desk_auth import (
     issue_desk_session,
 )
 from scripts.research_data_mcp.http_router import handle_get, handle_post
+from scripts.research_data_mcp.library_package_http import (
+    handle_library_package_get,
+    handle_library_package_post,
+)
 from sharpe_kernel.paths import repo_root_from_file
 
 REPO_ROOT = repo_root_from_file(__file__)
@@ -218,13 +222,50 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         self._send_cors_headers()
         self.send_header("X-Content-Type-Options", "nosniff")
         if download_name:
-            self.send_header("Content-Disposition", f'attachment; filename="{download_name}"')
+            safe_name = Path(download_name).name.replace("\r", "").replace("\n", "").replace('"', "'")
+            self.send_header("Content-Disposition", f'attachment; filename="{safe_name}"')
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         try:
             self.wfile.write(body)
         except BrokenPipeError:
             pass
+
+    def _send_file(
+        self,
+        file_path: str | Path,
+        *,
+        status: int = 200,
+        content_type: str = "application/octet-stream",
+        download_name: str = "",
+    ) -> None:
+        path = Path(file_path)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self._send_cors_headers()
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if download_name:
+            safe_name = Path(download_name).name.replace("\r", "").replace("\n", "").replace('"', "'")
+            self.send_header("Content-Disposition", f'attachment; filename="{safe_name}"')
+        self.send_header("Content-Length", str(path.stat().st_size))
+        self.end_headers()
+        try:
+            with path.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    self.wfile.write(chunk)
+        except BrokenPipeError:
+            pass
+
+    def _send_file_delivery(self, body: dict[str, Any], *, status: int) -> None:
+        file_path = body["file"]
+        self._send_file(
+            file_path,
+            status=status,
+            content_type=str(body.get("content_type") or "application/octet-stream"),
+            download_name=str(body.get("name") or Path(file_path).name),
+        )
 
     def _serve_static(self, path: str, *, raw_path: str = "") -> bool:
         static_dir = self.static_dir
@@ -294,18 +335,22 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             )
             return
         qs = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
+        package_result = handle_library_package_get(path, qs, self.stack.gateway)
+        if package_result is not None:
+            body = package_result.get("body")
+            if isinstance(body, dict) and body.get("_file_delivery"):
+                try:
+                    self._send_file_delivery(body, status=package_result["status"])
+                except Exception as exc:
+                    self._send_json({"error": type(exc).__name__, "message": str(exc)}, status=404)
+                return
+            self._send_json(body, package_result["status"])
+            return
         result = handle_get(path, qs, self.stack)
         body = result.get("body")
         if isinstance(body, dict) and body.get("_file_delivery"):
             try:
-                file_path = body["file"]
-                content = Path(file_path).read_bytes()
-                self._send_bytes(
-                    content,
-                    status=result["status"],
-                    content_type=str(body.get("content_type") or "application/octet-stream"),
-                    download_name=str(body.get("name") or Path(file_path).name),
-                )
+                self._send_file_delivery(body, status=result["status"])
             except Exception as exc:
                 self._send_json({"error": type(exc).__name__, "message": str(exc)}, status=404)
             return
@@ -393,6 +438,10 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             )
             return
         query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+        package_result = handle_library_package_post(path, payload, self.stack.gateway)
+        if package_result is not None:
+            self._send_json(package_result.get("body"), package_result["status"])
+            return
         result = handle_post(path, payload, self.stack, query=query)
         body = result.get("body")
         if isinstance(body, dict) and body.get("_stream"):
