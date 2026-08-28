@@ -82,6 +82,9 @@ jobs:
             drive/tests/test_library_provenance.py \
             drive/tests/test_library_retrieval.py
 
+      - name: Enforce paired frontend HTTP contract
+        run: python -m pytest -q tests/test_research_drive_frontend_contract.py
+
       - name: Cross-domain authority smoke
         run: |
           python -m pytest -q \
