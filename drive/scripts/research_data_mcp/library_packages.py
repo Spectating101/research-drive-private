@@ -93,6 +93,7 @@ def _manifest_identity(research_need: str, requested_ids: list[str], resolved: l
         "resolved": [
             {
                 "dataset_id": row.get("dataset_id"),
+                "package_reason": row.get("package_reason"),
                 "files": [
                     {
                         "path": item.get("source_path"),
@@ -148,6 +149,28 @@ def _readme(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _response(repo_root: Path, package_id: str, manifest: dict[str, Any], zip_path: Path, *, reused: bool) -> dict[str, Any]:
+    return {
+        "package_id": package_id,
+        "status": "ready" if int(manifest.get("data_file_count") or 0) > 0 else "metadata_only",
+        "research_need": manifest.get("research_need") or "",
+        "included": manifest.get("included") or [],
+        "metadata_only": manifest.get("metadata_only") or [],
+        "excluded": manifest.get("excluded") or [],
+        "data_file_count": int(manifest.get("data_file_count") or 0),
+        "data_bytes": int(manifest.get("data_bytes") or 0),
+        "sufficiency_claim": False,
+        "manifest": manifest,
+        "archive": {
+            "name": zip_path.name,
+            "bytes": zip_path.stat().st_size,
+            "checksum": file_checksum(zip_path),
+        },
+        "download_path": f"/library/packages/{package_id}/download",
+        "reused": reused,
+    }
+
+
 def prepare_library_package(
     gateway: Any,
     *,
@@ -166,6 +189,7 @@ def prepare_library_package(
         raise ValueError("dataset_ids must contain at least one Library dataset")
     if len(requested) > max(1, int(max_datasets)):
         raise ValueError(f"package is limited to {max_datasets} datasets")
+    byte_ceiling = max(0, int(max_total_bytes))
 
     resolved: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
@@ -188,13 +212,19 @@ def prepare_library_package(
         card = build_card_from_registry(repo_root, dataset)
         metadata = _metadata_record(dataset, card)
         files: list[dict[str, Any]] = []
+        saw_card_file = False
+        saw_bounded_file = False
+        size_limited = False
         for file_row in card.get("files") or []:
+            saw_card_file = True
             rel_path = str(file_row.get("path") or "")
             path = _bounded_file(repo_root, rel_path)
             if path is None:
                 continue
+            saw_bounded_file = True
             size = path.stat().st_size
-            if data_bytes + size > max(0, int(max_total_bytes)):
+            if data_bytes + size > byte_ceiling:
+                size_limited = True
                 continue
             checksum = str(file_row.get("checksum") or "") or file_checksum(path)
             files.append({
@@ -205,11 +235,20 @@ def prepare_library_package(
                 "absolute_path": str(path),
             })
             data_bytes += size
+
+        if files:
+            reason = "local_file_verified"
+        elif size_limited:
+            reason = "package_size_limit"
+        elif saw_card_file and not saw_bounded_file:
+            reason = "unverified_export_path"
+        else:
+            reason = "no_exportable_local_file"
         resolved.append({
             **metadata,
             "files": files,
             "package_state": "data_included" if files else "metadata_only",
-            "package_reason": "local_file_verified" if files else "no_exportable_local_file",
+            "package_reason": reason,
         })
 
     package_id = _manifest_identity(str(research_need or "").strip(), requested, resolved)
@@ -218,6 +257,12 @@ def prepare_library_package(
     package_dir.mkdir(parents=True, exist_ok=True)
     zip_path = package_dir / f"research-drive-package-{package_id}.zip"
     manifest_path = package_dir / "manifest.json"
+
+    # Exact request + exact source checksums is replay-safe. Reuse the durable
+    # artifact rather than rewriting timestamps/ZIP metadata under the same id.
+    if manifest_path.is_file() and zip_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return _response(repo_root, package_id, manifest, zip_path, reused=True)
 
     included_manifest: list[dict[str, Any]] = []
     metadata_only: list[dict[str, Any]] = []
@@ -275,6 +320,7 @@ def prepare_library_package(
                         "access_mode": row.get("access_mode"),
                         "open_paths": row.get("open_paths") or {},
                         "package_state": row.get("package_state"),
+                        "reason": row.get("package_reason"),
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -285,25 +331,7 @@ def prepare_library_package(
                 path = Path(item["absolute_path"])
                 zf.write(path, f"data/{dataset_id}/{_safe_part(path.name, 'data')}")
 
-    zip_checksum = file_checksum(zip_path)
-    return {
-        "package_id": package_id,
-        "status": "ready",
-        "research_need": manifest["research_need"],
-        "included": manifest["included"],
-        "metadata_only": manifest["metadata_only"],
-        "excluded": manifest["excluded"],
-        "data_file_count": manifest["data_file_count"],
-        "data_bytes": manifest["data_bytes"],
-        "sufficiency_claim": False,
-        "manifest": manifest,
-        "archive": {
-            "name": zip_path.name,
-            "bytes": zip_path.stat().st_size,
-            "checksum": zip_checksum,
-        },
-        "download_path": f"/library/packages/{package_id}/download",
-    }
+    return _response(repo_root, package_id, manifest, zip_path, reused=False)
 
 
 def get_library_package(repo_root: Path, package_id: str) -> dict[str, Any]:
@@ -321,15 +349,6 @@ def get_library_package(repo_root: Path, package_id: str) -> dict[str, Any]:
     if not manifest_path.is_file() or not zip_path.is_file():
         raise KeyError(package_id)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    return {
-        "package_id": safe_id,
-        "status": "ready",
-        "manifest": manifest,
-        "archive": {
-            "name": zip_path.name,
-            "bytes": zip_path.stat().st_size,
-            "checksum": file_checksum(zip_path),
-        },
-        "download_path": f"/library/packages/{safe_id}/download",
-        "_archive_file": str(zip_path),
-    }
+    response = _response(Path(repo_root).resolve(), safe_id, manifest, zip_path, reused=True)
+    response["_archive_file"] = str(zip_path)
+    return response
