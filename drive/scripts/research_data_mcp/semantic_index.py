@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.research_data_mcp.procurement_cache import ProcurementCache, catalog_fingerprint
+from scripts.research_data_mcp.library_retrieval import registry_search_document
 
 _INDEX_SINGLETON: dict[str, "SemanticCatalogIndex"] = {}
 _EMBEDDING_MODELS: dict[str, Any] = {}
@@ -175,9 +176,7 @@ class SemanticCatalogIndex:
     def build(self, gateway: Any) -> None:
         docs: list[dict[str, Any]] = []
         for ds in gateway.engine.list_datasets():
-            blob = " ".join(
-                str(ds.get(k, "")) for k in ("dataset_id", "name", "description", "grain", "recommended_use", "domain")
-            )
+            blob = registry_search_document(ds)
             docs.append(
                 {
                     "id": ds["dataset_id"],
@@ -188,9 +187,12 @@ class SemanticCatalogIndex:
                         "title": ds.get("name") or ds.get("dataset_id"),
                         "description": ds.get("description") or ds.get("recommended_use") or "",
                         "grain": ds.get("grain") or "",
-                        "source": ds.get("source") or ds.get("backend") or "registry",
+                        "coverage": ds.get("coverage") or ds.get("date_range") or ds.get("temporal_coverage") or "",
+                        "join_keys": ds.get("join_keys") or ds.get("keys") or [],
+                        "source": ds.get("source") or ds.get("source_system") or ds.get("backend") or "registry",
                         "readiness": ds.get("analysis_readiness") or "",
                         "access_shape": ds.get("access_shape") or "",
+                        "asset_kind": ds.get("asset_kind") or ds.get("object_type") or "",
                         "shelf_hint": ds.get("shelf_hint") or "",
                     },
                 }
@@ -493,7 +495,7 @@ class SemanticCatalogIndex:
         return "low"
 
 
-INDEX_SCHEMA_VERSION = "2-access-shape"
+INDEX_SCHEMA_VERSION = "3-library-evidence"
 
 
 def get_semantic_index(gateway: Any, *, ttl_hours: float = 168) -> SemanticCatalogIndex:
