@@ -1,0 +1,62 @@
+name: Connected accounts and research seed contracts
+
+on:
+  push:
+    branches:
+      - agent/connected-accounts-20260829
+      - agent/research-seed-convergence-20260829
+    paths:
+      - "drive/scripts/research_data_mcp/connected_accounts.py"
+      - "drive/scripts/research_data_mcp/connected_accounts_http.py"
+      - "drive/scripts/research_data_mcp/connected_accounts_security.py"
+      - "drive/scripts/research_data_mcp/research_seed.py"
+      - "drive/scripts/research_data_mcp/research_seed_http.py"
+      - "drive/scripts/research_data_mcp/faculty_profile.py"
+      - "drive/scripts/research_data_mcp/http_router.py"
+      - "drive/scripts/research_data_mcp/http_router_legacy.py"
+      - "tests/test_connected_accounts.py"
+      - "tests/test_connected_accounts_security.py"
+      - "tests/test_research_seed.py"
+      - ".github/workflows/connected-accounts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install contract dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pandas pyarrow pyyaml requests numpy python-dotenv pydantic fastapi starlette httpx
+
+      - name: Compile connected-account and seed authority
+        run: |
+          python -m py_compile \
+            drive/scripts/research_data_mcp/connected_accounts.py \
+            drive/scripts/research_data_mcp/connected_accounts_http.py \
+            drive/scripts/research_data_mcp/connected_accounts_security.py \
+            drive/scripts/research_data_mcp/research_seed.py \
+            drive/scripts/research_data_mcp/research_seed_http.py \
+            drive/scripts/research_data_mcp/http_router.py \
+            drive/scripts/research_data_mcp/http_router_legacy.py
+
+      - name: Prove principal isolation, OAuth, credential-store, and bootstrap contracts
+        run: |
+          python -m pytest -q \
+            tests/test_connected_accounts.py \
+            tests/test_connected_accounts_security.py \
+            tests/test_research_seed.py

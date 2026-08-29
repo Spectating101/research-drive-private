@@ -67,13 +67,17 @@ def fingerprint_path(path: Path | str | None) -> dict[str, Any]:
     total = 0
     for f in selected:
         try:
-            data = f.read_bytes()
+            if not single:
+                digest.update(f.name.encode("utf-8"))
+            with f.open("rb") as handle:
+                while True:
+                    chunk = handle.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    digest.update(chunk)
         except Exception as exc:  # noqa: BLE001
             return {"path": str(p), "fingerprint": None, "files": len(files), "bytes": 0, "note": f"unreadable: {exc}"}
-        total += len(data)
-        if not single:
-            digest.update(f.name.encode("utf-8"))
-        digest.update(data)
 
     notes = []
     if truncated:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import json
 import re
@@ -2216,6 +2217,7 @@ class ResearchDataGateway:
         impact: list | None = None,
         node_id: str = "",
         execution_spec: dict | None = None,
+        origin: dict | None = None,
     ) -> dict:
         """Persist a Composer proposal for explicit researcher review only."""
         proposal = {
@@ -2224,6 +2226,12 @@ class ResearchDataGateway:
             "summary": summary,
             "operations": operations,
         }
+        if origin:
+            proposal["origin"] = {
+                "kind": str(origin.get("kind") or "")[:80],
+                "authority": str(origin.get("authority") or "")[:80],
+                "tool": str(origin.get("tool") or "")[:120],
+            }
         if reason:
             proposal["reason"] = reason
         if impact is not None:
@@ -2400,6 +2408,49 @@ class ResearchDataGateway:
     def synthesis_thread_materialisation(self, thread_id: str) -> dict:
         return self._synthesis_thread_store().materialisation(thread_id)
 
+    def synthesis_thread_method_export(self, thread_id: str) -> dict:
+        """Return the exact frozen method.py for the thread's completed execution.
+
+        This never asks Composer to regenerate code. The bytes must be the artifact
+        written by the production executor and their checksum must still match the
+        recorded execution result.
+        """
+        thread = self._synthesis_thread_store().get(thread_id)
+        state = thread.get("state") or {}
+        execution = state.get("execution") or {}
+        job_id = str(execution.get("job_id") or "")
+        if not job_id:
+            raise ValueError("no completed Synthesis execution is attached to this thread")
+        job = self.jobs.get(job_id)
+        if job.get("status") != "completed":
+            raise ValueError("method export is available only after execution completes")
+        result = job.get("result") or {}
+        repro = result.get("reproducibility") or {}
+        method_rel = str(repro.get("method_path") or "").strip()
+        if not method_rel:
+            raise ValueError("completed execution has no frozen method artifact")
+        method_path = (Path(self.repo_root) / method_rel).resolve()
+        root = Path(self.repo_root).resolve()
+        if not method_path.is_relative_to(root) or not method_path.is_file():
+            raise ValueError("frozen method artifact is missing or outside the repository root")
+        script = method_path.read_text(encoding="utf-8")
+        actual_sha = hashlib.sha256(script.encode("utf-8")).hexdigest()
+        expected_sha = str(repro.get("method_sha256") or "")
+        if not expected_sha or actual_sha != expected_sha:
+            raise ValueError("frozen method checksum does not match the execution record")
+        return {
+            "thread_id": thread_id,
+            "job_id": job_id,
+            "filename": method_path.name,
+            "script": script,
+            "sha256": actual_sha,
+            "spec_hash": str(repro.get("spec_hash") or state.get("accepted_spec_hash") or ""),
+            "method_origin": dict(repro.get("method_origin") or state.get("method_origin") or {}),
+            "deterministic_export": True,
+            "generated_by_llm": False,
+            "note": "Method was proposed through Composer, researcher-accepted, then deterministically rendered from the accepted execution spec.",
+        }
+
     def synthesis_thread_record_execution(self, thread_id: str, job: dict) -> dict:
         thread = self._synthesis_thread_store().get(thread_id)
         state = thread.get("state") or {}
@@ -2429,8 +2480,10 @@ class ResearchDataGateway:
     def synthesis_thread_record_execution_failure(self, thread_id: str, job_id: str, error: str) -> dict:
         return self._synthesis_thread_store().record_execution_failure(thread_id, job_id, error)
 
-    def synthesis_thread_submit_execution(self, thread_id: str) -> dict:
-        """Submit an accepted, bounded execution spec for researcher approval."""
+    def _synthesis_thread_submit_approval(
+        self, thread_id: str, *, expected_authority_hash: str = ""
+    ) -> dict:
+        """Low-level pending-approval submitter; public authority lives above this."""
         from scripts.research_data_mcp.synthesis_executor import validate_execution_spec
 
         thread = self._synthesis_thread_store().get(thread_id)
@@ -2439,6 +2492,16 @@ class ResearchDataGateway:
         accepted_hash = str(state.get("accepted_spec_hash") or "")
         if not accepted_hash:
             raise ValueError("execution spec has not been accepted as a reviewed revision")
+        if expected_authority_hash:
+            preview = state.get("preview") if isinstance(state.get("preview"), dict) else {}
+            if (
+                preview.get("status") != "succeeded"
+                or preview.get("spec_hash") != accepted_hash
+                or preview.get("authority_hash") != expected_authority_hash
+            ):
+                raise ValueError(
+                    "execution approval refused: Preview authority changed before job creation; rerun Preview"
+                )
         execution = state.get("execution") or {}
         if execution.get("spec_hash") == accepted_hash and execution.get("job_id"):
             existing = self.jobs.get(str(execution["job_id"]))
@@ -2459,6 +2522,10 @@ class ResearchDataGateway:
             ),
             "execution_spec": spec,
             "accepted_spec_hash": accepted_hash,
+            "preview_spec_hash": str((state.get("preview") or {}).get("spec_hash") or ""),
+            "preview_authority_hash": str((state.get("preview") or {}).get("authority_hash") or ""),
+            "preview_input_revisions": list((state.get("preview") or {}).get("input_revisions") or []),
+            "method_origin": dict(state.get("method_origin") or {}),
             "dataset_id": spec["output_dataset_id"],
             "partition_id": "derived.research-panels",
             "launchable": True,
@@ -2485,6 +2552,16 @@ class ResearchDataGateway:
             }
             self._synthesis_thread_store()._save_state(thread_id, next_state)
         return submitted
+
+    def synthesis_thread_submit_execution(
+        self, thread_id: str, action: str = "request_approval"
+    ) -> dict:
+        """Run bounded Preview or request approval for that exact previewed revision."""
+        from scripts.research_data_mcp.synthesis_execution_authority import (
+            handle_synthesis_execution_action,
+        )
+
+        return handle_synthesis_execution_action(self, thread_id, action=action)
 
     def synthesis_thread_link_conversation(
         self,
