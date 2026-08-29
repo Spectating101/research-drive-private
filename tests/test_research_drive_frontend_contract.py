@@ -6,8 +6,8 @@ from scripts.research_data_mcp.http_router import ROUTE_CATALOG
 from scripts.research_query_engine.server import ResearchQueryHandler
 
 
-# Public frontend release candidate whose HTTP surface this backend RC must satisfy.
-FRONTEND_RC_SHA = "af13f10589dbd8b228cf5a2d84579b14b06bc277"
+# Public frontend convergence candidate whose HTTP surface this backend RC must satisfy.
+FRONTEND_RC_SHA = "9b4e8b7d90f95c28afeec36263cbfc6093995256"
 
 
 REQUIRED_ROUTER_ROUTES = {
@@ -16,7 +16,7 @@ REQUIRED_ROUTER_ROUTES = {
     ("GET", "/datasets"),
     ("GET", "/datasets/{id}"),
     ("GET", "/query/{id}"),
-    # Library / HPS / Resources
+    # Library / HPS / Resources / principal bootstrap
     ("GET", "/library/catalog"),
     ("GET", "/library/search"),
     ("GET", "/library/overview"),
@@ -24,6 +24,7 @@ REQUIRED_ROUTER_ROUTES = {
     ("GET", "/library/ops"),
     ("GET", "/library/consolidated"),
     ("GET", "/library/faculty/profile"),
+    ("GET", "/library/seed"),
     ("GET", "/library/desk/resources"),
     ("POST", "/library/desk/warm"),
     ("GET", "/library/live-identity"),
@@ -32,6 +33,12 @@ REQUIRED_ROUTER_ROUTES = {
     ("POST", "/library/jobs/{id}/approve"),
     ("GET", "/yzu/status"),
     ("GET", "/yzu/acquisitions"),
+    # Principal-owned connected storage authority
+    ("GET", "/library/accounts"),
+    ("POST", "/library/accounts/oauth/start"),
+    ("POST", "/library/accounts/oauth/complete"),
+    ("POST", "/library/accounts/{account_id}/verify"),
+    ("POST", "/library/accounts/{account_id}/disconnect"),
     # Discover
     ("GET", "/library/discover"),
     ("GET", "/library/discover/web"),
@@ -110,5 +117,7 @@ def test_frontend_api_prefix_is_normalized_by_production_server():
     from scripts.research_query_engine.server import normalize_api_path
 
     assert normalize_api_path("/api/library/discover") == "/library/discover"
+    assert normalize_api_path("/api/library/seed") == "/library/seed"
+    assert normalize_api_path("/api/library/accounts") == "/library/accounts"
     assert normalize_api_path("/api/health") == "/health"
     assert normalize_api_path("/library/discover") == "/library/discover"
