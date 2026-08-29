@@ -373,6 +373,71 @@ def test_first_copilot_synthesis_turn_retries_until_evidence_tool_is_used(monkey
     assert turn.action_result["composer_model"] == "gpt-test"
 
 
+def test_later_synthesis_turn_does_not_require_first_turn_language(monkeypatch):
+    """A grounded follow-up must not be rejected for lacking a new question."""
+
+    class FakeRun:
+        status = "completed"
+        model = "gpt-test"
+
+        def wait(self):
+            return None
+
+        def text(self):
+            return "The recorded grain is ticker_day; its coverage remains limited."
+
+        def conversation(self):
+            return []
+
+    class FakeAgent:
+        agent_id = "copilot-session"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, *_args, **_kwargs):
+            return FakeRun()
+
+    sdk = desk_brain._CursorSdkBindings(
+        agent=SimpleNamespace(create=lambda _options: FakeAgent()),
+        agent_options=lambda **kwargs: SimpleNamespace(**kwargs),
+        model_selection=lambda **kwargs: SimpleNamespace(**kwargs),
+        send_options=lambda **kwargs: SimpleNamespace(**kwargs),
+        stdio_mcp_server_config=lambda **kwargs: kwargs,
+        local_agent_options=lambda **kwargs: kwargs,
+        cloud_agent_options=lambda **kwargs: kwargs,
+    )
+    gateway = MagicMock()
+    gateway.repo_root = "/tmp/repo"
+    state = {
+        "desk_primed": True,
+        "rail_context": {
+            "tab": "synthesis",
+            "thread_id": "thread-1",
+            "entity": {"kind": "synthesis_thread", "id": "thread-1"},
+        },
+        "synthesis_thread_turns": {"thread-1": 1},
+    }
+
+    turn = desk_brain.run_cursor_composer_turn(
+        gateway,
+        "State the recorded limitation.",
+        state,
+        _sdk_override=sdk,
+        _credential_override="managed",
+        _brain_override="copilot_composer",
+        _models_override=["auto"],
+        _agent_state_key="copilot_session_id",
+    )
+
+    assert turn.action_result["action"] == "composer"
+    assert "contract_violations" not in turn.action_result
+    assert state["synthesis_thread_turns"]["thread-1"] == 2
+
+
 def test_copilot_records_requested_synthesis_proposal_after_grounding(monkeypatch):
     proposal = {
         "id": "proposal-1",

@@ -1018,11 +1018,11 @@ def run_cursor_composer_turn(
 
             synthesis_violations = synthesis_reply_violations(
                 reply,
-                first_user_turn=synthesis_first_turn,
+                first_user_turn=first_synthesis_turn,
             )
             if (
                 provider_brain == "copilot_composer"
-                and synthesis_first_turn
+                and first_synthesis_turn
                 and not tool_call_started
             ):
                 synthesis_violations.append("missing_evidence_tool_call")
@@ -1056,9 +1056,9 @@ def run_cursor_composer_turn(
                 model_id = str(getattr(run, "model", "") or model_id)
                 synthesis_violations = synthesis_reply_violations(
                     reply,
-                    first_user_turn=synthesis_first_turn,
+                    first_user_turn=first_synthesis_turn,
                 )
-                if synthesis_first_turn and not tool_call_started:
+                if first_synthesis_turn and not tool_call_started:
                     synthesis_violations.append("missing_evidence_tool_call")
             if (
                 not synthesis_violations
