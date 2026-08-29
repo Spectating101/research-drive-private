@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/research-drive-backend-release-candidate-20260828
+      - agent/connected-accounts-20260829
   workflow_dispatch:
 
 permissions:
