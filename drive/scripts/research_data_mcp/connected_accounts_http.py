@@ -12,6 +12,11 @@ from scripts.research_data_mcp.connected_accounts import (
     start_oauth,
     verify_connected_account,
 )
+from scripts.research_data_mcp.connected_accounts_security import (
+    ensure_encrypted_credential_store,
+    public_connected_account,
+    public_connected_accounts_document,
+)
 
 CONNECTED_ACCOUNT_ROUTES: list[dict[str, str]] = [
     {"method": "GET", "path": "/library/accounts", "handler": "library_accounts"},
@@ -27,9 +32,12 @@ def connected_account_handlers() -> dict[str, Any]:
         return stack.gateway.repo_root
 
     def library_accounts(stack, query, payload, params):
-        return connected_accounts_document(repo_root(stack))
+        return public_connected_accounts_document(connected_accounts_document(repo_root(stack)))
 
     def library_accounts_oauth_start(stack, query, payload, params):
+        # Establish and prove encryption before an OAuth authorization code can
+        # ever be exchanged for credentials on this host.
+        ensure_encrypted_credential_store(repo_root(stack), initialize=True)
         return start_oauth(
             repo_root(stack),
             provider=str(payload.get("provider") or ""),
@@ -37,25 +45,32 @@ def connected_account_handlers() -> dict[str, Any]:
         )
 
     def library_accounts_oauth_complete(stack, query, payload, params):
+        ensure_encrypted_credential_store(repo_root(stack))
         return {
             "ok": True,
-            "account": complete_oauth(
-                repo_root(stack),
-                provider=str(payload.get("provider") or ""),
-                state=str(payload.get("state") or ""),
-                code=str(payload.get("code") or ""),
+            "account": public_connected_account(
+                complete_oauth(
+                    repo_root(stack),
+                    provider=str(payload.get("provider") or ""),
+                    state=str(payload.get("state") or ""),
+                    code=str(payload.get("code") or ""),
+                )
             ),
         }
 
     def library_accounts_verify(stack, query, payload, params):
+        ensure_encrypted_credential_store(repo_root(stack))
         return {
             "ok": True,
-            "account": verify_connected_account(
-                repo_root(stack), account_id=str(params["account_id"])
+            "account": public_connected_account(
+                verify_connected_account(
+                    repo_root(stack), account_id=str(params["account_id"])
+                )
             ),
         }
 
     def library_accounts_disconnect(stack, query, payload, params):
+        ensure_encrypted_credential_store(repo_root(stack))
         return disconnect_connected_account(
             repo_root(stack), account_id=str(params["account_id"])
         )
