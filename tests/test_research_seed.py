@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from scripts.research_data_mcp import connected_accounts as accounts
 from scripts.research_data_mcp import http_router
 from scripts.research_data_mcp import research_seed as seed
+from scripts.research_data_mcp import research_seed_http
+from scripts.research_data_mcp.desk_auth import desk_principal_context
 from scripts.research_data_mcp.desk_principal import DeskPrincipal
 
 
@@ -147,3 +150,24 @@ def test_rich_faculty_profile_and_connected_storage_are_additive(tmp_path, monke
 def test_router_exposes_seed_contract():
     routes = {(row["method"], row["path"]) for row in http_router.ROUTE_CATALOG}
     assert ("GET", "/library/seed") in routes
+
+
+def test_http_seed_uses_bound_request_principal(tmp_path):
+    alice = principal("alice", email="alice@student.yzu.edu.tw")
+    accounts._save_accounts(tmp_path, alice, [_account(account_id="alice-drive", access_mode="index")])
+    stack = SimpleNamespace(gateway=SimpleNamespace(repo_root=tmp_path))
+    handler = research_seed_http.research_seed_handlers()["library_seed"]
+
+    with desk_principal_context(alice):
+        package = handler(stack, {"email": "bob@student.yzu.edu.tw"}, {}, {})
+
+    assert package["principal"]["id"] == "alice"
+    assert [source["id"] for source in package["connected_sources"]] == ["alice-drive"]
+
+
+def test_http_seed_rejects_missing_request_principal(tmp_path):
+    stack = SimpleNamespace(gateway=SimpleNamespace(repo_root=tmp_path))
+    handler = research_seed_http.research_seed_handlers()["library_seed"]
+
+    with desk_principal_context(None), pytest.raises(PermissionError):
+        handler(stack, {}, {}, {})
