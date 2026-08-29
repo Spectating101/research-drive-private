@@ -7,9 +7,11 @@ on:
     paths:
       - "drive/scripts/research_data_mcp/connected_accounts.py"
       - "drive/scripts/research_data_mcp/connected_accounts_http.py"
+      - "drive/scripts/research_data_mcp/connected_accounts_security.py"
       - "drive/scripts/research_data_mcp/http_router.py"
       - "drive/scripts/research_data_mcp/http_router_legacy.py"
       - "tests/test_connected_accounts.py"
+      - "tests/test_connected_accounts_security.py"
       - ".github/workflows/connected-accounts.yml"
   workflow_dispatch:
 
@@ -41,8 +43,12 @@ jobs:
           python -m py_compile \
             drive/scripts/research_data_mcp/connected_accounts.py \
             drive/scripts/research_data_mcp/connected_accounts_http.py \
+            drive/scripts/research_data_mcp/connected_accounts_security.py \
             drive/scripts/research_data_mcp/http_router.py \
             drive/scripts/research_data_mcp/http_router_legacy.py
 
-      - name: Prove principal isolation and OAuth contracts
-        run: python -m pytest -q tests/test_connected_accounts.py
+      - name: Prove principal isolation, OAuth, and credential-store contracts
+        run: |
+          python -m pytest -q \
+            tests/test_connected_accounts.py \
+            tests/test_connected_accounts_security.py
