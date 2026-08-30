@@ -128,6 +128,32 @@ def test_preflight_can_validate_a_staged_pair_without_changing_live_dist(release
     assert out.returncode == 0, out.stdout + out.stderr
 
 
+def test_preflight_can_validate_a_staged_backend_without_repointing_live_env(release, tmp_path):
+    """The live environment names its current checkout, not a staged candidate."""
+    candidate = tmp_path / "candidate-backend"
+    candidate_sha = _repo(candidate, "candidate.py")
+    (candidate / "config").mkdir(parents=True)
+    (candidate / "config/research_query_registry.json").write_text(
+        json.dumps({"datasets": [{"dataset_id": "candidate"}]}), encoding="utf-8"
+    )
+    staged = release["ui"] / "releases" / f"{release['ui_sha']}--{candidate_sha}"
+    staged.mkdir()
+    (staged / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    (staged / "research-drive-build.json").write_text(
+        json.dumps({"public_sha": release["ui_sha"], "private_sha": candidate_sha}),
+        encoding="utf-8",
+    )
+
+    out = _run(
+        release["env"],
+        SHARPE_REPO_ROOT=candidate,
+        PREFLIGHT_STATIC_DIR=staged,
+    )
+
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert candidate_sha in out.stdout
+
+
 def test_restartability_check_is_part_of_the_release_gate_when_required(release, tmp_path):
     probe = tmp_path / "restart-probe.sh"
     probe.write_text("#!/usr/bin/env bash\necho restartability=ready\n", encoding="utf-8")

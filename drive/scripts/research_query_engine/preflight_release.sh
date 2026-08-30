@@ -21,6 +21,7 @@ ENV_FILE="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
 # sourced. The env file names the normal live checkout; preflight needs to be
 # able to validate a clean, staged candidate without mutating that authority.
 preflight_public_root="${YZU_PUBLIC_REPO:-}"
+preflight_backend_root="${SHARPE_REPO_ROOT:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -37,7 +38,7 @@ set +u
 set -a; . "$ENV_FILE"; set +a
 set -u
 
-backend_root="${SHARPE_REPO_ROOT:-}"
+backend_root="${preflight_backend_root:-${SHARPE_REPO_ROOT:-}}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 public_root="${preflight_public_root:-${YZU_PUBLIC_REPO:-}}"
 # A promotion validates a staged candidate before changing the live dist link.
