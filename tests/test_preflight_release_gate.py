@@ -154,6 +154,28 @@ def test_preflight_can_validate_a_staged_backend_without_repointing_live_env(rel
     assert candidate_sha in out.stdout
 
 
+def test_preflight_can_validate_an_explicit_candidate_ui_sha(release, tmp_path):
+    candidate_ui = tmp_path / "candidate-ui"
+    candidate_ui_sha = _repo(candidate_ui, "candidate.js")
+    staged = candidate_ui / "releases" / f"{candidate_ui_sha}--{release['backend_sha']}"
+    staged.mkdir(parents=True)
+    (staged / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    (staged / "research-drive-build.json").write_text(
+        json.dumps({"public_sha": candidate_ui_sha, "private_sha": release["backend_sha"]}),
+        encoding="utf-8",
+    )
+
+    out = _run(
+        release["env"],
+        YZU_PUBLIC_REPO=candidate_ui,
+        YZU_PUBLIC_SHA=candidate_ui_sha,
+        PREFLIGHT_STATIC_DIR=staged,
+    )
+
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert candidate_ui_sha in out.stdout
+
+
 def test_restartability_check_is_part_of_the_release_gate_when_required(release, tmp_path):
     probe = tmp_path / "restart-probe.sh"
     probe.write_text("#!/usr/bin/env bash\necho restartability=ready\n", encoding="utf-8")

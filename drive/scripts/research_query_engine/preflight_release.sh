@@ -21,6 +21,7 @@ ENV_FILE="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
 # sourced. The env file names the normal live checkout; preflight needs to be
 # able to validate a clean, staged candidate without mutating that authority.
 preflight_public_root="${YZU_PUBLIC_REPO:-}"
+preflight_public_sha="${YZU_PUBLIC_SHA:-}"
 preflight_backend_root="${SHARPE_REPO_ROOT:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
@@ -37,6 +38,13 @@ set +u
 # shellcheck disable=SC1090
 set -a; . "$ENV_FILE"; set +a
 set -u
+
+# A candidate needs both the checkout and the SHA that authorises it.  The
+# service env remains the live pair until promotion, so keep explicit staging
+# inputs authoritative for this read-only validation only.
+if [ -n "$preflight_public_sha" ]; then
+  YZU_PUBLIC_SHA="$preflight_public_sha"
+fi
 
 backend_root="${preflight_backend_root:-${SHARPE_REPO_ROOT:-}}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
