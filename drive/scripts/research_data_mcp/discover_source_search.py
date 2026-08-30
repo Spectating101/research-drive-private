@@ -204,6 +204,7 @@ _SOURCE_GENERIC_TOKENS = frozenset(
         "with",
         "use",
         "using",
+        "regarding",
         "need",
         "want",
         "find",
@@ -506,6 +507,14 @@ def min_source_evidence(query: str) -> float:
     if detect_supported_concepts(query):
         return 1.25
     aspects = _source_query_aspects(query)
+    # A compound research need (for example, wildfire exposure *and* an
+    # economic outcome) cannot be satisfied by a live catalogue record that
+    # happens to repeat one incidental word.  This is not a semantic-score
+    # floor: it is an explicit minimum count of distinctive evidence terms.
+    # One-term needs remain searchable; two-or-more-term needs require two
+    # declared/title matches before being presented as a direct candidate.
+    if len(aspects.get("topic") or ()) >= 2:
+        return 2.0
     n = int(bool(aspects.get("geography"))) + int(bool(aspects.get("topic")))
     if n >= 2:
         return 2.0

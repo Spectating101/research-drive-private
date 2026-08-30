@@ -308,3 +308,34 @@ def test_live_candidates_marked_inspect_only(repo_root: Path) -> None:
     assert all(r.get("trust_tier") == "inspect_only" for r in kept)
     assert all("access_mode" not in r for r in kept)
     assert all("crystal" not in str(r.get("title") or "").lower() for r in kept)
+
+
+def test_compound_need_rejects_one_word_live_coincidences() -> None:
+    """A fire-and-economy need must not surface a record matching only 'regarding'."""
+    from scripts.research_data_mcp.discover_source_search import apply_source_relevance_gate
+
+    query = "I need dataset regarding forest fire and economic changes"
+    rows = [
+        {
+            "kind": "live_candidate",
+            "live_hit": True,
+            "title": "Asia OWID legal frameworks regarding violence against women",
+            "label": "Asia OWID legal frameworks regarding violence against women",
+            "provider": "Hugging Face",
+            "candidate_key": "source:hugging-face:asia-owid-legal-frameworks",
+        },
+        {
+            "kind": "live_candidate",
+            "live_hit": True,
+            "title": "Forest-fire exposure and local economic losses panel",
+            "label": "Forest-fire exposure and local economic losses panel",
+            "provider": "DataCite",
+            "candidate_key": "doi:10.1/fire-economy",
+        },
+    ]
+
+    kept, meta = apply_source_relevance_gate(rows, query, limit=8, corpus=[])
+    titles = {str(row.get("title") or "") for row in kept}
+    assert meta["min_query_relevance"] == 2.0
+    assert "Asia OWID legal frameworks regarding violence against women" not in titles
+    assert "Forest-fire exposure and local economic losses panel" in titles

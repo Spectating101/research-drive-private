@@ -17,6 +17,12 @@ def test_short_query_is_not_needlessly_rewritten():
     assert catalogue_query_variants("taiwan stock", provider="huggingface") == ["taiwan stock"]
 
 
+def test_research_request_drops_regarding_before_catalogue_backoff():
+    variants = catalogue_query_variants("I need dataset regarding forest fire and economic changes")
+    assert "forest fire economic changes" in variants
+    assert all("regarding" not in value.lower() for value in variants[1:])
+
+
 def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypatch):
     from scripts.research_data_mcp import discover_source_search as mod
 
