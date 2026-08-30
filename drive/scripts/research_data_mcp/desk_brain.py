@@ -6,6 +6,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -242,7 +243,13 @@ def _repo_python(repo_root: Path) -> str:
     venv = repo_root / ".venv/bin/python"
     if venv.is_file():
         return str(venv)
-    return os.getenv("PYTHON", "python3")
+    configured = os.getenv("PYTHON", "").strip()
+    if configured:
+        return configured
+    # The MCP child must inherit the interpreter hosting the desk.  A staged
+    # checkout need not contain its own .venv; falling back to ``python3`` in
+    # that case can silently drop optional provider/MCP dependencies.
+    return sys.executable
 
 
 def _desk_pythonpath(repo_root: Path) -> str:

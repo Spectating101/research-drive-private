@@ -157,6 +157,9 @@ def test_synthesis_proposal_request_detection_requires_explicit_proposal_languag
     assert not synthesis_request_requires_proposal(
         "Compare the available proxy definitions before we decide."
     )
+    assert not synthesis_request_requires_proposal(
+        "Do not create or record a proposal; only assess the held evidence."
+    )
 
 
 def test_synthesis_history_is_bounded_and_provider_neutral():

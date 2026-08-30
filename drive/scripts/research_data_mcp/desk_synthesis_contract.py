@@ -118,6 +118,12 @@ def first_turn_reply_is_acceptable(reply: str) -> bool:
 def synthesis_request_requires_proposal(text: str) -> bool:
     """Whether the faculty explicitly asked for durable review state."""
     lowered = str(text or "").lower()
+    # A read-only request commonly needs to say "do not create or record a
+    # proposal".  Treating that safety instruction as a request to mutate
+    # reverses the faculty's intent and makes an otherwise grounded first turn
+    # fail with ``missing_reviewable_proposal``.
+    if re.search(r"\b(?:do not|don't|never|without)\b[^.]{0,120}\bproposal\b", lowered):
+        return False
     return "proposal" in lowered and any(
         word in lowered for word in ("create", "draft", "propose", "record")
     )

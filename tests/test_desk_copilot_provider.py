@@ -12,6 +12,19 @@ from scripts.research_data_mcp import (
 from scripts.research_data_mcp.desk_brain import AgentTurn
 
 
+def test_mcp_uses_hosting_interpreter_when_staged_repo_has_no_venv(monkeypatch, tmp_path):
+    monkeypatch.delenv("PYTHON", raising=False)
+    monkeypatch.setattr(desk_brain.sys, "executable", "/runtime/venv/bin/python")
+
+    assert desk_brain._repo_python(tmp_path) == "/runtime/venv/bin/python"
+
+
+def test_mcp_respects_explicit_python_override_when_staged_repo_has_no_venv(monkeypatch, tmp_path):
+    monkeypatch.setenv("PYTHON", "/custom/python")
+
+    assert desk_brain._repo_python(tmp_path) == "/custom/python"
+
+
 def test_configured_accounts_are_ordered_deduplicated_and_validated(monkeypatch):
     monkeypatch.setenv(
         "DESK_COPILOT_ACCOUNTS",

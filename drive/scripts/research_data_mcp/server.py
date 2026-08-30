@@ -10,10 +10,13 @@ from mcp.server.fastmcp import FastMCP
 from scripts.research_data_mcp.bootstrap import create_stack
 from scripts.research_data_mcp.mcp_instructions import mcp_server_instructions
 from scripts.research_data_mcp.mcp_register import build_mcp_server
-from sharpe_kernel.paths import repo_root_from_file
+from sharpe_kernel.paths import registry_path, repo_root_from_file
 
 ROOT = repo_root_from_file(__file__)
-REGISTRY = ROOT / "config/research_query_registry.json"
+# A staged release may deliberately omit the legacy root-level config link.
+# Use the same registry authority as the desk/HTTP server so the MCP child
+# starts against the configured runtime registry instead of exiting at import.
+REGISTRY = registry_path()
 
 mcp = FastMCP(
     "Research Procurement MCP",
