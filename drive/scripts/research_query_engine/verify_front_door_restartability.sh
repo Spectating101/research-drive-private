@@ -111,18 +111,38 @@ if [ "$mode" = "--exercise" ]; then
   open_session
 fi
 
-build_identity="$(curl -fsS --max-time 8 "$base/research-drive-build.json")"
-printf '%s' "$build_identity" >"$body_file"
-mapfile -t observed_shas < <(python3 - "$body_file" <<'PY'
+observed_ui=""
+observed_backend=""
+identity_available=0
+# A legacy serving release may predate immutable build identities, in which
+# case the SPA returns index.html for this path.  That must not prevent a
+# read-only pre-promotion health check of a staged, identified candidate.  A
+# real restart exercise remains strict: once promoted, the running release
+# must prove its pair identity.
+identity_lines=""
+if curl -fsS --max-time 8 "$base/research-drive-build.json" >"$body_file" 2>/dev/null &&
+  identity_lines="$(python3 - "$body_file" 2>/dev/null <<'PY'
 import json,sys
 p=json.load(open(sys.argv[1]))
-print(p.get("public_sha") or "")
-print(p.get("private_sha") or "")
+public=str(p.get("public_sha") or "")
+private=str(p.get("private_sha") or "")
+if not public or not private:
+    raise SystemExit(1)
+print(public)
+print(private)
 PY
-)
-observed_ui="${observed_shas[0]:-}"
-observed_backend="${observed_shas[1]:-}"
-[ -n "$observed_ui" ] && [ -n "$observed_backend" ] || { echo "live build identity incomplete" >&2; exit 1; }
+ )"; then
+  mapfile -t observed_shas <<<"$identity_lines"
+  observed_ui="${observed_shas[0]:-}"
+  observed_backend="${observed_shas[1]:-}"
+  if [ -n "$observed_ui" ] && [ -n "$observed_backend" ]; then
+    identity_available=1
+  fi
+fi
+if [ "$mode" = "--exercise" ] && [ "$identity_available" != "1" ]; then
+  echo "restarted release did not expose a complete build identity" >&2
+  exit 1
+fi
 
 after_count="$(dataset_count)"
 after_registry="$(registry_fingerprint)"
@@ -171,6 +191,10 @@ nrestarts="$(systemctl --user show "$unit" -p NRestarts --value)"
 
 echo "restartability=ready mode=${mode#--}"
 echo "unit=$unit enabled=$enabled active=$active restart_policy=$restart_policy linger=$linger nrestarts=$nrestarts"
-echo "identity=${observed_ui}--${observed_backend}"
+if [ "$identity_available" = "1" ]; then
+  echo "identity=${observed_ui}--${observed_backend}"
+else
+  echo "identity=legacy-unavailable (acceptable only before promotion)"
+fi
 echo "state=datasets:$after_count registry_sha256:${after_registry:0:16}"
 printf 'cold_discover_seconds=%.3f limit=%s\n' "$search_seconds" "$max_search"
