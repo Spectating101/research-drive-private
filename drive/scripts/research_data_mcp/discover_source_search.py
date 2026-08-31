@@ -214,6 +214,17 @@ _SOURCE_GENERIC_TOKENS = frozenset(
         "measurement",
         "measurements",
         "historical",
+        # Research-design language describes the requested relationship, not
+        # the subject to retrieve.  Without this, an unrelated paper such as
+        # “Framing effects … normatively defensible” can earn two accidental
+        # lexical hits for a wildfire/employment question.
+        "defensible",
+        "effect",
+        "effects",
+        "link",
+        "linking",
+        "relationship",
+        "relationships",
         # “Changes” describes a relationship, not a research subject.  Leaving
         # it distinctive lets a finance catalogue record about “economic
         # changes” qualify for a forest-fire research need without ever

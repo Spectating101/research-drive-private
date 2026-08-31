@@ -349,3 +349,38 @@ def test_compound_need_rejects_one_word_live_coincidences() -> None:
     assert "Asia OWID legal frameworks regarding violence against women" not in titles
     assert "Refinitiv Asia equity fundamentals (licensed)" not in titles
     assert "Forest-fire exposure and local economic losses panel" in titles
+
+
+def test_compound_need_rejects_research_design_word_coincidences() -> None:
+    """A design adjective must not elevate an unrelated live paper."""
+    from scripts.research_data_mcp.discover_source_search import apply_source_relevance_gate
+
+    query = (
+        "I need a defensible daily regional panel linking wildfire exposure to "
+        "employment effects in Indonesia from 2015 to 2024"
+    )
+    rows = [
+        {
+            "kind": "live_candidate",
+            "live_hit": True,
+            "title": "Framing effects in inference tasks and why they are normatively defensible",
+            "label": "Framing effects in inference tasks and why they are normatively defensible",
+            "provider": "OpenAlex",
+            "candidate_key": "openalex:framing-effects",
+        },
+        {
+            "kind": "live_candidate",
+            "live_hit": True,
+            "title": "Wildfire smoke exposure and employment outcomes across Indonesian provinces",
+            "label": "Wildfire smoke exposure and employment outcomes across Indonesian provinces",
+            "provider": "DataCite",
+            "candidate_key": "doi:10.1/wildfire-employment-id",
+        },
+    ]
+
+    kept, meta = apply_source_relevance_gate(rows, query, limit=8, corpus=[])
+    titles = {str(row.get("title") or "") for row in kept}
+    assert "Framing effects in inference tasks and why they are normatively defensible" not in titles
+    assert "Wildfire smoke exposure and employment outcomes across Indonesian provinces" in titles
+    assert "effects" not in meta["distinctive_tokens"]
+    assert "defensible" not in meta["distinctive_tokens"]
