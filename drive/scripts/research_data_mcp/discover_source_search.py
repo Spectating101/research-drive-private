@@ -214,6 +214,12 @@ _SOURCE_GENERIC_TOKENS = frozenset(
         "measurement",
         "measurements",
         "historical",
+        # “Changes” describes a relationship, not a research subject.  Leaving
+        # it distinctive lets a finance catalogue record about “economic
+        # changes” qualify for a forest-fire research need without ever
+        # matching forest or fire.
+        "change",
+        "changes",
         "index",
         "incident",
         "incidents",

@@ -311,7 +311,7 @@ def test_live_candidates_marked_inspect_only(repo_root: Path) -> None:
 
 
 def test_compound_need_rejects_one_word_live_coincidences() -> None:
-    """A fire-and-economy need must not surface a record matching only 'regarding'."""
+    """A fire-and-economy need must not surface generic phrasing as subject evidence."""
     from scripts.research_data_mcp.discover_source_search import apply_source_relevance_gate
 
     query = "I need dataset regarding forest fire and economic changes"
@@ -323,6 +323,15 @@ def test_compound_need_rejects_one_word_live_coincidences() -> None:
             "label": "Asia OWID legal frameworks regarding violence against women",
             "provider": "Hugging Face",
             "candidate_key": "source:hugging-face:asia-owid-legal-frameworks",
+        },
+        {
+            "kind": "source",
+            "source_id": "lseg_edp",
+            "title": "Refinitiv Asia equity fundamentals (licensed)",
+            "label": "Refinitiv Asia equity fundamentals (licensed)",
+            "description": "Economic changes across Asian equity markets.",
+            "capabilities": ["fundamentals", "economic", "changes"],
+            "candidate_key": "source:lseg_edp",
         },
         {
             "kind": "live_candidate",
@@ -338,4 +347,5 @@ def test_compound_need_rejects_one_word_live_coincidences() -> None:
     titles = {str(row.get("title") or "") for row in kept}
     assert meta["min_query_relevance"] == 2.0
     assert "Asia OWID legal frameworks regarding violence against women" not in titles
+    assert "Refinitiv Asia equity fundamentals (licensed)" not in titles
     assert "Forest-fire exposure and local economic losses panel" in titles
