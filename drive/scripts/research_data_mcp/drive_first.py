@@ -61,6 +61,31 @@ def _rclone_flags(repo_root: Path) -> list[str]:
     return flags
 
 
+def _bounded_local_source(repo_root: Path, local_rel: str) -> Path:
+    """Archive only materialised evidence, never arbitrary host/repository files."""
+    root = Path(repo_root).resolve()
+    local = (root / str(local_rel or "")).resolve()
+    evidence_root = (root / "data_lake").resolve()
+    try:
+        relative = local.relative_to(evidence_root)
+    except ValueError as exc:
+        raise ValueError("archive_local_path_outside_data_lake") from exc
+    if not relative.parts:
+        raise ValueError("archive_local_path_is_data_lake_root")
+    return local
+
+
+def _bounded_remote_suffix(remote_suffix: str) -> str:
+    """Refuse absolute/traversing destinations outside the configured archive root."""
+    raw = str(remote_suffix or "").strip().replace("\\", "/")
+    if not raw or raw.startswith("/"):
+        raise ValueError("archive_remote_suffix_invalid")
+    parts = raw.split("/")
+    if any(not part or part in {".", ".."} for part in parts):
+        raise ValueError("archive_remote_suffix_outside_canonical_root")
+    return "/".join(parts)
+
+
 def archive_local_to_remote(
     repo_root: Path,
     local_rel: str,
@@ -70,13 +95,16 @@ def archive_local_to_remote(
     excludes: list[str] | None = None,
 ) -> dict[str, Any]:
     """rclone copy + optional check from repo-relative local path to vault suffix."""
-    local = (repo_root / local_rel).resolve()
+    try:
+        local = _bounded_local_source(repo_root, local_rel)
+        suffix = _bounded_remote_suffix(remote_suffix)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc), "local_path": local_rel}
     if not local.exists():
         return {"ok": False, "error": "local_missing", "local_path": local_rel}
     drive_root = canonical_drive_root(repo_root).rstrip("/")
     if not drive_root:
         return {"ok": False, "error": "drive_root_unset"}
-    suffix = remote_suffix.lstrip("/")
     remote = f"{drive_root}/{suffix}"
     flags = _rclone_flags(repo_root)
     cmd = [

@@ -194,6 +194,22 @@ if [ "${PREFLIGHT_CHECK_RESTARTABILITY:-0}" = "1" ]; then
   rm -f /tmp/restartability_preflight.$$
 fi
 
+# A list-only Drive probe proves the archive can be read, but an external
+# collection service also needs a scoped write/read/delete proof.  Promotion
+# enables this by default; an ordinary read-only preflight may opt in.
+if [ "${PREFLIGHT_CHECK_CANONICAL_ARCHIVE:-0}" = "1" ]; then
+  archive_probe="$backend_root/drive/scripts/research_data_mcp/gdrive_verify.py"
+  if [ ! -f "$archive_probe" ]; then
+    bad "canonical archive probe missing: $archive_probe"
+  elif PYTHONPATH="$backend_root:$backend_root/kernel:$backend_root/drive:$backend_root/alpha" "$python_bin" "$archive_probe" --repo-root "$backend_root" --exercise >/tmp/canonical_archive_preflight.$$ 2>&1; then
+    note "canonical_archive=write_read_delete"
+  else
+    bad "canonical archive write/read/delete preflight failed"
+    while IFS= read -r line; do note "canonical_archive: $line"; done </tmp/canonical_archive_preflight.$$
+  fi
+  rm -f /tmp/canonical_archive_preflight.$$
+fi
+
 if [ "$JSON" = "1" ]; then
   "$python_bin" - "$backend_sha" "$ui_sha" "$reg_hash" "$reg_rows" "$roots" "$fail" "$registry_authority" <<'PY'
 import json,sys

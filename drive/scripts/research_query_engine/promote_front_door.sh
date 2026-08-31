@@ -106,7 +106,7 @@ preflight="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/preflight_release.sh"
 if [[ "${PROMOTE_SKIP_PREFLIGHT:-0}" == "1" ]]; then
   echo "preflight=skipped (PROMOTE_SKIP_PREFLIGHT=1)" >&2
 elif [[ -x "${preflight}" || -f "${preflight}" ]]; then
-  if PREFLIGHT_STATIC_DIR="${target_dir}" PREFLIGHT_CHECK_RESTARTABILITY=1 bash "${preflight}" >/tmp/promote_preflight.$$ 2>&1; then
+  if PREFLIGHT_STATIC_DIR="${target_dir}" PREFLIGHT_CHECK_RESTARTABILITY=1 PREFLIGHT_CHECK_CANONICAL_ARCHIVE=1 bash "${preflight}" >/tmp/promote_preflight.$$ 2>&1; then
     echo "preflight=ready"
   else
     echo "preflight refused this release; not swapping the live link" >&2
