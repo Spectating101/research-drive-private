@@ -16,7 +16,6 @@ from scripts.research_data_mcp.inventory_authority import (
     view_scope,
 )
 from scripts.research_query_engine.engine import ResearchQueryEngine
-from scripts.yzu_cluster.acquisitions import repo_relpath
 
 
 class SearchService:
@@ -559,7 +558,10 @@ class SearchService:
         desk_total = inventory["totals"]["visible_to_desk"]
         registered_total = inventory["totals"]["registered"]
         return {
-            "registry": repo_relpath(self.registry_path, self.repo_root),
+            # The active runtime registry can live outside the checkout.  Its
+            # absolute host path is operational detail, not researcher-facing
+            # evidence, and this endpoint is available to public guests.
+            "registry_authority": "runtime" if self.registry_path.resolve() != (self.repo_root / "config/research_query_registry.json").resolve() else "checkout",
             "total_datasets": desk_total,
             "registered_datasets": registered_total,
             "excluded_operational_test": inventory["totals"]["excluded_operational_test"],

@@ -51,7 +51,9 @@ def registry_revision(registry_path: Path) -> dict[str, Any]:
     """Content fingerprint + metadata for the registry authority file."""
     path = Path(registry_path)
     revision: dict[str, Any] = {
-        "path": str(path),
+        # This projection is returned from researcher-facing endpoints.  The
+        # authority's fingerprint is useful for reconciling views; its host
+        # filesystem path is not and would disclose runtime topology.
         "fingerprint": None,
         "byte_size": None,
         "mtime_ns": None,
