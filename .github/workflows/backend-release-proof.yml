@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - agent/release-proof-hardening-v2
+      - agent/discover-relevance-final-20260831
       - hardening/synthesis-measurement-contract-20260826
     paths:
       - "drive/scripts/yzu_cluster/**"
@@ -20,6 +21,8 @@ on:
       - "drive/tests/test_hardening_gates.py"
       - "drive/tests/test_registry_readiness_truth.py"
       - "tests/test_acquisition_manifest.py"
+      - "tests/test_cloudflare_access_identity.py"
+      - "tests/test_public_guest_desk.py"
       - "drive/scripts/ops/repo_authority_check.sh"
       - ".github/workflows/backend-release-proof.yml"
   pull_request:
@@ -34,6 +37,8 @@ on:
       - "drive/config/procurement_magic.json"
       - "drive/tests/**"
       - "tests/test_acquisition_manifest.py"
+      - "tests/test_cloudflare_access_identity.py"
+      - "tests/test_public_guest_desk.py"
       - "drive/scripts/ops/repo_authority_check.sh"
       - ".github/workflows/backend-release-proof.yml"
   workflow_dispatch:
@@ -87,6 +92,8 @@ jobs:
             drive/tests/test_hardening_gates.py \
             drive/tests/test_registry_readiness_truth.py \
             tests/test_acquisition_manifest.py \
+            tests/test_cloudflare_access_identity.py \
+            tests/test_public_guest_desk.py \
             2>&1 | tee artifacts/backend-release-tests.log
 
       - name: Verify hosted checkout authority
