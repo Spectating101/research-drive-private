@@ -44,6 +44,8 @@ def test_verified_access_assertion_becomes_restricted_stable_principal(monkeypat
     assert principal.email == "researcher@example.edu"
     assert principal.display_name == "Researcher"
     assert principal.role == "public_member"
+    assert "use_ask" in principal.permissions
+    assert "submit_collection" not in principal.permissions
     assert "view_faculty_profile" not in principal.permissions
     assert "approve_jobs" not in principal.permissions
     assert observed["url"] == "https://research-drive.cloudflareaccess.com/cdn-cgi/access/certs"
