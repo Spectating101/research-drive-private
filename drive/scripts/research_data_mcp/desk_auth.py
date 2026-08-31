@@ -105,6 +105,20 @@ def required_permission(path: str, method: str = "GET") -> str:
     elif path.startswith("/api/"):
         path = path[4:]
     method_u = str(method or "GET").upper()
+
+    # Stateful reasoning is private work regardless of HTTP verb. These checks
+    # must precede the generic GET/HEAD read rule; otherwise a guest with only
+    # shared research-data access could read saved conversations or Synthesis
+    # thread state even though it cannot create a new Ask turn.
+    if path.startswith(("/library/chat", "/library/advise")):
+        return "use_ask"
+    if path.rstrip("/") == "/library/desk/warm":
+        return "use_ask"
+    if path.startswith("/library/synthesis/threads") and not path.endswith(
+        ("/execute", "/collect-missing")
+    ):
+        return "use_ask"
+
     if method_u in {"GET", "HEAD"}:
         if path.startswith("/yzu") or path.startswith(
             ("/library/ops", "/library/credentials", "/library/campaigns")
@@ -126,17 +140,6 @@ def required_permission(path: str, method: str = "GET") -> str:
         ("/library/jobs", "/library/campaigns", "/library/credentials")
     ):
         return "approve_jobs"
-    if path.startswith(("/library/chat", "/library/advise")):
-        return "use_ask"
-    # Session priming is the same read-only Composer capability as Ask.  It
-    # creates only the caller's private conversation state and must not force
-    # public guests to pay the cold-start latency on their first allowed Ask.
-    if path.rstrip("/") == "/library/desk/warm":
-        return "use_ask"
-    if path.startswith("/library/synthesis/threads") and not path.endswith(
-        ("/execute", "/collect-missing")
-    ):
-        return "use_ask"
     return "submit_collection"
 
 
