@@ -1,4 +1,4 @@
-"""Public guest desk boundary: useful research access without operator authority."""
+"""Public guest desk boundary: useful research access without reasoning or mutation authority."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def _guest_cookie() -> str:
     return cookie.split("=", 1)[1].split(";", 1)[0]
 
 
-def test_public_guest_session_is_unique_and_limited():
+def test_public_guest_session_is_unique_and_read_only():
     first = _guest_cookie()
     second = _guest_cookie()
     assert first != second
@@ -57,8 +57,9 @@ def test_public_guest_session_is_unique_and_limited():
     assert principal and principal.role == "public_guest"
     assert principal.principal_id.startswith("guest-")
     assert desk_auth.authorize(guest, "/datasets", "GET")[0] is True
-    assert desk_auth.authorize(guest, "/library/chat", "POST")[0] is True
-    assert desk_auth.authorize(guest, "/library/desk/warm", "POST")[0] is True
+    assert desk_auth.authorize(guest, "/library/chat", "POST")[0] is False
+    assert desk_auth.authorize(guest, "/library/desk/warm", "POST")[0] is False
+    assert desk_auth.authorize(guest, "/library/synthesis/threads", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/faculty/profile", "GET")[0] is False
     assert desk_auth.authorize(guest, "/yzu/workers", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/jobs", "POST")[0] is False
@@ -76,7 +77,7 @@ def test_public_guest_mint_requires_configured_same_origin_browser():
         assert ok is False and cookie is None
 
 
-def test_capabilities_describe_guest_without_exposing_private_permissions():
+def test_capabilities_describe_guest_without_reasoning_or_private_permissions():
     value = _guest_cookie()
     guest = FakeHandler(
         Host="previous.easycamp.tech",
@@ -85,7 +86,7 @@ def test_capabilities_describe_guest_without_exposing_private_permissions():
     document = desk_auth.desk_capability_document(guest)
     assert document["access"] == "public_guest"
     assert document["permissions"]["view_research_data"] is True
-    assert document["permissions"]["use_ask"] is True
+    assert document["permissions"]["use_ask"] is False
     assert document["permissions"]["submit_collection"] is False
     assert document["permissions"]["approve_jobs"] is False
     assert document["session"]["public_guest_available"] is True
