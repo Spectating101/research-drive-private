@@ -58,6 +58,7 @@ def test_public_guest_session_is_unique_and_limited():
     assert principal.principal_id.startswith("guest-")
     assert desk_auth.authorize(guest, "/datasets", "GET")[0] is True
     assert desk_auth.authorize(guest, "/library/chat", "POST")[0] is True
+    assert desk_auth.authorize(guest, "/library/desk/warm", "POST")[0] is True
     assert desk_auth.authorize(guest, "/library/faculty/profile", "GET")[0] is False
     assert desk_auth.authorize(guest, "/yzu/workers", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/jobs", "POST")[0] is False

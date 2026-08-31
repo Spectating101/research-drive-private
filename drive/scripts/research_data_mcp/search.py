@@ -592,12 +592,29 @@ class SearchService:
     def _partition_summary(self) -> dict[str, Any]:
         from scripts.yzu_cluster.partition_lanes import partition_lanes
 
-        lanes = partition_lanes(self.repo_root)
+        lanes = [self._researcher_partition_lane(lane) for lane in partition_lanes(self.repo_root)]
         return {
             "total": len(lanes),
             "complete": sum(1 for lane in lanes if lane.get("stage") == "complete"),
             "lanes": lanes,
         }
+
+    @staticmethod
+    def _researcher_partition_lane(lane: dict[str, Any]) -> dict[str, Any]:
+        """Keep Library navigation useful without exporting host storage topology."""
+        public = dict(lane)
+        detail = dict(public.get("detail") or {})
+        for key in ("local_path", "canonical_remote", "target_drive_path"):
+            detail.pop(key, None)
+        detail["archive_authority"] = "service_managed"
+        public["detail"] = detail
+        # The UI uses this only as a human-facing Library destination in Ask
+        # prompts.  A raw rclone remote belongs to host operations, not a
+        # public browser response.
+        public["destination"] = str(
+            public.get("professor_label") or public.get("subtitle") or public.get("name") or "Library"
+        )
+        return public
 
     def ops_status(self, lane: str = "") -> dict[str, Any]:
         queue = self.query_dataset("collection_queue_status")

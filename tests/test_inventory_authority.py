@@ -127,6 +127,26 @@ def test_library_overview_does_not_expose_an_external_runtime_registry_path(tmp_
     assert str(external) not in json.dumps(overview)
 
 
+def test_researcher_partition_lane_hides_host_and_rclone_paths() -> None:
+    lane = {
+        "name": "Asia news shocks",
+        "destination": "gdrive:Machine_Archive/secret/collection/news",
+        "detail": {
+            "local_path": "/home/desk/private/data_lake/news",
+            "canonical_remote": "gdrive:Machine_Archive/secret/collection/news",
+            "target_drive_path": "collection/news",
+            "local_present": True,
+        },
+    }
+
+    public = SearchService._researcher_partition_lane(lane)
+
+    assert public["destination"] == "Asia news shocks"
+    assert public["detail"] == {"local_present": True, "archive_authority": "service_managed"}
+    assert "/home/" not in json.dumps(public)
+    assert "gdrive:" not in json.dumps(public)
+
+
 def test_registry_nanosecond_revision_is_json_safe_and_lossless(tmp_path: Path) -> None:
     _root, registry = _write_registry(tmp_path, _rows())
 

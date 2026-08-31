@@ -128,6 +128,11 @@ def required_permission(path: str, method: str = "GET") -> str:
         return "approve_jobs"
     if path.startswith(("/library/chat", "/library/advise")):
         return "use_ask"
+    # Session priming is the same read-only Composer capability as Ask.  It
+    # creates only the caller's private conversation state and must not force
+    # public guests to pay the cold-start latency on their first allowed Ask.
+    if path.rstrip("/") == "/library/desk/warm":
+        return "use_ask"
     if path.startswith("/library/synthesis/threads") and not path.endswith(
         ("/execute", "/collect-missing")
     ):
