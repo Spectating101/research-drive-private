@@ -58,6 +58,7 @@ def test_public_guest_session_is_unique_and_read_only():
     assert principal.principal_id.startswith("guest-")
     assert desk_auth.authorize(guest, "/datasets", "GET")[0] is True
     assert desk_auth.authorize(guest, "/library/chat", "POST")[0] is False
+    assert desk_auth.authorize(guest, "/library/chat/session-123", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/desk/warm", "POST")[0] is False
     assert desk_auth.authorize(guest, "/library/synthesis/threads", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/faculty/profile", "GET")[0] is False
