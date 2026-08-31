@@ -18,23 +18,22 @@ from typing import Any
 
 
 _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
-    # An anonymous public visitor gets a unique, signed guest identity.  It is
-    # deliberately useful for the research desk, but cannot see personal or
-    # operational data and cannot start collection work.
+    # An anonymous public visitor gets a unique, signed guest identity so the
+    # shared research estate can remain useful without becoming an inference
+    # or mutation surface. Ask/Synthesis require a named login so conversation
+    # history, quota, and provenance always have a durable owner.
     "public_guest": frozenset(
         {
             "view_research_data",
-            "use_ask",
         }
     ),
-    # Public Access identities can research, ask, and submit review-gated
-    # collection requests.  They deliberately cannot read a faculty member's
-    # private profile or any operations/approval surface.
+    # A verified public identity may use the stateful reasoning layer, but it
+    # still cannot submit collection work or read faculty/operations state.
+    # Review-gated acquisition begins only at the explicit member role below.
     "public_member": frozenset(
         {
             "view_research_data",
             "use_ask",
-            "submit_collection",
         }
     ),
     "member": frozenset(
