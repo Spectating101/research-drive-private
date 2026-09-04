@@ -79,6 +79,40 @@ for _group in ALIAS_GROUPS:
     for _term in group:
         ALIASES[_term] = group
 
+# These concepts are useful modifiers when another subject is present, but a
+# single one of them must not make an otherwise unrelated long query look like
+# evidence. Keep this deliberately small: topical words such as ``infant`` are
+# allowed to survive as low-confidence partial evidence so federation/semantic
+# widening can inspect the rest of the registered metadata.
+WEAK_PARTIAL_TERMS = frozenset(
+    {
+        "day",
+        "daily",
+        "week",
+        "weekly",
+        "month",
+        "monthly",
+        "quarter",
+        "quarterly",
+        "year",
+        "yearly",
+        "annual",
+        "annually",
+        "paper",
+        "papers",
+        "article",
+        "articles",
+        "literature",
+        "scholarly",
+        "source",
+        "sources",
+        "connector",
+        "connectors",
+        "api",
+        "apis",
+    }
+)
+
 
 @dataclass(frozen=True)
 class FieldGroup:
@@ -262,8 +296,21 @@ def field_values(row: dict[str, Any], fields: Iterable[str]) -> list[str]:
 
 
 def _concept_matches(variants: frozenset[str], blob: str) -> bool:
+    # Never fall back to raw substring search: ``election`` must not match the
+    # ``selection`` half of ``stock-selection``. Multi-token variants exist for
+    # normalized identifiers such as country_iso3, so match those as bounded
+    # phrases while ordinary concepts require a complete token.
     tokens = set(blob.split())
-    return any(variant in tokens or variant in blob for variant in variants)
+    for variant in variants:
+        candidate = normalize(variant)
+        if not candidate:
+            continue
+        if " " in candidate:
+            if re.search(rf"(?<![a-z0-9]){re.escape(candidate)}(?![a-z0-9])", blob):
+                return True
+        elif candidate in tokens:
+            return True
+    return False
 
 
 def _first_matching_value(values: list[str], variants: frozenset[str]) -> str:
@@ -332,16 +379,16 @@ def score_registry_asset(row: dict[str, Any], query: str) -> dict[str, Any]:
 
     coverage = len(matched_terms) / len(concepts)
     score += round(coverage * 50)
-    # Lexical registry retrieval is an evidence-producing ranker, not the final
-    # federation relevance gate. Preserve partial exact evidence for short
-    # research queries so callers can compare one-of-N matches and inspect richer
-    # metadata downstream. For longer compound queries, however, one incidental
-    # word is too weak to constitute a candidate: require at least one third of
-    # the concepts unless the complete query phrase itself matched. This keeps
-    # useful one-of-three evidence while rejecting one-of-four noise such as a
-    # generic cadence term embedded in an otherwise unrelated request.
-    if len(concepts) >= 4 and coverage < (1 / 3) and not phrase_match:
-        score = 0
+    # Lexical retrieval should preserve informative partial evidence because a
+    # later federation layer may use richer registered metadata/semantics to
+    # establish the compound fit. Do suppress a lone generic modifier in a long
+    # query: matching only ``weekly`` in "weekly plutonium avocado telescope"
+    # is noise, while matching ``infant`` in a longer health question is useful
+    # low-confidence evidence worth carrying forward.
+    if len(concepts) >= 4 and len(matched_terms) == 1 and not phrase_match:
+        lone_term = next(iter(matched_terms))
+        if lone_term in WEAK_PARTIAL_TERMS or singular(lone_term) in WEAK_PARTIAL_TERMS:
+            score = 0
 
     confidence = "none"
     if score > 0:
