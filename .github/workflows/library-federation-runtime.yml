@@ -9,6 +9,7 @@ on:
       - "drive/scripts/research_data_mcp/connected_accounts_http.py"
       - "drive/scripts/research_data_mcp/connected_accounts_security.py"
       - "drive/scripts/research_data_mcp/library_federation.py"
+      - "drive/scripts/research_data_mcp/library_federation_runtime.py"
       - "drive/scripts/research_data_mcp/library_federation_http.py"
       - "drive/scripts/research_data_mcp/http_router.py"
       - "tests/test_connected_accounts.py"
@@ -47,6 +48,7 @@ jobs:
             drive/scripts/research_data_mcp/connected_accounts_http.py \
             drive/scripts/research_data_mcp/connected_accounts_security.py \
             drive/scripts/research_data_mcp/library_federation.py \
+            drive/scripts/research_data_mcp/library_federation_runtime.py \
             drive/scripts/research_data_mcp/library_federation_http.py \
             drive/scripts/research_data_mcp/http_router.py
 
