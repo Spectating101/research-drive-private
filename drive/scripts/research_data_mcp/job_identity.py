@@ -6,9 +6,8 @@ Honesty rules:
   structured ids (dataset_id, DOI, URL) — never from title matching.
 - registered_dataset_id is set only after RegistryPromoter writes a mapping
   onto the job result (registry_promotion[*].dataset_id).
-- output_manifest_id is not a stable persisted field today; leave null unless
-  the job result already carries an explicit manifest id. Gap: collectors do
-  not yet emit a canonical output_manifest_id on every completion.
+- output_manifest_id is exposed only from explicit result, materialisation, or
+  registration evidence. Jobs without recorded manifest proof remain null.
 """
 
 from __future__ import annotations
@@ -75,7 +74,7 @@ def registered_dataset_id_from_result(result: dict[str, Any] | None) -> str | No
 
 
 def output_manifest_id_from_result(result: dict[str, Any] | None) -> str | None:
-    """Return explicit manifest id when present; otherwise null (known gap)."""
+    """Return an explicit manifest id from persisted execution/registration proof."""
     if not isinstance(result, dict):
         return None
     for key in ("output_manifest_id", "manifest_id"):
@@ -86,6 +85,12 @@ def output_manifest_id_from_result(result: dict[str, Any] | None) -> str | None:
     if isinstance(mat, dict):
         for key in ("output_manifest_id", "manifest_id"):
             mid = _trim(mat.get(key))
+            if mid:
+                return mid
+    evidence = result.get("registration_evidence")
+    if isinstance(evidence, dict):
+        for key in ("output_manifest_id", "manifest_id"):
+            mid = _trim(evidence.get(key))
             if mid:
                 return mid
     return None
