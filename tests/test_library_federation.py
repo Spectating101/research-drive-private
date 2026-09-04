@@ -4,7 +4,9 @@ import json
 
 import pytest
 
+from scripts.research_data_mcp import http_router
 from scripts.research_data_mcp import library_federation as federation
+from scripts.research_data_mcp.connected_accounts_security import public_connected_accounts_document
 from scripts.research_data_mcp.desk_principal import DeskPrincipal
 
 
@@ -212,3 +214,44 @@ def test_usage_memory_requires_timezone_and_typed_event(tmp_path):
         federation.normalize_usage_event(usage_event(event_type="something_else"))
     with pytest.raises(ValueError, match="timezone"):
         federation.normalize_usage_event(usage_event(occurred_at="2026-09-05T12:30:00"))
+
+
+def test_public_account_document_advertises_only_operational_directory_adapters(monkeypatch):
+    monkeypatch.setenv("RCLONE_CONFIG_PASS", "test-only-password")
+    document = public_connected_accounts_document(
+        {
+            "accounts": [],
+            "providers": [
+                {
+                    "id": "google_drive",
+                    "configured": True,
+                    "rclone_available": True,
+                    "credential_store_encrypted": True,
+                },
+                {
+                    "id": "dropbox",
+                    "configured": True,
+                    "rclone_available": False,
+                    "credential_store_encrypted": True,
+                },
+                {
+                    "id": "onedrive",
+                    "configured": True,
+                    "rclone_available": True,
+                    "credential_store_encrypted": True,
+                },
+            ],
+        }
+    )
+    providers = {row["id"]: row for row in document["providers"]}
+    assert providers["google_drive"]["capabilities"]["directory_browse"] is True
+    assert providers["google_drive"]["directory_browse_available"] is True
+    assert providers["dropbox"]["capabilities"]["directory_browse"] is False
+    assert providers["onedrive"]["capabilities"]["directory_browse"] is False
+
+
+def test_router_exposes_federation_and_usage_memory_contracts():
+    routes = {(row["method"], row["path"]) for row in http_router.ROUTE_CATALOG}
+    assert ("GET", "/library/folders") in routes
+    assert ("GET", "/library/evidence-usage") in routes
+    assert ("POST", "/library/evidence-usage") in routes
