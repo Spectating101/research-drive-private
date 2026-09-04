@@ -6,6 +6,7 @@ import pytest
 
 from scripts.research_data_mcp import http_router
 from scripts.research_data_mcp import library_federation as federation
+from scripts.research_data_mcp import library_federation_runtime as runtime
 from scripts.research_data_mcp.connected_accounts_security import public_connected_accounts_document
 from scripts.research_data_mcp.desk_principal import DeskPrincipal
 
@@ -112,9 +113,9 @@ def test_ambiguous_explicit_holding_identity_fails_closed(tmp_path):
     assert ("dropbox", "d1", "id:x") not in federation._holding_identity_index(registry)
 
 
-def test_google_page_preserves_unknown_file_and_resolves_only_explicit_holding(monkeypatch):
+def test_google_page_preserves_version_and_resolves_only_explicit_holding(monkeypatch):
     monkeypatch.setattr(
-        federation,
+        runtime,
         "_request_json",
         lambda *args, **kwargs: {
             "files": [
@@ -125,6 +126,8 @@ def test_google_page_preserves_unknown_file_and_resolves_only_explicit_holding(m
                     "parents": ["root"],
                     "size": "123",
                     "modifiedTime": "2026-09-05T10:00:00Z",
+                    "version": "17",
+                    "md5Checksum": "abc123",
                 },
                 {
                     "id": "unknown",
@@ -136,7 +139,7 @@ def test_google_page_preserves_unknown_file_and_resolves_only_explicit_holding(m
             "nextPageToken": "page-2",
         },
     )
-    page = federation._google_directory_page(
+    page = runtime._google_page(
         token="secret-token",
         account=account("g1"),
         parent_id="",
@@ -145,9 +148,50 @@ def test_google_page_preserves_unknown_file_and_resolves_only_explicit_holding(m
         identities={("google_drive", "g1", "known"): "panel-1"},
     )
     assert page["items"][0]["logical_asset_id"] == "panel-1"
+    assert page["items"][0]["version_id"] == "17"
+    assert page["items"][0]["content_hash"] == "md5:abc123"
     assert "logical_asset_id" not in page["items"][1]
     assert page["items"][1]["name"] == "panel-1.csv"
     assert page["next_cursor"] == "page-2"
+    assert page["has_more"] is True
+
+
+def test_dropbox_folder_id_is_not_double_prefixed_and_version_is_preserved(monkeypatch):
+    calls = []
+
+    def request(url, **kwargs):
+        calls.append((url, kwargs))
+        return {
+            "entries": [
+                {
+                    ".tag": "file",
+                    "id": "id:file",
+                    "name": "x.csv",
+                    "path_display": "/Research/x.csv",
+                    "size": 4,
+                    "rev": "a1b2",
+                    "content_hash": "deadbeef",
+                }
+            ],
+            "cursor": "provider-cursor-1",
+            "has_more": True,
+        }
+
+    monkeypatch.setattr(runtime, "_request_json", request)
+    page = runtime._dropbox_page(
+        token="secret-token",
+        account=account("d1", "dropbox"),
+        parent_id="id:folder",
+        cursor="",
+        limit=50,
+        identities={},
+    )
+    assert calls[0][0].endswith("/files/list_folder")
+    assert calls[0][1]["json_body"]["path"] == "id:folder"
+    assert page["items"][0]["parent_item_id"] == "id:folder"
+    assert page["items"][0]["version_id"] == "a1b2"
+    assert page["items"][0]["content_hash"] == "dropbox:deadbeef"
+    assert page["next_cursor"] == "provider-cursor-1"
     assert page["has_more"] is True
 
 
@@ -162,8 +206,8 @@ def test_dropbox_cursor_continuation_is_provider_native(monkeypatch):
             "has_more": False,
         }
 
-    monkeypatch.setattr(federation, "_request_json", request)
-    page = federation._dropbox_directory_page(
+    monkeypatch.setattr(runtime, "_request_json", request)
+    page = runtime._dropbox_page(
         token="secret-token",
         account=account("d1", "dropbox"),
         parent_id="id:folder",
@@ -207,6 +251,28 @@ def test_usage_memory_is_durable_idempotent_and_principal_bound(tmp_path):
     assert alice_rows["count"] == 1
     assert alice_rows["events"][0]["related_asset_ids"] == ["raw-a", "raw-b"]
     assert bob_rows["count"] == 0
+
+
+def test_http_usage_persistence_rejects_noncanonical_asset_ids(tmp_path):
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"datasets": [{"dataset_id": "panel-1"}]}), encoding="utf-8")
+    actor = principal("alice")
+
+    accepted = runtime.persist_canonical_library_usage_event(
+        tmp_path,
+        usage_event(),
+        registry_path=registry,
+        principal=actor,
+    )
+    assert accepted["ok"] is True
+
+    with pytest.raises(ValueError, match="canonical Library asset"):
+        runtime.persist_canonical_library_usage_event(
+            tmp_path,
+            usage_event(logical_asset_id="made-up-file"),
+            registry_path=registry,
+            principal=actor,
+        )
 
 
 def test_usage_memory_requires_timezone_and_typed_event(tmp_path):
