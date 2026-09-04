@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}:${{ github.workspace }}/drive
     steps:
       - uses: actions/checkout@v4
 
@@ -83,7 +83,11 @@ jobs:
         run: |
           python -m pytest -q tests/test_research_query_server.py
           bash -n drive/scripts/research_query_engine/build_optiplex_front_door.sh
+          bash -n drive/scripts/research_query_engine/preflight_release.sh
+          bash -n drive/scripts/research_query_engine/promote_front_door.sh
           bash -n drive/scripts/research_query_engine/run_optiplex_front_door.sh
+          bash -n drive/scripts/research_query_engine/verify_front_door_restartability.sh
+          bash -n drive/scripts/research_query_engine/migrate_front_door_releases.sh
           bash -n drive/scripts/research_query_engine/install_optiplex_front_door_systemd_user.sh
 
       - name: Run pragmatic Python lint gate
