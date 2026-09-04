@@ -9,6 +9,7 @@ on:
       - "drive/scripts/research_data_mcp/connected_accounts_http.py"
       - "drive/scripts/research_data_mcp/connected_accounts_security.py"
       - "drive/scripts/research_data_mcp/library_federation.py"
+      - "drive/scripts/research_data_mcp/library_federation_holdings.py"
       - "drive/scripts/research_data_mcp/library_federation_runtime.py"
       - "drive/scripts/research_data_mcp/library_federation_http.py"
       - "drive/scripts/research_data_mcp/http_router.py"
@@ -48,11 +49,12 @@ jobs:
             drive/scripts/research_data_mcp/connected_accounts_http.py \
             drive/scripts/research_data_mcp/connected_accounts_security.py \
             drive/scripts/research_data_mcp/library_federation.py \
+            drive/scripts/research_data_mcp/library_federation_holdings.py \
             drive/scripts/research_data_mcp/library_federation_runtime.py \
             drive/scripts/research_data_mcp/library_federation_http.py \
             drive/scripts/research_data_mcp/http_router.py
 
-      - name: Prove account, federation, identity, and usage-memory contracts
+      - name: Prove account, federation, identity, holdings, and usage-memory contracts
         run: |
           python -m pytest -q \
             tests/test_connected_accounts.py \
