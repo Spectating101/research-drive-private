@@ -1,0 +1,58 @@
+name: Library federation backend contracts
+
+on:
+  push:
+    branches:
+      - agent/library-federation-runtime-20260905
+    paths:
+      - "drive/scripts/research_data_mcp/connected_accounts.py"
+      - "drive/scripts/research_data_mcp/connected_accounts_http.py"
+      - "drive/scripts/research_data_mcp/connected_accounts_security.py"
+      - "drive/scripts/research_data_mcp/library_federation.py"
+      - "drive/scripts/research_data_mcp/library_federation_http.py"
+      - "drive/scripts/research_data_mcp/http_router.py"
+      - "tests/test_connected_accounts.py"
+      - "tests/test_connected_accounts_security.py"
+      - "tests/test_library_federation.py"
+      - ".github/workflows/library-federation-runtime.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/kernel:${{ github.workspace }}/drive
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install contract dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pandas pyarrow pyyaml requests numpy python-dotenv pydantic fastapi starlette httpx
+
+      - name: Compile federation authority
+        run: |
+          python -m py_compile \
+            drive/scripts/research_data_mcp/connected_accounts.py \
+            drive/scripts/research_data_mcp/connected_accounts_http.py \
+            drive/scripts/research_data_mcp/connected_accounts_security.py \
+            drive/scripts/research_data_mcp/library_federation.py \
+            drive/scripts/research_data_mcp/library_federation_http.py \
+            drive/scripts/research_data_mcp/http_router.py
+
+      - name: Prove account, federation, identity, and usage-memory contracts
+        run: |
+          python -m pytest -q \
+            tests/test_connected_accounts.py \
+            tests/test_connected_accounts_security.py \
+            tests/test_library_federation.py
