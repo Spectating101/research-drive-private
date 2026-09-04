@@ -332,9 +332,12 @@ def score_registry_asset(row: dict[str, Any], query: str) -> dict[str, Any]:
 
     coverage = len(matched_terms) / len(concepts)
     score += round(coverage * 50)
-    required = 1 if len(concepts) <= 2 else max(2, (len(concepts) * 2 + 4) // 5)
-    if not phrase_match and len(matched_terms) < required:
-        score = 0
+    # Lexical registry retrieval is an evidence-producing ranker, not the final
+    # federation relevance gate. Preserve any exact concept match (at naturally
+    # low score/coverage when partial) so callers can see one-of-N evidence and
+    # make the stricter compound/geography decision downstream. Hard-dropping a
+    # partial match here made held assets undiscoverable before the federation
+    # layer could inspect their richer metadata.
 
     confidence = "none"
     if score > 0:
@@ -358,11 +361,16 @@ def score_registry_asset(row: dict[str, Any], query: str) -> dict[str, Any]:
         if len(unique) >= 4:
             break
 
+    # Preserve the researcher's query order in the receipt. A set/sort is fine
+    # for scoring, but reordering "earthquake seismic activity" into alphabetical
+    # order makes the explanation harder to compare with the original request.
+    ordered_matched_terms = [token for token, _variants in concepts if token in matched_terms]
+
     return {
         "score": int(score),
         "coverage": round(float(coverage), 4),
         "confidence": confidence,
-        "matched_terms": sorted(matched_terms),
+        "matched_terms": ordered_matched_terms,
         "match_evidence": unique,
         "phrase_match": bool(phrase_match),
     }
