@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from scripts.research_data_mcp.library_federation import (
-    list_library_usage_events,
-    list_provider_directory,
-    persist_library_usage_event,
+from scripts.research_data_mcp.library_federation import list_library_usage_events
+from scripts.research_data_mcp.library_federation_runtime import (
+    list_provider_directory_runtime,
+    persist_canonical_library_usage_event,
 )
 
 
@@ -34,7 +34,7 @@ def library_federation_handlers() -> dict[str, Any]:
         return stack.gateway.repo_root
 
     def library_provider_folders(stack, query, payload, params):
-        return list_provider_directory(
+        return list_provider_directory_runtime(
             repo_root(stack),
             provider=str(query.get("provider") or ""),
             account_id=str(query.get("account_id") or ""),
@@ -45,7 +45,11 @@ def library_federation_handlers() -> dict[str, Any]:
         )
 
     def library_evidence_usage_create(stack, query, payload, params):
-        return persist_library_usage_event(repo_root(stack), payload)
+        return persist_canonical_library_usage_event(
+            repo_root(stack),
+            payload,
+            registry_path=stack.registry_path,
+        )
 
     def library_evidence_usage_list(stack, query, payload, params):
         return list_library_usage_events(
