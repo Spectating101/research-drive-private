@@ -15,6 +15,8 @@ from scripts.research_data_mcp.connected_accounts import (
 )
 from scripts.research_data_mcp.desk_principal import DeskPrincipal
 
+_DIRECTORY_BROWSE_PROVIDERS = frozenset({"google_drive", "dropbox"})
+
 
 def credential_password_configured() -> bool:
     """Return whether rclone has a non-interactive config-password source."""
@@ -119,6 +121,19 @@ def public_connected_accounts_document(document: dict[str, Any]) -> dict[str, An
         # Do not advertise a provider as connectable until encrypted storage can
         # be established. Actual config encryption is verified at OAuth start.
         row["credential_store_encrypted"] = bool(row.get("credential_store_encrypted") and password_ready)
+        provider_id = str(row.get("id") or "").strip().lower()
+        directory_ready = bool(
+            provider_id in _DIRECTORY_BROWSE_PROVIDERS
+            and row.get("configured")
+            and row.get("rclone_available")
+            and row.get("credential_store_encrypted")
+        )
+        capabilities = dict(row.get("capabilities") or {})
+        capabilities["directory_browse"] = directory_ready
+        row["capabilities"] = capabilities
+        # Keep the explicit flat flag for older Library clients while the nested
+        # capabilities object is the canonical forward-looking contract.
+        row["directory_browse_available"] = directory_ready
         providers.append(row)
     out["providers"] = providers
     storage_model = dict(out.get("storage_model") or {})
