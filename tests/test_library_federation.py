@@ -6,6 +6,7 @@ import pytest
 
 from scripts.research_data_mcp import http_router
 from scripts.research_data_mcp import library_federation as federation
+from scripts.research_data_mcp import library_federation_holdings as holding_store
 from scripts.research_data_mcp import library_federation_runtime as runtime
 from scripts.research_data_mcp.connected_accounts_security import public_connected_accounts_document
 from scripts.research_data_mcp.desk_principal import DeskPrincipal
@@ -221,6 +222,134 @@ def test_dropbox_cursor_continuation_is_provider_native(monkeypatch):
     assert page["has_more"] is False
 
 
+def test_principal_local_holdings_bind_only_canonical_assets_and_refresh_versions(tmp_path, monkeypatch):
+    registry = tmp_path / "registry.json"
+    registry.write_text(
+        json.dumps({"datasets": [{"dataset_id": "panel-1"}, {"dataset_id": "panel-2"}]}),
+        encoding="utf-8",
+    )
+    alice = principal("alice")
+    bob = principal("bob")
+
+    def accounts(repo_root, principal=None):
+        return [account("g1" if principal.principal_id == "alice" else "g2")]
+
+    monkeypatch.setattr(holding_store, "list_connected_accounts", accounts)
+
+    holding = holding_store.bind_provider_holding(
+        tmp_path,
+        registry_path=registry,
+        provider="google_drive",
+        account_id="g1",
+        provider_item_id="file-9",
+        logical_asset_id="panel-1",
+        observation={
+            "provider_item_id": "file-9",
+            "account_id": "g1",
+            "kind": "file",
+            "parent_item_id": "root",
+            "version_id": "17",
+            "content_hash": "md5:abc123",
+            "content_access": "available",
+        },
+        principal=alice,
+    )
+    assert holding["logical_asset_id"] == "panel-1"
+    assert holding["version_id"] == "17"
+    assert holding_store.provider_holding_identity_index(
+        tmp_path,
+        registry_path=registry,
+        provider="google_drive",
+        account_id="g1",
+        principal=alice,
+    )[("google_drive", "g1", "file-9")] == "panel-1"
+    assert holding_store.list_provider_holdings(
+        tmp_path,
+        registry_path=registry,
+        principal=bob,
+    )["count"] == 0
+
+    holding_store.refresh_bound_holding_observations(
+        tmp_path,
+        provider="google_drive",
+        account_id="g1",
+        items=[{
+            "kind": "file",
+            "provider_item_id": "file-9",
+            "parent_item_id": "folder-2",
+            "version_id": "18",
+            "content_hash": "md5:def456",
+            "content_access": "available",
+        }],
+        principal=alice,
+    )
+    refreshed = holding_store.list_provider_holdings(
+        tmp_path,
+        registry_path=registry,
+        principal=alice,
+    )["holdings"][0]
+    assert refreshed["version_id"] == "18"
+    assert refreshed["content_hash"] == "md5:def456"
+    assert refreshed["parent_item_id"] == "folder-2"
+
+    with pytest.raises(ValueError, match="different canonical"):
+        holding_store.bind_provider_holding(
+            tmp_path,
+            registry_path=registry,
+            provider="google_drive",
+            account_id="g1",
+            provider_item_id="file-9",
+            logical_asset_id="panel-2",
+            principal=alice,
+        )
+    with pytest.raises(ValueError, match="canonical Library asset"):
+        holding_store.bind_provider_holding(
+            tmp_path,
+            registry_path=registry,
+            provider="google_drive",
+            account_id="g1",
+            provider_item_id="unknown-file",
+            logical_asset_id="made-up",
+            principal=alice,
+        )
+
+
+def test_provider_item_binding_inspection_uses_exact_remote_identity(monkeypatch, tmp_path):
+    actor = principal("alice")
+    monkeypatch.setattr(runtime, "_selected_account", lambda *args, **kwargs: (actor, account("g1")))
+    monkeypatch.setattr(
+        runtime,
+        "_with_auth_retry",
+        lambda repo_root, actor, account, provider, operation: operation("secret-token"),
+    )
+    calls = []
+
+    def request(url, **kwargs):
+        calls.append((url, kwargs))
+        return {
+            "id": "file-9",
+            "name": "renamed.csv",
+            "mimeType": "text/csv",
+            "parents": ["root"],
+            "version": "19",
+            "md5Checksum": "cafebabe",
+            "trashed": False,
+        }
+
+    monkeypatch.setattr(runtime, "_request_json", request)
+    observed = runtime.inspect_provider_item_runtime(
+        tmp_path,
+        provider="google_drive",
+        account_id="g1",
+        provider_item_id="file-9",
+        principal=actor,
+    )
+    assert calls[0][0].endswith("/files/file-9")
+    assert observed["provider_item_id"] == "file-9"
+    assert observed["version_id"] == "19"
+    assert observed["content_hash"] == "md5:cafebabe"
+
+
 def usage_event(**overrides):
     event = {
         "event_type": "library_evidence_usage",
@@ -316,8 +445,11 @@ def test_public_account_document_advertises_only_operational_directory_adapters(
     assert providers["onedrive"]["capabilities"]["directory_browse"] is False
 
 
-def test_router_exposes_federation_and_usage_memory_contracts():
+def test_router_exposes_federation_holdings_and_usage_memory_contracts():
     routes = {(row["method"], row["path"]) for row in http_router.ROUTE_CATALOG}
     assert ("GET", "/library/folders") in routes
+    assert ("GET", "/library/federation/holdings") in routes
+    assert ("POST", "/library/federation/holdings/bind") in routes
+    assert ("POST", "/library/federation/holdings/unbind") in routes
     assert ("GET", "/library/evidence-usage") in routes
     assert ("POST", "/library/evidence-usage") in routes
