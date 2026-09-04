@@ -1,127 +1,225 @@
-# Sharpe-Renaissance: The Unified Financial Intelligence Platform
+# Research Drive — private backend runtime
 
-## 🌟 Overview
-**Sharpe-Renaissance** is the consolidated successor to the `Sharpe`, `Finsight`, and `Nocturnal` projects. It integrates high-performance trading logic, production-grade data harvesting, and autonomous agent swarms into a single, cohesive engine.
+This repository is the private/runtime half of **Research Drive**. It owns the backend API, research-object registry and data-lake authority, Discover procurement lifecycle, Library provenance/retrieval, Synthesis Preview/execution authority, connected-account state, worker orchestration, and host release tooling.
 
-## 🏗️ Architecture: The "Data Refinery"
+The researcher-facing UI lives in the public `Spectating101/yzu-cluster` repository. A production Research Drive release is always an explicit pair:
 
-The system operates as a pipeline: **Harvest -> Process -> Analyze -> Act**.
-
-### 1. `api/` (The Harvester)
-*   **Source:** `finsight-api` (Production Src)
-*   **Role:** Connects to Refinitiv/SEC. Extracts raw "Ore" (XBRL tags, Price History).
-*   **Key Tech:** FastAPI, Stripe.
-
-### 2. `high_perf/` (The Smelter)
-*   **Source:** `Sharpe-IDX-Engine/rust`
-*   **Role:** High-speed data processing. Calculates complex indicators, liquidity metrics, and portfolio optimization math in Rust.
-*   **Key Tech:** Rust, PyO3.
-
-### 3. `trading/` (The Factory)
-*   **Source:** `Sharpe-IDX-Engine/src` + `Sharpe-Expanded` Math
-*   **Role:** Backtesting Engine & R&D Lab.
-*   **Components:**
-    *   `core/`: Bayesian Inference, Causal Analysis (PhD Logic).
-    *   `backtesting/`: Event-driven simulation.
-    *   `data/`: Unified Data Loader (`parquet` -> `pandas`).
-*   **Key Tech:** Python, Statsmodels, PyMC.
-
-### 4. `engine/` (The Analyst)
-*   **Source:** `Sharpe-Expanded/engine`
-*   **Role:** The "Brain". Uses Cerebras LLM to read the Signals and write human-readable Investment Memos.
-
-### 5. `agents/` (The Swarm)
-*   **Source:** `finsight-api/finrobot-coursework`
-*   **Role:** **Multi-Agent System.** Autonomous agents that can perform specific research tasks (e.g., "Find all competitors to NVDA and compare R&D spend").
-
-### 6. `web/` (The Dashboard)
-*   **Source:** `Nocturnal-Finsight`
-*   **Role:** The visual interface for humans to monitor the machine.
-
-## 🔄 The Research-to-Production Workflow
-
-1.  **Harvest (Data Pipeline):**
-    *   Scripts in `api/` run (scheduled or manually).
-    *   Data is saved to `data_lake/` as Parquet files (Google Drive/Local).
-
-2.  **Research (R&D):**
-    *   Quant runs experiments in `trading/analysis` (using `factor_zoo.py`).
-    *   Hypothesis: "Does Factor X predict returns?"
-    *   Validation: `trading/core/causal_inference.py` confirms causality.
-
-3.  **Production (Engine):**
-    *   `main.py` runs the daily cycle.
-    *   It uses `high_perf` (Rust) to compute the validated factors instantly.
-    *   It uses `trading/core` (Bayesian) to estimate regime probabilities.
-    *   It uses `engine/` (LLM) to write the daily report.
-
-## 🚀 Getting Started
-
-### Prerequisites
-*   Python 3.11+
-*   Rust (Cargo)
-*   Node.js 18+
-
-### Build the Rust Engine
-```bash
-cd high_perf
-maturin develop --release
+```text
+<frontend_sha>--<backend_sha>
 ```
 
-### Run the Data API
-```bash
-cd api
-uvicorn main:app --reload
+Branch names, PR titles, screenshots, or “latest” are not release identity.
+
+## Current release candidate
+
+Current backend release line:
+
+```text
+integration/research-drive-backend-rc-refresh-20260904
 ```
 
-### Quick Dev/Smoke (Mock Mode)
-```bash
-cd Sharpe-Renaissance
-make install           # pip install -e .
-make build-rust        # build PyO3 extension (optional in mock mode)
-make smoke             # runs scripts/smoke_mock_cycle.py with MODE=mock
+PR:
 
-# or run directly
-python main.py --mode mock --tickers AAPL MSFT
+```text
+#61 — refreshed Research Drive backend release candidate
 ```
 
-### Refinitiv Feature Store (Data Drop → Parquet/Metadata)
-```bash
-# Convert Refinitiv CSVs in From-refinitiv/ to parquet + metadata
-python scripts/refinitiv_feature_store.py --source From-refinitiv --out data_lake/feature_store
+Last behavior-changing backend SHA certified before the documentation-only pass:
 
-# Skip conversions (metadata only)
-python scripts/refinitiv_feature_store.py --no-parquet --no-graph
+```text
+92cf9a417c778b228d91570d2b1a8654ca0dc251
 ```
 
-### Refinitiv Analytics API (serves factors/distress/coverage)
-```bash
-# Make sure analytics pack exists (run analytics_pack.py first)
-uvicorn scripts.refinitiv_api:app --reload
-# Endpoints:
-#   GET /tickers
-#   GET /factors/{ticker}
-#   GET /distress/{ticker}
-#   GET /coverage
-#   GET /movers
+The **host checkout must use the final PR #61 head after all later documentation/config-example commits also pass the release gates**. Do not deploy the historical SHA above merely because it is written here if the PR has moved to a newer green descendant.
+
+Repository certification is not production authorization. The remaining acceptance boundary is intentionally the real host: systemd, private network binding, mounted runtime data, OAuth/provider reachability, real workers, real held-data journeys, promotion, restart, and rollback.
+
+## Start here
+
+Current operator/reviewer documentation is indexed at:
+
+[`drive/docs/status/releases/README.md`](drive/docs/status/releases/README.md)
+
+The four primary current documents are:
+
+- [`BACKEND_RELEASE_HANDOFF_20260904.md`](drive/docs/status/releases/BACKEND_RELEASE_HANDOFF_20260904.md) — release scope, certification boundary, operator rules, stop conditions;
+- [`BACKEND_ARCHITECTURE_20260904.md`](drive/docs/status/releases/BACKEND_ARCHITECTURE_20260904.md) — backend subsystem and authority model;
+- [`BACKEND_HOST_RELEASE_RUNBOOK_20260904.md`](drive/docs/status/releases/BACKEND_HOST_RELEASE_RUNBOOK_20260904.md) — exact staging, preflight, promotion, restart, golden paths, rollback;
+- [`BACKEND_HOST_ACCEPTANCE_20260904.md`](drive/docs/status/releases/BACKEND_HOST_ACCEPTANCE_20260904.md) — fillable real-machine acceptance/evidence record.
+
+## Backend architecture
+
+Research Drive is organized around persistent research state and explicit authority boundaries.
+
+The backend intentionally keeps these concepts separate:
+
+```text
+object identity
+!= provenance
+!= physical possession
+!= storage location
+!= freshness
+!= verification
+!= query readiness
+!= research context
+!= model intent
+!= execution authority
 ```
 
-### Crypto Data Pipeline (free-first with optional CoinGecko)
-```bash
-# Quick starter run (free only, CoinLore + CryptoCompare)
-python scripts/crypto_data_pipeline.py --profile quick --coingecko-mode off
+That separation is the core semantic contract of the backend.
 
-# Hybrid run (free + CoinGecko public probe)
-python scripts/crypto_data_pipeline.py --profile quick --coingecko-mode public
+### Library / research-object authority
 
-# Full run with CoinGecko Pro key
-COINGECKO_API_KEY=... python scripts/crypto_data_pipeline.py --profile full --coingecko-mode pro --strict
+Library owns the authoritative model of registered research objects, provenance, possession/holdings, retrieval evidence, semantic widening, freshness/readiness, and principal research state.
+
+Key implementation areas:
+
+```text
+drive/scripts/research_data_mcp/library_provenance.py
+drive/scripts/research_data_mcp/library_possession.py
+drive/scripts/research_data_mcp/library_retrieval.py
+drive/scripts/research_data_mcp/library_semantic_search.py
+drive/scripts/research_data_mcp/semantic_index.py
+drive/scripts/research_data_mcp/research_seed.py
 ```
 
-`scripts/crypto_data_pipeline.py` in Sharpe is a thin wrapper over the shared workspace pipeline at
-`../scripts/market/crypto_data_pipeline.py`, with Sharpe-specific output defaults.
+Registration alone does not prove possession or query readiness. Semantic relevance does not prove that bytes are held. Physical storage paths do not define research topic authority.
 
-Run artifacts are written to:
-- `data_lake/crypto_pipeline/<run-id>/logs/`
-- `data_lake/crypto_pipeline/<run-id>/reports/coverage_summary.json`
-- `data_lake/crypto_pipeline/<run-id>/reports/coverage_summary.md`
+### Discover / procurement authority
+
+Discover turns a research need into evidence and, where required, a bounded procurement lifecycle.
+
+The runtime—not model text—owns capabilities, placement, durable submission state, server-side idempotency, owner isolation, job identity, and execution boundaries.
+
+Key implementation areas:
+
+```text
+drive/scripts/research_data_mcp/discover_intent_store.py
+drive/scripts/research_data_mcp/procurement_chat.py
+drive/scripts/research_data_mcp/procurement_chat_core.py
+drive/scripts/research_data_mcp/procurement_execution_contract.py
+drive/scripts/research_data_mcp/jobs.py
+drive/scripts/research_data_mcp/job_identity.py
+```
+
+### Synthesis authority
+
+Synthesis separates reasoning/proposal from consequential execution:
+
+```text
+objective
+-> bounded evidence mapping
+-> measurement
+-> Preview
+-> review/approval
+-> execute approved current spec
+-> materialize
+-> register output + lineage
+```
+
+Preview is non-materializing. A successful model response is not execution authority. Stale/tampered/drifted preview authority is rejected.
+
+Key implementation areas:
+
+```text
+drive/scripts/research_data_mcp/synthesis/
+drive/scripts/research_data_mcp/synthesis_preview.py
+drive/scripts/research_data_mcp/synthesis_execution_authority.py
+drive/scripts/research_data_mcp/synthesis_executor.py
+drive/scripts/research_data_mcp/synthesis_object_targets.py
+```
+
+### Connected accounts
+
+Connected-account state is principal-bound and uses an explicit OAuth/PKCE/security boundary. A connected provider is not automatically proof that every remote object is locally held or query-ready.
+
+Key implementation areas:
+
+```text
+drive/scripts/research_data_mcp/connected_accounts.py
+drive/scripts/research_data_mcp/connected_accounts_http.py
+drive/scripts/research_data_mcp/connected_accounts_security.py
+```
+
+### Front door and release tooling
+
+The private front door serves the chosen public UI build and protected private API from one origin. Same-origin is a deployment property, not authentication.
+
+Release tooling lives in:
+
+```text
+drive/scripts/research_query_engine/
+```
+
+Core release sequence:
+
+```text
+exact frontend checkout + exact backend checkout
+-> build_optiplex_front_door.sh
+-> releases/<frontend_sha>--<backend_sha>/
+-> preflight_release.sh
+-> promote_front_door.sh
+-> systemd restart
+-> verify_front_door_restartability.sh --exercise
+```
+
+A build stages; it does **not** publish. `promote_front_door.sh` is the controlled live-link transition and runs fail-closed preflight before changing the live release.
+
+Rollback is a complete UI/backend pair operation, not a frontend-only symlink flip.
+
+## Local development / tests
+
+The release workflows are the authoritative composed gates for the current RC. For focused local work, keep repository-root imports consistent with CI and use the test targets associated with the subsystem being changed.
+
+Important workflow gates:
+
+```text
+.github/workflows/backend-release-proof.yml
+.github/workflows/research-drive-backend-rc.yml
+.github/workflows/private-runtime-contract.yml
+```
+
+Do not replace the broad Private Runtime gate with only subsystem-specific tests when certifying a release candidate.
+
+## Host configuration
+
+Copy the example environment to the real host-local path and protect it:
+
+```bash
+mkdir -p ~/.config/research-drive
+cp drive/config/optiplex-front-door.env.example ~/.config/research-drive/front-door.env
+chmod 600 ~/.config/research-drive/front-door.env
+```
+
+The example deliberately does **not** contain the current approved frontend SHA. Set `YZU_PUBLIC_SHA` explicitly for the exact frontend being paired with the backend candidate.
+
+Never commit or paste real tokens, OAuth secrets, credential-store contents, or the complete private environment file.
+
+## Release acceptance
+
+CI can prove repository properties and release mechanics. The actual host must prove:
+
+- exact frontend/backend checkout identity;
+- environment ownership/mode and release pins;
+- runtime registry/data-root authority;
+- complete staged build identity;
+- current-host preflight;
+- systemd/linger/restart recovery;
+- authenticated session continuity;
+- real provider/OAuth reachability where configured;
+- real remote-worker join/claim/heartbeat/artifact/materialization;
+- real Discover, Library, and Synthesis journeys;
+- live promotion identity;
+- rollback to the previous complete pair.
+
+Use the host acceptance record instead of informal notes:
+
+[`drive/docs/status/releases/BACKEND_HOST_ACCEPTANCE_20260904.md`](drive/docs/status/releases/BACKEND_HOST_ACCEPTANCE_20260904.md)
+
+## Legacy repository content
+
+This repository originated from the broader **Sharpe-Renaissance** codebase and still contains financial/data-processing components such as `api/`, `high_perf/`, `trading/`, `engine/`, and older agent code.
+
+Those directories may remain useful dependencies or historical assets, but they are **not the current repository-level product definition or release authority**. Current Research Drive backend/release documentation takes precedence for the Research Drive runtime.
+
+One inherited repository-hygiene issue remains: `agents/finrobot` is a malformed historical gitlink with no recoverable `.gitmodules` URL. It produces checkout cleanup noise but is not part of the current release authority. Do not invent a remote URL or mutate the certified RC merely to silence that warning.
