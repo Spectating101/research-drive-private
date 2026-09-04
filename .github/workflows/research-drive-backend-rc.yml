@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/research-drive-backend-release-candidate-20260828
+      - integration/research-drive-backend-rc-refresh-20260904
       - agent/connected-accounts-20260829
       - agent/research-seed-convergence-20260829
   workflow_dispatch:
@@ -45,6 +46,10 @@ jobs:
             drive/scripts/research_data_mcp/tool_handlers.py \
             drive/scripts/research_data_mcp/craft_collect.py \
             drive/scripts/research_data_mcp/procurement_execution_contract.py \
+            drive/scripts/research_data_mcp/procurement_chat.py \
+            drive/scripts/research_data_mcp/procurement_chat_core.py \
+            drive/scripts/research_data_mcp/synthesis_object_targets.py \
+            drive/scripts/research_data_mcp/job_identity.py \
             drive/scripts/research_data_mcp/jobs.py \
             drive/scripts/research_data_mcp/discover_intent_store.py \
             drive/scripts/research_data_mcp/library_provenance.py \
@@ -69,7 +74,8 @@ jobs:
             tests/test_synthesis_preview_io_freeze.py \
             tests/test_synthesis_thread_state.py \
             tests/test_synthesis_method_export_contract.py \
-            tests/test_synthesis_method_http_contract.py
+            tests/test_synthesis_method_http_contract.py \
+            tests/test_synthesis_object_targets.py
 
       - name: Reprove Discover procurement and lifecycle
         run: |
@@ -78,6 +84,7 @@ jobs:
             tests/test_discover_submit_idempotency.py \
             tests/test_discover_procurement_submission_integration.py \
             tests/test_orchestrator_runtime.py \
+            tests/test_job_identity_manifest.py \
             drive/tests/test_craft_collect.py
 
       - name: Reprove Library provenance and retrieval
@@ -100,6 +107,8 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_synthesis_thread_state.py \
+            tests/test_synthesis_object_targets.py \
             tests/test_discover_procurement_submission_integration.py \
+            tests/test_job_identity_manifest.py \
             drive/tests/test_library_provenance.py \
             drive/tests/test_library_retrieval.py
