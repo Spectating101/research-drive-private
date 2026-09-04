@@ -333,11 +333,15 @@ def score_registry_asset(row: dict[str, Any], query: str) -> dict[str, Any]:
     coverage = len(matched_terms) / len(concepts)
     score += round(coverage * 50)
     # Lexical registry retrieval is an evidence-producing ranker, not the final
-    # federation relevance gate. Preserve any exact concept match (at naturally
-    # low score/coverage when partial) so callers can see one-of-N evidence and
-    # make the stricter compound/geography decision downstream. Hard-dropping a
-    # partial match here made held assets undiscoverable before the federation
-    # layer could inspect their richer metadata.
+    # federation relevance gate. Preserve partial exact evidence for short
+    # research queries so callers can compare one-of-N matches and inspect richer
+    # metadata downstream. For longer compound queries, however, one incidental
+    # word is too weak to constitute a candidate: require at least one third of
+    # the concepts unless the complete query phrase itself matched. This keeps
+    # useful one-of-three evidence while rejecting one-of-four noise such as a
+    # generic cadence term embedded in an otherwise unrelated request.
+    if len(concepts) >= 4 and coverage < (1 / 3) and not phrase_match:
+        score = 0
 
     confidence = "none"
     if score > 0:
