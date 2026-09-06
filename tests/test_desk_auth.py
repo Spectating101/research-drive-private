@@ -166,7 +166,7 @@ def test_verified_cloudflare_access_member_has_no_private_or_operator_power(monk
 
     assert authorize(handler, "/datasets", "GET")[0] is True
     assert authorize(handler, "/library/chat", "POST")[0] is True
-    assert authorize(handler, "/library/jobs", "POST")[0] is True
+    assert authorize(handler, "/library/jobs", "POST")[0] is False
     assert authorize(handler, "/library/faculty/profile", "GET")[0] is False
     assert authorize(handler, "/library/jobs/approve-safe", "POST")[0] is False
     assert authorize(handler, "/yzu/workers", "GET")[0] is False

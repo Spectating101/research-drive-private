@@ -2,6 +2,9 @@ name: Private runtime contract
 
 # Exact-head gate for runtime, registry authority, remote worker adoption, and the internal desk front door.
 on:
+  push:
+    branches:
+      - hardening/synthesis-measurement-contract-20260826
   pull_request:
     branches: [main]
     paths:
@@ -47,7 +50,7 @@ jobs:
           cache: pip
 
       # Semantic route discovery is a release capability, not an optional
-      # developer convenience.  Cache the declared model so the contract tests
+      # developer convenience. Cache the declared model so the contract tests
       # the same embedding path on every clean checkout without redownloading
       # weights on every run.
       - name: Cache semantic retrieval model
@@ -80,7 +83,11 @@ jobs:
         run: |
           python -m pytest -q tests/test_research_query_server.py
           bash -n drive/scripts/research_query_engine/build_optiplex_front_door.sh
+          bash -n drive/scripts/research_query_engine/preflight_release.sh
+          bash -n drive/scripts/research_query_engine/promote_front_door.sh
           bash -n drive/scripts/research_query_engine/run_optiplex_front_door.sh
+          bash -n drive/scripts/research_query_engine/verify_front_door_restartability.sh
+          bash -n drive/scripts/research_query_engine/migrate_front_door_releases.sh
           bash -n drive/scripts/research_query_engine/install_optiplex_front_door_systemd_user.sh
 
       - name: Run pragmatic Python lint gate
