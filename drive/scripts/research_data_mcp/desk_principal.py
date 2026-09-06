@@ -24,17 +24,16 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "public_guest": frozenset(
         {
             "view_research_data",
-            "use_ask",
         }
     ),
-    # Public Access identities can research, ask, and submit review-gated
-    # collection requests.  They deliberately cannot read a faculty member's
-    # private profile or any operations/approval surface.
+    # A signed-in public researcher may reason over shared evidence and keep
+    # their own research trail.  Collection remains a member/operator action:
+    # authentication alone must not turn a public account into an acquisition
+    # submitter.
     "public_member": frozenset(
         {
             "view_research_data",
             "use_ask",
-            "submit_collection",
         }
     ),
     "member": frozenset(

@@ -105,6 +105,18 @@ def required_permission(path: str, method: str = "GET") -> str:
     elif path.startswith("/api/"):
         path = path[4:]
     method_u = str(method or "GET").upper()
+    # Ask and Synthesis hold private, durable researcher context.  They need
+    # `use_ask` for reads as well as writes; do this before the generic GET
+    # rule below so a guest cannot retrieve an addressable saved session simply
+    # because it is a GET request.
+    if path.startswith(("/library/chat", "/library/advise")):
+        return "use_ask"
+    if path.startswith("/library/desk/warm"):
+        return "use_ask"
+    if path.startswith("/library/synthesis/threads") and not path.endswith(
+        ("/execute", "/collect-missing")
+    ):
+        return "use_ask"
     if method_u in {"GET", "HEAD"}:
         if path.startswith("/yzu") or path.startswith(
             ("/library/ops", "/library/credentials", "/library/campaigns")
@@ -126,12 +138,6 @@ def required_permission(path: str, method: str = "GET") -> str:
         ("/library/jobs", "/library/campaigns", "/library/credentials")
     ):
         return "approve_jobs"
-    if path.startswith(("/library/chat", "/library/advise")):
-        return "use_ask"
-    if path.startswith("/library/synthesis/threads") and not path.endswith(
-        ("/execute", "/collect-missing")
-    ):
-        return "use_ask"
     return "submit_collection"
 
 

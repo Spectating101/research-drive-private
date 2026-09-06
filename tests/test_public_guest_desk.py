@@ -57,7 +57,10 @@ def test_public_guest_session_is_unique_and_limited():
     assert principal and principal.role == "public_guest"
     assert principal.principal_id.startswith("guest-")
     assert desk_auth.authorize(guest, "/datasets", "GET")[0] is True
-    assert desk_auth.authorize(guest, "/library/chat", "POST")[0] is True
+    assert desk_auth.authorize(guest, "/library/chat", "POST")[0] is False
+    assert desk_auth.authorize(guest, "/library/chat/saved-session", "GET")[0] is False
+    assert desk_auth.authorize(guest, "/library/desk/warm", "POST")[0] is False
+    assert desk_auth.authorize(guest, "/library/synthesis/threads/saved-thread", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/faculty/profile", "GET")[0] is False
     assert desk_auth.authorize(guest, "/yzu/workers", "GET")[0] is False
     assert desk_auth.authorize(guest, "/library/jobs", "POST")[0] is False
@@ -84,7 +87,7 @@ def test_capabilities_describe_guest_without_exposing_private_permissions():
     document = desk_auth.desk_capability_document(guest)
     assert document["access"] == "public_guest"
     assert document["permissions"]["view_research_data"] is True
-    assert document["permissions"]["use_ask"] is True
+    assert document["permissions"]["use_ask"] is False
     assert document["permissions"]["submit_collection"] is False
     assert document["permissions"]["approve_jobs"] is False
     assert document["session"]["public_guest_available"] is True
