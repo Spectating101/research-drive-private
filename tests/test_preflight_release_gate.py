@@ -128,6 +128,36 @@ def test_preflight_can_validate_a_staged_pair_without_changing_live_dist(release
     assert out.returncode == 0, out.stdout + out.stderr
 
 
+def test_preflight_can_validate_explicit_candidate_pair_without_rewriting_live_env(release, tmp_path):
+    """A staged pair must not inherit the service env's old SHA/backend root."""
+    candidate_backend = tmp_path / "candidate-backend"
+    candidate_backend_sha = _repo(candidate_backend)
+    (candidate_backend / "config").mkdir(parents=True)
+    (candidate_backend / "config/research_query_registry.json").write_text(
+        json.dumps({"datasets": [{"dataset_id": "candidate"}]}), encoding="utf-8"
+    )
+    candidate_ui = tmp_path / "candidate-ui"
+    candidate_ui_sha = _repo(candidate_ui, "app.js")
+    candidate_release = candidate_ui / "releases" / f"{candidate_ui_sha}--{candidate_backend_sha}"
+    candidate_release.mkdir(parents=True)
+    (candidate_release / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    (candidate_release / "research-drive-build.json").write_text(
+        json.dumps({"public_sha": candidate_ui_sha, "private_sha": candidate_backend_sha}),
+        encoding="utf-8",
+    )
+
+    out = _run(
+        release["env"],
+        YZU_PUBLIC_REPO=candidate_ui,
+        YZU_PUBLIC_SHA=candidate_ui_sha,
+        PREFLIGHT_BACKEND_ROOT=candidate_backend,
+        PREFLIGHT_STATIC_DIR=candidate_release,
+    )
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert f"backend_sha   {candidate_backend_sha}" in out.stdout
+    assert f"ui_sha        {candidate_ui_sha}" in out.stdout
+
+
 def test_restartability_check_is_part_of_the_release_gate_when_required(release, tmp_path):
     probe = tmp_path / "restart-probe.sh"
     probe.write_text("#!/usr/bin/env bash\necho restartability=ready\n", encoding="utf-8")

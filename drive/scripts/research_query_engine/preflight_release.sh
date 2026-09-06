@@ -21,6 +21,11 @@ ENV_FILE="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
 # sourced. The env file names the normal live checkout; preflight needs to be
 # able to validate a clean, staged candidate without mutating that authority.
 preflight_public_root="${YZU_PUBLIC_REPO:-}"
+# The service env deliberately pins the currently live pair.  Preserve an
+# explicit candidate identity before sourcing it so preflight can validate a
+# detached staged pair without editing the live env file first.
+preflight_public_sha="${YZU_PUBLIC_SHA:-}"
+preflight_backend_root="${PREFLIGHT_BACKEND_ROOT:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -37,7 +42,7 @@ set +u
 set -a; . "$ENV_FILE"; set +a
 set -u
 
-backend_root="${SHARPE_REPO_ROOT:-}"
+backend_root="${preflight_backend_root:-${SHARPE_REPO_ROOT:-}}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 public_root="${preflight_public_root:-${YZU_PUBLIC_REPO:-}}"
 # A promotion validates a staged candidate before changing the live dist link.
@@ -106,9 +111,10 @@ else
   bad "UI checkout absent: ${public_root:-<unset>}"
 fi
 
-[ -n "${YZU_PUBLIC_SHA:-}" ] || bad "YZU_PUBLIC_SHA unset"
-if [ -n "${YZU_PUBLIC_SHA:-}" ] && [ "$ui_sha" != unknown ] && [ "$ui_sha" != "$YZU_PUBLIC_SHA" ]; then
-  bad "UI checkout $ui_sha != expected $YZU_PUBLIC_SHA (someone moved the tree, or the env is stale)"
+expected_ui_sha="${preflight_public_sha:-${YZU_PUBLIC_SHA:-}}"
+[ -n "${expected_ui_sha:-}" ] || bad "YZU_PUBLIC_SHA unset"
+if [ -n "${expected_ui_sha:-}" ] && [ "$ui_sha" != unknown ] && [ "$ui_sha" != "$expected_ui_sha" ]; then
+  bad "UI checkout $ui_sha != expected $expected_ui_sha (someone moved the tree, or the env is stale)"
 fi
 
 [ -f "$static_dir/index.html" ] || bad "no built UI at $static_dir/index.html"
