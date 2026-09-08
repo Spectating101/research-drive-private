@@ -898,6 +898,13 @@ class ResearchDataGateway:
                 # evidence itself. "External Research Dataset Catalog" ranked
                 # above real data for a question about forest fires.
                 continue
+            # Subject-first retrieval ranks from IDF-weighted token overlap,
+            # while cosine retrieval carries ``score``.  Preserve whichever
+            # signal selected this row so Discover never renders valid held
+            # evidence as a misleading zero-score match.
+            semantic_score = hit.get("score")
+            if semantic_score is None:
+                semantic_score = hit.get("subject_score")
             rows.append(
                 {
                     "kind": "local_registry",
@@ -909,7 +916,7 @@ class ResearchDataGateway:
                     "source": meta.get("source") or "registry",
                     "analysis_readiness": meta.get("readiness") or "",
                     "local_ready": True,
-                    "semantic_score": hit.get("score"),
+                    "semantic_score": semantic_score,
                     "match_type": "semantic",
                 }
             )

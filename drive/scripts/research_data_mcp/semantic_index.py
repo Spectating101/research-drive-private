@@ -46,6 +46,44 @@ STOPWORDS = frozenset(
     }
 )
 
+# These words describe a research relationship or a broad analytical frame,
+# rather than the subject a dataset must actually carry.  They are useful when
+# no more specific subject is present ("market risk" is still a valid keyword
+# query), but must not let an unrelated document qualify for a compound need:
+# "stablecoin market risk" previously admitted a construction-moisture guide
+# solely because it also mentioned market and risk.
+_SUBJECT_CONTEXT_TOKENS = frozenset(
+    {
+        "analysis",
+        "change",
+        "changes",
+        "defensible",
+        "effect",
+        "effects",
+        "impact",
+        "impacts",
+        "market",
+        "markets",
+        "outcome",
+        "outcomes",
+        "relationship",
+        "relationships",
+        "risk",
+        "risks",
+    }
+)
+
+
+def _subject_query_terms(query: str) -> set[str]:
+    """Return terms that can establish a dataset's actual subject.
+
+    Keep relationship language only when it is all the researcher supplied;
+    otherwise a concrete topic must be present in the candidate itself.
+    """
+    terms = set(_tokenize(query))
+    specific = terms - _SUBJECT_CONTEXT_TOKENS
+    return specific or terms
+
 
 def _semantic_relevance_floor() -> float:
     raw = (os.environ.get("RESEARCH_SEMANTIC_QUERY_FLOOR") or "").strip()
@@ -414,7 +452,7 @@ class SemanticCatalogIndex:
         doc = self._docs[doc_index] if 0 <= doc_index < len(self._docs) else None
         if not doc:
             return 0.0
-        terms = set(_tokenize(query))
+        terms = _subject_query_terms(query)
         if not terms:
             return 0.0
         text = set(_tokenize(str(doc.get("text") or "")))
