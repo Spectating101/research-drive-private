@@ -16,6 +16,7 @@ from scripts.research_data_mcp.bootstrap import ResearchLibraryStack, create_sta
 from scripts.research_data_mcp.desk_auth import (
     authorize,
     clear_desk_session,
+    current_desk_principal,
     desk_capability_document,
     issue_desk_session,
 )
@@ -32,6 +33,66 @@ API_PREFIXES = (
     "/yzu",
     "/agent",
 )
+
+# A public guest can inspect the shared research estate, but not its host
+# topology. Registry and storage diagnostics deliberately carry local and
+# canonical-drive locators for operators; returning those verbatim from the
+# public Library endpoints leaks both filesystem layout and archive naming.
+_PUBLIC_GUEST_STORAGE_KEYS = frozenset(
+    {
+        "canonical_remote",
+        "expected_path",
+        "legacy_local_path",
+        "local_path",
+        "local_root",
+        "registry",
+        "remote_path",
+        "resolved_path",
+        "resolved_root",
+        "source_path",
+        "target_drive_path",
+        "vault_path",
+    }
+)
+_PUBLIC_GUEST_STORAGE_PREFIXES = ("/home/", "/tmp/", "gdrive:", "rclone:", "file://")
+
+
+def _is_internal_storage_value(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = value.strip().lower()
+    # Some registry prose embeds an absolute locator in a sentence (for
+    # example, a recovery hint). Treat that the same as a locator field.
+    return any(prefix in text for prefix in _PUBLIC_GUEST_STORAGE_PREFIXES)
+
+
+def redact_public_guest_storage(value: object) -> object:
+    """Drop host/archive locators from responses sent to a public guest.
+
+    Keep this at the HTTP boundary instead of changing registry truth: the
+    same payload remains useful to an operator, while a public browser still
+    receives its evidence, provenance, readiness and public source URLs.
+    """
+    principal = current_desk_principal()
+    if not principal or principal.role != "public_guest":
+        return value
+
+    def redact(item: object) -> object:
+        if isinstance(item, dict):
+            out: dict[object, object] = {}
+            for key, nested in item.items():
+                key_text = str(key).lower()
+                if key_text in _PUBLIC_GUEST_STORAGE_KEYS:
+                    continue
+                if _is_internal_storage_value(nested):
+                    continue
+                out[key] = redact(nested)
+            return out
+        if isinstance(item, (list, tuple)):
+            return [redacted for nested in item if (redacted := redact(nested)) is not None]
+        return None if _is_internal_storage_value(item) else item
+
+    return redact(value)
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -295,7 +356,7 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             return
         qs = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
         result = handle_get(path, qs, self.stack)
-        body = result.get("body")
+        body = redact_public_guest_storage(result.get("body"))
         if isinstance(body, dict) and body.get("_file_delivery"):
             try:
                 file_path = body["file"]

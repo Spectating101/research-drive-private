@@ -117,6 +117,12 @@ def required_permission(path: str, method: str = "GET") -> str:
         ("/execute", "/collect-missing")
     ):
         return "use_ask"
+    # These are operator telemetry, not shared research evidence. A public
+    # Library guest may browse registered sources, but must not receive host
+    # capacity, workers, metered-provider state, activity, or default faculty
+    # context through the convenient aggregate endpoints.
+    if path == "/health" or path.startswith(("/library/desk/resources", "/library/desk/brief")):
+        return "view_operations"
     if method_u in {"GET", "HEAD"}:
         if path.startswith("/yzu") or path.startswith(
             ("/library/ops", "/library/credentials", "/library/campaigns")
