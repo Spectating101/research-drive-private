@@ -1842,6 +1842,24 @@ class ResearchDataGateway:
         existing = {str(r.get("source_id") or "") for r in (result.get("results") or [])}
         extra = [r for r in self.semantic_source_routes(query, limit=limit) if r["source_id"] not in existing]
         if extra:
+            # Semantic neighbours only widen a source search when they meet the
+            # same evidence gate as catalog rows.  Without this second gate, a
+            # low-similarity route (for example generic daily market prices)
+            # could bypass the catalog filter and displace a directly relevant
+            # held result in Discover.
+            from scripts.research_data_mcp.discover_source_search import apply_source_relevance_gate
+
+            extra, _extra_meta = apply_source_relevance_gate(
+                extra,
+                query,
+                limit=limit,
+                corpus=list(result.get("results") or []),
+            )
+            # The gate may rehydrate a direct concept member from its corpus.
+            # It is already in ``result``; keep the supplement additive rather
+            # than duplicating it in the response.
+            extra = [r for r in extra if str(r.get("source_id") or "") not in existing]
+        if extra:
             merged = list(result.get("results") or []) + extra
             result["results"] = merged
             # A total that disagrees with the payload is worse than no total: a caller

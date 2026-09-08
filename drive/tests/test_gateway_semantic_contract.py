@@ -40,3 +40,38 @@ def test_subject_ranked_discover_rows_keep_their_score(monkeypatch):
 
     assert out["total"] == 1
     assert out["rows"][0]["semantic_score"] == 0.82
+
+
+def test_semantic_source_supplement_cannot_bypass_source_relevance_gate(monkeypatch):
+    """A weak generic semantic route must not displace a direct source match."""
+    gateway = ResearchDataGateway.__new__(ResearchDataGateway)
+    gateway.repo_root = Path(".")
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.discover_source_search.search_discover_sources",
+        lambda *_args, **_kwargs: {
+            "results": [{
+                "source_id": "coingecko",
+                "title": "Stablecoin market API",
+                "capabilities": ["onchain_crypto"],
+                "query_relevance": 3.0,
+            }],
+            "total": 1,
+            "index_miss": False,
+        },
+    )
+    monkeypatch.setattr(
+        gateway,
+        "semantic_source_routes",
+        lambda *_args, **_kwargs: [{
+            "source_id": "yfinance_public",
+            "title": "Yahoo Finance",
+            "capabilities": ["daily_prices"],
+            "match_type": "semantic",
+            "score": 0.25,
+        }],
+    )
+
+    out = gateway.discover_source_search("stablecoin market risk", limit=8)
+
+    assert [row["source_id"] for row in out["results"]] == ["coingecko"]
+    assert "semantic_routes_added" not in out
