@@ -26,6 +26,10 @@ preflight_public_root="${YZU_PUBLIC_REPO:-}"
 # detached staged pair without editing the live env file first.
 preflight_public_sha="${YZU_PUBLIC_SHA:-}"
 preflight_backend_root="${PREFLIGHT_BACKEND_ROOT:-}"
+# Candidate staging may intentionally target a different scope than the
+# currently-live front-door environment. Preserve that intent before loading
+# the live env, just as we preserve the candidate checkout and SHA.
+preflight_release_scope="${YZU_DESK_RELEASE_SCOPE:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -119,10 +123,19 @@ fi
 
 [ -f "$static_dir/index.html" ] || bad "no built UI at $static_dir/index.html"
 identity="$static_dir/research-drive-build.json"
-built_public=""; built_private=""
+built_public=""; built_private=""; built_scope=""
 if [ -f "$identity" ]; then
-  built_public="$("$python_bin" -c "import json,sys;print(json.load(open(sys.argv[1])).get('public_sha',''))" "$identity" 2>/dev/null)"
-  built_private="$("$python_bin" -c "import json,sys;print(json.load(open(sys.argv[1])).get('private_sha',''))" "$identity" 2>/dev/null)"
+  mapfile -t built_identity < <("$python_bin" - "$identity" <<'PY'
+import json,sys
+p=json.load(open(sys.argv[1], encoding="utf-8"))
+print(p.get("public_sha", ""))
+print(p.get("private_sha", ""))
+print(p.get("release_scope", ""))
+PY
+)
+  built_public="${built_identity[0]:-}"
+  built_private="${built_identity[1]:-}"
+  built_scope="${built_identity[2]:-}"
   [ "$built_public" = "$ui_sha" ] || bad "build was made from UI $built_public, checkout is $ui_sha"
   [ "$built_private" = "$backend_sha" ] || bad "build names backend $built_private, checkout is $backend_sha (regenerate the identity)"
 else
@@ -171,7 +184,9 @@ roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 # verifies its assertion and mints a restricted, expiring public-member
 # session. Refuse to label an external scope ready when that authority is
 # absent, rather than shipping a beautiful guest desk with no way to use Ask.
-release_scope="${YZU_DESK_RELEASE_SCOPE:-tailscale-internal-same-origin}"
+release_scope="${preflight_release_scope:-${YZU_DESK_RELEASE_SCOPE:-tailscale-internal-same-origin}}"
+[ -n "$built_scope" ] || bad "build identity has no release_scope"
+[ "$built_scope" = "$release_scope" ] || bad "build scope $built_scope != target scope $release_scope"
 case "$release_scope" in
   external-public*|public-external*)
     cf_team="${DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN:-}"

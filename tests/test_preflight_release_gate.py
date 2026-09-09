@@ -49,7 +49,11 @@ def release(tmp_path):
     rel.mkdir(parents=True)
     (rel / "index.html").write_text("<!doctype html>", encoding="utf-8")
     (rel / "research-drive-build.json").write_text(
-        json.dumps({"public_sha": ui_sha, "private_sha": backend_sha}), encoding="utf-8")
+        json.dumps({
+            "public_sha": ui_sha,
+            "private_sha": backend_sha,
+            "release_scope": "tailscale-internal-same-origin",
+        }), encoding="utf-8")
     (ui / "dist").symlink_to(rel)
 
     env = tmp_path / "front-door.env"
@@ -79,6 +83,10 @@ def test_a_coherent_release_is_ready(release):
 
 
 def test_external_public_release_refuses_without_member_identity_provider(release):
+    identity = release["release_dir"] / "research-drive-build.json"
+    payload = json.loads(identity.read_text())
+    payload["release_scope"] = "external-public"
+    identity.write_text(json.dumps(payload), encoding="utf-8")
     with release["env"].open("a", encoding="utf-8") as handle:
         handle.write("YZU_DESK_RELEASE_SCOPE=external-public\n")
 
@@ -89,6 +97,10 @@ def test_external_public_release_refuses_without_member_identity_provider(releas
 
 
 def test_external_public_release_accepts_configured_member_identity_provider(release):
+    identity = release["release_dir"] / "research-drive-build.json"
+    payload = json.loads(identity.read_text())
+    payload["release_scope"] = "external-public"
+    identity.write_text(json.dumps(payload), encoding="utf-8")
     with release["env"].open("a", encoding="utf-8") as handle:
         handle.write(
             "YZU_DESK_RELEASE_SCOPE=external-public\n"
@@ -118,6 +130,10 @@ def test_external_public_release_accepts_individual_member_access_code(release, 
         ),
         encoding="utf-8",
     )
+    identity = release["release_dir"] / "research-drive-build.json"
+    payload = json.loads(identity.read_text())
+    payload["release_scope"] = "external-public"
+    identity.write_text(json.dumps(payload), encoding="utf-8")
     with release["env"].open("a", encoding="utf-8") as handle:
         handle.write(
             "YZU_DESK_RELEASE_SCOPE=external-public\n"
@@ -150,7 +166,8 @@ def test_a_moved_ui_checkout_is_refused(release):
 
 def test_a_build_naming_another_backend_is_refused(release):
     identity = release["release_dir"] / "research-drive-build.json"
-    identity.write_text(json.dumps({"public_sha": release["ui_sha"], "private_sha": "f" * 40}),
+    identity.write_text(json.dumps({"public_sha": release["ui_sha"], "private_sha": "f" * 40,
+                                    "release_scope": "tailscale-internal-same-origin"}),
                         encoding="utf-8")
     out = _run(release["env"])
     assert out.returncode != 0
@@ -194,7 +211,8 @@ def test_preflight_can_validate_explicit_candidate_pair_without_rewriting_live_e
     candidate_release.mkdir(parents=True)
     (candidate_release / "index.html").write_text("<!doctype html>", encoding="utf-8")
     (candidate_release / "research-drive-build.json").write_text(
-        json.dumps({"public_sha": candidate_ui_sha, "private_sha": candidate_backend_sha}),
+        json.dumps({"public_sha": candidate_ui_sha, "private_sha": candidate_backend_sha,
+                    "release_scope": "tailscale-internal-same-origin"}),
         encoding="utf-8",
     )
 
@@ -208,6 +226,12 @@ def test_preflight_can_validate_explicit_candidate_pair_without_rewriting_live_e
     assert out.returncode == 0, out.stdout + out.stderr
     assert f"backend_sha   {candidate_backend_sha}" in out.stdout
     assert f"ui_sha        {candidate_ui_sha}" in out.stdout
+
+
+def test_build_scope_must_match_the_target_scope(release):
+    out = _run(release["env"], YZU_DESK_RELEASE_SCOPE="external-public")
+    assert out.returncode != 0
+    assert "build scope tailscale-internal-same-origin != target scope external-public" in out.stdout
 
 
 def test_restartability_check_is_part_of_the_release_gate_when_required(release, tmp_path):
