@@ -308,3 +308,52 @@ def test_live_candidates_marked_inspect_only(repo_root: Path) -> None:
     assert all(r.get("trust_tier") == "inspect_only" for r in kept)
     assert all("access_mode" not in r for r in kept)
     assert all("crystal" not in str(r.get("title") or "").lower() for r in kept)
+
+
+def test_conjoined_fire_and_economy_need_requires_both_subject_clauses() -> None:
+    """Forest-only and economy-only hits are context, not direct answers."""
+    from scripts.research_data_mcp.discover_source_search import apply_source_relevance_gate
+
+    query = "I need dataset regarding forest fire and economic changes"
+    rows = [
+        {
+            "kind": "live_candidate",
+            "live_hit": True,
+            "title": "Impact of forest fire on insect diversity",
+            "notes": "Economic development activities are background threats; this artifact measures insect diversity.",
+            "provider": "DataCite",
+            "candidate_key": "doi:10.1/forest-only",
+        },
+        {
+            "kind": "source",
+            "source_id": "finance-only",
+            "title": "Economic changes across equity markets",
+            "candidate_key": "source:finance-only",
+        },
+        {
+            "kind": "live_candidate",
+            "live_hit": True,
+            "title": "Forest fire exposure and local economic losses panel",
+            "provider": "DataCite",
+            "candidate_key": "doi:10.1/fire-economy",
+        },
+    ]
+
+    kept, meta = apply_source_relevance_gate(rows, query, limit=8, corpus=[])
+    assert [row["candidate_key"] for row in kept] == ["doi:10.1/fire-economy"]
+    assert "changes" not in meta["distinctive_tokens"]
+
+
+def test_single_subject_queries_keep_partial_catalogue_retrieval() -> None:
+    """The conjunction rule must not turn ordinary keyword search into exact match."""
+    from scripts.research_data_mcp.discover_source_search import apply_source_relevance_gate
+
+    rows = [{
+        "kind": "live_candidate",
+        "live_hit": True,
+        "title": "Forest fire susceptibility observations",
+        "provider": "DataCite",
+        "candidate_key": "doi:10.1/fire",
+    }]
+    kept, _meta = apply_source_relevance_gate(rows, "forest fire", limit=8, corpus=[])
+    assert [row["candidate_key"] for row in kept] == ["doi:10.1/fire"]

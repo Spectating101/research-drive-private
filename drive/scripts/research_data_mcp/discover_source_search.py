@@ -208,6 +208,19 @@ _SOURCE_GENERIC_TOKENS = frozenset(
         "want",
         "find",
         "help",
+        "regarding",
+        # Research-design language describes the requested relationship, not
+        # the subject a candidate must actually carry.  Treating these as
+        # evidence admitted records that matched only generic prose.
+        "change",
+        "changes",
+        "defensible",
+        "effect",
+        "effects",
+        "link",
+        "linking",
+        "relationship",
+        "relationships",
         "illustrate",
         "measure",
         "measurement",
@@ -244,6 +257,37 @@ _NEWS_CAPABILITIES = frozenset(
 )
 _POLLING_TOPIC_TOKENS = frozenset(
     {"poll", "polls", "polling", "pollster", "election", "elections", "opinion", "survey", "surveys"}
+)
+
+_RELATIONSHIP_QUERY_TOKENS = frozenset(
+    {"change", "changes", "effect", "effects", "impact", "impacts", "outcome", "outcomes"}
+)
+_OUTCOME_EVIDENCE_TOKENS = frozenset(
+    {
+        "change",
+        "changes",
+        "effect",
+        "effects",
+        "impact",
+        "impacts",
+        "outcome",
+        "outcomes",
+        "loss",
+        "losses",
+        "cost",
+        "costs",
+        "damage",
+        "damages",
+        "employment",
+        "income",
+        "gdp",
+        "price",
+        "prices",
+        "return",
+        "returns",
+        "welfare",
+        "insurance",
+    }
 )
 
 # Deterministic concept → catalog evidence. Never invents access or collection success.
@@ -331,6 +375,34 @@ def _source_query_aspects(query: str) -> dict[str, set[str]]:
     return {"geography": geography, "topic": topic}
 
 
+def _required_conjunctive_topic_clauses(query: str) -> list[set[str]]:
+    """Return explicit subject clauses that a direct result must each cover.
+
+    A numeric overlap floor cannot distinguish three words from two concepts:
+    ``forest fire`` alone earned two points for ``forest fire and economic
+    changes`` and was presented as if it answered the economic half.  When a
+    researcher explicitly joins subject clauses with *and* or *versus*, keep
+    each non-generic clause as a separate coverage requirement.  Single-topic
+    keyword queries retain the existing permissive retrieval behavior.
+    """
+    parts = re.split(r"\b(?:and|versus|vs\.?)\b", str(query or ""), flags=re.I)
+    if len(parts) < 2:
+        return []
+    clauses: list[set[str]] = []
+    for part in parts:
+        topic = set(_source_query_aspects(part).get("topic") or set())
+        if topic:
+            # Relationship words are too generic to score globally, but inside
+            # an explicit subject clause they express the evidence role.  An
+            # "economic changes" clause therefore needs both an economic term
+            # and an observed outcome signal (loss, employment, GDP, etc.), not
+            # a passing mention of "economic development" in an abstract.
+            if _expand_blob_tokens(part) & _RELATIONSHIP_QUERY_TOKENS:
+                topic |= set(_OUTCOME_EVIDENCE_TOKENS)
+            clauses.append(topic)
+    return clauses if len(clauses) >= 2 else []
+
+
 def detect_supported_concepts(query: str) -> list[dict[str, Any]]:
     """Map a query onto catalog-backed concepts (capability/source evidence only)."""
     q = str(query or "").strip().lower()
@@ -391,10 +463,41 @@ def source_evidence_score(row: dict[str, Any], query: str) -> tuple[float, dict[
     topic = aspects.get("topic") or set()
     caps = _row_caps(row)
     blob = _expand_blob_tokens(_blob(row))
+    subject_blob = _expand_blob_tokens(
+        " ".join(
+            [
+                str(row.get("title") or ""),
+                str(row.get("label") or ""),
+                str(row.get("name") or ""),
+                str(row.get("source_id") or ""),
+                " ".join(str(value) for value in (row.get("capabilities") or [])),
+            ]
+        )
+    )
     sid = str(row.get("source_id") or row.get("external_id") or "").strip().lower()
     kind = str(row.get("kind") or "").strip().lower()
     evidence: list[dict[str, Any]] = []
     score = 0.0
+
+    required_clauses = _required_conjunctive_topic_clauses(q)
+    for clause in required_clauses:
+        # A multi-token clause such as "forest fire" is itself specific: one
+        # word from it is not enough for a direct-result claim.  One-token
+        # clauses ("economic" after generic "changes" is removed) require
+        # that one observed term.
+        required_hits = min(2, len(clause))
+        # Direct compound fit must be established by the candidate's identity
+        # or declared capabilities.  Abstract/background prose can mention an
+        # economic concern beside an ecological paper without the underlying
+        # artifact measuring an economic outcome.
+        observed_hits = clause & subject_blob
+        if len(observed_hits) < required_hits:
+            return 0.0, {
+                "evidence": [],
+                "reject_reason": "missing_conjunctive_subject_clause",
+                "required_clause": sorted(clause),
+                "observed": sorted(observed_hits),
+            }
 
     # Live / unknown external hits are inspect-only; keep only with distinctive overlap.
     if kind == "live_candidate" or bool(row.get("live_hit")):
@@ -1045,8 +1148,11 @@ def _blob(row: dict[str, Any]) -> str:
     parts = [
         str(row.get("source_id") or ""),
         str(row.get("id") or ""),
+        str(row.get("title") or ""),
         str(row.get("label") or ""),
         str(row.get("provider") or ""),
+        str(row.get("description") or ""),
+        str(row.get("public_summary") or ""),
         str(row.get("access_mode") or ""),
         str(row.get("status") or ""),
         str(row.get("endpoint") or ""),
