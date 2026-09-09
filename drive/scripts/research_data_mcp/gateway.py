@@ -2047,6 +2047,12 @@ class ResearchDataGateway:
             # Wider window so ops canaries can be filtered without emptying History.
             fetch = min(limit * 4, 200) if not include_ops else min(limit * 2, 100)
             jobs = list((self.jobs.list(limit=fetch).get("jobs") or []))
+        self.ensure_registry_fresh()
+        current_datasets = {
+            str(row.get("dataset_id") or ""): row
+            for row in self.engine.list_datasets()
+            if str(row.get("dataset_id") or "")
+        }
         return build_discover_history(
             intents=intents,
             subscriptions=subscriptions,
@@ -2055,6 +2061,7 @@ class ResearchDataGateway:
             kind=kind,
             session_id=session_id,
             include_ops=include_ops,
+            current_datasets=current_datasets,
         )
 
     def synthesis_thread_create(

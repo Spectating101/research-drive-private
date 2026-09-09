@@ -62,6 +62,47 @@ def test_receipt_readiness_cannot_override_failed_catalog_reconciliation() -> No
     assert "not query-ready" in row["summary"]
 
 
+def test_current_loaded_catalog_overrides_stale_receipt_after_hydration() -> None:
+    out = build_discover_history(
+        jobs=[_job(readiness="query_ready")],
+        current_datasets={
+            "research_acquisition_20260720": {
+                "dataset_id": "research_acquisition_20260720",
+                "analysis_readiness": "query_ready",
+                "materialization": {"query_ready": True},
+            }
+        },
+    )
+
+    row = out["items"][0]
+    assert row["catalog_reconciliation"]["state"] == "catalog_loaded"
+    assert row["catalog_reconciliation"]["registry_row_loaded"] is True
+    assert row["catalog_reconciliation"]["query_allowed"] is True
+    assert row["status"] == "query_ready"
+    assert row["query_ready"] is True
+    assert row["holding_status"] == "held"
+
+
+def test_current_loaded_catalog_preserves_hydrate_required_truth() -> None:
+    out = build_discover_history(
+        jobs=[_job(readiness="query_ready")],
+        current_datasets={
+            "research_acquisition_20260720": {
+                "dataset_id": "research_acquisition_20260720",
+                "analysis_readiness": "registered",
+                "hydrate_required": True,
+                "runtime_readiness_reason": "local_bytes_missing",
+                "materialization": {"query_ready": False},
+            }
+        },
+    )
+
+    row = out["items"][0]
+    assert row["catalog_reconciliation"]["query_allowed"] is False
+    assert row["status"] == "registered_not_queryable"
+    assert row["query_ready"] is False
+
+
 def test_registered_filter_returns_only_registered_asset_outcomes() -> None:
     linked_run = {
         "id": "discover-run",

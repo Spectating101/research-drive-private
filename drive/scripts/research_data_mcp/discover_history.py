@@ -142,19 +142,50 @@ def _run_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str 
     }
 
 
-def _registered_asset_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str = "") -> dict[str, Any] | None:
+def _registered_asset_item(
+    job: dict[str, Any],
+    *,
+    intent_id: str = "",
+    subscription_id: str = "",
+    current_datasets: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     receipt = _receipt_from_job(job)
     if receipt is None:
         return None
     identity = receipt.get("registration_receipt") or {}
     reconciliation = receipt.get("catalog_reconciliation") if isinstance(receipt.get("catalog_reconciliation"), dict) else {}
-    readiness = str(receipt.get("analysis_readiness") or "registered")
+    dataset_id = str(receipt.get("dataset_id") or "")
+    current = (current_datasets or {}).get(dataset_id)
+    readiness = str(
+        (current or {}).get("analysis_readiness")
+        or receipt.get("analysis_readiness")
+        or "registered"
+    )
     # ``analysis_readiness`` belongs to the durable registration receipt.  A
     # recovered receipt can still say ``query_ready`` even though the dataset
     # is absent from the catalog loaded by this desk.  The reconciliation
     # result is the newer, runtime authority; an explicit ``query_allowed``
     # value must therefore win in both directions.
-    if "query_allowed" in reconciliation:
+    if current is not None:
+        # The receipt records what was true when collection completed.  The
+        # loaded registry is newer authority: hydration may make an archived
+        # asset queryable, while compaction may make it hydrate-required again.
+        materialization = current.get("materialization") if isinstance(current.get("materialization"), dict) else {}
+        query_allowed = bool(
+            materialization.get("query_ready") is True
+            or (
+                readiness in {"query_ready", "instant"}
+                and not current.get("hydrate_required")
+                and not current.get("runtime_readiness_reason")
+            )
+        )
+        reconciliation = {
+            **reconciliation,
+            "state": "catalog_loaded",
+            "registry_row_loaded": True,
+            "query_allowed": query_allowed,
+        }
+    elif "query_allowed" in reconciliation:
         query_allowed = reconciliation.get("query_allowed") is True
     else:
         query_allowed = readiness in {"query_ready", "instant"}
@@ -206,8 +237,19 @@ def _registered_asset_item(job: dict[str, Any], *, intent_id: str = "", subscrip
     }
 
 
-def _job_history_item(job: dict[str, Any], *, intent_id: str = "", subscription_id: str = "") -> dict[str, Any] | None:
-    registered = _registered_asset_item(job, intent_id=intent_id, subscription_id=subscription_id)
+def _job_history_item(
+    job: dict[str, Any],
+    *,
+    intent_id: str = "",
+    subscription_id: str = "",
+    current_datasets: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    registered = _registered_asset_item(
+        job,
+        intent_id=intent_id,
+        subscription_id=subscription_id,
+        current_datasets=current_datasets,
+    )
     if registered is not None:
         return registered
     if _job_linked_to_discover(job):
@@ -246,6 +288,7 @@ def build_discover_history(
     kind: str = "",
     session_id: str = "",
     include_ops: bool = False,
+    current_datasets: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Collapse intents, subscriptions and durable outcomes into researcher History."""
     limit = max(1, min(int(limit or 50), 200))
@@ -265,7 +308,11 @@ def build_discover_history(
             intent_job_ids.add(jid)
         job = intent.get("job") if isinstance(intent.get("job"), dict) else None
         if job:
-            outcome = _job_history_item(job, intent_id=str(intent.get("id") or ""))
+            outcome = _job_history_item(
+                job,
+                intent_id=str(intent.get("id") or ""),
+                current_datasets=current_datasets,
+            )
             if outcome is not None:
                 items.append(outcome)
                 intent_job_ids.add(str(job.get("id") or ""))
@@ -277,7 +324,7 @@ def build_discover_history(
         jid = str(job.get("id") or "")
         if jid and jid in intent_job_ids:
             continue
-        outcome = _job_history_item(job)
+        outcome = _job_history_item(job, current_datasets=current_datasets)
         if outcome is not None:
             items.append(outcome)
 
