@@ -241,6 +241,22 @@ class ResearchQueryEngine:
                         dataset["runtime_readiness_reason"] = "csv_schema_mismatch"
                         dataset["schema_review_required"] = True
                         dataset["schema_observation"] = observation
+                        continue
+                # A durable registry row may retain the effective missing-byte
+                # state from before hydration.  Once bytes are present and pass
+                # the bounded format checks, clear those runtime-only flags so
+                # describe/query do not simultaneously claim query-ready and
+                # hydrate-required.
+                materialization = dict(dataset.get("materialization") or {})
+                materialization.pop("skipped", None)
+                materialization.pop("expected_path", None)
+                materialization["query_ready"] = True
+                materialization["resolved_path"] = str(resolved)
+                dataset["materialization"] = materialization
+                dataset.pop("runtime_readiness_reason", None)
+                dataset.pop("hydrate_required", None)
+                dataset.pop("schema_review_required", None)
+                dataset.pop("schema_observation", None)
                 continue
 
             materialization = dict(dataset.get("materialization") or {})

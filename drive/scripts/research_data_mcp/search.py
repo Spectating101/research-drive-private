@@ -24,12 +24,12 @@ class SearchService:
         self.engine = engine
         self.registry_path = registry_path
         self.repo_root = repo_root
-        self._registry_mtime: float | None = None
+        self._registry_mtime: int | None = None
         self._maybe_reload_registry()
 
-    def _registry_mtime_on_disk(self) -> float | None:
+    def _registry_mtime_on_disk(self) -> int | None:
         try:
-            return self.registry_path.stat().st_mtime
+            return self.registry_path.stat().st_mtime_ns
         except OSError:
             return None
 
@@ -273,6 +273,7 @@ class SearchService:
         }
 
     def describe_dataset(self, dataset_id: str) -> dict[str, Any]:
+        self._maybe_reload_registry()
         self._reload_if_unknown(dataset_id)
         try:
             return self.engine.describe(dataset_id)
@@ -286,6 +287,7 @@ class SearchService:
 
     def query_dataset(self, dataset_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         params = params or {}
+        self._maybe_reload_registry()
         self._reload_if_unknown(dataset_id)
         limit = int(params.get("limit") or 50)
         preview_budget = max(1, min(limit, 100))

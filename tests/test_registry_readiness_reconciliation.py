@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -92,6 +93,81 @@ def test_remote_query_ready_file_is_effectively_registered_until_hydrated(tmp_pa
     refreshed = ResearchQueryEngine(registry, repo_root=tmp_path).describe("remote_csv")
     assert refreshed["analysis_readiness"] == "query_ready"
     assert "hydrate_required" not in refreshed
+
+
+def test_hydrated_file_clears_persisted_runtime_missing_flags(tmp_path: Path) -> None:
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    local_rel = "data_lake/procured/remote.csv"
+    registry.write_text(
+        json.dumps(
+            {
+                "datasets": [
+                    {
+                        "dataset_id": "remote_csv",
+                        "backend": "local_csv_file",
+                        "analysis_readiness": "query_ready",
+                        "local_path": local_rel,
+                        "canonical_remote": "gdrive:archive/remote_csv",
+                        "source_of_truth": "gdrive",
+                        "materialization": {
+                            "query_ready": False,
+                            "skipped": "local_bytes_missing_at_runtime",
+                            "expected_path": local_rel,
+                        },
+                        "runtime_readiness_reason": "local_bytes_missing",
+                        "hydrate_required": True,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    local = tmp_path / local_rel
+    local.parent.mkdir(parents=True)
+    local.write_text("date,value\n2026-01,1\n", encoding="utf-8")
+
+    effective = ResearchQueryEngine(registry, repo_root=tmp_path).describe("remote_csv")
+
+    assert effective["analysis_readiness"] == "query_ready"
+    assert effective["materialization"]["query_ready"] is True
+    assert effective["materialization"]["resolved_path"] == str(local)
+    assert "skipped" not in effective["materialization"]
+    assert "expected_path" not in effective["materialization"]
+    assert "runtime_readiness_reason" not in effective
+    assert "hydrate_required" not in effective
+
+
+def test_existing_dataset_hot_reloads_after_registry_promotion(tmp_path: Path) -> None:
+    registry = tmp_path / "config/research_query_registry.json"
+    registry.parent.mkdir()
+    old = {
+        "dataset_id": "promoted_csv",
+        "backend": "local_csv_file",
+        "analysis_readiness": "query_ready",
+        "local_path": "data_lake/procured/old.csv",
+        "canonical_remote": "gdrive:archive/promoted_csv",
+    }
+    registry.write_text(json.dumps({"datasets": [old]}), encoding="utf-8")
+    service = SearchService(
+        ResearchQueryEngine(registry, repo_root=tmp_path), registry, tmp_path
+    )
+    assert service.describe_dataset("promoted_csv")["analysis_readiness"] == "registered"
+
+    new_path = tmp_path / "data_lake/procured/new.csv"
+    new_path.parent.mkdir(parents=True)
+    new_path.write_text("date,value\n2026-01,1\n", encoding="utf-8")
+    promoted = {**old, "local_path": "data_lake/procured/new.csv"}
+    previous_mtime = registry.stat().st_mtime_ns
+    registry.write_text(json.dumps({"datasets": [promoted]}), encoding="utf-8")
+    os.utime(registry, ns=(previous_mtime + 1_000_000, previous_mtime + 1_000_000))
+
+    described = service.describe_dataset("promoted_csv")
+    queried = service.query_dataset("promoted_csv", {"limit": 5})
+
+    assert described["local_path"] == "data_lake/procured/new.csv"
+    assert described["analysis_readiness"] == "query_ready"
+    assert queried["rows"] == [{"date": "2026-01", "value": 1}]
 
 
 def test_remote_query_requires_explicit_hydration_then_returns_rows(
