@@ -33,6 +33,11 @@ from scripts.research_data_mcp.cloudflare_access import (
 DESK_SESSION_COOKIE = "rd_desk_session"
 _SESSION_MSG = b"research-drive-desk-session-v1"
 _SESSION_VERSION = "v3"
+# v4 carries the small, verified public-member identity minted after a
+# Cloudflare Access login.  v3 intentionally only names a locally configured
+# principal (or a guest); it cannot restore an Access identity after the
+# browser leaves the single protected login endpoint.
+_MEMBER_SESSION_VERSION = "v4"
 _LEGACY_SESSION_VERSION = "v2"
 _CLOCK_SKEW_SECONDS = 300
 _CURRENT_PRINCIPAL: contextvars.ContextVar[DeskPrincipal | None] = contextvars.ContextVar(
@@ -168,15 +173,28 @@ def session_cookie_value(
     issued = int(time.time()) if issued_at is None else int(issued_at)
     entropy = nonce or secrets.token_urlsafe(18)
     actor = principal or default_principal()
+    claims_document: dict[str, str] = {"sub": actor.principal_id}
+    version = _SESSION_VERSION
+    # Cloudflare Access principals are verified at the login endpoint but are
+    # not stored in DESK_PRINCIPALS_FILE.  Preserve only their restricted,
+    # signed public-member claims in the local, expiring session; never mint a
+    # local operator/member role from a browser-controlled value.
+    if actor.role == "public_member" and actor.principal_id.startswith("cf-"):
+        version = _MEMBER_SESSION_VERSION
+        claims_document.update(
+            {
+                "email": actor.email,
+                "display_name": actor.display_name,
+                "role": "public_member",
+            }
+        )
     claims = base64.urlsafe_b64encode(
         json.dumps(
-            {
-                "sub": actor.principal_id,
-            },
+            claims_document,
             separators=(",", ":"),
         ).encode("utf-8")
     ).decode("ascii").rstrip("=")
-    payload = f"{_SESSION_VERSION}.{issued}.{entropy}.{claims}"
+    payload = f"{version}.{issued}.{entropy}.{claims}"
     return f"{payload}.{_session_signature(token, payload)}"
 
 
@@ -250,7 +268,7 @@ def desk_session_principal(
     if len(parts) == 4 and parts[0] == _LEGACY_SESSION_VERSION:
         version, issued_raw, nonce, provided_signature = parts
         claims = ""
-    elif len(parts) == 5 and parts[0] == _SESSION_VERSION:
+    elif len(parts) == 5 and parts[0] in {_SESSION_VERSION, _MEMBER_SESSION_VERSION}:
         version, issued_raw, nonce, claims, provided_signature = parts
     else:
         # Reject deterministic v1 cookies and unknown future formats.
@@ -275,6 +293,28 @@ def desk_session_principal(
         decoded = json.loads(base64.urlsafe_b64decode(claims + padding).decode("utf-8"))
     except (ValueError, TypeError, json.JSONDecodeError):
         return None
+    if version == _MEMBER_SESSION_VERSION:
+        principal_id = str(decoded.get("sub") or "").strip()
+        email = str(decoded.get("email") or "").strip().lower()
+        display_name = str(decoded.get("display_name") or "").strip()
+        # v4 is HMAC-authenticated, but retain a narrow shape check so a
+        # future internal cookie helper cannot accidentally grant a broader
+        # local role through this dynamic identity path.
+        if (
+            str(decoded.get("role") or "") != "public_member"
+            or not principal_id.startswith("cf-")
+            or not 35 <= len(principal_id) <= 96
+            or not email
+            or len(email) > 320
+            or len(display_name) > 160
+        ):
+            return None
+        return DeskPrincipal(
+            principal_id=principal_id,
+            email=email,
+            display_name=display_name or email.split("@", 1)[0],
+            role="public_member",
+        )
     return principal_by_id(str(decoded.get("sub") or ""))
 
 
@@ -418,22 +458,29 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
             "multi_user_ready": True,
         },
         "session": {
-            "cookie_version": _SESSION_VERSION,
+            "cookie_version": _MEMBER_SESSION_VERSION,
             "max_age_seconds": _session_max_age(),
             "bootstrap_available": bool(_bootstrap_hosts() or _public_guest_hosts())
             or request_presents_desk_token(handler),
             "public_guest_available": bool(_public_guest_hosts()),
+            # A Cloudflare Access application protects only the dedicated
+            # login endpoint.  It upgrades a guest to a public member without
+            # making the shared Library/Discover estate private.
+            "member_sign_in_available": bool(cloudflare_access_configured()),
+            "member_sign_in_path": "/library/desk/login" if cloudflare_access_configured() else None,
         },
     }
 
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
     """Return (ok, message, Set-Cookie header value)."""
-    # A browser that reached us through Cloudflare Access already carries a
-    # verified assertion on every request.  Do not turn that identity into a
-    # local cookie whose dynamic public principal cannot be reloaded safely.
-    if cloudflare_access_principal(handler):
-        return True, "", None
+    cloudflare_principal = cloudflare_access_principal(handler)
+    if cloudflare_principal:
+        return True, "", _cookie_header_value(
+            _session_signing_secret(),
+            secure=request_is_https(handler),
+            principal=cloudflare_principal,
+        )
     token = _session_signing_secret()
     if not token:
         return False, "Desk access token is not configured on this host", None
@@ -446,6 +493,28 @@ def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
     if not same_origin_desk_request(handler):
         return False, "Desk session bootstrap is not permitted for this request", None
     principal = request_desk_principal(handler) if request_presents_desk_token(handler) else default_principal()
+    return True, "", _cookie_header_value(
+        token,
+        secure=request_is_https(handler),
+        principal=principal,
+    )
+
+
+def issue_cloudflare_member_session(
+    handler: BaseHTTPRequestHandler,
+) -> tuple[bool, str, str | None]:
+    """Mint a restricted local member session after verified Access login.
+
+    The endpoint calling this function is expected to be protected by a
+    Cloudflare Access application.  A raw caller cannot upgrade a guest: the
+    assertion is JWT-verified by ``cloudflare_access_principal`` first.
+    """
+    principal = cloudflare_access_principal(handler)
+    if not principal:
+        return False, "Verified member sign-in is required", None
+    token = _session_signing_secret()
+    if not token:
+        return False, "Desk session signing is not configured on this host", None
     return True, "", _cookie_header_value(
         token,
         secure=request_is_https(handler),

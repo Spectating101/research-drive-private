@@ -18,6 +18,7 @@ from scripts.research_data_mcp.desk_auth import (
     clear_desk_session,
     current_desk_principal,
     desk_capability_document,
+    issue_cloudflare_member_session,
     issue_desk_session,
 )
 from scripts.research_data_mcp.http_router import handle_get, handle_post
@@ -234,6 +235,52 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
 
+    def _send_redirect(
+        self,
+        location: str,
+        *,
+        extra_headers: list[tuple[str, str]] | None = None,
+    ) -> None:
+        """Complete an Access login without allowing an external redirect."""
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        for key, value in list(extra_headers or []):
+            self.send_header(key, value)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    @staticmethod
+    def _safe_login_return_to(value: str) -> str:
+        """Return a same-desk SPA path, never an attacker-provided origin."""
+        raw = str(value or "").strip()
+        if not raw or not raw.startswith("/") or raw.startswith("//") or "\\" in raw:
+            return "/"
+        parsed = urlparse(raw)
+        if parsed.scheme or parsed.netloc or parsed.fragment:
+            return "/"
+        return f"{parsed.path or '/'}{('?' + parsed.query) if parsed.query else ''}"
+
+    def _handle_cloudflare_member_login(self, query: dict[str, list[str]]) -> None:
+        """Exchange an already verified Access assertion for a desk session.
+
+        Cloudflare Access must protect exactly this endpoint (or a narrower
+        login path) at the edge.  The rest of the public desk remains guest
+        browseable, while a verified identity receives the restricted
+        ``public_member`` session used by Ask and durable personal work.
+        """
+        ok, message, cookie = issue_cloudflare_member_session(self)
+        if not ok:
+            self._send_json(
+                {"error": "Unauthorized", "message": message},
+                status=401,
+            )
+            return
+        target = self._safe_login_return_to((query.get("return_to") or [""])[-1])
+        headers = [("Set-Cookie", cookie)] if cookie else None
+        self._send_redirect(target, extra_headers=headers)
+
     def _read_request_body(self) -> bytes:
         """Consume the declared request body so keep-alive framing stays intact."""
         raw_length = str(self.headers.get("Content-Length") or "0").strip() or "0"
@@ -340,6 +387,9 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         # never turn a health probe into a 200 HTML shell.
         if path == "/healthz":
             self._send_json({"status": "ok"}, status=200)
+            return
+        if path == "/library/desk/login":
+            self._handle_cloudflare_member_login(parse_qs(parsed.query))
             return
         if self._serve_static(path, raw_path=parsed.path):
             return

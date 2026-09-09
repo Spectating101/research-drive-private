@@ -165,6 +165,29 @@ fi
 roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 [ "$roots" = "<unset>" ] && note "WARN: RESEARCH_DATA_ROOTS unset; holdings counts will read as absent"
 
+# Public browsing may be intentionally anonymous, but an external launch that
+# advertises Ask and durable personal work must have a real identity upgrade.
+# Cloudflare Access protects the narrow /library/desk/login path; the backend
+# verifies its assertion and mints a restricted, expiring public-member
+# session. Refuse to label an external scope ready when that authority is
+# absent, rather than shipping a beautiful guest desk with no way to use Ask.
+release_scope="${YZU_DESK_RELEASE_SCOPE:-tailscale-internal-same-origin}"
+case "$release_scope" in
+  external-public*|public-external*)
+    cf_team="${DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN:-}"
+    cf_aud="${DESK_CLOUDFLARE_ACCESS_AUD:-}"
+    [ -n "$cf_team" ] || bad "external public release requires DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN for member sign-in"
+    [ -n "$cf_aud" ] || bad "external public release requires DESK_CLOUDFLARE_ACCESS_AUD for member sign-in"
+    if [ -n "$cf_team" ] && [ -n "$cf_aud" ]; then
+      if "$python_bin" -c 'import jwt' >/dev/null 2>&1; then
+        note "member_sign_in=cloudflare_access"
+      else
+        bad "external public member sign-in requires PyJWT on the host"
+      fi
+    fi
+    ;;
+esac
+
 composer_provider="${DESK_COMPOSER_PROVIDER:-auto}"
 if [ "$composer_provider" = "copilot" ] || [ "$composer_provider" = "github_copilot" ] || [ "$composer_provider" = "copilot_composer" ]; then
   copilot_probe="$backend_root/drive/scripts/research_data_mcp/copilot_pool_preflight.py"

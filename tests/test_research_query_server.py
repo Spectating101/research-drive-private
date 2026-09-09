@@ -25,6 +25,20 @@ def test_is_api_path_does_not_capture_spa_routes():
     assert not server.is_api_path("/discover/history")
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("/", "/"),
+        ("/discover?q=stablecoin", "/discover?q=stablecoin"),
+        ("https://attacker.example/", "/"),
+        ("//attacker.example/", "/"),
+        ("/discover#fragment", "/"),
+    ],
+)
+def test_member_login_return_target_is_same_desk_only(value, expected):
+    assert server.ResearchQueryHandler._safe_login_return_to(value) == expected
+
+
 def test_healthz_is_json_liveness_before_static_fallback(monkeypatch):
     handler = server.ResearchQueryHandler.__new__(server.ResearchQueryHandler)
     handler.path = "/healthz"

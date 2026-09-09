@@ -78,6 +78,31 @@ def test_a_coherent_release_is_ready(release):
     assert "READY" in out.stdout
 
 
+def test_external_public_release_refuses_without_member_identity_provider(release):
+    with release["env"].open("a", encoding="utf-8") as handle:
+        handle.write("YZU_DESK_RELEASE_SCOPE=external-public\n")
+
+    out = _run(release["env"])
+
+    assert out.returncode != 0
+    assert "DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN" in out.stdout
+    assert "DESK_CLOUDFLARE_ACCESS_AUD" in out.stdout
+
+
+def test_external_public_release_accepts_configured_member_identity_provider(release):
+    with release["env"].open("a", encoding="utf-8") as handle:
+        handle.write(
+            "YZU_DESK_RELEASE_SCOPE=external-public\n"
+            "DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN=https://desk.cloudflareaccess.com\n"
+            "DESK_CLOUDFLARE_ACCESS_AUD=desk-public-login\n"
+        )
+
+    out = _run(release["env"])
+
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "member_sign_in=cloudflare_access" in out.stdout
+
+
 def test_a_modified_backend_file_is_refused(release):
     """The hole review found: runtime source differing from the SHA being deployed."""
     (release["backend"] / "code.py").write_text("x = 2  # drifted\n", encoding="utf-8")
