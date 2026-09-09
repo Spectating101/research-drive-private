@@ -20,6 +20,7 @@ from scripts.research_data_mcp.desk_principal import (
     DeskPrincipal,
     configured_principals,
     default_principal,
+    member_access_codes_configured,
     permissions_document,
     principal_by_id,
     principal_for_token,
@@ -466,7 +467,9 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
             # A Cloudflare Access application protects only the dedicated
             # login endpoint.  It upgrades a guest to a public member without
             # making the shared Library/Discover estate private.
-            "member_sign_in_available": bool(cloudflare_access_configured()),
+            "member_sign_in_available": bool(cloudflare_access_configured())
+            or member_access_codes_configured(),
+            "member_access_code_available": member_access_codes_configured(),
             "member_sign_in_path": "/library/desk/login" if cloudflare_access_configured() else None,
         },
     }

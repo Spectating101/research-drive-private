@@ -7,9 +7,37 @@ Research Drive has two deliberately different public states:
 | Public guest | Browse the shared Library and Discover evidence. |
 | Signed-in public member | Use Ask and keep private chat/Synthesis work. |
 
-The public guest must never receive Copilot, saved research history, acquisition, or operator authority. A member must be authenticated by an identity provider; an email typed into the browser is not an identity proof.
+The public guest must never receive Copilot, saved research history, acquisition, or operator authority. A member must present either an individually issued code or verified provider identity; an email typed into the browser is not an identity proof.
 
-## Supported external sign-in boundary
+## Supported external sign-in boundaries
+
+The launch can use either secure member upgrade:
+
+1. **Individual member access code** — an operator issues a distinct code to a named principal whose SHA-256 digest is held only in `DESK_PRINCIPALS_FILE`. The browser exchanges it once for a short-lived `HttpOnly` desk session and immediately discards the raw code. This is the practical route for an invite-based external launch with bounded Copilot capacity.
+2. **Cloudflare Access** — the smoother SSO path for a larger launch. It can be enabled in parallel; it is not required when individual member codes are already configured.
+
+Both resolve to the same restricted member role. Neither grants collection, approval, faculty-profile, or operator access.
+
+### Issuing an invite code
+
+Run this **on the host** as the operator account; it only stores a digest in the
+private registry and prints the raw code once to that terminal. Deliver that
+code through a private channel, never in a URL, source file, or support ticket.
+
+```bash
+python3 drive/scripts/research_query_engine/issue_desk_member_code.py \
+  --file "$DESK_PRINCIPALS_FILE" \
+  --principal-id researcher-001 \
+  --display-name "Researcher" \
+  --email researcher@example.edu \
+  --write
+```
+
+The resulting role is `public_member`: it can use Ask and preserve its own
+research trail, but cannot collect, approve, inspect faculty data, or operate
+the desk. Run without `--write` first for a no-change validation.
+
+## Cloudflare Access boundary
 
 The release uses [Cloudflare Access application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/) to protect **only**:
 
@@ -49,4 +77,4 @@ After reloading the staged service:
 5. Confirm the public guest cannot call `/library/desk/warm`, `/library/chat/*`, `/library/advise/*`, or `/library/synthesis/threads/*`.
 6. Sign out. The browser must return to a guest session that can browse but cannot Ask.
 
-The release preflight intentionally refuses an `external-public` scope without the two Cloudflare Access values above. This prevents launching a public desk whose UI promises member Ask but has no secure identity path.
+The release preflight intentionally refuses an `external-public` scope unless it finds Cloudflare Access configuration **or** at least one well-formed non-operator member access-code digest. This prevents launching a public desk whose UI promises member Ask but has no secure identity path.

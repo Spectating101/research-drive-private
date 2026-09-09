@@ -85,8 +85,7 @@ def test_external_public_release_refuses_without_member_identity_provider(releas
     out = _run(release["env"])
 
     assert out.returncode != 0
-    assert "DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN" in out.stdout
-    assert "DESK_CLOUDFLARE_ACCESS_AUD" in out.stdout
+    assert "Cloudflare Access or at least one individually issued member access code" in out.stdout
 
 
 def test_external_public_release_accepts_configured_member_identity_provider(release):
@@ -101,6 +100,34 @@ def test_external_public_release_accepts_configured_member_identity_provider(rel
 
     assert out.returncode == 0, out.stdout + out.stderr
     assert "member_sign_in=cloudflare_access" in out.stdout
+
+
+def test_external_public_release_accepts_individual_member_access_code(release, tmp_path):
+    principals = tmp_path / "principals.json"
+    principals.write_text(
+        json.dumps(
+            {
+                "principals": [
+                    {
+                        "id": "external-member",
+                        "role": "member",
+                        "token_sha256": "a" * 64,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with release["env"].open("a", encoding="utf-8") as handle:
+        handle.write(
+            "YZU_DESK_RELEASE_SCOPE=external-public\n"
+            f"DESK_PRINCIPALS_FILE={principals}\n"
+        )
+
+    out = _run(release["env"])
+
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "member_sign_in=individual_access_codes" in out.stdout
 
 
 def test_a_modified_backend_file_is_refused(release):

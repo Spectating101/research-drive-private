@@ -176,8 +176,35 @@ case "$release_scope" in
   external-public*|public-external*)
     cf_team="${DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN:-}"
     cf_aud="${DESK_CLOUDFLARE_ACCESS_AUD:-}"
-    [ -n "$cf_team" ] || bad "external public release requires DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN for member sign-in"
-    [ -n "$cf_aud" ] || bad "external public release requires DESK_CLOUDFLARE_ACCESS_AUD for member sign-in"
+    cf_configured=0
+    [ -n "$cf_team" ] && [ -n "$cf_aud" ] && cf_configured=1
+    member_codes=0
+    principals_file="${DESK_PRINCIPALS_FILE:-}"
+    if [ -n "$principals_file" ] && [ -f "$principals_file" ]; then
+      member_codes="$($python_bin - "$principals_file" <<'PY'
+import json,sys
+try:
+    payload=json.load(open(sys.argv[1], encoding="utf-8"))
+    rows=payload.get("principals", payload) if isinstance(payload, dict) else payload
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        role=str(row.get("role") or "member").strip().lower()
+        role={"public":"public_member","viewer":"member","researcher":"member"}.get(role, role)
+        digest=str(row.get("token_sha256") or "").strip().lower()
+        if role in {"member","public_member"} and len(digest)==64 and all(c in "0123456789abcdef" for c in digest):
+            print(1); break
+    else: print(0)
+except Exception: print(0)
+PY
+)"
+    fi
+    if [ "$cf_configured" != "1" ] && [ "$member_codes" != "1" ]; then
+      bad "external public release requires Cloudflare Access or at least one individually issued member access code"
+    fi
+    if [ "$cf_configured" = "0" ] && { [ -n "$cf_team" ] || [ -n "$cf_aud" ]; }; then
+      bad "Cloudflare member sign-in needs both DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN and DESK_CLOUDFLARE_ACCESS_AUD"
+    fi
     if [ -n "$cf_team" ] && [ -n "$cf_aud" ]; then
       if "$python_bin" -c 'import jwt' >/dev/null 2>&1; then
         note "member_sign_in=cloudflare_access"
@@ -185,6 +212,7 @@ case "$release_scope" in
         bad "external public member sign-in requires PyJWT on the host"
       fi
     fi
+    [ "$member_codes" = "1" ] && note "member_sign_in=individual_access_codes"
     ;;
 esac
 
