@@ -270,6 +270,12 @@ def _mcp_stdio_config(
     env["PYTHONPATH"] = _desk_pythonpath(repo_root)
     env["SHARPE_REPO_ROOT"] = str(repo_root)
     env["RESEARCH_MCP_DESK"] = "1"
+    from scripts.research_data_mcp.desk_auth import current_desk_principal
+
+    principal = current_desk_principal()
+    if principal is not None:
+        env["RESEARCH_MCP_PRINCIPAL_ID"] = principal.principal_id
+        env["RESEARCH_MCP_PRINCIPAL_ROLE"] = principal.role
     if synthesis_read_only:
         env["RESEARCH_MCP_SYNTHESIS_READ_ONLY"] = "1"
     if vault_primed:

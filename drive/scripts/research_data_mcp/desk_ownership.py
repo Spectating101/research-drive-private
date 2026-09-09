@@ -8,6 +8,7 @@ created them. Operators and trusted in-process jobs may inspect all records.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 
@@ -15,7 +16,25 @@ def _principal():
     # Lazy import avoids coupling storage initialization to HTTP auth setup.
     from scripts.research_data_mcp.desk_auth import current_desk_principal
 
-    return current_desk_principal()
+    principal = current_desk_principal()
+    if principal is not None:
+        return principal
+    # The desk Composer runs its MCP server as a child process. ContextVars do
+    # not cross that process boundary, so carry the already-authorized
+    # principal through a server-owned environment contract. This prevents a
+    # member tool call from becoming an ownerless, implicitly trusted action.
+    principal_id = os.getenv("RESEARCH_MCP_PRINCIPAL_ID", "").strip()
+    role = os.getenv("RESEARCH_MCP_PRINCIPAL_ROLE", "").strip().lower()
+    if principal_id and role in {"public_member", "member", "operator"}:
+        from scripts.research_data_mcp.desk_principal import DeskPrincipal
+
+        return DeskPrincipal(
+            principal_id=principal_id[:96],
+            email="",
+            display_name="Desk MCP principal",
+            role=role,
+        )
+    return None
 
 
 def owner_id_for_create(explicit_owner_id: str = "") -> str:

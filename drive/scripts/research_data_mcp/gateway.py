@@ -1766,6 +1766,10 @@ class ResearchDataGateway:
                 auto_approve=False,
             )
             job = submitted.get("job") or {}
+            if not job:
+                raise ValueError(
+                    str(submitted.get("error") or "collection plan is not launchable")
+                )
             linked = store.link_job(intent_id, job)
             return {"intent": self._discover_intent_with_job(linked), "job": job, "crafted": True}
 
@@ -1796,6 +1800,10 @@ class ResearchDataGateway:
         plan.update({"discover_intent_id": intent_id, "candidate_key": route.get("candidate_key") or (state.get("candidate") or {}).get("candidate_key") or "", "destination": route.get("destination") or plan.get("destination") or "", "refresh_strategy": route.get("refresh") or ""})
         submitted = self.jobs.submit(plan.get("title") or intent.get("title") or "Discover collection", plan, {"source": "discover_intent", "discover_intent_id": intent_id, "research_need": intent.get("research_need") or "", "route_id": selected_id, "connector_id": connector_id}, auto_approve=False)
         job = submitted.get("job") or {}
+        if not job:
+            raise ValueError(
+                str(submitted.get("error") or "collection plan is not launchable")
+            )
         linked = store.link_job(intent_id, job)
         return {"intent": self._discover_intent_with_job(linked), "job": job}
 

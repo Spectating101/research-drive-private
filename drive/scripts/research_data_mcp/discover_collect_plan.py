@@ -681,7 +681,16 @@ def resolve_discover_collect_plan(
     title_s = str(title or "").strip()
     url_s = _https_url(url)
     ck = str(candidate_key or "").strip()
-    doi_s = _doi_from_value(doi) or _doi_from_value(external_id) or _doi_from_value(url_s)
+    # Candidate keys are the durable identity that survives every frontend and
+    # MCP handoff. Some repositories return a non-DOI landing URL, so dropping
+    # the optional ``doi`` display field must not degrade an explicit
+    # ``doi:10...`` candidate into a generic webpage probe.
+    doi_s = (
+        _doi_from_value(doi)
+        or _doi_from_value(external_id)
+        or _doi_from_value(ck)
+        or _doi_from_value(url_s)
+    )
     provider_s = str(provider or "").strip()
     kind_s = str(kind or "").strip().lower()
     canonical_cid = _canonical_live_connector(cid, sid, provider_s)

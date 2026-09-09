@@ -77,6 +77,33 @@ def test_general_mcp_allowlist_excludes_known_bigint_crash_tools(monkeypatch):
     assert "*" not in config["tools"]
 
 
+def test_copilot_tools_follow_public_member_and_member_permissions(monkeypatch):
+    monkeypatch.setenv("DESK_COPILOT_ACCOUNTS", "primary")
+    monkeypatch.setattr(desk_copilot_provider, "copilot_composer_available", lambda: True)
+    bindings = desk_copilot_provider.load_copilot_cursor_bindings("primary")
+
+    public_config = bindings.stdio_mcp_server_config(
+        command="python",
+        args=["-m", "server"],
+        cwd="/tmp/repo",
+        env={"RESEARCH_MCP_PRINCIPAL_ROLE": "public_member"},
+    )
+    assert "research_discover_search" in public_config["tools"]
+    assert "research_discover_submit_intent" not in public_config["tools"]
+    assert "yzu_submit_job" not in public_config["tools"]
+    assert "yzu_approve_job" not in public_config["tools"]
+
+    member_config = bindings.stdio_mcp_server_config(
+        command="python",
+        args=["-m", "server"],
+        cwd="/tmp/repo",
+        env={"RESEARCH_MCP_PRINCIPAL_ROLE": "member"},
+    )
+    assert "research_discover_submit_intent" in member_config["tools"]
+    assert "yzu_submit_job" not in member_config["tools"]
+    assert "yzu_approve_job" not in member_config["tools"]
+
+
 def test_final_assistant_reply_prefers_post_tool_top_level_message():
     def event(content, *, parent=None):
         return SimpleNamespace(

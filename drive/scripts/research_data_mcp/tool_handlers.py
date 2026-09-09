@@ -238,6 +238,43 @@ class ResearchToolHandlers:
         """Persist candidate acquisition routes for explicit researcher review; never collect."""
         return self.gateway.discover_intent_set_proposal(intent_id, proposal)
 
+    def research_discover_review_intent(
+        self,
+        intent_id: str,
+        decision: str,
+        proposal_id: str,
+        proposal_hash: str,
+    ) -> dict[str, Any]:
+        """Record the researcher's proposal decision; this never starts collection."""
+        return self.gateway.discover_intent_review(
+            intent_id,
+            decision=decision,
+            proposal_id=proposal_id,
+            proposal_hash=proposal_hash,
+        )
+
+    def research_discover_select_intent_route(
+        self, intent_id: str, route_id: str
+    ) -> dict[str, Any]:
+        """Select one reviewed acquisition route; this never starts collection."""
+        return self.gateway.discover_intent_select_route(intent_id, route_id)
+
+    def research_discover_submit_intent(
+        self, intent_id: str, limit: int = 200
+    ) -> dict[str, Any]:
+        """Submit one reviewed Discover intent as a pending-approval job only."""
+        out = self.gateway.discover_intent_submit_collection(
+            intent_id, limit=min(max(int(limit), 1), 2000)
+        )
+        job = out.get("job") if isinstance(out, dict) else None
+        if isinstance(job, dict) and job.get("status") != "pending_approval":
+            raise RuntimeError("Discover intent submission did not remain pending approval")
+        return {
+            **(out if isinstance(out, dict) else {"result": out}),
+            "approval_required": True,
+            "agent_may_approve": False,
+        }
+
     def research_craft_collect_plan(
         self,
         research_need: str,

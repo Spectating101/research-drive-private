@@ -48,6 +48,42 @@ _SYNTHESIS_SAFE_TOOLS = [
     "research_synthesis_pair",
     "research_synthesis_propose_state",
 ]
+_PUBLIC_MEMBER_SAFE_TOOLS = [
+    "collection_status",
+    "research_semantic_discover",
+    "research_discover_search",
+    "research_discover_source_search",
+    "research_discover_source_preview",
+    "research_acquisition_status",
+    "research_acquisition_options",
+    "research_web_discover",
+    "research_describe_dataset",
+    "research_query_dataset",
+    "research_analyze_dataset",
+    "research_synthesis_pair",
+    "research_quant_brief",
+    "procurement_probe_public_source",
+    "research_craft_collect_plan",
+    "research_craft_discover_proposal",
+    "research_procurement_catalog",
+    "research_advise_datasets",
+    "research_plan_sources",
+    "huggingface_search",
+    "research_dataset_card",
+    "research_open_dataset",
+    "research_list_pins",
+]
+_MEMBER_SAFE_TOOLS = [
+    *_PUBLIC_MEMBER_SAFE_TOOLS,
+    "research_discover_create_intent",
+    "research_discover_get_intent",
+    "research_discover_propose_intent",
+    "research_discover_review_intent",
+    "research_discover_select_intent_route",
+    "research_discover_submit_intent",
+    "research_discover_history",
+    "research_synthesis_submit_execution",
+]
 _GENERAL_SAFE_TOOLS = [
     "collection_status",
     "research_semantic_discover",
@@ -66,6 +102,13 @@ _GENERAL_SAFE_TOOLS = [
     "procurement_probe_public_source",
     "research_craft_collect_plan",
     "research_craft_discover_proposal",
+    "research_discover_create_intent",
+    "research_discover_get_intent",
+    "research_discover_propose_intent",
+    "research_discover_review_intent",
+    "research_discover_select_intent_route",
+    "research_discover_submit_intent",
+    "research_discover_history",
     "research_procure_resume_campaign",
     "research_procure_campaign_artifacts",
     "research_procure_approve_collect",
@@ -591,17 +634,22 @@ def load_copilot_cursor_bindings(account: str) -> Any:
         synthesis_read_only = str(
             env.get("RESEARCH_MCP_SYNTHESIS_READ_ONLY") or ""
         ).strip().lower() in {"1", "true", "yes"}
+        principal_role = str(env.get("RESEARCH_MCP_PRINCIPAL_ROLE") or "").strip().lower()
+        if synthesis_read_only:
+            selected_tools = list(_SYNTHESIS_SAFE_TOOLS)
+        elif principal_role == "public_member":
+            selected_tools = list(_PUBLIC_MEMBER_SAFE_TOOLS)
+        elif principal_role == "member":
+            selected_tools = list(_MEMBER_SAFE_TOOLS)
+        else:
+            selected_tools = list(_GENERAL_SAFE_TOOLS)
         return {
             "type": "local",
             "command": str(kwargs.get("command") or ""),
             "args": list(kwargs.get("args") or []),
             "cwd": str(kwargs.get("cwd") or ""),
             "env": env,
-            "tools": (
-                list(_SYNTHESIS_SAFE_TOOLS)
-                if synthesis_read_only
-                else list(_GENERAL_SAFE_TOOLS)
-            ),
+            "tools": selected_tools,
             "timeout": 30000,
         }
 

@@ -41,11 +41,18 @@ def _intent_item(intent: dict[str, Any]) -> dict[str, Any]:
     state = intent.get("state") if isinstance(intent.get("state"), dict) else {}
     collection = state.get("collection") if isinstance(state.get("collection"), dict) else {}
     candidate = state.get("candidate") if isinstance(state.get("candidate"), dict) else {}
+    collection_status = str(collection.get("status") or "").strip()
+    status = state.get("status") or "draft"
+    if collection.get("job_id") and collection_status not in {"", "not_started", "unknown"}:
+        # The linked job is the newer lifecycle authority. Keep the durable
+        # decision state intact, but never show a cancelled/failed/completed
+        # job as an intent that is still awaiting approval.
+        status = collection_status
     return {
         "kind": "intent",
         "id": intent.get("id"),
         "title": intent.get("title") or intent.get("research_need") or "Discover intent",
-        "status": state.get("status") or "draft",
+        "status": status,
         "updated_at": intent.get("updated_at") or intent.get("created_at"),
         "created_at": intent.get("created_at"),
         "intent_id": intent.get("id"),
