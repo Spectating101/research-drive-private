@@ -376,11 +376,16 @@ def _same_origin_browser_request(
 
 def request_presents_desk_token(handler: BaseHTTPRequestHandler) -> bool:
     """True when the caller already proved possession of the desk token."""
-    token = access_token_required() or ""
+    return bool(_supplied_desk_token(handler)) and principal_for_token(
+        _supplied_desk_token(handler), shared_token=access_token_required() or ""
+    ) is not None
+
+
+def _supplied_desk_token(handler: BaseHTTPRequestHandler) -> str:
+    """Read an explicit bearer/access-code without deciding whether it is valid."""
     auth = str(handler.headers.get("Authorization") or "")
     header = str(handler.headers.get("X-Desk-Token") or "")
-    provided = auth[7:].strip() if auth.startswith("Bearer ") else header.strip()
-    return bool(provided) and principal_for_token(provided, shared_token=token) is not None
+    return auth[7:].strip() if auth.startswith("Bearer ") else header.strip()
 
 
 def request_desk_principal(handler: BaseHTTPRequestHandler) -> DeskPrincipal | None:
@@ -477,6 +482,26 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
     """Return (ok, message, Set-Cookie header value)."""
+    # An explicit access code must be decisive.  Falling through to the public
+    # guest branch on an invalid code returned HTTP 200 with a guest cookie,
+    # making a failed sign-in look like a successful one.  It did not escalate
+    # permissions, but it was both misleading and impossible for the UI to
+    # explain honestly.
+    supplied_code = _supplied_desk_token(handler)
+    if supplied_code:
+        principal = principal_for_token(
+            supplied_code, shared_token=access_token_required() or ""
+        )
+        if not principal:
+            return False, "Invalid member access code", None
+        token = _session_signing_secret()
+        if not token:
+            return False, "Desk session signing is not configured on this host", None
+        return True, "", _cookie_header_value(
+            token,
+            secure=request_is_https(handler),
+            principal=principal,
+        )
     cloudflare_principal = cloudflare_access_principal(handler)
     if cloudflare_principal:
         return True, "", _cookie_header_value(

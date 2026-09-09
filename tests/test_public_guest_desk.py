@@ -78,6 +78,18 @@ def test_public_guest_mint_requires_configured_same_origin_browser():
         assert ok is False and cookie is None
 
 
+def test_invalid_explicit_access_code_does_not_fall_back_to_a_guest_cookie():
+    handler = FakeHandler(
+        Host="previous.easycamp.tech",
+        Origin="https://previous.easycamp.tech",
+        X_Desk_Token="not-a-member-code",
+    )
+    ok, message, cookie = desk_auth.issue_desk_session(handler)
+    assert ok is False
+    assert message == "Invalid member access code"
+    assert cookie is None
+
+
 def test_capabilities_describe_guest_without_exposing_private_permissions():
     value = _guest_cookie()
     guest = FakeHandler(
