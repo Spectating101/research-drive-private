@@ -56,7 +56,11 @@ def _write_release(ui: Path, ui_sha: str, backend_sha: str) -> tuple[str, Path]:
     release.mkdir(parents=True, exist_ok=True)
     (release / "index.html").write_text("<!doctype html><title>Research Drive</title>\n", encoding="utf-8")
     (release / "research-drive-build.json").write_text(
-        json.dumps({"public_sha": ui_sha, "private_sha": backend_sha}),
+        json.dumps({
+            "public_sha": ui_sha,
+            "private_sha": backend_sha,
+            "release_scope": "tailscale-internal-same-origin",
+        }),
         encoding="utf-8",
     )
     return release_id, release
