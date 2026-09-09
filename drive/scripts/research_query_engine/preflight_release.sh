@@ -21,6 +21,15 @@ ENV_FILE="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
 # sourced. The env file names the normal live checkout; preflight needs to be
 # able to validate a clean, staged candidate without mutating that authority.
 preflight_public_root="${YZU_PUBLIC_REPO:-}"
+# The service env deliberately pins the currently live pair.  Preserve an
+# explicit candidate identity before sourcing it so preflight can validate a
+# detached staged pair without editing the live env file first.
+preflight_public_sha="${YZU_PUBLIC_SHA:-}"
+preflight_backend_root="${PREFLIGHT_BACKEND_ROOT:-}"
+# Candidate staging may intentionally target a different scope than the
+# currently-live front-door environment. Preserve that intent before loading
+# the live env, just as we preserve the candidate checkout and SHA.
+preflight_release_scope="${YZU_DESK_RELEASE_SCOPE:-}"
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -37,7 +46,7 @@ set +u
 set -a; . "$ENV_FILE"; set +a
 set -u
 
-backend_root="${SHARPE_REPO_ROOT:-}"
+backend_root="${preflight_backend_root:-${SHARPE_REPO_ROOT:-}}"
 [ -n "$backend_root" ] || backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 public_root="${preflight_public_root:-${YZU_PUBLIC_REPO:-}}"
 # A promotion validates a staged candidate before changing the live dist link.
@@ -106,17 +115,27 @@ else
   bad "UI checkout absent: ${public_root:-<unset>}"
 fi
 
-[ -n "${YZU_PUBLIC_SHA:-}" ] || bad "YZU_PUBLIC_SHA unset"
-if [ -n "${YZU_PUBLIC_SHA:-}" ] && [ "$ui_sha" != unknown ] && [ "$ui_sha" != "$YZU_PUBLIC_SHA" ]; then
-  bad "UI checkout $ui_sha != expected $YZU_PUBLIC_SHA (someone moved the tree, or the env is stale)"
+expected_ui_sha="${preflight_public_sha:-${YZU_PUBLIC_SHA:-}}"
+[ -n "${expected_ui_sha:-}" ] || bad "YZU_PUBLIC_SHA unset"
+if [ -n "${expected_ui_sha:-}" ] && [ "$ui_sha" != unknown ] && [ "$ui_sha" != "$expected_ui_sha" ]; then
+  bad "UI checkout $ui_sha != expected $expected_ui_sha (someone moved the tree, or the env is stale)"
 fi
 
 [ -f "$static_dir/index.html" ] || bad "no built UI at $static_dir/index.html"
 identity="$static_dir/research-drive-build.json"
-built_public=""; built_private=""
+built_public=""; built_private=""; built_scope=""
 if [ -f "$identity" ]; then
-  built_public="$("$python_bin" -c "import json,sys;print(json.load(open(sys.argv[1])).get('public_sha',''))" "$identity" 2>/dev/null)"
-  built_private="$("$python_bin" -c "import json,sys;print(json.load(open(sys.argv[1])).get('private_sha',''))" "$identity" 2>/dev/null)"
+  mapfile -t built_identity < <("$python_bin" - "$identity" <<'PY'
+import json,sys
+p=json.load(open(sys.argv[1], encoding="utf-8"))
+print(p.get("public_sha", ""))
+print(p.get("private_sha", ""))
+print(p.get("release_scope", ""))
+PY
+)
+  built_public="${built_identity[0]:-}"
+  built_private="${built_identity[1]:-}"
+  built_scope="${built_identity[2]:-}"
   [ "$built_public" = "$ui_sha" ] || bad "build was made from UI $built_public, checkout is $ui_sha"
   [ "$built_private" = "$backend_sha" ] || bad "build names backend $built_private, checkout is $backend_sha (regenerate the identity)"
 else
@@ -158,6 +177,59 @@ fi
 
 roots="${RESEARCH_DATA_ROOTS:-<unset>}"
 [ "$roots" = "<unset>" ] && note "WARN: RESEARCH_DATA_ROOTS unset; holdings counts will read as absent"
+
+# Public browsing may be intentionally anonymous, but an external launch that
+# advertises Ask and durable personal work must have a real identity upgrade.
+# Cloudflare Access protects the narrow /library/desk/login path; the backend
+# verifies its assertion and mints a restricted, expiring public-member
+# session. Refuse to label an external scope ready when that authority is
+# absent, rather than shipping a beautiful guest desk with no way to use Ask.
+release_scope="${preflight_release_scope:-${YZU_DESK_RELEASE_SCOPE:-tailscale-internal-same-origin}}"
+[ -n "$built_scope" ] || bad "build identity has no release_scope"
+[ "$built_scope" = "$release_scope" ] || bad "build scope $built_scope != target scope $release_scope"
+case "$release_scope" in
+  external-public*|public-external*)
+    cf_team="${DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN:-}"
+    cf_aud="${DESK_CLOUDFLARE_ACCESS_AUD:-}"
+    cf_configured=0
+    [ -n "$cf_team" ] && [ -n "$cf_aud" ] && cf_configured=1
+    member_codes=0
+    principals_file="${DESK_PRINCIPALS_FILE:-}"
+    if [ -n "$principals_file" ] && [ -f "$principals_file" ]; then
+      member_codes="$($python_bin - "$principals_file" <<'PY'
+import json,sys
+try:
+    payload=json.load(open(sys.argv[1], encoding="utf-8"))
+    rows=payload.get("principals", payload) if isinstance(payload, dict) else payload
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        role=str(row.get("role") or "member").strip().lower()
+        role={"public":"public_member","viewer":"member","researcher":"member"}.get(role, role)
+        digest=str(row.get("token_sha256") or "").strip().lower()
+        if role in {"member","public_member"} and len(digest)==64 and all(c in "0123456789abcdef" for c in digest):
+            print(1); break
+    else: print(0)
+except Exception: print(0)
+PY
+)"
+    fi
+    if [ "$cf_configured" != "1" ] && [ "$member_codes" != "1" ]; then
+      bad "external public release requires Cloudflare Access or at least one individually issued member access code"
+    fi
+    if [ "$cf_configured" = "0" ] && { [ -n "$cf_team" ] || [ -n "$cf_aud" ]; }; then
+      bad "Cloudflare member sign-in needs both DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN and DESK_CLOUDFLARE_ACCESS_AUD"
+    fi
+    if [ -n "$cf_team" ] && [ -n "$cf_aud" ]; then
+      if "$python_bin" -c 'import jwt' >/dev/null 2>&1; then
+        note "member_sign_in=cloudflare_access"
+      else
+        bad "external public member sign-in requires PyJWT on the host"
+      fi
+    fi
+    [ "$member_codes" = "1" ] && note "member_sign_in=individual_access_codes"
+    ;;
+esac
 
 composer_provider="${DESK_COMPOSER_PROVIDER:-auto}"
 if [ "$composer_provider" = "copilot" ] || [ "$composer_provider" = "github_copilot" ] || [ "$composer_provider" = "copilot_composer" ]; then

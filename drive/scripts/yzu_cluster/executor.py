@@ -108,7 +108,14 @@ class YzuExecutor:
         return handler(job_id, plan)
 
     def _synthesis_execute(self, job_id: str, plan: dict[str, Any]) -> dict[str, Any]:
+        from scripts.research_data_mcp.synthesis_execution_authority import (
+            verify_worker_preview_authority,
+        )
         from scripts.research_data_mcp.synthesis_executor import execute
+
+        # Approval authorizes the exact Previewed bytes, not whatever happens to
+        # resolve later. Re-check immediately before the production executor.
+        verify_worker_preview_authority(self.repo_root, plan)
         return execute(self.repo_root, job_id, plan)
 
     def _source_probe(self, _job_id: str, plan: dict[str, Any]) -> dict[str, Any]:

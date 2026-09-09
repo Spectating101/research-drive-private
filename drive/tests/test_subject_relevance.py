@@ -60,6 +60,26 @@ def test_a_query_about_a_held_subject_still_matches(index):
     assert _score(index, "carbon dioxide concentrations", "co2_monthly") >= 0.75
 
 
+def test_compound_subject_does_not_admit_context_only_matches(index):
+    """Market/risk describe the requested analysis, not its subject.
+
+    This is the live regression that returned a building-moisture guide for a
+    stablecoin query because both records happened to mention market risk.
+    """
+    index._docs.extend(
+        [
+            {"id": "stablecoin_panel", "text": "stablecoin protocol panel"},
+            {"id": "moisture_guide", "text": "building market risk guidance"},
+        ]
+    )
+    index._df = Counter()
+    for doc in index._docs:
+        index._df.update(set(_tokenize(doc["text"])))
+
+    assert _score(index, "stablecoin market risk", "stablecoin_panel") > 0
+    assert _score(index, "stablecoin market risk", "moisture_guide") == 0
+
+
 def test_doc_index_for_is_none_when_absent(index):
     assert index.doc_index_for("not_a_dataset") is None
 

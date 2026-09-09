@@ -163,6 +163,7 @@ class SearchService:
         access_shape: str = "",
         limit: int = 200,
         include_ops: bool = False,
+        held_only: bool = False,
     ) -> dict[str, Any]:
         self._maybe_reload_registry()
         bounded_limit = max(1, min(int(limit or 200), 500))
@@ -209,6 +210,10 @@ class SearchService:
                     continue
                 kept_recovery.append(row)
             combined = kept_registry + kept_recovery
+        if held_only:
+            from scripts.research_data_mcp.library_possession import is_library_holding
+
+            combined = [row for row in combined if is_library_holding(row)]
         total_matching = len(combined)
         rows = [self._professor_view_row(row) for row in combined[:bounded_limit]]
         filtered = bool(q.strip() or readiness or access_shape or recovery_rows)
@@ -229,6 +234,7 @@ class SearchService:
             "datasets": rows,
             "ops_datasets_hidden": hidden_ops,
             "include_ops": bool(include_ops),
+            "held_only": bool(held_only),
             "inventory": inventory,
             "view_scope": view_scope(
                 scope_id=scope_id,
@@ -240,6 +246,7 @@ class SearchService:
                     "readiness": readiness,
                     "access_shape": access_shape,
                     "limit": bounded_limit,
+                    "held_only": bool(held_only),
                     "includes_receipt_recovery": bool(recovery_rows),
                 },
                 note=(

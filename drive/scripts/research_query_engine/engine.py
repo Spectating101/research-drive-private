@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.research_data_mcp.library_retrieval import rank_registry_assets
+
 csv.field_size_limit(sys.maxsize)
 
 SEARCH_FIELDS = (
@@ -281,39 +283,21 @@ class ResearchQueryEngine:
         return " ".join(parts).lower()
 
     def search_datasets(self, q: str = "", domain: str = "", readiness: str = "", access_mode: str = "", limit: int = 50) -> list[dict[str, Any]]:
-        ql = q.lower().strip()
-        tokens = [t for t in re.split(r"\W+", ql) if len(t) > 2]
-        patterns = [(t, re.compile(r"\b" + re.escape(t))) for t in tokens]
-        scored: list[tuple[int, dict[str, Any]]] = []
+        candidates: list[dict[str, Any]] = []
         for ds in self.list_datasets():
-            text = self.searchable_text(ds)
-            matched: list[str] = []
-            if ql:
-                if ql in text:
-                    score = 100
-                    matched = list(tokens) or [ql]
-                elif patterns:
-                    matched = [token for token, pattern in patterns if pattern.search(text)]
-                    score = 10 * len(matched)
-                    if score == 0:
-                        continue
-                else:
-                    continue
-            else:
-                score = 0
             if domain and domain != ds.get("domain"):
                 continue
             if readiness and readiness not in str(ds.get("analysis_readiness", "")):
                 continue
             if access_mode and access_mode != ds.get("access_shape"):
                 continue
-            if ql:
-                ds = dict(ds)
-                ds["match_terms"] = matched
-                ds["match_terms_total"] = len(tokens)
-            scored.append((score, ds))
-        scored.sort(key=lambda row: (-row[0], row[1].get("dataset_id", "")))
-        return [ds for _, ds in scored[:limit]]
+            candidates.append(ds)
+        if not str(q or "").strip():
+            return sorted(
+                (dict(ds) for ds in candidates),
+                key=lambda row: str(row.get("dataset_id") or ""),
+            )[: max(1, int(limit or 50))]
+        return rank_registry_assets(candidates, q, limit=max(1, int(limit or 50)))
 
     def query(self, dataset_id: str, **params: Any) -> QueryResult:
         if dataset_id == "research_source_plan":

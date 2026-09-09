@@ -16,7 +16,9 @@ from scripts.research_data_mcp.bootstrap import ResearchLibraryStack, create_sta
 from scripts.research_data_mcp.desk_auth import (
     authorize,
     clear_desk_session,
+    current_desk_principal,
     desk_capability_document,
+    issue_cloudflare_member_session,
     issue_desk_session,
 )
 from scripts.research_data_mcp.http_router import handle_get, handle_post
@@ -32,6 +34,66 @@ API_PREFIXES = (
     "/yzu",
     "/agent",
 )
+
+# A public guest can inspect the shared research estate, but not its host
+# topology. Registry and storage diagnostics deliberately carry local and
+# canonical-drive locators for operators; returning those verbatim from the
+# public Library endpoints leaks both filesystem layout and archive naming.
+_PUBLIC_GUEST_STORAGE_KEYS = frozenset(
+    {
+        "canonical_remote",
+        "expected_path",
+        "legacy_local_path",
+        "local_path",
+        "local_root",
+        "registry",
+        "remote_path",
+        "resolved_path",
+        "resolved_root",
+        "source_path",
+        "target_drive_path",
+        "vault_path",
+    }
+)
+_PUBLIC_GUEST_STORAGE_PREFIXES = ("/home/", "/tmp/", "gdrive:", "rclone:", "file://")
+
+
+def _is_internal_storage_value(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = value.strip().lower()
+    # Some registry prose embeds an absolute locator in a sentence (for
+    # example, a recovery hint). Treat that the same as a locator field.
+    return any(prefix in text for prefix in _PUBLIC_GUEST_STORAGE_PREFIXES)
+
+
+def redact_public_guest_storage(value: object) -> object:
+    """Drop host/archive locators from responses sent to a public guest.
+
+    Keep this at the HTTP boundary instead of changing registry truth: the
+    same payload remains useful to an operator, while a public browser still
+    receives its evidence, provenance, readiness and public source URLs.
+    """
+    principal = current_desk_principal()
+    if not principal or principal.role != "public_guest":
+        return value
+
+    def redact(item: object) -> object:
+        if isinstance(item, dict):
+            out: dict[object, object] = {}
+            for key, nested in item.items():
+                key_text = str(key).lower()
+                if key_text in _PUBLIC_GUEST_STORAGE_KEYS:
+                    continue
+                if _is_internal_storage_value(nested):
+                    continue
+                out[key] = redact(nested)
+            return out
+        if isinstance(item, (list, tuple)):
+            return [redacted for nested in item if (redacted := redact(nested)) is not None]
+        return None if _is_internal_storage_value(item) else item
+
+    return redact(value)
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -173,6 +235,52 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
 
+    def _send_redirect(
+        self,
+        location: str,
+        *,
+        extra_headers: list[tuple[str, str]] | None = None,
+    ) -> None:
+        """Complete an Access login without allowing an external redirect."""
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        for key, value in list(extra_headers or []):
+            self.send_header(key, value)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    @staticmethod
+    def _safe_login_return_to(value: str) -> str:
+        """Return a same-desk SPA path, never an attacker-provided origin."""
+        raw = str(value or "").strip()
+        if not raw or not raw.startswith("/") or raw.startswith("//") or "\\" in raw:
+            return "/"
+        parsed = urlparse(raw)
+        if parsed.scheme or parsed.netloc or parsed.fragment:
+            return "/"
+        return f"{parsed.path or '/'}{('?' + parsed.query) if parsed.query else ''}"
+
+    def _handle_cloudflare_member_login(self, query: dict[str, list[str]]) -> None:
+        """Exchange an already verified Access assertion for a desk session.
+
+        Cloudflare Access must protect exactly this endpoint (or a narrower
+        login path) at the edge.  The rest of the public desk remains guest
+        browseable, while a verified identity receives the restricted
+        ``public_member`` session used by Ask and durable personal work.
+        """
+        ok, message, cookie = issue_cloudflare_member_session(self)
+        if not ok:
+            self._send_json(
+                {"error": "Unauthorized", "message": message},
+                status=401,
+            )
+            return
+        target = self._safe_login_return_to((query.get("return_to") or [""])[-1])
+        headers = [("Set-Cookie", cookie)] if cookie else None
+        self._send_redirect(target, extra_headers=headers)
+
     def _read_request_body(self) -> bytes:
         """Consume the declared request body so keep-alive framing stays intact."""
         raw_length = str(self.headers.get("Content-Length") or "0").strip() or "0"
@@ -280,6 +388,9 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_json({"status": "ok"}, status=200)
             return
+        if path == "/library/desk/login":
+            self._handle_cloudflare_member_login(parse_qs(parsed.query))
+            return
         if self._serve_static(path, raw_path=parsed.path):
             return
         if path == "/library/desk/capabilities":
@@ -295,7 +406,7 @@ class ResearchQueryHandler(BaseHTTPRequestHandler):
             return
         qs = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
         result = handle_get(path, qs, self.stack)
-        body = result.get("body")
+        body = redact_public_guest_storage(result.get("body"))
         if isinstance(body, dict) and body.get("_file_delivery"):
             try:
                 file_path = body["file"]

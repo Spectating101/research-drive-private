@@ -8,6 +8,7 @@ from drive.scripts.research_data_mcp.desk_auth import (
     authorize,
     clear_desk_session,
     desk_session_cookie_valid,
+    issue_cloudflare_member_session,
     issue_desk_session,
     path_requires_auth,
     session_cookie_value,
@@ -156,7 +157,7 @@ def test_verified_cloudflare_access_member_has_no_private_or_operator_power(monk
     )
     monkeypatch.setenv("DESK_CLOUDFLARE_ACCESS_AUD", "public-audience")
     member = DeskPrincipal(
-        principal_id="cf-member",
+        principal_id="cf-0123456789abcdef0123456789abcdef",
         email="member@example.edu",
         display_name="Member",
         role="public_member",
@@ -166,10 +167,30 @@ def test_verified_cloudflare_access_member_has_no_private_or_operator_power(monk
 
     assert authorize(handler, "/datasets", "GET")[0] is True
     assert authorize(handler, "/library/chat", "POST")[0] is True
-    assert authorize(handler, "/library/jobs", "POST")[0] is True
+    assert authorize(handler, "/library/jobs", "POST")[0] is False
     assert authorize(handler, "/library/faculty/profile", "GET")[0] is False
     assert authorize(handler, "/library/jobs/approve-safe", "POST")[0] is False
     assert authorize(handler, "/yzu/workers", "GET")[0] is False
 
     ok, message, cookie = issue_desk_session(handler)
-    assert (ok, message, cookie) == (True, "", None)
+    assert (ok, message) == (True, "")
+    assert cookie and f"{DESK_SESSION_COOKIE}=v4." in cookie
+    minted = cookie.split(";", 1)[0]
+    resumed = _handler(Cookie=minted)
+    restored = desk_auth.request_desk_principal(resumed)
+    assert restored is not None
+    assert restored.principal_id == "cf-0123456789abcdef0123456789abcdef"
+    assert restored.role == "public_member"
+    assert authorize(resumed, "/library/chat", "POST")[0] is True
+    assert authorize(resumed, "/library/jobs", "POST")[0] is False
+
+
+def test_member_login_endpoint_never_upgrades_a_guest_without_verified_access(monkeypatch):
+    monkeypatch.setenv("DESK_ACCESS_TOKEN", "secret-token")
+    monkeypatch.setattr(desk_auth, "cloudflare_access_principal", lambda _handler: None)
+
+    ok, message, cookie = issue_cloudflare_member_session(_handler())
+
+    assert ok is False
+    assert "Verified member sign-in" in message
+    assert cookie is None

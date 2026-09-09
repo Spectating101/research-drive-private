@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.research_data_mcp.procurement_cache import ProcurementCache, catalog_fingerprint
+from scripts.research_data_mcp.library_retrieval import registry_search_document
 
 _INDEX_SINGLETON: dict[str, "SemanticCatalogIndex"] = {}
 _EMBEDDING_MODELS: dict[str, Any] = {}
@@ -44,6 +45,44 @@ STOPWORDS = frozenset(
         "research",
     }
 )
+
+# These words describe a research relationship or a broad analytical frame,
+# rather than the subject a dataset must actually carry.  They are useful when
+# no more specific subject is present ("market risk" is still a valid keyword
+# query), but must not let an unrelated document qualify for a compound need:
+# "stablecoin market risk" previously admitted a construction-moisture guide
+# solely because it also mentioned market and risk.
+_SUBJECT_CONTEXT_TOKENS = frozenset(
+    {
+        "analysis",
+        "change",
+        "changes",
+        "defensible",
+        "effect",
+        "effects",
+        "impact",
+        "impacts",
+        "market",
+        "markets",
+        "outcome",
+        "outcomes",
+        "relationship",
+        "relationships",
+        "risk",
+        "risks",
+    }
+)
+
+
+def _subject_query_terms(query: str) -> set[str]:
+    """Return terms that can establish a dataset's actual subject.
+
+    Keep relationship language only when it is all the researcher supplied;
+    otherwise a concrete topic must be present in the candidate itself.
+    """
+    terms = set(_tokenize(query))
+    specific = terms - _SUBJECT_CONTEXT_TOKENS
+    return specific or terms
 
 
 def _semantic_relevance_floor() -> float:
@@ -175,9 +214,7 @@ class SemanticCatalogIndex:
     def build(self, gateway: Any) -> None:
         docs: list[dict[str, Any]] = []
         for ds in gateway.engine.list_datasets():
-            blob = " ".join(
-                str(ds.get(k, "")) for k in ("dataset_id", "name", "description", "grain", "recommended_use", "domain")
-            )
+            blob = registry_search_document(ds)
             docs.append(
                 {
                     "id": ds["dataset_id"],
@@ -188,9 +225,12 @@ class SemanticCatalogIndex:
                         "title": ds.get("name") or ds.get("dataset_id"),
                         "description": ds.get("description") or ds.get("recommended_use") or "",
                         "grain": ds.get("grain") or "",
-                        "source": ds.get("source") or ds.get("backend") or "registry",
+                        "coverage": ds.get("coverage") or ds.get("date_range") or ds.get("temporal_coverage") or "",
+                        "join_keys": ds.get("join_keys") or ds.get("keys") or [],
+                        "source": ds.get("source") or ds.get("source_system") or ds.get("backend") or "registry",
                         "readiness": ds.get("analysis_readiness") or "",
                         "access_shape": ds.get("access_shape") or "",
+                        "asset_kind": ds.get("asset_kind") or ds.get("object_type") or "",
                         "shelf_hint": ds.get("shelf_hint") or "",
                     },
                 }
@@ -412,7 +452,7 @@ class SemanticCatalogIndex:
         doc = self._docs[doc_index] if 0 <= doc_index < len(self._docs) else None
         if not doc:
             return 0.0
-        terms = set(_tokenize(query))
+        terms = _subject_query_terms(query)
         if not terms:
             return 0.0
         text = set(_tokenize(str(doc.get("text") or "")))
@@ -493,7 +533,7 @@ class SemanticCatalogIndex:
         return "low"
 
 
-INDEX_SCHEMA_VERSION = "2-access-shape"
+INDEX_SCHEMA_VERSION = "3-library-evidence"
 
 
 def get_semantic_index(gateway: Any, *, ttl_hours: float = 168) -> SemanticCatalogIndex:

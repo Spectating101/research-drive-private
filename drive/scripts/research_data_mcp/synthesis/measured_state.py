@@ -1,29 +1,47 @@
 #!/usr/bin/env python3
 """The parts of a Synthesis method surface that are measured, not reasoned.
 
-Half that surface needs no model. column_profiles, unit_conflict and
-join_candidates are facts about held bytes: how many rows a column has, whether
-two columns about to be combined disagree in magnitude, how much of one dataset
-a candidate key can actually reach. The reasoning provider being down blocks the
-recommendation and the method; it does not block any of this.
+Column profiles, unit conflicts, join coverage, and higher-order key overlap are
+facts about held bytes. They remain available while the reasoning provider is
+down and they never recommend a methodological choice.
 
-The measurements already existed in data_profile.py and nothing called them.
-This turns them into the fields synthesisContract.js validates, so the panels
-can state real facts about a researcher's data before any model exists.
-
-Nothing here recommends. A unit conflict reports both outcomes and picks
-neither, because the desk cannot tell which series is correct — only that they
-cannot both be. Choosing for the researcher there is how a plausible wrong
-number reaches a paper.
+The important boundary here is identity. A generic numeric measurement can have
+excellent apparent value overlap with another dataset while being nonsense as a
+join key. Shared identity/time/key-like fields therefore outrank arbitrary
+measurements whenever such a domain exists, and measurement-only columns are not
+automatically promoted to keys at all. Human-readable label/name/date dimensions
+may be used as a conservative fallback when no explicit key-like field exists.
+When multiple identity fields are available, a degenerate one-value identifier
+cannot win merely because its cosmetic coverage is 100%. An entity + time
+composite is only auto-promoted when the entity actually repeats on every
+participating side; merely carrying an incidental report_date/year is not proof
+that an entity-level dataset should be joined at panel grain. Outside a justified
+panel composite, entity identity outranks a time-only field so a shared year or
+week cannot masquerade as company identity.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 # synthesisContract.js validates exactly these keys on a column profile.
 _PROFILE_KEYS = ("column", "kind", "rows", "blanks", "distinct", "flags")
+MAX_INPUTS = 8
+SAFE_FALLBACK_KINDS = frozenset({"name", "label", "date"})
+ENTITY_KEYISH = re.compile(
+    r"(?:^|_)(?:id|entity|symbol|ticker|ric|isin|cusip|permno|gvkey)(?:_|$)",
+    re.I,
+)
+TIME_KEYISH = re.compile(
+    r"(?:^|_)(?:date|day|week|month|quarter|year|period|timestamp|time)(?:_|$)",
+    re.I,
+)
+KEYISH = re.compile(
+    r"(?:^|_)(?:id|entity|symbol|ticker|ric|isin|cusip|permno|gvkey|date|day|week|month|quarter|year|period|timestamp|time)(?:_|$)",
+    re.I,
+)
 
 
 def _dataset_file(gateway: Any, dataset_id: str) -> tuple[Path | None, str]:
@@ -44,12 +62,17 @@ def _contract_profile(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def profiles_for(gateway: Any, dataset_id: str) -> dict[str, Any]:
-    """column_profiles for one mapped input, or the reason there are none."""
+    """Column profiles for one mapped input, plus its resolved path when usable."""
     from scripts.research_data_mcp.synthesis.data_profile import profile_columns
 
     path, why = _dataset_file(gateway, dataset_id)
     if not path:
-        return {"dataset_id": dataset_id, "column_profiles": [], "unmeasured_because": why}
+        return {
+            "dataset_id": dataset_id,
+            "column_profiles": [],
+            "unmeasured_because": why,
+            "path": None,
+        }
     try:
         rows = profile_columns(path)
     except Exception as exc:
@@ -57,23 +80,19 @@ def profiles_for(gateway: Any, dataset_id: str) -> dict[str, Any]:
             "dataset_id": dataset_id,
             "column_profiles": [],
             "unmeasured_because": f"could not read {path.suffix or 'file'}: {type(exc).__name__}",
+            "path": path,
         }
     return {
         "dataset_id": dataset_id,
         "column_profiles": [_contract_profile(r) for r in rows],
         "unmeasured_because": "",
         "_raw": rows,
+        "path": path,
     }
 
 
 def unit_conflict_from(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Two columns of the same cardinality whose magnitudes disagree ~100x.
-
-    data_profile already flags these as unit twins. Subtracting a percentage
-    from a fraction returns a plausible number and every statistic downstream
-    inherits it, so this is one of the few things worth stopping a researcher
-    for — and one of the few where the desk must not choose.
-    """
+    """Two columns of the same cardinality whose magnitudes disagree ~100x."""
     twins = [r for r in rows if "unit_twin" in (r.get("flags") or []) and r.get("twin_of")]
     if not twins:
         return None
@@ -98,59 +117,360 @@ def unit_conflict_from(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     }
 
 
-def join_candidates_for(gateway: Any, left_id: str, right_id: str) -> dict[str, Any]:
-    """How much of the left side a shared key actually reaches."""
-    from scripts.research_data_mcp.synthesis.data_profile import join_coverage
+def _rank_common_columns(
+    left: list[dict[str, Any]], right: list[dict[str, Any]]
+) -> list[str]:
+    lmap = {str(row.get("column")): row for row in left if row.get("column")}
+    rmap = {str(row.get("column")): row for row in right if row.get("column")}
+    common = [name for name in lmap if name in rmap]
+    common.sort(
+        key=lambda name: (
+            0 if KEYISH.search(name) else 1,
+            -min(
+                int(lmap[name].get("distinct") or 0),
+                int(rmap[name].get("distinct") or 0),
+            ),
+            name,
+        )
+    )
+    keyish = [name for name in common if KEYISH.search(name)]
+    if keyish:
+        return keyish
+    return [
+        name
+        for name in common
+        if str(lmap[name].get("kind") or "") in SAFE_FALLBACK_KINDS
+        and str(rmap[name].get("kind") or "") in SAFE_FALLBACK_KINDS
+    ]
 
-    left, lwhy = _dataset_file(gateway, left_id)
-    right, rwhy = _dataset_file(gateway, right_id)
-    if not left or not right:
-        return {"join_candidates": [], "unmeasured_because": lwhy or rwhy}
-    try:
-        rows = join_coverage(left, right)
-    except Exception as exc:
-        return {"join_candidates": [], "unmeasured_because": f"join probe failed: {type(exc).__name__}"}
-    return {"join_candidates": list(rows or []), "unmeasured_because": ""}
+
+def _profile_row(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+    return next((row for row in rows if str(row.get("column") or "") == name), None)
 
 
-def measured_state(gateway: Any, nodes: list[dict[str, Any]], *, max_inputs: int = 4) -> dict[str, Any]:
-    """Everything a thread's mapped evidence can state without a model.
+def _entity_repeats(rows: list[dict[str, Any]], entity: str) -> bool:
+    row = _profile_row(rows, entity)
+    if not row:
+        return False
+    total = int(row.get("rows") or 0)
+    distinct = int(row.get("distinct") or 0)
+    return total > distinct > 0
 
-    A dataset whose bytes are unreachable is named with its reason rather than
-    dropped: a method surface that silently profiles three of five inputs is
-    worse than one that says which two it could not read.
+
+def _shared_key_specs(
+    left: list[dict[str, Any]], right: list[dict[str, Any]]
+) -> list[list[str]]:
+    """Return safe measured key domains.
+
+    A composite entity × time key is inferred only when entity values repeat on
+    both sides. That is evidence of panel grain. If either side is already 1:1 on
+    entity, a date/year column may just be metadata and must not silently redefine
+    the join.
     """
-    ids = [str(n.get("dataset_id") or "").strip() for n in (nodes or [])]
-    ids = [i for i in ids if i][:max_inputs]
-    if not ids:
-        return {"column_profiles": [], "unmeasured": [], "reason": "no mapped evidence to measure"}
+    ranked = _rank_common_columns(left, right)
+    entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
+    period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
+
+    specs: list[list[str]] = []
+    if (
+        entity
+        and period
+        and entity != period
+        and _entity_repeats(left, entity)
+        and _entity_repeats(right, entity)
+    ):
+        specs.append([entity, period])
+    specs.extend([[name] for name in ranked])
+
+    unique: list[list[str]] = []
+    seen: set[tuple[str, ...]] = set()
+    for spec in specs:
+        identity = tuple(spec)
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        unique.append(spec)
+        if len(unique) >= 8:
+            break
+    return unique
+
+
+def _is_complete_identity_domain(key_parts: list[str]) -> bool:
+    return (
+        len(key_parts) > 1
+        and any(ENTITY_KEYISH.search(name) for name in key_parts)
+        and any(TIME_KEYISH.search(name) for name in key_parts)
+    )
+
+
+def _is_entity_identity_domain(key_parts: list[str]) -> bool:
+    return any(ENTITY_KEYISH.search(name) for name in key_parts)
+
+
+def _key_label(key_parts: list[str]) -> str:
+    return " + ".join(key_parts)
+
+
+def _candidate_from_probe(probe: dict[str, Any], key: str | list[str]) -> dict[str, Any]:
+    key_parts = [str(key)] if isinstance(key, str) else [str(part) for part in key]
+    key_parts = [part for part in key_parts if part.strip()]
+    label = _key_label(key_parts)
+    error = str(probe.get("probe_error") or "").strip()
+    right_rows = int(probe.get("right_rows") or 0)
+    left_distinct = int(probe.get("left_distinct") or 0)
+    right_distinct = int(probe.get("right_distinct") or 0)
+    matched = int(probe.get("shared_distinct") or 0)
+    identity_capacity = min(left_distinct, right_distinct)
+    usable = not error and right_distinct > 0
+    reason = error or ("the key is empty on the right side" if not right_distinct else None)
+    if usable and not matched:
+        reason = "no value in common"
+    return {
+        "left_key": label,
+        "right_key": label,
+        "key_parts": key_parts,
+        "complete_identity_domain": _is_complete_identity_domain(key_parts),
+        "entity_identity_domain": _is_entity_identity_domain(key_parts),
+        "identity_capacity": identity_capacity,
+        "degenerate_identity": identity_capacity <= 1,
+        "matched": matched,
+        "left_distinct": left_distinct,
+        "right_distinct": right_distinct,
+        "right_duplicate_rows": max(right_rows - right_distinct, 0),
+        "match_rate_pct": float(probe.get("coverage_left_pct") or 0),
+        "usable": usable,
+        "reason": reason,
+    }
+
+
+def _join_candidates(left: dict[str, Any], right: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+    from scripts.research_data_mcp.synthesis.pair_probe import probe_pair
+
+    candidates = []
+    for key_parts in _shared_key_specs(left["raw"], right["raw"]):
+        candidate = _candidate_from_probe(
+            probe_pair(
+                left["path"],
+                right["path"],
+                key_parts,
+                left_id=left["dataset_id"],
+                right_id=right["dataset_id"],
+            ),
+            key_parts,
+        )
+        candidate.update(
+            {
+                "left_dataset_id": left["dataset_id"],
+                "right_dataset_id": right["dataset_id"],
+                "left_label": left["label"],
+                "right_label": right["label"],
+            }
+        )
+        candidates.append(candidate)
+    candidates.sort(
+        key=lambda row: (
+            0 if row["usable"] else 1,
+            0 if row["complete_identity_domain"] else 1,
+            0 if row.get("entity_identity_domain") else 1,
+            0 if not row.get("degenerate_identity") else 1,
+            -(row["match_rate_pct"] or 0),
+            -int(row.get("identity_capacity") or 0),
+            row["left_key"],
+        )
+    )
+    reason = "" if candidates else "the first two measured inputs expose no shared candidate key"
+    return candidates, reason
+
+
+def _common_multi_key_parts(measured: list[dict[str, Any]]) -> list[str]:
+    if len(measured) < 3:
+        return []
+
+    profile_maps = [
+        {str(row.get("column")): row for row in source["raw"] if row.get("column")}
+        for source in measured
+    ]
+    common = set(profile_maps[0])
+    for profile_map in profile_maps[1:]:
+        common &= set(profile_map)
+
+    def information_capacity(name: str) -> int:
+        return min(int(profile_map[name].get("distinct") or 0) for profile_map in profile_maps)
+
+    ranked = sorted(
+        common,
+        key=lambda name: (
+            0 if KEYISH.search(name) else 1,
+            -information_capacity(name),
+            name,
+        ),
+    )
+    keyish = [name for name in ranked if KEYISH.search(name)]
+    if keyish:
+        ranked = keyish
+    else:
+        ranked = [
+            name
+            for name in ranked
+            if all(
+                str(profile_map[name].get("kind") or "") in SAFE_FALLBACK_KINDS
+                for profile_map in profile_maps
+            )
+        ]
+    entity = next((name for name in ranked if ENTITY_KEYISH.search(name)), "")
+    period = next((name for name in ranked if TIME_KEYISH.search(name)), "")
+    if (
+        entity
+        and period
+        and entity != period
+        and all(_entity_repeats(source["raw"], entity) for source in measured)
+    ):
+        return [entity, period]
+    if entity:
+        return [entity]
+    return [ranked[0]] if ranked else []
+
+
+def _unique_dataset_ids(nodes: list[dict[str, Any]]) -> list[str]:
+    """Preserve mapping order while refusing duplicate evidence as fake sources."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for node in nodes:
+        dataset_id = str(node.get("dataset_id") or "").strip()
+        if not dataset_id or dataset_id in seen:
+            continue
+        seen.add(dataset_id)
+        out.append(dataset_id)
+    return out
+
+
+def measured_state(gateway: Any, nodes: list[dict[str, Any]], *, max_inputs: int = MAX_INPUTS) -> dict[str, Any]:
+    """Everything mapped evidence can state from bytes without a model.
+
+    Up to eight unique inputs are measured. Inputs whose bytes are unreachable
+    are named explicitly rather than silently omitted. Higher-order overlap is
+    computed only from successfully measured inputs sharing one real key domain.
+    """
+    all_nodes = [n for n in (nodes or []) if isinstance(n, dict)]
+    all_ids = _unique_dataset_ids(all_nodes)
+    limit = max(1, min(int(max_inputs or MAX_INPUTS), MAX_INPUTS))
+    selected_ids = all_ids[:limit]
+    selected_nodes = []
+    remaining = list(selected_ids)
+    for node in all_nodes:
+        dataset_id = str(node.get("dataset_id") or "").strip()
+        if dataset_id and dataset_id in remaining:
+            selected_nodes.append(node)
+            remaining.remove(dataset_id)
+        if not remaining:
+            break
+
+    if not selected_ids:
+        return {
+            "column_profiles": [],
+            "column_profiles_by_dataset": {},
+            "input_measurements": [],
+            "unmeasured": [],
+            "measured_inputs": 0,
+            "multi_overlap": None,
+            "reason": "no mapped evidence to measure",
+            "needs_model": False,
+            "truncated_inputs": 0,
+            "max_inputs": limit,
+        }
 
     profiles: list[dict[str, Any]] = []
+    profiles_by_dataset: dict[str, list[dict[str, Any]]] = {}
     unmeasured: list[dict[str, str]] = []
+    measured: list[dict[str, Any]] = []
     conflict: dict[str, Any] | None = None
-    for dataset_id in ids:
+
+    label_by_id = {
+        str(node.get("dataset_id") or "").strip(): str(
+            node.get("label") or node.get("dataset_id") or ""
+        )
+        for node in selected_nodes
+        if str(node.get("dataset_id") or "").strip()
+    }
+
+    for dataset_id in selected_ids:
         got = profiles_for(gateway, dataset_id)
         if got["unmeasured_because"]:
             unmeasured.append({"dataset_id": dataset_id, "reason": got["unmeasured_because"]})
             continue
-        for row in got["column_profiles"]:
-            profiles.append({**row, "dataset_id": dataset_id})
+        contract_rows = [
+            {**row, "dataset_id": dataset_id} for row in got["column_profiles"]
+        ]
+        profiles.extend(contract_rows)
+        profiles_by_dataset[dataset_id] = contract_rows
+        raw = list(got.get("_raw") or [])
+        rows = max((int(row.get("rows") or 0) for row in raw), default=0)
+        measured.append(
+            {
+                "dataset_id": dataset_id,
+                "label": label_by_id.get(dataset_id) or dataset_id,
+                "path": got["path"],
+                "raw": raw,
+                "rows": rows,
+            }
+        )
         if conflict is None:
-            conflict = unit_conflict_from(got.get("_raw") or [])
+            conflict = unit_conflict_from(raw)
 
     out: dict[str, Any] = {
         "column_profiles": profiles,
+        "column_profiles_by_dataset": profiles_by_dataset,
+        "input_measurements": [
+            {
+                "dataset_id": row["dataset_id"],
+                "label": row["label"],
+                "rows": row["rows"],
+                "columns": len(row["raw"]),
+            }
+            for row in measured
+        ],
         "unmeasured": unmeasured,
-        "measured_inputs": len(ids) - len(unmeasured),
+        "measured_inputs": len(measured),
         "reason": "",
         "needs_model": False,
+        "truncated_inputs": max(len(all_ids) - len(selected_ids), 0),
+        "max_inputs": limit,
     }
     if conflict:
         out["unit_conflict"] = conflict
-    if len(ids) >= 2 and len(unmeasured) == 0:
-        joins = join_candidates_for(gateway, ids[0], ids[1])
-        if joins["join_candidates"]:
-            out["join_candidates"] = joins["join_candidates"]
-        elif joins["unmeasured_because"]:
-            out["join_unmeasured_because"] = joins["unmeasured_because"]
+
+    if len(measured) >= 2:
+        candidates, join_reason = _join_candidates(measured[0], measured[1])
+        out["join_candidates"] = candidates
+        out["join_candidate_dataset_id"] = measured[1]["dataset_id"]
+        out["join_candidate_rows"] = measured[1]["rows"]
+        if join_reason:
+            out["join_unmeasured_because"] = join_reason
+    elif selected_ids:
+        out["join_unmeasured_because"] = "at least two measured inputs are required for join coverage"
+
+    multi = None
+    if len(measured) >= 3:
+        from scripts.research_data_mcp.synthesis.multi_probe import probe_many
+
+        key_parts = _common_multi_key_parts(measured)
+        if key_parts:
+            multi = probe_many(
+                [
+                    {
+                        "dataset_id": row["dataset_id"],
+                        "label": row["label"],
+                        "path": row["path"],
+                    }
+                    for row in measured
+                ],
+                key_parts,
+            )
+        else:
+            multi = {
+                "applicable": False,
+                "source_count": len(measured),
+                "probe_error": "no safe common key across measured inputs",
+            }
+    out["multi_overlap"] = multi
     return out

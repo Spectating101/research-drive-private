@@ -22,8 +22,20 @@ class _Gw(ResearchDataGateway):
 
     def semantic_source_routes(self, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
         return [
-            {"source_id": "capital_iq_compustat", "label": "Compustat", "kind": "source"},
-            {"source_id": "wrds_crsp_compustat", "label": "WRDS", "kind": "source"},
+            {
+                "source_id": "capital_iq_compustat",
+                "label": "Compustat",
+                "kind": "source",
+                "description": "Company fundamentals and financial statement data",
+                "capabilities": ["fundamentals"],
+            },
+            {
+                "source_id": "wrds_crsp_compustat",
+                "label": "WRDS",
+                "kind": "source",
+                "description": "Company fundamentals and financial statement data",
+                "capabilities": ["fundamentals"],
+            },
         ]
 
 

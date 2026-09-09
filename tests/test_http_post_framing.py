@@ -127,7 +127,41 @@ class UnauthorizedPostFramingTests(unittest.TestCase):
                 }
                 conn.request("GET", "/datasets", headers=headers)
                 datasets = conn.getresponse()
-                self.assertEqual(datasets.status, 200, datasets.read().decode("utf-8"))
+                datasets_raw = datasets.read().decode("utf-8")
+                self.assertEqual(datasets.status, 200, datasets_raw)
+
+                # Public Library browsing is intentionally allowed, but it
+                # must not expose host filesystem or canonical-drive topology.
+                for path in ("/library/overview", "/library/partitions"):
+                    conn.request("GET", path, headers=headers)
+                    response = conn.getresponse()
+                    raw = response.read().decode("utf-8")
+                    self.assertEqual(response.status, 200, raw)
+                    for private_locator in (
+                        '"local_path"',
+                        '"canonical_remote"',
+                        '"target_drive_path"',
+                        "/home/",
+                        "/tmp/",
+                        "gdrive:",
+                    ):
+                        self.assertNotIn(private_locator, raw, path)
+                # Resource/health aggregates include host capacity, worker,
+                # provider and faculty context. They are operator-only rather
+                # than a source of truth a public browser should sanitize.
+                for path in ("/health", "/library/desk/resources"):
+                    conn.request("GET", path, headers=headers)
+                    response = conn.getresponse()
+                    raw = response.read().decode("utf-8")
+                    self.assertEqual(response.status, 403, raw)
+                for private_locator in (
+                    '"local_path"',
+                    '"canonical_remote"',
+                    "/home/",
+                    "/tmp/",
+                    "gdrive:",
+                ):
+                    self.assertNotIn(private_locator, datasets_raw, "/datasets")
 
                 conn.request("GET", "/library/faculty/profile", headers=headers)
                 private = conn.getresponse()

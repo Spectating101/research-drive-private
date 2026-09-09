@@ -278,6 +278,14 @@ def craft_collect_plan(
             "experimental — Chromium network surface not egress-isolated; prefer http_manifest"
         )
     plan = validate_generic_plan(plan)
+    # Compile semantic acquisition intent into a runtime-owned execution contract.
+    # Composer may specify requirements; fresh cluster state remains authoritative
+    # for worker placement, reservations, leases, and retries.
+    from scripts.research_data_mcp.procurement_execution_contract import (
+        compile_procurement_execution_plan,
+    )
+
+    plan = compile_procurement_execution_plan(plan)
 
     return {
         "ok": True,

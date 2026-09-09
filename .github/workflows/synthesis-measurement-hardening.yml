@@ -1,0 +1,66 @@
+name: Synthesis measurement hardening
+
+on:
+  push:
+    branches:
+      - hardening/synthesis-measurement-contract-20260826
+    paths:
+      - "drive/scripts/research_data_mcp/synthesis/**"
+      - "drive/scripts/research_data_mcp/synthesis_preview.py"
+      - "drive/scripts/research_data_mcp/synthesis_execution_authority.py"
+      - "drive/scripts/research_data_mcp/synthesis_executor.py"
+      - "drive/scripts/research_data_mcp/gateway.py"
+      - "drive/scripts/research_data_mcp/http_router.py"
+      - "drive/scripts/research_data_mcp/tool_handlers.py"
+      - "drive/scripts/research_data_mcp/synthesis_thread_store.py"
+      - "drive/scripts/yzu_cluster/executor.py"
+      - "drive/tests/test_synthesis_measurement_contract.py"
+      - "drive/tests/test_synthesis_measurement_labels.py"
+      - "drive/tests/test_synthesis_freeze_edges.py"
+      - "drive/tests/test_synthesis_grain_freeze.py"
+      - "tests/test_synthesis_preview_freeze_authority.py"
+      - "tests/test_synthesis_preview_io_freeze.py"
+      - "tests/test_synthesis_thread_state.py"
+      - ".github/workflows/synthesis-measurement-hardening.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measurement-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}/drive
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install focused test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pandas pyarrow
+      - name: Compile Synthesis authority and measurement modules
+        run: |
+          python -m compileall -q \
+            drive/scripts/research_data_mcp/synthesis \
+            drive/scripts/research_data_mcp/synthesis_preview.py \
+            drive/scripts/research_data_mcp/synthesis_execution_authority.py \
+            drive/scripts/research_data_mcp/synthesis_executor.py \
+            drive/scripts/research_data_mcp/gateway.py \
+            drive/scripts/research_data_mcp/http_router.py \
+            drive/scripts/research_data_mcp/tool_handlers.py \
+            drive/scripts/yzu_cluster/executor.py
+      - name: Run byte-backed measurement and Preview authority regressions
+        run: |
+          python -m pytest -q \
+            drive/tests/test_synthesis_measurement_contract.py \
+            drive/tests/test_synthesis_measurement_labels.py \
+            drive/tests/test_synthesis_freeze_edges.py \
+            drive/tests/test_synthesis_grain_freeze.py \
+            tests/test_synthesis_preview_freeze_authority.py \
+            tests/test_synthesis_preview_io_freeze.py \
+            tests/test_synthesis_thread_state.py

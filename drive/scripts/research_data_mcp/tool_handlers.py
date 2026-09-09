@@ -40,9 +40,29 @@ class ResearchToolHandlers:
         readiness: str = "",
         access_shape: str = "",
         limit: int = 50,
+        held_only: bool = False,
+        semantic: bool = False,
     ) -> dict[str, Any]:
-        """List or search registered research datasets."""
-        return self.gateway.list_datasets(q=q, readiness=readiness, access_shape=access_shape, limit=min(max(limit, 1), 200))
+        """List/search research assets. Use held_only=True for Library; semantic=True for vague/conceptual recall."""
+        bounded = min(max(limit, 1), 200)
+        out = self.gateway.list_datasets(
+            q=q,
+            readiness=readiness,
+            access_shape=access_shape,
+            limit=bounded,
+            held_only=bool(held_only),
+        )
+        if semantic and str(q or "").strip():
+            from scripts.research_data_mcp.library_semantic_search import widen_library_result
+
+            out = widen_library_result(
+                self.gateway,
+                out,
+                query=q,
+                limit=bounded,
+                held_only=bool(held_only),
+            )
+        return out
 
     def research_describe_dataset(self, dataset_id: str) -> dict[str, Any]:
         """Describe one registered dataset (includes access_tier for Composer)."""
@@ -131,6 +151,11 @@ class ResearchToolHandlers:
             impact=impact,
             node_id=node_id,
             execution_spec=execution_spec,
+            origin={
+                "kind": "llm_tool_call",
+                "authority": "composer",
+                "tool": "research_synthesis_propose_state",
+            },
         )
         return {
             "thread_id": thread.get("id"),
@@ -173,15 +198,28 @@ class ResearchToolHandlers:
         """Honest materialisation view for a synthesis thread (never invents output)."""
         return self.gateway.synthesis_thread_materialisation(thread_id)
 
-    def research_synthesis_submit_execution(self, thread_id: str) -> dict[str, Any]:
-        """Queue accepted execution_spec as pending_approval. Agent cannot approve it."""
-        out = self.gateway.synthesis_thread_submit_execution(thread_id)
+    def research_synthesis_submit_execution(
+        self, thread_id: str, action: str = "request_approval"
+    ) -> dict[str, Any]:
+        """Run bounded Preview or request approval for the exact previewed revision.
+
+        Preview can never create a job. Approval remains researcher-only and is
+        refused unless the accepted method and current input revisions match the
+        successful Preview receipt.
+        """
+        intent = str(action or "request_approval").strip()
+        out = self.gateway.synthesis_thread_submit_execution(thread_id, action=intent)
         job = out.get("job") if isinstance(out, dict) else None
+        preview_only = bool(isinstance(out, dict) and out.get("preview_only"))
         return {
             **(out if isinstance(out, dict) else {"result": out}),
             "review_required": True,
             "agent_may_approve_synthesis": False,
-            "note": "Submitted for researcher desk approval only — Composer cannot approve synthesis_execute.",
+            "note": (
+                "Bounded Preview only — no execution job was created."
+                if preview_only
+                else "Submitted for researcher desk approval only — Composer cannot approve synthesis_execute."
+            ),
             "job_id": (job or {}).get("id") if isinstance(job, dict) else None,
             "job_status": (job or {}).get("status") if isinstance(job, dict) else None,
         }
