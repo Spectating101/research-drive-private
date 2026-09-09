@@ -12,6 +12,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -28,6 +29,14 @@ from urllib.request import Request, urlopen
 # Keep the pull-worker free of the FastAPI control-plane import graph so thin
 # Windows checkouts can run with remote_worker + remote_collect only.
 TOKEN_ENV = "YZU_WORKER_CONTROL_TOKEN"
+
+
+def spool_job_path(spool: Path, job_id: str) -> Path:
+    """Map a durable job id to one portable, collision-resistant directory."""
+    raw = str(job_id or "")
+    readable = re.sub(r"[^A-Za-z0-9._-]+", "_", raw).strip("._")[:72] or "job"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    return spool / f"{readable}-{digest}"
 
 
 class ControlClient:
@@ -287,7 +296,7 @@ def execute_http_manifest(
         raise ValueError("http_manifest claim contains no downloadable items")
     job_id = str(claim["job_id"])
     attempt = int(claim["attempt"])
-    work = spool / job_id / f"attempt-{attempt}"
+    work = spool_job_path(spool, job_id) / f"attempt-{attempt}"
     work.mkdir(parents=True, exist_ok=True)
     manifest_path = work / "manifest.json"
     artifact_path = work / "artifact.zip"
@@ -431,7 +440,9 @@ def run_worker(
                 heartbeat_seconds=heartbeat_seconds,
             )
             if not keep_artifacts:
-                shutil.rmtree(spool / claim["job_id"], ignore_errors=True)
+                shutil.rmtree(
+                    spool_job_path(spool, str(claim["job_id"])), ignore_errors=True
+                )
         except Exception as exc:  # noqa: BLE001
             try:
                 client.fail(
