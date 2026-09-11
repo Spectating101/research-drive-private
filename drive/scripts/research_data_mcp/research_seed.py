@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Principal-scoped Research Drive bootstrap / seed contract.
 
-A seed is a plan over authorities the desk already has.  It does not copy bytes,
+A seed is a plan over authorities the desk already has. It does not copy bytes,
 recursively index a cloud account, or mutate the shared connector registry.
-Faculty research memory remains useful when no cloud account is connected; a
-verified ConnectedAccount simply contributes another principal-bound source
-authority to the same package.
+Personal research context may exist without a faculty-registry record or a
+connected cloud account.
 """
 
 from __future__ import annotations
@@ -20,14 +19,18 @@ from scripts.research_data_mcp.faculty_profile import (
     cold_start_prompts,
     lab_fintech_stack_recommendations,
     procurement_recommendations,
-    resolve_profile,
+)
+from scripts.research_data_mcp.research_profile import (
+    effective_profile_row,
+    personal_profile,
+    profile_configured,
 )
 
 
-def _require_named_principal(principal: DeskPrincipal | None = None) -> DeskPrincipal:
+def _require_research_principal(principal: DeskPrincipal | None = None) -> DeskPrincipal:
     actor = principal or current_desk_principal()
-    if actor is None or actor.role not in {"member", "operator"}:
-        raise PermissionError("Research seeding requires an authenticated named Research Drive account")
+    if actor is None or actor.role not in {"public_member", "member", "operator"}:
+        raise PermissionError("Research seeding requires a signed-in Research Drive account")
     return actor
 
 
@@ -46,19 +49,15 @@ def connected_source_authorities(
     *,
     principal: DeskPrincipal | None = None,
 ) -> list[dict[str, Any]]:
-    """Return verified principal-local cloud authorities safe for seed/reconcile use.
-
-    Internal rclone remote names, provider account ids, OAuth material, and host
-    configuration are deliberately absent from this contract.
-    """
-    actor = _require_named_principal(principal)
+    """Return verified principal-local cloud authorities safe for seed/reconcile use."""
+    actor = _require_research_principal(principal)
+    if actor.role not in {"member", "operator"}:
+        return []
     sources: list[dict[str, Any]] = []
     for row in list_connected_accounts(repo_root, principal=actor):
         if str(row.get("status") or "").lower() != "connected":
             continue
         if not str(row.get("verified_at") or "").strip():
-            # OAuth completion proves identity, but a source is not seed-usable
-            # until Research Drive has also verified the remote itself.
             continue
         mode = str(row.get("access_mode") or "read").strip().lower()
         sources.append(
@@ -106,28 +105,28 @@ def build_research_seed(
     principal: DeskPrincipal | None = None,
 ) -> dict[str, Any]:
     """Build the non-destructive initial/reseed package for one desk principal."""
-    actor = _require_named_principal(principal)
-    profile = resolve_profile(email=actor.email) if actor.email else None
+    actor = _require_research_principal(principal)
+    saved = personal_profile(repo_root, principal=actor)
+    saved_configured = profile_configured(saved)
+    profile = effective_profile_row(repo_root, principal=actor)
     context = _research_context(profile)
     connected = connected_source_authorities(repo_root, principal=actor)
 
-    if profile and not profile.get("unknown"):
+    if saved_configured:
+        mode = "personal_profile"
+    elif profile and not profile.get("unknown"):
         mode = "faculty_profile"
-    elif profile:
+    elif actor.email.endswith(("@yzu.edu.tw", "@student.yzu.edu.tw", "@staff.yzu.edu.tw", "@saturn.yzu.edu.tw")):
         mode = "yzu_profile_fallback"
     else:
         mode = "generic_cold_start"
 
-    references = (
-        lab_fintech_stack_recommendations(profile, repo_root=repo_root)
-        if profile
-        else []
-    )
+    references = lab_fintech_stack_recommendations(profile, repo_root=repo_root) if profile else []
     procurement = procurement_recommendations(profile, repo_root=repo_root) if profile else []
     starters = cold_start_prompts(profile)
 
     return {
-        "version": 1,
+        "version": 2,
         "principal": {
             "id": actor.principal_id,
             "display_name": actor.display_name or None,
@@ -149,5 +148,7 @@ def build_research_seed(
             "automatic_byte_copy": False,
             "automatic_recursive_cloud_index": False,
             "materialization_requires_explicit_operation": True,
+            "collection_allowed": "submit_collection" in actor.permissions,
+            "profile_source": "user_confirmed" if saved_configured else "cold_start",
         },
     }
