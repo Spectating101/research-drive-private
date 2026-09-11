@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Principal-scoped personal research profile for Research Drive.
 
-Authentication answers *who the researcher is*.  This module stores only the
-research context that researcher explicitly chooses to save.  It never creates
+Authentication answers *who the researcher is*. This module stores only the
+research context that researcher explicitly chooses to save. It never creates
 credentials, changes roles, grants permissions, or edits the faculty registry.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,7 @@ from typing import Any
 from scripts.research_data_mcp.desk_auth import current_desk_principal
 from scripts.research_data_mcp.desk_principal import DeskPrincipal
 
-_PROFILE_ROOT = Path("data_lake/research_drive/profiles")
+_PROFILE_RELATIVE_ROOT = Path("data_lake/research_drive/profiles")
 _SCALAR_LIMITS = {
     "academic_stage": 80,
     "discipline": 160,
@@ -45,9 +46,23 @@ def _require_researcher(principal: DeskPrincipal | None = None) -> DeskPrincipal
     return actor
 
 
+def profile_storage_root(repo_root: Path) -> Path:
+    """Return the durable profile authority for this host.
+
+    Production releases already declare `YZU_RUNTIME_DRIVE_ROOT` as the mutable
+    authority for registry/procured state. Personal profiles follow that same
+    release-independent root instead of being stranded inside one candidate
+    checkout. A repo-local root remains the deterministic dev/test fallback.
+    """
+    runtime = str(os.getenv("YZU_RUNTIME_DRIVE_ROOT") or "").strip()
+    if runtime:
+        return Path(runtime).expanduser().resolve() / _PROFILE_RELATIVE_ROOT
+    return Path(repo_root).resolve() / _PROFILE_RELATIVE_ROOT
+
+
 def _profile_path(repo_root: Path, principal: DeskPrincipal) -> Path:
     stable = hashlib.sha256(principal.principal_id.encode("utf-8")).hexdigest()
-    return Path(repo_root).resolve() / _PROFILE_ROOT / f"{stable}.json"
+    return profile_storage_root(repo_root) / f"{stable}.json"
 
 
 def _load_saved(repo_root: Path, principal: DeskPrincipal) -> dict[str, Any]:
@@ -271,5 +286,6 @@ def research_profile_document(
             "research_context": "user_confirmed" if configured else "empty",
             "faculty_registry_is_account_authority": False,
             "role_editable_here": False,
+            "storage": "runtime_drive" if os.getenv("YZU_RUNTIME_DRIVE_ROOT") else "repo_local_dev",
         },
     }
