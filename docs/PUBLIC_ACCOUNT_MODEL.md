@@ -61,11 +61,13 @@ Allowed user-confirmed fields:
 
 The storage key is derived from the authenticated `principal_id`, not from a browser-supplied email. Two researchers therefore receive different profile records even when they use the same browser at different times.
 
-The current storage location is service-local under:
+On a production host with `YZU_RUNTIME_DRIVE_ROOT` configured, the profile is stored under the release-independent runtime authority:
 
 ```text
-data_lake/research_drive/profiles/<sha256(principal_id)>.json
+$YZU_RUNTIME_DRIVE_ROOT/data_lake/research_drive/profiles/<sha256(principal_id)>.json
 ```
+
+A repo-local `data_lake/research_drive/profiles/` location is used only as the development/test fallback when no runtime drive is configured. Promoting an immutable backend checkout therefore must not strand or reset production profiles.
 
 The file contains research context only. It is not an authentication database.
 
@@ -89,11 +91,13 @@ A normal self-service researcher may:
 - browse shared Library and Discover evidence;
 - use Ask;
 - keep private Ask / Synthesis state;
-- read and update only their own research profile.
+- read and update only their own research profile;
+- run the bounded, non-materializing Synthesis Preview for an accepted method revision.
 
 A normal self-service researcher may **not** gain, through account creation or profile editing:
 
 - collection submission;
+- materializing a Synthesis output or creating its execution job;
 - job approval;
 - worker or operational controls;
 - connected-storage authority reserved for lab members;
@@ -101,6 +105,12 @@ A normal self-service researcher may **not** gain, through account creation or p
 - another researcher's private work.
 
 Role elevation is an administrative decision outside the profile API.
+
+## Synthesis authority split
+
+Synthesis reasoning and bounded Preview are personal research work. The dedicated Preview path runs an accepted deterministic recipe only on bounded input bytes and creates no collection job, dataset, registry row, or approval.
+
+Full execution remains a separate authority boundary. A `public_member` can preserve the thread and Preview receipt but must become a lab `member` before Research Drive may create the materializing execution/approval job.
 
 ## Faculty registry
 
@@ -129,10 +139,10 @@ Before promoting this account model:
 1. Researcher A signs in and receives `public_member`.
 2. A's empty profile is honest and usable.
 3. A saves research context and Ask sees that context.
-4. A cannot submit collection or approve jobs.
+4. A can run bounded Synthesis Preview but cannot create a materializing execution/collection job or approve jobs.
 5. A signs out.
 6. Researcher B signs in and cannot see A's profile, Ask history, Discover intents, or Synthesis threads.
-7. Restart the service and repeat A/B reads.
+7. Restart the service and repeat A/B reads; A's profile must survive from the runtime drive authority.
 8. Shared registry/archive identity remains unchanged.
 
-Account creation is complete only when identity, profile isolation, private-work isolation, and restart persistence all pass on the exact release pair.
+Account creation is complete only when identity, profile isolation, private-work isolation, runtime persistence, and the Synthesis authority split all pass on the exact release pair.
