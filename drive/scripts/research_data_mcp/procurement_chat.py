@@ -49,6 +49,10 @@ class ProcurementChatOrchestrator(_CoreProcurementChatOrchestrator):
                 state.pop("research_profile", None)
                 return
             row = effective_profile_row(self.repo_root, principal=actor)
+            # Legacy faculty formatting defaults a missing title to Professor.
+            # A personal cold-start account is not evidence of faculty status.
+            if row.get("personal_profile") and not row.get("title"):
+                row["title"] = "Researcher"
             state["faculty_profile"] = profile_summary(row, repo_root=self.repo_root)
             state["faculty_profile_row"] = row
             state["research_profile"] = personal_profile(self.repo_root, principal=actor)
