@@ -84,8 +84,6 @@ def desk_principal_context(principal: DeskPrincipal | None):
 
 
 def path_requires_auth(path: str, method: str = "GET") -> bool:
-    # Callers normally pass a normalized path, but keeping the policy correct
-    # for direct unit/tool use prevents /api from becoming a second boundary.
     if path == "/api":
         path = "/"
     elif path.startswith("/api/"):
@@ -96,9 +94,6 @@ def path_requires_auth(path: str, method: str = "GET") -> bool:
     is_api = any(path == prefix or path.startswith(f"{prefix}/") for prefix in _PROTECTED_API_PREFIXES)
     if not is_api:
         return False
-    # The pilot desk is private-by-default: catalog/query data, faculty memory,
-    # synthesis threads, credentials metadata and cluster topology are all
-    # research/operations data. Static UI is served before this policy runs.
     if method_u in {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}:
         return True
     return False
@@ -111,10 +106,13 @@ def required_permission(path: str, method: str = "GET") -> str:
     elif path.startswith("/api/"):
         path = path[4:]
     method_u = str(method or "GET").upper()
-    # Ask and Synthesis hold private, durable researcher context.  They need
+    # Account identity is immutable here; this permission controls only the
+    # authenticated researcher's principal-scoped research-context profile.
+    if path.rstrip("/") == "/library/profile":
+        return "manage_research_profile"
+    # Ask and Synthesis hold private, durable researcher context. They need
     # `use_ask` for reads as well as writes; do this before the generic GET
-    # rule below so a guest cannot retrieve an addressable saved session simply
-    # because it is a GET request.
+    # rule below so a guest cannot retrieve an addressable saved session.
     if path.startswith(("/library/chat", "/library/advise")):
         return "use_ask"
     if path.startswith("/library/desk/warm"):
@@ -123,10 +121,6 @@ def required_permission(path: str, method: str = "GET") -> str:
         ("/execute", "/collect-missing")
     ):
         return "use_ask"
-    # These are operator telemetry, not shared research evidence. A public
-    # Library guest may browse registered sources, but must not receive host
-    # capacity, workers, metered-provider state, activity, or default faculty
-    # context through the convenient aggregate endpoints.
     if path == "/health" or path.startswith(("/library/desk/resources", "/library/desk/brief")):
         return "view_operations"
     if method_u in {"GET", "HEAD"}:
@@ -135,15 +129,10 @@ def required_permission(path: str, method: str = "GET") -> str:
         ):
             return "view_operations"
         if path.startswith("/library/jobs"):
-            # JobService enforces owner isolation. Members need read access to
-            # follow their own submitted acquisition through History.
             return "view_research_data"
         if path.startswith("/library/faculty"):
             return "view_faculty_profile"
         return "view_research_data"
-    # Creating a review-gated job is the member submission boundary. Approval,
-    # cancellation and bulk sweeps remain operator-only. Read visibility is
-    # owner-filtered by JobService.
     if method_u == "POST" and path.rstrip("/") == "/library/jobs":
         return "submit_collection"
     if path.startswith("/yzu") or path.startswith(
@@ -165,21 +154,11 @@ def session_cookie_value(
     nonce: str | None = None,
     principal: DeskPrincipal | None = None,
 ) -> str:
-    """Mint a non-deterministic, server-expiring desk session.
-
-    v1 was a permanent HMAC of a constant, so every browser shared the same
-    replayable cookie and browser Max-Age could not revoke it. v2 signs an issue
-    time plus nonce; validation enforces the configured lifetime server-side.
-    """
     issued = int(time.time()) if issued_at is None else int(issued_at)
     entropy = nonce or secrets.token_urlsafe(18)
     actor = principal or default_principal()
     claims_document: dict[str, str] = {"sub": actor.principal_id}
     version = _SESSION_VERSION
-    # Cloudflare Access principals are verified at the login endpoint but are
-    # not stored in DESK_PRINCIPALS_FILE.  Preserve only their restricted,
-    # signed public-member claims in the local, expiring session; never mint a
-    # local operator/member role from a browser-controlled value.
     if actor.role == "public_member" and actor.principal_id.startswith("cf-"):
         version = _MEMBER_SESSION_VERSION
         claims_document.update(
@@ -190,17 +169,13 @@ def session_cookie_value(
             }
         )
     claims = base64.urlsafe_b64encode(
-        json.dumps(
-            claims_document,
-            separators=(",", ":"),
-        ).encode("utf-8")
+        json.dumps(claims_document, separators=(",", ":")).encode("utf-8")
     ).decode("ascii").rstrip("=")
     payload = f"{version}.{issued}.{entropy}.{claims}"
     return f"{payload}.{_session_signature(token, payload)}"
 
 
 def request_is_https(handler: BaseHTTPRequestHandler | None) -> bool:
-    """Whether the browser reached us over HTTPS, including via a tunnel."""
     if handler is None:
         return False
     proto = str(handler.headers.get("X-Forwarded-Proto") or "").strip().lower()
@@ -217,9 +192,6 @@ def _cookie_header_value(
     max_age: int | None = None,
     principal: DeskPrincipal | None = None,
 ) -> str:
-    # Secure is set whenever the request arrived over HTTPS (public tunnels
-    # terminate TLS and forward X-Forwarded-Proto). It is omitted on the plain
-    # HTTP Tailscale front door, where setting it would silently drop the cookie.
     flags = "Path=/; HttpOnly; SameSite=Strict"
     if secure:
         flags += "; Secure"
@@ -231,10 +203,9 @@ def _cookie_header_value(
 
 
 def _session_max_age() -> int:
-    """Bounded session lifetime. The cookie previously never expired."""
     raw = (os.getenv("DESK_SESSION_MAX_AGE_SECONDS") or "").strip()
     try:
-        value = int(raw) if raw else 43200  # 12h
+        value = int(raw) if raw else 43200
     except ValueError:
         value = 43200
     return max(300, min(value, 604800))
@@ -272,7 +243,6 @@ def desk_session_principal(
     elif len(parts) == 5 and parts[0] in {_SESSION_VERSION, _MEMBER_SESSION_VERSION}:
         version, issued_raw, nonce, claims, provided_signature = parts
     else:
-        # Reject deterministic v1 cookies and unknown future formats.
         return None
     if not nonce or len(nonce) > 128:
         return None
@@ -298,9 +268,6 @@ def desk_session_principal(
         principal_id = str(decoded.get("sub") or "").strip()
         email = str(decoded.get("email") or "").strip().lower()
         display_name = str(decoded.get("display_name") or "").strip()
-        # v4 is HMAC-authenticated, but retain a narrow shape check so a
-        # future internal cookie helper cannot accidentally grant a broader
-        # local role through this dynamic identity path.
         if (
             str(decoded.get("role") or "") != "public_member"
             or not principal_id.startswith("cf-")
@@ -320,7 +287,6 @@ def desk_session_principal(
 
 
 def _public_desk_origins() -> set[str]:
-    """Deprecated compatibility reader; public origins never grant authority."""
     raw = (os.getenv("DESK_PUBLIC_ORIGINS") or "").strip()
     out: set[str] = set()
     for part in raw.split(","):
@@ -331,23 +297,11 @@ def _public_desk_origins() -> set[str]:
 
 
 def _bootstrap_hosts() -> set[str]:
-    """Host values permitted to mint a desk session without presenting a token.
-
-    Empty by default: no host may mint anonymously. Set
-    DESK_SESSION_BOOTSTRAP_HOSTS to the internal desk host (e.g. the Tailscale
-    address) to restore the internal browser convenience there and nowhere else.
-    """
     raw = (os.getenv("DESK_SESSION_BOOTSTRAP_HOSTS") or "").strip()
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
 
 
 def _public_guest_hosts() -> set[str]:
-    """Public host values allowed to mint a limited guest session.
-
-    This is intentionally separate from DESK_SESSION_BOOTSTRAP_HOSTS.  The
-    latter restores the internal desk's operator convenience; putting a public
-    hostname there would recreate the anonymous-operator vulnerability.
-    """
     raw = (os.getenv("DESK_PUBLIC_GUEST_HOSTS") or "").strip()
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
 
@@ -355,7 +309,6 @@ def _public_guest_hosts() -> set[str]:
 def _same_origin_browser_request(
     handler: BaseHTTPRequestHandler, allowed_hosts: set[str]
 ) -> bool:
-    """Check a browser's same-origin request against an explicit host allowlist."""
     host = str(handler.headers.get("Host") or "").strip().lower()
     host_only = host.split(":")[0]
     if not host or not (host in allowed_hosts or host_only in allowed_hosts):
@@ -370,19 +323,16 @@ def _same_origin_browser_request(
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return False
         return f"{parsed.scheme}://{parsed.netloc}".lower() in same_origin_values
-    # No Origin/Referer: do not let a script mint a session.
     return False
 
 
 def request_presents_desk_token(handler: BaseHTTPRequestHandler) -> bool:
-    """True when the caller already proved possession of the desk token."""
     return bool(_supplied_desk_token(handler)) and principal_for_token(
         _supplied_desk_token(handler), shared_token=access_token_required() or ""
     ) is not None
 
 
 def _supplied_desk_token(handler: BaseHTTPRequestHandler) -> str:
-    """Read an explicit bearer/access-code without deciding whether it is valid."""
     auth = str(handler.headers.get("Authorization") or "")
     header = str(handler.headers.get("X-Desk-Token") or "")
     return auth[7:].strip() if auth.startswith("Bearer ") else header.strip()
@@ -407,44 +357,26 @@ def request_desk_principal(handler: BaseHTTPRequestHandler) -> DeskPrincipal | N
 
 
 def same_origin_desk_request(handler: BaseHTTPRequestHandler) -> bool:
-    """Whether this request may mint a desk session.
-
-    Same-origin is NOT authentication. An anonymous visitor loading a public
-    desk is same-origin by definition, so origin-matching alone previously
-    turned any visitor into an authorized session. Minting now requires one of:
-
-      * possession of the desk token, or
-      * an explicitly allow-listed internal Host (DESK_SESSION_BOOTSTRAP_HOSTS),
-
-    and in the last two cases the request must still look like a browser call
-    to this same desk.
-    """
     if request_presents_desk_token(handler):
         return True
-
     return _same_origin_browser_request(handler, _bootstrap_hosts())
 
 
 def public_guest_desk_request(handler: BaseHTTPRequestHandler) -> bool:
-    """Whether an explicitly configured public host may mint a guest session."""
     return _same_origin_browser_request(handler, _public_guest_hosts())
 
 
 def _token_matches(provided: str, expected: str) -> bool:
-    # Compare fixed-length digests so compare_digest does not disclose the
-    # expected token length through its unequal-length fast path.
     provided_digest = hashlib.sha256(provided.encode("utf-8")).digest()
     expected_digest = hashlib.sha256(expected.encode("utf-8")).digest()
     return hmac.compare_digest(provided_digest, expected_digest)
 
 
 def request_has_desk_access(handler: BaseHTTPRequestHandler) -> bool:
-    """Whether this request already carries a valid token or v2 session."""
     return request_desk_principal(handler) is not None
 
 
 def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, object]:
-    """Public, non-sensitive access contract for capability-aware clients."""
     configured = desk_auth_configured()
     principal = request_desk_principal(handler)
     authenticated = principal is not None
@@ -462,7 +394,7 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
             "identity_aware": True,
             "personal_work_isolated": True,
             "shared_objects": ["source_catalog", "library", "workers"],
-            "private_objects": ["ask_sessions", "discover_intents", "synthesis_threads"],
+            "private_objects": ["research_profile", "ask_sessions", "discover_intents", "synthesis_threads"],
             "multi_user_ready": True,
         },
         "session": {
@@ -471,14 +403,9 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
             "bootstrap_available": bool(_bootstrap_hosts() or _public_guest_hosts())
             or request_presents_desk_token(handler),
             "public_guest_available": bool(_public_guest_hosts()),
-            # A Cloudflare Access application protects only the dedicated
-            # login endpoint.  It upgrades a guest to a public member without
-            # making the shared Library/Discover estate private.
             "member_sign_in_available": cloudflare_sign_in or access_code_sign_in,
             "member_access_code_available": access_code_sign_in,
             "member_sign_in_path": "/library/desk/login" if cloudflare_sign_in else None,
-            # Presentation metadata only. Authorization remains derived from
-            # the signed principal and its server-side permission set.
             "member_sign_in_mode": "email" if cloudflare_sign_in else (
                 "invite_code" if access_code_sign_in else None
             ),
@@ -487,12 +414,6 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
 
 
 def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
-    """Return (ok, message, Set-Cookie header value)."""
-    # An explicit access code must be decisive.  Falling through to the public
-    # guest branch on an invalid code returned HTTP 200 with a guest cookie,
-    # making a failed sign-in look like a successful one.  It did not escalate
-    # permissions, but it was both misleading and impossible for the UI to
-    # explain honestly.
     supplied_code = _supplied_desk_token(handler)
     if supplied_code:
         principal = principal_for_token(
@@ -537,12 +458,6 @@ def issue_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str 
 def issue_cloudflare_member_session(
     handler: BaseHTTPRequestHandler,
 ) -> tuple[bool, str, str | None]:
-    """Mint a restricted local member session after verified Access login.
-
-    The endpoint calling this function is expected to be protected by a
-    Cloudflare Access application.  A raw caller cannot upgrade a guest: the
-    assertion is JWT-verified by ``cloudflare_access_principal`` first.
-    """
     principal = cloudflare_access_principal(handler)
     if not principal:
         return False, "Verified member sign-in is required", None
@@ -559,7 +474,6 @@ def issue_cloudflare_member_session(
 def clear_desk_session(handler: BaseHTTPRequestHandler) -> tuple[bool, str, str | None]:
     token = _session_signing_secret()
     if not token:
-        # Still clear any stale cookie.
         return True, "", _cookie_header_value("", clear=True, secure=request_is_https(handler))
     if not (same_origin_desk_request(handler) or public_guest_desk_request(handler)):
         return False, "Desk session clear requires a same-origin browser request", None
