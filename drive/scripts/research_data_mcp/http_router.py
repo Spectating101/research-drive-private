@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Research Drive HTTP router with principal-scoped storage/bootstrap extensions.
+"""Research Drive HTTP router with principal-scoped extensions.
 
 The release-certified router is preserved byte-for-byte in http_router_legacy.
-This module adds federated-storage, personal-profile, and research-seed routes
-without forking its dispatch logic.
+This module adds federated storage, personal profiles, research seed, and a
+bounded Synthesis Preview route without forking legacy dispatch logic.
 """
 
 from __future__ import annotations
@@ -21,6 +21,10 @@ from scripts.research_data_mcp.research_seed_http import (
     RESEARCH_SEED_ROUTES,
     research_seed_handlers,
 )
+from scripts.research_data_mcp.synthesis_preview_http import (
+    SYNTHESIS_PREVIEW_ROUTES,
+    synthesis_preview_handlers,
+)
 
 for _name in dir(_legacy):
     if not _name.startswith("__"):
@@ -30,6 +34,7 @@ _extension_routes = [
     *CONNECTED_ACCOUNT_ROUTES,
     *RESEARCH_PROFILE_ROUTES,
     *RESEARCH_SEED_ROUTES,
+    *SYNTHESIS_PREVIEW_ROUTES,
 ]
 _existing = {(row["method"], row["path"]) for row in _legacy.ROUTE_CATALOG}
 _legacy.ROUTE_CATALOG = [
@@ -43,6 +48,7 @@ _legacy.ROUTE_CATALOG = [
 _legacy._HANDLERS.update(connected_account_handlers())
 _legacy._HANDLERS.update(research_profile_handlers())
 _legacy._HANDLERS.update(research_seed_handlers())
+_legacy._HANDLERS.update(synthesis_preview_handlers())
 
 ROUTE_CATALOG = _legacy.ROUTE_CATALOG
 _HANDLERS = _legacy._HANDLERS
