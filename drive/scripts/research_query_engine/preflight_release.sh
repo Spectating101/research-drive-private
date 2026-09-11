@@ -228,6 +228,9 @@ PY
       fi
     fi
     [ "$member_codes" = "1" ] && note "member_sign_in=individual_access_codes"
+    if [ "$cf_configured" != "1" ] && [ "${DESK_ALLOW_INVITE_ONLY_PUBLIC_LAUNCH:-0}" != "1" ]; then
+      bad "external public release needs self-service verified email sign-in; set DESK_ALLOW_INVITE_ONLY_PUBLIC_LAUNCH=1 only for an intentionally invite-only launch"
+    fi
     ;;
 esac
 

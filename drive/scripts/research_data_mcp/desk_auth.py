@@ -448,6 +448,8 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
     configured = desk_auth_configured()
     principal = request_desk_principal(handler)
     authenticated = principal is not None
+    cloudflare_sign_in = bool(cloudflare_access_configured())
+    access_code_sign_in = member_access_codes_configured()
     return {
         "version": 2,
         "authenticated": authenticated,
@@ -472,10 +474,14 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
             # A Cloudflare Access application protects only the dedicated
             # login endpoint.  It upgrades a guest to a public member without
             # making the shared Library/Discover estate private.
-            "member_sign_in_available": bool(cloudflare_access_configured())
-            or member_access_codes_configured(),
-            "member_access_code_available": member_access_codes_configured(),
-            "member_sign_in_path": "/library/desk/login" if cloudflare_access_configured() else None,
+            "member_sign_in_available": cloudflare_sign_in or access_code_sign_in,
+            "member_access_code_available": access_code_sign_in,
+            "member_sign_in_path": "/library/desk/login" if cloudflare_sign_in else None,
+            # Presentation metadata only. Authorization remains derived from
+            # the signed principal and its server-side permission set.
+            "member_sign_in_mode": "email" if cloudflare_sign_in else (
+                "invite_code" if access_code_sign_in else None
+            ),
         },
     }
 

@@ -114,7 +114,7 @@ def test_external_public_release_accepts_configured_member_identity_provider(rel
     assert "member_sign_in=cloudflare_access" in out.stdout
 
 
-def test_external_public_release_accepts_individual_member_access_code(release, tmp_path):
+def test_external_public_release_refuses_unacknowledged_invite_only_access(release, tmp_path):
     principals = tmp_path / "principals.json"
     principals.write_text(
         json.dumps(
@@ -138,6 +138,40 @@ def test_external_public_release_accepts_individual_member_access_code(release, 
         handle.write(
             "YZU_DESK_RELEASE_SCOPE=external-public\n"
             f"DESK_PRINCIPALS_FILE={principals}\n"
+        )
+
+    out = _run(release["env"])
+
+    assert out.returncode != 0
+    assert "member_sign_in=individual_access_codes" in out.stdout
+    assert "needs self-service verified email sign-in" in out.stdout
+
+
+def test_external_public_release_can_explicitly_accept_invite_only_access(release, tmp_path):
+    principals = tmp_path / "principals.json"
+    principals.write_text(
+        json.dumps(
+            {
+                "principals": [
+                    {
+                        "id": "external-member",
+                        "role": "public_member",
+                        "token_sha256": "a" * 64,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    identity = release["release_dir"] / "research-drive-build.json"
+    payload = json.loads(identity.read_text())
+    payload["release_scope"] = "external-public"
+    identity.write_text(json.dumps(payload), encoding="utf-8")
+    with release["env"].open("a", encoding="utf-8") as handle:
+        handle.write(
+            "YZU_DESK_RELEASE_SCOPE=external-public\n"
+            f"DESK_PRINCIPALS_FILE={principals}\n"
+            "DESK_ALLOW_INVITE_ONLY_PUBLIC_LAUNCH=1\n"
         )
 
     out = _run(release["env"])

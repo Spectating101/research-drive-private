@@ -103,3 +103,37 @@ def test_capabilities_describe_guest_without_exposing_private_permissions():
     assert document["permissions"]["submit_collection"] is False
     assert document["permissions"]["approve_jobs"] is False
     assert document["session"]["public_guest_available"] is True
+    assert document["session"]["member_sign_in_mode"] is None
+
+
+def test_capabilities_name_invitation_code_mode(monkeypatch):
+    monkeypatch.setattr(desk_auth, "member_access_codes_configured", lambda: True)
+    value = _guest_cookie()
+    guest = FakeHandler(
+        Host="previous.easycamp.tech",
+        Cookie=f"{desk_auth.DESK_SESSION_COOKIE}={value}",
+    )
+
+    document = desk_auth.desk_capability_document(guest)
+
+    assert document["session"]["member_sign_in_available"] is True
+    assert document["session"]["member_sign_in_mode"] == "invite_code"
+
+
+def test_capabilities_prefer_verified_email_identity_when_configured(monkeypatch):
+    monkeypatch.setenv(
+        "DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN",
+        "https://research-drive.cloudflareaccess.com",
+    )
+    monkeypatch.setenv("DESK_CLOUDFLARE_ACCESS_AUD", "public-member-login")
+    value = _guest_cookie()
+    guest = FakeHandler(
+        Host="previous.easycamp.tech",
+        Cookie=f"{desk_auth.DESK_SESSION_COOKIE}={value}",
+    )
+
+    document = desk_auth.desk_capability_document(guest)
+
+    assert document["session"]["member_sign_in_available"] is True
+    assert document["session"]["member_sign_in_path"] == "/library/desk/login"
+    assert document["session"]["member_sign_in_mode"] == "email"
