@@ -1218,6 +1218,11 @@ _CONTEXTUAL_SIDE_EFFECT = re.compile(
     r"create\s+intent|pause|resume|stop)\b",
     re.I,
 )
+_CONTEXTUAL_CORPUS_ASK = re.compile(
+    r"\b(?:which|what)\b.{0,100}\b(?:datasets|holdings|sources|assets)\b|"
+    r"\b(?:library|catalog|registry)\b",
+    re.I,
+)
 _CONTEXTUAL_KNOWN_KEYS = (
     ("title", "title"),
     ("dataset_id", "dataset_id"),
@@ -1289,6 +1294,12 @@ def is_direct_contextual_message(message: str, rail_context: dict[str, Any] | No
     if not text or len(text) > 400:
         return False
     if _CONTEXTUAL_SIDE_EFFECT.search(text[:220]):
+        return False
+    # A visible selection supplies context; it does not own every question.
+    # Corpus-level asks such as “Which held datasets support stablecoins?”
+    # must reach retrieval/Composer rather than being reduced to the selected
+    # object's identity card merely because the rail hydrated first.
+    if _CONTEXTUAL_CORPUS_ASK.search(text[:280]):
         return False
     # Do not steal structured equipment phrases (message-shaped only).
     # Note: is_direct_describe/query are rail-greedy when dataset_id is selected —
