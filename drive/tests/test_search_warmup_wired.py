@@ -79,6 +79,19 @@ def test_warmup_runs_off_the_request_path():
     ), "warmup thread must be a daemon so shutdown is not held open"
 
 
+def test_warmup_yields_to_the_visible_catalog_before_loading_models():
+    warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
+    run = _fn(warm, "_run")
+    assert run is not None
+    assert "DESK_SEARCH_WARMUP_GRACE_SECONDS" in ast.unparse(run)
+    waits = [
+        call
+        for call in ast.walk(run)
+        if isinstance(call, ast.Call) and getattr(call.func, "attr", "") == "wait"
+    ]
+    assert waits, "model warmup must yield an initial request window to the visible Library"
+
+
 def test_warmup_covers_both_cold_costs():
     warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
     called = _calls(warm)

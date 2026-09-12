@@ -526,6 +526,19 @@ def _start_search_warmup(stack) -> None:
     def _run() -> None:
         import time as _time
 
+        # Binding the socket and starting this daemon happen back-to-back. Give
+        # the browser's small capabilities/session/catalog burst first access to
+        # the request threads before sentence-transformers begins its CPU/GIL-
+        # heavy import. On a swap-pressured production host that import can take
+        # tens of seconds; without this grace period the optional optimization
+        # makes the entire research estate look unavailable after restart.
+        try:
+            grace = max(0.0, min(60.0, float(os.environ.get("DESK_SEARCH_WARMUP_GRACE_SECONDS", "5"))))
+        except (TypeError, ValueError):
+            grace = 5.0
+        if grace:
+            threading.Event().wait(grace)
+
         started = _time.time()
         try:
             from scripts.research_data_mcp.datacite_prefetch import warm_search_indexes
