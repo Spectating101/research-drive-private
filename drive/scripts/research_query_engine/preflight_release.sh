@@ -191,8 +191,16 @@ case "$release_scope" in
   external-public*|public-external*)
     cf_team="${DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN:-}"
     cf_aud="${DESK_CLOUDFLARE_ACCESS_AUD:-}"
-    cf_configured=0
-    [ -n "$cf_team" ] && [ -n "$cf_aud" ] && cf_configured=1
+    # Use the exact runtime authority. Merely having two non-empty strings is
+    # not enough: configured_access() validates https, the Cloudflare Access
+    # hostname shape, and the audience before runtime exposes email sign-in.
+    cf_configured="$(
+      PYTHONPATH="$backend_root:$backend_root/kernel:$backend_root/drive:$backend_root/alpha" \
+      "$python_bin" - <<'PY'
+from scripts.research_data_mcp.cloudflare_access import configured_access
+print(1 if configured_access() is not None else 0)
+PY
+    )"
     member_codes=0
     principals_file="${DESK_PRINCIPALS_FILE:-}"
     if [ -n "$principals_file" ] && [ -f "$principals_file" ]; then
@@ -218,10 +226,10 @@ PY
       bad "external public release requires Cloudflare Access or at least one individually issued member access code"
     fi
     if [ "$cf_configured" = "0" ] && { [ -n "$cf_team" ] || [ -n "$cf_aud" ]; }; then
-      bad "Cloudflare member sign-in needs both DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN and DESK_CLOUDFLARE_ACCESS_AUD"
+      bad "Cloudflare member sign-in configuration is incomplete or invalid according to runtime configured_access()"
     fi
-    if [ -n "$cf_team" ] && [ -n "$cf_aud" ]; then
-      if "$python_bin" -c 'import jwt' >/dev/null 2>&1; then
+    if [ "$cf_configured" = "1" ]; then
+      if PYTHONPATH="$backend_root:$backend_root/kernel:$backend_root/drive:$backend_root/alpha" "$python_bin" -c 'import jwt' >/dev/null 2>&1; then
         note "member_sign_in=cloudflare_access"
       else
         bad "external public member sign-in requires PyJWT on the host"

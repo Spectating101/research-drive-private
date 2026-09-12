@@ -110,10 +110,14 @@ def test_write_authority_maps_explicitly_and_does_not_materialize(tmp_path):
     assert package["policy"]["materialization_requires_explicit_operation"] is True
 
 
-def test_public_identity_cannot_build_private_seed(tmp_path):
-    guest = principal("public-user", role="public_member")
-    with pytest.raises(PermissionError):
-        seed.build_research_seed(tmp_path, principal=guest)
+def test_public_member_gets_personal_cold_start_without_private_sources(tmp_path):
+    member = principal("public-user", email="public@example.test", role="public_member")
+    package = seed.build_research_seed(tmp_path, principal=member)
+
+    assert package["bootstrap_mode"] == "generic_cold_start"
+    assert package["research_context"]["profile_bound"] is False
+    assert package["connected_sources"] == []
+    assert package["policy"]["collection_allowed"] is False
 
 
 def test_rich_faculty_profile_and_connected_storage_are_additive(tmp_path, monkeypatch):
@@ -137,7 +141,7 @@ def test_rich_faculty_profile_and_connected_storage_are_additive(tmp_path, monke
             }
         ],
     }
-    monkeypatch.setattr(seed, "resolve_profile", lambda **kwargs: profile)
+    monkeypatch.setattr(seed, "effective_profile_row", lambda *args, **kwargs: profile)
 
     package = seed.build_research_seed(tmp_path, principal=actor)
     assert package["bootstrap_mode"] == "faculty_profile"

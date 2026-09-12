@@ -526,6 +526,19 @@ def _start_search_warmup(stack) -> None:
     def _run() -> None:
         import time as _time
 
+        # Binding the socket and starting this daemon happen back-to-back. Give
+        # the browser's small capabilities/session/catalog burst first access to
+        # the request threads before sentence-transformers begins its CPU/GIL-
+        # heavy import. On a swap-pressured production host that import can take
+        # tens of seconds; without this grace period the optional optimization
+        # makes the entire research estate look unavailable after restart.
+        try:
+            grace = max(0.0, min(60.0, float(os.environ.get("DESK_SEARCH_WARMUP_GRACE_SECONDS", "5"))))
+        except (TypeError, ValueError):
+            grace = 5.0
+        if grace:
+            threading.Event().wait(grace)
+
         started = _time.time()
         try:
             from scripts.research_data_mcp.datacite_prefetch import warm_search_indexes
@@ -541,6 +554,14 @@ def _start_search_warmup(stack) -> None:
             )
         except Exception as exc:
             print(f"search_warmup=failed ({type(exc).__name__}: {exc})", flush=True)
+        finally:
+            # Both warmers perform substantial provider/model initialization.
+            # Starting them together stretched the measured search warmup from
+            # ~16s to 49.5s and starved /datasets for roughly 40s after a real
+            # restart. Sequence the optional Composer observation behind search
+            # residency so the visible research estate is never competing with
+            # two cold model stacks at once. Failure remains fail-open.
+            _start_composer_health_monitor()
 
     threading.Thread(target=_run, name="search-warmup", daemon=True).start()
 
@@ -587,7 +608,6 @@ def main() -> int:
     ResearchQueryHandler.cors_origin = cors_origin
     server = ThreadingHTTPServer((args.host, args.port), ResearchQueryHandler)
     _start_search_warmup(stack)
-    _start_composer_health_monitor()
     print(f"research_library_api=http://{args.host}:{args.port}")
     if args.serve_ui:
         print(f"research_desk_ui=http://{args.host}:{args.port}/  (static from {static_dir})")

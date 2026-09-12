@@ -34,9 +34,26 @@ def test_main_starts_the_warmup():
 
 
 def test_main_starts_the_composer_health_monitor():
-    main = _fn(ast.parse(SERVER.read_text()), "main")
-    assert main is not None
-    assert "_start_composer_health_monitor" in _calls(main)
+    warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
+    assert warm is not None
+    assert "_start_composer_health_monitor" in _calls(warm)
+
+
+def test_composer_monitor_is_sequenced_after_search_warmup():
+    warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
+    run = _fn(warm, "_run")
+    assert run is not None
+    tries = [node for node in ast.walk(run) if isinstance(node, ast.Try)]
+    assert any(
+        "_start_composer_health_monitor" in _calls(node)
+        and any(
+            isinstance(child, ast.Call)
+            and getattr(child.func, "id", "") == "_start_composer_health_monitor"
+            for final_node in node.finalbody
+            for child in ast.walk(final_node)
+        )
+        for node in tries
+    ), "Composer observation must start from warmup finally, after search settles or fails"
 
 
 def test_composer_health_monitor_is_fail_open_for_server_startup():
@@ -60,6 +77,19 @@ def test_warmup_runs_off_the_request_path():
         for t in threads
         for k in t.keywords
     ), "warmup thread must be a daemon so shutdown is not held open"
+
+
+def test_warmup_yields_to_the_visible_catalog_before_loading_models():
+    warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
+    run = _fn(warm, "_run")
+    assert run is not None
+    assert "DESK_SEARCH_WARMUP_GRACE_SECONDS" in ast.unparse(run)
+    waits = [
+        call
+        for call in ast.walk(run)
+        if isinstance(call, ast.Call) and getattr(call.func, "attr", "") == "wait"
+    ]
+    assert waits, "model warmup must yield an initial request window to the visible Library"
 
 
 def test_warmup_covers_both_cold_costs():

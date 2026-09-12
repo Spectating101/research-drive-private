@@ -41,6 +41,20 @@ def release(tmp_path):
     (backend / "config").mkdir(parents=True, exist_ok=True)
     (backend / "config/research_query_registry.json").write_text(
         json.dumps({"datasets": [{"dataset_id": "a"}]}), encoding="utf-8")
+    # The gate imports the real runtime validator instead of trusting two
+    # non-empty environment strings. Supply the minimal package required by
+    # this deliberately isolated fake release.
+    module_dir = backend / "drive/scripts/research_data_mcp"
+    module_dir.mkdir(parents=True, exist_ok=True)
+    (module_dir / "cloudflare_access.py").write_text(
+        "import os\n"
+        "def configured_access():\n"
+        "    team = os.getenv('DESK_CLOUDFLARE_ACCESS_TEAM_DOMAIN', '')\n"
+        "    aud = os.getenv('DESK_CLOUDFLARE_ACCESS_AUD', '')\n"
+        "    return object() if team.startswith('https://') and team.endswith('.cloudflareaccess.com') and aud else None\n",
+        encoding="utf-8",
+    )
+    (backend / "jwt.py").write_text("# preflight dependency sentinel\n", encoding="utf-8")
 
     ui = tmp_path / "ui"
     ui_sha = _repo(ui, "app.js")

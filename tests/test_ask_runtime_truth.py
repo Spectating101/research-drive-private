@@ -275,6 +275,20 @@ def test_contextual_does_not_steal_collect_or_approve():
     assert try_direct_contextual_turn(gateway, "Approve job abcdef123456", {"rail_context": rail}) is None
 
 
+def test_contextual_does_not_steal_a_corpus_level_research_question():
+    from scripts.research_data_mcp.desk_direct_turns import try_direct_contextual_turn
+
+    gateway = MagicMock()
+    rail = {
+        "entity": {"kind": "dataset", "id": "gdelt_panel", "title": "GDELT panel"},
+        "dataset_id": "gdelt_panel",
+        "selected": {"dataset_id": "gdelt_panel", "title": "GDELT panel"},
+        "actions": ["ask_about"],
+    }
+    prompt = "Which query-ready held datasets are most useful for stablecoin research?"
+    assert try_direct_contextual_turn(gateway, prompt, {"rail_context": rail}) is None
+
+
 def test_run_desk_agent_prefers_contextual_over_composer(monkeypatch):
     from scripts.research_data_mcp import desk_brain, desk_direct_turns
 

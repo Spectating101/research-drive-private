@@ -26,14 +26,15 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "view_research_data",
         }
     ),
-    # A signed-in public researcher may reason over shared evidence and keep
-    # their own research trail.  Collection remains a member/operator action:
-    # authentication alone must not turn a public account into an acquisition
-    # submitter.
+    # A signed-in public researcher may reason over shared evidence, keep their
+    # own research trail, and maintain only their own research-context profile.
+    # Collection remains a member/operator action: authentication alone must
+    # not turn a public account into an acquisition submitter.
     "public_member": frozenset(
         {
             "view_research_data",
             "use_ask",
+            "manage_research_profile",
         }
     ),
     "member": frozenset(
@@ -41,6 +42,7 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "view_research_data",
             "view_faculty_profile",
             "use_ask",
+            "manage_research_profile",
             "submit_collection",
         }
     ),
@@ -50,6 +52,7 @@ _ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "view_faculty_profile",
             "view_operations",
             "use_ask",
+            "manage_research_profile",
             "submit_collection",
             "approve_jobs",
         }
@@ -219,6 +222,7 @@ def permissions_document(principal: DeskPrincipal | None) -> dict[str, bool]:
         "view_faculty_profile": "view_faculty_profile" in permissions,
         "view_operations": "view_operations" in permissions,
         "use_ask": "use_ask" in permissions,
+        "manage_research_profile": "manage_research_profile" in permissions,
         "submit_collection": "submit_collection" in permissions,
         "approve_jobs": "approve_jobs" in permissions,
     }
