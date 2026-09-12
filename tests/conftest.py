@@ -84,3 +84,15 @@ def deterministic_example_test_dns(monkeypatch: pytest.MonkeyPatch) -> None:
         return validate_public_http_url(url)
 
     monkeypatch.setattr(network_policy, "validate_public_http_url", validate_with_test_dns)
+
+
+@pytest.fixture(autouse=True)
+def isolate_desk_principal_context() -> Iterator[None]:
+    """Do not let one simulated HTTP request own records in later tests."""
+    from scripts.research_data_mcp import desk_auth
+
+    desk_auth._CURRENT_PRINCIPAL.set(None)
+    try:
+        yield
+    finally:
+        desk_auth._CURRENT_PRINCIPAL.set(None)

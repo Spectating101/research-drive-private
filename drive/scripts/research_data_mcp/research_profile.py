@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -140,13 +141,21 @@ def _write_saved(repo_root: Path, principal: DeskPrincipal, profile: dict[str, A
         "profile": profile,
         "updated_at": _utc_now(),
     }
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    # Concurrent saves for one principal must not contend for a fixed temp
+    # filename. Each write gets a private sibling before the atomic replace.
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(6)}.tmp")
     try:
-        tmp.chmod(0o600)
-    except OSError:
-        pass
-    tmp.replace(path)
+        tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        try:
+            tmp.chmod(0o600)
+        except OSError:
+            pass
+        tmp.replace(path)
+    finally:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
     try:
         path.chmod(0o600)
     except OSError:

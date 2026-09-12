@@ -121,6 +121,12 @@ def build_research_seed(
     else:
         mode = "generic_cold_start"
 
+    # An unknown institutional profile is still bound to a known YZU
+    # principal. A generic external member has no research profile until they
+    # explicitly save one; do not call its placeholder row profile-bound.
+    if mode == "generic_cold_start" and context["profile_unknown"]:
+        context["profile_bound"] = False
+
     references = lab_fintech_stack_recommendations(profile, repo_root=repo_root) if profile else []
     procurement = procurement_recommendations(profile, repo_root=repo_root) if profile else []
     starters = cold_start_prompts(profile)
