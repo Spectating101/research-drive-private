@@ -34,9 +34,26 @@ def test_main_starts_the_warmup():
 
 
 def test_main_starts_the_composer_health_monitor():
-    main = _fn(ast.parse(SERVER.read_text()), "main")
-    assert main is not None
-    assert "_start_composer_health_monitor" in _calls(main)
+    warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
+    assert warm is not None
+    assert "_start_composer_health_monitor" in _calls(warm)
+
+
+def test_composer_monitor_is_sequenced_after_search_warmup():
+    warm = _fn(ast.parse(SERVER.read_text()), "_start_search_warmup")
+    run = _fn(warm, "_run")
+    assert run is not None
+    tries = [node for node in ast.walk(run) if isinstance(node, ast.Try)]
+    assert any(
+        "_start_composer_health_monitor" in _calls(node)
+        and any(
+            isinstance(child, ast.Call)
+            and getattr(child.func, "id", "") == "_start_composer_health_monitor"
+            for final_node in node.finalbody
+            for child in ast.walk(final_node)
+        )
+        for node in tries
+    ), "Composer observation must start from warmup finally, after search settles or fails"
 
 
 def test_composer_health_monitor_is_fail_open_for_server_startup():

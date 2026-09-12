@@ -541,6 +541,14 @@ def _start_search_warmup(stack) -> None:
             )
         except Exception as exc:
             print(f"search_warmup=failed ({type(exc).__name__}: {exc})", flush=True)
+        finally:
+            # Both warmers perform substantial provider/model initialization.
+            # Starting them together stretched the measured search warmup from
+            # ~16s to 49.5s and starved /datasets for roughly 40s after a real
+            # restart. Sequence the optional Composer observation behind search
+            # residency so the visible research estate is never competing with
+            # two cold model stacks at once. Failure remains fail-open.
+            _start_composer_health_monitor()
 
     threading.Thread(target=_run, name="search-warmup", daemon=True).start()
 
@@ -587,7 +595,6 @@ def main() -> int:
     ResearchQueryHandler.cors_origin = cors_origin
     server = ThreadingHTTPServer((args.host, args.port), ResearchQueryHandler)
     _start_search_warmup(stack)
-    _start_composer_health_monitor()
     print(f"research_library_api=http://{args.host}:{args.port}")
     if args.serve_ui:
         print(f"research_desk_ui=http://{args.host}:{args.port}/  (static from {static_dir})")
