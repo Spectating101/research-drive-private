@@ -14,12 +14,63 @@ from __future__ import annotations
 
 import socket
 import urllib.error
+from pathlib import PurePath
 
 from typing import Any, Callable
 
 from scripts.research_data_mcp.bootstrap import ResearchLibraryStack
 
 Handler = Callable[[ResearchLibraryStack, dict[str, str], dict[str, Any], dict[str, str]], dict[str, Any]]
+
+_INTERNAL_LOCATOR_KEYS = {
+    "canonical_remote",
+    "gdrive_path",
+    "local_path",
+    "local_root",
+    "remote_path",
+    "target_drive_path",
+    "vault_path",
+}
+_INTERNAL_PATH_PREFIXES = (
+    "/home/",
+    "/media/",
+    "/mnt/",
+    "/opt/",
+    "/run/media/",
+    "/srv/",
+    "/tmp/",
+    "/var/lib/",
+)
+
+
+def _researcher_query_projection(value: Any, *, key: str = "") -> Any:
+    """Remove host storage topology from browser/API query responses.
+
+    Gateway and MCP callers retain the complete query result.  The HTTP query
+    surface is researcher-facing, so internal locators are not part of its
+    contract.  A data column that happens to contain an absolute source file
+    keeps the useful basename without disclosing the host mount or checkout.
+    """
+    if key in _INTERNAL_LOCATOR_KEYS:
+        return None
+    if isinstance(value, dict):
+        return {
+            child_key: _researcher_query_projection(child_value, key=str(child_key))
+            for child_key, child_value in value.items()
+            if str(child_key) not in _INTERNAL_LOCATOR_KEYS
+        }
+    if isinstance(value, list):
+        return [_researcher_query_projection(item) for item in value]
+    if isinstance(value, tuple):
+        return [_researcher_query_projection(item) for item in value]
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if stripped.startswith("file://"):
+        stripped = stripped[7:]
+    if stripped.startswith(_INTERNAL_PATH_PREFIXES):
+        return PurePath(stripped).name or "[internal path hidden]"
+    return value
 
 ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/health", "handler": "health"},
@@ -338,7 +389,7 @@ def _handlers() -> dict[str, Handler]:
             params["id"],
             meta={"limit": query.get("limit"), "rows": len(out.get("rows") or []) if isinstance(out, dict) else None},
         )
-        return out
+        return _researcher_query_projection(out)
 
     def library_catalog(stack, query, payload, params):
         return stack.gateway.procurement_catalog(q=query.get("q", ""), limit=int(query.get("limit", 50)))
