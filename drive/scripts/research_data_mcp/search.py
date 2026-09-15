@@ -172,7 +172,12 @@ class SearchService:
             all_registry,
             registry_path=self.registry_path,
             repo_root=self.repo_root,
-            include_partition_lanes=True,
+            # Library fetches the authoritative partition tree from its own
+            # /library/partitions route. Recomputing that filesystem-heavy tree
+            # inside every /datasets response made a cold public session wait
+            # more than a minute on a swap-pressured host, while duplicating data
+            # the browser did not consume here.
+            include_partition_lanes=False,
         )
         if q.strip() or readiness or access_shape:
             registry_rows = self.engine.search_datasets(
@@ -256,8 +261,6 @@ class SearchService:
                     "completed != registered != query_ready."
                 ),
             ),
-            "ops_datasets_hidden": hidden_ops,
-            "include_ops": bool(include_ops),
             "authority_summary": {
                 "registry_rows": sum(1 for row in rows if row.get("backend") != "registered_asset_receipt"),
                 "receipt_recovery_rows": sum(1 for row in rows if row.get("backend") == "registered_asset_receipt"),
