@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from contextvars import copy_context
 from pathlib import Path
 from typing import Any
 
@@ -215,7 +216,15 @@ def warm_desk_session(
 
         state["desk_priming"] = True
         orch.sessions.update_state(sid, state)
-        threading.Thread(target=_run, name=f"desk-warm-{sid[:8]}", daemon=True).start()
+        # Preserve the authenticated principal while priming. Otherwise the
+        # reusable Copilot session starts with an unscoped MCP server and later
+        # principal-owned tools (profile memory, private history) fail closed.
+        request_context = copy_context()
+        threading.Thread(
+            target=lambda: request_context.run(_run),
+            name=f"desk-warm-{sid[:8]}",
+            daemon=True,
+        ).start()
         return {"session_id": sid, "primed": False, "priming": True, "composer": True}
 
     ok = prime_desk_agent(gateway, state, sid)
