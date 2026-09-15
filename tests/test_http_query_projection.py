@@ -6,6 +6,37 @@ from scripts.research_data_mcp import http_router
 class _Gateway:
     repo_root = "/tmp/research-drive-test"
 
+    def list_datasets(self, **params):
+        assert params["limit"] == 200
+        return {
+            "datasets": [
+                {
+                    "dataset_id": "sample",
+                    "readiness_note": (
+                        "missing panel file: "
+                        "/mnt/research-data/private/tree/panel.parquet"
+                    ),
+                    "quarantine": {
+                        "path": "/mnt/research-data/private/quarantine/panel.parquet",
+                        "manifest": "/mnt/research-data/private/quarantine/manifest.json",
+                        "reason": "schema mismatch",
+                    },
+                }
+            ],
+            "total": 1,
+        }
+
+    def describe_dataset(self, dataset_id):
+        assert dataset_id == "sample"
+        return {
+            "dataset_id": dataset_id,
+            "local_path": "/home/user/private.csv",
+            "quarantine": {
+                "path": "/mnt/research-data/private/quarantine/panel.parquet",
+                "reason": "schema mismatch",
+            },
+        }
+
     def query_dataset(self, dataset_id, params):
         assert dataset_id == "sample"
         assert params == {"limit": 1}
@@ -71,3 +102,31 @@ def test_http_query_handler_projects_rows_without_changing_gateway_query():
         "structured": {"label": "kept"},
     }
     assert response["body"]["meta"] == {"returned": 1}
+
+
+def test_http_dataset_handlers_project_nested_storage_topology():
+    stack = SimpleNamespace(gateway=_Gateway())
+
+    listing = http_router._dispatch("GET", "/datasets", {}, {}, stack)
+    detail = http_router._dispatch("GET", "/datasets/sample", {}, {}, stack)
+
+    assert listing["status"] == 200
+    assert listing["body"] == {
+        "datasets": [
+            {
+                "dataset_id": "sample",
+                "readiness_note": "missing panel file: panel.parquet",
+                "quarantine": {
+                    "path": "panel.parquet",
+                    "manifest": "manifest.json",
+                    "reason": "schema mismatch",
+                },
+            }
+        ],
+        "total": 1,
+    }
+    assert detail["status"] == 200
+    assert detail["body"] == {
+        "dataset_id": "sample",
+        "quarantine": {"path": "panel.parquet", "reason": "schema mismatch"},
+    }

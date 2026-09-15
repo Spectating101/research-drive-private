@@ -13,6 +13,7 @@ Composer agents should use MCP stdio tools, not duplicate HTTP paths.
 from __future__ import annotations
 
 import socket
+import re
 import urllib.error
 from pathlib import PurePath
 
@@ -41,6 +42,15 @@ _INTERNAL_PATH_PREFIXES = (
     "/tmp/",
     "/var/lib/",
 )
+_INTERNAL_PATH_FRAGMENT = re.compile(
+    r"(?:file://)?(?:/home|/media|/mnt|/opt|/run/media|/srv|/tmp|/var/lib)/[^\s,;)}\]>'\"]+"
+)
+
+
+def _replace_internal_path_fragment(match: re.Match[str]) -> str:
+    raw = match.group(0)
+    path = raw[7:] if raw.startswith("file://") else raw
+    return PurePath(path).name or "[internal path hidden]"
 
 
 def _researcher_query_projection(value: Any, *, key: str = "") -> Any:
@@ -70,7 +80,7 @@ def _researcher_query_projection(value: Any, *, key: str = "") -> Any:
         stripped = stripped[7:]
     if stripped.startswith(_INTERNAL_PATH_PREFIXES):
         return PurePath(stripped).name or "[internal path hidden]"
-    return value
+    return _INTERNAL_PATH_FRAGMENT.sub(_replace_internal_path_fragment, value)
 
 ROUTE_CATALOG: list[dict[str, str]] = [
     {"method": "GET", "path": "/health", "handler": "health"},
@@ -367,16 +377,18 @@ def _handlers() -> dict[str, Handler]:
     def datasets(stack, query, payload, params):
         q = str(query.get("q") or query.get("query") or "").strip()
         include_ops = str(query.get("include_ops") or "").strip().lower() in {"1", "true", "yes"}
-        return stack.gateway.list_datasets(
-            q=q,
-            readiness=str(query.get("readiness") or "").strip(),
-            access_shape=str(query.get("access_shape") or query.get("access_mode") or "").strip(),
-            limit=_query_int(query, "limit", 200),
-            include_ops=include_ops,
+        return _researcher_query_projection(
+            stack.gateway.list_datasets(
+                q=q,
+                readiness=str(query.get("readiness") or "").strip(),
+                access_shape=str(query.get("access_shape") or query.get("access_mode") or "").strip(),
+                limit=_query_int(query, "limit", 200),
+                include_ops=include_ops,
+            )
         )
 
     def dataset_describe(stack, query, payload, params):
-        return stack.gateway.describe_dataset(params["id"])
+        return _researcher_query_projection(stack.gateway.describe_dataset(params["id"]))
 
     def dataset_query(stack, query, payload, params):
         params_out = dict(query)
