@@ -48,6 +48,7 @@ def test_synthesis_mcp_is_limited_to_wire_verified_nonexecuting_tools(monkeypatc
     )
 
     assert config["tools"] == [
+        "research_profile_memory",
         "research_semantic_discover",
         "research_discover_search",
         "research_describe_dataset",

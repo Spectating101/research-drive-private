@@ -727,6 +727,9 @@ def test_synthesis_mcp_registration_is_read_only(monkeypatch):
     assert "research_query_dataset" in names
     assert "research_synthesis_pair" in names
     assert "research_synthesis_propose_state" in names
+    assert "research_profile_memory" in names
+    assert "research_profile_remember" not in names
+    assert "research_profile_forget" not in names
     assert "bigquery_dry_run" in names
     assert "research_synthesis_run" not in names
     assert "datacite_collect_doi" not in names

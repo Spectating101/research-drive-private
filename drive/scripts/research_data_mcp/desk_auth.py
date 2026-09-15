@@ -108,7 +108,7 @@ def required_permission(path: str, method: str = "GET") -> str:
     method_u = str(method or "GET").upper()
     # Account identity is immutable here; this permission controls only the
     # authenticated researcher's principal-scoped research-context profile.
-    if path.rstrip("/") == "/library/profile":
+    if path.rstrip("/") == "/library/profile" or path.startswith("/library/profile/"):
         return "manage_research_profile"
     # Ask and Synthesis hold private, durable researcher context. They need
     # `use_ask` for reads as well as writes; do this before the generic GET

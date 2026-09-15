@@ -6,6 +6,7 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from contextvars import copy_context
 from typing import Any
 
 from scripts.research_data_mcp.procurement_session import ProcurementSessionStore
@@ -301,7 +302,16 @@ class ProcurementChatOrchestrator:
             except Exception as exc:  # noqa: BLE001
                 turn_queue.put(("error", exc))
 
-        thread = threading.Thread(target=run_turn, name=f"procure-chat-{sid[:8]}", daemon=True)
+        # The authenticated desk principal is held in a ContextVar. Python does
+        # not propagate that context into a new thread automatically, so a real
+        # HTTP Ask could be authenticated while its MCP subprocess saw no
+        # principal. Carry the request context into the Composer worker.
+        request_context = copy_context()
+        thread = threading.Thread(
+            target=lambda: request_context.run(run_turn),
+            name=f"procure-chat-{sid[:8]}",
+            daemon=True,
+        )
         thread.start()
         started = time.monotonic()
         from scripts.research_data_mcp.desk_brain import AgentTurn

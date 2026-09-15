@@ -41,6 +41,7 @@ _LOOP: asyncio.AbstractEventLoop | None = None
 _LOOP_THREAD: threading.Thread | None = None
 _CLIENTS: dict[str, Any] = {}
 _SYNTHESIS_SAFE_TOOLS = [
+    "research_profile_memory",
     "research_semantic_discover",
     "research_discover_search",
     "research_describe_dataset",
@@ -49,6 +50,9 @@ _SYNTHESIS_SAFE_TOOLS = [
     "research_synthesis_propose_state",
 ]
 _PUBLIC_MEMBER_SAFE_TOOLS = [
+    "research_profile_memory",
+    "research_profile_remember",
+    "research_profile_forget",
     "collection_status",
     "research_semantic_discover",
     "research_discover_search",
@@ -85,6 +89,9 @@ _MEMBER_SAFE_TOOLS = [
     "research_synthesis_submit_execution",
 ]
 _GENERAL_SAFE_TOOLS = [
+    "research_profile_memory",
+    "research_profile_remember",
+    "research_profile_forget",
     "collection_status",
     "research_semantic_discover",
     "research_discover_search",

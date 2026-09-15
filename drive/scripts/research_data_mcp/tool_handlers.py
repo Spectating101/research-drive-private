@@ -922,6 +922,51 @@ class ResearchToolHandlers:
         """Faculty research profile — stacks, scopes, starter prompts for procurement routing."""
         return self.gateway.faculty_profile(email=email, slug=slug)
 
+    def research_profile_memory(self) -> dict[str, Any]:
+        """List the signed-in researcher's learned memories and memory controls."""
+        from scripts.research_data_mcp.research_profile_memory import (
+            research_memory_document,
+        )
+
+        return research_memory_document(self.gateway.repo_root)
+
+    def research_profile_remember(
+        self,
+        kind: str,
+        value: str,
+        scope: str = "account",
+        project_id: str = "",
+        evidence: str = "",
+    ) -> dict[str, Any]:
+        """Remember durable research context disclosed by the signed-in researcher.
+
+        Use this automatically only for stable research topics, methods, data
+        interests, research goals, or working preferences. Never store secrets,
+        credentials, sensitive personal facts, third-party facts, or a one-off
+        request. The user can inspect, disable, or delete every saved memory.
+        """
+        from scripts.research_data_mcp.research_profile_memory import (
+            remember_research_context,
+        )
+
+        return remember_research_context(
+            self.gateway.repo_root,
+            kind=kind,
+            value=value,
+            scope=scope,
+            project_id=project_id,
+            evidence=evidence,
+            source="ask",
+        )
+
+    def research_profile_forget(self, memory_id: str) -> dict[str, Any]:
+        """Delete one learned research memory owned by the signed-in researcher."""
+        from scripts.research_data_mcp.research_profile_memory import (
+            forget_research_memory,
+        )
+
+        return forget_research_memory(self.gateway.repo_root, memory_id)
+
     def research_mcp_stack_status(self) -> dict[str, Any]:
         """Audit procurement MCP toolbox health — registry, query plane, tool tiers, cluster."""
         from scripts.research_data_mcp.mcp_stack_audit import audit_stack

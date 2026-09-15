@@ -25,6 +25,7 @@ from scripts.research_data_mcp.research_profile import (
     personal_profile,
     profile_configured,
 )
+from scripts.research_data_mcp.research_profile_memory import research_memory_document
 
 
 def _require_research_principal(principal: DeskPrincipal | None = None) -> DeskPrincipal:
@@ -108,11 +109,13 @@ def build_research_seed(
     actor = _require_research_principal(principal)
     saved = personal_profile(repo_root, principal=actor)
     saved_configured = profile_configured(saved)
+    learned_memory = research_memory_document(repo_root, principal=actor)
+    learned_configured = bool(learned_memory.get("active_count"))
     profile = effective_profile_row(repo_root, principal=actor)
     context = _research_context(profile)
     connected = connected_source_authorities(repo_root, principal=actor)
 
-    if saved_configured:
+    if saved_configured or learned_configured:
         mode = "personal_profile"
     elif profile and not profile.get("unknown"):
         mode = "faculty_profile"
@@ -147,6 +150,7 @@ def build_research_seed(
             "connected_sources": len(connected),
             "reference_holdings": len(references),
             "procurement_candidates": len(procurement),
+            "learned_memories": int(learned_memory.get("active_count") or 0),
         },
         "policy": {
             "connected_storage_optional": True,
@@ -155,6 +159,14 @@ def build_research_seed(
             "automatic_recursive_cloud_index": False,
             "materialization_requires_explicit_operation": True,
             "collection_allowed": "submit_collection" in actor.permissions,
-            "profile_source": "user_confirmed" if saved_configured else "cold_start",
+            "profile_source": (
+                "user_confirmed"
+                if saved_configured
+                else "learned_memory"
+                if learned_configured
+                else "cold_start"
+            ),
+            "memory_auto_learn": bool((learned_memory.get("settings") or {}).get("auto_learn")),
+            "memory_in_use": bool((learned_memory.get("settings") or {}).get("use_memory")),
         },
     }

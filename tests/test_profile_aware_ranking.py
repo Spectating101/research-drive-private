@@ -38,6 +38,9 @@ def test_discover_search_applies_the_boost():
 
     src = inspect.getsource(ResearchDataGateway.discover_search)
     assert "profile_score_adjustment" in src, "profile ranking must be reachable from discover"
+    assert "effective_profile_for_email" in src, (
+        "Discover must use principal-scoped personal and learned context, not only faculty rows"
+    )
 
 
 def test_only_positive_adjustments_are_applied():

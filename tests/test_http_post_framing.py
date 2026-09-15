@@ -142,6 +142,7 @@ class UnauthorizedPostFramingTests(unittest.TestCase):
                         '"canonical_remote"',
                         '"target_drive_path"',
                         "/home/",
+                        "/mnt/",
                         "/tmp/",
                         "gdrive:",
                     ):
@@ -158,6 +159,7 @@ class UnauthorizedPostFramingTests(unittest.TestCase):
                     '"local_path"',
                     '"canonical_remote"',
                     "/home/",
+                    "/mnt/",
                     "/tmp/",
                     "gdrive:",
                 ):
