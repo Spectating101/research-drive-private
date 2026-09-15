@@ -222,6 +222,16 @@ def effective_profile_row(
     base = dict(faculty) if isinstance(faculty, dict) else {}
     saved = _load_saved(repo_root, actor)
     configured = profile_configured(saved)
+    try:
+        from scripts.research_data_mcp.research_profile_memory import (
+            active_research_memories,
+        )
+
+        learned = active_research_memories(repo_root, principal=actor)
+    except Exception:
+        # Learned memory is optional enrichment. A damaged or unavailable
+        # memory record must not make Profile, Discover, or Ask unavailable.
+        learned = []
     name = actor.display_name or (actor.email.split("@", 1)[0] if actor.email else "Researcher")
     base.update(
         {
@@ -233,26 +243,67 @@ def effective_profile_row(
     )
     if saved.get("discipline"):
         base["discipline"] = saved["discipline"]
-    topics = list(saved.get("research_topics") or [])
-    methods = list(saved.get("methods") or [])
-    interests = list(saved.get("data_interests") or [])
+    learned_topics = [str(row.get("value") or "") for row in learned if row.get("kind") == "topic"]
+    learned_methods = [str(row.get("value") or "") for row in learned if row.get("kind") == "method"]
+    learned_interests = [
+        str(row.get("value") or "") for row in learned if row.get("kind") == "data_interest"
+    ]
+    learned_goals = [
+        str(row.get("value") or "") for row in learned if row.get("kind") == "research_goal"
+    ]
+    learned_preferences = [
+        str(row.get("value") or "") for row in learned if row.get("kind") == "preference"
+    ]
+    topics = list(dict.fromkeys([*(saved.get("research_topics") or []), *learned_topics]))
+    methods = list(dict.fromkeys([*(saved.get("methods") or []), *learned_methods]))
+    interests = list(dict.fromkeys([*(saved.get("data_interests") or []), *learned_interests]))
     if topics:
         base["specialties"] = topics
     if methods:
         base["method_tags"] = methods
     if topics or interests:
         base["research_keywords"] = list(dict.fromkeys([*topics, *interests]))
+    tracks: list[dict[str, Any]] = []
     if saved.get("current_project"):
-        base["research_tracks"] = [
+        tracks.append(
             {
                 "id": "personal-current-project",
                 "title": saved["current_project"],
                 "phase": "user_confirmed",
                 "weight": 1.0,
             }
+        )
+    tracks.extend(
+        {
+            "id": f"learned-goal-{index + 1}",
+            "title": goal,
+            "phase": "learned_memory",
+            "weight": 0.65,
+        }
+        for index, goal in enumerate(learned_goals[:3])
+        if goal
+    )
+    if tracks:
+        base["research_tracks"] = tracks
+    if learned_preferences:
+        base["research_preferences"] = learned_preferences
+    if learned:
+        base["learned_memories"] = [
+            {
+                key: row.get(key)
+                for key in ("id", "kind", "value", "scope", "project_id", "updated_at")
+            }
+            for row in learned
         ]
-    if configured:
-        base["starter_prompts"] = _starter_prompts(saved)
+    if configured or learned:
+        prompt_profile = {
+            **saved,
+            "research_topics": topics,
+            "methods": methods,
+            "data_interests": interests,
+            "current_project": saved.get("current_project") or (learned_goals[0] if learned_goals else ""),
+        }
+        base["starter_prompts"] = _starter_prompts(prompt_profile)
         base["unknown"] = False
     else:
         base.setdefault("unknown", True)
@@ -283,6 +334,20 @@ def research_profile_document(
     actor = _require_researcher(principal)
     saved = _load_saved(repo_root, actor)
     configured = profile_configured(saved)
+    try:
+        from scripts.research_data_mcp.research_profile_memory import (
+            research_memory_document,
+        )
+
+        memory = research_memory_document(repo_root, principal=actor)
+    except Exception:
+        memory = {
+            "version": 1,
+            "settings": {"auto_learn": False, "use_memory": False},
+            "memories": [],
+            "active_count": 0,
+            "unavailable": True,
+        }
     return {
         "version": 1,
         "principal": actor.public_dict(),
@@ -290,9 +355,11 @@ def research_profile_document(
         "configured": configured,
         "onboarding_required": not configured,
         "starter_prompts": _starter_prompts(saved),
+        "memory": memory,
         "authority": {
             "identity": "authenticated_principal",
             "research_context": "user_confirmed" if configured else "empty",
+            "learned_memory": "active" if memory.get("active_count") else "empty",
             "faculty_registry_is_account_authority": False,
             "role_editable_here": False,
             "storage": "runtime_drive" if os.getenv("YZU_RUNTIME_DRIVE_ROOT") else "repo_local_dev",

@@ -743,11 +743,15 @@ class ResearchDataGateway:
             bigquery_route_hints,
             expand_datacite_queries,
             normalize_email,
-            resolve_profile,
         )
         from scripts.research_data_mcp.procurement_search import smart_search
+        from scripts.research_data_mcp.research_profile import effective_profile_for_email
 
-        profile = resolve_profile(email=normalize_email(email)) if email else None
+        profile = (
+            effective_profile_for_email(self.repo_root, normalize_email(email))
+            if email
+            else None
+        )
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
         seen = {str(c.get("dataset_id") or "") for c in candidates if c.get("dataset_id")}

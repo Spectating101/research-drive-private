@@ -95,6 +95,9 @@ def test_mcp_role_profiles_keep_approval_operator_only(monkeypatch):
     public_tools = set(registered_tool_names())
     assert "research_discover_search" in public_tools
     assert "research_craft_discover_proposal" in public_tools
+    assert "research_profile_memory" in public_tools
+    assert "research_profile_remember" in public_tools
+    assert "research_profile_forget" in public_tools
     assert "research_discover_submit_intent" not in public_tools
     assert "yzu_submit_job" not in public_tools
     assert "yzu_approve_job" not in public_tools

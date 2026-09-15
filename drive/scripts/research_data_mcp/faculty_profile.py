@@ -548,6 +548,9 @@ def agent_research_context(profile: dict[str, Any] | None) -> str:
         papers = f"{ssrn[0].get('title', '')[:90]}; {papers}".strip("; ")
     grant = primary_research_track(profile)
     routes = ", ".join(sorted({str(r.get("source_route") or "") for r in procurement_recommendations(profile, limit=8)}))
+    preferences = ", ".join(
+        str(value) for value in (profile.get("research_preferences") or [])[:4]
+    )
     bits = [f"Researcher: {label}."]
     if specialties:
         bits.append(f"Specialties: {specialties}.")
@@ -559,6 +562,8 @@ def agent_research_context(profile: dict[str, Any] | None) -> str:
         bits.append(f"Active direction: {str(grant['title'])[:120]}.")
     if methods:
         bits.append(f"Methods: {methods}.")
+    if preferences:
+        bits.append(f"Research preferences: {preferences}.")
     if routes:
         bits.append(f"When sourcing missing data, prefer routes: {routes}.")
     bits.append(
@@ -718,6 +723,8 @@ def profile_summary(profile: dict[str, Any], *, repo_root: Path | None = None) -
         "recommendation_clusters": recommendation_route_clusters(profile, repo_root=repo_root),
         "bigquery_hints": bigquery_route_hints(profile),
         "research_tracks": profile.get("research_tracks") or [],
+        "research_preferences": profile.get("research_preferences") or [],
+        "learned_memories": profile.get("learned_memories") or [],
         # Held reference pieces only — not branded product modules (OpenSea/Skynet/etc.).
         "reference_holdings": [
             {
