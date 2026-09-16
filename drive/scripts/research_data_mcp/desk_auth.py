@@ -382,13 +382,36 @@ def desk_capability_document(handler: BaseHTTPRequestHandler) -> dict[str, objec
     authenticated = principal is not None
     cloudflare_sign_in = bool(cloudflare_access_configured())
     access_code_sign_in = member_access_codes_configured()
+    permissions = permissions_document(principal)
+    # Members need the same small runtime truth that gates Ask and Synthesis,
+    # but they must not receive the operator-only /health payload. Read the
+    # in-process observation only; this never invokes the provider.
+    assistant_runtime = None
+    if permissions.get("use_ask"):
+        from scripts.research_data_mcp.desk_brain import composer_runtime_status
+
+        observed = composer_runtime_status()
+        assistant_runtime = {
+            key: observed.get(key)
+            for key in (
+                "status",
+                "verified",
+                "checked_at",
+                "model",
+                "error_category",
+                "age_seconds",
+                "max_age_seconds",
+                "configured",
+            )
+        }
     return {
         "version": 2,
         "authenticated": authenticated,
         "server_configured": configured,
         "access": principal.role if principal else "locked",
         "principal": principal.public_dict() if principal else None,
-        "permissions": permissions_document(principal),
+        "permissions": permissions,
+        "assistant_runtime": assistant_runtime,
         "tenancy": {
             "mode": "personal-work",
             "identity_aware": True,

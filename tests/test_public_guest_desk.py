@@ -102,8 +102,53 @@ def test_capabilities_describe_guest_without_exposing_private_permissions():
     assert document["permissions"]["use_ask"] is False
     assert document["permissions"]["submit_collection"] is False
     assert document["permissions"]["approve_jobs"] is False
+    assert document["assistant_runtime"] is None
     assert document["session"]["public_guest_available"] is True
     assert document["session"]["member_sign_in_mode"] is None
+
+
+def test_capabilities_give_ask_members_sanitized_runtime_truth(monkeypatch):
+    from scripts.research_data_mcp import desk_brain
+    from scripts.research_data_mcp.desk_principal import DeskPrincipal
+
+    member = DeskPrincipal(
+        principal_id="member-runtime-test",
+        email="member@example.test",
+        display_name="Member",
+        role="member",
+    )
+    monkeypatch.setattr(desk_auth, "request_desk_principal", lambda _handler: member)
+    monkeypatch.setattr(
+        desk_brain,
+        "composer_runtime_status",
+        lambda _repo_root=None: {
+            "status": "ready",
+            "verified": True,
+            "checked_at": "2026-09-17T00:00:00+00:00",
+            "model": "gpt-test",
+            "error_category": None,
+            "age_seconds": 2,
+            "max_age_seconds": 14400,
+            "configured": True,
+            "brain": "copilot_composer",
+            "provider_accounts": [{"account": "must-not-leak"}],
+        },
+    )
+
+    document = desk_auth.desk_capability_document(FakeHandler(Host="previous.easycamp.tech"))
+
+    assert document["assistant_runtime"] == {
+        "status": "ready",
+        "verified": True,
+        "checked_at": "2026-09-17T00:00:00+00:00",
+        "model": "gpt-test",
+        "error_category": None,
+        "age_seconds": 2,
+        "max_age_seconds": 14400,
+        "configured": True,
+    }
+    assert "brain" not in document["assistant_runtime"]
+    assert "provider_accounts" not in document["assistant_runtime"]
 
 
 def test_capabilities_name_invitation_code_mode(monkeypatch):
