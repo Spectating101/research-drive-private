@@ -23,10 +23,11 @@ from scripts.research_data_mcp.desk_ownership import (
     owner_id_for_create,
     require_owner,
 )
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 
 
 def discover_intent_store_path(repo_root: str | Path) -> Path:
-    return Path(repo_root).resolve() / "data_lake/procurement_memory/discover_intents.sqlite3"
+    return procurement_memory_path(repo_root, "discover_intents.sqlite3")
 
 
 def _now() -> str:

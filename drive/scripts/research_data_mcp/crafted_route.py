@@ -25,6 +25,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
+
 SCHEMA = 1
 # A route is only a capability once it has produced something. Anything else is
 # a draft, however good the reasoning behind it looked.
@@ -52,7 +54,7 @@ def route_identity(plan: dict[str, Any]) -> str:
 
 
 def store_path(repo_root: Path | str) -> Path:
-    return Path(repo_root) / "data_lake" / "procurement_memory" / "crafted_routes.json"
+    return procurement_memory_path(repo_root, "crafted_routes.json")
 
 
 def _load(path: Path) -> dict[str, Any]:

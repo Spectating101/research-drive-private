@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
+
 
 def catalog_fingerprint(repo_root: Path, registry_path: Path | None = None) -> str:
     """Invalidate caches when registry, collection queue or source map changes.
@@ -41,7 +43,7 @@ def goal_key(goal: str) -> str:
 
 class ProcurementCache:
     def __init__(self, repo_root: Path) -> None:
-        self.root = Path(repo_root).resolve() / "data_lake/procurement_memory/cache"
+        self.root = procurement_memory_path(repo_root, "cache")
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, namespace: str, key: str) -> Path:

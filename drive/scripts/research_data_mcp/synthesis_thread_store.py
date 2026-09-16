@@ -26,6 +26,7 @@ from scripts.research_data_mcp.desk_ownership import (
     owner_id_for_create,
     require_owner,
 )
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 
 
 ALLOWED_PATCH_OPS = frozenset(
@@ -65,7 +66,7 @@ def _now() -> str:
 
 
 def default_synthesis_thread_db(repo_root: Path) -> Path:
-    return Path(repo_root).resolve() / "data_lake/procurement_memory/synthesis_threads.sqlite3"
+    return procurement_memory_path(repo_root, "synthesis_threads.sqlite3")
 
 
 def empty_construction_state(

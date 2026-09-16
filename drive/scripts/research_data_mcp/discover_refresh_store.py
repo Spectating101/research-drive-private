@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Any
 
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
+
 ALLOWED_CADENCES = frozenset({"manual", "daily", "weekly", "monthly"})
 ACTIVE = "active"
 PAUSED = "paused"
@@ -27,7 +29,7 @@ EXECUTION_NOTE_NON = "Recorded for Discover History and review only; no automati
 
 
 def discover_refresh_store_path(repo_root: str | Path) -> Path:
-    return Path(repo_root).resolve() / "data_lake/procurement_memory/discover_refresh_subscriptions.sqlite3"
+    return procurement_memory_path(repo_root, "discover_refresh_subscriptions.sqlite3")
 
 
 def _now() -> str:
