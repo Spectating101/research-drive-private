@@ -2217,7 +2217,9 @@ class ResearchDataGateway:
         *,
         dataset_ids: list | None = None,
     ) -> dict:
-        """Persist only the exact held inputs a researcher reviewed and chose."""
+        """Persist only exact, registry-proven held inputs a researcher chose."""
+        from scripts.research_data_mcp.synthesis.evidence_map import evidence_node_for_dataset
+
         proposal = self.synthesis_thread_evidence_map(thread_id, limit=12)
         candidates = {
             str(node.get("dataset_id") or node.get("id") or ""): node
@@ -2231,9 +2233,26 @@ class ResearchDataGateway:
                 requested.append(value)
         if not requested:
             raise ValueError("Select one or more proposed held inputs before adding them to the map.")
+
+        # Discover already exposes exact held dataset identities.  Requiring a
+        # second semantic search to rediscover those same ids made the handoff
+        # lossy: a valid Library match could disappear between surfaces.  Keep
+        # semantic proposals as the normal path, but admit an exact reviewed id
+        # only after the server proves it still exists in the registry.
+        for value in requested:
+            if value in candidates:
+                continue
+            node = evidence_node_for_dataset(
+                self,
+                value,
+                proposed_by="discover_exact_handoff",
+                require_registry=True,
+            )
+            if node:
+                candidates[value] = node
         unknown = [value for value in requested if value not in candidates]
         if unknown:
-            raise ValueError("Only inputs in the current held-evidence proposal can be added to this map.")
+            raise ValueError("Only exact inputs currently held in the Library can be added to this map.")
 
         operations = [{"op": "add_node", "node": candidates[value]} for value in requested]
         operations.append(

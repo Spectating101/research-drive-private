@@ -33,20 +33,50 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _readiness(gateway: Any, dataset_id: str) -> dict[str, Any]:
-    """Registry truth for one dataset, or nothing. Never a guess."""
+def evidence_node_for_dataset(
+    gateway: Any,
+    dataset_id: str,
+    *,
+    label: str = "",
+    proposed_by: str = "semantic_evidence_map",
+    require_registry: bool = False,
+) -> dict[str, Any] | None:
+    """Shape one exact registry dataset as a Synthesis evidence node.
+
+    ``require_registry`` is used for identities supplied by a client handoff:
+    unlike semantic results, an arbitrary id must prove that the Library can
+    describe it before it may become durable thread evidence.
+    """
+    dataset_id = _text(dataset_id)
+    if not dataset_id:
+        return None
     try:
         row = gateway.describe_dataset(dataset_id) or {}
     except Exception:
-        return {}
+        if require_registry:
+            return None
+        row = {}
+    if require_registry and not row:
+        return None
     materialization = row.get("materialization")
     materialization = materialization if isinstance(materialization, dict) else {}
-    return {
-        "readiness": _text(row.get("readiness")) or _text(materialization.get("readiness")),
+    node: dict[str, Any] = {
+        "id": dataset_id,
+        "dataset_id": dataset_id,
+        "type": _NODE_TYPE,
+        "layer": _NODE_LAYER,
+        "label": _text(label) or _text(row.get("title")) or _text(row.get("name")) or dataset_id,
+        "status": _text(row.get("readiness")) or _text(materialization.get("readiness")) or "registered",
         "query_ready": bool(materialization.get("query_ready")),
-        "grain": _text(row.get("grain")) or _text(materialization.get("grain")),
-        "coverage": _text(row.get("coverage")) or _text(row.get("period")),
+        "proposed_by": _text(proposed_by) or "semantic_evidence_map",
     }
+    grain = _text(row.get("grain")) or _text(materialization.get("grain"))
+    coverage = _text(row.get("coverage")) or _text(row.get("period"))
+    if grain:
+        node["grain"] = grain
+    if coverage:
+        node["coverage"] = coverage
+    return node
 
 
 def propose_evidence_nodes(gateway: Any, objective: str, *, limit: int = 6) -> dict[str, Any]:
@@ -76,23 +106,17 @@ def propose_evidence_nodes(gateway: Any, objective: str, *, limit: int = 6) -> d
         dataset_id = _text(row.get("dataset_id"))
         if not dataset_id:
             continue
-        facts = _readiness(gateway, dataset_id)
-        node: dict[str, Any] = {
-            "id": dataset_id,
-            "dataset_id": dataset_id,
-            "type": _NODE_TYPE,
-            "layer": _NODE_LAYER,
-            "label": _text(row.get("title")) or dataset_id,
-            "status": facts.get("readiness") or "registered",
-            "query_ready": facts.get("query_ready", False),
-            "proposed_by": "semantic_evidence_map",
-        }
-        grain = facts.get("grain") or _text(row.get("grain"))
-        coverage = facts.get("coverage") or _text(row.get("coverage"))
-        if grain:
-            node["grain"] = grain
-        if coverage:
-            node["coverage"] = coverage
+        node = evidence_node_for_dataset(
+            gateway,
+            dataset_id,
+            label=_text(row.get("title")),
+        )
+        if not node:
+            continue
+        if "grain" not in node and _text(row.get("grain")):
+            node["grain"] = _text(row.get("grain"))
+        if "coverage" not in node and _text(row.get("coverage")):
+            node["coverage"] = _text(row.get("coverage"))
         nodes.append(node)
 
     if not nodes:
