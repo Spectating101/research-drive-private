@@ -13,9 +13,6 @@ case "$mode" in
 esac
 
 env_file="${FRONT_DOOR_ENV:-$HOME/.config/research-drive/front-door.env}"
-unit="${FRONT_DOOR_SERVICE_UNIT:-research-drive-front-door.service}"
-max_wait="${RESTARTABILITY_MAX_WAIT_SECONDS:-45}"
-max_search="${RESTARTABILITY_COLD_SEARCH_MAX_SECONDS:-8}"
 
 for command in systemctl loginctl curl python3 git stat sha256sum; do
   command -v "$command" >/dev/null 2>&1 || { echo "missing command: $command" >&2; exit 2; }
@@ -32,6 +29,13 @@ set +u
 # shellcheck disable=SC1090
 set -a; . "$env_file"; set +a
 set -u
+
+# Candidate env files own their service identity and timing contract. Resolve
+# these only after sourcing the selected environment; doing it earlier silently
+# restarted the default front door while probing an RC service on another port.
+unit="${FRONT_DOOR_SERVICE_UNIT:-research-drive-front-door.service}"
+max_wait="${RESTARTABILITY_MAX_WAIT_SECONDS:-45}"
+max_search="${RESTARTABILITY_COLD_SEARCH_MAX_SECONDS:-8}"
 
 host="${YZU_DESK_HOST:?YZU_DESK_HOST is required}"
 port="${YZU_DESK_PORT:-8765}"
