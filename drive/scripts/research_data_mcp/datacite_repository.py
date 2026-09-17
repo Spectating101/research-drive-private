@@ -167,6 +167,10 @@ def build_http_manifest_plan(
     return {
         "title": str(resolved.get("title") or f"DataCite {doi}"),
         "job_type": "http_manifest",
+        # A repository/provider connector is not the durable identity of the
+        # acquired dataset.  Pin the DOI-derived identity in the plan so two
+        # Zenodo acquisitions cannot overwrite the same ``zenodo`` registry row.
+        "dataset_id": f"datacite_{slug.replace('.', '_')}",
         "connector_id": f"datacite_{slug}",
         "url": landing,
         "items": [{"url": chosen["url"], "filename": chosen["key"]}],

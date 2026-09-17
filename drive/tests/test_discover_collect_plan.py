@@ -120,6 +120,7 @@ def test_selected_doi_prefers_dataset_payload_over_smaller_readme(monkeypatch):
         }
     ]
     assert plan["datacite_file"] == "hades-th228-source-run.csv"
+    assert plan["dataset_id"] == "datacite_10_5281_zenodo_22799602"
 
 
 def test_zenodo_record_url_can_resolve_when_datacite_metadata_lags(monkeypatch):

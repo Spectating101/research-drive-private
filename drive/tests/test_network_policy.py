@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 from urllib.request import Request
 
@@ -90,6 +91,52 @@ def test_manifest_rejects_private_target_without_attempting_download(tmp_path: P
     assert report["items"][0]["attempts"] == 0
     assert "not public" in report["items"][0]["error"]
     assert not artifact.exists()
+
+
+def test_manifest_preserves_declared_repository_filename(monkeypatch, tmp_path: Path) -> None:
+    """An opaque ``/content`` URL must still land as the declared CSV name."""
+    from scripts.cluster_agent import remote_collect
+
+    source = tmp_path / "payload"
+    source.write_text("id,value\n1,alpha\n", encoding="utf-8")
+
+    def fake_download(item, *, index, name, output_dir, **_kwargs):
+        target = output_dir / name
+        target.write_bytes(source.read_bytes())
+        return remote_collect.ItemResult(
+            index=index,
+            url=str(item["url"]),
+            name=name,
+            ok=True,
+            attempts=1,
+            bytes=target.stat().st_size,
+            local_path=str(target),
+        )
+
+    monkeypatch.setattr(remote_collect, "_download_item", fake_download)
+    manifest = tmp_path / "manifest.json"
+    artifact = tmp_path / "artifact.zip"
+    manifest.write_text(
+        json.dumps(
+            {
+                "job_id": "filename-canary",
+                "items": [
+                    {
+                        "url": "https://zenodo.org/api/records/1/files/panel.csv/content",
+                        "filename": "panel.csv",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code, report = collect_manifest(manifest, artifact, retries=0, delay=0)
+
+    assert code == 0
+    assert report["items"][0]["name"] == "panel.csv"
+    with zipfile.ZipFile(artifact) as archive:
+        assert "raw/panel.csv" in archive.namelist()
 
 
 def test_pick_pinned_address_prefers_ipv4():

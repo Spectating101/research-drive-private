@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
+from scripts.research_data_mcp.drive_first import compact_ephemeral_path
 from scripts.yzu_cluster.acquisitions import materialize_job, prove_query_smoke
 
 
@@ -129,6 +130,26 @@ def test_materialize_same_revision_different_bytes_is_rejected(tmp_path: Path):
             dict(plan),
             {"artifacts": [{"artifact": "data_lake/yzu_cluster/jobs/j2/b.zip"}]},
         )
+
+
+def test_drive_compaction_never_removes_procured_revision_bytes(tmp_path: Path):
+    revision = tmp_path / "data_lake/procured/doi_asset/revisions/rev_j1"
+    revision.mkdir(parents=True)
+    payload = revision / "panel.csv"
+    payload.write_text("id,value\n1,alpha\n", encoding="utf-8")
+    (revision.parents[1] / "CURRENT.json").write_text(
+        json.dumps({"dataset_id": "doi_asset", "revision_id": "rev_j1"}),
+        encoding="utf-8",
+    )
+
+    result = compact_ephemeral_path(
+        tmp_path,
+        "data_lake/procured/doi_asset/revisions/rev_j1",
+    )
+
+    assert result["skipped"] is True
+    assert result["reason"] == "immutable_revision_retained"
+    assert payload.is_file()
 
 
 def test_query_smoke_requires_real_nonzero_rows(tmp_path: Path):
