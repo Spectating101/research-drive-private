@@ -1,0 +1,34 @@
+name: Portfolio MCP native launch
+on:
+  pull_request:
+    paths: ['integrations/mcp/**', '.github/workflows/portfolio-mcp.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RESEARCH_MCP_SYNTHESIS_READ_ONLY: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Spectating101/cite-refinery
+          ref: c9559e4e217f9f266aa451008cda32c96eee544e
+          path: .mcp-runner
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated native and client environments
+        run: |
+          python -m venv .engine-venv
+          .engine-venv/bin/pip install -e . 'mcp>=1.28,<2' duckdb
+          python -m venv .runner-venv
+          .runner-venv/bin/pip install -e .mcp-runner/integrations/portfolio-mcp
+      - run: .runner-venv/bin/portfolio-mcp probe --manifest integrations/mcp/manifest.json --root . --engine-python "$PWD/.engine-venv/bin/python"
+      - run: .runner-venv/bin/portfolio-mcp call --manifest integrations/mcp/manifest.json --root . --engine-python "$PWD/.engine-venv/bin/python" --tool research_mcp_stack_status
