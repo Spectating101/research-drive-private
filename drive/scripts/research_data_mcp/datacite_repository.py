@@ -16,6 +16,61 @@ from scripts.research_data_mcp.repository_adapters import (
 
 DOI_RE = re.compile(r"\b(10\.\d{4,9}/[^\s\]>\"']+)", re.I)
 
+_DATA_SUFFIXES = (
+    ".csv",
+    ".csv.gz",
+    ".tsv",
+    ".tsv.gz",
+    ".parquet",
+    ".feather",
+    ".arrow",
+    ".jsonl",
+    ".jsonl.gz",
+    ".ndjson",
+    ".geojson",
+    ".json",
+    ".xlsx",
+    ".xls",
+    ".dta",
+    ".sav",
+    ".rds",
+    ".sqlite",
+    ".db",
+    ".gpkg",
+    ".nc",
+    ".h5",
+    ".hdf5",
+)
+_PACKAGE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".7z")
+_DOCUMENT_NAMES = ("readme", "license", "licence", "manifest", "citation", "changelog")
+
+
+def _payload_sort_key(file_row: dict[str, Any]) -> tuple[int, int, str]:
+    """Prefer research bytes over the smallest incidental repository file.
+
+    Repository APIs commonly return a README or license before the actual
+    CSV/parquet payload.  The old size-only ordering made DOI collection look
+    successful while materialising documentation instead of data.  Preserve a
+    deterministic, bounded default: structured data first, then packages,
+    then other files, with documentation last.
+    """
+    key = str(file_row.get("key") or file_row.get("name") or "").strip().lower()
+    basename = key.rsplit("/", 1)[-1]
+    if any(basename.startswith(name) for name in _DOCUMENT_NAMES):
+        priority = 3
+    elif any(basename.endswith(suffix) for suffix in _DATA_SUFFIXES):
+        priority = 0
+    elif any(basename.endswith(suffix) for suffix in _PACKAGE_SUFFIXES):
+        priority = 1
+    else:
+        priority = 2
+    return (priority, int(file_row.get("size") or 0), basename)
+
+
+def rank_repository_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return a copy ordered for a researcher's default collection choice."""
+    return sorted((dict(row) for row in files if isinstance(row, dict)), key=_payload_sort_key)
+
 
 def extract_doi(text: str) -> str | None:
     match = DOI_RE.search(text or "")
@@ -38,7 +93,7 @@ def resolve_doi(doi: str, *, max_file_bytes: int = DEFAULT_MAX_FILE_BYTES) -> di
     if not repo.get("files") and "doi.org" in landing:
         landing = follow_landing_url(landing)
         repo = resolve_repository(landing, max_file_bytes=max_file_bytes)
-    files = repo.get("files") or []
+    files = rank_repository_files(repo.get("files") or [])
     chosen = files[0] if files else None
     return {
         "doi": clean,
@@ -98,7 +153,7 @@ def build_http_manifest_plan(
     file_index: int = 0,
     destination: str = "",
 ) -> dict[str, Any]:
-    files = resolved.get("files") or []
+    files = rank_repository_files(resolved.get("files") or [])
     if not files:
         raise ValueError(f"no downloadable files for DOI {resolved.get('doi')}")
     if file_index < 0 or file_index >= len(files):
