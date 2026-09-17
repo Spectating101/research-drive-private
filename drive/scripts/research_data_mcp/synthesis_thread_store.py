@@ -660,14 +660,20 @@ class SynthesisThreadStore:
         limit = max(1, min(int(limit or 30), 200))
         owner_clause, owner_args = owner_filter()
         with self._db() as db:
-            if session_id and owner_clause:
+            # An authenticated researcher's durable constructions belong to
+            # the principal, not to the browser/chat session that happened to
+            # create them.  Applying both predicates made saved work disappear
+            # after sign-out, restart, or opening the desk in another browser.
+            # Keep session scoping only for trusted/operator callers where no
+            # principal ownership predicate is present.
+            if owner_clause:
                 ids = [
                     r[0]
                     for r in db.execute(
-                        "SELECT id FROM synthesis_threads WHERE session_id = ? AND "
+                        "SELECT id FROM synthesis_threads WHERE "
                         + owner_clause
                         + " ORDER BY updated_at DESC LIMIT ?",
-                        (session_id, *owner_args, limit),
+                        (*owner_args, limit),
                     )
                 ]
             elif session_id:
@@ -677,16 +683,6 @@ class SynthesisThreadStore:
                         "SELECT id FROM synthesis_threads WHERE session_id = ? "
                         "ORDER BY updated_at DESC LIMIT ?",
                         (session_id, limit),
-                    )
-                ]
-            elif owner_clause:
-                ids = [
-                    r[0]
-                    for r in db.execute(
-                        "SELECT id FROM synthesis_threads WHERE "
-                        + owner_clause
-                        + " ORDER BY updated_at DESC LIMIT ?",
-                        (*owner_args, limit),
                     )
                 ]
             else:
