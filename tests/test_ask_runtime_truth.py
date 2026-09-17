@@ -301,6 +301,10 @@ def test_contextual_does_not_steal_a_corpus_level_research_question():
         "What are the main risks of using this source?",
         "How is the local asset related to this candidate?",
         "Compare this source with the selected Library holding.",
+        (
+            "Please remember this research preference for future recommendations: "
+            "prioritize open public sources."
+        ),
     ],
 )
 def test_contextual_does_not_steal_selected_object_reasoning(prompt):
