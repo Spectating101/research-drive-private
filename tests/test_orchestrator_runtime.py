@@ -80,6 +80,39 @@ def test_orchestrator_executes_only_a_claimed_compatible_job(tmp_path: Path) -> 
     assert completed["runtime"]["attempt"] == 1
 
 
+def test_controller_failure_retries_before_becoming_terminal(tmp_path: Path) -> None:
+    orchestrator = _orchestrator(tmp_path)
+    attempts: list[str] = []
+
+    def fail(_job_id: str, _plan: dict) -> dict:
+        attempts.append("failed")
+        raise RuntimeError("temporary provider failure")
+
+    orchestrator.executor.execute = fail  # type: ignore[method-assign]
+    job = orchestrator.submit(
+        "Retry controller collection",
+        {
+            "job_type": "http_manifest",
+            "url": "https://8.8.8.8/retry.csv",
+            "retryable": True,
+            "max_attempts": 2,
+        },
+        {"_ops_internal": True, "idempotency_key": "controller-retry"},
+        auto_approve=True,
+    )
+
+    retrying = orchestrator.execute_job(job["id"])
+    failed = orchestrator.execute_job(job["id"])
+
+    assert attempts == ["failed", "failed"]
+    assert retrying["status"] == "queued"
+    assert retrying["runtime"]["status"] == "retrying"
+    assert retrying["runtime"]["attempt"] == 1
+    assert failed["status"] == "failed"
+    assert failed["runtime"]["status"] == "failed"
+    assert failed["runtime"]["attempt"] == 2
+
+
 def test_browser_job_stays_queued_without_a_live_browser_worker(tmp_path: Path) -> None:
     orchestrator = _orchestrator(tmp_path, operations={"disable_local_scrape": True})
     job = orchestrator.submit(

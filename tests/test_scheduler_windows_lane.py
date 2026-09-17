@@ -55,7 +55,10 @@ def test_scheduled_http_procurement_is_claimable_by_windows_worker(tmp_path: Pat
                 "job_type": "http_manifest",
                 "dataset_id": "sec_company_tickers_snapshot",
                 "connector_id": "sec_edgar",
-                "url": "https://www.sec.gov/files/company_tickers.json",
+                # Scheduler ownership is the contract under test. Use the
+                # suite's deterministic public fixture host so an unrelated
+                # SEC/DNS outage cannot make queue-routing certification red.
+                "url": "https://example.test/files/company_tickers.json",
             },
         },
     )

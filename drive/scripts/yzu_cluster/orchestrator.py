@@ -350,6 +350,19 @@ class YzuOrchestrator:
                         str(exc),
                         retryable=job.get("plan", {}).get("retryable") is not False,
                     )
+                    retryable = job.get("plan", {}).get("retryable") is not False
+                    if (
+                        retryable
+                        and runtime_state.get("retryable") is not False
+                        and int(runtime_state.get("attempt") or claim.attempt)
+                        < int(runtime_state.get("max_attempts") or claim.attempt)
+                    ):
+                        # Remote workers already make this transition in
+                        # WorkerControlPlane.fail.  The controller owns the same
+                        # runtime contract, so a transient local failure must not
+                        # become terminal merely because it ran on Optiplex.
+                        with self.runtime._lock:
+                            runtime_state = self.runtime.store.retry(claim.run_id)
                 except Exception as runtime_exc:  # noqa: BLE001
                     self.store.event(job_id, "error", f"runtime failure recording failed: {runtime_exc}")
                     try:
