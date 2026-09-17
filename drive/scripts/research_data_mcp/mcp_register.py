@@ -17,6 +17,7 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
         "research_platform_consolidated",
         "research_library_overview",
         "research_faculty_profile",
+        "research_profile_memory",
         "collection_status",
         "research_discover_search",
         "research_discover_source_search",
@@ -76,6 +77,9 @@ SYNTHESIS_READ_ONLY_TOOL_NAMES = frozenset(
 PUBLIC_MEMBER_TOOL_NAMES = frozenset(
     {
         "research_mcp_stack_status",
+        "research_profile_memory",
+        "research_profile_remember",
+        "research_profile_forget",
         "research_platform_consolidated",
         "research_library_overview",
         "collection_status",

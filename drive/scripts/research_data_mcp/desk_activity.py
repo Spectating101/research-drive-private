@@ -9,11 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from sharpe_kernel.paths import repo_root_from_file
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 
 
 def log_path(repo_root: Path | None = None) -> Path:
     root = repo_root or repo_root_from_file(__file__)
-    return root / "data_lake/procurement_memory/desk_activity.jsonl"
+    return procurement_memory_path(root, "desk_activity.jsonl")
 
 
 def _utc_now() -> str:

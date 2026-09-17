@@ -6,18 +6,18 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from contextvars import copy_context
 from typing import Any
 
 from scripts.research_data_mcp.procurement_session import ProcurementSessionStore
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 
 
 class ProcurementChatOrchestrator:
     """Multi-turn desk UI: SQLite session state + Cursor Composer via desk_brain."""
 
     def __init__(self, repo_root: Any) -> None:
-        from pathlib import Path
-
-        self.sessions = ProcurementSessionStore(Path(repo_root) / "data_lake/procurement_memory/chat_sessions.sqlite3")
+        self.sessions = ProcurementSessionStore(procurement_memory_path(repo_root, "chat_sessions.sqlite3"))
 
     def get_session(self, session_id: str) -> dict[str, Any]:
         session = self.sessions.get(session_id)
@@ -301,7 +301,16 @@ class ProcurementChatOrchestrator:
             except Exception as exc:  # noqa: BLE001
                 turn_queue.put(("error", exc))
 
-        thread = threading.Thread(target=run_turn, name=f"procure-chat-{sid[:8]}", daemon=True)
+        # The authenticated desk principal is held in a ContextVar. Python does
+        # not propagate that context into a new thread automatically, so a real
+        # HTTP Ask could be authenticated while its MCP subprocess saw no
+        # principal. Carry the request context into the Composer worker.
+        request_context = copy_context()
+        thread = threading.Thread(
+            target=lambda: request_context.run(run_turn),
+            name=f"procure-chat-{sid[:8]}",
+            daemon=True,
+        )
         thread.start()
         started = time.monotonic()
         from scripts.research_data_mcp.desk_brain import AgentTurn

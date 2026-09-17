@@ -72,8 +72,16 @@ def test_discover_intent_is_private_and_lists_are_scoped(tmp_path):
 def test_synthesis_thread_is_private_and_lists_are_scoped(tmp_path):
     store = SynthesisThreadStore(tmp_path / "synthesis.sqlite3")
     with desk_principal_context(ALICE):
-        thread = store.create(objective="Construct a proxy panel")
+        thread = store.create(
+            objective="Construct a proxy panel",
+            session_id="browser-session-that-created-it",
+        )
         assert [row["id"] for row in store.list()] == [thread["id"]]
+        # Session ids are transport context, not the durability boundary.
+        # A signed-in researcher must recover their work in a new browser.
+        assert [row["id"] for row in store.list(session_id="new-browser-session")] == [
+            thread["id"]
+        ]
         assert thread["owner_id"] == "alice"
 
     with desk_principal_context(BOB):

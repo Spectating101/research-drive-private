@@ -59,6 +59,38 @@ def test_live_adapter_reports_exact_variants_and_returns_a_variant_hit(monkeypat
     }
 
 
+def test_live_adapter_variants_share_one_bounded_timeout_wave(monkeypatch):
+    import concurrent.futures
+
+    from scripts.research_data_mcp import discover_source_search as mod
+
+    real_executor = concurrent.futures.ThreadPoolExecutor
+    worker_counts: list[int] = []
+
+    def recording_executor(*args, **kwargs):
+        worker_counts.append(int(kwargs.get("max_workers") or args[0]))
+        return real_executor(*args, **kwargs)
+
+    monkeypatch.setattr(concurrent.futures, "ThreadPoolExecutor", recording_executor)
+    for adapter in ("huggingface", "datacite", "zenodo", "openalex"):
+        monkeypatch.setattr(
+            mod,
+            f"_live_search_{adapter}",
+            lambda query, *, limit, adapter=adapter: (
+                [], {"adapter": adapter, "ok": True, "error": None, "returned": 0}
+            ),
+        )
+
+    mod._run_live_adapters("county wildfire exposure and employment outcomes", per_adapter=5)
+
+    expected_tasks = sum(
+        len(catalogue_query_variants("county wildfire exposure and employment outcomes", provider=name))
+        for name in ("huggingface", "datacite", "zenodo", "openalex")
+    )
+    assert worker_counts == [min(mod._LIVE_MAX_WORKERS, expected_tasks)]
+    assert worker_counts[0] == expected_tasks
+
+
 def test_zenodo_and_openalex_rows_use_the_common_live_candidate_contract(monkeypatch):
     from scripts.research_data_mcp import academic_discovery as academic
     from scripts.research_data_mcp import discover_source_search as mod

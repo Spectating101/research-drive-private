@@ -51,7 +51,11 @@ def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int
 
 
 def _safe_name(item: dict[str, Any], index: int, seen: set[str]) -> str:
-    raw = str(item.get("name") or "").strip()
+    # Repository resolvers use ``filename`` because the final URL frequently
+    # ends in an opaque delivery route such as ``/content`` or ``/download``.
+    # Discarding that field loses the extension, which in turn makes a real CSV
+    # look like an unqueryable generic file after collection.
+    raw = str(item.get("filename") or item.get("name") or "").strip()
     if not raw:
         raw = Path(urlsplit(str(item.get("url") or "")).path).name
     raw = Path(raw).name or f"item-{index + 1}.bin"

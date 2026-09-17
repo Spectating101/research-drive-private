@@ -14,6 +14,7 @@ from scripts.research_data_mcp.campaign_store import CampaignStore
 from scripts.research_data_mcp.gateway import ResearchDataGateway
 from scripts.research_data_mcp.jobs import JobService
 from scripts.research_data_mcp.procurement_memory import ProcurementMemory
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 from scripts.research_data_mcp.collection_flywheel import CollectionFlywheel
 from scripts.research_data_mcp.registry_promotion import RegistryPromoter
 from scripts.research_data_mcp.tool_handlers import ResearchToolHandlers
@@ -122,8 +123,8 @@ def create_stack(
     engine = ResearchQueryEngine(registry, repo_root=root)
     promoter = RegistryPromoter(root, registry)
     flywheel = CollectionFlywheel(root, registry)
-    memory = ProcurementMemory(root / "data_lake/procurement_memory/memory.sqlite3")
-    campaigns = CampaignStore(root / "data_lake/procurement_memory/campaigns.sqlite3")
+    memory = ProcurementMemory(procurement_memory_path(root, "memory.sqlite3"))
+    campaigns = CampaignStore(procurement_memory_path(root, "campaigns.sqlite3"))
     orchestrator = YzuOrchestrator(root, engine=engine)
     orchestrator.registry_promoter = promoter
     orchestrator.collection_flywheel = flywheel

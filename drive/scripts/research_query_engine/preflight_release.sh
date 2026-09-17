@@ -62,6 +62,58 @@ command -v "$python_bin" >/dev/null 2>&1 || bad "python not executable: $python_
 backend_sha="$(git -C "$backend_root" rev-parse HEAD 2>/dev/null || echo unknown)"
 [ "$backend_sha" = unknown ] && bad "backend is not a git checkout: $backend_root"
 
+# The HTTP service is not the whole Research Drive execution plane. Collection
+# jobs are accepted by the worker-control service and finalized by the cluster
+# worker, so certifying only this checkout can produce a split-brain release:
+# the browser and API advertise one backend SHA while acquisitions execute old
+# source. Hosts opt into the exact units they run through the service env. CI
+# fixtures and installations without background workers leave this unset.
+backend_service_units="${PREFLIGHT_BACKEND_SERVICE_UNITS:-${YZU_BACKEND_SERVICE_UNITS:-}}"
+if [ -n "$backend_service_units" ]; then
+  command -v systemctl >/dev/null 2>&1 || bad "systemctl missing; cannot verify backend service identities"
+  expected_backend_root="$(readlink -f "$backend_root" 2>/dev/null || true)"
+  for unit in $backend_service_units; do
+    unit_workdir="$(systemctl --user show "$unit" -p WorkingDirectory --value 2>/dev/null || true)"
+    resolved_unit_workdir="$(readlink -f "$unit_workdir" 2>/dev/null || true)"
+    if [ -z "$resolved_unit_workdir" ]; then
+      bad "backend service $unit has no resolvable WorkingDirectory"
+      continue
+    fi
+    if [ "$resolved_unit_workdir" != "$expected_backend_root" ]; then
+      bad "backend service $unit uses $resolved_unit_workdir, expected $expected_backend_root"
+      continue
+    fi
+    unit_sha="$(git -C "$resolved_unit_workdir" rev-parse HEAD 2>/dev/null || echo unknown)"
+    [ "$unit_sha" = "$backend_sha" ] || bad "backend service $unit names SHA $unit_sha, expected $backend_sha"
+
+    # worker-control also accepts an explicit --repo-root. Verify that authority
+    # when present; matching WorkingDirectory alone is not enough if ExecStart
+    # redirects job execution into another checkout.
+    unit_definition="$(systemctl --user cat "$unit" 2>/dev/null || true)"
+    declared_repo_root="$(printf '%s\n' "$unit_definition" | "$python_bin" -c '
+import shlex, sys
+for raw in sys.stdin:
+    line = raw.strip()
+    if not line.startswith("ExecStart="):
+        continue
+    try:
+        parts = shlex.split(line.split("=", 1)[1])
+    except ValueError:
+        continue
+    if "--repo-root" in parts:
+        index = parts.index("--repo-root")
+        if index + 1 < len(parts):
+            print(parts[index + 1])
+            break
+')"
+    if [ -n "$declared_repo_root" ]; then
+      resolved_declared_root="$(readlink -f "$declared_repo_root" 2>/dev/null || true)"
+      [ "$resolved_declared_root" = "$expected_backend_root" ] || bad "backend service $unit --repo-root resolves to ${resolved_declared_root:-absent}, expected $expected_backend_root"
+    fi
+    note "backend_service=$unit sha=$unit_sha root=$resolved_unit_workdir"
+  done
+fi
+
 # The point of the gate is that the runtime IS the named commit. Checking only the UI let it
 # return ready while backend source differed from the SHA it claimed to be deploying.
 registry_rel="${SHARPE_REGISTRY_PATH:-config/research_query_registry.json}"

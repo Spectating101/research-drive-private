@@ -74,10 +74,6 @@ def archive_remote_suffix(repo_root: Path, plan: dict[str, Any], dataset_id: str
     return f"{base}/{dataset_id}"
 
 
-def _partitions_path(repo_root: Path) -> Path:
-    return Path(repo_root).resolve() / "config/collection_partitions.json"
-
-
 def wire_promoted_to_partition(
     repo_root: Path,
     *,
@@ -87,7 +83,14 @@ def wire_promoted_to_partition(
     registry_path: Path | None = None,
     rebuild_index: bool = True,
 ) -> dict[str, Any]:
-    """Append promoted dataset_ids to partition.registry_dataset_ids; stamp registry rows."""
+    """Stamp promoted registry rows with their collection partition.
+
+    ``collection_partitions.json`` is release configuration: it defines stable
+    storage routes and curated seed membership.  A live acquisition must not
+    rewrite that tracked file inside the serving checkout.  Dynamic membership
+    belongs on the promoted registry row, which the collection index already
+    reads as its fallback authority.
+    """
     if not promoted:
         return {"wired": False, "reason": "no_promoted"}
 
@@ -123,19 +126,6 @@ def wire_promoted_to_partition(
     reg_doc["datasets"] = list(reg_by_id.values())
     reg_path.write_text(json.dumps(reg_doc, indent=2) + "\n", encoding="utf-8")
 
-    part_path = _partitions_path(repo_root)
-    part_doc = json.loads(part_path.read_text(encoding="utf-8"))
-    for p in part_doc.get("partitions") or []:
-        if str(p.get("id")) != pid:
-            continue
-        ids = list(p.get("registry_dataset_ids") or [])
-        for did in wired_ids:
-            if did not in ids:
-                ids.append(did)
-        p["registry_dataset_ids"] = ids
-        break
-    part_path.write_text(json.dumps(part_doc, indent=2) + "\n", encoding="utf-8")
-
     if rebuild_index:
         from scripts.research_data_mcp.collection_dictionary import write_dictionary
         from scripts.research_data_mcp.collection_index import build_index
@@ -143,4 +133,9 @@ def wire_promoted_to_partition(
         write_dictionary(repo_root)
         build_index(repo_root)
 
-    return {"wired": True, "partition_id": pid, "dataset_ids": wired_ids}
+    return {
+        "wired": True,
+        "partition_id": pid,
+        "dataset_ids": wired_ids,
+        "partition_catalog_mutated": False,
+    }

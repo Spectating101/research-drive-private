@@ -8,6 +8,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from sharpe_kernel.paths import repo_root_from_file
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 
 
 def repo_root_default() -> Path:
@@ -16,7 +17,7 @@ def repo_root_default() -> Path:
 
 def ledger_path(repo_root: Path | None = None) -> Path:
     root = repo_root or repo_root_default()
-    return root / "data_lake/procurement_memory/desk_usage.json"
+    return procurement_memory_path(root, "desk_usage.json")
 
 
 def _today_key() -> str:

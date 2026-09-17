@@ -10,6 +10,7 @@ not a gate.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -84,10 +85,29 @@ def release(tmp_path):
 
 
 def _run(env_file: Path, **extra) -> subprocess.CompletedProcess:
-    import os
-
     environ = {**os.environ, "FRONT_DOOR_ENV": str(env_file), **{k: str(v) for k, v in extra.items()}}
     return subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True, env=environ, timeout=120)
+
+
+def _fake_systemctl(path: Path, *, workdir: Path, repo_root: Path | None = None) -> Path:
+    """Expose only the read-only systemctl contract used by preflight."""
+    path.mkdir(parents=True, exist_ok=True)
+    script = path / "systemctl"
+    root = repo_root or workdir
+    script.write_text(
+        "#!/usr/bin/env bash\n"
+        "if [[ \"$*\" == *\" show \"* && \"$*\" == *\"WorkingDirectory\"* ]]; then\n"
+        f"  printf '%s\\n' '{workdir}'\n"
+        "elif [[ \"$*\" == *\" cat \"* ]]; then\n"
+        "  printf '%s\\n' '[Service]'\n"
+        f"  printf '%s\\n' 'ExecStart=/usr/bin/python -m scripts.yzu_cluster.worker_control --repo-root {root}'\n"
+        "else\n"
+        "  exit 1\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return path
 
 
 def test_a_coherent_release_is_ready(release):
@@ -200,6 +220,55 @@ def test_a_modified_backend_file_is_refused(release):
     out = _run(release["env"])
     assert out.returncode != 0
     assert "modified tracked path" in out.stdout
+    assert "NOT READY" in out.stdout
+
+
+def test_auxiliary_backend_services_must_use_the_candidate_checkout(release, tmp_path):
+    fake_bin = _fake_systemctl(tmp_path / "bin", workdir=release["backend"])
+    out = _run(
+        release["env"],
+        PREFLIGHT_BACKEND_SERVICE_UNITS="yzu-worker-control.service yzu-cluster-worker.service",
+        PATH=f"{fake_bin}:{os.environ['PATH']}",
+    )
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "backend_service=yzu-worker-control.service" in out.stdout
+    assert "backend_service=yzu-cluster-worker.service" in out.stdout
+
+
+def test_auxiliary_backend_service_split_brain_refuses_release(release, tmp_path):
+    stale = tmp_path / "stale-backend"
+    _repo(stale)
+    (stale / "code.py").write_text("x = 0  # stale runtime\n", encoding="utf-8")
+    _git(stale, "add", "code.py")
+    _git(stale, "commit", "-qm", "stale runtime")
+    stale_sha = _git(stale, "rev-parse", "HEAD")
+    assert stale_sha != release["backend_sha"]
+    fake_bin = _fake_systemctl(tmp_path / "bin", workdir=stale)
+    out = _run(
+        release["env"],
+        PREFLIGHT_BACKEND_SERVICE_UNITS="yzu-worker-control.service",
+        PATH=f"{fake_bin}:{os.environ['PATH']}",
+    )
+    assert out.returncode != 0
+    assert "backend service yzu-worker-control.service uses" in out.stdout
+    assert "NOT READY" in out.stdout
+
+
+def test_auxiliary_backend_service_explicit_repo_root_must_match(release, tmp_path):
+    stale = tmp_path / "stale-backend"
+    _repo(stale)
+    fake_bin = _fake_systemctl(
+        tmp_path / "bin",
+        workdir=release["backend"],
+        repo_root=stale,
+    )
+    out = _run(
+        release["env"],
+        PREFLIGHT_BACKEND_SERVICE_UNITS="yzu-worker-control.service",
+        PATH=f"{fake_bin}:{os.environ['PATH']}",
+    )
+    assert out.returncode != 0
+    assert "--repo-root resolves to" in out.stdout
     assert "NOT READY" in out.stdout
 
 

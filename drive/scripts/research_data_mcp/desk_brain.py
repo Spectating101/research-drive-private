@@ -570,6 +570,75 @@ def _format_rail_context(ctx: dict[str, Any]) -> str:
     return rail_block + grounding
 
 
+def _durable_synthesis_thread(gateway: Any, state: dict[str, Any]) -> dict[str, Any]:
+    """Return the selected durable thread without inferring missing state."""
+    context = state.get("rail_context") if isinstance(state, dict) else {}
+    context = context if isinstance(context, dict) else {}
+    entity = context.get("entity") if isinstance(context.get("entity"), dict) else {}
+    selected = context.get("selected") if isinstance(context.get("selected"), dict) else {}
+    thread_id = str(
+        context.get("thread_id")
+        or selected.get("thread_id")
+        or entity.get("id")
+        or ""
+    ).strip()
+    get_thread = getattr(gateway, "synthesis_thread_get", None)
+    if not thread_id or not callable(get_thread):
+        return {}
+    try:
+        thread = get_thread(thread_id)
+    except Exception:  # Ownership/not-found failures must never become invented context.
+        return {}
+    return thread if isinstance(thread, dict) else {}
+
+
+def _durable_synthesis_thread_has_progress(
+    gateway: Any, state: dict[str, Any]
+) -> bool:
+    """Treat recorded construction state as stronger than a fresh Ask session.
+
+    Ask sessions and durable Synthesis threads have different lifetimes. A
+    newly opened rail can have zero conversation turns while its thread already
+    contains mapped evidence, a proposal, preview, or execution state. The
+    backend record is the authority for whether this is genuinely a first
+    construction turn; frontend summary fields are only a fast-path.
+    """
+    thread = _durable_synthesis_thread(gateway, state)
+    if not thread:
+        return False
+    recorded = thread.get("state") if isinstance(thread.get("state"), dict) else {}
+    for key in (
+        "nodes",
+        "edges",
+        "proposal",
+        "decisions",
+        "plannedColumns",
+        "column_profiles",
+        "preview",
+        "execution",
+        "accepted_spec_hash",
+    ):
+        if recorded.get(key):
+            return True
+    try:
+        if int(recorded.get("measured_inputs") or 0) > 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    materialisation = str(
+        thread.get("materialisation") or recorded.get("materialisation") or ""
+    ).strip().lower()
+    return materialisation not in {"", "not_materialised", "not_materialized"}
+
+
+def _synthesis_first_turn_for_runtime(gateway: Any, state: dict[str, Any]) -> bool:
+    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
+
+    return synthesis_first_turn(state) and not _durable_synthesis_thread_has_progress(
+        gateway, state
+    )
+
+
 def _durable_synthesis_thread_brief(gateway: Any, state: dict[str, Any]) -> str:
     """Fetch the selected thread's recorded facts for every Synthesis turn.
 
@@ -580,18 +649,8 @@ def _durable_synthesis_thread_brief(gateway: Any, state: dict[str, Any]) -> str:
     This is an exact state read, not a relevance/routing heuristic: if the
     thread cannot be read we omit the brief rather than guessing.
     """
-    context = state.get("rail_context") if isinstance(state, dict) else {}
-    context = context if isinstance(context, dict) else {}
-    entity = context.get("entity") if isinstance(context.get("entity"), dict) else {}
-    thread_id = str(context.get("thread_id") or entity.get("id") or "").strip()
-    get_thread = getattr(gateway, "synthesis_thread_get", None)
-    if not thread_id or not callable(get_thread):
-        return ""
-    try:
-        thread = get_thread(thread_id)
-    except Exception:  # Ownership/not-found failures must never become invented context.
-        return ""
-    if not isinstance(thread, dict):
+    thread = _durable_synthesis_thread(gateway, state)
+    if not thread:
         return ""
     from scripts.research_data_mcp.synthesis_thread_store import (
         build_synthesis_reasoning_brief,
@@ -607,7 +666,6 @@ def _prepare_synthesis_fallback_prompt(
 ) -> tuple[str, bool]:
     """Build the same grounded contract without requiring a Cursor session."""
     from scripts.research_data_mcp.desk_synthesis_contract import (
-        synthesis_first_turn,
         synthesis_history_brief,
         wrap_synthesis_request,
     )
@@ -615,7 +673,7 @@ def _prepare_synthesis_fallback_prompt(
         build_synthesis_grounding_brief,
     )
 
-    first_user_turn = synthesis_first_turn(state)
+    first_user_turn = _synthesis_first_turn_for_runtime(gateway, state)
     parts: list[str] = []
     rail_prefix = _format_rail_context(state.get("rail_context") or {}).strip()
     if rail_prefix:
@@ -866,7 +924,7 @@ def run_cursor_composer_turn(
             state.pop(_agent_state_key, None)
         state["composer_context_mode"] = composer_mode
         had_agent = bool(agent_id)
-        first_synthesis_turn = synthesis_first_turn(state)
+        first_synthesis_turn = _synthesis_first_turn_for_runtime(gateway, state)
         user_text = message.strip()
         rail_prefix = _format_rail_context(state.get("rail_context") or {})
         if rail_prefix and rail_prefix not in user_text:
@@ -1024,11 +1082,11 @@ def run_cursor_composer_turn(
 
             synthesis_violations = synthesis_reply_violations(
                 reply,
-                first_user_turn=synthesis_first_turn,
+                first_user_turn=first_synthesis_turn,
             )
             if (
                 provider_brain == "copilot_composer"
-                and synthesis_first_turn
+                and first_synthesis_turn
                 and not tool_call_started
             ):
                 synthesis_violations.append("missing_evidence_tool_call")
@@ -1062,9 +1120,9 @@ def run_cursor_composer_turn(
                 model_id = str(getattr(run, "model", "") or model_id)
                 synthesis_violations = synthesis_reply_violations(
                     reply,
-                    first_user_turn=synthesis_first_turn,
+                    first_user_turn=first_synthesis_turn,
                 )
-                if synthesis_first_turn and not tool_call_started:
+                if first_synthesis_turn and not tool_call_started:
                     synthesis_violations.append("missing_evidence_tool_call")
             if (
                 not synthesis_violations

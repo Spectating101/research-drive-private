@@ -289,6 +289,37 @@ def test_contextual_does_not_steal_a_corpus_level_research_question():
     assert try_direct_contextual_turn(gateway, prompt, {"rail_context": rail}) is None
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        (
+            "Can this dataset support a study of whether country-level news stress "
+            "predicts next-day equity market returns? State the exact grain, usable "
+            "fields, missing outcome or join evidence, and the smallest defensible "
+            "next step."
+        ),
+        "What are the main risks of using this source?",
+        "How is the local asset related to this candidate?",
+        "Compare this source with the selected Library holding.",
+        (
+            "Please remember this research preference for future recommendations: "
+            "prioritize open public sources."
+        ),
+    ],
+)
+def test_contextual_does_not_steal_selected_object_reasoning(prompt):
+    from scripts.research_data_mcp.desk_direct_turns import try_direct_contextual_turn
+
+    gateway = MagicMock()
+    rail = {
+        "entity": {"kind": "dataset", "id": "gdelt_panel", "title": "GDELT panel"},
+        "dataset_id": "gdelt_panel",
+        "selected": {"dataset_id": "gdelt_panel", "title": "GDELT panel"},
+        "actions": ["ask_about"],
+    }
+    assert try_direct_contextual_turn(gateway, prompt, {"rail_context": rail}) is None
+
+
 def test_run_desk_agent_prefers_contextual_over_composer(monkeypatch):
     from scripts.research_data_mcp import desk_brain, desk_direct_turns
 

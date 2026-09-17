@@ -9,9 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
+
 
 def vault_path(repo_root: Path) -> Path:
-    return repo_root / "data_lake/procurement_memory/credentials.json"
+    return procurement_memory_path(repo_root, "credentials.json")
 
 
 def load_vault(repo_root: Path) -> dict[str, Any]:

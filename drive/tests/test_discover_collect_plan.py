@@ -75,6 +75,54 @@ def test_selected_doi_resolves_to_existing_http_manifest_without_submitting(monk
     assert plan["requires_approval"] is True
 
 
+def test_selected_doi_prefers_dataset_payload_over_smaller_readme(monkeypatch):
+    """Default DOI collection must materialise research data, not incidental docs."""
+    stack = create_stack()
+    monkeypatch.setattr(
+        "scripts.research_data_mcp.doi_resolve_cache.resolve_doi_cached",
+        lambda *_args, **_kwargs: {
+            "doi": "10.5281/zenodo.22799602",
+            "title": "Germanium energy spectra",
+            "repository": "zenodo",
+            "landing_url": "https://zenodo.org/records/22799602",
+            "files": [
+                {
+                    "url": "https://zenodo.org/api/records/22799602/files/README.md/content",
+                    "key": "README.md",
+                    "size": 3676,
+                },
+                {
+                    "url": "https://zenodo.org/api/records/22799602/files/hades-th228-source-run.csv/content",
+                    "key": "hades-th228-source-run.csv",
+                    "size": 9642,
+                },
+            ],
+        },
+    )
+
+    plan = resolve_discover_collect_plan(
+        stack.gateway.procurement,
+        stack.gateway.repo_root,
+        connector_id="zenodo",
+        provider="Zenodo",
+        kind="live_candidate",
+        title="Germanium energy spectra",
+        doi="10.5281/zenodo.22799602",
+        url="https://zenodo.org/records/22799602",
+        candidate_key="doi:10.5281/zenodo.22799602",
+    )
+
+    assert plan["job_type"] == "http_manifest"
+    assert plan["items"] == [
+        {
+            "url": "https://zenodo.org/api/records/22799602/files/hades-th228-source-run.csv/content",
+            "filename": "hades-th228-source-run.csv",
+        }
+    ]
+    assert plan["datacite_file"] == "hades-th228-source-run.csv"
+    assert plan["dataset_id"] == "datacite_10_5281_zenodo_22799602"
+
+
 def test_zenodo_record_url_can_resolve_when_datacite_metadata_lags(monkeypatch):
     stack = create_stack()
 

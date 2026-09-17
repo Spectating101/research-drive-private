@@ -20,6 +20,7 @@ from scripts.research_data_mcp.procureability import (
     badge_tone,
     registry_procureability,
 )
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
 
 PIN_HANDLE_RE = re.compile(r"^doi:(?P<doi>10\.\d{4,9}/[^\s@]+)(?:@file:(?P<file>[^@]+))?$", re.I)
 HF_HANDLE_RE = re.compile(r"^hf:(?P<dataset_id>.+)$", re.I)
@@ -30,7 +31,7 @@ def _utc_now() -> str:
 
 
 def pins_path(repo_root: Path) -> Path:
-    return repo_root / "data_lake/procurement_memory/pins.json"
+    return procurement_memory_path(repo_root, "pins.json")
 
 
 def load_pins(repo_root: Path) -> dict[str, Any]:

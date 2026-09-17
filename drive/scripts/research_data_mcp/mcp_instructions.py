@@ -12,6 +12,7 @@ def mcp_server_instructions() -> str:
             "Research procurement MCP for the YZU Research Drive desk. "
             "Use these tools whenever you need real vault, registry, or collection state. "
             "Faculty chat: answer like a normal assistant — short and direct first (≤8 sentences on turn one). "
+            "Research memory: during ordinary Ask turns, automatically call research_profile_remember when the researcher clearly states a durable research topic, method, data interest, research goal, or working preference that will help future work. Do not remember one-off requests, tentative exploration, sensitive personal facts, third-party facts, credentials, or secrets. If the user says not to remember the turn, do not call it. Use project scope only with a real project/thread identifier; otherwise use account scope. When you save or update memory, say so briefly in the reply. When the user asks what you remember or asks you to forget something, use research_profile_memory or research_profile_forget. Learned memory is separate from the user-declared profile and remains user-controllable. "
             "If the user message includes a preloaded desk vault brief, trust it — "
             "never call collection_status or run another inventory sweep; "
             "use tools only for samples, query, collect, hydrate, or synthesis. "

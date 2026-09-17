@@ -87,8 +87,47 @@ def synthesis_turn_count(state: dict[str, Any] | None) -> int:
         return 0
 
 
+def _synthesis_has_recorded_progress(state: dict[str, Any] | None) -> bool:
+    """Return whether the rail is attached to work beyond a new objective.
+
+    Chat-session turn counters are intentionally local to one Ask session. A
+    durable Synthesis thread can therefore have measured evidence and an active
+    decision while a newly opened Ask session still has a counter of zero. Such
+    a session is a continuation, not the first construction turn.
+    """
+    source = state if isinstance(state, dict) else {}
+    rail = source.get("rail_context")
+    rail = rail if isinstance(rail, dict) else {}
+    selected = rail.get("selected")
+    selected = selected if isinstance(selected, dict) else {}
+    entity = rail.get("entity")
+    entity = entity if isinstance(entity, dict) else {}
+
+    stage = str(
+        selected.get("synthesis_stage")
+        or entity.get("synthesis_stage")
+        or ""
+    ).strip().lower()
+    if stage and stage not in {"new", "define", "objective", "intent"}:
+        return True
+
+    for key in ("decision_kind", "current_decision", "active_blocker"):
+        if str(selected.get(key) or entity.get(key) or "").strip():
+            return True
+    try:
+        if int(selected.get("measured_inputs") or 0) > 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
+
+
 def synthesis_first_turn(state: dict[str, Any] | None) -> bool:
-    return is_synthesis_context(state) and synthesis_turn_count(state) == 0
+    return (
+        is_synthesis_context(state)
+        and synthesis_turn_count(state) == 0
+        and not _synthesis_has_recorded_progress(state)
+    )
 
 
 def _advance_synthesis_phase(state: dict[str, Any]) -> None:

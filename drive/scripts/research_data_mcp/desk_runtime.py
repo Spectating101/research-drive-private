@@ -13,11 +13,13 @@ import time
 from pathlib import Path
 from typing import Any
 
+from scripts.research_data_mcp.runtime_memory import procurement_memory_path
+
 _PREPARED: dict[str, Any] = {"ready": False, "curated_fts": "", "prepared_at": 0.0}
 
 
 def desk_active_path(repo_root: Path) -> Path:
-    return Path(repo_root).resolve() / "data_lake/procurement_memory/desk_active.json"
+    return procurement_memory_path(repo_root, "desk_active.json")
 
 
 def desk_active_window_seconds() -> float:

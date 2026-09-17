@@ -743,11 +743,15 @@ class ResearchDataGateway:
             bigquery_route_hints,
             expand_datacite_queries,
             normalize_email,
-            resolve_profile,
         )
         from scripts.research_data_mcp.procurement_search import smart_search
+        from scripts.research_data_mcp.research_profile import effective_profile_for_email
 
-        profile = resolve_profile(email=normalize_email(email)) if email else None
+        profile = (
+            effective_profile_for_email(self.repo_root, normalize_email(email))
+            if email
+            else None
+        )
         result = smart_search(self, query, limit=limit)
         candidates = list(result.get("candidates") or [])
         seen = {str(c.get("dataset_id") or "") for c in candidates if c.get("dataset_id")}
@@ -2093,7 +2097,16 @@ class ResearchDataGateway:
         # Fetch a wider window so canary/smoke noise can be filtered without emptying the desk.
         fetch_limit = max(int(limit or 30), 30) if include_ops else min(200, max(int(limit or 30) * 4, 60))
         rows = self._synthesis_thread_store().list(limit=fetch_limit, session_id=session_id)
-        ops_re = re.compile(r"\b(canary|smoke|probe|test)\b", re.I)
+        # Do not classify normal research vocabulary as release noise.  Titles
+        # such as "wildfire smoke intensity", "test market efficiency", or
+        # "probe the mechanism" are legitimate research objects.  Suppress
+        # only phrases that actually identify an operational fixture/run.
+        ops_re = re.compile(
+            r"\b(?:canary|release acceptance|"
+            r"(?:runtime|browser|deployment|release)\s+(?:smoke|probe|test)|"
+            r"(?:smoke|probe|test)\s+(?:thread|run|fixture|workflow|acceptance))\b",
+            re.I,
+        )
 
         def _is_ops(row: dict) -> bool:
             title = str(row.get("title") or "")
@@ -2213,7 +2226,9 @@ class ResearchDataGateway:
         *,
         dataset_ids: list | None = None,
     ) -> dict:
-        """Persist only the exact held inputs a researcher reviewed and chose."""
+        """Persist only exact, registry-proven held inputs a researcher chose."""
+        from scripts.research_data_mcp.synthesis.evidence_map import evidence_node_for_dataset
+
         proposal = self.synthesis_thread_evidence_map(thread_id, limit=12)
         candidates = {
             str(node.get("dataset_id") or node.get("id") or ""): node
@@ -2227,9 +2242,26 @@ class ResearchDataGateway:
                 requested.append(value)
         if not requested:
             raise ValueError("Select one or more proposed held inputs before adding them to the map.")
+
+        # Discover already exposes exact held dataset identities.  Requiring a
+        # second semantic search to rediscover those same ids made the handoff
+        # lossy: a valid Library match could disappear between surfaces.  Keep
+        # semantic proposals as the normal path, but admit an exact reviewed id
+        # only after the server proves it still exists in the registry.
+        for value in requested:
+            if value in candidates:
+                continue
+            node = evidence_node_for_dataset(
+                self,
+                value,
+                proposed_by="discover_exact_handoff",
+                require_registry=True,
+            )
+            if node:
+                candidates[value] = node
         unknown = [value for value in requested if value not in candidates]
         if unknown:
-            raise ValueError("Only inputs in the current held-evidence proposal can be added to this map.")
+            raise ValueError("Only exact inputs currently held in the Library can be added to this map.")
 
         operations = [{"op": "add_node", "node": candidates[value]} for value in requested]
         operations.append(

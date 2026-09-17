@@ -499,6 +499,30 @@ def stack():
     return create_stack(repo_root=REPO)
 
 
+def test_synthesis_list_keeps_research_smoke_language_but_hides_ops_runs(
+    stack, tmp_path: Path, monkeypatch
+):
+    from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore
+
+    isolated = SynthesisThreadStore(tmp_path / "list_filter_threads.sqlite3")
+    monkeypatch.setattr(stack.gateway, "_synthesis_threads_store", isolated, raising=False)
+    research = isolated.create(
+        title="Wildfire smoke intensity and county employment",
+        objective="Estimate labor-market effects of wildfire smoke intensity.",
+        session_id="research-session",
+    )
+    isolated.create(
+        title="Runtime smoke test",
+        objective="Release acceptance fixture for the Synthesis list.",
+        session_id="research-session",
+    )
+
+    listed = stack.gateway.synthesis_thread_list(session_id="research-session")
+
+    assert [row["id"] for row in listed["threads"]] == [research["id"]]
+    assert listed["ops_threads_hidden"] == 1
+
+
 def test_http_thread_routes_roundtrip(stack, tmp_path: Path, monkeypatch):
     from scripts.research_data_mcp.http_router import handle_get, handle_post
     from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore
@@ -568,15 +592,16 @@ def test_http_evidence_map_requires_review_before_persisting(stack, tmp_path: Pa
             "rows": [{"dataset_id": "idn_fry_daily_cross_section", "title": "Indonesia daily cross-section"}],
         },
     )
-    monkeypatch.setattr(
-        stack.gateway,
-        "describe_dataset",
-        lambda dataset_id: {
+    def describe_dataset(dataset_id):
+        if dataset_id != "idn_fry_daily_cross_section":
+            raise KeyError(dataset_id)
+        return {
             "readiness": "query_ready",
             "materialization": {"query_ready": True, "grain": "ric-day"},
             "coverage": "2020–2026",
-        },
-    )
+        }
+
+    monkeypatch.setattr(stack.gateway, "describe_dataset", describe_dataset)
 
     created = handle_post(
         "/library/synthesis/threads",
@@ -608,6 +633,30 @@ def test_http_evidence_map_requires_review_before_persisting(stack, tmp_path: Pa
         stack,
     )
     assert rejected["status"] == 400
+
+    # Discover carries exact reviewed Library ids across the surface boundary.
+    # The server must validate that identity against the registry instead of
+    # requiring its own semantic search to rediscover the same row.
+    monkeypatch.setattr(
+        stack.gateway,
+        "semantic_discover",
+        lambda objective, *, limit=12: {"rows": []},
+    )
+    from_discover = handle_post(
+        "/library/synthesis/threads",
+        {"objective": "Wildfire exposure and regional economic outcomes"},
+        stack,
+    )
+    discover_tid = from_discover["body"]["id"]
+    exact = handle_post(
+        f"/library/synthesis/threads/{discover_tid}/evidence-map",
+        {"dataset_ids": ["idn_fry_daily_cross_section"]},
+        stack,
+    )
+    assert exact["status"] == 200
+    exact_node = exact["body"]["thread"]["state"]["nodes"][0]
+    assert exact_node["dataset_id"] == "idn_fry_daily_cross_section"
+    assert exact_node["proposed_by"] == "discover_exact_handoff"
 
 def test_link_conversation_persists_session_and_optional_conversation(store):
     created = store.create(

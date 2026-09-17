@@ -1223,6 +1223,18 @@ _CONTEXTUAL_CORPUS_ASK = re.compile(
     r"\b(?:library|catalog|registry)\b",
     re.I,
 )
+_CONTEXTUAL_REASONING_ASK = re.compile(
+    r"\b(?:support|predict|explain|compare|assess|evaluate|fit|usable|useful|"
+    r"method|design|construct|proxy|join|outcome|risks?|limitations?|caveats?|gap|"
+    r"related|relationship|overlap|"
+    r"missing|defensible|recommend|next\s+(?:step|move|check)|what\s+should)\b",
+    re.I,
+)
+_CONTEXTUAL_MEMORY_ASK = re.compile(
+    r"\b(?:remember|memorize|forget|what\s+do\s+you\s+remember|"
+    r"research\s+preference|for\s+future\s+(?:work|recommendations?))\b",
+    re.I,
+)
 _CONTEXTUAL_KNOWN_KEYS = (
     ("title", "title"),
     ("dataset_id", "dataset_id"),
@@ -1300,6 +1312,17 @@ def is_direct_contextual_message(message: str, rail_context: dict[str, Any] | No
     # must reach retrieval/Composer rather than being reduced to the selected
     # object's identity card merely because the rail hydrated first.
     if _CONTEXTUAL_CORPUS_ASK.search(text[:280]):
+        return False
+    # The identity-card fast path can report selected-object metadata, but it
+    # must never replace grounded reasoning.  Method, fit, join, risk, and
+    # next-step questions need the Composer even when the visible rail offers
+    # an ``ask_about`` action.
+    if _CONTEXTUAL_REASONING_ASK.search(text[:320]):
+        return False
+    # Profile memory is an explicit tool-backed capability.  A selected
+    # Profile or dataset must not reduce "remember this preference" to an
+    # identity-card response that silently stores nothing.
+    if _CONTEXTUAL_MEMORY_ASK.search(text[:320]):
         return False
     # Do not steal structured equipment phrases (message-shaped only).
     # Note: is_direct_describe/query are rail-greedy when dataset_id is selected —
