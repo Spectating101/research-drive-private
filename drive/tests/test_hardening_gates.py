@@ -8,6 +8,7 @@ import pytest
 
 from scripts.research_data_mcp.craft_collect import enforce_submit_doctrine
 from scripts.research_data_mcp.drive_first import compact_ephemeral_path
+from scripts.research_data_mcp.partition_wiring import wire_promoted_to_partition
 from scripts.yzu_cluster.acquisitions import materialize_job, prove_query_smoke
 
 
@@ -180,6 +181,54 @@ def test_drive_compaction_never_removes_procured_revision_bytes(tmp_path: Path):
     assert result["skipped"] is True
     assert result["reason"] == "immutable_revision_retained"
     assert payload.is_file()
+
+
+def test_partition_wiring_never_mutates_release_partition_catalog(tmp_path: Path):
+    config = tmp_path / "config"
+    config.mkdir(parents=True)
+    registry = config / "research_query_registry.json"
+    registry.write_text(
+        json.dumps({"datasets": [{"dataset_id": "new_asset", "name": "New asset"}]}),
+        encoding="utf-8",
+    )
+    partitions = config / "collection_partitions.json"
+    partitions.write_text(
+        json.dumps(
+            {
+                "canonical_root": "gdrive:archive",
+                "partitions": [
+                    {
+                        "id": "acquired.procured",
+                        "target_drive_path": "collection/acquired/procured",
+                        "registry_dataset_ids": ["seed_asset"],
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    before = partitions.read_bytes()
+
+    result = wire_promoted_to_partition(
+        tmp_path,
+        promoted=[{"dataset_id": "new_asset"}],
+        plan={"partition_id": "acquired.procured"},
+        registry_path=registry,
+        rebuild_index=False,
+    )
+
+    assert result == {
+        "wired": True,
+        "partition_id": "acquired.procured",
+        "dataset_ids": ["new_asset"],
+        "partition_catalog_mutated": False,
+    }
+    assert partitions.read_bytes() == before
+    row = json.loads(registry.read_text(encoding="utf-8"))["datasets"][0]
+    assert row["partition_id"] == "acquired.procured"
+    assert row["collection"]["partition_id"] == "acquired.procured"
 
 
 def test_query_smoke_requires_real_nonzero_rows(tmp_path: Path):
