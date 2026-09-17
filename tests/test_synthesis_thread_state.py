@@ -499,6 +499,30 @@ def stack():
     return create_stack(repo_root=REPO)
 
 
+def test_synthesis_list_keeps_research_smoke_language_but_hides_ops_runs(
+    stack, tmp_path: Path, monkeypatch
+):
+    from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore
+
+    isolated = SynthesisThreadStore(tmp_path / "list_filter_threads.sqlite3")
+    monkeypatch.setattr(stack.gateway, "_synthesis_threads_store", isolated, raising=False)
+    research = isolated.create(
+        title="Wildfire smoke intensity and county employment",
+        objective="Estimate labor-market effects of wildfire smoke intensity.",
+        session_id="research-session",
+    )
+    isolated.create(
+        title="Runtime smoke test",
+        objective="Release acceptance fixture for the Synthesis list.",
+        session_id="research-session",
+    )
+
+    listed = stack.gateway.synthesis_thread_list(session_id="research-session")
+
+    assert [row["id"] for row in listed["threads"]] == [research["id"]]
+    assert listed["ops_threads_hidden"] == 1
+
+
 def test_http_thread_routes_roundtrip(stack, tmp_path: Path, monkeypatch):
     from scripts.research_data_mcp.http_router import handle_get, handle_post
     from scripts.research_data_mcp.synthesis_thread_store import SynthesisThreadStore

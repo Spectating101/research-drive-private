@@ -2097,7 +2097,16 @@ class ResearchDataGateway:
         # Fetch a wider window so canary/smoke noise can be filtered without emptying the desk.
         fetch_limit = max(int(limit or 30), 30) if include_ops else min(200, max(int(limit or 30) * 4, 60))
         rows = self._synthesis_thread_store().list(limit=fetch_limit, session_id=session_id)
-        ops_re = re.compile(r"\b(canary|smoke|probe|test)\b", re.I)
+        # Do not classify normal research vocabulary as release noise.  Titles
+        # such as "wildfire smoke intensity", "test market efficiency", or
+        # "probe the mechanism" are legitimate research objects.  Suppress
+        # only phrases that actually identify an operational fixture/run.
+        ops_re = re.compile(
+            r"\b(?:canary|release acceptance|"
+            r"(?:runtime|browser|deployment|release)\s+(?:smoke|probe|test)|"
+            r"(?:smoke|probe|test)\s+(?:thread|run|fixture|workflow|acceptance))\b",
+            re.I,
+        )
 
         def _is_ops(row: dict) -> bool:
             title = str(row.get("title") or "")
