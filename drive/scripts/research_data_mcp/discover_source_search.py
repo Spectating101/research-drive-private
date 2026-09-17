@@ -36,6 +36,7 @@ _LIVE_CONNECTOR_BY_PROVIDER = {
 }
 _LIVE_PER_ADAPTER_CAP = 5
 _LIVE_TIMEOUT_SEC = 8
+_LIVE_MAX_WORKERS = 16
 
 # Query-domain cues for hybrid capability-aware semantic ranking.
 _ONCHAIN_QUERY_TERMS = frozenset(
@@ -1881,8 +1882,12 @@ def _run_live_adapters(query: str, *, per_adapter: int) -> tuple[list[dict[str, 
     plans = [(name, fn, catalogue_query_variants(q, provider=name)) for name, fn in adapters]
     tasks = [(name, fn, variant) for name, fn, variants in plans for variant in variants]
     completed: dict[tuple[str, str], tuple[list[dict[str, Any]], dict[str, Any]]] = {}
-    # A slow provider must not multiply request latency by the number of variants.
-    with ThreadPoolExecutor(max_workers=min(4, max(1, len(tasks)))) as pool:
+    # Every adapter/query variant is an independent bounded network request.
+    # Running only four at a time turned one provider timeout into as many as
+    # four consecutive timeout waves (roughly 32 seconds for 16 tasks).  Keep
+    # the fan-out capped, but give every task in the normal four-by-four plan a
+    # worker so wider search remains bounded by one adapter timeout.
+    with ThreadPoolExecutor(max_workers=min(_LIVE_MAX_WORKERS, max(1, len(tasks)))) as pool:
         futures = {(name, variant): pool.submit(fn, variant, limit=per_adapter)
                    for name, fn, variant in tasks}
         for key, future in futures.items():
