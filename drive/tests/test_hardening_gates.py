@@ -87,6 +87,36 @@ def test_materialize_writes_immutable_revision(tmp_path: Path):
     assert json.loads((repo / "data_lake/procured/harden_ds_rev/CURRENT.json").read_text())["revision_id"] == "rev_j2"
 
 
+def test_materialize_restores_filename_from_single_manifest_item(tmp_path: Path):
+    artifact = tmp_path / "data_lake/yzu_cluster/jobs/j1/art.zip"
+    artifact.parent.mkdir(parents=True)
+    with zipfile.ZipFile(artifact, "w") as archive:
+        archive.writestr("raw/content", "id,value\n1,alpha\n2,beta\n")
+
+    plan = {
+        "job_type": "http_manifest",
+        "dataset_id": "doi_panel",
+        "destination": "data_lake/procured/doi_panel",
+        "items": [
+            {
+                "url": "https://repository.example/files/panel.csv/content",
+                "filename": "panel.csv",
+            }
+        ],
+    }
+    out = materialize_job(
+        tmp_path,
+        "j1",
+        plan,
+        {"artifacts": [{"artifact": "data_lake/yzu_cluster/jobs/j1/art.zip"}]},
+    )
+
+    files = out["materialized"]["files"]
+    assert files[0]["name"] == "panel.csv"
+    assert (tmp_path / out["canonical_dir"] / "panel.csv").is_file()
+    assert not (tmp_path / out["canonical_dir"] / "content").exists()
+
+
 def test_materialize_same_revision_same_bytes_is_idempotent(tmp_path: Path):
     repo = tmp_path
     zip_path = repo / "data_lake/yzu_cluster/jobs/j1/art.zip"

@@ -235,6 +235,7 @@ def materialize_job(
                     )
 
     staged_files = _dedupe_files(staged_files)
+    staged_files = _restore_single_declared_filename(raw_dir, staged_files, plan)
     validation = validate_staging(staging, staged_files, plan)
     dataset_root = canonical_dir(repo_root, plan, job_id, cfg)
     revision_id = str(plan.get("revision_id") or f"rev_{job_id}").strip()
@@ -338,6 +339,44 @@ def _dedupe_files(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(name)
         out.append(row)
     return out
+
+
+def _restore_single_declared_filename(
+    raw_dir: Path,
+    files: list[dict[str, Any]],
+    plan: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Restore a repository filename lost by an older/opaque HTTP worker.
+
+    Some repository download URLs deliberately end in ``/content``. Modern
+    collectors preserve the manifest's ``filename`` field, but long-running
+    remote workers can still return one extensionless file named ``content``.
+    The controller owns materialisation authority, so it can safely repair the
+    unambiguous one-item case before format detection and registry promotion.
+    """
+
+    items = list(plan.get("items") or [])
+    if len(files) != 1 or len(items) != 1 or not isinstance(items[0], dict):
+        return files
+    expected_raw = str(items[0].get("filename") or items[0].get("name") or "").strip()
+    expected = Path(expected_raw).name
+    normalized_expected = expected_raw.replace("\\", "/").rsplit("/", 1)[-1]
+    if not expected or expected in {".", ".."} or expected != normalized_expected:
+        return files
+    row = dict(files[0])
+    current = Path(str(row.get("path") or raw_dir / str(row.get("name") or "")))
+    current_name = str(row.get("name") or current.name)
+    if Path(current_name).suffix or not Path(expected).suffix or current_name == expected:
+        return files
+    if current_name.casefold() not in {"content", "download", "file", "artifact", "payload"}:
+        return files
+    target = raw_dir / expected
+    if target.exists() and target.resolve() != current.resolve():
+        return files
+    current.replace(target)
+    row["name"] = expected
+    row["path"] = str(target)
+    return [row]
 
 
 def validate_staging(staging: Path, files: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
