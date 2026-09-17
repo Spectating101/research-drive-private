@@ -704,6 +704,49 @@ def test_existing_measured_thread_is_not_restarted_as_a_first_turn():
     assert not synthesis_first_turn(state)
 
 
+def test_durable_evidence_map_overrides_a_fresh_ask_session():
+    from scripts.research_data_mcp.desk_brain import (
+        _prepare_synthesis_fallback_prompt,
+        _synthesis_first_turn_for_runtime,
+    )
+
+    thread = {
+        "id": "thread-durable",
+        "title": "GDELT news shocks Asia",
+        "state": {
+            "objective": "GDELT news shocks Asia",
+            "nodes": [
+                {
+                    "id": "gdelt_asia_daily_country_panel",
+                    "dataset_id": "gdelt_asia_daily_country_panel",
+                    "type": "source",
+                    "layer": "evidence",
+                }
+            ],
+        },
+    }
+    gateway = types.SimpleNamespace(synthesis_thread_get=lambda _thread_id: thread)
+    state = {
+        "rail_context": {
+            "tab": "synthesis",
+            "entity": {
+                "kind": "synthesis_thread",
+                "id": "thread-durable",
+            },
+        },
+    }
+
+    assert not _synthesis_first_turn_for_runtime(gateway, state)
+    prompt, first_turn = _prepare_synthesis_fallback_prompt(
+        gateway,
+        "Which published definition supports each measurement scale?",
+        state,
+    )
+    assert first_turn is False
+    assert "Continue the same Synthesis investigation" in prompt
+    assert "gdelt_asia_daily_country_panel" in prompt
+
+
 def test_first_synthesis_turn_blocks_direct_collection(monkeypatch, tmp_path):
     from scripts.research_data_mcp import desk_brain
 
