@@ -681,6 +681,29 @@ def test_synthesis_phase_is_tracked_per_thread():
     assert synthesis_first_turn(state)
 
 
+def test_existing_measured_thread_is_not_restarted_as_a_first_turn():
+    from scripts.research_data_mcp.desk_synthesis_contract import synthesis_first_turn
+
+    state = _state(
+        tab="synthesis",
+        mode="ask",
+        entity={
+            "kind": "synthesis_thread",
+            "id": "thread-measured",
+            "synthesis_stage": "specification",
+            "decision_kind": "resolve_units",
+        },
+        selected={
+            "thread_id": "thread-measured",
+            "synthesis_stage": "specification",
+            "current_decision": "Resolve incompatible measurement scales",
+            "measured_inputs": 2,
+        },
+    )
+
+    assert not synthesis_first_turn(state)
+
+
 def test_first_synthesis_turn_blocks_direct_collection(monkeypatch, tmp_path):
     from scripts.research_data_mcp import desk_brain
 
