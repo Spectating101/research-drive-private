@@ -12,9 +12,16 @@ jobs:
     env:
       RESEARCH_MCP_SYNTHESIS_READ_ONLY: 'true'
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Checkout public source without submodule traversal
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          # Existing agents/finrobot gitlink has no .gitmodules URL. No submodule
+          # is needed for this MCP test. Fetch the exact commit without tokens.
+          git init .
+          git remote add origin https://github.com/Spectating101/research-drive-private.git
+          git fetch --depth=1 --no-recurse-submodules origin "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
       - uses: actions/checkout@v4
         with:
           repository: Spectating101/cite-refinery
