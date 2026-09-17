@@ -2,7 +2,23 @@
 
 This directory contains both **current release handoff material** and **historical release records**. Do not assume the newest-looking filename or an old RC number is the current deployment authority.
 
-## Current backend release line — 2026-09-04
+## Current acceptance handoff — 2026-09-18
+
+Start with:
+
+1. [`RESEARCH_DRIVE_ACCEPTANCE_HANDOFF_20260918.md`](./RESEARCH_DRIVE_ACCEPTANCE_HANDOFF_20260918.md) — exact live/candidate identities, real browser/model/storage/acquisition acceptance, retry fix, cleanup proof, remaining environment boundary, host traps, and promotion sequence.
+
+The accepted-but-not-yet-deployed application pair is:
+
+```text
+frontend 347be3e24de44cd3099ed77cab98512f77ad79f2
+backend  50584dc8a3153cf1f728ecc40badfe28a6d892a1
+```
+
+The handoff is maintained on a documentation-only branch. Its commit is not a
+replacement for the backend application SHA above.
+
+## Prior backend release line — 2026-09-04
 
 Start here:
 
