@@ -1,0 +1,15 @@
+{
+  "schema":"portfolio.mcp.manifest.v1",
+  "project":"research-drive",
+  "repository":"Spectating101/research-drive-private",
+  "mode":"native",
+  "argv":["$PYTHON","-m","scripts.research_data_mcp.server","--transport","stdio"],
+  "required_files":["drive/scripts/research_data_mcp/server.py","kernel/sharpe_kernel/paths.py"],
+  "pythonpath":["drive","kernel","."],
+  "expected_tools":["research_mcp_stack_status","research_list_datasets","research_describe_dataset","research_query_dataset"],
+  "env_passthrough":["RESEARCH_MCP_SYNTHESIS_READ_ONLY","RESEARCH_MCP_HOST","RESEARCH_MCP_PORT","SHARPE_REPO_ROOT","SR_DIR","SHARPE_DATA_LAKE","SHARPE_REGISTRY_PATH","YZU_RUNTIME_DRIVE_ROOT","GOOGLE_APPLICATION_CREDENTIALS","GITHUB_TOKEN","OPENAI_API_KEY","DEEPSEEK_API_KEY"],
+  "env_defaults":{"RESEARCH_MCP_SYNTHESIS_READ_ONLY":"true"},
+  "engine_sdk_constraint":"mcp>=1.28,<2",
+  "runner_source":"Spectating101/cite-refinery@c9559e4e217f9f266aa451008cda32c96eee544e:integrations/portfolio-mcp",
+  "notes":"Runs the existing FastMCP v1 server in its own engine environment. Native bootstrap needs the existing registry/storage configuration and may initialize local state. The read-only profile filters tools, not OS writes or network access. Existing project dotenv and storage policy still apply. Bridge --allow-writes does not authorize native tools. No data, credentials, registry promotions or execution permissions are copied by this manifest."
+}
