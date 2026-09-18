@@ -1,7 +1,11 @@
 name: Portfolio MCP native launch
 on:
   pull_request:
-    paths: ['integrations/mcp/**', '.github/workflows/portfolio-mcp.yml']
+    paths:
+      - 'integrations/mcp/**'
+      - 'drive/scripts/research_data_mcp/server.py'
+      - 'kernel/sharpe_kernel/paths.py'
+      - '.github/workflows/portfolio-mcp.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,8 +20,8 @@ jobs:
         env:
           SOURCE_SHA: ${{ github.sha }}
         run: |
-          # Existing agents/finrobot gitlink has no .gitmodules URL. No submodule
-          # is needed for this MCP test. Fetch the exact commit without tokens.
+          # No submodule is required; an unrelated orphaned gitlink prevents
+          # actions/checkout cleanup. Fetch the exact public commit without tokens.
           git init .
           git remote add origin https://github.com/Spectating101/research-drive-private.git
           git fetch --depth=1 --no-recurse-submodules origin "$SOURCE_SHA"
@@ -25,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Spectating101/cite-refinery
-          ref: c9559e4e217f9f266aa451008cda32c96eee544e
+          ref: fe3a1657d5e3de3928ed9076891683b983a551a7
           path: .mcp-runner
           persist-credentials: false
       - uses: actions/setup-python@v5
@@ -37,5 +41,5 @@ jobs:
           .engine-venv/bin/pip install -e . 'mcp>=1.28,<2' duckdb
           python -m venv .runner-venv
           .runner-venv/bin/pip install -e .mcp-runner/integrations/portfolio-mcp
-      - run: .runner-venv/bin/portfolio-mcp probe --manifest integrations/mcp/manifest.json --root . --engine-python "$PWD/.engine-venv/bin/python"
-      - run: .runner-venv/bin/portfolio-mcp call --manifest integrations/mcp/manifest.json --root . --engine-python "$PWD/.engine-venv/bin/python" --tool research_mcp_stack_status
+      - name: Synthetic registry native MCP acceptance
+        run: .runner-venv/bin/python integrations/mcp/smoke_registry.py --engine-python "$PWD/.engine-venv/bin/python"
