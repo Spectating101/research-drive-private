@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import csv
-import io
 import json
 import os
 import subprocess
@@ -38,7 +36,8 @@ async def exercise(engine_python: str) -> None:
         scratch = Path(directory)
         dataset_path = scratch / "observations.csv"
         dataset_path.write_text("item,value\nalpha,10\nbeta,20\n", encoding="utf-8")
-        expected_rows = list(csv.DictReader(io.StringIO(dataset_path.read_text())))
+        # The native CSV backend returns inferred numeric values, not csv module strings.
+        expected_rows = [{"item": "alpha", "value": 10}, {"item": "beta", "value": 20}]
         registry = scratch / "synthetic-registry.json"
         registry.write_text(json.dumps({
             "schema": "portfolio.mcp.synthetic-registry.v1",
@@ -77,6 +76,7 @@ async def exercise(engine_python: str) -> None:
                 }))
                 assert queried["dataset_id"] == DATASET, queried
                 assert queried["rows"] == expected_rows, queried
+                assert all(type(row["value"]) is int for row in queried["rows"]), queried
         assert registry.read_bytes() == original_registry, "Read-only query changed the fixture registry"
         missing = scratch / "does-not-exist.json"
         native_env = dict(env, SHARPE_REGISTRY_PATH=str(missing),
@@ -92,7 +92,7 @@ async def exercise(engine_python: str) -> None:
             "schema": "portfolio.mcp.acceptance.v1",
             "project": "research-drive", "synthetic": True,
             "checks": ["native_discovery", "registry_override", "native_describe",
-                       "native_csv_query_exact_rows", "read_only_tool_profile",
+                       "native_csv_query_exact_rows", "native_numeric_types", "read_only_tool_profile",
                        "registry_unchanged", "missing_registry_fails_closed"],
             "live_registry_used": False, "deployment_verified": False,
         }))
