@@ -1,0 +1,45 @@
+name: Portfolio MCP native launch
+on:
+  pull_request:
+    paths:
+      - 'integrations/mcp/**'
+      - 'drive/scripts/research_data_mcp/server.py'
+      - 'kernel/sharpe_kernel/paths.py'
+      - '.github/workflows/portfolio-mcp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RESEARCH_MCP_SYNTHESIS_READ_ONLY: 'true'
+    steps:
+      - name: Checkout public source without submodule traversal
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          # No submodule is required; an unrelated orphaned gitlink prevents
+          # actions/checkout cleanup. Fetch the exact public commit without tokens.
+          git init .
+          git remote add origin https://github.com/Spectating101/research-drive-private.git
+          git fetch --depth=1 --no-recurse-submodules origin "$SOURCE_SHA"
+          git checkout --detach FETCH_HEAD
+      - uses: actions/checkout@v4
+        with:
+          repository: Spectating101/cite-refinery
+          ref: fe3a1657d5e3de3928ed9076891683b983a551a7
+          path: .mcp-runner
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated native and client environments
+        run: |
+          python -m venv .engine-venv
+          .engine-venv/bin/pip install -e . 'mcp>=1.28,<2' duckdb
+          python -m venv .runner-venv
+          .runner-venv/bin/pip install -e .mcp-runner/integrations/portfolio-mcp
+      - name: Synthetic registry native MCP acceptance
+        run: .runner-venv/bin/python integrations/mcp/smoke_registry.py --engine-python "$PWD/.engine-venv/bin/python"
